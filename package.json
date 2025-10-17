@@ -1,0 +1,57 @@
+{
+  "name": "abservice",
+  "version": "1.0.0",
+  "description": "ABService - Web Service implementation",
+  "private": true,
+  "workspaces": [
+    "frontend-admin",
+    "frontend-public"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:admin\" \"npm run dev:public\"",
+    "dev:backend": "cd backend && ./mvnw quarkus:dev",
+    "dev:admin": "cd frontend-admin && npm run dev",
+    "dev:public": "cd frontend-public && npm run dev",
+    "build": "npm run build:backend && npm run build:admin && npm run build:public",
+    "build:backend": "cd backend && ./mvnw clean package -DskipTests",
+    "build:admin": "cd frontend-admin && npm run build",
+    "build:public": "cd frontend-public && npm run build",
+    "test": "npm run test:backend && npm run test:admin && npm run test:public",
+    "test:backend": "cd backend && ./mvnw test",
+    "test:admin": "cd frontend-admin && npm run test",
+    "test:public": "cd frontend-public && npm run test",
+    "lint": "npm run lint:admin && npm run lint:public",
+    "lint:admin": "cd frontend-admin && npm run lint",
+    "lint:public": "cd frontend-public && npm run lint",
+    "format": "npm run format:admin && npm run format:public",
+    "format:admin": "cd frontend-admin && npm run format",
+    "format:public": "cd frontend-public && npm run format",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:build": "docker-compose build",
+    "clean": "npm run clean:backend && npm run clean:admin && npm run clean:public",
+    "clean:backend": "cd backend && ./mvnw clean",
+    "clean:admin": "cd frontend-admin && rm -rf node_modules dist .svelte-kit",
+    "clean:public": "cd frontend-public && rm -rf node_modules dist .astro"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-username/ABService.git"
+  },
+  "keywords": [
+    "web-service",
+    "quarkus",
+    "svelte",
+    "astro",
+    "monorepo"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
