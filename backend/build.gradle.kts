@@ -30,39 +30,39 @@ val quarkusPlatformVersion: String by project
 dependencies {
     // Quarkus BOM
     implementation(enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}"))
-    
+
     // Quarkus Core
     implementation("io.quarkus:quarkus-arc")
     implementation("io.quarkus:quarkus-resteasy-reactive")
     implementation("io.quarkus:quarkus-resteasy-reactive-jackson")
-    
+
     // Database
     implementation("io.quarkus:quarkus-hibernate-orm-panache")
     implementation("io.quarkus:quarkus-jdbc-postgresql")
     implementation("io.quarkus:quarkus-flyway")
-    
+
     // Blaze-Persistence
     implementation("com.blazebit:blaze-persistence-integration-quarkus:1.6.9")
-    
+
     // Security
     implementation("io.quarkus:quarkus-oidc")
     implementation("io.quarkus:quarkus-security")
     implementation("io.quarkus:quarkus-smallrye-jwt")
-    
+
     // OpenAPI
     implementation("io.quarkus:quarkus-openapi-generator")
     implementation("io.quarkus:quarkus-swagger-ui")
-    
+
     // Validation
     implementation("io.quarkus:quarkus-hibernate-validator")
-    
+
     // Configuration
     implementation("io.quarkus:quarkus-config-yaml")
-    
+
     // Kotlin
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("io.quarkus:quarkus-kotlin")
-    
+
     // Test
     testImplementation("io.quarkus:quarkus-junit5")
     testImplementation("io.rest-assured:rest-assured")

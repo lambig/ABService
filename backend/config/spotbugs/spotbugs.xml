@@ -4,16 +4,16 @@
     <Match>
         <Class name="~.*\._.*"/>
     </Match>
-    
+
     <!-- Exclude Quarkus generated classes -->
     <Match>
         <Class name="~.*\._.*_Bean"/>
     </Match>
-    
+
     <Match>
         <Class name="~.*\._.*_ClientProxy"/>
     </Match>
-    
+
     <Match>
         <Class name="~.*\._.*_Subclass"/>
     </Match>
