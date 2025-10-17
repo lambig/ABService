@@ -5,6 +5,9 @@ plugins {
     kotlin("plugin.allopen") version "1.9.20"
     id("io.quarkus") version "3.6.0"
     id("org.jetbrains.kotlin.plugin.allopen") version "1.9.20"
+    id("pmd")
+    id("com.github.spotbugs") version "6.0.7"
+    id("checkstyle")
 }
 
 group = "com.abservice"
@@ -97,6 +100,83 @@ tasks.withType<JavaCompile> {
 quarkus {
     finalName = "abservice-backend"
     setOutputDirectory("build/quarkus-app")
+}
+
+// PMD configuration
+pmd {
+    toolVersion = "7.0.0"
+    ruleSetFiles = files("config/pmd/pmd.xml")
+    ruleSets = emptyList()
+    ignoreFailures = false
+}
+
+// SpotBugs configuration
+spotbugs {
+    toolVersion.set("4.8.3")
+    effort.set(com.github.spotbugs.snom.Effort.MAX)
+    reportLevel.set(com.github.spotbugs.snom.Confidence.HIGH)
+    excludeFilter.set(file("config/spotbugs/spotbugs.xml"))
+    ignoreFailures.set(false)
+}
+
+spotbugsMain {
+    reports {
+        html {
+            required.set(true)
+            outputLocation.set(file("$buildDir/reports/spotbugs/main/spotbugs.html"))
+        }
+        xml {
+            required.set(true)
+            outputLocation.set(file("$buildDir/reports/spotbugs/main/spotbugs.xml"))
+        }
+    }
+}
+
+spotbugsTest {
+    reports {
+        html {
+            required.set(true)
+            outputLocation.set(file("$buildDir/reports/spotbugs/test/spotbugs.html"))
+        }
+        xml {
+            required.set(true)
+            outputLocation.set(file("$buildDir/reports/spotbugs/test/spotbugs.xml"))
+        }
+    }
+}
+
+// Checkstyle configuration
+checkstyle {
+    toolVersion = "10.12.4"
+    configFile = file("config/checkstyle/checkstyle.xml")
+    ignoreFailures = false
+    maxWarnings = 0
+}
+
+checkstyleMain {
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+}
+
+checkstyleTest {
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+}
+
+// Add static analysis to build process
+tasks.named("check") {
+    dependsOn("pmdMain", "pmdTest", "spotbugsMain", "spotbugsTest", "checkstyleMain", "checkstyleTest")
+}
+
+// Create a task to run all static analysis
+tasks.register("staticAnalysis") {
+    group = "verification"
+    description = "Run all static analysis tools"
+    dependsOn("pmdMain", "pmdTest", "spotbugsMain", "spotbugsTest", "checkstyleMain", "checkstyleTest")
 }
 
 // Gradle wrapper
