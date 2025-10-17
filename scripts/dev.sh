@@ -23,7 +23,7 @@ trap cleanup SIGINT SIGTERM
 start_backend() {
     echo "☕ Starting backend (Quarkus)..."
     cd backend
-    ./mvnw quarkus:dev &
+    ./gradlew quarkusDev &
     BACKEND_PID=$!
     cd ..
     echo "✅ Backend started (PID: $BACKEND_PID)"
