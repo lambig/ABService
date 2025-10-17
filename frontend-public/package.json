@@ -1,0 +1,66 @@
+{
+  "name": "abservice-frontend-public",
+  "version": "1.0.0",
+  "description": "ABService Public Frontend - Svelte + Astro Public Interface",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro check && astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "check": "astro check",
+    "check:watch": "astro check --watch",
+    "lint": "prettier --check . && eslint .",
+    "format": "prettier --write .",
+    "test": "npm run test:integration && npm run test:unit",
+    "test:integration": "playwright test",
+    "test:unit": "vitest",
+    "test:unit:watch": "vitest --watch"
+  },
+  "dependencies": {
+    "@astrojs/check": "^0.3.4",
+    "@astrojs/svelte": "^3.0.1",
+    "@astrojs/tailwind": "^5.0.0",
+    "@tailwindcss/forms": "^0.5.7",
+    "@tailwindcss/typography": "^0.5.10",
+    "astro": "^4.0.0",
+    "lucide-svelte": "^0.294.0",
+    "svelte": "^4.0.5",
+    "safe-chain": "^1.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "autoprefixer": "^10.4.16",
+    "eslint": "^8.28.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-astro": "^0.28.0",
+    "postcss": "^8.4.31",
+    "prettier": "^3.0.0",
+    "prettier-plugin-astro": "^0.12.0",
+    "tailwindcss": "^3.3.5",
+    "typescript": "^5.0.0",
+    "vitest": "^0.34.6"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-username/ABService.git",
+    "directory": "frontend-public"
+  },
+  "keywords": [
+    "astro",
+    "svelte",
+    "public",
+    "website",
+    "typescript",
+    "tailwindcss"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
