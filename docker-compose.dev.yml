@@ -1,0 +1,188 @@
+# Docker Compose for Development Environment
+# This file is specifically for development with additional debugging tools
+
+version: '3.8'
+
+services:
+  # PostgreSQL with additional development tools
+  postgres:
+    image: postgres:15-alpine
+    container_name: abservice-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: abservice
+      POSTGRES_USER: abservice
+      POSTGRES_PASSWORD: abservice
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+      # Development-specific settings
+      POSTGRES_LOG_STATEMENT: "all"
+      POSTGRES_LOG_MIN_DURATION_STATEMENT: "0"
+      POSTGRES_LOG_LINE_PREFIX: "%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h "
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+      - ./docker/postgres/conf/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    networks:
+      - abservice-dev-network
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U abservice -d abservice"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Keycloak with development configuration
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.7
+    container_name: abservice-keycloak-dev
+    restart: unless-stopped
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin123
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      KC_HOSTNAME_STRICT: false
+      KC_HOSTNAME_STRICT_HTTPS: false
+      KC_HTTP_ENABLED: true
+      KC_HEALTH_ENABLED: true
+      KC_METRICS_ENABLED: true
+      # Development-specific settings
+      KC_LOG_LEVEL: DEBUG
+      KC_DB_POOL_INITIAL_SIZE: 5
+      KC_DB_POOL_MIN_SIZE: 5
+      KC_DB_POOL_MAX_SIZE: 20
+      KC_SPI_THEME_STATIC_MAX_AGE: -1
+      KC_SPI_THEME_CACHE_THEMES: false
+      KC_SPI_THEME_CACHE_TEMPLATES: false
+    ports:
+      - "8180:8080"
+    volumes:
+      - keycloak_dev_data:/opt/keycloak/data
+      - ./docker/keycloak/realm:/opt/keycloak/data/import:ro
+    networks:
+      - abservice-dev-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: 
+      - start-dev
+      - --import-realm
+      - --http-relative-path=/
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Redis with development configuration
+  redis:
+    image: redis:7-alpine
+    container_name: abservice-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - abservice-dev-network
+    command: redis-server --appendonly yes --loglevel debug --save 900 1 --save 300 10 --save 60 10000
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Mailhog for email testing
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: abservice-mailhog-dev
+    restart: unless-stopped
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - abservice-dev-network
+
+  # MinIO for object storage testing
+  minio:
+    image: minio/minio:latest
+    container_name: abservice-minio-dev
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+      MINIO_BROWSER_REDIRECT_URL: "http://localhost:9001"
+    ports:
+      - "9000:9000"  # API
+      - "9001:9001"  # Console
+    volumes:
+      - minio_dev_data:/data
+    networks:
+      - abservice-dev-network
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: abservice-pgadmin-dev
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@abservice.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_dev_data:/var/lib/pgadmin
+    networks:
+      - abservice-dev-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Redis Commander for Redis management
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: abservice-redis-commander-dev
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379
+      HTTP_USER: admin
+      HTTP_PASSWORD: admin123
+    ports:
+      - "8081:8081"
+    networks:
+      - abservice-dev-network
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_dev_data:
+    driver: local
+  keycloak_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local
+  minio_dev_data:
+    driver: local
+  pgadmin_dev_data:
+    driver: local
+
+networks:
+  abservice-dev-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16

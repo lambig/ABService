@@ -1,0 +1,164 @@
+# ABService Backend Configuration
+
+quarkus:
+  application:
+    name: abservice-backend
+    version: 1.0.0-SNAPSHOT
+  
+  # HTTP Configuration
+  http:
+    port: 8080
+    host: 0.0.0.0
+    cors:
+      origins: "http://localhost:5173,http://localhost:4321"
+      methods: "GET,POST,PUT,DELETE,OPTIONS"
+      headers: "Content-Type,Authorization"
+      credentials: true
+  
+  # Database Configuration
+  datasource:
+    db-kind: postgresql
+    username: ${DB_USERNAME:abservice}
+    password: ${DB_PASSWORD:abservice}
+    jdbc:
+      url: ${DB_URL:jdbc:postgresql://localhost:5432/abservice}
+    reactive:
+      url: ${DB_REACTIVE_URL:postgresql://localhost:5432/abservice}
+  
+  # Hibernate Configuration
+  hibernate-orm:
+    database:
+      generation: none
+    sql-load-script: no-file
+    log:
+      sql: ${QUARKUS_HIBERNATE_ORM_LOG_SQL:false}
+  
+  # Flyway Configuration
+  flyway:
+    migrate-at-start: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+  
+  # Blaze-Persistence Configuration
+  blaze-persistence:
+    entity-view:
+      enable: true
+    criteria:
+      enable: true
+    query:
+      enable: true
+  
+  # Security Configuration
+  oidc:
+    auth-server-url: ${OIDC_AUTH_SERVER_URL:http://localhost:8180/realms/abservice}
+    client-id: ${OIDC_CLIENT_ID:abservice-backend}
+    credentials:
+      secret: ${OIDC_CLIENT_SECRET:your-client-secret}
+    tls:
+      verification: ${OIDC_TLS_VERIFICATION:none}
+    application-type: service
+    roles:
+      source: idtoken
+      role-claim-path: "realm_access.roles"
+  
+  # JWT Configuration
+  smallrye-jwt:
+    sign:
+      key:
+        location: ${JWT_SIGN_KEY_LOCATION:privateKey.pem}
+    verify:
+      key:
+        location: ${JWT_VERIFY_KEY_LOCATION:publicKey.pem}
+  
+  # OpenAPI Configuration
+  openapi:
+    info:
+      title: ABService API
+      version: 1.0.0
+      description: ABService Backend API
+    servers:
+      - url: http://localhost:8080
+        description: Development Server
+  
+  # Swagger UI Configuration
+  swagger-ui:
+    path: /swagger-ui
+    always-include: true
+  
+  # Logging Configuration
+  log:
+    level: INFO
+    category:
+      "com.abservice": DEBUG
+      "org.hibernate.SQL": DEBUG
+      "org.hibernate.type.descriptor.sql.BasicBinder": TRACE
+  
+  # Development Configuration
+  dev:
+    ui:
+      enable: true
+    services:
+      postgresql:
+        image-name: postgres:15
+        container-name: abservice-postgres
+        port: 5432
+        env:
+          POSTGRES_DB: abservice
+          POSTGRES_USER: abservice
+          POSTGRES_PASSWORD: abservice
+
+# Application Specific Configuration
+app:
+  name: ABService
+  version: 1.0.0
+  environment: ${APP_ENVIRONMENT:development}
+  
+  # Security Configuration
+  security:
+    jwt:
+      issuer: ${JWT_ISSUER:http://localhost:8180/realms/abservice}
+      audience: ${JWT_AUDIENCE:abservice-backend}
+      expiration: ${JWT_EXPIRATION:3600}
+  
+  # API Configuration
+  api:
+    version: v1
+    base-path: /api/v1
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:4321}
+      allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS}
+      allowed-headers: ${CORS_ALLOWED_HEADERS:Content-Type,Authorization}
+      allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
+  
+  # Database Configuration
+  database:
+    connection-pool:
+      min-size: ${DB_POOL_MIN_SIZE:5}
+      max-size: ${DB_POOL_MAX_SIZE:20}
+      initial-size: ${DB_POOL_INITIAL_SIZE:5}
+    query-timeout: ${DB_QUERY_TIMEOUT:30}
+  
+  # Cache Configuration
+  cache:
+    enabled: ${CACHE_ENABLED:true}
+    ttl: ${CACHE_TTL:3600}
+    max-size: ${CACHE_MAX_SIZE:1000}
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.abservice: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  handlers:
+    console:
+      enabled: true
+    file:
+      enabled: ${LOG_FILE_ENABLED:false}
+      path: ${LOG_FILE_PATH:logs/abservice.log}
+      max-size: ${LOG_FILE_MAX_SIZE:10MB}
+      max-history: ${LOG_FILE_MAX_HISTORY:30}

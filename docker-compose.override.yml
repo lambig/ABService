@@ -1,0 +1,83 @@
+# Docker Compose Override for Development
+# This file contains development-specific overrides
+
+version: '3.8'
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+    environment:
+      # Enable debug logging for development
+      POSTGRES_LOG_STATEMENT: "all"
+      POSTGRES_LOG_MIN_DURATION_STATEMENT: "0"
+    volumes:
+      # Mount development-specific init scripts
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+      # Mount development data directory for easy access
+      - ./docker/postgres/data:/var/lib/postgresql/data
+
+  keycloak:
+    ports:
+      - "8180:8080"
+    environment:
+      # Development-specific Keycloak settings
+      KC_LOG_LEVEL: DEBUG
+      KC_DB_POOL_INITIAL_SIZE: 5
+      KC_DB_POOL_MIN_SIZE: 5
+      KC_DB_POOL_MAX_SIZE: 20
+    volumes:
+      # Mount realm configuration for development
+      - ./docker/keycloak/realm:/opt/keycloak/data/import:ro
+      # Mount development data directory
+      - ./docker/keycloak/data:/opt/keycloak/data
+
+  redis:
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --loglevel debug
+
+  mailhog:
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      # Development-specific MinIO settings
+      MINIO_BROWSER_REDIRECT_URL: "http://localhost:9001"
+    volumes:
+      - ./docker/minio/data:/data
+
+volumes:
+  # Override volumes for development
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./docker/postgres/data
+
+  keycloak_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./docker/keycloak/data
+
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./docker/redis/data
+
+  minio_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./docker/minio/data

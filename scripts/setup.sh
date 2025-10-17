@@ -45,11 +45,11 @@ setup_backend() {
     echo "☕ Setting up backend (Quarkus)..."
     cd backend
     
-    # Make Maven wrapper executable
-    chmod +x mvnw
+    # Make Gradle wrapper executable
+    chmod +x gradlew
     
     # Install dependencies
-    ./mvnw clean install -DskipTests
+    ./gradlew build -x test
     
     cd ..
     echo "✅ Backend setup completed."
@@ -83,8 +83,22 @@ setup_frontend_public() {
 setup_docker() {
     echo "🐳 Setting up Docker environment..."
     
-    # Build Docker images
-    docker-compose build
+    # Create data directories
+    mkdir -p docker/postgres/data
+    mkdir -p docker/keycloak/data
+    mkdir -p docker/redis/data
+    mkdir -p docker/minio/data
+    
+    # Start Docker services
+    docker-compose up -d
+    
+    # Wait for services to be ready
+    echo "⏳ Waiting for services to be ready..."
+    sleep 10
+    
+    # Check service health
+    echo "🔍 Checking service health..."
+    docker-compose ps
     
     echo "✅ Docker environment setup completed."
 }
@@ -104,7 +118,16 @@ main() {
     echo "📚 Next steps:"
     echo "  1. Start development environment: npm run dev"
     echo "  2. Or start with Docker: npm run docker:up"
-    echo "  3. Check CONTRIBUTION.md for development guidelines"
+    echo "  3. For development with management tools: npm run docker:up:dev"
+    echo "  4. Check CONTRIBUTION.md for development guidelines"
+    echo ""
+    echo "🌐 Service URLs:"
+    echo "  PostgreSQL: localhost:5432"
+    echo "  Keycloak: http://localhost:8180"
+    echo "  Mailhog: http://localhost:8025"
+    echo "  MinIO: http://localhost:9001"
+    echo "  pgAdmin: http://localhost:5050 (dev only)"
+    echo "  Redis Commander: http://localhost:8081 (dev only)"
     echo ""
 }
 
