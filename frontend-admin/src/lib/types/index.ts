@@ -1,5 +1,19 @@
 // Common types for the admin frontend
 
+export interface CircleMember {
+	id: number;
+	username: string;
+	displayName: string;
+	email: string;
+	bio?: string;
+	avatarUrl?: string;
+	isActive: boolean;
+	createdAt: string;
+	updatedAt: string;
+	roleName: string;
+	roleDescription?: string;
+}
+
 export interface User {
 	id: string;
 	username: string;
@@ -15,11 +29,9 @@ export interface User {
 }
 
 export interface Role {
-	id: string;
+	id: number;
 	name: string;
 	description?: string;
-	isActive: boolean;
-	permissions: Permission[];
 	createdAt: string;
 	updatedAt: string;
 }
@@ -56,6 +68,24 @@ export interface ApiError {
 }
 
 // Form types
+export interface CreateCircleMemberDto {
+	username: string;
+	displayName: string;
+	email: string;
+	bio?: string;
+	avatarUrl?: string;
+	roleId: number;
+}
+
+export interface UpdateCircleMemberDto {
+	displayName?: string;
+	email?: string;
+	bio?: string;
+	avatarUrl?: string;
+	isActive?: boolean;
+	roleId?: number;
+}
+
 export interface CreateUserRequest {
 	username: string;
 	email: string;

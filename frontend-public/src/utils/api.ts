@@ -1,4 +1,4 @@
-import type { ApiResponse, ApiError } from '@types';
+import type { ApiError, ApiResponse, CircleMember, Role } from '@types';
 
 const API_BASE_URL = '/api/v1';
 
@@ -14,7 +14,7 @@ class ApiClient {
 		options: RequestInit = {}
 	): Promise<ApiResponse<T>> {
 		const url = `${this.baseUrl}${endpoint}`;
-		
+
 		const defaultHeaders = {
 			'Content-Type': 'application/json',
 		};
@@ -29,7 +29,7 @@ class ApiClient {
 
 		try {
 			const response = await fetch(url, config);
-			
+
 			if (!response.ok) {
 				const errorData: ApiError = await response.json().catch(() => ({
 					message: `HTTP ${response.status}: ${response.statusText}`,
@@ -105,4 +105,31 @@ export const api = {
 		health: () => apiClient.get('/system/health'),
 		status: () => apiClient.get('/system/status'),
 	},
+
+	// CircleMember API methods (read-only for public)
+	async getActiveCircleMembers(): Promise<CircleMember[]> {
+		const response = await this.request<CircleMember[]>('/circle-members/active');
+		return response.data;
+	},
+
+	async getCircleMember(id: number): Promise<CircleMember> {
+		const response = await this.request<CircleMember>(`/circle-members/${id}`);
+		return response.data;
+	},
+
+	async getCircleMemberByUsername(username: string): Promise<CircleMember> {
+		const response = await this.request<CircleMember>(`/circle-members/username/${username}`);
+		return response.data;
+	},
+
+	// Role API methods (read-only for public)
+	async getRoles(): Promise<Role[]> {
+		const response = await this.request<Role[]>('/roles');
+		return response.data;
+	},
+
+	async getRole(id: number): Promise<Role> {
+		const response = await this.request<Role>(`/roles/${id}`);
+		return response.data;
+	}
 };

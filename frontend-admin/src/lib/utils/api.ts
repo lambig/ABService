@@ -1,4 +1,4 @@
-import type { ApiResponse, ApiError } from '$types';
+import type { ApiError, ApiResponse, CircleMember, CreateCircleMemberDto, Role, UpdateCircleMemberDto } from '$types';
 
 const API_BASE_URL = '/api/v1';
 
@@ -14,7 +14,7 @@ class ApiClient {
 		options: RequestInit = {}
 	): Promise<ApiResponse<T>> {
 		const url = `${this.baseUrl}${endpoint}`;
-		
+
 		const defaultHeaders = {
 			'Content-Type': 'application/json',
 		};
@@ -29,7 +29,7 @@ class ApiClient {
 
 		try {
 			const response = await fetch(url, config);
-			
+
 			if (!response.ok) {
 				const errorData: ApiError = await response.json().catch(() => ({
 					message: `HTTP ${response.status}: ${response.statusText}`,
@@ -135,4 +135,85 @@ export const api = {
 		status: () => apiClient.get('/system/status'),
 		config: () => apiClient.get('/system/config'),
 	},
+
+	// CircleMember API methods
+	async getCircleMembers(): Promise<CircleMember[]> {
+		const response = await apiClient.request<CircleMember[]>('/circle-members');
+		return response.data;
+	},
+
+	async getCircleMember(id: number): Promise<CircleMember> {
+		const response = await apiClient.request<CircleMember>(`/circle-members/${id}`);
+		return response.data;
+	},
+
+	async getCircleMemberByUsername(username: string): Promise<CircleMember> {
+		const response = await apiClient.request<CircleMember>(`/circle-members/username/${username}`);
+		return response.data;
+	},
+
+	async getActiveCircleMembers(): Promise<CircleMember[]> {
+		const response = await apiClient.request<CircleMember[]>('/circle-members/active');
+		return response.data;
+	},
+
+	async createCircleMember(data: CreateCircleMemberDto): Promise<CircleMember> {
+		const response = await apiClient.request<CircleMember>('/circle-members', {
+			method: 'POST',
+			body: JSON.stringify(data)
+		});
+		return response.data;
+	},
+
+	async updateCircleMember(id: number, data: UpdateCircleMemberDto): Promise<CircleMember> {
+		const response = await apiClient.request<CircleMember>(`/circle-members/${id}`, {
+			method: 'PUT',
+			body: JSON.stringify(data)
+		});
+		return response.data;
+	},
+
+	async deleteCircleMember(id: number): Promise<void> {
+		await apiClient.request(`/circle-members/${id}`, {
+			method: 'DELETE'
+		});
+	},
+
+	// Role API methods
+	async getRoles(): Promise<Role[]> {
+		const response = await apiClient.request<Role[]>('/roles');
+		return response.data;
+	},
+
+	async getRole(id: number): Promise<Role> {
+		const response = await apiClient.request<Role>(`/roles/${id}`);
+		return response.data;
+	},
+
+	async getRoleByName(name: string): Promise<Role> {
+		const response = await apiClient.request<Role>(`/roles/name/${name}`);
+		return response.data;
+	},
+
+	async createRole(data: Partial<Role>): Promise<Role> {
+		const response = await apiClient.request<Role>('/roles', {
+			method: 'POST',
+			body: JSON.stringify(data)
+		});
+		return response.data;
+	},
+
+	async updateRole(id: number, data: Partial<Role>): Promise<Role> {
+		const response = await apiClient.request<Role>(`/roles/${id}`, {
+			method: 'PUT',
+			body: JSON.stringify(data)
+		});
+		return response.data;
+	},
+
+	async deleteRole(id: number): Promise<void> {
+		await apiClient.request(`/roles/${id}`, {
+			method: 'DELETE'
+		});
+	}
 };

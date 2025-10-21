@@ -1,5 +1,38 @@
 // Common types for the public frontend
 
+export interface CircleMember {
+  id: number;
+  username: string;
+  displayName: string;
+  email: string;
+  bio?: string;
+  avatarUrl?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  roleName: string;
+  roleDescription?: string;
+}
+
+export interface Role {
+  id: number;
+  name: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApiResponse<T> {
+  data: T;
+  message?: string;
+}
+
+export interface ApiError {
+  error: string;
+  message?: string;
+  validationErrors?: Record<string, string>;
+}
+
 export interface ContactForm {
 	name: string;
 	email: string;

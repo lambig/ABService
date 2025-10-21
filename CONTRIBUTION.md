@@ -42,7 +42,7 @@
 
 ### アーキテクチャ
 
-- **バックエンド**: Quarkus 3.28.4 (Java 21 - Amazon Corretto 21)
+- **バックエンド**: Quarkus 3.28.4 (Java 25 - Amazon Corretto 25)
 - **データベース**: PostgreSQL
 - **マイグレーション**: Flyway
 - **データアクセス**: Blaze-Persistence
@@ -55,7 +55,7 @@
 
 **重要**: 以下の技術スタックバージョンは固定されており、変更を禁止します：
 
-- **Java**: Amazon Corretto 21 (固定)
+- **Java**: Amazon Corretto 25 (固定)
 - **Quarkus**: 3.28.4 (固定)
 
 これらのバージョン変更に関する調査や提案は受け付けません。
@@ -78,7 +78,7 @@ ABService/
 
 ### 必要な環境
 
-- Java 21 (Amazon Corretto 21 - 固定)
+- Java 25 (Amazon Corretto 25 - 固定)
 - Node.js 18+
 - Docker & Docker Compose
 - Git

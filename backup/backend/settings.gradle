@@ -1,0 +1,11 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+    }
+    plugins {
+        id 'io.quarkus' version '3.8.0'
+    }
+}
+
+rootProject.name = "abservice-backend"
