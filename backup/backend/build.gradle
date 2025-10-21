@@ -1,0 +1,86 @@
+plugins {
+    id 'java'
+    id 'io.quarkus' version '3.8.0'
+}
+
+group = 'com.abservice'
+version = '1.0.0-SNAPSHOT'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+    
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+    gradlePluginPortal()
+}
+
+dependencies {
+    // Quarkus BOM - プラットフォームバージョンを統一
+    implementation enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}")
+
+    // Quarkus Core
+    implementation 'io.quarkus:quarkus-arc'
+    implementation 'io.quarkus:quarkus-resteasy-reactive'
+    implementation 'io.quarkus:quarkus-resteasy-reactive-jackson'
+
+    // Database
+    implementation 'io.quarkus:quarkus-hibernate-orm-panache'
+    implementation 'io.quarkus:quarkus-jdbc-postgresql'
+    implementation 'io.quarkus:quarkus-flyway'
+
+    // Blaze-Persistence (最新バージョンに更新)
+    implementation 'com.blazebit:blaze-persistence-integration-quarkus-3:1.6.18'
+
+    // Security
+    implementation 'io.quarkus:quarkus-oidc'
+    implementation 'io.quarkus:quarkus-security'
+    implementation 'io.quarkus:quarkus-smallrye-jwt'
+
+    // OpenAPI
+    implementation 'io.quarkus:quarkus-smallrye-openapi'
+
+    // Validation
+    implementation 'io.quarkus:quarkus-hibernate-validator'
+
+    // Password hashing
+    implementation 'org.mindrot:jbcrypt:0.4'
+
+    // Test dependencies
+    testImplementation 'io.quarkus:quarkus-junit5'
+    testImplementation 'io.rest-assured:rest-assured'
+    testImplementation 'io.quarkus:quarkus-test-h2'
+    testImplementation 'io.quarkus:quarkus-jacoco'
+}
+
+test {
+    useJUnitPlatform()
+    systemProperty 'java.util.logging.manager', 'org.jboss.logmanager.LogManager'
+    
+    // Java 21 compatibility settings
+    jvmArgs = [
+        '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.util=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.text=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.nio=ALL-UNNAMED',
+        '--add-opens', 'java.base/sun.nio.ch=ALL-UNNAMED'
+    ]
+    
+    enabled = true
+}
+
+quarkus {
+    finalName = 'abservice-backend'
+}
+
+// Gradle wrapper
+wrapper {
+    gradleVersion = '9.1.0'
+    distributionType = Wrapper.DistributionType.ALL
+}

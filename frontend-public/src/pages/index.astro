@@ -1,5 +1,15 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { apiClient } from '../utils/api';
+import type { CircleMember } from '../types';
+
+// Fetch active circle members for display
+let members: CircleMember[] = [];
+try {
+	members = await apiClient.getActiveCircleMembers();
+} catch (error) {
+	console.error('Failed to fetch circle members:', error);
+}
 ---
 
 <Layout title="ABService - Welcome">
@@ -12,7 +22,7 @@ import Layout from '../layouts/Layout.astro';
 						Welcome to ABService
 					</h1>
 					<p class="text-xl mb-8 text-primary-100">
-						Your trusted platform for modern web services
+						ポートフォリオの編集・管理を担うサークルメンバーによる共同プロジェクト
 					</p>
 					<div class="flex flex-col sm:flex-row gap-4 justify-center">
 						<a
@@ -32,8 +42,52 @@ import Layout from '../layouts/Layout.astro';
 			</div>
 		</section>
 
+		<!-- Team Section -->
+		{#if members.length > 0}
+			<section class="py-20 bg-white">
+				<div class="container mx-auto px-4">
+					<div class="max-w-6xl mx-auto">
+						<div class="text-center mb-16">
+							<h2 class="text-4xl font-bold text-gray-900 mb-4">
+								Our Team
+							</h2>
+							<p class="text-xl text-gray-600">
+								ポートフォリオの編集・管理を担うサークルメンバーをご紹介します
+							</p>
+						</div>
+
+						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+							{#each members as member}
+								<div class="bg-white rounded-lg shadow-md p-6 text-center border border-gray-200">
+									{#if member.avatarUrl}
+										<img
+											src={member.avatarUrl}
+											alt={member.displayName}
+											class="w-20 h-20 rounded-full mx-auto mb-4 object-cover"
+										/>
+									{:else}
+										<div class="w-20 h-20 rounded-full bg-gray-300 mx-auto mb-4 flex items-center justify-center">
+											<span class="text-gray-600 font-medium text-xl">
+												{member.displayName.charAt(0).toUpperCase()}
+											</span>
+										</div>
+									{/if}
+									<h3 class="text-lg font-semibold text-gray-900 mb-2">{member.displayName}</h3>
+									<p class="text-sm text-gray-500 mb-2">@{member.username}</p>
+									<p class="text-sm text-blue-600 font-medium mb-3">{member.roleName}</p>
+									{#if member.bio}
+										<p class="text-sm text-gray-600">{member.bio}</p>
+									{/if}
+								</div>
+							{/each}
+						</div>
+					</div>
+				</div>
+			</section>
+		{/if}
+
 		<!-- Features Section -->
-		<section class="py-20 bg-white">
+		<section class="py-20 bg-gray-50">
 			<div class="container mx-auto px-4">
 				<div class="max-w-6xl mx-auto">
 					<div class="text-center mb-16">
@@ -41,7 +95,7 @@ import Layout from '../layouts/Layout.astro';
 							Why Choose ABService?
 						</h2>
 						<p class="text-xl text-gray-600">
-							Discover the features that make us the right choice for your business
+							ポートフォリオの編集・管理に最適化された機能をご紹介します
 						</p>
 					</div>
 
@@ -52,8 +106,8 @@ import Layout from '../layouts/Layout.astro';
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
 								</svg>
 							</div>
-							<h3 class="text-xl font-semibold text-gray-900 mb-2">Fast Performance</h3>
-							<p class="text-gray-600">Lightning-fast response times and optimized performance for the best user experience.</p>
+							<h3 class="text-xl font-semibold text-gray-900 mb-2">高速パフォーマンス</h3>
+							<p class="text-gray-600">最適化されたパフォーマンスで、スムーズなポートフォリオ編集体験を提供します。</p>
 						</div>
 
 						<div class="text-center p-6">
@@ -62,8 +116,8 @@ import Layout from '../layouts/Layout.astro';
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
 								</svg>
 							</div>
-							<h3 class="text-xl font-semibold text-gray-900 mb-2">Secure & Reliable</h3>
-							<p class="text-gray-600">Enterprise-grade security with 99.9% uptime guarantee for your peace of mind.</p>
+							<h3 class="text-xl font-semibold text-gray-900 mb-2">セキュア & 信頼性</h3>
+							<p class="text-gray-600">エンタープライズグレードのセキュリティで、安心してポートフォリオを管理できます。</p>
 						</div>
 
 						<div class="text-center p-6">
@@ -72,8 +126,8 @@ import Layout from '../layouts/Layout.astro';
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a2 2 0 002-2V5z"></path>
 								</svg>
 							</div>
-							<h3 class="text-xl font-semibold text-gray-900 mb-2">Easy to Use</h3>
-							<p class="text-gray-600">Intuitive interface designed for both beginners and advanced users.</p>
+							<h3 class="text-xl font-semibold text-gray-900 mb-2">使いやすさ</h3>
+							<p class="text-gray-600">初心者から上級者まで、直感的なインターフェースで簡単にポートフォリオを編集できます。</p>
 						</div>
 					</div>
 				</div>
@@ -88,7 +142,7 @@ import Layout from '../layouts/Layout.astro';
 						Ready to Get Started?
 					</h2>
 					<p class="text-xl mb-8 text-gray-300">
-						Join thousands of satisfied customers who trust ABService
+						ABServiceでポートフォリオの編集・管理を始めましょう
 					</p>
 					<a
 						href="/signup"
