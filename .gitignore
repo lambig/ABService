@@ -167,6 +167,8 @@ Thumbs.db
 
 # Docker
 .dockerignore
+docker/*/data/
+docker/*/logs/
 
 # Logs
 logs
