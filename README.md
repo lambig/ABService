@@ -13,6 +13,6 @@ WebService/Site implementation for my own use
 ## 動作確認済み
 
 - ✅ ビルド: 成功
-- ✅ テスト: 成功  
+- ✅ テスト: 成功
 - ✅ サーバー起動: 成功
 - ✅ Webアクセス: 成功
