@@ -15,6 +15,10 @@ dependencies {
     implementation 'io.quarkus:quarkus-rest'
     implementation 'io.quarkus:quarkus-rest-jackson'
     implementation 'io.quarkus:quarkus-arc'
+    
+    // Hibernate ORM with Panache（JPA実装）
+    implementation 'io.quarkus:quarkus-hibernate-orm'
+    implementation 'io.quarkus:quarkus-jdbc-postgresql'
 
     // Mutiny（Reactive Streamsライブラリ）
     implementation 'io.smallrye.reactive:mutiny'
