@@ -13,7 +13,7 @@ import com.abservice.infrastructure.persistence.entity.TuneEntity;
  * TuneドメインモデルとTuneEntityの相互変換を担当します。
  * </p>
  */
-public class TuneMapper {
+public final class TuneMapper {
 
     private TuneMapper() {
         // ユーティリティクラス

@@ -11,7 +11,7 @@ import com.abservice.infrastructure.persistence.entity.ArtistCreditEntity;
  * ArtistCreditドメインモデルとArtistCreditEntityの相互変換を担当します。
  * </p>
  */
-public class ArtistCreditMapper {
+public final class ArtistCreditMapper {
 
     private ArtistCreditMapper() {
         // ユーティリティクラス

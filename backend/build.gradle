@@ -73,8 +73,8 @@ compileTestJava {
 checkstyle {
     toolVersion = '10.20.2'
     configFile = file("${projectDir}/config/checkstyle/checkstyle.xml")
-    ignoreFailures = true  // Initially set to true to allow gradual fixes
-    maxWarnings = Integer.MAX_VALUE  // Don't fail on warnings initially
+    ignoreFailures = false  // Fail build on checkstyle violations
+    maxWarnings = 0  // Don't allow any warnings
     showViolations = true
 }
 

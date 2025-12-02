@@ -16,7 +16,7 @@ import java.util.Collections;
  * ArticleドメインモデルとArticleEntityの相互変換を担当します。
  * </p>
  */
-public class ArticleMapper {
+public final class ArticleMapper {
 
     private ArticleMapper() {
         // ユーティリティクラス

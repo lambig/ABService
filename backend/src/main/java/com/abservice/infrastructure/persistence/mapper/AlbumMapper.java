@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
  * AlbumドメインモデルとAlbumEntityの相互変換を担当します。
  * </p>
  */
-public class AlbumMapper {
+public final class AlbumMapper {
 
     private AlbumMapper() {
         // ユーティリティクラス

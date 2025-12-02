@@ -14,7 +14,7 @@ import java.util.Collections;
  * AlbumArticleドメインモデルとAlbumArticleEntityの相互変換を担当します。
  * </p>
  */
-public class AlbumArticleMapper {
+public final class AlbumArticleMapper {
 
     private AlbumArticleMapper() {
         // ユーティリティクラス

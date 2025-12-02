@@ -11,7 +11,7 @@ import com.abservice.infrastructure.persistence.entity.EventEntity;
  * EventドメインモデルとEventEntityの相互変換を担当します。
  * </p>
  */
-public class EventMapper {
+public final class EventMapper {
 
     private EventMapper() {
         // ユーティリティクラス
