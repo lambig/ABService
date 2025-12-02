@@ -16,14 +16,15 @@ dependencies {
     implementation 'io.quarkus:quarkus-rest-jackson'
     implementation 'io.quarkus:quarkus-arc'
 
-    // Hibernate ORM with Panache（JPA実装）
-    implementation 'io.quarkus:quarkus-hibernate-orm'
-    implementation 'io.quarkus:quarkus-jdbc-postgresql'
+    // Hibernate Reactive with Panache（リアクティブJPA実装）
+    implementation 'io.quarkus:quarkus-hibernate-reactive-panache'
+    implementation 'io.quarkus:quarkus-reactive-pg-client'
 
     // Flyway（データベースマイグレーション）
     implementation 'io.quarkus:quarkus-flyway'
+    implementation 'io.quarkus:quarkus-jdbc-postgresql'
 
-    // Mutiny（Reactive Streamsライブラリ）
+    // Mutiny（Reactive Streamsライブラリ - quarkus-hibernate-reactive-panacheに含まれる）
     implementation 'io.smallrye.reactive:mutiny'
 
     // UUID v7生成用（業務IDに使用）
