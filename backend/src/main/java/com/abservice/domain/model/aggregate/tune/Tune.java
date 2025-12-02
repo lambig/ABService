@@ -1,0 +1,167 @@
+package com.abservice.domain.model.aggregate.tune;
+
+import com.abservice.domain.model.EntityId;
+import com.abservice.domain.model.aggregate.Aggregate;
+import com.abservice.domain.model.vo.common.Credit;
+import com.abservice.domain.model.vo.tune.TuneKind;
+import com.abservice.domain.model.vo.tune.TuneTitle;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.With;
+import lombok.experimental.Accessors;
+
+/**
+ * チューン集約
+ *
+ * <p>
+ * セットを構成する個々の「チューン」（曲）を管理します。 トラッド、オリジナル、アレンジの種類を持ちます。
+ * </p>
+ * <p>
+ * 現在は Track から参照される形ですが、将来的にチューンの詳細管理（複数版管理、楽譜、音源など）が
+ * 必要になった場合は、完全な集約ルートとして拡張されます。
+ * </p>
+ */
+@With(AccessLevel.PRIVATE)
+@Getter
+@Accessors(fluent = true)
+@AllArgsConstructor
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+public class Tune implements Aggregate<Tune, Tune.Id> {
+    @EqualsAndHashCode.Include
+    private final Id id;
+    private final TuneTitle title;
+    private final TuneKind tuneKind;
+    private final Credit defaultComposerCredit;
+    private final Credit defaultArrangerCredit;
+    private final String originalWorkTitle; // アレンジの場合の原曲タイトル
+    private final String originalWorkCredit; // アレンジの場合の原曲作曲者・アーティスト
+    private final String tuneType; // リール、ジグなど
+    private final String defaultKey; // 想定キー
+    private final Integer defaultTempo; // BPM
+
+    /**
+     * タイトルを変更
+     *
+     * @param newTitle
+     *            新しいタイトル
+     * @return 更新されたTune
+     */
+    public Tune changeTitle(TuneTitle newTitle) {
+        if (newTitle == null) {
+            throw new IllegalArgumentException("Tune title cannot be null");
+        }
+        return withTitle(newTitle);
+    }
+
+    /**
+     * デフォルト作曲者クレジットを変更
+     *
+     * @param newComposerCredit
+     *            新しい作曲者クレジット
+     * @return 更新されたTune
+     */
+    public Tune changeDefaultComposerCredit(Credit newComposerCredit) {
+        return withDefaultComposerCredit(newComposerCredit);
+    }
+
+    /**
+     * デフォルトアレンジャークレジットを変更
+     *
+     * @param newArrangerCredit
+     *            新しいアレンジャークレジット
+     * @return 更新されたTune
+     */
+    public Tune changeDefaultArrangerCredit(Credit newArrangerCredit) {
+        return withDefaultArrangerCredit(newArrangerCredit);
+    }
+
+    /**
+     * 原曲情報を変更
+     *
+     * @param newOriginalWorkTitle
+     *            新しい原曲タイトル
+     * @param newOriginalWorkCredit
+     *            新しい原曲クレジット
+     * @return 更新されたTune
+     */
+    public Tune changeOriginalWorkInfo(String newOriginalWorkTitle, String newOriginalWorkCredit) {
+        if (tuneKind == TuneKind.ARRANGEMENT && (newOriginalWorkTitle == null || newOriginalWorkTitle.isBlank())) {
+            throw new IllegalArgumentException("Original work title is required for ARRANGEMENT tune kind");
+        }
+        return withOriginalWorkTitle(newOriginalWorkTitle).withOriginalWorkCredit(newOriginalWorkCredit);
+    }
+
+    /**
+     * チューンタイプを変更
+     *
+     * @param newTuneType
+     *            新しいチューンタイプ（リール、ジグなど）
+     * @return 更新されたTune
+     */
+    public Tune changeTuneType(String newTuneType) {
+        return withTuneType(newTuneType);
+    }
+
+    /**
+     * デフォルトキーを変更
+     *
+     * @param newDefaultKey
+     *            新しいデフォルトキー
+     * @return 更新されたTune
+     */
+    public Tune changeDefaultKey(String newDefaultKey) {
+        return withDefaultKey(newDefaultKey);
+    }
+
+    /**
+     * デフォルトテンポを変更
+     *
+     * @param newDefaultTempo
+     *            新しいデフォルトテンポ（BPM）
+     * @return 更新されたTune
+     */
+    public Tune changeDefaultTempo(Integer newDefaultTempo) {
+        if (newDefaultTempo != null && newDefaultTempo <= 0) {
+            throw new IllegalArgumentException("Tempo must be positive");
+        }
+        return withDefaultTempo(newDefaultTempo);
+    }
+
+    @Override
+    public Id id() {
+        return id;
+    }
+
+    /**
+     * Tune ID型
+     *
+     * @param value
+     *            ID値（UUIDv7形式の文字列）
+     */
+    public record Id(String value) implements EntityId<Tune> {
+        public Id {
+            if (value == null || value.isBlank()) {
+                throw new IllegalArgumentException("Tune ID cannot be blank");
+            }
+            if (!EntityId.isValidUuid(value)) {
+                throw new IllegalArgumentException("Tune ID must be a valid UUID: " + value);
+            }
+        }
+
+        /**
+         * UUIDv7を生成してTune.Idを作成
+         */
+        public static Id generate() {
+            return new Id(EntityId.generateUuidV7());
+        }
+
+        /**
+         * 文字列からTune.Idを生成
+         */
+        public static Id of(String value) {
+            return new Id(value);
+        }
+    }
+}

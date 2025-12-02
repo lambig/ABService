@@ -1,0 +1,44 @@
+package com.abservice.domain.model.vo.tune;
+
+import com.abservice.domain.model.vo.ValueObject;
+
+/**
+ * チューンタイトルの値オブジェクト
+ *
+ * <p>
+ * チューン（曲）のタイトルを表す値オブジェクトです。 以下の制約を持ちます：
+ * </p>
+ * <ul>
+ * <li>nullまたは空白文字のみは許可されません</li>
+ * <li>最大長は255文字です</li>
+ * </ul>
+ *
+ * @param value
+ *            チューンタイトル
+ */
+public record TuneTitle(String value) implements ValueObject<TuneTitle> {
+    /**
+     * コンストラクタ
+     *
+     * @param value
+     *            チューンタイトル
+     * @throws IllegalArgumentException
+     *             タイトルがnullまたは空白の場合、または最大長を超える場合
+     */
+    public TuneTitle {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Tune title cannot be blank");
+        }
+        if (value.length() > 255) {
+            throw new IllegalArgumentException("Tune title must be 255 characters or less");
+        }
+    }
+
+    @Override
+    public boolean equivalentTo(TuneTitle other) {
+        if (other == null) {
+            return false;
+        }
+        return this.value.equals(other.value);
+    }
+}

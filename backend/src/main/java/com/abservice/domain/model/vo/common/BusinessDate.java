@@ -1,4 +1,6 @@
-package com.abservice.domain.model.vo;
+package com.abservice.domain.model.vo.common;
+
+import com.abservice.domain.model.vo.ValueObject;
 
 import java.time.LocalDate;
 

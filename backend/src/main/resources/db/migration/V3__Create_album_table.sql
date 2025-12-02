@@ -12,9 +12,9 @@ CREATE TABLE album (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_by VARCHAR(100) NOT NULL DEFAULT 'system',
     version_no INTEGER NOT NULL DEFAULT 1,
-    CONSTRAINT fk_album_artist_credit FOREIGN KEY (artist_credit_id) 
+    CONSTRAINT fk_album_artist_credit FOREIGN KEY (artist_credit_id)
         REFERENCES artist_credit(artist_credit_id),
-    CONSTRAINT fk_album_event FOREIGN KEY (event_id) 
+    CONSTRAINT fk_album_event FOREIGN KEY (event_id)
         REFERENCES event(event_id)
 );
 

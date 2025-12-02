@@ -18,9 +18,9 @@ CREATE TABLE track (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_by VARCHAR(100) NOT NULL DEFAULT 'system',
     version_no INTEGER NOT NULL DEFAULT 1,
-    CONSTRAINT fk_track_album FOREIGN KEY (album_id) 
+    CONSTRAINT fk_track_album FOREIGN KEY (album_id)
         REFERENCES album(album_id),
-    CONSTRAINT fk_track_artist_credit FOREIGN KEY (artist_credit_id) 
+    CONSTRAINT fk_track_artist_credit FOREIGN KEY (artist_credit_id)
         REFERENCES artist_credit(artist_credit_id),
     -- アルバム内でのトラック番号は一意
     CONSTRAINT uq_track_album_track_no UNIQUE (album_id, track_no)

@@ -13,7 +13,7 @@ CREATE TABLE album_acquisition_channel (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_by VARCHAR(100) NOT NULL DEFAULT 'system',
     version_no INTEGER NOT NULL DEFAULT 1,
-    CONSTRAINT fk_album_acquisition_channel_album FOREIGN KEY (album_id) 
+    CONSTRAINT fk_album_acquisition_channel_album FOREIGN KEY (album_id)
         REFERENCES album(album_id) ON DELETE CASCADE
 );
 

@@ -1,6 +1,6 @@
 package com.abservice.infrastructure.datetime;
 
-import com.abservice.domain.model.vo.BusinessDateTime;
+import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.service.BusinessDateTimeProvider;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;

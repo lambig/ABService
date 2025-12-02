@@ -1,0 +1,228 @@
+package com.abservice.domain.model.aggregate.album;
+
+import java.time.LocalDate;
+
+import com.abservice.domain.model.EntityId;
+import com.abservice.domain.model.aggregate.artistcredit.ArtistCredit;
+import com.abservice.domain.model.entity.DomainEntity;
+import com.abservice.domain.model.vo.album.Duration;
+import com.abservice.domain.model.vo.album.Isrc;
+import com.abservice.domain.model.vo.album.TrackTitle;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.With;
+import lombok.experimental.Accessors;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * トラック（集約内エンティティ）
+ *
+ * <p>
+ * アルバム内の1トラックの録音を表します。 録音違い（スタジオ版/ライブ版など）は別Trackとして扱います。
+ * </p>
+ */
+@With(AccessLevel.PACKAGE)
+@Getter
+@Accessors(fluent = true)
+@AllArgsConstructor
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+public class Track implements DomainEntity<Track, Track.Id> {
+    @EqualsAndHashCode.Include
+    private final Id id;
+    private final Integer trackNo;
+    private final TrackTitle title;
+    private final ArtistCredit.Id artistCreditId; // nullable: nullの場合はAlbumのartistCreditIdを継承
+    private final LocalDate recordingDate;
+    private final String recordingPlace;
+    private final Duration duration;
+    private final Boolean isLive;
+    private final Isrc isrc;
+    private final List<TrackTune> tunes;
+
+    /**
+     * トラックタイトルを変更
+     *
+     * @param newTitle
+     *            新しいトラックタイトル
+     * @return 更新されたTrack
+     */
+    public Track changeTitle(TrackTitle newTitle) {
+        if (newTitle == null) {
+            throw new IllegalArgumentException("Track title cannot be null");
+        }
+        return withTitle(newTitle);
+    }
+
+    /**
+     * アーティストクレジットIDを変更
+     *
+     * @param newArtistCreditId
+     *            新しいアーティストクレジットID
+     * @return 更新されたTrack
+     */
+    public Track changeArtistCreditId(ArtistCredit.Id newArtistCreditId) {
+        return withArtistCreditId(newArtistCreditId);
+    }
+
+    /**
+     * 録音日を変更
+     *
+     * @param newRecordingDate
+     *            新しい録音日
+     * @return 更新されたTrack
+     */
+    public Track changeRecordingDate(LocalDate newRecordingDate) {
+        return withRecordingDate(newRecordingDate);
+    }
+
+    /**
+     * 録音場所を変更
+     *
+     * @param newRecordingPlace
+     *            新しい録音場所
+     * @return 更新されたTrack
+     */
+    public Track changeRecordingPlace(String newRecordingPlace) {
+        return withRecordingPlace(newRecordingPlace);
+    }
+
+    /**
+     * 再生時間を変更
+     *
+     * @param newDuration
+     *            新しい再生時間
+     * @return 更新されたTrack
+     */
+    public Track changeDuration(Duration newDuration) {
+        return withDuration(newDuration);
+    }
+
+    /**
+     * ライブフラグを変更
+     *
+     * @param newIsLive
+     *            新しいライブフラグ
+     * @return 更新されたTrack
+     */
+    public Track changeIsLive(Boolean newIsLive) {
+        return withIsLive(newIsLive);
+    }
+
+    /**
+     * ISRCを変更
+     *
+     * @param newIsrc
+     *            新しいISRC
+     * @return 更新されたTrack
+     */
+    public Track changeIsrc(Isrc newIsrc) {
+        return withIsrc(newIsrc);
+    }
+
+    /**
+     * チューンを追加
+     *
+     * @param tune
+     *            追加するチューン
+     * @return 更新されたTrack
+     */
+    public Track addTune(TrackTune tune) {
+        if (tune == null) {
+            throw new IllegalArgumentException("Tune cannot be null");
+        }
+        // seqの重複チェック
+        if (tunes.stream().anyMatch(t -> t.seq().equals(tune.seq()))) {
+            throw new IllegalArgumentException("Tune seq " + tune.seq() + " already exists in this track");
+        }
+        var newTunes = new ArrayList<>(tunes);
+        newTunes.add(tune);
+        return withTunes(Collections.unmodifiableList(newTunes));
+    }
+
+    /**
+     * チューンを削除
+     *
+     * @param seq
+     *            削除するチューンのseq
+     * @return 更新されたTrack
+     */
+    public Track removeTune(Integer seq) {
+        if (seq == null) {
+            throw new IllegalArgumentException("Seq cannot be null");
+        }
+        var newTunes = new ArrayList<>(tunes);
+        var removed = newTunes.removeIf(t -> t.seq().equals(seq));
+        if (!removed) {
+            throw new IllegalArgumentException("Tune with seq " + seq + " not found");
+        }
+        return withTunes(Collections.unmodifiableList(newTunes));
+    }
+
+    /**
+     * チューンを更新
+     *
+     * @param updatedTune
+     *            更新するチューン
+     * @return 更新されたTrack
+     */
+    public Track updateTune(TrackTune updatedTune) {
+        if (updatedTune == null) {
+            throw new IllegalArgumentException("Updated tune cannot be null");
+        }
+        var newTunes = new ArrayList<>(tunes);
+        var index = newTunes.stream().filter(t -> t.seq().equals(updatedTune.seq())).findFirst().map(newTunes::indexOf)
+                .orElseThrow(() -> new IllegalArgumentException("Tune with seq " + updatedTune.seq() + " not found"));
+        newTunes.set(index, updatedTune);
+        return withTunes(Collections.unmodifiableList(newTunes));
+    }
+
+    /**
+     * チューンリストを取得（不変）
+     *
+     * @return チューンリストの不変コピー
+     */
+    public List<TrackTune> getTunes() {
+        return Collections.unmodifiableList(tunes);
+    }
+
+    @Override
+    public Id id() {
+        return id;
+    }
+
+    /**
+     * Track ID型
+     *
+     * @param value
+     *            ID値（UUIDv7形式の文字列）
+     */
+    public record Id(String value) implements EntityId<Track> {
+        public Id {
+            if (value == null || value.isBlank()) {
+                throw new IllegalArgumentException("Track ID cannot be blank");
+            }
+            if (!EntityId.isValidUuid(value)) {
+                throw new IllegalArgumentException("Track ID must be a valid UUID: " + value);
+            }
+        }
+
+        /**
+         * UUIDv7を生成してTrack.Idを作成
+         */
+        public static Id generate() {
+            return new Id(EntityId.generateUuidV7());
+        }
+
+        /**
+         * 文字列からTrack.Idを生成
+         */
+        public static Id of(String value) {
+            return new Id(value);
+        }
+    }
+}

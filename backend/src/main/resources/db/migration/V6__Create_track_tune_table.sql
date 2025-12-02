@@ -16,9 +16,9 @@ CREATE TABLE track_tune (
     version_no INTEGER NOT NULL DEFAULT 1,
     -- 複合主キー: トラック内での登場順を一意に管理
     PRIMARY KEY (track_id, seq),
-    CONSTRAINT fk_track_tune_track FOREIGN KEY (track_id) 
+    CONSTRAINT fk_track_tune_track FOREIGN KEY (track_id)
         REFERENCES track(track_id) ON DELETE CASCADE,
-    CONSTRAINT fk_track_tune_tune FOREIGN KEY (tune_id) 
+    CONSTRAINT fk_track_tune_tune FOREIGN KEY (tune_id)
         REFERENCES tune(tune_id)
 );
 

@@ -20,7 +20,7 @@ CREATE TABLE tune (
     version_no INTEGER NOT NULL DEFAULT 1,
     -- アレンジの場合のみ原曲情報が入る想定（アプリケーション層でのバリデーションを推奨）
     CONSTRAINT chk_tune_arrangement_fields CHECK (
-        (tune_kind != 'ARRANGEMENT') OR 
+        (tune_kind != 'ARRANGEMENT') OR
         (original_work_title IS NOT NULL)
     )
 );
