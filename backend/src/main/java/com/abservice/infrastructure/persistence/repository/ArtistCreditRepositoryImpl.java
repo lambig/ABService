@@ -35,20 +35,17 @@ public class ArtistCreditRepositoryImpl implements ArtistCreditRepository {
 
         var entity = ArtistCreditMapper.toEntity(aggregate);
 
-        return dataSource.existsByArtistCreditId(entity.getArtistCreditId())
-                .flatMap(exists -> {
-                    if (exists) {
-                        return dataSource.findById(entity.getArtistCreditId())
-                                .flatMap(existingEntity -> {
-                                    existingEntity.setDisplayName(entity.getDisplayName());
-                                    existingEntity.setSortKey(entity.getSortKey());
-                                    return dataSource.persistAndFlush(existingEntity);
-                                });
-                    } else {
-                        return dataSource.persistAndFlush(entity);
-                    }
-                })
-                .map(ArtistCreditMapper::toDomain);
+        return dataSource.existsByArtistCreditId(entity.getDomainId()).flatMap(exists -> {
+            if (exists) {
+                return dataSource.find("domainId", entity.getDomainId()).firstResult().flatMap(existingEntity -> {
+                    existingEntity.setDisplayName(entity.getDisplayName());
+                    existingEntity.setSortKey(entity.getSortKey());
+                    return dataSource.persistAndFlush(existingEntity);
+                });
+            } else {
+                return dataSource.persistAndFlush(entity);
+            }
+        }).map(ArtistCreditMapper::toDomain);
     }
 
     @Override
@@ -57,8 +54,7 @@ public class ArtistCreditRepositoryImpl implements ArtistCreditRepository {
             return Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null"));
         }
 
-        var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false)
-                .map(this::save)
+        var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
                 .collect(Collectors.toList());
 
         return Uni.join().all(unis).andFailFast();
@@ -70,8 +66,7 @@ public class ArtistCreditRepositoryImpl implements ArtistCreditRepository {
             return Uni.createFrom().nullItem();
         }
 
-        return dataSource.findById(id.value())
-                .map(ArtistCreditMapper::toDomain);
+        return dataSource.find("domainId", id.value()).firstResult().map(ArtistCreditMapper::toDomain);
     }
 
     @Override
@@ -80,22 +75,17 @@ public class ArtistCreditRepositoryImpl implements ArtistCreditRepository {
             return Uni.createFrom().item(List.of());
         }
 
-        var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false)
-                .map(this::findById)
+        var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false).map(this::findById)
                 .collect(Collectors.toList());
 
         return Uni.join().all(unis).andFailFast()
-                .map(list -> list.stream()
-                        .filter(artistCredit -> artistCredit != null)
-                        .collect(Collectors.toList()));
+                .map(list -> list.stream().filter(artistCredit -> artistCredit != null).collect(Collectors.toList()));
     }
 
     @Override
     public Uni<List<ArtistCredit>> findAll() {
         return dataSource.listAll()
-                .map(entities -> entities.stream()
-                        .map(ArtistCreditMapper::toDomain)
-                        .collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(ArtistCreditMapper::toDomain).collect(Collectors.toList()));
     }
 
     @Override
@@ -112,12 +102,10 @@ public class ArtistCreditRepositoryImpl implements ArtistCreditRepository {
             return Uni.createFrom().voidItem();
         }
 
-        var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false)
-                .map(this::delete)
+        var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
                 .collect(Collectors.toList());
 
-        return Uni.join().all(unis).andFailFast()
-                .replaceWithVoid();
+        return Uni.join().all(unis).andFailFast().replaceWithVoid();
     }
 
     @Override
@@ -126,8 +114,7 @@ public class ArtistCreditRepositoryImpl implements ArtistCreditRepository {
             return Uni.createFrom().voidItem();
         }
 
-        return dataSource.deleteByArtistCreditId(id.value())
-                .replaceWithVoid();
+        return dataSource.deleteByArtistCreditId(id.value()).replaceWithVoid();
     }
 
     @Override
@@ -136,12 +123,10 @@ public class ArtistCreditRepositoryImpl implements ArtistCreditRepository {
             return Uni.createFrom().voidItem();
         }
 
-        var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false)
-                .map(this::deleteById)
+        var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
                 .collect(Collectors.toList());
 
-        return Uni.join().all(unis).andFailFast()
-                .replaceWithVoid();
+        return Uni.join().all(unis).andFailFast().replaceWithVoid();
     }
 
     @Override
@@ -166,8 +151,7 @@ public class ArtistCreditRepositoryImpl implements ArtistCreditRepository {
             return Uni.createFrom().nullItem();
         }
 
-        return dataSource.findByDisplayName(displayName.value())
-                .map(ArtistCreditMapper::toDomain);
+        return dataSource.findByDisplayName(displayName.value()).map(ArtistCreditMapper::toDomain);
     }
 
     @Override
@@ -177,9 +161,7 @@ public class ArtistCreditRepositoryImpl implements ArtistCreditRepository {
         }
 
         return dataSource.findByDisplayNameContaining(nameKeyword)
-                .map(entities -> entities.stream()
-                        .map(ArtistCreditMapper::toDomain)
-                        .collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(ArtistCreditMapper::toDomain).collect(Collectors.toList()));
     }
 
     @Override
@@ -189,16 +171,12 @@ public class ArtistCreditRepositoryImpl implements ArtistCreditRepository {
         }
 
         return dataSource.findBySortKey(sortKey)
-                .map(entities -> entities.stream()
-                        .map(ArtistCreditMapper::toDomain)
-                        .collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(ArtistCreditMapper::toDomain).collect(Collectors.toList()));
     }
 
     @Override
     public Uni<List<ArtistCredit>> findAllOrderBySortKey() {
         return dataSource.findAllOrderBySortKey()
-                .map(entities -> entities.stream()
-                        .map(ArtistCreditMapper::toDomain)
-                        .collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(ArtistCreditMapper::toDomain).collect(Collectors.toList()));
     }
 }

@@ -57,12 +57,10 @@ public class EventDataSource implements PanacheRepositoryBase<EventEntity, Long>
      * @return 該当するイベントのリスト
      */
     public Uni<List<EventEntity>> findByDateBetween(LocalDate startDate, LocalDate endDate) {
-        return sessionFactory.withSession(session -> session.createQuery(
-                "SELECT e FROM EventEntity e WHERE e.date >= :startDate AND e.date <= :endDate",
-                EventEntity.class)
-                .setParameter("startDate", startDate)
-                .setParameter("endDate", endDate)
-                .getResultList());
+        return sessionFactory.withSession(session -> session
+                .createQuery("SELECT e FROM EventEntity e WHERE e.date >= :startDate AND e.date <= :endDate",
+                        EventEntity.class)
+                .setParameter("startDate", startDate).setParameter("endDate", endDate).getResultList());
     }
 
     /**
@@ -73,11 +71,9 @@ public class EventDataSource implements PanacheRepositoryBase<EventEntity, Long>
      * @return 該当するイベントのリスト
      */
     public Uni<List<EventEntity>> findByPlaceContaining(String placeKeyword) {
-        return sessionFactory.withSession(session -> session.createQuery(
-                "SELECT e FROM EventEntity e WHERE e.place LIKE :keyword",
-                EventEntity.class)
-                .setParameter("keyword", "%" + placeKeyword + "%")
-                .getResultList());
+        return sessionFactory.withSession(session -> session
+                .createQuery("SELECT e FROM EventEntity e WHERE e.place LIKE :keyword", EventEntity.class)
+                .setParameter("keyword", "%" + placeKeyword + "%").getResultList());
     }
 
     /**
@@ -100,8 +96,8 @@ public class EventDataSource implements PanacheRepositoryBase<EventEntity, Long>
      *            イベントID
      * @return 削除された場合true
      */
-    public Uni<Boolean> deleteByEventId(Long id) {
-        return delete("eventId", id).onItem().transform(count -> count > 0);
+    public Uni<Boolean> deleteByEventId(String domainId) {
+        return delete("domainId", domainId).onItem().transform(count -> count > 0);
     }
 
     /**
@@ -111,7 +107,7 @@ public class EventDataSource implements PanacheRepositoryBase<EventEntity, Long>
      *            イベントID
      * @return 存在する場合true
      */
-    public Uni<Boolean> existsByEventId(Long id) {
-        return count("eventId", id).onItem().transform(count -> count > 0);
+    public Uni<Boolean> existsByEventId(String domainId) {
+        return count("domainId", domainId).onItem().transform(count -> count > 0);
     }
 }

@@ -13,8 +13,7 @@ import java.util.List;
  * Album DataSource (DAO)
  *
  * <p>
- * Panacheを使用したアルバムデータアクセス層。
- * アルバムとその関連エンティティの永続化を担当する。
+ * Panacheを使用したアルバムデータアクセス層。 アルバムとその関連エンティティの永続化を担当する。
  * </p>
  */
 @ApplicationScoped
@@ -34,33 +33,28 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
      * @return 永続化されたアルバムエンティティ
      */
     public Uni<AlbumEntity> persistAlbumWithRelations(AlbumEntity albumEntity) {
-        return persist(albumEntity)
-                .onItem().transformToUni(savedAlbum -> sessionFactory.withSession(session -> {
-                    // トラックをpersist
-                    if (albumEntity.getTracks() != null && !albumEntity.getTracks().isEmpty()) {
-                        albumEntity.getTracks().forEach(track -> track.setAlbum(savedAlbum));
-                        return session.persistAll(albumEntity.getTracks().toArray())
-                                .replaceWith(savedAlbum);
-                    }
-                    return Uni.createFrom().item(savedAlbum);
-                }));
+        return persist(albumEntity).onItem().transformToUni(savedAlbum -> sessionFactory.withSession(session -> {
+            // トラックをpersist
+            if (albumEntity.getTracks() != null && !albumEntity.getTracks().isEmpty()) {
+                albumEntity.getTracks().forEach(track -> track.setAlbum(savedAlbum));
+                return session.persistAll(albumEntity.getTracks().toArray()).replaceWith(savedAlbum);
+            }
+            return Uni.createFrom().item(savedAlbum);
+        }));
     }
 
     /**
-     * IDでアルバムとその関連エンティティを取得
+     * IDでアルバムを検索（トラック含む）
      *
-     * @param id
-     *            アルバムID
+     * @param domainId
+     *            アルバムのドメインID
      * @return アルバムエンティティ（トラックを含む）
      */
-    public Uni<AlbumEntity> findByIdWithTracks(Long id) {
-        return sessionFactory.withSession(session -> session.createQuery(
-                "SELECT DISTINCT a FROM AlbumEntity a " +
-                        "LEFT JOIN FETCH a.tracks " +
-                        "WHERE a.albumId = :id",
-                AlbumEntity.class)
-                .setParameter("id", id)
-                .getSingleResultOrNull());
+    public Uni<AlbumEntity> findByIdWithTracks(String domainId) {
+        return sessionFactory.withSession(session -> session
+                .createQuery("SELECT DISTINCT a FROM AlbumEntity a " + "LEFT JOIN FETCH a.tracks "
+                        + "WHERE a.domainId = :domainId", AlbumEntity.class)
+                .setParameter("domainId", domainId).getSingleResultOrNull());
     }
 
     /**
@@ -78,10 +72,10 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
      * アーティストクレジットIDでアルバムを検索
      *
      * @param artistCreditId
-     *            アーティストクレジットID
+     *            アーティストクレジットID (domain_id)
      * @return 該当するアルバムのリスト
      */
-    public Uni<List<AlbumEntity>> findByArtistCreditId(Long artistCreditId) {
+    public Uni<List<AlbumEntity>> findByArtistCreditId(String artistCreditId) {
         return list("artistCreditId", artistCreditId);
     }
 
@@ -89,10 +83,10 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
      * イベントIDでアルバムを検索
      *
      * @param eventId
-     *            イベントID
+     *            イベントID (domain_id)
      * @return 該当するアルバムのリスト
      */
-    public Uni<List<AlbumEntity>> findByEventId(Long eventId) {
+    public Uni<List<AlbumEntity>> findByEventId(String eventId) {
         return list("eventId", eventId);
     }
 
@@ -118,34 +112,34 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
         LocalDate startDate = LocalDate.of(year, 1, 1);
         LocalDate endDate = LocalDate.of(year, 12, 31);
 
-        return sessionFactory.withSession(session -> session.createQuery(
-                "SELECT a FROM AlbumEntity a " +
-                        "WHERE a.releaseDate >= :startDate AND a.releaseDate <= :endDate",
-                AlbumEntity.class)
-                .setParameter("startDate", startDate)
-                .setParameter("endDate", endDate)
-                .getResultList());
+        return sessionFactory
+                .withSession(session -> session
+                        .createQuery(
+                                "SELECT a FROM AlbumEntity a "
+                                        + "WHERE a.releaseDate >= :startDate AND a.releaseDate <= :endDate",
+                                AlbumEntity.class)
+                        .setParameter("startDate", startDate).setParameter("endDate", endDate).getResultList());
     }
 
     /**
      * アルバムIDで削除
      *
-     * @param id
-     *            アルバムID
+     * @param domainId
+     *            アルバムドメインID
      * @return 削除された場合true
      */
-    public Uni<Boolean> deleteByAlbumId(Long id) {
-        return delete("albumId", id).onItem().transform(count -> count > 0);
+    public Uni<Boolean> deleteByAlbumId(String domainId) {
+        return delete("domainId", domainId).onItem().transform(count -> count > 0);
     }
 
     /**
      * アルバムIDでアルバムが存在するか確認
      *
-     * @param id
-     *            アルバムID
+     * @param domainId
+     *            アルバムドメインID
      * @return 存在する場合true
      */
-    public Uni<Boolean> existsByAlbumId(Long id) {
-        return count("albumId", id).onItem().transform(count -> count > 0);
+    public Uni<Boolean> existsByAlbumId(String domainId) {
+        return count("domainId", domainId).onItem().transform(count -> count > 0);
     }
 }

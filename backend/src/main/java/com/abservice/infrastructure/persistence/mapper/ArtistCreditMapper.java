@@ -29,10 +29,8 @@ public class ArtistCreditMapper {
             return null;
         }
 
-        return new ArtistCredit(
-                new ArtistCredit.Id(entity.getArtistCreditId()),
-                new ArtistCreditName(entity.getDisplayName()),
-                entity.getSortKey());
+        return new ArtistCredit(new ArtistCredit.Id(entity.getDomainId()),
+                new ArtistCreditName(entity.getDisplayName()), entity.getSortKey());
     }
 
     /**
@@ -48,7 +46,7 @@ public class ArtistCreditMapper {
         }
 
         var artistCreditEntity = new ArtistCreditEntity();
-        artistCreditEntity.setArtistCreditId(artistCredit.id().value());
+        artistCreditEntity.setDomainId(artistCredit.id().value());
         artistCreditEntity.setDisplayName(artistCredit.displayName().value());
         artistCreditEntity.setSortKey(artistCredit.sortKey());
 

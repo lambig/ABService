@@ -15,6 +15,7 @@ import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.With;
+import lombok.experimental.Accessors;
 
 /**
  * 記事集約ルート
@@ -26,6 +27,7 @@ import lombok.With;
  */
 @With(AccessLevel.PRIVATE)
 @Getter
+@Accessors(fluent = true)
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Article implements Aggregate<Article, Article.Id> {

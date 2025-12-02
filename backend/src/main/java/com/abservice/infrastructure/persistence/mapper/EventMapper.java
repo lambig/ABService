@@ -29,12 +29,8 @@ public class EventMapper {
             return null;
         }
 
-        return new Event(
-                new Event.Id(entity.getEventId()),
-                new EventName(entity.getName()),
-                entity.getDate(),
-                entity.getPlace(),
-                entity.getNote());
+        return new Event(new Event.Id(entity.getDomainId()), new EventName(entity.getName()), entity.getDate(),
+                entity.getPlace(), entity.getNote());
     }
 
     /**
@@ -50,7 +46,7 @@ public class EventMapper {
         }
 
         var eventEntity = new EventEntity();
-        eventEntity.setEventId(event.id().value());
+        eventEntity.setDomainId(event.id().value());
         eventEntity.setName(event.name().value());
         eventEntity.setDate(event.date());
         eventEntity.setPlace(event.place());

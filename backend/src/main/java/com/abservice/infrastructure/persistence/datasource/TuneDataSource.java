@@ -75,8 +75,8 @@ public class TuneDataSource implements PanacheRepositoryBase<TuneEntity, Long> {
      *            チューンID
      * @return 削除された場合true
      */
-    public Uni<Boolean> deleteByTuneId(Long id) {
-        return delete("tuneId", id).onItem().transform(count -> count > 0);
+    public Uni<Boolean> deleteByTuneId(String domainId) {
+        return delete("domainId", domainId).onItem().transform(count -> count > 0);
     }
 
     /**
@@ -86,7 +86,7 @@ public class TuneDataSource implements PanacheRepositoryBase<TuneEntity, Long> {
      *            チューンID
      * @return 存在する場合true
      */
-    public Uni<Boolean> existsByTuneId(Long id) {
-        return count("tuneId", id).onItem().transform(count -> count > 0);
+    public Uni<Boolean> existsByTuneId(String domainId) {
+        return count("domainId", domainId).onItem().transform(count -> count > 0);
     }
 }

@@ -31,6 +31,9 @@ public class TuneEntity extends AuditableEntity {
     @Column(name = "tune_id")
     private Long tuneId;
 
+    @Column(name = "domain_id", nullable = false, unique = true, columnDefinition = "UUID")
+    private String domainId;
+
     @Column(name = "title", nullable = false, length = 255)
     private String title;
 

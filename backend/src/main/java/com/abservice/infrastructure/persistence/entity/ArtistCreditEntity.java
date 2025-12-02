@@ -31,6 +31,9 @@ public class ArtistCreditEntity extends AuditableEntity {
     @Column(name = "artist_credit_id")
     private Long artistCreditId;
 
+    @Column(name = "domain_id", nullable = false, unique = true, columnDefinition = "UUID")
+    private String domainId;
+
     @Column(name = "display_name", nullable = false, length = 255)
     private String displayName;
 

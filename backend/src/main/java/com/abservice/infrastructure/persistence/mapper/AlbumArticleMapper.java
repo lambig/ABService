@@ -32,13 +32,9 @@ public class AlbumArticleMapper {
             return null;
         }
 
-        return new AlbumArticle(
-                new Album.Id(entity.getAlbumId()),
-                entity.getIntroLong(),
-                entity.getIntroShort(),
+        return new AlbumArticle(new Album.Id(entity.getDomainId()), entity.getIntroLong(), entity.getIntroShort(),
                 entity.getFirstEventSpace(),
-                entity.getLabelTag() != null ? new LabelTag(entity.getLabelTag()) : null,
-                null, // 頒布情報は簡略化のためnull
+                entity.getLabelTag() != null ? LabelTag.valueOf(entity.getLabelTag()) : null, null, // 頒布情報は簡略化のためnull
                 Collections.emptyList()); // 入手経路は簡略化のため空リスト
     }
 
@@ -55,11 +51,11 @@ public class AlbumArticleMapper {
         }
 
         var albumArticleEntity = new AlbumArticleEntity();
-        albumArticleEntity.setAlbumId(albumArticle.albumId().value());
+        albumArticleEntity.setDomainId(albumArticle.albumId().value());
         albumArticleEntity.setIntroLong(albumArticle.introLong());
         albumArticleEntity.setIntroShort(albumArticle.introShort());
         albumArticleEntity.setFirstEventSpace(albumArticle.firstEventSpace());
-        albumArticleEntity.setLabelTag(albumArticle.labelTag() != null ? albumArticle.labelTag().value() : null);
+        albumArticleEntity.setLabelTag(albumArticle.labelTag() != null ? albumArticle.labelTag().name() : null);
 
         // 頒布情報と入手経路は簡略化のため省略
 

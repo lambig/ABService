@@ -40,6 +40,9 @@ public class TrackEntity extends AuditableEntity {
     @Column(name = "track_id")
     private Long trackId;
 
+    @Column(name = "domain_id", nullable = false, unique = true, columnDefinition = "UUID")
+    private String domainId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "album_id", nullable = false)
     private AlbumEntity album;
@@ -50,8 +53,8 @@ public class TrackEntity extends AuditableEntity {
     @Column(name = "title", nullable = false, length = 255)
     private String title;
 
-    @Column(name = "artist_credit_id")
-    private Long artistCreditId;
+    @Column(name = "artist_credit_id", columnDefinition = "UUID")
+    private String artistCreditId;
 
     @Column(name = "recording_date")
     private LocalDate recordingDate;

@@ -41,7 +41,7 @@ Collections.emptyList()); // タグは簡略化のため空リスト
                link.getArticleTag().getName()))
            .collect(Collectors.toList())
        : Collections.emptyList();
-   
+
    // toEntity メソッド内
    if (article.tags() != null && !article.tags().isEmpty()) {
        var tagLinks = article.tags().stream()
@@ -102,7 +102,7 @@ null, // 頒布情報は簡略化のためnull
            distEntity.getDemoUrl() != null ? new Url(distEntity.getDemoUrl()) : null
        );
    }
-   
+
    // toEntity メソッド内（AlbumEntity側で管理されるため、ここでは処理不要の可能性あり）
    ```
 
@@ -151,7 +151,7 @@ Collections.emptyList()); // 入手経路は簡略化のため空リスト
            ))
            .collect(Collectors.toList());
    }
-   
+
    // toEntity メソッド内（AlbumEntity側で管理されるため、ここでは処理不要の可能性あり）
    ```
 
@@ -175,7 +175,7 @@ Collections.emptyList()); // 入手経路は簡略化のため空リスト
 1. **AlbumArticle - 頒布情報**
    - ビジネス上重要な情報
    - 実装は比較的単純（1対1関係）
-   
+
 2. **AlbumArticle - 入手経路**
    - ユーザー向け重要情報
    - 実装は中程度の複雑さ（1対多関係）

@@ -31,17 +31,12 @@ public class TuneMapper {
             return null;
         }
 
-        return new Tune(
-                new Tune.Id(entity.getTuneId()),
-                new TuneTitle(entity.getTitle()),
+        return new Tune(new Tune.Id(entity.getDomainId()), new TuneTitle(entity.getTitle()),
                 TuneKind.valueOf(entity.getTuneKind()),
                 entity.getDefaultComposerCredit() != null ? new Credit(entity.getDefaultComposerCredit()) : null,
                 entity.getDefaultArrangerCredit() != null ? new Credit(entity.getDefaultArrangerCredit()) : null,
-                entity.getOriginalWorkTitle(),
-                entity.getOriginalWorkCredit(),
-                entity.getTuneType(),
-                entity.getDefaultKey(),
-                entity.getDefaultTempo());
+                entity.getOriginalWorkTitle(), entity.getOriginalWorkCredit(), entity.getTuneType(),
+                entity.getDefaultKey(), entity.getDefaultTempo());
     }
 
     /**
@@ -57,7 +52,7 @@ public class TuneMapper {
         }
 
         var tuneEntity = new TuneEntity();
-        tuneEntity.setTuneId(tune.id().value());
+        tuneEntity.setDomainId(tune.id().value());
         tuneEntity.setTitle(tune.title().value());
         tuneEntity.setTuneKind(tune.tuneKind().name());
         tuneEntity.setDefaultComposerCredit(

@@ -32,6 +32,9 @@ public class AlbumArticleEntity extends AuditableEntity {
     @Column(name = "album_id")
     private Long albumId;
 
+    @Column(name = "domain_id", nullable = false, unique = true, columnDefinition = "UUID")
+    private String domainId;
+
     @OneToOne(fetch = FetchType.LAZY)
     @MapsId
     @JoinColumn(name = "album_id")

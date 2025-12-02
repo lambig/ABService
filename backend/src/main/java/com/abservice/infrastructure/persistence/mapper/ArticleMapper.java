@@ -34,20 +34,16 @@ public class ArticleMapper {
             return null;
         }
 
-        return new Article(
-                new Article.Id(entity.getArticleId()),
-                ArticleType.valueOf(entity.getArticleType()),
-                entity.getAlbumId() != null ? new Album.Id(entity.getAlbumId()) : null,
-                entity.getTitle(),
-                entity.getBody(),
-                entity.getIntroShort(),
-                entity.getPublishedAt() != null ? LocalDateTime.ofInstant(entity.getPublishedAt(), ZoneOffset.UTC)
+        return new Article(new Article.Id(entity.getDomainId()), ArticleType.valueOf(entity.getArticleType()),
+                entity.getAlbumId() != null ? new Album.Id(entity.getAlbumId()) : null, entity.getTitle(),
+                entity.getBody(), entity.getIntroShort(),
+                entity.getPublishedAt() != null
+                        ? LocalDateTime.ofInstant(entity.getPublishedAt(), ZoneOffset.UTC)
                         : null,
                 entity.getUpdatedAtBusiness() != null
                         ? LocalDateTime.ofInstant(entity.getUpdatedAtBusiness(), ZoneOffset.UTC)
                         : null,
-                entity.getIsPublic() != null ? entity.getIsPublic() : false,
-                Collections.emptyList()); // タグは簡略化のため空リスト
+                entity.getIsPublic() != null ? entity.getIsPublic() : false, Collections.emptyList()); // タグは簡略化のため空リスト
     }
 
     /**
@@ -63,14 +59,14 @@ public class ArticleMapper {
         }
 
         var articleEntity = new ArticleEntity();
-        articleEntity.setArticleId(article.id().value());
+        articleEntity.setDomainId(article.id().value());
         articleEntity.setArticleType(article.articleType().name());
         articleEntity.setAlbumId(article.albumId() != null ? article.albumId().value() : null);
         articleEntity.setTitle(article.title());
         articleEntity.setBody(article.body());
         articleEntity.setIntroShort(article.introShort());
-        articleEntity.setPublishedAt(
-                article.publishedAt() != null ? article.publishedAt().toInstant(ZoneOffset.UTC) : null);
+        articleEntity
+                .setPublishedAt(article.publishedAt() != null ? article.publishedAt().toInstant(ZoneOffset.UTC) : null);
         articleEntity.setUpdatedAtBusiness(
                 article.updatedAtBusiness() != null ? article.updatedAtBusiness().toInstant(ZoneOffset.UTC) : null);
         articleEntity.setIsPublic(article.publicFlag());

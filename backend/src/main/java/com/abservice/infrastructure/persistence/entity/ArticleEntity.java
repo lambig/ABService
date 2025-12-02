@@ -38,11 +38,14 @@ public class ArticleEntity extends AuditableEntity {
     @Column(name = "article_id")
     private Long articleId;
 
+    @Column(name = "domain_id", nullable = false, unique = true, columnDefinition = "UUID")
+    private String domainId;
+
     @Column(name = "article_type", nullable = false, length = 50)
     private String articleType;
 
-    @Column(name = "album_id")
-    private Long albumId;
+    @Column(name = "album_id", columnDefinition = "UUID")
+    private String albumId;
 
     @Column(name = "title", nullable = false, length = 500)
     private String title;

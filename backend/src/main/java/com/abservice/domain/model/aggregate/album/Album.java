@@ -17,6 +17,7 @@ import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.With;
+import lombok.experimental.Accessors;
 
 /**
  * アルバム集約ルート
@@ -27,6 +28,7 @@ import lombok.With;
  */
 @With(AccessLevel.PRIVATE)
 @Getter
+@Accessors(fluent = true)
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Album implements Aggregate<Album, Album.Id> {

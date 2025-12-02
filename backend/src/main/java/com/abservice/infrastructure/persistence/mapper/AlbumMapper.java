@@ -19,7 +19,6 @@ import com.abservice.infrastructure.persistence.entity.TrackTuneEntity;
 import com.abservice.infrastructure.persistence.entity.TrackTuneId;
 
 import java.util.Collections;
-import java.util.List;
 import java.util.stream.Collectors;
 
 /**
@@ -48,19 +47,13 @@ public class AlbumMapper {
         }
 
         var tracks = entity.getTracks() != null
-                ? entity.getTracks().stream()
-                        .map(AlbumMapper::trackToDomain)
-                        .collect(Collectors.toList())
+                ? entity.getTracks().stream().map(AlbumMapper::trackToDomain).collect(Collectors.toList())
                 : Collections.<Track>emptyList();
 
-        return new Album(
-                new Album.Id(entity.getAlbumId()),
-                new AlbumTitle(entity.getTitle()),
-                entity.getReleaseDate(),
+        return new Album(new Album.Id(entity.getDomainId()), new AlbumTitle(entity.getTitle()), entity.getReleaseDate(),
                 new ArtistCredit.Id(entity.getArtistCreditId()),
                 entity.getEventId() != null ? new Event.Id(entity.getEventId()) : null,
-                entity.getCatalogNumber() != null ? new CatalogNumber(entity.getCatalogNumber()) : null,
-                tracks);
+                entity.getCatalogNumber() != null ? new CatalogNumber(entity.getCatalogNumber()) : null, tracks);
     }
 
     /**
@@ -76,7 +69,7 @@ public class AlbumMapper {
         }
 
         var albumEntity = new AlbumEntity();
-        albumEntity.setAlbumId(album.id().value());
+        albumEntity.setDomainId(album.id().value());
         albumEntity.setTitle(album.title().value());
         albumEntity.setReleaseDate(album.releaseDate());
         albumEntity.setArtistCreditId(album.artistCreditId().value());
@@ -85,8 +78,7 @@ public class AlbumMapper {
 
         // トラックを変換
         if (album.tracks() != null && !album.tracks().isEmpty()) {
-            var trackEntities = album.tracks().stream()
-                    .map(track -> trackToEntity(track, albumEntity))
+            var trackEntities = album.tracks().stream().map(track -> trackToEntity(track, albumEntity))
                     .collect(Collectors.toList());
             albumEntity.setTracks(trackEntities);
         }
@@ -107,22 +99,14 @@ public class AlbumMapper {
         }
 
         var trackTunes = entity.getTrackTunes() != null
-                ? entity.getTrackTunes().stream()
-                        .map(AlbumMapper::trackTuneToDomain)
-                        .collect(Collectors.toList())
+                ? entity.getTrackTunes().stream().map(AlbumMapper::trackTuneToDomain).collect(Collectors.toList())
                 : Collections.<TrackTune>emptyList();
 
-        return new Track(
-                new Track.Id(entity.getTrackId()),
-                entity.getTrackNo(),
-                new TrackTitle(entity.getTitle()),
+        return new Track(new Track.Id(entity.getDomainId()), entity.getTrackNo(), new TrackTitle(entity.getTitle()),
                 entity.getArtistCreditId() != null ? new ArtistCredit.Id(entity.getArtistCreditId()) : null,
-                entity.getRecordingDate(),
-                entity.getRecordingPlace(),
-                entity.getDurationMsec() != null ? new Duration(entity.getDurationMsec()) : null,
-                entity.getIsLive(),
-                entity.getIsrc() != null ? new Isrc(entity.getIsrc()) : null,
-                trackTunes);
+                entity.getRecordingDate(), entity.getRecordingPlace(),
+                entity.getDurationMsec() != null ? new Duration(entity.getDurationMsec()) : null, entity.getIsLive(),
+                entity.getIsrc() != null ? new Isrc(entity.getIsrc()) : null, trackTunes);
     }
 
     /**
@@ -140,7 +124,7 @@ public class AlbumMapper {
         }
 
         var trackEntity = new TrackEntity();
-        trackEntity.setTrackId(track.id().value());
+        trackEntity.setDomainId(track.id().value());
         trackEntity.setAlbum(albumEntity);
         trackEntity.setTrackNo(track.trackNo());
         trackEntity.setTitle(track.title().value());
@@ -153,8 +137,7 @@ public class AlbumMapper {
 
         // TrackTunesを変換
         if (track.tunes() != null && !track.tunes().isEmpty()) {
-            var trackTuneEntities = track.tunes().stream()
-                    .map(trackTune -> trackTuneToEntity(trackTune, trackEntity))
+            var trackTuneEntities = track.tunes().stream().map(trackTune -> trackTuneToEntity(trackTune, trackEntity))
                     .collect(Collectors.toList());
             trackEntity.setTrackTunes(trackTuneEntities);
         }
@@ -174,8 +157,7 @@ public class AlbumMapper {
             return null;
         }
 
-        return new TrackTune(
-                entity.getId().getSeq(),
+        return new TrackTune(entity.getId().getSeq(),
                 entity.getTuneId() != null ? new Tune.Id(entity.getTuneId()) : null,
                 entity.getComposerCreditOverride() != null ? new Credit(entity.getComposerCreditOverride()) : null,
                 entity.getArrangerCreditOverride() != null ? new Credit(entity.getArrangerCreditOverride()) : null,
@@ -197,9 +179,7 @@ public class AlbumMapper {
         }
 
         var trackTuneEntity = new TrackTuneEntity();
-        var id = new TrackTuneId();
-        id.setTrackId(trackEntity.getTrackId());
-        id.setSeq(trackTune.seq());
+        var id = new TrackTuneId(trackEntity.getTrackId(), trackTune.seq());
         trackTuneEntity.setId(id);
         trackTuneEntity.setTrack(trackEntity);
         trackTuneEntity.setTuneId(trackTune.tuneId() != null ? trackTune.tuneId().value() : null);

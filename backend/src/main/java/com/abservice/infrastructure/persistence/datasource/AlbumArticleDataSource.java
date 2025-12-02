@@ -31,8 +31,8 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
      *            アルバムID
      * @return 該当するアルバム記事（存在しない場合はnull）
      */
-    public Uni<AlbumArticleEntity> findByAlbumId(Long albumId) {
-        return findById(albumId);
+    public Uni<AlbumArticleEntity> findByAlbumId(String domainId) {
+        return find("domainId", domainId).firstResult();
     }
 
     /**
@@ -54,11 +54,11 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
      * @return 該当するアルバム記事のリスト
      */
     public Uni<List<AlbumArticleEntity>> findByFirstEventSpaceContaining(String spaceKeyword) {
-        return sessionFactory.withSession(session -> session.createQuery(
-                "SELECT aa FROM AlbumArticleEntity aa WHERE aa.firstEventSpace LIKE :keyword",
-                AlbumArticleEntity.class)
-                .setParameter("keyword", "%" + spaceKeyword + "%")
-                .getResultList());
+        return sessionFactory
+                .withSession(session -> session
+                        .createQuery("SELECT aa FROM AlbumArticleEntity aa WHERE aa.firstEventSpace LIKE :keyword",
+                                AlbumArticleEntity.class)
+                        .setParameter("keyword", "%" + spaceKeyword + "%").getResultList());
     }
 
     /**
@@ -68,12 +68,9 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
      */
     public Uni<List<AlbumArticleEntity>> findWithDistribution() {
         return sessionFactory.withSession(session -> session.createQuery(
-                "SELECT DISTINCT aa FROM AlbumArticleEntity aa " +
-                        "LEFT JOIN FETCH aa.album a " +
-                        "LEFT JOIN FETCH a.albumDistribution " +
-                        "WHERE a.albumDistribution IS NOT NULL",
-                AlbumArticleEntity.class)
-                .getResultList());
+                "SELECT DISTINCT aa FROM AlbumArticleEntity aa " + "LEFT JOIN FETCH aa.album a "
+                        + "LEFT JOIN FETCH a.albumDistribution " + "WHERE a.albumDistribution IS NOT NULL",
+                AlbumArticleEntity.class).getResultList());
     }
 
     /**
@@ -83,12 +80,9 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
      */
     public Uni<List<AlbumArticleEntity>> findWithAcquisitionChannels() {
         return sessionFactory.withSession(session -> session.createQuery(
-                "SELECT DISTINCT aa FROM AlbumArticleEntity aa " +
-                        "LEFT JOIN FETCH aa.album a " +
-                        "LEFT JOIN FETCH a.acquisitionChannels " +
-                        "WHERE SIZE(a.acquisitionChannels) > 0",
-                AlbumArticleEntity.class)
-                .getResultList());
+                "SELECT DISTINCT aa FROM AlbumArticleEntity aa " + "LEFT JOIN FETCH aa.album a "
+                        + "LEFT JOIN FETCH a.acquisitionChannels " + "WHERE SIZE(a.acquisitionChannels) > 0",
+                AlbumArticleEntity.class).getResultList());
     }
 
     /**
@@ -98,8 +92,8 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
      *            アルバムID
      * @return 削除された場合true
      */
-    public Uni<Boolean> deleteByAlbumId(Long albumId) {
-        return deleteById(albumId).onItem().transform(deleted -> deleted);
+    public Uni<Boolean> deleteByAlbumId(String domainId) {
+        return delete("domainId", domainId).onItem().transform(deleted -> deleted > 0);
     }
 
     /**
@@ -109,7 +103,7 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
      *            アルバムID
      * @return 存在する場合true
      */
-    public Uni<Boolean> existsByAlbumId(Long albumId) {
-        return count("albumId", albumId).onItem().transform(count -> count > 0);
+    public Uni<Boolean> existsByAlbumId(String domainId) {
+        return count("domainId", domainId).onItem().transform(count -> count > 0);
     }
 }

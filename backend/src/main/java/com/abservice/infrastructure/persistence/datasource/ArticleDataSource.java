@@ -40,10 +40,10 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleEntity, L
      * アルバムIDで記事を検索
      *
      * @param albumId
-     *            アルバムID
+     *            アルバムID (domain_id)
      * @return 該当する記事（存在しない場合はnull）
      */
-    public Uni<ArticleEntity> findByAlbumId(Long albumId) {
+    public Uni<ArticleEntity> findByAlbumId(String albumId) {
         return find("albumId", albumId).firstResult();
     }
 
@@ -68,12 +68,11 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleEntity, L
      * @return 該当する記事のリスト
      */
     public Uni<List<ArticleEntity>> findByPublishedAtBetween(Instant startDate, Instant endDate) {
-        return sessionFactory.withSession(session -> session.createQuery(
-                "SELECT a FROM ArticleEntity a WHERE a.publishedAt >= :startDate AND a.publishedAt <= :endDate",
-                ArticleEntity.class)
-                .setParameter("startDate", startDate)
-                .setParameter("endDate", endDate)
-                .getResultList());
+        return sessionFactory.withSession(session -> session
+                .createQuery(
+                        "SELECT a FROM ArticleEntity a WHERE a.publishedAt >= :startDate AND a.publishedAt <= :endDate",
+                        ArticleEntity.class)
+                .setParameter("startDate", startDate).setParameter("endDate", endDate).getResultList());
     }
 
     /**
@@ -84,11 +83,9 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleEntity, L
      * @return 該当する記事のリスト
      */
     public Uni<List<ArticleEntity>> findByTitleContaining(String titleKeyword) {
-        return sessionFactory.withSession(session -> session.createQuery(
-                "SELECT a FROM ArticleEntity a WHERE a.title LIKE :keyword",
-                ArticleEntity.class)
-                .setParameter("keyword", "%" + titleKeyword + "%")
-                .getResultList());
+        return sessionFactory.withSession(session -> session
+                .createQuery("SELECT a FROM ArticleEntity a WHERE a.title LIKE :keyword", ArticleEntity.class)
+                .setParameter("keyword", "%" + titleKeyword + "%").getResultList());
     }
 
     /**
@@ -98,8 +95,8 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleEntity, L
      *            記事ID
      * @return 削除された場合true
      */
-    public Uni<Boolean> deleteByArticleId(Long id) {
-        return delete("articleId", id).onItem().transform(count -> count > 0);
+    public Uni<Boolean> deleteByArticleId(String domainId) {
+        return delete("domainId", domainId).onItem().transform(count -> count > 0);
     }
 
     /**
@@ -109,7 +106,7 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleEntity, L
      *            記事ID
      * @return 存在する場合true
      */
-    public Uni<Boolean> existsByArticleId(Long id) {
-        return count("articleId", id).onItem().transform(count -> count > 0);
+    public Uni<Boolean> existsByArticleId(String domainId) {
+        return count("domainId", domainId).onItem().transform(count -> count > 0);
     }
 }

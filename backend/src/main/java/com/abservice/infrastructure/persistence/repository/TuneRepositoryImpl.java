@@ -36,27 +36,24 @@ public class TuneRepositoryImpl implements TuneRepository {
 
         var entity = TuneMapper.toEntity(aggregate);
 
-        return dataSource.existsByTuneId(entity.getTuneId())
-                .flatMap(exists -> {
-                    if (exists) {
-                        return dataSource.findById(entity.getTuneId())
-                                .flatMap(existingEntity -> {
-                                    existingEntity.setTitle(entity.getTitle());
-                                    existingEntity.setTuneKind(entity.getTuneKind());
-                                    existingEntity.setDefaultComposerCredit(entity.getDefaultComposerCredit());
-                                    existingEntity.setDefaultArrangerCredit(entity.getDefaultArrangerCredit());
-                                    existingEntity.setOriginalWorkTitle(entity.getOriginalWorkTitle());
-                                    existingEntity.setOriginalWorkCredit(entity.getOriginalWorkCredit());
-                                    existingEntity.setTuneType(entity.getTuneType());
-                                    existingEntity.setDefaultKey(entity.getDefaultKey());
-                                    existingEntity.setDefaultTempo(entity.getDefaultTempo());
-                                    return dataSource.persistAndFlush(existingEntity);
-                                });
-                    } else {
-                        return dataSource.persistAndFlush(entity);
-                    }
-                })
-                .map(TuneMapper::toDomain);
+        return dataSource.existsByTuneId(entity.getDomainId()).flatMap(exists -> {
+            if (exists) {
+                return dataSource.find("domainId", entity.getDomainId()).firstResult().flatMap(existingEntity -> {
+                    existingEntity.setTitle(entity.getTitle());
+                    existingEntity.setTuneKind(entity.getTuneKind());
+                    existingEntity.setDefaultComposerCredit(entity.getDefaultComposerCredit());
+                    existingEntity.setDefaultArrangerCredit(entity.getDefaultArrangerCredit());
+                    existingEntity.setOriginalWorkTitle(entity.getOriginalWorkTitle());
+                    existingEntity.setOriginalWorkCredit(entity.getOriginalWorkCredit());
+                    existingEntity.setTuneType(entity.getTuneType());
+                    existingEntity.setDefaultKey(entity.getDefaultKey());
+                    existingEntity.setDefaultTempo(entity.getDefaultTempo());
+                    return dataSource.persistAndFlush(existingEntity);
+                });
+            } else {
+                return dataSource.persistAndFlush(entity);
+            }
+        }).map(TuneMapper::toDomain);
     }
 
     @Override
@@ -65,8 +62,7 @@ public class TuneRepositoryImpl implements TuneRepository {
             return Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null"));
         }
 
-        var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false)
-                .map(this::save)
+        var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
                 .collect(Collectors.toList());
 
         return Uni.join().all(unis).andFailFast();
@@ -78,8 +74,7 @@ public class TuneRepositoryImpl implements TuneRepository {
             return Uni.createFrom().nullItem();
         }
 
-        return dataSource.findById(id.value())
-                .map(TuneMapper::toDomain);
+        return dataSource.find("domainId", id.value()).firstResult().map(TuneMapper::toDomain);
     }
 
     @Override
@@ -88,22 +83,17 @@ public class TuneRepositoryImpl implements TuneRepository {
             return Uni.createFrom().item(List.of());
         }
 
-        var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false)
-                .map(this::findById)
+        var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false).map(this::findById)
                 .collect(Collectors.toList());
 
         return Uni.join().all(unis).andFailFast()
-                .map(list -> list.stream()
-                        .filter(tune -> tune != null)
-                        .collect(Collectors.toList()));
+                .map(list -> list.stream().filter(tune -> tune != null).collect(Collectors.toList()));
     }
 
     @Override
     public Uni<List<Tune>> findAll() {
         return dataSource.listAll()
-                .map(entities -> entities.stream()
-                        .map(TuneMapper::toDomain)
-                        .collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(TuneMapper::toDomain).collect(Collectors.toList()));
     }
 
     @Override
@@ -120,12 +110,10 @@ public class TuneRepositoryImpl implements TuneRepository {
             return Uni.createFrom().voidItem();
         }
 
-        var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false)
-                .map(this::delete)
+        var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
                 .collect(Collectors.toList());
 
-        return Uni.join().all(unis).andFailFast()
-                .replaceWithVoid();
+        return Uni.join().all(unis).andFailFast().replaceWithVoid();
     }
 
     @Override
@@ -134,8 +122,7 @@ public class TuneRepositoryImpl implements TuneRepository {
             return Uni.createFrom().voidItem();
         }
 
-        return dataSource.deleteByTuneId(id.value())
-                .replaceWithVoid();
+        return dataSource.deleteByTuneId(id.value()).replaceWithVoid();
     }
 
     @Override
@@ -144,12 +131,10 @@ public class TuneRepositoryImpl implements TuneRepository {
             return Uni.createFrom().voidItem();
         }
 
-        var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false)
-                .map(this::deleteById)
+        var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
                 .collect(Collectors.toList());
 
-        return Uni.join().all(unis).andFailFast()
-                .replaceWithVoid();
+        return Uni.join().all(unis).andFailFast().replaceWithVoid();
     }
 
     @Override
@@ -175,9 +160,7 @@ public class TuneRepositoryImpl implements TuneRepository {
         }
 
         return dataSource.findByTitle(title.value())
-                .map(entities -> entities.stream()
-                        .map(TuneMapper::toDomain)
-                        .collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(TuneMapper::toDomain).collect(Collectors.toList()));
     }
 
     @Override
@@ -187,9 +170,7 @@ public class TuneRepositoryImpl implements TuneRepository {
         }
 
         return dataSource.findByTuneKind(tuneKind.name())
-                .map(entities -> entities.stream()
-                        .map(TuneMapper::toDomain)
-                        .collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(TuneMapper::toDomain).collect(Collectors.toList()));
     }
 
     @Override
@@ -199,9 +180,7 @@ public class TuneRepositoryImpl implements TuneRepository {
         }
 
         return dataSource.findByTuneType(tuneType)
-                .map(entities -> entities.stream()
-                        .map(TuneMapper::toDomain)
-                        .collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(TuneMapper::toDomain).collect(Collectors.toList()));
     }
 
     @Override
@@ -211,8 +190,6 @@ public class TuneRepositoryImpl implements TuneRepository {
         }
 
         return dataSource.findByDefaultKey(defaultKey)
-                .map(entities -> entities.stream()
-                        .map(TuneMapper::toDomain)
-                        .collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(TuneMapper::toDomain).collect(Collectors.toList()));
     }
 }

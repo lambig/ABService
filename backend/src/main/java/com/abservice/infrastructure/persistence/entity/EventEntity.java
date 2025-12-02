@@ -33,6 +33,9 @@ public class EventEntity extends AuditableEntity {
     @Column(name = "event_id")
     private Long eventId;
 
+    @Column(name = "domain_id", nullable = false, unique = true, columnDefinition = "UUID")
+    private String domainId;
+
     @Column(name = "name", nullable = false, length = 255)
     private String name;
 

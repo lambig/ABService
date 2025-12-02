@@ -43,11 +43,11 @@ public class ArtistCreditDataSource implements PanacheRepositoryBase<ArtistCredi
      * @return 該当するアーティスト名義のリスト
      */
     public Uni<List<ArtistCreditEntity>> findByDisplayNameContaining(String nameKeyword) {
-        return sessionFactory.withSession(session -> session.createQuery(
-                "SELECT a FROM ArtistCreditEntity a WHERE a.displayName LIKE :keyword",
-                ArtistCreditEntity.class)
-                .setParameter("keyword", "%" + nameKeyword + "%")
-                .getResultList());
+        return sessionFactory
+                .withSession(session -> session
+                        .createQuery("SELECT a FROM ArtistCreditEntity a WHERE a.displayName LIKE :keyword",
+                                ArtistCreditEntity.class)
+                        .setParameter("keyword", "%" + nameKeyword + "%").getResultList());
     }
 
     /**
@@ -67,10 +67,9 @@ public class ArtistCreditDataSource implements PanacheRepositoryBase<ArtistCredi
      * @return すべてのアーティスト名義のリスト（ソートキー順）
      */
     public Uni<List<ArtistCreditEntity>> findAllOrderBySortKey() {
-        return sessionFactory.withSession(session -> session.createQuery(
-                "SELECT a FROM ArtistCreditEntity a ORDER BY a.sortKey, a.displayName",
-                ArtistCreditEntity.class)
-                .getResultList());
+        return sessionFactory.withSession(
+                session -> session.createQuery("SELECT a FROM ArtistCreditEntity a ORDER BY a.sortKey, a.displayName",
+                        ArtistCreditEntity.class).getResultList());
     }
 
     /**
@@ -80,8 +79,8 @@ public class ArtistCreditDataSource implements PanacheRepositoryBase<ArtistCredi
      *            アーティスト名義ID
      * @return 削除された場合true
      */
-    public Uni<Boolean> deleteByArtistCreditId(Long id) {
-        return delete("artistCreditId", id).onItem().transform(count -> count > 0);
+    public Uni<Boolean> deleteByArtistCreditId(String domainId) {
+        return delete("domainId", domainId).onItem().transform(count -> count > 0);
     }
 
     /**
@@ -91,7 +90,7 @@ public class ArtistCreditDataSource implements PanacheRepositoryBase<ArtistCredi
      *            アーティスト名義ID
      * @return 存在する場合true
      */
-    public Uni<Boolean> existsByArtistCreditId(Long id) {
-        return count("artistCreditId", id).onItem().transform(count -> count > 0);
+    public Uni<Boolean> existsByArtistCreditId(String domainId) {
+        return count("domainId", domainId).onItem().transform(count -> count > 0);
     }
 }

@@ -36,22 +36,19 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
 
         var entity = AlbumArticleMapper.toEntity(aggregate);
 
-        return dataSource.existsByAlbumId(entity.getAlbumId())
-                .flatMap(exists -> {
-                    if (exists) {
-                        return dataSource.findById(entity.getAlbumId())
-                                .flatMap(existingEntity -> {
-                                    existingEntity.setIntroLong(entity.getIntroLong());
-                                    existingEntity.setIntroShort(entity.getIntroShort());
-                                    existingEntity.setFirstEventSpace(entity.getFirstEventSpace());
-                                    existingEntity.setLabelTag(entity.getLabelTag());
-                                    return dataSource.persistAndFlush(existingEntity);
-                                });
-                    } else {
-                        return dataSource.persistAndFlush(entity);
-                    }
-                })
-                .map(AlbumArticleMapper::toDomain);
+        return dataSource.existsByAlbumId(entity.getDomainId()).flatMap(exists -> {
+            if (exists) {
+                return dataSource.find("domainId", entity.getDomainId()).firstResult().flatMap(existingEntity -> {
+                    existingEntity.setIntroLong(entity.getIntroLong());
+                    existingEntity.setIntroShort(entity.getIntroShort());
+                    existingEntity.setFirstEventSpace(entity.getFirstEventSpace());
+                    existingEntity.setLabelTag(entity.getLabelTag());
+                    return dataSource.persistAndFlush(existingEntity);
+                });
+            } else {
+                return dataSource.persistAndFlush(entity);
+            }
+        }).map(AlbumArticleMapper::toDomain);
     }
 
     @Override
@@ -60,8 +57,7 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             return Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null"));
         }
 
-        var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false)
-                .map(this::save)
+        var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
                 .collect(Collectors.toList());
 
         return Uni.join().all(unis).andFailFast();
@@ -73,8 +69,7 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             return Uni.createFrom().nullItem();
         }
 
-        return dataSource.findById(id.value())
-                .map(AlbumArticleMapper::toDomain);
+        return dataSource.find("domainId", id.value()).firstResult().map(AlbumArticleMapper::toDomain);
     }
 
     @Override
@@ -83,22 +78,17 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             return Uni.createFrom().item(List.of());
         }
 
-        var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false)
-                .map(this::findById)
+        var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false).map(this::findById)
                 .collect(Collectors.toList());
 
         return Uni.join().all(unis).andFailFast()
-                .map(list -> list.stream()
-                        .filter(albumArticle -> albumArticle != null)
-                        .collect(Collectors.toList()));
+                .map(list -> list.stream().filter(albumArticle -> albumArticle != null).collect(Collectors.toList()));
     }
 
     @Override
     public Uni<List<AlbumArticle>> findAll() {
         return dataSource.listAll()
-                .map(entities -> entities.stream()
-                        .map(AlbumArticleMapper::toDomain)
-                        .collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).collect(Collectors.toList()));
     }
 
     @Override
@@ -115,12 +105,10 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             return Uni.createFrom().voidItem();
         }
 
-        var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false)
-                .map(this::delete)
+        var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
                 .collect(Collectors.toList());
 
-        return Uni.join().all(unis).andFailFast()
-                .replaceWithVoid();
+        return Uni.join().all(unis).andFailFast().replaceWithVoid();
     }
 
     @Override
@@ -129,8 +117,7 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             return Uni.createFrom().voidItem();
         }
 
-        return dataSource.deleteByAlbumId(id.value())
-                .replaceWithVoid();
+        return dataSource.deleteByAlbumId(id.value()).replaceWithVoid();
     }
 
     @Override
@@ -139,12 +126,10 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             return Uni.createFrom().voidItem();
         }
 
-        var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false)
-                .map(this::deleteById)
+        var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
                 .collect(Collectors.toList());
 
-        return Uni.join().all(unis).andFailFast()
-                .replaceWithVoid();
+        return Uni.join().all(unis).andFailFast().replaceWithVoid();
     }
 
     @Override
@@ -169,8 +154,7 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             return Uni.createFrom().nullItem();
         }
 
-        return dataSource.findByAlbumId(albumId.value())
-                .map(AlbumArticleMapper::toDomain);
+        return dataSource.findByAlbumId(albumId.value()).map(AlbumArticleMapper::toDomain);
     }
 
     @Override
@@ -179,10 +163,8 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             return Uni.createFrom().item(List.of());
         }
 
-        return dataSource.findByLabelTag(labelTag.value())
-                .map(entities -> entities.stream()
-                        .map(AlbumArticleMapper::toDomain)
-                        .collect(Collectors.toList()));
+        return dataSource.findByLabelTag(labelTag.name())
+                .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).collect(Collectors.toList()));
     }
 
     @Override
@@ -192,24 +174,18 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
         }
 
         return dataSource.findByFirstEventSpaceContaining(spaceKeyword)
-                .map(entities -> entities.stream()
-                        .map(AlbumArticleMapper::toDomain)
-                        .collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).collect(Collectors.toList()));
     }
 
     @Override
     public Uni<List<AlbumArticle>> findWithDistribution() {
         return dataSource.findWithDistribution()
-                .map(entities -> entities.stream()
-                        .map(AlbumArticleMapper::toDomain)
-                        .collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).collect(Collectors.toList()));
     }
 
     @Override
     public Uni<List<AlbumArticle>> findWithAcquisitionChannels() {
         return dataSource.findWithAcquisitionChannels()
-                .map(entities -> entities.stream()
-                        .map(AlbumArticleMapper::toDomain)
-                        .collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).collect(Collectors.toList()));
     }
 }

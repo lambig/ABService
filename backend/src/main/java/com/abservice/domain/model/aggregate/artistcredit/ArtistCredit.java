@@ -8,6 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.With;
+import lombok.experimental.Accessors;
 
 /**
  * アーティスト名義集約
@@ -21,6 +22,7 @@ import lombok.With;
  */
 @With(AccessLevel.PRIVATE)
 @Getter
+@Accessors(fluent = true)
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class ArtistCredit implements Aggregate<ArtistCredit, ArtistCredit.Id> {

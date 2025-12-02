@@ -38,26 +38,23 @@ public class ArticleRepositoryImpl implements ArticleRepository {
 
         var entity = ArticleMapper.toEntity(aggregate);
 
-        return dataSource.existsByArticleId(entity.getArticleId())
-                .flatMap(exists -> {
-                    if (exists) {
-                        return dataSource.findById(entity.getArticleId())
-                                .flatMap(existingEntity -> {
-                                    existingEntity.setArticleType(entity.getArticleType());
-                                    existingEntity.setAlbumId(entity.getAlbumId());
-                                    existingEntity.setTitle(entity.getTitle());
-                                    existingEntity.setBody(entity.getBody());
-                                    existingEntity.setIntroShort(entity.getIntroShort());
-                                    existingEntity.setPublishedAt(entity.getPublishedAt());
-                                    existingEntity.setUpdatedAtBusiness(entity.getUpdatedAtBusiness());
-                                    existingEntity.setIsPublic(entity.getIsPublic());
-                                    return dataSource.persistAndFlush(existingEntity);
-                                });
-                    } else {
-                        return dataSource.persistAndFlush(entity);
-                    }
-                })
-                .map(ArticleMapper::toDomain);
+        return dataSource.existsByArticleId(entity.getDomainId()).flatMap(exists -> {
+            if (exists) {
+                return dataSource.find("domainId", entity.getDomainId()).firstResult().flatMap(existingEntity -> {
+                    existingEntity.setArticleType(entity.getArticleType());
+                    existingEntity.setAlbumId(entity.getAlbumId());
+                    existingEntity.setTitle(entity.getTitle());
+                    existingEntity.setBody(entity.getBody());
+                    existingEntity.setIntroShort(entity.getIntroShort());
+                    existingEntity.setPublishedAt(entity.getPublishedAt());
+                    existingEntity.setUpdatedAtBusiness(entity.getUpdatedAtBusiness());
+                    existingEntity.setIsPublic(entity.getIsPublic());
+                    return dataSource.persistAndFlush(existingEntity);
+                });
+            } else {
+                return dataSource.persistAndFlush(entity);
+            }
+        }).map(ArticleMapper::toDomain);
     }
 
     @Override
@@ -66,8 +63,7 @@ public class ArticleRepositoryImpl implements ArticleRepository {
             return Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null"));
         }
 
-        var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false)
-                .map(this::save)
+        var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
                 .collect(Collectors.toList());
 
         return Uni.join().all(unis).andFailFast();
@@ -79,8 +75,7 @@ public class ArticleRepositoryImpl implements ArticleRepository {
             return Uni.createFrom().nullItem();
         }
 
-        return dataSource.findById(id.value())
-                .map(ArticleMapper::toDomain);
+        return dataSource.find("domainId", id.value()).firstResult().map(ArticleMapper::toDomain);
     }
 
     @Override
@@ -89,22 +84,17 @@ public class ArticleRepositoryImpl implements ArticleRepository {
             return Uni.createFrom().item(List.of());
         }
 
-        var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false)
-                .map(this::findById)
+        var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false).map(this::findById)
                 .collect(Collectors.toList());
 
         return Uni.join().all(unis).andFailFast()
-                .map(list -> list.stream()
-                        .filter(article -> article != null)
-                        .collect(Collectors.toList()));
+                .map(list -> list.stream().filter(article -> article != null).collect(Collectors.toList()));
     }
 
     @Override
     public Uni<List<Article>> findAll() {
         return dataSource.listAll()
-                .map(entities -> entities.stream()
-                        .map(ArticleMapper::toDomain)
-                        .collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(ArticleMapper::toDomain).collect(Collectors.toList()));
     }
 
     @Override
@@ -121,12 +111,10 @@ public class ArticleRepositoryImpl implements ArticleRepository {
             return Uni.createFrom().voidItem();
         }
 
-        var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false)
-                .map(this::delete)
+        var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
                 .collect(Collectors.toList());
 
-        return Uni.join().all(unis).andFailFast()
-                .replaceWithVoid();
+        return Uni.join().all(unis).andFailFast().replaceWithVoid();
     }
 
     @Override
@@ -135,8 +123,7 @@ public class ArticleRepositoryImpl implements ArticleRepository {
             return Uni.createFrom().voidItem();
         }
 
-        return dataSource.deleteByArticleId(id.value())
-                .replaceWithVoid();
+        return dataSource.deleteByArticleId(id.value()).replaceWithVoid();
     }
 
     @Override
@@ -145,12 +132,10 @@ public class ArticleRepositoryImpl implements ArticleRepository {
             return Uni.createFrom().voidItem();
         }
 
-        var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false)
-                .map(this::deleteById)
+        var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
                 .collect(Collectors.toList());
 
-        return Uni.join().all(unis).andFailFast()
-                .replaceWithVoid();
+        return Uni.join().all(unis).andFailFast().replaceWithVoid();
     }
 
     @Override
@@ -176,9 +161,7 @@ public class ArticleRepositoryImpl implements ArticleRepository {
         }
 
         return dataSource.findByArticleType(articleType.name())
-                .map(entities -> entities.stream()
-                        .map(ArticleMapper::toDomain)
-                        .collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(ArticleMapper::toDomain).collect(Collectors.toList()));
     }
 
     @Override
@@ -187,16 +170,13 @@ public class ArticleRepositoryImpl implements ArticleRepository {
             return Uni.createFrom().nullItem();
         }
 
-        return dataSource.findByAlbumId(albumId.value())
-                .map(ArticleMapper::toDomain);
+        return dataSource.findByAlbumId(albumId.value()).map(ArticleMapper::toDomain);
     }
 
     @Override
     public Uni<List<Article>> findByPublicFlag(boolean publicFlag) {
         return dataSource.findByPublicFlag(publicFlag)
-                .map(entities -> entities.stream()
-                        .map(ArticleMapper::toDomain)
-                        .collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(ArticleMapper::toDomain).collect(Collectors.toList()));
     }
 
     @Override
@@ -205,12 +185,9 @@ public class ArticleRepositoryImpl implements ArticleRepository {
             return Uni.createFrom().item(List.of());
         }
 
-        return dataSource.findByPublishedAtBetween(
-                startDate.toInstant(ZoneOffset.UTC),
-                endDate.toInstant(ZoneOffset.UTC))
-                .map(entities -> entities.stream()
-                        .map(ArticleMapper::toDomain)
-                        .collect(Collectors.toList()));
+        return dataSource
+                .findByPublishedAtBetween(startDate.toInstant(ZoneOffset.UTC), endDate.toInstant(ZoneOffset.UTC))
+                .map(entities -> entities.stream().map(ArticleMapper::toDomain).collect(Collectors.toList()));
     }
 
     @Override
@@ -220,8 +197,6 @@ public class ArticleRepositoryImpl implements ArticleRepository {
         }
 
         return dataSource.findByTitleContaining(titleKeyword)
-                .map(entities -> entities.stream()
-                        .map(ArticleMapper::toDomain)
-                        .collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(ArticleMapper::toDomain).collect(Collectors.toList()));
     }
 }
