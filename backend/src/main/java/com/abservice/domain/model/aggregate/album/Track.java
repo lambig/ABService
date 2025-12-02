@@ -3,11 +3,11 @@ package com.abservice.domain.model.aggregate.album;
 import java.time.LocalDate;
 
 import com.abservice.domain.model.EntityId;
-import com.abservice.domain.model.aggregate.artistcredit.ArtistCredit;
 import com.abservice.domain.model.entity.DomainEntity;
 import com.abservice.domain.model.vo.album.Duration;
 import com.abservice.domain.model.vo.album.Isrc;
 import com.abservice.domain.model.vo.album.TrackTitle;
+import com.abservice.domain.model.vo.common.ArtistCredit;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -36,7 +36,7 @@ public class Track implements DomainEntity<Track, Track.Id> {
     private final Id id;
     private final Integer trackNo;
     private final TrackTitle title;
-    private final ArtistCredit.Id artistCreditId; // nullable: nullの場合はAlbumのartistCreditIdを継承
+    private final ArtistCredit artistCredit; // nullable: nullの場合はAlbumのartistCreditを継承
     private final LocalDate recordingDate;
     private final String recordingPlace;
     private final Duration duration;
@@ -59,14 +59,14 @@ public class Track implements DomainEntity<Track, Track.Id> {
     }
 
     /**
-     * アーティストクレジットIDを変更
+     * アーティストクレジットを変更
      *
-     * @param newArtistCreditId
-     *            新しいアーティストクレジットID
+     * @param newArtistCredit
+     *            新しいアーティストクレジット
      * @return 更新されたTrack
      */
-    public Track changeArtistCreditId(ArtistCredit.Id newArtistCreditId) {
-        return withArtistCreditId(newArtistCreditId);
+    public Track changeArtistCredit(ArtistCredit newArtistCredit) {
+        return withArtistCredit(newArtistCredit);
     }
 
     /**

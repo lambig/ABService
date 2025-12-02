@@ -8,10 +8,10 @@ import java.util.List;
 
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.aggregate.Aggregate;
-import com.abservice.domain.model.aggregate.artistcredit.ArtistCredit;
-import com.abservice.domain.model.aggregate.event.Event;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
+import com.abservice.domain.model.vo.common.ArtistCredit;
+import com.abservice.domain.model.vo.common.EventInfo;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -36,8 +36,8 @@ public class Album implements Aggregate<Album, Album.Id> {
     private final Id id;
     private final AlbumTitle title;
     private final LocalDate releaseDate;
-    private final ArtistCredit.Id artistCreditId; // アルバム全体のアーティスト名義（必須）
-    private final Event.Id eventId; // nullable: イベント情報が不明な場合
+    private final ArtistCredit artistCredit; // アルバム全体のアーティスト名義（必須）
+    private final EventInfo eventInfo; // nullable: イベント情報が不明な場合
     private final CatalogNumber catalogNumber; // nullable
     private final List<Track> tracks;
 
@@ -67,28 +67,28 @@ public class Album implements Aggregate<Album, Album.Id> {
     }
 
     /**
-     * アーティストクレジットIDを変更
+     * アーティストクレジットを変更
      *
-     * @param newArtistCreditId
-     *            新しいアーティストクレジットID
+     * @param newArtistCredit
+     *            新しいアーティストクレジット
      * @return 更新されたAlbum
      */
-    public Album changeArtistCreditId(ArtistCredit.Id newArtistCreditId) {
-        if (newArtistCreditId == null) {
-            throw new IllegalArgumentException("Artist credit ID cannot be null");
+    public Album changeArtistCredit(ArtistCredit newArtistCredit) {
+        if (newArtistCredit == null) {
+            throw new IllegalArgumentException("Artist credit cannot be null");
         }
-        return withArtistCreditId(newArtistCreditId);
+        return withArtistCredit(newArtistCredit);
     }
 
     /**
-     * イベントIDを変更
+     * イベント情報を変更
      *
-     * @param newEventId
-     *            新しいイベントID
+     * @param newEventInfo
+     *            新しいイベント情報
      * @return 更新されたAlbum
      */
-    public Album changeEventId(Event.Id newEventId) {
-        return withEventId(newEventId);
+    public Album changeEventInfo(EventInfo newEventInfo) {
+        return withEventInfo(newEventInfo);
     }
 
     /**

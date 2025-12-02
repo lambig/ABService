@@ -1,8 +1,6 @@
 package com.abservice.infrastructure.persistence.repository;
 
 import com.abservice.domain.model.aggregate.album.Album;
-import com.abservice.domain.model.aggregate.artistcredit.ArtistCredit;
-import com.abservice.domain.model.aggregate.event.Event;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.repository.album.AlbumRepository;
@@ -46,8 +44,12 @@ public class AlbumRepositoryImpl implements AlbumRepository {
                     // エンティティの更新
                     existingEntity.setTitle(entity.getTitle());
                     existingEntity.setReleaseDate(entity.getReleaseDate());
-                    existingEntity.setArtistCreditId(entity.getArtistCreditId());
-                    existingEntity.setEventId(entity.getEventId());
+                    existingEntity.setArtistDisplayName(entity.getArtistDisplayName());
+                    existingEntity.setArtistSortKey(entity.getArtistSortKey());
+                    existingEntity.setEventName(entity.getEventName());
+                    existingEntity.setEventDate(entity.getEventDate());
+                    existingEntity.setEventPlace(entity.getEventPlace());
+                    existingEntity.setEventNote(entity.getEventNote());
                     existingEntity.setCatalogNumber(entity.getCatalogNumber());
 
                     // トラックを更新
@@ -176,22 +178,22 @@ public class AlbumRepositoryImpl implements AlbumRepository {
     }
 
     @Override
-    public Uni<List<Album>> findByArtistCreditId(ArtistCredit.Id artistCreditId) {
-        if (artistCreditId == null) {
+    public Uni<List<Album>> findByArtistName(String artistName) {
+        if (artistName == null || artistName.isBlank()) {
             return Uni.createFrom().item(List.of());
         }
 
-        return dataSource.findByArtistCreditId(artistCreditId.value())
+        return dataSource.findByArtistDisplayName(artistName)
                 .map(entities -> entities.stream().map(AlbumMapper::toDomain).collect(Collectors.toList()));
     }
 
     @Override
-    public Uni<List<Album>> findByEventId(Event.Id eventId) {
-        if (eventId == null) {
+    public Uni<List<Album>> findByEventName(String eventName) {
+        if (eventName == null || eventName.isBlank()) {
             return Uni.createFrom().item(List.of());
         }
 
-        return dataSource.findByEventId(eventId.value())
+        return dataSource.findByEventName(eventName)
                 .map(entities -> entities.stream().map(AlbumMapper::toDomain).collect(Collectors.toList()));
     }
 

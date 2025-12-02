@@ -69,25 +69,25 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
     }
 
     /**
-     * アーティストクレジットIDでアルバムを検索
+     * アーティスト表示名でアルバムを検索
      *
-     * @param artistCreditId
-     *            アーティストクレジットID (domain_id)
+     * @param artistDisplayName
+     *            アーティスト表示名
      * @return 該当するアルバムのリスト
      */
-    public Uni<List<AlbumEntity>> findByArtistCreditId(String artistCreditId) {
-        return list("artistCreditId", artistCreditId);
+    public Uni<List<AlbumEntity>> findByArtistDisplayName(String artistDisplayName) {
+        return list("artistDisplayName", artistDisplayName);
     }
 
     /**
-     * イベントIDでアルバムを検索
+     * イベント名でアルバムを検索
      *
-     * @param eventId
-     *            イベントID (domain_id)
+     * @param eventName
+     *            イベント名
      * @return 該当するアルバムのリスト
      */
-    public Uni<List<AlbumEntity>> findByEventId(String eventId) {
-        return list("eventId", eventId);
+    public Uni<List<AlbumEntity>> findByEventName(String eventName) {
+        return list("eventName", eventName);
     }
 
     /**

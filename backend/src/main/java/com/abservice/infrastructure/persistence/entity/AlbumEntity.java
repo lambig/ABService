@@ -48,11 +48,25 @@ public class AlbumEntity extends AuditableEntity {
     @Column(name = "release_date")
     private LocalDate releaseDate;
 
-    @Column(name = "artist_credit_id", nullable = false, columnDefinition = "UUID")
-    private String artistCreditId;
+    // Artist Credit (Value Object)
+    @Column(name = "artist_display_name", nullable = false, length = 255)
+    private String artistDisplayName;
 
-    @Column(name = "event_id", columnDefinition = "UUID")
-    private String eventId;
+    @Column(name = "artist_sort_key", length = 255)
+    private String artistSortKey;
+
+    // Event Info (Value Object)
+    @Column(name = "event_name", length = 255)
+    private String eventName;
+
+    @Column(name = "event_date")
+    private LocalDate eventDate;
+
+    @Column(name = "event_place", length = 255)
+    private String eventPlace;
+
+    @Column(name = "event_note", columnDefinition = "TEXT")
+    private String eventNote;
 
     @Column(name = "catalog_number", length = 100)
     private String catalogNumber;

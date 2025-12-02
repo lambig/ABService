@@ -53,8 +53,12 @@ public class TrackEntity extends AuditableEntity {
     @Column(name = "title", nullable = false, length = 255)
     private String title;
 
-    @Column(name = "artist_credit_id", columnDefinition = "UUID")
-    private String artistCreditId;
+    // Artist Credit (Value Object) - nullable: nullの場合はAlbumのartistCreditを継承
+    @Column(name = "artist_display_name", length = 255)
+    private String artistDisplayName;
+
+    @Column(name = "artist_sort_key", length = 255)
+    private String artistSortKey;
 
     @Column(name = "recording_date")
     private LocalDate recordingDate;

@@ -1,8 +1,6 @@
 package com.abservice.domain.repository.album;
 
 import com.abservice.domain.model.aggregate.album.Album;
-import com.abservice.domain.model.aggregate.artistcredit.ArtistCredit;
-import com.abservice.domain.model.aggregate.event.Event;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.repository.Repository;
@@ -27,22 +25,22 @@ public interface AlbumRepository extends Repository<Album, Album.Id> {
     Uni<java.util.List<Album>> findByTitle(AlbumTitle title);
 
     /**
-     * アーティストクレジットIDでアルバムを検索
+     * アーティスト名でアルバムを検索
      *
-     * @param artistCreditId
-     *            アーティストクレジットID
+     * @param artistName
+     *            アーティスト名
      * @return 該当するアルバムのリスト
      */
-    Uni<java.util.List<Album>> findByArtistCreditId(ArtistCredit.Id artistCreditId);
+    Uni<java.util.List<Album>> findByArtistName(String artistName);
 
     /**
-     * イベントIDでアルバムを検索
+     * イベント名でアルバムを検索
      *
-     * @param eventId
-     *            イベントID
+     * @param eventName
+     *            イベント名
      * @return 該当するアルバムのリスト
      */
-    Uni<java.util.List<Album>> findByEventId(Event.Id eventId);
+    Uni<java.util.List<Album>> findByEventName(String eventName);
 
     /**
      * カタログナンバーでアルバムを検索

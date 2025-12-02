@@ -3,16 +3,18 @@ package com.abservice.infrastructure.persistence.mapper;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.album.Track;
 import com.abservice.domain.model.aggregate.album.TrackTune;
-import com.abservice.domain.model.aggregate.artistcredit.ArtistCredit;
-import com.abservice.domain.model.aggregate.event.Event;
-import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Duration;
 import com.abservice.domain.model.vo.album.Isrc;
 import com.abservice.domain.model.vo.album.TrackTitle;
+import com.abservice.domain.model.vo.common.ArtistCredit;
+import com.abservice.domain.model.vo.common.ArtistCreditName;
 import com.abservice.domain.model.vo.common.Credit;
+import com.abservice.domain.model.vo.common.EventInfo;
 import com.abservice.domain.model.vo.common.Url;
+import com.abservice.domain.model.vo.event.EventName;
+import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.infrastructure.persistence.entity.AlbumEntity;
 import com.abservice.infrastructure.persistence.entity.TrackEntity;
 import com.abservice.infrastructure.persistence.entity.TrackTuneEntity;
@@ -50,9 +52,19 @@ public class AlbumMapper {
                 ? entity.getTracks().stream().map(AlbumMapper::trackToDomain).collect(Collectors.toList())
                 : Collections.<Track>emptyList();
 
+        // ArtistCredit (VO) を構築
+        var artistCredit = new ArtistCredit(new ArtistCreditName(entity.getArtistDisplayName()),
+                entity.getArtistSortKey());
+
+        // EventInfo (VO) を構築
+        EventInfo eventInfo = null;
+        if (entity.getEventName() != null) {
+            eventInfo = new EventInfo(new EventName(entity.getEventName()), entity.getEventDate(),
+                    entity.getEventPlace(), entity.getEventNote());
+        }
+
         return new Album(new Album.Id(entity.getDomainId()), new AlbumTitle(entity.getTitle()), entity.getReleaseDate(),
-                new ArtistCredit.Id(entity.getArtistCreditId()),
-                entity.getEventId() != null ? new Event.Id(entity.getEventId()) : null,
+                artistCredit, eventInfo,
                 entity.getCatalogNumber() != null ? new CatalogNumber(entity.getCatalogNumber()) : null, tracks);
     }
 
@@ -72,8 +84,19 @@ public class AlbumMapper {
         albumEntity.setDomainId(album.id().value());
         albumEntity.setTitle(album.title().value());
         albumEntity.setReleaseDate(album.releaseDate());
-        albumEntity.setArtistCreditId(album.artistCreditId().value());
-        albumEntity.setEventId(album.eventId() != null ? album.eventId().value() : null);
+
+        // ArtistCredit (VO) を分解
+        albumEntity.setArtistDisplayName(album.artistCredit().displayName().value());
+        albumEntity.setArtistSortKey(album.artistCredit().sortKey());
+
+        // EventInfo (VO) を分解
+        if (album.eventInfo() != null) {
+            albumEntity.setEventName(album.eventInfo().name().value());
+            albumEntity.setEventDate(album.eventInfo().date());
+            albumEntity.setEventPlace(album.eventInfo().place());
+            albumEntity.setEventNote(album.eventInfo().note());
+        }
+
         albumEntity.setCatalogNumber(album.catalogNumber() != null ? album.catalogNumber().value() : null);
 
         // トラックを変換
@@ -102,9 +125,15 @@ public class AlbumMapper {
                 ? entity.getTrackTunes().stream().map(AlbumMapper::trackTuneToDomain).collect(Collectors.toList())
                 : Collections.<TrackTune>emptyList();
 
+        // ArtistCredit (VO) を構築 - nullの場合はAlbumから継承
+        ArtistCredit artistCredit = null;
+        if (entity.getArtistDisplayName() != null) {
+            artistCredit = new ArtistCredit(new ArtistCreditName(entity.getArtistDisplayName()),
+                    entity.getArtistSortKey());
+        }
+
         return new Track(new Track.Id(entity.getDomainId()), entity.getTrackNo(), new TrackTitle(entity.getTitle()),
-                entity.getArtistCreditId() != null ? new ArtistCredit.Id(entity.getArtistCreditId()) : null,
-                entity.getRecordingDate(), entity.getRecordingPlace(),
+                artistCredit, entity.getRecordingDate(), entity.getRecordingPlace(),
                 entity.getDurationMsec() != null ? new Duration(entity.getDurationMsec()) : null, entity.getIsLive(),
                 entity.getIsrc() != null ? new Isrc(entity.getIsrc()) : null, trackTunes);
     }
@@ -128,7 +157,13 @@ public class AlbumMapper {
         trackEntity.setAlbum(albumEntity);
         trackEntity.setTrackNo(track.trackNo());
         trackEntity.setTitle(track.title().value());
-        trackEntity.setArtistCreditId(track.artistCreditId() != null ? track.artistCreditId().value() : null);
+
+        // ArtistCredit (VO) を分解
+        if (track.artistCredit() != null) {
+            trackEntity.setArtistDisplayName(track.artistCredit().displayName().value());
+            trackEntity.setArtistSortKey(track.artistCredit().sortKey());
+        }
+
         trackEntity.setRecordingDate(track.recordingDate());
         trackEntity.setRecordingPlace(track.recordingPlace());
         trackEntity.setDurationMsec(track.duration() != null ? track.duration().milliseconds() : null);
