@@ -46,8 +46,8 @@ import com.abservice.domain.model.entity.DomainEntity;
  *
  * // ❌ 間違い: オブジェクト参照
  * public record Album(AlbumId id, DriverLicense driverLicense) // 集約境界違反
- * 		implements
- * 			Aggregate<Album, AlbumId> {
+ *         implements
+ *             Aggregate<Album, AlbumId> {
  * }
  * }</pre>
  *

@@ -16,8 +16,8 @@ import java.time.Instant;
  */
 @ApplicationScoped
 public class SystemBusinessDateTimeProvider implements BusinessDateTimeProvider {
-	@Override
-	public Uni<BusinessDateTime> now() {
-		return Uni.createFrom().item(() -> BusinessDateTime.of(Instant.now()));
-	}
+    @Override
+    public Uni<BusinessDateTime> now() {
+        return Uni.createFrom().item(() -> BusinessDateTime.of(Instant.now()));
+    }
 }

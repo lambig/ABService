@@ -69,18 +69,18 @@ import io.smallrye.mutiny.Uni;
  *            生成パラメータの型
  */
 public interface Factory<T extends Aggregate<T, ?>, P extends Factory.Params> {
-	/**
-	 * 集約を生成する
-	 *
-	 * @param params
-	 *            生成パラメータ
-	 * @return 生成された集約を含むUni
-	 */
-	Uni<T> create(P params);
+    /**
+     * 集約を生成する
+     *
+     * @param params
+     *            生成パラメータ
+     * @return 生成された集約を含むUni
+     */
+    Uni<T> create(P params);
 
-	/**
-	 * ファクトリのパラメータマーカーインターフェース
-	 */
-	interface Params {
-	}
+    /**
+     * ファクトリのパラメータマーカーインターフェース
+     */
+    interface Params {
+    }
 }

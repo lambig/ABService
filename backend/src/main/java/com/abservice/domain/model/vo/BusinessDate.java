@@ -45,84 +45,84 @@ import java.time.LocalDate;
  */
 public record BusinessDate(LocalDate value) implements ValueObject<BusinessDate>, Comparable<BusinessDate> {
 
-	/**
-	 * {@link LocalDate}として取得
-	 *
-	 * @return 内部の{@link LocalDate}値
-	 */
-	public LocalDate asLocalDate() {
-		return value;
-	}
+    /**
+     * {@link LocalDate}として取得
+     *
+     * @return 内部の{@link LocalDate}値
+     */
+    public LocalDate asLocalDate() {
+        return value;
+    }
 
-	/**
-	 * {@link BusinessDateTime}に変換（その日の00:00:00として）
-	 *
-	 * <p>
-	 * ビジネスタイムゾーン（Asia/Tokyo）のその日の開始時刻（00:00:00）として {@link BusinessDateTime}に変換します。
-	 * </p>
-	 *
-	 * <pre>{@code
-	 * BusinessDate businessDate = BusinessDate.of(LocalDate.of(2025, 1, 1));
-	 * BusinessDateTime businessDateTime = businessDate.asBusinessDateTime();
-	 * // -> 2025-01-01T00:00:00 Asia/Tokyo
-	 * }</pre>
-	 *
-	 * @return その日の00:00:00を表す{@link BusinessDateTime}
-	 */
-	public BusinessDateTime asBusinessDateTime() {
-		return BusinessDateTime.of(value);
-	}
+    /**
+     * {@link BusinessDateTime}に変換（その日の00:00:00として）
+     *
+     * <p>
+     * ビジネスタイムゾーン（Asia/Tokyo）のその日の開始時刻（00:00:00）として {@link BusinessDateTime}に変換します。
+     * </p>
+     *
+     * <pre>{@code
+     * BusinessDate businessDate = BusinessDate.of(LocalDate.of(2025, 1, 1));
+     * BusinessDateTime businessDateTime = businessDate.asBusinessDateTime();
+     * // -> 2025-01-01T00:00:00 Asia/Tokyo
+     * }</pre>
+     *
+     * @return その日の00:00:00を表す{@link BusinessDateTime}
+     */
+    public BusinessDateTime asBusinessDateTime() {
+        return BusinessDateTime.of(value);
+    }
 
-	@Override
-	public boolean equivalentTo(BusinessDate other) {
-		if (other == null) {
-			return false;
-		}
-		return this.value.equals(other.value);
-	}
+    @Override
+    public boolean equivalentTo(BusinessDate other) {
+        if (other == null) {
+            return false;
+        }
+        return this.value.equals(other.value);
+    }
 
-	@Override
-	public int compareTo(BusinessDate other) {
-		return value.compareTo(other.value);
-	}
+    @Override
+    public int compareTo(BusinessDate other) {
+        return value.compareTo(other.value);
+    }
 
-	/**
-	 * {@link LocalDate}からビジネス日付を生成
-	 *
-	 * <pre>{@code
-	 * // 直接生成
-	 * BusinessDate businessDate = BusinessDate.of(LocalDate.of(2025, 1, 1));
-	 *
-	 * // 文字列をパースして生成
-	 * BusinessDate businessDate = BusinessDate.of(LocalDate.parse("2025-01-01"));
-	 * }</pre>
-	 *
-	 * @param localDate
-	 *            日付
-	 * @return ビジネス日付
-	 */
-	public static BusinessDate of(LocalDate localDate) {
-		return new BusinessDate(localDate);
-	}
+    /**
+     * {@link LocalDate}からビジネス日付を生成
+     *
+     * <pre>{@code
+     * // 直接生成
+     * BusinessDate businessDate = BusinessDate.of(LocalDate.of(2025, 1, 1));
+     *
+     * // 文字列をパースして生成
+     * BusinessDate businessDate = BusinessDate.of(LocalDate.parse("2025-01-01"));
+     * }</pre>
+     *
+     * @param localDate
+     *            日付
+     * @return ビジネス日付
+     */
+    public static BusinessDate of(LocalDate localDate) {
+        return new BusinessDate(localDate);
+    }
 
-	/**
-	 * {@link BusinessDateTime}からビジネス日付を生成
-	 *
-	 * <p>
-	 * {@link BusinessDateTime}の日付部分を抽出して{@link BusinessDate}を生成します。
-	 * ビジネスタイムゾーン（Asia/Tokyo）での日付が使用されます。
-	 * </p>
-	 *
-	 * <pre>{@code
-	 * BusinessDateTime businessDateTime = BusinessDateTime.of(Instant.now());
-	 * BusinessDate businessDate = BusinessDate.of(businessDateTime);
-	 * }</pre>
-	 *
-	 * @param businessDateTime
-	 *            ビジネス日時
-	 * @return ビジネス日付
-	 */
-	public static BusinessDate of(BusinessDateTime businessDateTime) {
-		return new BusinessDate(businessDateTime.asLocalDate());
-	}
+    /**
+     * {@link BusinessDateTime}からビジネス日付を生成
+     *
+     * <p>
+     * {@link BusinessDateTime}の日付部分を抽出して{@link BusinessDate}を生成します。
+     * ビジネスタイムゾーン（Asia/Tokyo）での日付が使用されます。
+     * </p>
+     *
+     * <pre>{@code
+     * BusinessDateTime businessDateTime = BusinessDateTime.of(Instant.now());
+     * BusinessDate businessDate = BusinessDate.of(businessDateTime);
+     * }</pre>
+     *
+     * @param businessDateTime
+     *            ビジネス日時
+     * @return ビジネス日付
+     */
+    public static BusinessDate of(BusinessDateTime businessDateTime) {
+        return new BusinessDate(businessDateTime.asLocalDate());
+    }
 }

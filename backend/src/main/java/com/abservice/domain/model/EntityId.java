@@ -20,35 +20,35 @@ import java.util.UUID;
  *            このIDが属するエンティティの型
  */
 public interface EntityId<T extends DomainObject<T>> extends Comparable<EntityId<T>> {
-	/**
-	 * IDの実際の値（UUIDv7形式の文字列）
-	 */
-	String value();
+    /**
+     * IDの実際の値（UUIDv7形式の文字列）
+     */
+    String value();
 
-	/**
-	 * デフォルト実装：値による比較
-	 */
-	@Override
-	default int compareTo(EntityId<T> other) {
-		return this.value().compareTo(other.value());
-	}
+    /**
+     * デフォルト実装：値による比較
+     */
+    @Override
+    default int compareTo(EntityId<T> other) {
+        return this.value().compareTo(other.value());
+    }
 
-	/**
-	 * UUID v7を生成する
-	 */
-	static String generateUuidV7() {
-		return Generators.timeBasedEpochGenerator().generate().toString();
-	}
+    /**
+     * UUID v7を生成する
+     */
+    static String generateUuidV7() {
+        return Generators.timeBasedEpochGenerator().generate().toString();
+    }
 
-	/**
-	 * 文字列がUUID形式かどうかを検証する
-	 */
-	static boolean isValidUuid(String value) {
-		try {
-			UUID.fromString(value);
-			return true;
-		} catch (IllegalArgumentException e) {
-			return false;
-		}
-	}
+    /**
+     * 文字列がUUID形式かどうかを検証する
+     */
+    static boolean isValidUuid(String value) {
+        try {
+            UUID.fromString(value);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
 }

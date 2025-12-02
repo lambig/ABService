@@ -34,23 +34,23 @@ import io.smallrye.mutiny.Uni;
  * </ul>
  */
 public interface BusinessDateTimeProvider extends DomainService {
-	/**
-	 * 現在のビジネス日時を取得
-	 *
-	 * @return 現在のビジネス日時を含むUni
-	 */
-	Uni<BusinessDateTime> now();
+    /**
+     * 現在のビジネス日時を取得
+     *
+     * @return 現在のビジネス日時を含むUni
+     */
+    Uni<BusinessDateTime> now();
 
-	/**
-	 * 現在のビジネス日付を取得
-	 *
-	 * <p>
-	 * デフォルト実装では{@link #now()}から日付部分を抽出して返します。 各実装クラスでオーバーライドする必要はありません。
-	 * </p>
-	 *
-	 * @return 現在のビジネス日付を含むUni
-	 */
-	default Uni<BusinessDate> today() {
-		return now().map(BusinessDate::of);
-	}
+    /**
+     * 現在のビジネス日付を取得
+     *
+     * <p>
+     * デフォルト実装では{@link #now()}から日付部分を抽出して返します。 各実装クラスでオーバーライドする必要はありません。
+     * </p>
+     *
+     * @return 現在のビジネス日付を含むUni
+     */
+    default Uni<BusinessDate> today() {
+        return now().map(BusinessDate::of);
+    }
 }

@@ -85,9 +85,10 @@ spotless {
     java {
         target 'src/**/*.java'
         // Use Eclipse JDT formatter for Java 25 compatibility
-        eclipse('4.32')
+        eclipse('4.32').configFile("${projectDir}/config/spotless/eclipse-formatter.xml")
         removeUnusedImports()
         trimTrailingWhitespace()
+        replaceRegex 'Remove tabs', '\t', '    '  // タブを4スペースに変換
         endWithNewline()
     }
 }
