@@ -13,6 +13,17 @@ dependencies {
     implementation 'io.quarkus:quarkus-rest'
     implementation 'io.quarkus:quarkus-rest-jackson'
     implementation 'io.quarkus:quarkus-arc'
+    
+    // Mutiny（Reactive Streamsライブラリ）
+    implementation 'io.smallrye.reactive:mutiny'
+    
+    // UUID v7生成用（業務IDに使用）
+    implementation 'com.fasterxml.uuid:java-uuid-generator:5.1.0'
+    
+    // Lombok（Java 25対応版）- @Withによる不変更新パターン、@Getter/@Setter等に使用
+    compileOnly 'org.projectlombok:lombok:1.18.42'
+    annotationProcessor 'org.projectlombok:lombok:1.18.42'
+    
     testImplementation 'io.quarkus:quarkus-junit5'
     testImplementation 'io.rest-assured:rest-assured'
     testImplementation 'org.assertj:assertj-core:3.27.1'

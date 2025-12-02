@@ -74,6 +74,71 @@ ABServiceは、モノリポジトリ構成で構築されたWebサービスで�
 
 ## データアクセス層
 
+### ドメインモデル設計
+
+ABServiceのバックエンドは、ドメイン駆動設計（DDD）の原則に基づいて設計されています。
+
+#### ドメインオブジェクト階層
+
+```
+DomainObject<T>
+├── ValueObject<T>              // 値で識別されるオブジェクト
+└── DomainEntity<T, ID>         // IDで識別されるオブジェクト
+    └── Aggregate<T, ID>        // 永続化境界を持つエンティティ
+```
+
+#### 値オブジェクト（Value Object）
+
+- **不変性**: 一度生成されたら状態を変更できない
+- **等価性**: すべての属性が等しければ等価
+- **副作用なし**: メソッド実行が状態を変更しない
+- **実装**: Java Records推奨（Lombokは不要、Recordで十分）
+
+#### エンティティ（Entity）
+
+- **同一性**: 一意な識別子（ID）によって区別
+- **不変更新パターン**: Lombok `@With(AccessLevel.PRIVATE)`による状態変更（新しいインスタンスを返す）
+- **Setterの禁止**: 不変性を保つ
+- **実装**: Lombok `@With(AccessLevel.PRIVATE)`, `@Getter`, `@AllArgsConstructor`, `@EqualsAndHashCode`を推奨
+- **原則**: witherメソッドはprivateにし、業務的な意味を持つpublicメソッドを提供すること
+
+#### 集約（Aggregate）
+
+- **整合性境界**: トランザクション境界
+- **永続化単位**: Repositoryは集約ルートにのみ提供
+- **ID参照**: 集約間はIDで参照（オブジェクト参照禁止）
+
+### 業務日付/日時
+
+#### BusinessDate / BusinessDateTime
+
+- **タイムゾーン**: Asia/Tokyo固定
+- **内部表現**: LocalDate / Instant
+- **テスト容易性**: BusinessDateTimeProviderで抽象化
+
+#### BusinessDateTimeProvider
+
+- **役割**: 現在時刻の取得を抽象化
+- **使用箇所**: ApplicationService/DomainServiceのみ
+- **実装**:
+  - `SystemBusinessDateTimeProvider`: 本番用（リアルタイム）
+  - テスト用実装（固定時刻）も追加可能
+
+### DomainServiceとFactory
+
+#### DomainService
+
+- **適用パターン**:
+  - 複数集約の協調
+  - 一意性チェック
+  - 複雑な計算
+- **原則**: ステートレス、リアクティブ（Uni<T>返却）
+
+#### Factory
+
+- **役割**: 複雑な集約の生成ロジックをカプセル化
+- **適用**: 外部依存を伴う生成、複雑なバリデーション
+
 ### Blaze-Persistence採用理由
 - **高度なクエリ機能**: JPAのCriteria APIを拡張
 - **エンティティビュー**: DTOの効率的なマッピング
