@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SystemBusinessDateTimeProviderTest {
 
     @Inject
-    SystemBusinessDateTimeProvider provider;
+    private SystemBusinessDateTimeProvider provider;
 
     @Test
     void testNow() {
