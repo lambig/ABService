@@ -1,6 +1,5 @@
 package com.abservice.domain.model.aggregate.album;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -11,6 +10,7 @@ import com.abservice.domain.model.aggregate.Aggregate;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.common.ArtistCredit;
+import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -35,7 +35,7 @@ public class Album implements Aggregate<Album, Album.Id> {
     @EqualsAndHashCode.Include
     private final Id id;
     private final AlbumTitle title;
-    private final LocalDate releaseDate;
+    private final BusinessDate releaseDate;
     private final ArtistCredit artistCredit; // アルバム全体のアーティスト名義（必須）
     private final EventReleasedAt eventReleasedAt; // nullable: イベント頒布情報が不明な場合
     private final CatalogNumber catalogNumber; // nullable
@@ -56,7 +56,7 @@ public class Album implements Aggregate<Album, Album.Id> {
      *            カタログ番号（nullable）
      * @return 新規Album
      */
-    public static Album create(AlbumTitle title, LocalDate releaseDate, ArtistCredit artistCredit,
+    public static Album create(AlbumTitle title, BusinessDate releaseDate, ArtistCredit artistCredit,
             EventReleasedAt eventReleasedAt, CatalogNumber catalogNumber) {
         if (title == null) {
             throw new IllegalArgumentException("Album title cannot be null");
@@ -88,7 +88,7 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 再構成されたAlbum
      */
     @SuppressWarnings("checkstyle:ParameterNumber")
-    public static Album reconstruct(Id id, AlbumTitle title, LocalDate releaseDate, ArtistCredit artistCredit,
+    public static Album reconstruct(Id id, AlbumTitle title, BusinessDate releaseDate, ArtistCredit artistCredit,
             EventReleasedAt eventReleasedAt, CatalogNumber catalogNumber, List<Track> tracks) {
         return new Album(id, title, releaseDate, artistCredit, eventReleasedAt, catalogNumber, tracks);
     }
@@ -114,7 +114,7 @@ public class Album implements Aggregate<Album, Album.Id> {
      *            新しいリリース日
      * @return 更新されたAlbum
      */
-    public Album changeReleaseDate(LocalDate newReleaseDate) {
+    public Album changeReleaseDate(BusinessDate newReleaseDate) {
         return withReleaseDate(newReleaseDate);
     }
 

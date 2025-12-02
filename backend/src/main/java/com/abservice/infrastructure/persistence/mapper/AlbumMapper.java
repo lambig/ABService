@@ -10,6 +10,7 @@ import com.abservice.domain.model.vo.album.Isrc;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.ArtistCreditName;
+import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.EventDateAndSpace;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
@@ -65,13 +66,14 @@ public final class AlbumMapper {
             // 新しいテーブルから日付・スペース情報を取得
             List<EventDateAndSpace> dateAndSpaces = entity.getEventDateSpaces() != null
                     ? entity.getEventDateSpaces().stream()
-                            .map(e -> new EventDateAndSpace(e.getEventDate(), e.getSpaceNumber()))
+                            .map(e -> new EventDateAndSpace(BusinessDate.of(e.getEventDate()), e.getSpaceNumber()))
                             .collect(Collectors.toList())
                     : null;
 
             // 後方互換性：新テーブルにデータがない場合は古いカラムから取得
             if ((dateAndSpaces == null || dateAndSpaces.isEmpty()) && entity.getEventDate() != null) {
-                dateAndSpaces = List.of(new EventDateAndSpace(entity.getEventDate(), entity.getEventSpaceNumber()));
+                dateAndSpaces = List.of(
+                        new EventDateAndSpace(BusinessDate.of(entity.getEventDate()), entity.getEventSpaceNumber()));
             }
 
             eventReleasedAt = new EventReleasedAt(new EventName(entity.getEventName()), dateAndSpaces,
@@ -79,7 +81,7 @@ public final class AlbumMapper {
         }
 
         return Album.reconstruct(new Album.Id(entity.getDomainId()), new AlbumTitle(entity.getTitle()),
-                entity.getReleaseDate(), artistCredit, eventReleasedAt,
+                BusinessDate.of(entity.getReleaseDate()), artistCredit, eventReleasedAt,
                 entity.getCatalogNumber() != null ? new CatalogNumber(entity.getCatalogNumber()) : null, tracks);
     }
 
@@ -98,7 +100,7 @@ public final class AlbumMapper {
         var albumEntity = new AlbumEntity();
         albumEntity.setDomainId(album.id().value());
         albumEntity.setTitle(album.title().value());
-        albumEntity.setReleaseDate(album.releaseDate());
+        albumEntity.setReleaseDate(album.releaseDate().asLocalDate());
 
         // ArtistCredit (VO) を分解
         albumEntity.setArtistDisplayName(album.artistCredit().displayName().value());
@@ -115,7 +117,7 @@ public final class AlbumMapper {
                 var dateSpaceEntities = album.eventReleasedAt().dateAndSpaces().stream().map(ds -> {
                     var entity = new AlbumEventDateSpaceEntity();
                     entity.setAlbum(albumEntity);
-                    entity.setEventDate(ds.date());
+                    entity.setEventDate(ds.date().asLocalDate());
                     entity.setSpaceNumber(ds.spaceNumber());
                     return entity;
                 }).collect(Collectors.toList());
@@ -123,7 +125,7 @@ public final class AlbumMapper {
 
                 // 後方互換性：最初の日付・スペースを古いカラムにも保存
                 var firstDateSpace = album.eventReleasedAt().dateAndSpaces().get(0);
-                albumEntity.setEventDate(firstDateSpace.date());
+                albumEntity.setEventDate(firstDateSpace.date().asLocalDate());
                 albumEntity.setEventSpaceNumber(firstDateSpace.spaceNumber());
             }
         }
@@ -164,7 +166,9 @@ public final class AlbumMapper {
         }
 
         return Track.reconstruct(new Track.Id(entity.getDomainId()), entity.getTrackNo(),
-                new TrackTitle(entity.getTitle()), artistCredit, entity.getRecordingDate(), entity.getRecordingPlace(),
+                new TrackTitle(entity.getTitle()), artistCredit,
+                entity.getRecordingDate() != null ? BusinessDate.of(entity.getRecordingDate()) : null,
+                entity.getRecordingPlace(),
                 entity.getDurationMsec() != null ? new Duration(entity.getDurationMsec()) : null, entity.getIsLive(),
                 entity.getIsrc() != null ? new Isrc(entity.getIsrc()) : null, trackTunes);
     }
@@ -195,7 +199,7 @@ public final class AlbumMapper {
             trackEntity.setArtistSortKey(track.artistCredit().sortKey());
         }
 
-        trackEntity.setRecordingDate(track.recordingDate());
+        trackEntity.setRecordingDate(track.recordingDate() != null ? track.recordingDate().asLocalDate() : null);
         trackEntity.setRecordingPlace(track.recordingPlace());
         trackEntity.setDurationMsec(track.duration() != null ? track.duration().milliseconds() : null);
         trackEntity.setIsLive(track.isLive());

@@ -1,6 +1,5 @@
 package com.abservice.domain.model.vo.common;
 
-import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 
@@ -80,7 +79,7 @@ public class EventReleasedAt implements ValueObject<EventReleasedAt> {
      *            開催日
      * @return EventReleasedAt
      */
-    public static EventReleasedAt of(String name, LocalDate date) {
+    public static EventReleasedAt of(String name, BusinessDate date) {
         return new EventReleasedAt(new EventName(name), date != null ? List.of(EventDateAndSpace.of(date)) : null, null,
                 null);
     }
@@ -96,7 +95,7 @@ public class EventReleasedAt implements ValueObject<EventReleasedAt> {
      *            スペース番号
      * @return EventReleasedAt
      */
-    public static EventReleasedAt of(String name, LocalDate date, String spaceNumber) {
+    public static EventReleasedAt of(String name, BusinessDate date, String spaceNumber) {
         return new EventReleasedAt(new EventName(name),
                 date != null ? List.of(EventDateAndSpace.of(date, spaceNumber)) : null, null, null);
     }
@@ -119,7 +118,7 @@ public class EventReleasedAt implements ValueObject<EventReleasedAt> {
     }
 
     /**
-     * 単一の日付・スペース情報で生成（後方互換性）
+     * 単一の日付・スペース情報で生成
      *
      * @param name
      *            イベント名
@@ -133,7 +132,7 @@ public class EventReleasedAt implements ValueObject<EventReleasedAt> {
      *            補足情報
      * @return EventReleasedAt
      */
-    public static EventReleasedAt of(String name, LocalDate date, String place, String spaceNumber, String note) {
+    public static EventReleasedAt of(String name, BusinessDate date, String place, String spaceNumber, String note) {
         return new EventReleasedAt(new EventName(name),
                 date != null ? List.of(EventDateAndSpace.of(date, spaceNumber)) : null, place, note);
     }

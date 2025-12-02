@@ -7,18 +7,18 @@ CREATE TABLE IF NOT EXISTS album_event_date_space (
     album_id BIGINT NOT NULL,
     event_date DATE NOT NULL,
     space_number VARCHAR(50),
-    
+
     -- 監査カラム
     created_by VARCHAR(255) NOT NULL DEFAULT 'system',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_by VARCHAR(255) NOT NULL DEFAULT 'system',
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     version BIGINT NOT NULL DEFAULT 0,
-    
+
     -- 外部キー制約
     CONSTRAINT fk_album_event_date_space_album FOREIGN KEY (album_id)
         REFERENCES album(album_id) ON DELETE CASCADE,
-    
+
     -- 同一アルバム・同一日付でのスペース番号の一意性を保証
     CONSTRAINT uk_album_event_date UNIQUE (album_id, event_date)
 );
@@ -30,7 +30,7 @@ CREATE INDEX idx_album_event_date_space_space_number ON album_event_date_space(s
 
 -- 既存データの移行：event_dateとevent_space_numberがある場合は移行
 INSERT INTO album_event_date_space (album_id, event_date, space_number, created_by, updated_by)
-SELECT 
+SELECT
     album_id,
     event_date,
     event_space_number,

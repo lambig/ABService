@@ -1,7 +1,5 @@
 package com.abservice.domain.model.vo.common;
 
-import java.time.LocalDate;
-
 import com.abservice.domain.model.vo.ValueObject;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -19,7 +17,7 @@ import lombok.experimental.Accessors;
 @Accessors(fluent = true)
 @EqualsAndHashCode
 public class EventDateAndSpace implements ValueObject<EventDateAndSpace> {
-    private final LocalDate date;
+    private final BusinessDate date;
     private final String spaceNumber;
 
     @Override
@@ -39,7 +37,7 @@ public class EventDateAndSpace implements ValueObject<EventDateAndSpace> {
      * @param spaceNumber
      *            スペース番号（nullable、例：東A-01）
      */
-    public EventDateAndSpace(LocalDate date, String spaceNumber) {
+    public EventDateAndSpace(BusinessDate date, String spaceNumber) {
         if (date == null) {
             throw new IllegalArgumentException("Event date cannot be null");
         }
@@ -54,7 +52,7 @@ public class EventDateAndSpace implements ValueObject<EventDateAndSpace> {
      *            イベント開催日
      * @return EventDateAndSpace
      */
-    public static EventDateAndSpace of(LocalDate date) {
+    public static EventDateAndSpace of(BusinessDate date) {
         return new EventDateAndSpace(date, null);
     }
 
@@ -67,7 +65,7 @@ public class EventDateAndSpace implements ValueObject<EventDateAndSpace> {
      *            スペース番号
      * @return EventDateAndSpace
      */
-    public static EventDateAndSpace of(LocalDate date, String spaceNumber) {
+    public static EventDateAndSpace of(BusinessDate date, String spaceNumber) {
         return new EventDateAndSpace(date, spaceNumber);
     }
 }

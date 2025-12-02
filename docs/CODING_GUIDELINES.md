@@ -41,6 +41,58 @@ Java 25の型システムを最大限活用し、コンパイル時に可能な�
 
 リフレクションやマジックに頼らず、意図を明示的にコードで表現します。
 
+### 4. ドメインモデルにおける日付・日時の型使用規約
+
+ドメインモデル（集約、エンティティ、値オブジェクト）が持つ日付や日時のフィールドは、以下の値オブジェクトを使用します。
+
+#### 使用する型
+
+- **日付**: `BusinessDate` を使用
+- **日時**: `BusinessDateTime` を使用
+
+#### ✅ 推奨する実装
+
+```java
+// ✅ 推奨: BusinessDateを使用
+public class Album implements Aggregate<Album, Album.Id> {
+    private final BusinessDate releaseDate;
+    
+    public static Album create(AlbumTitle title, BusinessDate releaseDate, ...) {
+        return new Album(Id.generate(), title, releaseDate, ...);
+    }
+}
+
+// ✅ 推奨: BusinessDateTimeを使用
+public class EventInfo implements ValueObject<EventInfo> {
+    private final BusinessDateTime createdAt;
+}
+```
+
+#### ❌ 避けるべき実装
+
+```java
+// ❌ 非推奨: LocalDateを直接使用
+public class Album implements Aggregate<Album, Album.Id> {
+    private final LocalDate releaseDate;  // BusinessDateを使うべき
+}
+
+// ❌ 非推奨: LocalDateTimeを直接使用
+public class EventInfo implements ValueObject<EventInfo> {
+    private final LocalDateTime createdAt;  // BusinessDateTimeを使うべき
+}
+```
+
+#### 理由
+
+- **ビジネス概念の明確化**: 単なる技術的な日付ではなく、ビジネスタイムゾーン（Asia/Tokyo）での日付であることを型で表現
+- **型安全性の向上**: ドメイン層での日付操作を一貫した型で扱える
+- **変換処理の一元化**: タイムゾーン処理やフォーマット処理を値オブジェクトに集約
+
+#### 例外
+
+- インフラ層（JPA Entity、DataSourceなど）では`LocalDate`/`LocalDateTime`/`Instant`の使用を許可
+- アプリケーション層での変換処理（DTO ⇔ ドメインモデル間）では両方の型を扱う
+
 ---
 
 ## 命名規則
