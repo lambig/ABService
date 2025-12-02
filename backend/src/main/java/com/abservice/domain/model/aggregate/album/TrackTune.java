@@ -20,7 +20,7 @@ import lombok.experimental.Accessors;
 @With(AccessLevel.PRIVATE)
 @Getter
 @Accessors(fluent = true)
-@AllArgsConstructor
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class TrackTune {
     @EqualsAndHashCode.Include
@@ -29,6 +29,49 @@ public class TrackTune {
     private final Credit composerCreditOverride; // nullable: nullの場合はTune側のデフォルトを使用
     private final Credit arrangerCreditOverride; // nullable: nullの場合はTune側のデフォルトを使用
     private final Url linkUrl; // nullable: 外部リンク（the session, 自サイト等）
+
+    /**
+     * 新規TrackTuneを生成
+     *
+     * @param seq
+     *            シーケンス番号
+     * @param tuneId
+     *            チューンID（nullable）
+     * @param composerCreditOverride
+     *            作曲者クレジット上書き（nullable）
+     * @param arrangerCreditOverride
+     *            アレンジャークレジット上書き（nullable）
+     * @param linkUrl
+     *            リンクURL（nullable）
+     * @return 新規TrackTune
+     */
+    public static TrackTune create(Integer seq, Tune.Id tuneId, Credit composerCreditOverride,
+            Credit arrangerCreditOverride, Url linkUrl) {
+        if (seq == null) {
+            throw new IllegalArgumentException("Seq cannot be null");
+        }
+        return new TrackTune(seq, tuneId, composerCreditOverride, arrangerCreditOverride, linkUrl);
+    }
+
+    /**
+     * 永続化層からの再構成
+     *
+     * @param seq
+     *            シーケンス番号
+     * @param tuneId
+     *            チューンID（nullable）
+     * @param composerCreditOverride
+     *            作曲者クレジット上書き（nullable）
+     * @param arrangerCreditOverride
+     *            アレンジャークレジット上書き（nullable）
+     * @param linkUrl
+     *            リンクURL（nullable）
+     * @return 再構成されたTrackTune
+     */
+    public static TrackTune reconstruct(Integer seq, Tune.Id tuneId, Credit composerCreditOverride,
+            Credit arrangerCreditOverride, Url linkUrl) {
+        return new TrackTune(seq, tuneId, composerCreditOverride, arrangerCreditOverride, linkUrl);
+    }
 
     /**
      * チューンIDを変更

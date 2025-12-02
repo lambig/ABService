@@ -34,7 +34,7 @@ public final class ArticleMapper {
             return null;
         }
 
-        return new Article(new Article.Id(entity.getDomainId()), ArticleType.valueOf(entity.getArticleType()),
+        return Article.reconstruct(new Article.Id(entity.getDomainId()), ArticleType.valueOf(entity.getArticleType()),
                 entity.getAlbumId() != null ? new Album.Id(entity.getAlbumId()) : null, entity.getTitle(),
                 entity.getBody(), entity.getIntroShort(),
                 entity.getPublishedAt() != null
@@ -43,7 +43,8 @@ public final class ArticleMapper {
                 entity.getUpdatedAtBusiness() != null
                         ? LocalDateTime.ofInstant(entity.getUpdatedAtBusiness(), ZoneOffset.UTC)
                         : null,
-                entity.getIsPublic() != null ? entity.getIsPublic() : false, Collections.emptyList()); // タグは簡略化のため空リスト
+                entity.getIsPublic() != null ? entity.getIsPublic() : false, Collections.emptyList() // タグは簡略化のため空リスト
+        );
     }
 
     /**

@@ -263,17 +263,17 @@ public class Track implements DomainEntity<Track, Track.Id> {
 ```java
 // ファクトリインターフェース
 public interface AlbumFactory extends Factory<Album, AlbumFactory.CreateParams> {
-    
+
     /**
      * 新規アルバム生成
      */
     Uni<Album> create(CreateParams params);
-    
+
     /**
      * 永続化層からの再構成
      */
     Album reconstruct(ReconstructParams params);
-    
+
     /**
      * 生成パラメータ
      */
@@ -284,7 +284,7 @@ public interface AlbumFactory extends Factory<Album, AlbumFactory.CreateParams> 
         EventInfo eventInfo,
         CatalogNumber catalogNumber
     ) implements Factory.Params {}
-    
+
     /**
      * 再構成パラメータ
      */
@@ -302,13 +302,13 @@ public interface AlbumFactory extends Factory<Album, AlbumFactory.CreateParams> 
 // ファクトリ実装
 @ApplicationScoped
 public class AlbumFactoryImpl implements AlbumFactory {
-    
+
     private final AlbumRepository albumRepository;
-    
+
     public AlbumFactoryImpl(AlbumRepository albumRepository) {
         this.albumRepository = albumRepository;
     }
-    
+
     @Override
     public Uni<Album> create(CreateParams params) {
         // 複雑なバリデーション
@@ -323,7 +323,7 @@ public class AlbumFactoryImpl implements AlbumFactory {
                 Collections.emptyList()
             ));
     }
-    
+
     @Override
     public Album reconstruct(ReconstructParams params) {
         // 永続化データから再構成（バリデーション不要）
@@ -337,7 +337,7 @@ public class AlbumFactoryImpl implements AlbumFactory {
             params.tracks()
         );
     }
-    
+
     private Uni<Boolean> validateCatalogNumber(CatalogNumber catalogNumber) {
         if (catalogNumber == null) {
             return Uni.createFrom().item(true);
@@ -370,7 +370,7 @@ public record AlbumTitle(String value) implements ValueObject<AlbumTitle> {
             throw new IllegalArgumentException("アルバムタイトルは200文字以内である必要があります");
         }
     }
-    
+
     // Static factory method
     public static AlbumTitle of(String value) {
         return new AlbumTitle(value);
@@ -473,7 +473,7 @@ public class Album implements Aggregate<Album, Album.Id> {
     }
 
     // ... その他のビジネスロジック
-    
+
     /**
      * Album ID
      */

@@ -24,7 +24,7 @@ import lombok.experimental.Accessors;
 @With(AccessLevel.PRIVATE)
 @Getter
 @Accessors(fluent = true)
-@AllArgsConstructor
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
     @EqualsAndHashCode.Include
@@ -35,6 +35,59 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
     private final LabelTag labelTag; // nullable: お品書き用ラベル
     private final AlbumDistribution distribution; // nullable: 頒布情報
     private final List<AlbumAcquisitionChannel> acquisitionChannels; // 入手経路
+
+    /**
+     * 新規AlbumArticleを生成
+     *
+     * @param albumId
+     *            アルバムID
+     * @param introLong
+     *            記事本文（nullable）
+     * @param introShort
+     *            ショートコメント（nullable）
+     * @param firstEventSpace
+     *            初出イベントスペース（nullable）
+     * @param labelTag
+     *            ラベルタグ（nullable）
+     * @param distribution
+     *            頒布情報（nullable）
+     * @return 新規AlbumArticle
+     */
+    public static AlbumArticle create(Album.Id albumId, String introLong, String introShort, String firstEventSpace,
+            LabelTag labelTag, AlbumDistribution distribution) {
+        if (albumId == null) {
+            throw new IllegalArgumentException("Album ID cannot be null");
+        }
+        return new AlbumArticle(albumId, introLong, introShort, firstEventSpace, labelTag, distribution,
+                Collections.emptyList());
+    }
+
+    /**
+     * 永続化層からの再構成
+     *
+     * @param albumId
+     *            アルバムID
+     * @param introLong
+     *            記事本文（nullable）
+     * @param introShort
+     *            ショートコメント（nullable）
+     * @param firstEventSpace
+     *            初出イベントスペース（nullable）
+     * @param labelTag
+     *            ラベルタグ（nullable）
+     * @param distribution
+     *            頒布情報（nullable）
+     * @param acquisitionChannels
+     *            入手経路リスト
+     * @return 再構成されたAlbumArticle
+     */
+    @SuppressWarnings("checkstyle:ParameterNumber")
+    public static AlbumArticle reconstruct(Album.Id albumId, String introLong, String introShort,
+            String firstEventSpace, LabelTag labelTag, AlbumDistribution distribution,
+            List<AlbumAcquisitionChannel> acquisitionChannels) {
+        return new AlbumArticle(albumId, introLong, introShort, firstEventSpace, labelTag, distribution,
+                acquisitionChannels);
+    }
 
     /**
      * 紹介文を更新

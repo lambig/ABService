@@ -31,7 +31,7 @@ public final class TuneMapper {
             return null;
         }
 
-        return new Tune(new Tune.Id(entity.getDomainId()), new TuneTitle(entity.getTitle()),
+        return Tune.reconstruct(new Tune.Id(entity.getDomainId()), new TuneTitle(entity.getTitle()),
                 TuneKind.valueOf(entity.getTuneKind()),
                 entity.getDefaultComposerCredit() != null ? new Credit(entity.getDefaultComposerCredit()) : null,
                 entity.getDefaultArrangerCredit() != null ? new Credit(entity.getDefaultArrangerCredit()) : null,

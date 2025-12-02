@@ -29,7 +29,7 @@ import lombok.experimental.Accessors;
 @With(AccessLevel.PRIVATE)
 @Getter
 @Accessors(fluent = true)
-@AllArgsConstructor
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Album implements Aggregate<Album, Album.Id> {
     @EqualsAndHashCode.Include
@@ -40,6 +40,58 @@ public class Album implements Aggregate<Album, Album.Id> {
     private final EventInfo eventInfo; // nullable: イベント情報が不明な場合
     private final CatalogNumber catalogNumber; // nullable
     private final List<Track> tracks;
+
+    /**
+     * 新規アルバムを生成
+     *
+     * @param title
+     *            アルバムタイトル
+     * @param releaseDate
+     *            リリース日
+     * @param artistCredit
+     *            アーティストクレジット
+     * @param eventInfo
+     *            イベント情報（nullable）
+     * @param catalogNumber
+     *            カタログ番号（nullable）
+     * @return 新規Album
+     */
+    public static Album create(AlbumTitle title, LocalDate releaseDate, ArtistCredit artistCredit, EventInfo eventInfo,
+            CatalogNumber catalogNumber) {
+        if (title == null) {
+            throw new IllegalArgumentException("Album title cannot be null");
+        }
+        if (artistCredit == null) {
+            throw new IllegalArgumentException("Artist credit cannot be null");
+        }
+        return new Album(Id.generate(), title, releaseDate, artistCredit, eventInfo, catalogNumber,
+                Collections.emptyList());
+    }
+
+    /**
+     * 永続化層からの再構成
+     *
+     * @param id
+     *            アルバムID
+     * @param title
+     *            アルバムタイトル
+     * @param releaseDate
+     *            リリース日
+     * @param artistCredit
+     *            アーティストクレジット
+     * @param eventInfo
+     *            イベント情報（nullable）
+     * @param catalogNumber
+     *            カタログ番号（nullable）
+     * @param tracks
+     *            トラックリスト
+     * @return 再構成されたAlbum
+     */
+    @SuppressWarnings("checkstyle:ParameterNumber")
+    public static Album reconstruct(Id id, AlbumTitle title, LocalDate releaseDate, ArtistCredit artistCredit,
+            EventInfo eventInfo, CatalogNumber catalogNumber, List<Track> tracks) {
+        return new Album(id, title, releaseDate, artistCredit, eventInfo, catalogNumber, tracks);
+    }
 
     /**
      * アルバムタイトルを変更

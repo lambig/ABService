@@ -26,7 +26,7 @@ import lombok.experimental.Accessors;
 @With(AccessLevel.PRIVATE)
 @Getter
 @Accessors(fluent = true)
-@AllArgsConstructor
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Tune implements Aggregate<Tune, Tune.Id> {
     @EqualsAndHashCode.Include
@@ -40,6 +40,76 @@ public class Tune implements Aggregate<Tune, Tune.Id> {
     private final String tuneType; // リール、ジグなど
     private final String defaultKey; // 想定キー
     private final Integer defaultTempo; // BPM
+
+    /**
+     * 新規Tuneを生成
+     *
+     * @param title
+     *            タイトル
+     * @param tuneKind
+     *            チューン種別
+     * @param defaultComposerCredit
+     *            デフォルト作曲者クレジット
+     * @param defaultArrangerCredit
+     *            デフォルトアレンジャークレジット
+     * @param originalWorkTitle
+     *            原曲タイトル（nullable）
+     * @param originalWorkCredit
+     *            原曲クレジット（nullable）
+     * @param tuneType
+     *            チューンタイプ（nullable）
+     * @param defaultKey
+     *            デフォルトキー（nullable）
+     * @param defaultTempo
+     *            デフォルトテンポ（nullable）
+     * @return 新規Tune
+     */
+    @SuppressWarnings("checkstyle:ParameterNumber")
+    public static Tune create(TuneTitle title, TuneKind tuneKind, Credit defaultComposerCredit,
+            Credit defaultArrangerCredit, String originalWorkTitle, String originalWorkCredit, String tuneType,
+            String defaultKey, Integer defaultTempo) {
+        if (title == null) {
+            throw new IllegalArgumentException("Tune title cannot be null");
+        }
+        if (tuneKind == null) {
+            throw new IllegalArgumentException("Tune kind cannot be null");
+        }
+        return new Tune(Id.generate(), title, tuneKind, defaultComposerCredit, defaultArrangerCredit, originalWorkTitle,
+                originalWorkCredit, tuneType, defaultKey, defaultTempo);
+    }
+
+    /**
+     * 永続化層からの再構成
+     *
+     * @param id
+     *            ID
+     * @param title
+     *            タイトル
+     * @param tuneKind
+     *            チューン種別
+     * @param defaultComposerCredit
+     *            デフォルト作曲者クレジット
+     * @param defaultArrangerCredit
+     *            デフォルトアレンジャークレジット
+     * @param originalWorkTitle
+     *            原曲タイトル（nullable）
+     * @param originalWorkCredit
+     *            原曲クレジット（nullable）
+     * @param tuneType
+     *            チューンタイプ（nullable）
+     * @param defaultKey
+     *            デフォルトキー（nullable）
+     * @param defaultTempo
+     *            デフォルトテンポ（nullable）
+     * @return 再構成されたTune
+     */
+    @SuppressWarnings("checkstyle:ParameterNumber")
+    public static Tune reconstruct(Id id, TuneTitle title, TuneKind tuneKind, Credit defaultComposerCredit,
+            Credit defaultArrangerCredit, String originalWorkTitle, String originalWorkCredit, String tuneType,
+            String defaultKey, Integer defaultTempo) {
+        return new Tune(id, title, tuneKind, defaultComposerCredit, defaultArrangerCredit, originalWorkTitle,
+                originalWorkCredit, tuneType, defaultKey, defaultTempo);
+    }
 
     /**
      * タイトルを変更

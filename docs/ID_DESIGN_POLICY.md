@@ -214,7 +214,7 @@ public class AlbumRepositoryImpl implements AlbumRepository {
     @Override
     public Uni<Album> findById(Album.Id id) {
         return albumDataSource.findByAlbumId(id.value())
-            .onItem().transform(entity -> 
+            .onItem().transform(entity ->
                 entity != null ? albumMapper.toDomain(entity) : null
             );
     }
@@ -246,14 +246,14 @@ CREATE TABLE album (
     -- DB内部ID（主キー）
     -- インフラ層でのFK参照、JOINの最適化に使用
     id BIGSERIAL PRIMARY KEY,
-    
+
     -- ドメインID（ビジネスキー）
     -- API公開、ドメイン層との連携に使用
     album_id VARCHAR(36) NOT NULL UNIQUE,
-    
+
     -- ビジネスデータ
     title VARCHAR(200) NOT NULL,
-    
+
     -- 共通監査列
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -275,13 +275,13 @@ CREATE INDEX idx_album_title ON album(title);
 CREATE TABLE track (
     id BIGSERIAL PRIMARY KEY,
     track_id VARCHAR(36) NOT NULL UNIQUE,
-    
+
     -- FK: DB内部IDを使用（インフラ層での最適化）
     album_db_id BIGINT NOT NULL REFERENCES album(id),
-    
+
     title VARCHAR(200) NOT NULL,
     duration_seconds INTEGER,
-    
+
     -- 共通監査列
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -410,7 +410,7 @@ void testAlbumCreation() {
         albumId,
         new AlbumTitle("Test Album")
     );
-    
+
     assertEquals(albumId, album.id());
     assertTrue(EntityId.isValidUuid(album.id().value()));
 }
@@ -427,14 +427,14 @@ void testSaveAndFindById() {
         Album.Id.generate(),
         new AlbumTitle("Integration Test Album")
     );
-    
+
     // When: 保存
     var savedAlbum = albumRepository.save(album).await().indefinitely();
-    
+
     // Then: ドメインIDで検索可能
     var foundAlbum = albumRepository.findById(savedAlbum.id())
         .await().indefinitely();
-    
+
     assertEquals(savedAlbum.id(), foundAlbum.id());
     assertEquals(savedAlbum.title(), foundAlbum.title());
 }

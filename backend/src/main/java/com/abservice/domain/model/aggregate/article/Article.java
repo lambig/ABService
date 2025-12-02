@@ -28,7 +28,7 @@ import lombok.experimental.Accessors;
 @With(AccessLevel.PRIVATE)
 @Getter
 @Accessors(fluent = true)
-@AllArgsConstructor
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Article implements Aggregate<Article, Article.Id> {
     @EqualsAndHashCode.Include
@@ -42,6 +42,66 @@ public class Article implements Aggregate<Article, Article.Id> {
     private final LocalDateTime updatedAtBusiness; // nullable: 更新日（「修正した」意味。監査とは別概念）
     private final boolean publicFlag; // 公開/非公開フラグ
     private final List<ArticleTag> tags; // 記事タグのリスト
+
+    /**
+     * 新規記事を生成
+     *
+     * @param articleType
+     *            記事種別
+     * @param albumId
+     *            アルバムID（nullable）
+     * @param title
+     *            タイトル
+     * @param body
+     *            本文
+     * @param introShort
+     *            ショート紹介文（nullable）
+     * @return 新規Article
+     */
+    public static Article create(ArticleType articleType, Album.Id albumId, String title, String body,
+            String introShort) {
+        if (articleType == null) {
+            throw new IllegalArgumentException("Article type cannot be null");
+        }
+        if (title == null || title.isBlank()) {
+            throw new IllegalArgumentException("Article title cannot be null or blank");
+        }
+        return new Article(Id.generate(), articleType, albumId, title, body, introShort, null, null, false,
+                Collections.emptyList());
+    }
+
+    /**
+     * 永続化層からの再構成
+     *
+     * @param id
+     *            記事ID
+     * @param articleType
+     *            記事種別
+     * @param albumId
+     *            アルバムID（nullable）
+     * @param title
+     *            タイトル
+     * @param body
+     *            本文
+     * @param introShort
+     *            ショート紹介文（nullable）
+     * @param publishedAt
+     *            公開日（nullable）
+     * @param updatedAtBusiness
+     *            更新日（nullable）
+     * @param publicFlag
+     *            公開フラグ
+     * @param tags
+     *            タグリスト
+     * @return 再構成されたArticle
+     */
+    @SuppressWarnings("checkstyle:ParameterNumber")
+    public static Article reconstruct(Id id, ArticleType articleType, Album.Id albumId, String title, String body,
+            String introShort, LocalDateTime publishedAt, LocalDateTime updatedAtBusiness, boolean publicFlag,
+            List<ArticleTag> tags) {
+        return new Article(id, articleType, albumId, title, body, introShort, publishedAt, updatedAtBusiness,
+                publicFlag, tags);
+    }
 
     /**
      * 記事タイトルを変更

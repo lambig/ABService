@@ -29,7 +29,7 @@ import java.util.List;
 @With(AccessLevel.PACKAGE)
 @Getter
 @Accessors(fluent = true)
-@AllArgsConstructor
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Track implements DomainEntity<Track, Track.Id> {
     @EqualsAndHashCode.Include
@@ -43,6 +43,70 @@ public class Track implements DomainEntity<Track, Track.Id> {
     private final Boolean isLive;
     private final Isrc isrc;
     private final List<TrackTune> tunes;
+
+    /**
+     * 新規トラックを生成
+     *
+     * @param trackNo
+     *            トラック番号
+     * @param title
+     *            トラックタイトル
+     * @param artistCredit
+     *            アーティストクレジット（nullable）
+     * @param recordingDate
+     *            録音日
+     * @param recordingPlace
+     *            録音場所
+     * @param duration
+     *            再生時間
+     * @param isLive
+     *            ライブフラグ
+     * @param isrc
+     *            ISRC
+     * @return 新規Track
+     */
+    @SuppressWarnings("checkstyle:ParameterNumber")
+    public static Track create(Integer trackNo, TrackTitle title, ArtistCredit artistCredit, LocalDate recordingDate,
+            String recordingPlace, Duration duration, Boolean isLive, Isrc isrc) {
+        if (title == null) {
+            throw new IllegalArgumentException("Track title cannot be null");
+        }
+        return new Track(Id.generate(), trackNo, title, artistCredit, recordingDate, recordingPlace, duration, isLive,
+                isrc, Collections.emptyList());
+    }
+
+    /**
+     * 永続化層からの再構成
+     *
+     * @param id
+     *            トラックID
+     * @param trackNo
+     *            トラック番号
+     * @param title
+     *            トラックタイトル
+     * @param artistCredit
+     *            アーティストクレジット（nullable）
+     * @param recordingDate
+     *            録音日
+     * @param recordingPlace
+     *            録音場所
+     * @param duration
+     *            再生時間
+     * @param isLive
+     *            ライブフラグ
+     * @param isrc
+     *            ISRC
+     * @param tunes
+     *            チューンリスト
+     * @return 再構成されたTrack
+     */
+    @SuppressWarnings("checkstyle:ParameterNumber")
+    public static Track reconstruct(Id id, Integer trackNo, TrackTitle title, ArtistCredit artistCredit,
+            LocalDate recordingDate, String recordingPlace, Duration duration, Boolean isLive, Isrc isrc,
+            List<TrackTune> tunes) {
+        return new Track(id, trackNo, title, artistCredit, recordingDate, recordingPlace, duration, isLive, isrc,
+                tunes);
+    }
 
     /**
      * トラックタイトルを変更

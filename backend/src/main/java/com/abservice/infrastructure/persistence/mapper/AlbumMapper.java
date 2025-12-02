@@ -63,8 +63,8 @@ public final class AlbumMapper {
                     entity.getEventPlace(), entity.getEventNote());
         }
 
-        return new Album(new Album.Id(entity.getDomainId()), new AlbumTitle(entity.getTitle()), entity.getReleaseDate(),
-                artistCredit, eventInfo,
+        return Album.reconstruct(new Album.Id(entity.getDomainId()), new AlbumTitle(entity.getTitle()),
+                entity.getReleaseDate(), artistCredit, eventInfo,
                 entity.getCatalogNumber() != null ? new CatalogNumber(entity.getCatalogNumber()) : null, tracks);
     }
 
@@ -132,8 +132,8 @@ public final class AlbumMapper {
                     entity.getArtistSortKey());
         }
 
-        return new Track(new Track.Id(entity.getDomainId()), entity.getTrackNo(), new TrackTitle(entity.getTitle()),
-                artistCredit, entity.getRecordingDate(), entity.getRecordingPlace(),
+        return Track.reconstruct(new Track.Id(entity.getDomainId()), entity.getTrackNo(),
+                new TrackTitle(entity.getTitle()), artistCredit, entity.getRecordingDate(), entity.getRecordingPlace(),
                 entity.getDurationMsec() != null ? new Duration(entity.getDurationMsec()) : null, entity.getIsLive(),
                 entity.getIsrc() != null ? new Isrc(entity.getIsrc()) : null, trackTunes);
     }
@@ -192,7 +192,7 @@ public final class AlbumMapper {
             return null;
         }
 
-        return new TrackTune(entity.getId().getSeq(),
+        return TrackTune.reconstruct(entity.getId().getSeq(),
                 entity.getTuneId() != null ? new Tune.Id(entity.getTuneId()) : null,
                 entity.getComposerCreditOverride() != null ? new Credit(entity.getComposerCreditOverride()) : null,
                 entity.getArrangerCreditOverride() != null ? new Credit(entity.getArrangerCreditOverride()) : null,

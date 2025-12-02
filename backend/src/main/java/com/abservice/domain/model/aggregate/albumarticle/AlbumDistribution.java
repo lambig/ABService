@@ -17,13 +17,47 @@ import lombok.With;
  */
 @With(AccessLevel.PRIVATE)
 @Getter
-@AllArgsConstructor
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class AlbumDistribution {
     private final Price physicalPrice; // nullable: CD等の物理頒価
     private final Price downloadPrice; // nullable: DL版価格
     private final Url demoUrl; // nullable: デモ音源へのリンク
     private final String note; // nullable: 補足メモ
+
+    /**
+     * 新規AlbumDistributionを生成
+     *
+     * @param physicalPrice
+     *            物理頒価（nullable）
+     * @param downloadPrice
+     *            DL価格（nullable）
+     * @param demoUrl
+     *            デモURL（nullable）
+     * @param note
+     *            補足メモ（nullable）
+     * @return 新規AlbumDistribution
+     */
+    public static AlbumDistribution create(Price physicalPrice, Price downloadPrice, Url demoUrl, String note) {
+        return new AlbumDistribution(physicalPrice, downloadPrice, demoUrl, note);
+    }
+
+    /**
+     * 永続化層からの再構成
+     *
+     * @param physicalPrice
+     *            物理頒価（nullable）
+     * @param downloadPrice
+     *            DL価格（nullable）
+     * @param demoUrl
+     *            デモURL（nullable）
+     * @param note
+     *            補足メモ（nullable）
+     * @return 再構成されたAlbumDistribution
+     */
+    public static AlbumDistribution reconstruct(Price physicalPrice, Price downloadPrice, Url demoUrl, String note) {
+        return new AlbumDistribution(physicalPrice, downloadPrice, demoUrl, note);
+    }
 
     /**
      * 物理頒価を変更

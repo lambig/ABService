@@ -39,7 +39,8 @@ ABServiceのドメインモデルは、アイリッシュ音楽のアルバム�
 #### 1. **Album集約**（現在の主要集約）
 - **集約ルート**: Album
 - **集約内エンティティ**: Track, TrackTune
-- **集約外参照**: ArtistCreditId, EventId, TuneId（ID参照のみ）
+- **値オブジェクト**: ArtistCredit（アーティスト名義）、EventInfo（イベント情報）
+- **集約外参照**: TuneId（ID参照のみ）
 - **トランザクション境界**: アルバム・トラック・セット構成の一貫性保証
 
 #### 2. **AlbumArticle集約**（プレゼンテーション層集約）
@@ -49,8 +50,6 @@ ABServiceのドメインモデルは、アイリッシュ音楽のアルバム�
 - **トランザクション境界**: 記事・頒布情報・入手経路の一貫性保証
 
 #### 3. **将来の集約候補**
-- **ArtistCredit**: 現在は小さいが、アーティスト詳細情報が増えれば集約化
-- **Event**: イベント詳細管理が必要になれば集約化
 - **Tune**: チューン自体の詳細管理（複数版管理、楽譜、音源など）が必要になれば集約化
 
 ---
@@ -65,6 +64,8 @@ com.abservice.domain.model
 │   ├── CatalogNumber.java
 │   ├── Price.java
 │   ├── CreditName.java
+│   ├── ArtistCredit.java       # アーティスト名義（埋め込みVO）
+│   ├── EventInfo.java          # イベント情報（埋め込みVO）
 │   └── internal/               # 実装クラス
 │       ├── TitleImpl.java
 │       ├── UrlImpl.java
@@ -86,16 +87,6 @@ com.abservice.domain.model
 │       ├── AlbumAcquisitionChannel.java
 │       └── internal/           # 実装クラス
 └── entity/                     # 将来的に集約ルートになる可能性
-    ├── artistcredit/
-    │   ├── ArtistCredit.java   # エンティティ(interface)
-    │   ├── ArtistCreditId.java
-    │   └── internal/
-    │       └── ArtistCreditImpl.java
-    ├── event/
-    │   ├── Event.java          # エンティティ(interface)
-    │   ├── EventId.java
-    │   └── internal/
-    │       └── EventImpl.java
     └── tune/
         ├── Tune.java           # 基底インターフェース
         ├── TuneId.java
@@ -119,14 +110,14 @@ DomainObject<T>
 │   ├── Title, Url, CreditName
 │   ├── CatalogNumber, Isrc
 │   ├── Price, Duration
+│   ├── ArtistCredit            # アーティスト名義（埋め込みVO）
+│   ├── EventInfo               # イベント情報（埋め込みVO）
 │   └── その他プリミティブ値の包含
 └── DomainEntity<T, ID>         // IDで識別されるオブジェクト
     ├── Track                   # 集約内エンティティ
     ├── TrackTune               # 集約内エンティティ
     ├── AlbumDistribution       # 集約内エンティティ
     ├── AlbumAcquisitionChannel # 集約内エンティティ
-    ├── ArtistCredit            # 将来の集約候補
-    ├── Event                   # 将来の集約候補
     ├── Tune                    # 将来の集約候補（抽象）
     │   ├── TraditionalTune     # トラッド
     │   ├── OriginalTune        # オリジナル
@@ -500,17 +491,17 @@ public class Track implements DomainEntity<Track, Track.Id> {
 ```java
 // ファクトリインターフェース
 public interface AlbumFactory extends Factory<Album, AlbumFactory.CreateParams> {
-    
+
     /**
      * 新規アルバム生成（外部依存あり）
      */
     Uni<Album> create(CreateParams params);
-    
+
     /**
      * 永続化層からの再構成（外部依存なし）
      */
     Album reconstruct(ReconstructParams params);
-    
+
     record CreateParams(
         AlbumTitle title,
         LocalDate releaseDate,
@@ -518,7 +509,7 @@ public interface AlbumFactory extends Factory<Album, AlbumFactory.CreateParams> 
         EventInfo eventInfo,
         CatalogNumber catalogNumber
     ) implements Factory.Params {}
-    
+
     record ReconstructParams(
         Album.Id id,
         AlbumTitle title,
@@ -533,13 +524,13 @@ public interface AlbumFactory extends Factory<Album, AlbumFactory.CreateParams> 
 // ファクトリ実装
 @ApplicationScoped
 public class AlbumFactoryImpl implements AlbumFactory {
-    
+
     private final AlbumRepository albumRepository;
-    
+
     public AlbumFactoryImpl(AlbumRepository albumRepository) {
         this.albumRepository = albumRepository;
     }
-    
+
     @Override
     public Uni<Album> create(CreateParams params) {
         // 外部依存を使った複雑なバリデーション
@@ -554,7 +545,7 @@ public class AlbumFactoryImpl implements AlbumFactory {
                 Collections.emptyList()
             ));
     }
-    
+
     @Override
     public Album reconstruct(ReconstructParams params) {
         // 永続化データから再構成（バリデーション不要）
@@ -568,7 +559,7 @@ public class AlbumFactoryImpl implements AlbumFactory {
             params.tracks()
         );
     }
-    
+
     private Uni<Boolean> validateCatalogNumber(CatalogNumber catalogNumber) {
         if (catalogNumber == null) {
             return Uni.createFrom().item(true);
@@ -667,7 +658,7 @@ public record AlbumTitle(String value) implements ValueObject<AlbumTitle> {
             throw new IllegalArgumentException("Title too long");
         }
     }
-    
+
     @Override
     public boolean equivalentTo(AlbumTitle other) {
         return this.equals(other);
@@ -945,11 +936,11 @@ public record AlbumTitle(String value) implements ValueObject<AlbumTitle> {
 ```java
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class Track implements DomainEntity<Track, Track.Id> {
-    
+
     public static Track create(TrackTitle title, Duration duration) {
         return new Track(Id.generate(), title, duration);
     }
-    
+
     public static Track reconstruct(Id id, TrackTitle title, Duration duration) {
         return new Track(id, title, duration);
     }
@@ -963,7 +954,7 @@ public class Track implements DomainEntity<Track, Track.Id> {
 public interface AlbumFactory extends Factory<Album, AlbumFactory.CreateParams> {
     Uni<Album> create(CreateParams params);
     Album reconstruct(ReconstructParams params);
-    
+
     record CreateParams(...) implements Factory.Params {}
     record ReconstructParams(...) implements Factory.Params {}
 }
@@ -972,14 +963,14 @@ public interface AlbumFactory extends Factory<Album, AlbumFactory.CreateParams> 
 @ApplicationScoped
 public class AlbumFactoryImpl implements AlbumFactory {
     private final AlbumRepository albumRepository;
-    
+
     @Override
     public Uni<Album> create(CreateParams params) {
         // 外部依存を使った複雑なバリデーション
         return validateCatalogNumber(params.catalogNumber())
             .map(valid -> new Album(...));  // privateコンストラクタを呼び出し
     }
-    
+
     @Override
     public Album reconstruct(ReconstructParams params) {
         return new Album(...);  // privateコンストラクタを呼び出し

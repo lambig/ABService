@@ -19,7 +19,7 @@ import lombok.With;
  */
 @With(AccessLevel.PRIVATE)
 @Getter
-@AllArgsConstructor
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class AlbumAcquisitionChannel implements DomainEntity<AlbumAcquisitionChannel, AlbumAcquisitionChannel.Id> {
     @EqualsAndHashCode.Include
@@ -28,6 +28,49 @@ public class AlbumAcquisitionChannel implements DomainEntity<AlbumAcquisitionCha
     private final String name; // 表示用の名前
     private final Url url; // nullable: 詳細ページへのURL
     private final String note; // nullable: 補足
+
+    /**
+     * 新規AlbumAcquisitionChannelを生成
+     *
+     * @param channelType
+     *            チャネルタイプ
+     * @param name
+     *            名前
+     * @param url
+     *            URL（nullable）
+     * @param note
+     *            補足（nullable）
+     * @return 新規AlbumAcquisitionChannel
+     */
+    public static AlbumAcquisitionChannel create(ChannelType channelType, String name, Url url, String note) {
+        if (channelType == null) {
+            throw new IllegalArgumentException("Channel type cannot be null");
+        }
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Name cannot be blank");
+        }
+        return new AlbumAcquisitionChannel(Id.generate(), channelType, name, url, note);
+    }
+
+    /**
+     * 永続化層からの再構成
+     *
+     * @param id
+     *            ID
+     * @param channelType
+     *            チャネルタイプ
+     * @param name
+     *            名前
+     * @param url
+     *            URL（nullable）
+     * @param note
+     *            補足（nullable）
+     * @return 再構成されたAlbumAcquisitionChannel
+     */
+    public static AlbumAcquisitionChannel reconstruct(Id id, ChannelType channelType, String name, Url url,
+            String note) {
+        return new AlbumAcquisitionChannel(id, channelType, name, url, note);
+    }
 
     /**
      * チャネルタイプを変更

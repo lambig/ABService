@@ -32,10 +32,11 @@ public final class AlbumArticleMapper {
             return null;
         }
 
-        return new AlbumArticle(new Album.Id(entity.getDomainId()), entity.getIntroLong(), entity.getIntroShort(),
-                entity.getFirstEventSpace(),
+        return AlbumArticle.reconstruct(new Album.Id(entity.getDomainId()), entity.getIntroLong(),
+                entity.getIntroShort(), entity.getFirstEventSpace(),
                 entity.getLabelTag() != null ? LabelTag.valueOf(entity.getLabelTag()) : null, null, // 頒布情報は簡略化のためnull
-                Collections.emptyList()); // 入手経路は簡略化のため空リスト
+                Collections.emptyList() // 入手経路は簡略化のため空リスト
+        );
     }
 
     /**
