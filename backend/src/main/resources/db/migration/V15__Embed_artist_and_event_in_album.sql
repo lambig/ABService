@@ -6,7 +6,7 @@ DO $$
 BEGIN
     -- 一時テーブルを作成してデータを退避
     CREATE TEMPORARY TABLE IF NOT EXISTS temp_album_data AS
-    SELECT 
+    SELECT
         a.album_id,
         a.domain_id,
         COALESCE(ac.display_name, 'Unknown Artist') as artist_display_name,
@@ -40,7 +40,7 @@ ALTER TABLE album ADD COLUMN IF NOT EXISTS event_note TEXT;
 
 -- データを復元
 UPDATE album a
-SET 
+SET
     artist_display_name = COALESCE(t.artist_display_name, 'Unknown Artist'),
     artist_sort_key = t.artist_sort_key,
     event_name = t.event_name,

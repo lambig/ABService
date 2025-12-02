@@ -43,8 +43,10 @@ com.abservice/
 │   └── exception/               # ドメイン例外
 │       └── DomainException.java
 ├── application/                 # アプリケーション層
-│   ├── service/                 # アプリケーションサービス
-│   └── dto/                     # データ転送オブジェクト
+│   ├── service/                 # コマンドサービス（更新系）
+│   │   └── CommandService.java  # CQRS基底インターフェース
+│   └── query/                   # クエリサービス（照会系）
+│       └── QueryService.java    # CQRS基底インターフェース
 ├── infrastructure/              # インフラ層
 │   ├── persistence/             # 永続化実装
 │   │   ├── AuditableEntity.java # 共通監査列を持つ基底クラス
@@ -55,19 +57,25 @@ com.abservice/
     └── rest/                    # RESTエンドポイント
 ```
 
-## ドメイン駆動設計
+## ドメイン駆動設計とCQRS
 
-ABServiceはドメイン駆動設計（DDD）の原則に基づいています：
+ABServiceはドメイン駆動設計（DDD）とCQRSパターンに基づいています：
 
 - **値オブジェクト**: 不変性、等価性、副作用なし（Java Records推奨）
 - **エンティティ/集約**: 同一性、Lombok `@With`による不変更新パターン
 - **集約**: 整合性境界、ID参照
+- **CQRS**: コマンド（更新系）とクエリ（照会系）の明確な分離
+- **ドメインID**: UUIDv7形式（DB内部IDと分離）
 - **業務日付/日時**: Asia/Tokyoタイムゾーン固定
 - **共通監査列**: すべてのエンティティに7つの監査列を含める
 
-詳細は以下のドキュメントを参照してください：
-- [アーキテクチャ](docs/ARCHITECTURE.md)
-- [共通監査列ガイドライン](docs/AUDIT_COLUMNS.md)
+### ドキュメント
+
+- [アーキテクチャ](docs/ARCHITECTURE.md) - システム全体の設計
+- [コーディングガイドライン](docs/CODING_GUIDELINES.md) - 日々の実装規約
+- [ID設計ポリシー](docs/ID_DESIGN_POLICY.md) - ドメインIDとDB内部IDの分離方針
+- [ドメインモデル設計](docs/DOMAIN_MODEL_DESIGN.md) - DDDの実装詳細
+- [共通監査列ガイドライン](docs/AUDIT_COLUMNS.md) - 監査列の標準
 
 ## 共通監査列
 

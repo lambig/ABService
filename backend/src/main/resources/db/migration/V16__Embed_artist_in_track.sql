@@ -4,7 +4,7 @@
 DO $$
 BEGIN
     CREATE TEMPORARY TABLE IF NOT EXISTS temp_track_data AS
-    SELECT 
+    SELECT
         t.track_id,
         ac.display_name as artist_display_name,
         ac.sort_key as artist_sort_key
@@ -25,7 +25,7 @@ ALTER TABLE track ADD COLUMN IF NOT EXISTS artist_sort_key VARCHAR(255);
 
 -- データを復元
 UPDATE track t
-SET 
+SET
     artist_display_name = tmp.artist_display_name,
     artist_sort_key = tmp.artist_sort_key
 FROM temp_track_data tmp
