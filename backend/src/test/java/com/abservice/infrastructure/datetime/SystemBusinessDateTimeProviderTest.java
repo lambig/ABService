@@ -9,30 +9,27 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.within;
 
 @QuarkusTest
 class SystemBusinessDateTimeProviderTest {
 
-    @Inject
-    SystemBusinessDateTimeProvider provider;
+	@Inject
+	SystemBusinessDateTimeProvider provider;
 
-    @Test
-    void testNow() {
-        Instant before = Instant.now();
-        BusinessDateTime businessDateTime = provider.now().await().indefinitely();
-        Instant after = Instant.now();
+	@Test
+	void testNow() {
+		Instant before = Instant.now();
+		BusinessDateTime businessDateTime = provider.now().await().indefinitely();
+		Instant after = Instant.now();
 
-        assertThat(businessDateTime.value()).isBetween(before, after);
-    }
+		assertThat(businessDateTime.value()).isBetween(before, after);
+	}
 
-    @Test
-    void testToday() {
-        BusinessDate businessDate = provider.today().await().indefinitely();
-        BusinessDate expected = BusinessDate.of(
-            Instant.now().atZone(BusinessDateTime.BUSINESS_ZONE_ID).toLocalDate()
-        );
+	@Test
+	void testToday() {
+		BusinessDate businessDate = provider.today().await().indefinitely();
+		BusinessDate expected = BusinessDate.of(Instant.now().atZone(BusinessDateTime.BUSINESS_ZONE_ID).toLocalDate());
 
-        assertThat(businessDate.value()).isEqualTo(expected.value());
-    }
+		assertThat(businessDate.value()).isEqualTo(expected.value());
+	}
 }

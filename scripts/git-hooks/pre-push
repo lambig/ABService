@@ -1,0 +1,31 @@
+#!/bin/bash
+#
+# Git pre-push hook
+# Runs comprehensive checks before allowing push
+#
+# Installation:
+#   ./scripts/setup-git-hooks.sh
+#
+# To bypass this hook (not recommended):
+#   git push --no-verify
+#
+
+set -e
+
+echo "🚀 Running pre-push checks..."
+
+# Change to backend directory
+cd backend
+
+# Run full build with tests
+echo "🔨 Running build with tests..."
+if ./gradlew clean check --quiet; then
+    echo "✅ Build and tests successful"
+else
+    echo "❌ Build or tests failed"
+    exit 1
+fi
+
+echo ""
+echo "✨ All pre-push checks passed! Ready to push."
+exit 0

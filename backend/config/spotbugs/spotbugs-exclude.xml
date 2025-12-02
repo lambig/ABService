@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!-- Exclude generated code -->
+    <Match>
+        <Package name="~.*\.generated\..*"/>
+    </Match>
+    
+    <!-- Exclude build directory -->
+    <Match>
+        <Package name="~.*\.build\..*"/>
+    </Match>
+    
+    <!-- Exclude specific patterns if needed -->
+    <!-- Example: Exclude specific bug patterns for DTO classes -->
+    <!--
+    <Match>
+        <Class name="~.*\.dto\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+    -->
+    
+    <!-- Exclude Lombok generated code issues -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+        <Class name="~.*\.domain\.model\..*"/>
+    </Match>
+</FindBugsFilter>

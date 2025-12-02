@@ -12,7 +12,7 @@ ABServiceは、モノリポジトリ構成で構築されたWebサービスで�
 - **データベース**: PostgreSQL
 - **データアクセス**: Blaze-Persistence (JPA拡張)
 - **マイグレーション**: Flyway
-- **認証・認可**: 
+- **認証・認可**:
   - Quarkus OIDC (Keycloak統合)
   - Quarkus Security (RBAC)
   - SmallRye JWT

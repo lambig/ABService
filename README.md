@@ -64,3 +64,83 @@ ABServiceはドメイン駆動設計（DDD）の原則に基づいています�
 
 詳細は [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) を参照してください。
 
+## 開発
+
+### ビルドとテスト
+
+```bash
+# バックエンドのビルド
+cd backend
+./gradlew build
+
+# テスト実行
+./gradlew test
+
+# 開発モードで起動
+./gradlew quarkusDev
+```
+
+### コード品質
+
+ABServiceでは以下のLinting/フォーマットツールを使用しています：
+
+- **Checkstyle**: Google Java Style Guideに基づくコードスタイルチェック
+- **Spotless**: 自動コードフォーマッタ（Eclipse JDT）
+
+> **注意**: SpotBugsはJava 25との互換性問題により現在無効化されています。Java 25対応版がリリースされ次第、再度有効化する予定です。
+
+#### コード品質チェック
+
+```bash
+# すべてのコード品質チェックを実行
+./gradlew check
+
+# Checkstyleのみ実行
+./gradlew checkstyleMain checkstyleTest
+
+# Spotlessフォーマットチェック
+./gradlew spotlessCheck
+```
+
+#### コードフォーマット
+
+```bash
+# コードを自動フォーマット
+./gradlew spotlessApply
+
+# ビルド時に自動フォーマットが実行されます
+./gradlew build
+```
+
+#### Git Hooks
+
+コミット前・プッシュ前に自動でコード品質チェックを実行できます：
+
+```bash
+# プロジェクトルートで実行（初回のみ）
+./scripts/setup-git-hooks.sh
+```
+
+**導入されるhooks:**
+- `pre-commit`: コード整形とCheckstyleを実行
+- `pre-push`: ビルドとテストを実行
+
+**Hooksをスキップする場合（非推奨）:**
+```bash
+git commit --no-verify
+git push --no-verify
+```
+
+#### レポート
+
+コード品質チェックのレポートは以下に生成されます：
+
+- Checkstyle: `backend/build/reports/checkstyle/`
+- Spotless: コンソール出力
+
+#### SpotBugsについて
+
+⚠️ SpotBugsは現在Java 25のバイトコード(major version 69)に対応していないため、このプロジェクトでは使用していません。
+- 最新版: 4.9.8 (2024年10月)
+- Java 25でのビルドはサポートされていますが、実行時の解析は未対応です
+
