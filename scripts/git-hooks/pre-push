@@ -17,6 +17,17 @@ echo "🚀 Running pre-push checks..."
 # Change to backend directory
 cd backend
 
+# Run checkstyle first (as it's often faster than full tests)
+echo "🔍 Running checkstyle..."
+if ! ./gradlew checkstyleMain checkstyleTest --quiet; then
+    echo "❌ Checkstyle found issues"
+    echo ""
+    echo "Please fix checkstyle violations before pushing."
+    echo "Run './gradlew checkstyleMain checkstyleTest' to see details."
+    exit 1
+fi
+echo "✅ Checkstyle passed"
+
 # Run full build with tests
 echo "🔨 Running build with tests..."
 if ./gradlew clean check --quiet; then
