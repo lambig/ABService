@@ -163,14 +163,19 @@ var data = getData();    // 型推論が困難
 
 ## ドメインモデル実装規約
 
-### 値オブジェクト（Value Object）
+### コンストラクタアクセス制御とファクトリパターン
 
-Java Recordsを使用します。
+**原則**: ドメインオブジェクトのコンストラクタは`private`とし、生成は以下のパターンを使用します。
+
+#### 1. Lombokファクトリ（単純な値の詰め込みのみ）
+
+値オブジェクトなど、バリデーション以外の処理が不要な場合。
 
 ```java
 /**
  * アルバムタイトル
  */
+@AllArgsConstructor(staticName = "of", access = AccessLevel.PRIVATE)
 public record AlbumTitle(String value) implements ValueObject<AlbumTitle> {
     public AlbumTitle {
         if (value == null || value.isBlank()) {
@@ -186,11 +191,14 @@ public record AlbumTitle(String value) implements ValueObject<AlbumTitle> {
         return this.equals(other);
     }
 }
+
+// 使用例
+var title = AlbumTitle.of("My Album");
 ```
 
-### エンティティ（Entity）
+#### 2. Static Factory Method（簡単な変換処理を含む）
 
-Lombok `@With(AccessLevel.PRIVATE)`を使用した不変更新パターン。
+型変換や簡単な加工が必要な場合。
 
 ```java
 @Getter
@@ -200,6 +208,207 @@ public class Track implements DomainEntity<Track, Track.Id> {
     private final Id id;
     private final TrackTitle title;
     private final Duration duration;
+
+    /**
+     * Static factory method - 新規生成
+     */
+    public static Track create(TrackTitle title, Duration duration) {
+        return new Track(Id.generate(), title, duration);
+    }
+
+    /**
+     * Static factory method - 再構成（永続化層からの復元用）
+     */
+    public static Track reconstruct(Id id, TrackTitle title, Duration duration) {
+        return new Track(id, title, duration);
+    }
+
+    /**
+     * タイトルを更新（新しいインスタンスを返す）
+     */
+    public Track updateTitle(TrackTitle newTitle) {
+        return this.withTitle(newTitle);
+    }
+
+    @Override
+    public boolean equivalentTo(Track other) {
+        return this.id.equals(other.id);
+    }
+
+    /**
+     * Track ID
+     */
+    public record Id(String value) implements EntityId<Track> {
+        public Id {
+            if (!EntityId.isValidUuid(value)) {
+                throw new IllegalArgumentException("Invalid Track ID format: " + value);
+            }
+        }
+
+        public static Id of(String value) {
+            return new Id(value);
+        }
+
+        public static Id generate() {
+            return new Id(EntityId.generateUuidV7());
+        }
+    }
+}
+```
+
+#### 3. Factoryクラス（複雑な生成ロジック）
+
+外部依存（リポジトリ、ドメインサービス）が必要な場合や、複雑なバリデーション・初期化が必要な場合。
+
+```java
+// ファクトリインターフェース
+public interface AlbumFactory extends Factory<Album, AlbumFactory.CreateParams> {
+    
+    /**
+     * 新規アルバム生成
+     */
+    Uni<Album> create(CreateParams params);
+    
+    /**
+     * 永続化層からの再構成
+     */
+    Album reconstruct(ReconstructParams params);
+    
+    /**
+     * 生成パラメータ
+     */
+    record CreateParams(
+        AlbumTitle title,
+        LocalDate releaseDate,
+        ArtistCredit artistCredit,
+        EventInfo eventInfo,
+        CatalogNumber catalogNumber
+    ) implements Factory.Params {}
+    
+    /**
+     * 再構成パラメータ
+     */
+    record ReconstructParams(
+        Album.Id id,
+        AlbumTitle title,
+        LocalDate releaseDate,
+        ArtistCredit artistCredit,
+        EventInfo eventInfo,
+        CatalogNumber catalogNumber,
+        List<Track> tracks
+    ) implements Factory.Params {}
+}
+
+// ファクトリ実装
+@ApplicationScoped
+public class AlbumFactoryImpl implements AlbumFactory {
+    
+    private final AlbumRepository albumRepository;
+    
+    public AlbumFactoryImpl(AlbumRepository albumRepository) {
+        this.albumRepository = albumRepository;
+    }
+    
+    @Override
+    public Uni<Album> create(CreateParams params) {
+        // 複雑なバリデーション
+        return validateCatalogNumber(params.catalogNumber())
+            .map(valid -> new Album(
+                Album.Id.generate(),
+                params.title(),
+                params.releaseDate(),
+                params.artistCredit(),
+                params.eventInfo(),
+                params.catalogNumber(),
+                Collections.emptyList()
+            ));
+    }
+    
+    @Override
+    public Album reconstruct(ReconstructParams params) {
+        // 永続化データから再構成（バリデーション不要）
+        return new Album(
+            params.id(),
+            params.title(),
+            params.releaseDate(),
+            params.artistCredit(),
+            params.eventInfo(),
+            params.catalogNumber(),
+            params.tracks()
+        );
+    }
+    
+    private Uni<Boolean> validateCatalogNumber(CatalogNumber catalogNumber) {
+        if (catalogNumber == null) {
+            return Uni.createFrom().item(true);
+        }
+        return albumRepository.findByCatalogNumber(catalogNumber)
+            .onItem().transform(existing -> {
+                if (existing != null) {
+                    throw new IllegalArgumentException("カタログ番号が重複しています: " + catalogNumber.value());
+                }
+                return true;
+            });
+    }
+}
+```
+
+### 値オブジェクト（Value Object）
+
+Java Recordsを使用します。コンストラクタは`private`（または暗黙的にpackage-private）。
+
+```java
+/**
+ * アルバムタイトル
+ */
+public record AlbumTitle(String value) implements ValueObject<AlbumTitle> {
+    public AlbumTitle {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("アルバムタイトルは必須です");
+        }
+        if (value.length() > 200) {
+            throw new IllegalArgumentException("アルバムタイトルは200文字以内である必要があります");
+        }
+    }
+    
+    // Static factory method
+    public static AlbumTitle of(String value) {
+        return new AlbumTitle(value);
+    }
+
+    @Override
+    public boolean equivalentTo(AlbumTitle other) {
+        return this.equals(other);
+    }
+}
+```
+
+### エンティティ（Entity）
+
+Lombok `@With(AccessLevel.PRIVATE)`を使用した不変更新パターン。コンストラクタは`private`。
+
+```java
+@Getter
+@With(AccessLevel.PRIVATE)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
+public class Track implements DomainEntity<Track, Track.Id> {
+    private final Id id;
+    private final TrackTitle title;
+    private final Duration duration;
+
+    /**
+     * 新規生成
+     */
+    public static Track create(TrackTitle title, Duration duration) {
+        return new Track(Id.generate(), title, duration);
+    }
+
+    /**
+     * 再構成（永続化層から）
+     */
+    public static Track reconstruct(Id id, TrackTitle title, Duration duration) {
+        return new Track(id, title, duration);
+    }
 
     /**
      * タイトルを更新（新しいインスタンスを返す）
@@ -236,7 +445,7 @@ public class Track implements DomainEntity<Track, Track.Id> {
 
 ### 集約（Aggregate）
 
-整合性境界を明確にし、集約内の整合性を保護します。
+整合性境界を明確にし、集約内の整合性を保護します。コンストラクタは`private`。
 
 ```java
 @Getter
@@ -264,8 +473,38 @@ public class Album implements Aggregate<Album, Album.Id> {
     }
 
     // ... その他のビジネスロジック
+    
+    /**
+     * Album ID
+     */
+    public record Id(String value) implements EntityId<Album> {
+        public Id {
+            if (!EntityId.isValidUuid(value)) {
+                throw new IllegalArgumentException("Invalid Album ID format: " + value);
+            }
+        }
+
+        public static Id of(String value) {
+            return new Id(value);
+        }
+
+        public static Id generate() {
+            return new Id(EntityId.generateUuidV7());
+        }
+    }
 }
 ```
+
+### ファクトリパターン選択ガイド
+
+| 状況 | 推奨パターン | 理由 |
+|------|------------|------|
+| 単純な値の詰め込みのみ | Lombokファクトリ (`@AllArgsConstructor(staticName = "of")`) | シンプルで明確 |
+| 型変換や簡単な加工が必要 | Static Factory Method | クラス内で完結する |
+| 外部依存が必要（Repository等） | Factoryクラス | 依存性注入可能 |
+| 複雑なバリデーション | Factoryクラス | 責任分離 |
+| 複数の生成バリエーション | Factoryクラス | 意図が明確 |
+| 永続化層からの再構成 | Static Factory Method または Factoryクラスの`reconstruct()` | 用途が明確 |
 
 ---
 
@@ -328,9 +567,9 @@ public Uni<Output> execute(Input input) {
 
 ```java
 @ApplicationScoped
-public class UpdateAlbumTitleService 
+public class UpdateAlbumTitleService
     implements CommandService<UpdateAlbumTitleInput, UpdateAlbumTitleOutput> {
-    
+
     private final AlbumRepository albumRepository;
 
     @WithTransaction
@@ -352,9 +591,9 @@ public class UpdateAlbumTitleService
 
 ```java
 @ApplicationScoped
-public class AlbumQueryService 
+public class AlbumQueryService
     implements QueryService<FindAlbumsByLabelQuery, AlbumListResult> {
-    
+
     private final AlbumDataSource albumDataSource;
 
     @Override
@@ -413,13 +652,13 @@ public class AlbumQueryService
 CREATE TABLE album (
     -- DB内部ID（主キー）
     id BIGSERIAL PRIMARY KEY,
-    
+
     -- ドメインID（ビジネスキー）
     album_id VARCHAR(36) NOT NULL UNIQUE,
-    
+
     -- ビジネスデータ
     title VARCHAR(200) NOT NULL,
-    
+
     -- 共通監査列
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

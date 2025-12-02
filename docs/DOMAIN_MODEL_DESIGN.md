@@ -406,7 +406,187 @@ AlbumArticle (集約ルート)
 
 ## 実装方針
 
-### インターフェースと実装の配置
+### コンストラクタアクセス制御とファクトリパターン
+
+**重要原則**: すべてのドメインオブジェクトのコンストラクタは`private`とし、以下のパターンで生成を制御します。
+
+#### パターン選択ガイド
+
+| 状況 | 推奨パターン | 実装方法 |
+|------|------------|---------|
+| 単純な値の詰め込みのみ | Lombokファクトリ | `@AllArgsConstructor(staticName = "of", access = AccessLevel.PRIVATE)` |
+| 型変換や簡単な加工 | Static Factory Method | `public static T create(...)` / `reconstruct(...)` |
+| 外部依存が必要 | Factoryクラス | `@ApplicationScoped` + DIコンテナ管理 |
+| 複雑なバリデーション | Factoryクラス | 専用ファクトリクラス |
+| 複数の生成バリエーション | Factoryクラス | インターフェース + 実装クラス |
+
+#### 1. Lombokファクトリ（値オブジェクト向け）
+
+```java
+/**
+ * アルバムタイトル（値オブジェクト）
+ */
+@AllArgsConstructor(staticName = "of", access = AccessLevel.PRIVATE)
+public record AlbumTitle(String value) implements ValueObject<AlbumTitle> {
+    public AlbumTitle {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Title cannot be blank");
+        }
+        if (value.length() > 255) {
+            throw new IllegalArgumentException("Title too long");
+        }
+    }
+}
+
+// 使用例
+var title = AlbumTitle.of("My Album");
+```
+
+#### 2. Static Factory Method（エンティティ向け）
+
+```java
+/**
+ * トラック（エンティティ）
+ */
+@Getter
+@With(AccessLevel.PRIVATE)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
+public class Track implements DomainEntity<Track, Track.Id> {
+    private final Id id;
+    private final TrackTitle title;
+    private final Duration duration;
+
+    /**
+     * 新規トラック生成
+     */
+    public static Track create(TrackTitle title, Duration duration) {
+        return new Track(Id.generate(), title, duration);
+    }
+
+    /**
+     * 永続化層からの再構成
+     */
+    public static Track reconstruct(Id id, TrackTitle title, Duration duration) {
+        return new Track(id, title, duration);
+    }
+
+    /**
+     * タイトル変更（新しいインスタンスを返す）
+     */
+    public Track changeTitle(TrackTitle newTitle) {
+        return withTitle(newTitle);
+    }
+
+    public record Id(String value) implements EntityId<Track> {
+        public Id {
+            if (!EntityId.isValidUuid(value)) {
+                throw new IllegalArgumentException("Invalid Track ID");
+            }
+        }
+
+        public static Id of(String value) {
+            return new Id(value);
+        }
+
+        public static Id generate() {
+            return new Id(EntityId.generateUuidV7());
+        }
+    }
+}
+```
+
+#### 3. Factoryクラス（集約・複雑なロジック向け）
+
+```java
+// ファクトリインターフェース
+public interface AlbumFactory extends Factory<Album, AlbumFactory.CreateParams> {
+    
+    /**
+     * 新規アルバム生成（外部依存あり）
+     */
+    Uni<Album> create(CreateParams params);
+    
+    /**
+     * 永続化層からの再構成（外部依存なし）
+     */
+    Album reconstruct(ReconstructParams params);
+    
+    record CreateParams(
+        AlbumTitle title,
+        LocalDate releaseDate,
+        ArtistCredit artistCredit,
+        EventInfo eventInfo,
+        CatalogNumber catalogNumber
+    ) implements Factory.Params {}
+    
+    record ReconstructParams(
+        Album.Id id,
+        AlbumTitle title,
+        LocalDate releaseDate,
+        ArtistCredit artistCredit,
+        EventInfo eventInfo,
+        CatalogNumber catalogNumber,
+        List<Track> tracks
+    ) implements Factory.Params {}
+}
+
+// ファクトリ実装
+@ApplicationScoped
+public class AlbumFactoryImpl implements AlbumFactory {
+    
+    private final AlbumRepository albumRepository;
+    
+    public AlbumFactoryImpl(AlbumRepository albumRepository) {
+        this.albumRepository = albumRepository;
+    }
+    
+    @Override
+    public Uni<Album> create(CreateParams params) {
+        // 外部依存を使った複雑なバリデーション
+        return validateCatalogNumber(params.catalogNumber())
+            .map(valid -> new Album(
+                Album.Id.generate(),
+                params.title(),
+                params.releaseDate(),
+                params.artistCredit(),
+                params.eventInfo(),
+                params.catalogNumber(),
+                Collections.emptyList()
+            ));
+    }
+    
+    @Override
+    public Album reconstruct(ReconstructParams params) {
+        // 永続化データから再構成（バリデーション不要）
+        return new Album(
+            params.id(),
+            params.title(),
+            params.releaseDate(),
+            params.artistCredit(),
+            params.eventInfo(),
+            params.catalogNumber(),
+            params.tracks()
+        );
+    }
+    
+    private Uni<Boolean> validateCatalogNumber(CatalogNumber catalogNumber) {
+        if (catalogNumber == null) {
+            return Uni.createFrom().item(true);
+        }
+        return albumRepository.findByCatalogNumber(catalogNumber)
+            .onItem().transform(existing -> {
+                if (existing != null) {
+                    throw new IllegalArgumentException("Duplicate catalog number: " + catalogNumber.value());
+                }
+                return true;
+            });
+    }
+}
+```
+
+### インターフェースと実装の配置（旧ルール - 段階的に廃止予定）
+
+**注**: 以下のインターフェース分離アプローチは、プロジェクト初期に採用されましたが、現在は**コンストラクタをprivateにする方針**に移行中です。既存コードとの互換性のため、当面は両方のパターンが混在します。
 
 すべてのドメインオブジェクト（値オブジェクト、エンティティ、集約ルート）は、インターフェースと実装を分離します。
 
@@ -466,7 +646,185 @@ class AlbumImpl implements Album {
 }
 ```
 
-### 値オブジェクト（Value Object）
+### 値オブジェクト（Value Object） - 新ルール
+
+- **実装方法**: Java Records
+- **コンストラクタ**: `private`（Lombokファクトリまたはstatic factory method使用）
+- **特性**: 不変、等価性は全属性による比較
+- **バリデーション**: コンストラクタで実施
+
+```java
+/**
+ * アルバムタイトル（値オブジェクト）
+ */
+@AllArgsConstructor(staticName = "of", access = AccessLevel.PRIVATE)
+public record AlbumTitle(String value) implements ValueObject<AlbumTitle> {
+    public AlbumTitle {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Title cannot be blank");
+        }
+        if (value.length() > 255) {
+            throw new IllegalArgumentException("Title too long");
+        }
+    }
+    
+    @Override
+    public boolean equivalentTo(AlbumTitle other) {
+        return this.equals(other);
+    }
+}
+
+// 使用例
+var title = AlbumTitle.of("My Album");
+```
+
+### エンティティ（Entity） - 新ルール
+
+- **実装方法**: Lombok `@With(AccessLevel.PRIVATE)` + 不変フィールド
+- **コンストラクタ**: `private`（static factory method使用）
+- **状態変更**: Witherパターン（新しいインスタンスを返す）
+- **等価性**: IDのみで判定
+
+```java
+/**
+ * トラック（エンティティ）
+ */
+@Getter
+@With(AccessLevel.PRIVATE)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+public class Track implements DomainEntity<Track, Track.Id> {
+    @EqualsAndHashCode.Include
+    private final Id id;
+    private final Integer trackNo;
+    private final TrackTitle title;
+
+    /**
+     * 新規トラック生成
+     */
+    public static Track create(Integer trackNo, TrackTitle title) {
+        return new Track(Id.generate(), trackNo, title);
+    }
+
+    /**
+     * 永続化層からの再構成
+     */
+    public static Track reconstruct(Id id, Integer trackNo, TrackTitle title) {
+        return new Track(id, trackNo, title);
+    }
+
+    /**
+     * タイトル変更（新しいインスタンスを返す）
+     */
+    public Track changeTitle(TrackTitle newTitle) {
+        return withTitle(newTitle);
+    }
+
+    @Override
+    public boolean equivalentTo(Track other) {
+        return this.id.equals(other.id);
+    }
+
+    public record Id(String value) implements EntityId<Track> {
+        public Id {
+            if (!EntityId.isValidUuid(value)) {
+                throw new IllegalArgumentException("Invalid Track ID");
+            }
+        }
+
+        public static Id of(String value) {
+            return new Id(value);
+        }
+
+        public static Id generate() {
+            return new Id(EntityId.generateUuidV7());
+        }
+    }
+}
+```
+
+### 集約ルート（Aggregate Root） - 新ルール
+
+- **実装方法**: Lombok `@With(AccessLevel.PRIVATE)` + 業務メソッド
+- **コンストラクタ**: `private`（Factoryクラス使用を推奨）
+- **不変条件チェック**: 状態変更メソッド内で実施
+- **集約内エンティティ**: 不変コレクションで保持
+
+```java
+/**
+ * アルバム集約ルート
+ */
+@Getter
+@With(AccessLevel.PRIVATE)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+public class Album implements Aggregate<Album, Album.Id> {
+    @EqualsAndHashCode.Include
+    private final Id id;
+    private final AlbumTitle title;
+    private final LocalDate releaseDate;
+    private final ArtistCredit artistCredit;
+    private final EventInfo eventInfo;
+    private final CatalogNumber catalogNumber;
+    private final List<Track> tracks;
+
+    /**
+     * トラック追加（整合性を保ちながら新しいインスタンスを返す）
+     */
+    public Album addTrack(Track track) {
+        // 不変条件チェック
+        if (tracks.stream().anyMatch(t -> t.trackNo().equals(track.trackNo()))) {
+            throw new IllegalArgumentException("Track number already exists");
+        }
+        var newTracks = new ArrayList<>(tracks);
+        newTracks.add(track);
+        return withTracks(List.copyOf(newTracks));
+    }
+
+    /**
+     * トラック削除
+     */
+    public Album removeTrack(Track.Id trackId) {
+        var newTracks = tracks.stream()
+            .filter(t -> !t.id().equals(trackId))
+            .toList();
+        return withTracks(newTracks);
+    }
+
+    /**
+     * タイトル変更
+     */
+    public Album changeTitle(AlbumTitle newTitle) {
+        return withTitle(newTitle);
+    }
+
+    @Override
+    public boolean equivalentTo(Album other) {
+        return this.id.equals(other.id);
+    }
+
+    public record Id(String value) implements EntityId<Album> {
+        public Id {
+            if (!EntityId.isValidUuid(value)) {
+                throw new IllegalArgumentException("Invalid Album ID");
+            }
+        }
+
+        public static Id of(String value) {
+            return new Id(value);
+        }
+
+        public static Id generate() {
+            return new Id(EntityId.generateUuidV7());
+        }
+    }
+}
+```
+
+---
+
+### 値オブジェクト（Value Object） - 旧ルール（段階的廃止予定）
+
 - **実装方法**: Java Records（インターフェースと実装を分離）
 - **特性**: 不変、等価性は全属性による比較
 - **バリデーション**: コンストラクタで実施
@@ -490,7 +848,8 @@ class AlbumImpl implements Album {
   }
   ```
 
-### エンティティ（Entity）
+### エンティティ（Entity） - 旧ルール（段階的廃止予定）
+
 - **実装方法**: Lombok `@With(AccessLevel.PRIVATE)` + 不変フィールド
 - **状態変更**: Witherパターン（新しいインスタンスを返す）
 - **等価性**: IDのみで判定
@@ -524,61 +883,113 @@ class AlbumImpl implements Album {
   }
   ```
 
-### 集約ルート（Aggregate Root）
+### 集約ルート（Aggregate Root） - 旧ルール（段階的廃止予定）
+
 - **実装方法**: Lombok `@With(AccessLevel.PRIVATE)` + 業務メソッド
 - **不変条件チェック**: 状態変更メソッド内で実施
 - **集約内エンティティ**: 不変コレクションで保持
 - **アクセス修飾子**: パッケージプライベート（`package-private`）
 
+---
+
 ### ID型（型安全な識別子）
+
 - **実装方法**: Records
-- **配置**: 各エンティティ・集約と同じパッケージ（internal ではない）
-- **例**: `AlbumId`, `TrackId`, `TuneId`
+- **配置**: 各エンティティ・集約のネストクラス
+- **例**: `Album.Id`, `Track.Id`
 - **バリデーション**: コンストラクタで実施
-- **例**:
-  ```java
-  public record AlbumId(Long value) implements EntityId<Long> {
-      public AlbumId {
-          if (value == null || value <= 0) {
-              throw new IllegalArgumentException("Album ID must be positive");
-          }
-      }
-  }
-  ```
-
-### ファクトリパターン
-
-実装クラスの生成はファクトリ経由でのみ行います。
+- **生成方法**: static factory method
 
 ```java
-// com.abservice.domain.factory.AlbumFactory
-public interface AlbumFactory {
-    Album create(
-        AlbumId id,
-        Title title,
-        LocalDate releaseDate,
-        ArtistCreditId artistCreditId,
-        EventId eventId,
-        CatalogNumber catalogNumber,
-        List<Track> tracks
-    );
+public record Id(String value) implements EntityId<Album> {
+    public Id {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Album ID cannot be blank");
+        }
+        if (!EntityId.isValidUuid(value)) {
+            throw new IllegalArgumentException("Album ID must be a valid UUID: " + value);
+        }
+    }
 
-    Album reconstruct(/* DB からの復元用 */);
-}
+    /**
+     * UUIDv7を生成してAlbum.Idを作成
+     */
+    public static Id generate() {
+        return new Id(EntityId.generateUuidV7());
+    }
 
-// com.abservice.domain.factory.internal.AlbumFactoryImpl
-@ApplicationScoped
-class AlbumFactoryImpl implements AlbumFactory {
-    @Override
-    public Album create(...) {
-        // バリデーション
-        // AlbumImpl を生成（パッケージプライベートなのでアクセス可能）
-        return new AlbumImpl(id, title, releaseDate, artistCreditId, ...);
+    /**
+     * 文字列からAlbum.Idを生成
+     */
+    public static Id of(String value) {
+        return new Id(value);
     }
 }
 ```
 
-### TuneFactory の特殊性
+### ファクトリパターン
+
+実装クラスの生成は以下のパターンを使用します。
+
+#### パターン1: Lombokファクトリ（値オブジェクト）
+
+```java
+@AllArgsConstructor(staticName = "of", access = AccessLevel.PRIVATE)
+public record AlbumTitle(String value) implements ValueObject<AlbumTitle> {
+    // バリデーションはコンストラクタで実施
+}
+```
+
+#### パターン2: Static Factory Method（エンティティ）
+
+```java
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
+public class Track implements DomainEntity<Track, Track.Id> {
+    
+    public static Track create(TrackTitle title, Duration duration) {
+        return new Track(Id.generate(), title, duration);
+    }
+    
+    public static Track reconstruct(Id id, TrackTitle title, Duration duration) {
+        return new Track(id, title, duration);
+    }
+}
+```
+
+#### パターン3: Factoryクラス（集約）
+
+```java
+// ファクトリインターフェース
+public interface AlbumFactory extends Factory<Album, AlbumFactory.CreateParams> {
+    Uni<Album> create(CreateParams params);
+    Album reconstruct(ReconstructParams params);
+    
+    record CreateParams(...) implements Factory.Params {}
+    record ReconstructParams(...) implements Factory.Params {}
+}
+
+// ファクトリ実装
+@ApplicationScoped
+public class AlbumFactoryImpl implements AlbumFactory {
+    private final AlbumRepository albumRepository;
+    
+    @Override
+    public Uni<Album> create(CreateParams params) {
+        // 外部依存を使った複雑なバリデーション
+        return validateCatalogNumber(params.catalogNumber())
+            .map(valid -> new Album(...));  // privateコンストラクタを呼び出し
+    }
+    
+    @Override
+    public Album reconstruct(ReconstructParams params) {
+        return new Album(...);  // privateコンストラクタを呼び出し
+    }
+}
+```
+
+---
+
+### TuneFactory の特殊性（旧ルール - 参考）
 
 Tune は抽象インターフェースで、3つのサブタイプがあるため、ファクトリで適切な実装を返します。
 
