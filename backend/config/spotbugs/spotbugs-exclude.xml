@@ -4,12 +4,12 @@
     <Match>
         <Package name="~.*\.generated\..*"/>
     </Match>
-    
+
     <!-- Exclude build directory -->
     <Match>
         <Package name="~.*\.build\..*"/>
     </Match>
-    
+
     <!-- Exclude specific patterns if needed -->
     <!-- Example: Exclude specific bug patterns for DTO classes -->
     <!--
@@ -18,7 +18,7 @@
         <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
     </Match>
     -->
-    
+
     <!-- Exclude Lombok generated code issues -->
     <Match>
         <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
