@@ -20,6 +20,9 @@ dependencies {
     implementation 'io.quarkus:quarkus-hibernate-orm'
     implementation 'io.quarkus:quarkus-jdbc-postgresql'
 
+    // Flyway（データベースマイグレーション）
+    implementation 'io.quarkus:quarkus-flyway'
+
     // Mutiny（Reactive Streamsライブラリ）
     implementation 'io.smallrye.reactive:mutiny'
 

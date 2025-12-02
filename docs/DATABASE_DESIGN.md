@@ -209,7 +209,98 @@
 
 ## プレゼンテーションモデル
 
-### 7. AlbumArticle（アルバム記事・お品書き用メタ）
+### 7. Article（記事）
+
+**役割**: ブログ記事、アルバム紹介記事、お品書き掲載記事など、「公開情報」そのものを管理。
+
+#### カラム
+
+| カラム名 | 型 | NULL | 説明 |
+|---------|-----|------|------|
+| article_id | BIGSERIAL | NOT NULL | 主キー |
+| article_type | VARCHAR(50) | NOT NULL | 記事種別 |
+| album_id | BIGINT | NULL | アルバムID（FK、アルバム記事の場合のみ） |
+| title | VARCHAR(500) | NOT NULL | 記事タイトル |
+| body | TEXT | NULL | 記事本文 |
+| intro_short | TEXT | NULL | ショート紹介文（お品書きや一覧表示用） |
+| published_at | TIMESTAMP | NULL | 公開日時（業務的な掲載日） |
+| updated_at_business | TIMESTAMP | NULL | 更新日時（業務的な修正日、監査列とは別概念） |
+| is_public | BOOLEAN | NOT NULL | 公開フラグ（TRUE: 公開、FALSE: 非公開/下書き） |
+
+#### 外部キー
+
+- `album_id` → `album.album_id` (ON DELETE SET NULL)
+
+#### 制約
+
+- `article_type` は 'ALBUM', 'NOTE', 'NEWS', 'EVENT', 'OTHER' のいずれか
+
+#### 設計意図
+
+- **汎用的な記事管理**: アルバム記事以外の通常記事、ニュース、イベント情報にも対応
+- **片方向関連**: Article → Album の参照のみ（アルバムから記事への逆参照は不要）
+- **業務日時の管理**:
+  - `published_at`: 「いつ公開したか」の業務意味
+  - `updated_at_business`: 「いつ修正したか」の業務意味
+  - 監査列（`created_at`, `updated_at`）とは別概念
+- **公開制御**: `is_public` フラグで下書き状態を管理
+- **お品書き対応**: `intro_short` でお品書き用の短縮版を保持
+
+---
+
+### 8. ArticleTag（記事タグ）
+
+**役割**: 記事のカテゴライズ・フィルタリング用タグ。
+
+#### カラム
+
+| カラム名 | 型 | NULL | 説明 |
+|---------|-----|------|------|
+| article_tag_id | BIGSERIAL | NOT NULL | 主キー |
+| name | VARCHAR(100) | NOT NULL | タグ名（ユニーク） |
+
+#### 制約
+
+- `name` は UNIQUE
+
+#### 設計意図
+
+- **タグマスタ**: タグ名の一元管理
+- **再利用性**: 複数の記事で同じタグを使い回せる
+
+---
+
+### 9. ArticleTagLink（記事タグリンク）
+
+**役割**: 記事とタグの多対多関連を管理。
+
+#### カラム
+
+| カラム名 | 型 | NULL | 説明 |
+|---------|-----|------|------|
+| article_id | BIGINT | NOT NULL | 記事ID（FK） |
+| article_tag_id | BIGINT | NOT NULL | タグID（FK） |
+
+#### 外部キー
+
+- `article_id` → `article.article_id` (ON DELETE CASCADE)
+- `article_tag_id` → `article_tag.article_tag_id` (ON DELETE CASCADE)
+
+#### 制約
+
+- PRIMARY KEY (`article_id`, `article_tag_id`)
+
+#### 設計意図
+
+- **多対多関連**: 1記事に複数タグ、1タグは複数記事に関連付け可能
+- **フィルタリング**: タグベースの記事検索・絞り込みに使用
+
+---
+
+### 10. AlbumArticle（アルバム記事・お品書き用メタ）【廃止予定】
+
+> **注意**: このテーブルは Article テーブルへの統合により廃止予定です。
+> 既存データは Article テーブルへマイグレーションされます。
 
 **役割**: Web のアルバム紹介記事・お品書き掲載で使うテキスト／ラベル情報。
 
@@ -244,7 +335,7 @@
 
 ---
 
-### 8. AlbumDistribution（頒布条件／価格）
+### 11. AlbumDistribution（頒布条件／価格）
 
 **役割**: 頒価／DL価格／デモリンクなど、作品側の頒布状態を管理。
 
@@ -275,7 +366,7 @@
 
 ---
 
-### 9. AlbumAcquisitionChannel（入手経路）
+### 12. AlbumAcquisitionChannel（入手経路）
 
 **役割**: 入手経路（委託ショップ、BOOTH、Bandcamp、自サイト通販など）を複数持つためのテーブル。
 
@@ -318,19 +409,29 @@
 ### アルバム紹介記事ページ
 
 - **コア情報**: Album, ArtistCredit, Event, Track, TrackTune
-- **記事テキスト**: AlbumArticle.intro_long
-- **初出イベント・スペース**: Event + AlbumArticle.first_event_space
+- **記事情報**: Article（`article_type = 'ALBUM'` かつ `album_id` が一致）
+- **記事テキスト**: Article.body
+- **ショート紹介**: Article.intro_short
+- **初出イベント・スペース**: Event + AlbumArticle.first_event_space（※廃止予定）
 - **頒価・DL価格**: AlbumDistribution
 - **入手経路リンク**: AlbumAcquisitionChannel
 - **デモリンク**: AlbumDistribution.demo_url
+- **記事タグ**: ArticleTagLink → ArticleTag
 
 ### お品書き用カード
 
-- **タイトル**: Album.title
-- **紹介コメント(ショート)**: AlbumArticle.intro_short
+- **タイトル**: Article.title または Album.title
+- **紹介コメント(ショート)**: Article.intro_short
 - **頒価**: AlbumDistribution.physical_price
 - **曲数**: `SELECT COUNT(*) FROM track WHERE album_id = ?`
-- **ラベル**: AlbumArticle.label_tag
+- **ラベル**: ArticleTag 経由で表現（NEW、COLLAB など）
+- **公開日**: Article.published_at
+
+### 通常記事一覧
+
+- **記事リスト**: Article（`article_type != 'ALBUM'` または `album_id IS NULL`）
+- **フィルタリング**: ArticleTagLink + ArticleTag でタグ検索
+- **公開記事のみ**: `is_public = TRUE`
 
 ---
 
@@ -344,9 +445,13 @@
 | V4__Create_tune_table.sql | tune | チューン（曲） |
 | V5__Create_track_table.sql | track | トラック（録音） |
 | V6__Create_track_tune_table.sql | track_tune | トラック内チューン構成 |
-| V7__Create_album_article_table.sql | album_article | アルバム記事 |
+| V7__Create_album_article_table.sql | album_article | アルバム記事【廃止予定】 |
 | V8__Create_album_distribution_table.sql | album_distribution | 頒布条件・価格 |
 | V9__Create_album_acquisition_channel_table.sql | album_acquisition_channel | 入手経路 |
+| V10__Create_article_table.sql | article | 記事（汎用） |
+| V11__Create_article_tag_tables.sql | article_tag, article_tag_link | 記事タグ |
+| V10__Create_article_table.sql | article | 記事（汎用） |
+| V11__Create_article_tag_tables.sql | article_tag, article_tag_link | 記事タグとリンク |
 
 ---
 

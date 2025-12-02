@@ -10,7 +10,7 @@ ABServiceのドメインモデルは、アイリッシュ音楽のアルバム�
 
 - **インターフェース**: パッケージ直下に配置（例: `com.abservice.domain.model.aggregate.album`）
 - **実装**: `internal` サブパッケージに配置（例: `com.abservice.domain.model.aggregate.album.internal`）
-- **目的**: 
+- **目的**:
   - ドメイン層の公開APIを明確化
   - 実装の詳細を隠蔽し、依存関係を制御
   - テスタビリティの向上
@@ -195,7 +195,7 @@ public interface ArrangementTune extends Tune {
     default TuneKind kind() {
         return TuneKind.ARRANGEMENT;
     }
-    
+
     OriginalWorkInfo originalWorkInfo();  // 原曲情報（必須）
 }
 ```
@@ -427,7 +427,7 @@ public interface Album extends DomainObject {
     LocalDate releaseDate();
     ArtistCreditId artistCreditId();
     List<Track> tracks();
-    
+
     Album addTrack(Track track);
     Album removeTrack(TrackId trackId);
 }
@@ -444,7 +444,7 @@ class AlbumImpl implements Album {
     private final LocalDate releaseDate;
     private final ArtistCreditId artistCreditId;
     private final List<Track> tracks;
-    
+
     @Override
     public Album addTrack(Track track) {
         // 不変条件チェック
@@ -455,7 +455,7 @@ class AlbumImpl implements Album {
         newTracks.add(track);
         return withTracks(List.copyOf(newTracks));
     }
-    
+
     @Override
     public Album removeTrack(TrackId trackId) {
         var newTracks = tracks.stream()
@@ -476,7 +476,7 @@ class AlbumImpl implements Album {
   public interface Title {
       String value();
   }
-  
+
   // 実装（internal パッケージ）
   record TitleImpl(String value) implements Title {
       public TitleImpl {
@@ -502,10 +502,10 @@ class AlbumImpl implements Album {
       TrackId id();
       Integer trackNo();
       Title title();
-      
+
       Track changeTitle(Title newTitle);
   }
-  
+
   // 実装（internal パッケージ）
   @Getter
   @With(AccessLevel.PRIVATE)
@@ -516,7 +516,7 @@ class AlbumImpl implements Album {
       private final TrackId id;
       private final Integer trackNo;
       private final Title title;
-      
+
       @Override
       public Track changeTitle(Title newTitle) {
           return withTitle(newTitle);
@@ -562,7 +562,7 @@ public interface AlbumFactory {
         CatalogNumber catalogNumber,
         List<Track> tracks
     );
-    
+
     Album reconstruct(/* DB からの復元用 */);
 }
 
@@ -593,7 +593,7 @@ public interface TuneFactory {
         CreditName defaultComposerCredit,
         CreditName defaultArrangerCredit
     );
-    
+
     OriginalTune createOriginalTune(
         TuneId id,
         Title title,
@@ -603,7 +603,7 @@ public interface TuneFactory {
         CreditName defaultComposerCredit,
         CreditName defaultArrangerCredit
     );
-    
+
     ArrangementTune createArrangementTune(
         TuneId id,
         Title title,
