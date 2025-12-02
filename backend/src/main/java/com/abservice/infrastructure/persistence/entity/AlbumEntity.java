@@ -71,6 +71,10 @@ public class AlbumEntity extends AuditableEntity {
     @Column(name = "event_note", columnDefinition = "TEXT")
     private String eventNote;
 
+    // Event Date and Space (複数日程対応)
+    @OneToMany(mappedBy = "album", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<AlbumEventDateSpaceEntity> eventDateSpaces = new ArrayList<>();
+
     @Column(name = "catalog_number", length = 100)
     private String catalogNumber;
 

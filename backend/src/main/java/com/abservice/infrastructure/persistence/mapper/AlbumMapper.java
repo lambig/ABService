@@ -11,16 +11,19 @@ import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.ArtistCreditName;
 import com.abservice.domain.model.vo.common.Credit;
+import com.abservice.domain.model.vo.common.EventDateAndSpace;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.domain.model.vo.common.Url;
 import com.abservice.domain.model.vo.event.EventName;
 import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.infrastructure.persistence.entity.AlbumEntity;
+import com.abservice.infrastructure.persistence.entity.AlbumEventDateSpaceEntity;
 import com.abservice.infrastructure.persistence.entity.TrackEntity;
 import com.abservice.infrastructure.persistence.entity.TrackTuneEntity;
 import com.abservice.infrastructure.persistence.entity.TrackTuneId;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
@@ -59,8 +62,20 @@ public final class AlbumMapper {
         // EventReleasedAt (VO) を構築
         EventReleasedAt eventReleasedAt = null;
         if (entity.getEventName() != null) {
-            eventReleasedAt = new EventReleasedAt(new EventName(entity.getEventName()), entity.getEventDate(),
-                    entity.getEventPlace(), entity.getEventSpaceNumber(), entity.getEventNote());
+            // 新しいテーブルから日付・スペース情報を取得
+            List<EventDateAndSpace> dateAndSpaces = entity.getEventDateSpaces() != null
+                    ? entity.getEventDateSpaces().stream()
+                            .map(e -> new EventDateAndSpace(e.getEventDate(), e.getSpaceNumber()))
+                            .collect(Collectors.toList())
+                    : null;
+
+            // 後方互換性：新テーブルにデータがない場合は古いカラムから取得
+            if ((dateAndSpaces == null || dateAndSpaces.isEmpty()) && entity.getEventDate() != null) {
+                dateAndSpaces = List.of(new EventDateAndSpace(entity.getEventDate(), entity.getEventSpaceNumber()));
+            }
+
+            eventReleasedAt = new EventReleasedAt(new EventName(entity.getEventName()), dateAndSpaces,
+                    entity.getEventPlace(), entity.getEventNote());
         }
 
         return Album.reconstruct(new Album.Id(entity.getDomainId()), new AlbumTitle(entity.getTitle()),
@@ -92,10 +107,25 @@ public final class AlbumMapper {
         // EventReleasedAt (VO) を分解
         if (album.eventReleasedAt() != null) {
             albumEntity.setEventName(album.eventReleasedAt().name().value());
-            albumEntity.setEventDate(album.eventReleasedAt().date());
             albumEntity.setEventPlace(album.eventReleasedAt().place());
-            albumEntity.setEventSpaceNumber(album.eventReleasedAt().spaceNumber());
             albumEntity.setEventNote(album.eventReleasedAt().note());
+
+            // 日付・スペース情報を新テーブルに保存
+            if (album.eventReleasedAt().dateAndSpaces() != null && !album.eventReleasedAt().dateAndSpaces().isEmpty()) {
+                var dateSpaceEntities = album.eventReleasedAt().dateAndSpaces().stream().map(ds -> {
+                    var entity = new AlbumEventDateSpaceEntity();
+                    entity.setAlbum(albumEntity);
+                    entity.setEventDate(ds.date());
+                    entity.setSpaceNumber(ds.spaceNumber());
+                    return entity;
+                }).collect(Collectors.toList());
+                albumEntity.setEventDateSpaces(dateSpaceEntities);
+
+                // 後方互換性：最初の日付・スペースを古いカラムにも保存
+                var firstDateSpace = album.eventReleasedAt().dateAndSpaces().get(0);
+                albumEntity.setEventDate(firstDateSpace.date());
+                albumEntity.setEventSpaceNumber(firstDateSpace.spaceNumber());
+            }
         }
 
         albumEntity.setCatalogNumber(album.catalogNumber() != null ? album.catalogNumber().value() : null);

@@ -1,6 +1,8 @@
 package com.abservice.domain.model.vo.common;
 
 import java.time.LocalDate;
+import java.util.Collections;
+import java.util.List;
 
 import com.abservice.domain.model.vo.ValueObject;
 import com.abservice.domain.model.vo.event.EventName;
@@ -13,7 +15,7 @@ import lombok.experimental.Accessors;
  *
  * <p>
  * コミケ、M3、ライブなどのイベントでアルバムがリリース（頒布）された情報を表すValue Objectです。
- * イベント名、開催日、会場、スペース番号などを含みます。
+ * イベント名、開催日・スペース番号の組み合わせ（複数日参加対応）、会場、補足情報を含みます。
  * </p>
  */
 @Getter
@@ -21,9 +23,8 @@ import lombok.experimental.Accessors;
 @EqualsAndHashCode
 public class EventReleasedAt implements ValueObject<EventReleasedAt> {
     private final EventName name;
-    private final LocalDate date;
+    private final List<EventDateAndSpace> dateAndSpaces;
     private final String place;
-    private final String spaceNumber;
     private final String note;
 
     @Override
@@ -31,10 +32,8 @@ public class EventReleasedAt implements ValueObject<EventReleasedAt> {
         if (other == null) {
             return false;
         }
-        return this.name.equivalentTo(other.name) && java.util.Objects.equals(this.date, other.date)
-                && java.util.Objects.equals(this.place, other.place)
-                && java.util.Objects.equals(this.spaceNumber, other.spaceNumber)
-                && java.util.Objects.equals(this.note, other.note);
+        return this.name.equivalentTo(other.name) && java.util.Objects.equals(this.dateAndSpaces, other.dateAndSpaces)
+                && java.util.Objects.equals(this.place, other.place) && java.util.Objects.equals(this.note, other.note);
     }
 
     /**
@@ -42,23 +41,22 @@ public class EventReleasedAt implements ValueObject<EventReleasedAt> {
      *
      * @param name
      *            イベント名（必須）
-     * @param date
-     *            開催日（nullable）
+     * @param dateAndSpaces
+     *            開催日・スペース番号の組み合わせリスト（nullable）
      * @param place
      *            会場（nullable）
-     * @param spaceNumber
-     *            スペース番号（nullable、例：東A-01）
      * @param note
      *            補足情報（nullable）
      */
-    public EventReleasedAt(EventName name, LocalDate date, String place, String spaceNumber, String note) {
+    public EventReleasedAt(EventName name, List<EventDateAndSpace> dateAndSpaces, String place, String note) {
         if (name == null) {
             throw new IllegalArgumentException("Event name cannot be null");
         }
         this.name = name;
-        this.date = date;
+        this.dateAndSpaces = dateAndSpaces != null
+                ? Collections.unmodifiableList(dateAndSpaces)
+                : Collections.emptyList();
         this.place = place;
-        this.spaceNumber = spaceNumber;
         this.note = note;
     }
 
@@ -70,7 +68,7 @@ public class EventReleasedAt implements ValueObject<EventReleasedAt> {
      * @return EventReleasedAt
      */
     public static EventReleasedAt of(String name) {
-        return new EventReleasedAt(new EventName(name), null, null, null, null);
+        return new EventReleasedAt(new EventName(name), null, null, null);
     }
 
     /**
@@ -83,7 +81,8 @@ public class EventReleasedAt implements ValueObject<EventReleasedAt> {
      * @return EventReleasedAt
      */
     public static EventReleasedAt of(String name, LocalDate date) {
-        return new EventReleasedAt(new EventName(name), date, null, null, null);
+        return new EventReleasedAt(new EventName(name), date != null ? List.of(EventDateAndSpace.of(date)) : null, null,
+                null);
     }
 
     /**
@@ -98,11 +97,29 @@ public class EventReleasedAt implements ValueObject<EventReleasedAt> {
      * @return EventReleasedAt
      */
     public static EventReleasedAt of(String name, LocalDate date, String spaceNumber) {
-        return new EventReleasedAt(new EventName(name), date, null, spaceNumber, null);
+        return new EventReleasedAt(new EventName(name),
+                date != null ? List.of(EventDateAndSpace.of(date, spaceNumber)) : null, null, null);
     }
 
     /**
-     * 全ての情報を指定して生成
+     * 全ての情報を指定して生成（複数日程対応）
+     *
+     * @param name
+     *            イベント名
+     * @param dateAndSpaces
+     *            開催日・スペース番号の組み合わせリスト
+     * @param place
+     *            会場
+     * @param note
+     *            補足情報
+     * @return EventReleasedAt
+     */
+    public static EventReleasedAt of(String name, List<EventDateAndSpace> dateAndSpaces, String place, String note) {
+        return new EventReleasedAt(new EventName(name), dateAndSpaces, place, note);
+    }
+
+    /**
+     * 単一の日付・スペース情報で生成（後方互換性）
      *
      * @param name
      *            イベント名
@@ -117,6 +134,7 @@ public class EventReleasedAt implements ValueObject<EventReleasedAt> {
      * @return EventReleasedAt
      */
     public static EventReleasedAt of(String name, LocalDate date, String place, String spaceNumber, String note) {
-        return new EventReleasedAt(new EventName(name), date, place, spaceNumber, note);
+        return new EventReleasedAt(new EventName(name),
+                date != null ? List.of(EventDateAndSpace.of(date, spaceNumber)) : null, place, note);
     }
 }
