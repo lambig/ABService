@@ -11,7 +11,7 @@ import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.ArtistCreditName;
 import com.abservice.domain.model.vo.common.Credit;
-import com.abservice.domain.model.vo.common.EventInfo;
+import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.domain.model.vo.common.Url;
 import com.abservice.domain.model.vo.event.EventName;
 import com.abservice.domain.model.aggregate.tune.Tune;
@@ -56,15 +56,15 @@ public final class AlbumMapper {
         var artistCredit = new ArtistCredit(new ArtistCreditName(entity.getArtistDisplayName()),
                 entity.getArtistSortKey());
 
-        // EventInfo (VO) を構築
-        EventInfo eventInfo = null;
+        // EventReleasedAt (VO) を構築
+        EventReleasedAt eventReleasedAt = null;
         if (entity.getEventName() != null) {
-            eventInfo = new EventInfo(new EventName(entity.getEventName()), entity.getEventDate(),
-                    entity.getEventPlace(), entity.getEventNote());
+            eventReleasedAt = new EventReleasedAt(new EventName(entity.getEventName()), entity.getEventDate(),
+                    entity.getEventPlace(), entity.getEventSpaceNumber(), entity.getEventNote());
         }
 
         return Album.reconstruct(new Album.Id(entity.getDomainId()), new AlbumTitle(entity.getTitle()),
-                entity.getReleaseDate(), artistCredit, eventInfo,
+                entity.getReleaseDate(), artistCredit, eventReleasedAt,
                 entity.getCatalogNumber() != null ? new CatalogNumber(entity.getCatalogNumber()) : null, tracks);
     }
 
@@ -89,12 +89,13 @@ public final class AlbumMapper {
         albumEntity.setArtistDisplayName(album.artistCredit().displayName().value());
         albumEntity.setArtistSortKey(album.artistCredit().sortKey());
 
-        // EventInfo (VO) を分解
-        if (album.eventInfo() != null) {
-            albumEntity.setEventName(album.eventInfo().name().value());
-            albumEntity.setEventDate(album.eventInfo().date());
-            albumEntity.setEventPlace(album.eventInfo().place());
-            albumEntity.setEventNote(album.eventInfo().note());
+        // EventReleasedAt (VO) を分解
+        if (album.eventReleasedAt() != null) {
+            albumEntity.setEventName(album.eventReleasedAt().name().value());
+            albumEntity.setEventDate(album.eventReleasedAt().date());
+            albumEntity.setEventPlace(album.eventReleasedAt().place());
+            albumEntity.setEventSpaceNumber(album.eventReleasedAt().spaceNumber());
+            albumEntity.setEventNote(album.eventReleasedAt().note());
         }
 
         albumEntity.setCatalogNumber(album.catalogNumber() != null ? album.catalogNumber().value() : null);

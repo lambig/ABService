@@ -55,7 +55,7 @@ public class AlbumEntity extends AuditableEntity {
     @Column(name = "artist_sort_key", length = 255)
     private String artistSortKey;
 
-    // Event Info (Value Object)
+    // Event Released At (Value Object)
     @Column(name = "event_name", length = 255)
     private String eventName;
 
@@ -64,6 +64,9 @@ public class AlbumEntity extends AuditableEntity {
 
     @Column(name = "event_place", length = 255)
     private String eventPlace;
+
+    @Column(name = "event_space_number", length = 50)
+    private String eventSpaceNumber;
 
     @Column(name = "event_note", columnDefinition = "TEXT")
     private String eventNote;

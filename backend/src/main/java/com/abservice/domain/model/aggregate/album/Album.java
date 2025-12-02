@@ -11,7 +11,7 @@ import com.abservice.domain.model.aggregate.Aggregate;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.common.ArtistCredit;
-import com.abservice.domain.model.vo.common.EventInfo;
+import com.abservice.domain.model.vo.common.EventReleasedAt;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -37,7 +37,7 @@ public class Album implements Aggregate<Album, Album.Id> {
     private final AlbumTitle title;
     private final LocalDate releaseDate;
     private final ArtistCredit artistCredit; // アルバム全体のアーティスト名義（必須）
-    private final EventInfo eventInfo; // nullable: イベント情報が不明な場合
+    private final EventReleasedAt eventReleasedAt; // nullable: イベント頒布情報が不明な場合
     private final CatalogNumber catalogNumber; // nullable
     private final List<Track> tracks;
 
@@ -50,21 +50,21 @@ public class Album implements Aggregate<Album, Album.Id> {
      *            リリース日
      * @param artistCredit
      *            アーティストクレジット
-     * @param eventInfo
-     *            イベント情報（nullable）
+     * @param eventReleasedAt
+     *            イベント頒布情報（nullable）
      * @param catalogNumber
      *            カタログ番号（nullable）
      * @return 新規Album
      */
-    public static Album create(AlbumTitle title, LocalDate releaseDate, ArtistCredit artistCredit, EventInfo eventInfo,
-            CatalogNumber catalogNumber) {
+    public static Album create(AlbumTitle title, LocalDate releaseDate, ArtistCredit artistCredit,
+            EventReleasedAt eventReleasedAt, CatalogNumber catalogNumber) {
         if (title == null) {
             throw new IllegalArgumentException("Album title cannot be null");
         }
         if (artistCredit == null) {
             throw new IllegalArgumentException("Artist credit cannot be null");
         }
-        return new Album(Id.generate(), title, releaseDate, artistCredit, eventInfo, catalogNumber,
+        return new Album(Id.generate(), title, releaseDate, artistCredit, eventReleasedAt, catalogNumber,
                 Collections.emptyList());
     }
 
@@ -79,8 +79,8 @@ public class Album implements Aggregate<Album, Album.Id> {
      *            リリース日
      * @param artistCredit
      *            アーティストクレジット
-     * @param eventInfo
-     *            イベント情報（nullable）
+     * @param eventReleasedAt
+     *            イベント頒布情報（nullable）
      * @param catalogNumber
      *            カタログ番号（nullable）
      * @param tracks
@@ -89,8 +89,8 @@ public class Album implements Aggregate<Album, Album.Id> {
      */
     @SuppressWarnings("checkstyle:ParameterNumber")
     public static Album reconstruct(Id id, AlbumTitle title, LocalDate releaseDate, ArtistCredit artistCredit,
-            EventInfo eventInfo, CatalogNumber catalogNumber, List<Track> tracks) {
-        return new Album(id, title, releaseDate, artistCredit, eventInfo, catalogNumber, tracks);
+            EventReleasedAt eventReleasedAt, CatalogNumber catalogNumber, List<Track> tracks) {
+        return new Album(id, title, releaseDate, artistCredit, eventReleasedAt, catalogNumber, tracks);
     }
 
     /**
@@ -133,14 +133,14 @@ public class Album implements Aggregate<Album, Album.Id> {
     }
 
     /**
-     * イベント情報を変更
+     * イベント頒布情報を変更
      *
-     * @param newEventInfo
-     *            新しいイベント情報
+     * @param newEventReleasedAt
+     *            新しいイベント頒布情報
      * @return 更新されたAlbum
      */
-    public Album changeEventInfo(EventInfo newEventInfo) {
-        return withEventInfo(newEventInfo);
+    public Album changeEventReleasedAt(EventReleasedAt newEventReleasedAt) {
+        return withEventReleasedAt(newEventReleasedAt);
     }
 
     /**

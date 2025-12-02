@@ -42,7 +42,7 @@
     <module name="TreeWalker">
         <!-- Enable @SuppressWarnings annotation support -->
         <module name="SuppressWarningsHolder"/>
-        
+
         <!-- Naming Conventions -->
         <module name="ConstantName"/>
         <module name="LocalFinalVariableName"/>
