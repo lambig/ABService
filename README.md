@@ -47,6 +47,8 @@ com.abservice/
 │   └── dto/                     # データ転送オブジェクト
 ├── infrastructure/              # インフラ層
 │   ├── persistence/             # 永続化実装
+│   │   ├── AuditableEntity.java # 共通監査列を持つ基底クラス
+│   │   └── AuditInfo.java       # 監査情報を保持するデータクラス
 │   └── datetime/                # 日時プロバイダー実装
 │       └── SystemBusinessDateTimeProvider.java
 └── presentation/                # プレゼンテーション層
@@ -61,8 +63,25 @@ ABServiceはドメイン駆動設計（DDD）の原則に基づいています�
 - **エンティティ/集約**: 同一性、Lombok `@With`による不変更新パターン
 - **集約**: 整合性境界、ID参照
 - **業務日付/日時**: Asia/Tokyoタイムゾーン固定
+- **共通監査列**: すべてのエンティティに7つの監査列を含める
 
-詳細は [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) を参照してください。
+詳細は以下のドキュメントを参照してください：
+- [アーキテクチャ](docs/ARCHITECTURE.md)
+- [共通監査列ガイドライン](docs/AUDIT_COLUMNS.md)
+
+## 共通監査列
+
+すべてのデータベーステーブルは、以下の7つの監査列を含む必要があります：
+
+1. `created_at` - レコード作成日時
+2. `updated_at` - レコード最終更新日時
+3. `created_by_service` - 作成時のサービス名
+4. `updated_by_service` - 更新時のサービス名
+5. `created_by_user` - 作成者ユーザーID
+6. `updated_by_user` - 更新者ユーザーID
+7. `version` - 楽観ロック用バージョン番号
+
+詳細は [docs/AUDIT_COLUMNS.md](docs/AUDIT_COLUMNS.md) を参照してください。
 
 ## 開発
 
@@ -143,4 +162,3 @@ git push --no-verify
 ⚠️ SpotBugsは現在Java 25のバイトコード(major version 69)に対応していないため、このプロジェクトでは使用していません。
 - 最新版: 4.9.8 (2024年10月)
 - Java 25でのビルドはサポートされていますが、実行時の解析は未対応です
-
