@@ -5,12 +5,15 @@ import com.abservice.domain.model.aggregate.Aggregate;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.tune.TuneKind;
 import com.abservice.domain.model.vo.tune.TuneTitle;
+import java.util.Optional;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.With;
 import lombok.experimental.Accessors;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * チューン集約
@@ -28,17 +31,27 @@ import lombok.experimental.Accessors;
 @Accessors(fluent = true)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class Tune implements Aggregate<Tune, Tune.Id> {
+public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
     @EqualsAndHashCode.Include
+    @NonNull
     private final Id id;
+    @NonNull
     private final TuneTitle title;
+    @NonNull
     private final TuneKind tuneKind;
+    @Nullable
     private final Credit defaultComposerCredit;
+    @Nullable
     private final Credit defaultArrangerCredit;
+    @Nullable
     private final String originalWorkTitle; // アレンジの場合の原曲タイトル
+    @Nullable
     private final String originalWorkCredit; // アレンジの場合の原曲作曲者・アーティスト
+    @Nullable
     private final String tuneType; // リール、ジグなど
+    @Nullable
     private final String defaultKey; // 想定キー
+    @Nullable
     private final Integer defaultTempo; // BPM
 
     /**
@@ -65,17 +78,16 @@ public class Tune implements Aggregate<Tune, Tune.Id> {
      * @return 新規Tune
      */
     @SuppressWarnings("checkstyle:ParameterNumber")
-    public static Tune create(TuneTitle title, TuneKind tuneKind, Credit defaultComposerCredit,
-            Credit defaultArrangerCredit, String originalWorkTitle, String originalWorkCredit, String tuneType,
-            String defaultKey, Integer defaultTempo) {
-        if (title == null) {
-            throw new IllegalArgumentException("Tune title cannot be null");
-        }
-        if (tuneKind == null) {
-            throw new IllegalArgumentException("Tune kind cannot be null");
-        }
-        return new Tune(Id.generate(), title, tuneKind, defaultComposerCredit, defaultArrangerCredit, originalWorkTitle,
-                originalWorkCredit, tuneType, defaultKey, defaultTempo);
+    public static @NonNull Tune create(@NonNull TuneTitle title, @NonNull TuneKind tuneKind,
+            @Nullable Credit defaultComposerCredit, @Nullable Credit defaultArrangerCredit,
+            @Nullable String originalWorkTitle, @Nullable String originalWorkCredit, @Nullable String tuneType,
+            @Nullable String defaultKey, @Nullable Integer defaultTempo) {
+        var validatedTitle = Optional.ofNullable(title)
+                .orElseThrow(() -> new IllegalArgumentException("Tune title cannot be null"));
+        var validatedKind = Optional.ofNullable(tuneKind)
+                .orElseThrow(() -> new IllegalArgumentException("Tune kind cannot be null"));
+        return new Tune(Id.generate(), validatedTitle, validatedKind, defaultComposerCredit, defaultArrangerCredit,
+                originalWorkTitle, originalWorkCredit, tuneType, defaultKey, defaultTempo);
     }
 
     /**
@@ -104,9 +116,10 @@ public class Tune implements Aggregate<Tune, Tune.Id> {
      * @return 再構成されたTune
      */
     @SuppressWarnings("checkstyle:ParameterNumber")
-    public static Tune reconstruct(Id id, TuneTitle title, TuneKind tuneKind, Credit defaultComposerCredit,
-            Credit defaultArrangerCredit, String originalWorkTitle, String originalWorkCredit, String tuneType,
-            String defaultKey, Integer defaultTempo) {
+    public static @NonNull Tune reconstruct(@NonNull Id id, @NonNull TuneTitle title, @NonNull TuneKind tuneKind,
+            @Nullable Credit defaultComposerCredit, @Nullable Credit defaultArrangerCredit,
+            @Nullable String originalWorkTitle, @Nullable String originalWorkCredit, @Nullable String tuneType,
+            @Nullable String defaultKey, @Nullable Integer defaultTempo) {
         return new Tune(id, title, tuneKind, defaultComposerCredit, defaultArrangerCredit, originalWorkTitle,
                 originalWorkCredit, tuneType, defaultKey, defaultTempo);
     }
@@ -118,11 +131,9 @@ public class Tune implements Aggregate<Tune, Tune.Id> {
      *            新しいタイトル
      * @return 更新されたTune
      */
-    public Tune changeTitle(TuneTitle newTitle) {
-        if (newTitle == null) {
-            throw new IllegalArgumentException("Tune title cannot be null");
-        }
-        return withTitle(newTitle);
+    public @NonNull Tune changeTitle(@NonNull TuneTitle newTitle) {
+        return withTitle(Optional.ofNullable(newTitle)
+                .orElseThrow(() -> new IllegalArgumentException("Tune title cannot be null")));
     }
 
     /**
@@ -132,7 +143,7 @@ public class Tune implements Aggregate<Tune, Tune.Id> {
      *            新しい作曲者クレジット
      * @return 更新されたTune
      */
-    public Tune changeDefaultComposerCredit(Credit newComposerCredit) {
+    public @NonNull Tune changeDefaultComposerCredit(@Nullable Credit newComposerCredit) {
         return withDefaultComposerCredit(newComposerCredit);
     }
 
@@ -143,7 +154,7 @@ public class Tune implements Aggregate<Tune, Tune.Id> {
      *            新しいアレンジャークレジット
      * @return 更新されたTune
      */
-    public Tune changeDefaultArrangerCredit(Credit newArrangerCredit) {
+    public @NonNull Tune changeDefaultArrangerCredit(@Nullable Credit newArrangerCredit) {
         return withDefaultArrangerCredit(newArrangerCredit);
     }
 
@@ -156,7 +167,8 @@ public class Tune implements Aggregate<Tune, Tune.Id> {
      *            新しい原曲クレジット
      * @return 更新されたTune
      */
-    public Tune changeOriginalWorkInfo(String newOriginalWorkTitle, String newOriginalWorkCredit) {
+    public @NonNull Tune changeOriginalWorkInfo(@Nullable String newOriginalWorkTitle,
+            @Nullable String newOriginalWorkCredit) {
         if (tuneKind == TuneKind.ARRANGEMENT && (newOriginalWorkTitle == null || newOriginalWorkTitle.isBlank())) {
             throw new IllegalArgumentException("Original work title is required for ARRANGEMENT tune kind");
         }
@@ -170,7 +182,7 @@ public class Tune implements Aggregate<Tune, Tune.Id> {
      *            新しいチューンタイプ（リール、ジグなど）
      * @return 更新されたTune
      */
-    public Tune changeTuneType(String newTuneType) {
+    public @NonNull Tune changeTuneType(@Nullable String newTuneType) {
         return withTuneType(newTuneType);
     }
 
@@ -181,7 +193,7 @@ public class Tune implements Aggregate<Tune, Tune.Id> {
      *            新しいデフォルトキー
      * @return 更新されたTune
      */
-    public Tune changeDefaultKey(String newDefaultKey) {
+    public @NonNull Tune changeDefaultKey(@Nullable String newDefaultKey) {
         return withDefaultKey(newDefaultKey);
     }
 
@@ -192,7 +204,7 @@ public class Tune implements Aggregate<Tune, Tune.Id> {
      *            新しいデフォルトテンポ（BPM）
      * @return 更新されたTune
      */
-    public Tune changeDefaultTempo(Integer newDefaultTempo) {
+    public @NonNull Tune changeDefaultTempo(@Nullable Integer newDefaultTempo) {
         if (newDefaultTempo != null && newDefaultTempo <= 0) {
             throw new IllegalArgumentException("Tempo must be positive");
         }
@@ -200,7 +212,7 @@ public class Tune implements Aggregate<Tune, Tune.Id> {
     }
 
     @Override
-    public Id id() {
+    public @NonNull Id id() {
         return id;
     }
 
@@ -210,11 +222,10 @@ public class Tune implements Aggregate<Tune, Tune.Id> {
      * @param value
      *            ID値（UUIDv7形式の文字列）
      */
-    public record Id(String value) implements EntityId<Tune> {
+    public record Id(@NonNull String value) implements EntityId<Tune> {
         public Id {
-            if (value == null || value.isBlank()) {
-                throw new IllegalArgumentException("Tune ID cannot be blank");
-            }
+            Optional.ofNullable(value).filter(v -> !v.isBlank())
+                    .orElseThrow(() -> new IllegalArgumentException("Tune ID cannot be blank"));
             if (!EntityId.isValidUuid(value)) {
                 throw new IllegalArgumentException("Tune ID must be a valid UUID: " + value);
             }
@@ -223,14 +234,14 @@ public class Tune implements Aggregate<Tune, Tune.Id> {
         /**
          * UUIDv7を生成してTune.Idを作成
          */
-        public static Id generate() {
+        public static @NonNull Id generate() {
             return new Id(EntityId.generateUuidV7());
         }
 
         /**
          * 文字列からTune.Idを生成
          */
-        public static Id of(String value) {
+        public static @NonNull Id of(@NonNull String value) {
             return new Id(value);
         }
     }

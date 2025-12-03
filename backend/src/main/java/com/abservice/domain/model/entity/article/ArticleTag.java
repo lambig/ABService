@@ -2,9 +2,11 @@ package com.abservice.domain.model.entity.article;
 
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.entity.DomainEntity;
+import java.util.Optional;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import org.jspecify.annotations.NonNull;
 
 /**
  * 記事タグエンティティ
@@ -16,9 +18,11 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.Id> {
+public class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@NonNull Id> {
     @EqualsAndHashCode.Include
+    @NonNull
     private final Id id;
+    @NonNull
     private final String name;
 
     /**
@@ -28,11 +32,10 @@ public class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.Id> {
      *            タグ名
      * @return 新規ArticleTag
      */
-    public static ArticleTag create(String name) {
-        if (name == null || name.isBlank()) {
-            throw new IllegalArgumentException("Tag name cannot be blank");
-        }
-        return new ArticleTag(Id.generate(), name);
+    public static @NonNull ArticleTag create(@NonNull String name) {
+        var validatedName = Optional.ofNullable(name).filter(n -> !n.isBlank())
+                .orElseThrow(() -> new IllegalArgumentException("Tag name cannot be blank"));
+        return new ArticleTag(Id.generate(), validatedName);
     }
 
     /**
@@ -44,7 +47,7 @@ public class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.Id> {
      *            タグ名
      * @return 再構成されたArticleTag
      */
-    public static ArticleTag reconstruct(Id id, String name) {
+    public static @NonNull ArticleTag reconstruct(@NonNull Id id, @NonNull String name) {
         return new ArticleTag(id, name);
     }
 
@@ -54,11 +57,10 @@ public class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.Id> {
      * @param value
      *            ID値（UUIDv7形式の文字列）
      */
-    public record Id(String value) implements EntityId<ArticleTag> {
+    public record Id(@NonNull String value) implements EntityId<ArticleTag> {
         public Id {
-            if (value == null || value.isBlank()) {
-                throw new IllegalArgumentException("ArticleTag ID cannot be blank");
-            }
+            Optional.ofNullable(value).filter(v -> !v.isBlank())
+                    .orElseThrow(() -> new IllegalArgumentException("ArticleTag ID cannot be blank"));
             if (!EntityId.isValidUuid(value)) {
                 throw new IllegalArgumentException("ArticleTag ID must be a valid UUID: " + value);
             }
@@ -67,20 +69,20 @@ public class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.Id> {
         /**
          * UUIDv7を生成してArticleTag.Idを作成
          */
-        public static Id generate() {
+        public static @NonNull Id generate() {
             return new Id(EntityId.generateUuidV7());
         }
 
         /**
          * 文字列からArticleTag.Idを生成
          */
-        public static Id of(String value) {
+        public static @NonNull Id of(@NonNull String value) {
             return new Id(value);
         }
     }
 
     @Override
-    public Id id() {
+    public @NonNull Id id() {
         return id;
     }
 }

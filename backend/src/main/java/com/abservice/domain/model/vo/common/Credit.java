@@ -1,8 +1,8 @@
 package com.abservice.domain.model.vo.common;
 
 import com.abservice.domain.model.vo.ValueObject;
-
 import java.util.Optional;
+import org.jspecify.annotations.NonNull;
 
 /**
  * クレジット（作曲者・アレンジャー等）の値オブジェクト
@@ -18,7 +18,7 @@ import java.util.Optional;
  * @param value
  *            クレジット
  */
-public record Credit(String value) implements ValueObject<Credit> {
+public record Credit(@NonNull String value) implements ValueObject<Credit> {
     /**
      * コンストラクタ
      *
@@ -28,9 +28,8 @@ public record Credit(String value) implements ValueObject<Credit> {
      *             クレジットがnullまたは空白の場合、または最大長を超える場合
      */
     public Credit {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Credit cannot be blank");
-        }
+        Optional.ofNullable(value).filter(v -> !v.isBlank())
+                .orElseThrow(() -> new IllegalArgumentException("Credit cannot be blank"));
         if (value.length() > 255) {
             throw new IllegalArgumentException("Credit must be 255 characters or less");
         }
@@ -43,7 +42,7 @@ public record Credit(String value) implements ValueObject<Credit> {
      *            クレジット
      * @return Creditインスタンス
      */
-    public static Credit of(String value) {
+    public static @NonNull Credit of(@NonNull String value) {
         return new Credit(value);
     }
 

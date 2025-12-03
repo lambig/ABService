@@ -89,18 +89,61 @@ var validatedIds = Optional.ofNullable(orderedTrackIds)
    - コンパクトコンストラクタでnullチェック追加
    - テスト: ✅ PASSED
 
+4. **Tune.java** - 曲マスター集約
+   - 全フィールドにアノテーション追加
+   - 全publicメソッドにアノテーション追加
+   - Optional.ofNullableによる実行時チェック実装
+   - テスト: ✅ PASSED
+   - 実施日: 2025年12月3日
+
+5. **Article.java** - 記事集約
+   - 全フィールドにアノテーション追加（内部クラスIDには`Album.@Nullable Id`形式を使用）
+   - 全publicメソッドにアノテーション追加
+   - Optional.ofNullableによる実行時チェック実装
+   - テスト: ✅ PASSED
+   - 実施日: 2025年12月3日
+
+6. **ArticleTag.java** - 記事タグEntity
+   - 全フィールドにアノテーション追加
+   - 全publicメソッドにアノテーション追加
+   - Optional.ofNullableによる実行時チェック実装
+   - テスト: ✅ PASSED
+   - 実施日: 2025年12月3日
+
+7. **AlbumTitle.java** - Value Object
+   - recordパラメータにアノテーション追加
+   - コンパクトコンストラクタでOptional.ofNullableによる実行時チェック実装
+   - テスト: ✅ PASSED
+   - 実施日: 2025年12月3日
+
+8. **TuneTitle.java** - Value Object
+   - recordパラメータにアノテーション追加
+   - コンパクトコンストラクタでOptional.ofNullableによる実行時チェック実装
+   - テスト: ✅ PASSED
+   - 実施日: 2025年12月3日
+
+9. **Credit.java** - Value Object
+   - recordパラメータにアノテーション追加
+   - コンパクトコンストラクタでOptional.ofNullableによる実行時チェック実装
+   - テスト: ✅ PASSED
+   - 実施日: 2025年12月3日
+
+10. **ArtistCredit.java** - Value Object
+    - 全フィールドにアノテーション追加
+    - コンストラクタとファクトリメソッドにアノテーション追加
+    - Optional.ofNullableによる実行時チェック実装
+    - テスト: ✅ PASSED
+    - 実施日: 2025年12月3日
+
+### 📊 進捗サマリー
+- **完了**: 10クラス（Aggregate: 3, Entity: 2, Value Object: 5）
+- **残り**: 約15-20クラス
+- **次回優先度**: 残りのAggregateとEntity、主要Value Object
+
 ### 🔄 次回セッションで実施予定
 
-#### Phase 1: 主要Aggregateクラス（優先度: 高）
-- [ ] **Tune.java** - 曲マスター集約
-  - 対象メソッド: `create()`, `reconstruct()`, `changeTitle()`, `changeTuneKind()`, etc.
-  - 推定作業時間: 30分
-
-- [ ] **Article.java** - 記事集約
-  - 対象メソッド: `create()`, `reconstruct()`, `changeTitle()`, `changeArticleType()`, `addTag()`, `removeTag()`, etc.
-  - 推定作業時間: 30分
-
-- [ ] **AlbumArticle.java** - アルバム記事集約
+#### Phase 1: 残りのAggregateクラス（優先度: 高）
+- [ ] **AlbumArticle.java** - アルバム記事集約（存在する場合）
   - 対象メソッド: `create()`, `reconstruct()`, `updateIntro()`, `addAcquisitionChannel()`, etc.
   - 推定作業時間: 30分
 
@@ -108,18 +151,22 @@ var validatedIds = Optional.ofNullable(orderedTrackIds)
 - [ ] **TrackTune.java** - Track内のチューン情報
 - [ ] **AlbumAcquisitionChannel.java** - アルバム入手経路
 - [ ] **AlbumDistribution.java** - アルバム頒布情報
-- [ ] **ArticleTag.java** - 記事タグ
 
-#### Phase 3: Value Objectクラス（優先度: 中）
-- [ ] **AlbumTitle.java**
+#### Phase 3: 残りのValue Objectクラス（優先度: 中）
 - [ ] **TrackTitle.java**
-- [ ] **TuneTitle.java**
-- [ ] **ArtistCredit.java**
 - [ ] **BusinessDate.java**
 - [ ] **Duration.java**
 - [ ] **EventReleasedAt.java**
 - [ ] **MarkupContent.java**
 - [ ] **Isdn.java**
+- [ ] **TuneKind.java**
+- [ ] **ArticleType.java**
+- [ ] **ArtistCreditName.java**
+
+#### Phase 4: Infrastructure層とApplication層（優先度: 低）
+- [ ] Mapper classes
+- [ ] Repository implementations
+- [ ] Application Service classes
 - [ ] **Isrc.java**
 - [ ] **LabelTag.java**
 - [ ] その他VOクラス

@@ -1,8 +1,8 @@
 package com.abservice.domain.model.vo.tune;
 
 import com.abservice.domain.model.vo.ValueObject;
-
 import java.util.Optional;
+import org.jspecify.annotations.NonNull;
 
 /**
  * チューンタイトルの値オブジェクト
@@ -18,7 +18,7 @@ import java.util.Optional;
  * @param value
  *            チューンタイトル
  */
-public record TuneTitle(String value) implements ValueObject<TuneTitle> {
+public record TuneTitle(@NonNull String value) implements ValueObject<TuneTitle> {
     /**
      * コンストラクタ
      *
@@ -28,9 +28,8 @@ public record TuneTitle(String value) implements ValueObject<TuneTitle> {
      *             タイトルがnullまたは空白の場合、または最大長を超える場合
      */
     public TuneTitle {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Tune title cannot be blank");
-        }
+        Optional.ofNullable(value).filter(v -> !v.isBlank())
+                .orElseThrow(() -> new IllegalArgumentException("Tune title cannot be blank"));
         if (value.length() > 255) {
             throw new IllegalArgumentException("Tune title must be 255 characters or less");
         }
@@ -43,7 +42,7 @@ public record TuneTitle(String value) implements ValueObject<TuneTitle> {
      *            チューンタイトル
      * @return TuneTitleインスタンス
      */
-    public static TuneTitle of(String value) {
+    public static @NonNull TuneTitle of(@NonNull String value) {
         return new TuneTitle(value);
     }
 

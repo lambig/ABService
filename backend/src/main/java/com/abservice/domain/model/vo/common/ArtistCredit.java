@@ -1,9 +1,12 @@
 package com.abservice.domain.model.vo.common;
 
 import com.abservice.domain.model.vo.ValueObject;
+import java.util.Optional;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.experimental.Accessors;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * アーティスト名義 Value Object
@@ -16,7 +19,9 @@ import lombok.experimental.Accessors;
 @Accessors(fluent = true)
 @EqualsAndHashCode
 public class ArtistCredit implements ValueObject<ArtistCredit> {
+    @NonNull
     private final ArtistCreditName displayName;
+    @NonNull
     private final String sortKey;
 
     @Override
@@ -34,11 +39,9 @@ public class ArtistCredit implements ValueObject<ArtistCredit> {
      * @param sortKey
      *            ソートキー（nullの場合はdisplayNameの値を使用）
      */
-    public ArtistCredit(ArtistCreditName displayName, String sortKey) {
-        if (displayName == null) {
-            throw new IllegalArgumentException("Display name cannot be null");
-        }
-        this.displayName = displayName;
+    public ArtistCredit(@NonNull ArtistCreditName displayName, @Nullable String sortKey) {
+        this.displayName = Optional.ofNullable(displayName)
+                .orElseThrow(() -> new IllegalArgumentException("Display name cannot be null"));
         this.sortKey = sortKey != null ? sortKey : displayName.value();
     }
 
@@ -49,7 +52,7 @@ public class ArtistCredit implements ValueObject<ArtistCredit> {
      *            表示名
      * @return ArtistCredit
      */
-    public static ArtistCredit of(String displayName) {
+    public static @NonNull ArtistCredit of(@NonNull String displayName) {
         return new ArtistCredit(new ArtistCreditName(displayName), null);
     }
 
@@ -62,7 +65,7 @@ public class ArtistCredit implements ValueObject<ArtistCredit> {
      *            ソートキー
      * @return ArtistCredit
      */
-    public static ArtistCredit of(String displayName, String sortKey) {
+    public static @NonNull ArtistCredit of(@NonNull String displayName, @Nullable String sortKey) {
         return new ArtistCredit(new ArtistCreditName(displayName), sortKey);
     }
 }

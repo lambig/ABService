@@ -1,8 +1,8 @@
 package com.abservice.domain.model.vo.album;
 
 import com.abservice.domain.model.vo.ValueObject;
-
 import java.util.Optional;
+import org.jspecify.annotations.NonNull;
 
 /**
  * アルバムタイトルの値オブジェクト
@@ -18,7 +18,7 @@ import java.util.Optional;
  * @param value
  *            アルバムタイトル
  */
-public record AlbumTitle(String value) implements ValueObject<AlbumTitle> {
+public record AlbumTitle(@NonNull String value) implements ValueObject<AlbumTitle> {
     /**
      * コンストラクタ
      *
@@ -28,9 +28,8 @@ public record AlbumTitle(String value) implements ValueObject<AlbumTitle> {
      *             タイトルがnullまたは空白の場合、または最大長を超える場合
      */
     public AlbumTitle {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Album title cannot be blank");
-        }
+        Optional.ofNullable(value).filter(v -> !v.isBlank())
+                .orElseThrow(() -> new IllegalArgumentException("Album title cannot be blank"));
         if (value.length() > 255) {
             throw new IllegalArgumentException("Album title must be 255 characters or less");
         }
@@ -43,7 +42,7 @@ public record AlbumTitle(String value) implements ValueObject<AlbumTitle> {
      *            アルバムタイトル
      * @return AlbumTitleインスタンス
      */
-    public static AlbumTitle of(String value) {
+    public static @NonNull AlbumTitle of(@NonNull String value) {
         return new AlbumTitle(value);
     }
 
