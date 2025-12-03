@@ -237,17 +237,12 @@ public class Album implements Aggregate<Album, Album.Id> {
             throw new IllegalArgumentException("Ordered track IDs must match the number of tracks");
         }
 
-        var newTracks = new ArrayList<Track>();
-        var trackNo = 1;
-        for (var trackId : orderedTrackIds) {
+        var trackNo = new java.util.concurrent.atomic.AtomicInteger(1);
+        var newTracks = orderedTrackIds.stream().map(trackId -> {
             var track = tracks.stream().filter(t -> t.id().equals(trackId)).findFirst()
                     .orElseThrow(() -> new IllegalArgumentException("Track with ID " + trackId.value() + " not found"));
-
-            // トラック番号を更新
-            var reorderedTrack = track.withTrackNo(trackNo);
-            newTracks.add(reorderedTrack);
-            trackNo++;
-        }
+            return track.withTrackNo(trackNo.getAndIncrement());
+        }).toList();
 
         return withTracks(Collections.unmodifiableList(newTracks));
     }
