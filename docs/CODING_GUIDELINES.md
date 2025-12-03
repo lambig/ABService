@@ -25,11 +25,48 @@ Java 25の型システムを最大限活用し、コンパイル時に可能な�
 - **値オブジェクト**: Java Records（不変性を保証）
 - **エンティティ**: Lombok `@With(AccessLevel.PRIVATE)`（不変更新パターン）
 - **ドメインID**: `EntityId<T>`インターフェース実装（型安全なID）
+- **状態表現**: Sealed Interfaceによる型安全な状態パターン
+- **実行時例外の最小化**: 不正状態を型で表現し、コンストラクタで検証
 
 #### ❌ 避けるべき実装
 - プリミティブ型の直接使用（ビジネス概念を表す場合）
 - nullを許容する設計（Optional使用を検討）
 - 可変なドメインオブジェクト
+- 実行時例外に依存した状態検証（型で防げる場合）
+- booleanフラグによる状態管理（複雑な状態の場合は型で表現）
+
+#### 複雑度管理の原則
+
+**型の数 vs 実行時例外のトレードオフ**
+
+- **型の増加は許容**: 明確な意図を表現し、コンパイル時検証を強化
+- **実行時例外は最小化**: 不正状態を型システムで防ぐ
+- **複雑度の指標**: 条件分岐の数、nullチェックの数、実行時例外の数
+
+```java
+// ✅ 推奨: 型で状態を表現（実行時例外なし）
+sealed interface EventToParticipate permits TentativeEvent, ConfirmedEvent, DeclinedEvent
+
+record TentativeEvent(EventName name, BusinessDate date) implements EventToParticipate
+record ConfirmedEvent(EventName name, List<EventDateAndSpace> dateAndSpaces) implements EventToParticipate
+record DeclinedEvent(EventName name, DeclineReason reason) implements EventToParticipate
+
+// パターンマッチングで網羅性チェック
+String status = switch(event) {
+    case TentativeEvent t -> "未確定";
+    case ConfirmedEvent c -> "確定";
+    case DeclinedEvent d -> "不参加";
+}; // 漏れがあればコンパイルエラー
+
+// ❌ 非推奨: booleanフラグ + 実行時チェック（実行時例外が増える）
+record Event(EventName name, boolean confirmed, boolean declined, String spaceNumber) {
+    public String getSpaceNumber() {
+        if (!confirmed) throw new IllegalStateException("Not confirmed");
+        if (spaceNumber == null) throw new IllegalStateException("Space not set");
+        return spaceNumber;
+    }
+}
+```
 
 ### 2. 不変性（Immutability）の原則
 

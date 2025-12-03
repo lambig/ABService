@@ -1,0 +1,149 @@
+package com.abservice.domain.model.vo.event;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.time.LocalDate;
+import java.util.List;
+
+import com.abservice.domain.model.vo.common.BusinessDate;
+import org.junit.jupiter.api.Test;
+
+class DeclinedEventTest {
+
+    @Test
+    void testCreateWithSingleDate() {
+        BusinessDate date = BusinessDate.of(LocalDate.of(2024, 12, 30));
+        DeclinedEvent event = DeclinedEvent.of("コミックマーケット104", date, DeclineReason.NOT_SELECTED);
+
+        assertThat(event.name().value()).isEqualTo("コミックマーケット104");
+        assertThat(event.declinedDates()).hasSize(1);
+        assertThat(event.declinedDates().get(0)).isEqualTo(date);
+        assertThat(event.place()).isNull();
+        assertThat(event.reason()).isEqualTo(DeclineReason.NOT_SELECTED);
+        assertThat(event.isDeclined()).isTrue();
+        assertThat(event.isTentative()).isFalse();
+        assertThat(event.isSelected()).isFalse();
+        assertThat(event.isConfirmed()).isFalse();
+    }
+
+    @Test
+    void testCreateWithSingleDateAndPlace() {
+        BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
+        DeclinedEvent event = DeclinedEvent.of("地元フェス", date, "市民会館", DeclineReason.CANCELLED_BY_USER);
+
+        assertThat(event.name().value()).isEqualTo("地元フェス");
+        assertThat(event.declinedDates()).hasSize(1);
+        assertThat(event.place()).isEqualTo("市民会館");
+        assertThat(event.reason()).isEqualTo(DeclineReason.CANCELLED_BY_USER);
+    }
+
+    @Test
+    void testCreateWithMultipleDates() {
+        BusinessDate date1 = BusinessDate.of(LocalDate.of(2024, 12, 29));
+        BusinessDate date2 = BusinessDate.of(LocalDate.of(2024, 12, 30));
+        List<BusinessDate> dates = List.of(date1, date2);
+
+        DeclinedEvent event = DeclinedEvent.of("コミケ", dates, "東京ビッグサイト", DeclineReason.NOT_SELECTED);
+
+        assertThat(event.name().value()).isEqualTo("コミケ");
+        assertThat(event.declinedDates()).hasSize(2);
+        assertThat(event.place()).isEqualTo("東京ビッグサイト");
+        assertThat(event.reason()).isEqualTo(DeclineReason.NOT_SELECTED);
+    }
+
+    @Test
+    void testCreateFromTentative() {
+        BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
+        AppliedEvent applied = AppliedEvent.of("M3-2024春", date);
+
+        DeclinedEvent declined = DeclinedEvent.fromApplied(applied, DeclineReason.NOT_SELECTED);
+
+        assertThat(declined.name()).isEqualTo(applied.name());
+        assertThat(declined.declinedDates()).hasSize(1);
+        assertThat(declined.declinedDates().get(0)).isEqualTo(date);
+        assertThat(declined.reason()).isEqualTo(DeclineReason.NOT_SELECTED);
+    }
+
+    @Test
+    void testCreateFromTentativeWithoutDate() {
+        ConsideringEvent considering = ConsideringEvent.of("イベント"); // 日付なし
+
+        assertThatThrownBy(() -> DeclinedEvent.fromTentative(considering, DeclineReason.NOT_SELECTED))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("Cannot decline event without dates");
+    }
+
+    @Test
+    void testCreateWithNullName() {
+        BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
+        List<BusinessDate> dates = List.of(date);
+
+        assertThatThrownBy(() -> new DeclinedEvent(null, dates, null, DeclineReason.NOT_SELECTED))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("Event name cannot be null");
+    }
+
+    @Test
+    void testCreateWithEmptyDates() {
+        assertThatThrownBy(() -> DeclinedEvent.of("イベント", List.of(), null, DeclineReason.NOT_SELECTED))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Declined event must have at least one declined date");
+    }
+
+    @Test
+    void testCreateWithNullDates() {
+        assertThatThrownBy(() -> new DeclinedEvent(new EventName("イベント"), null, null, DeclineReason.NOT_SELECTED))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Declined event must have at least one declined date");
+    }
+
+    @Test
+    void testCreateWithNullReason() {
+        BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
+        List<BusinessDate> dates = List.of(date);
+
+        assertThatThrownBy(() -> new DeclinedEvent(new EventName("イベント"), dates, null, null))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("Decline reason cannot be null");
+    }
+
+    @Test
+    void testDeclinedDatesIsUnmodifiable() {
+        BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
+        DeclinedEvent event = DeclinedEvent.of("イベント", date, DeclineReason.NOT_SELECTED);
+
+        assertThatThrownBy(() -> event.declinedDates().add(BusinessDate.of(LocalDate.of(2024, 5, 6))))
+                .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    void testEquivalentToSame() {
+        BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
+        DeclinedEvent event1 = DeclinedEvent.of("イベント", date, "会場", DeclineReason.NOT_SELECTED);
+        DeclinedEvent event2 = DeclinedEvent.of("イベント", date, "会場", DeclineReason.NOT_SELECTED);
+
+        assertThat(event1.equivalentTo(event2)).isTrue();
+    }
+
+    @Test
+    void testEquivalentToDifferentReason() {
+        BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
+        DeclinedEvent event1 = DeclinedEvent.of("イベント", date, DeclineReason.NOT_SELECTED);
+        DeclinedEvent event2 = DeclinedEvent.of("イベント", date, DeclineReason.CANCELLED_BY_USER);
+
+        assertThat(event1.equivalentTo(event2)).isFalse();
+    }
+
+    @Test
+    void testEquivalentToNull() {
+        BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
+        DeclinedEvent event = DeclinedEvent.of("イベント", date, DeclineReason.NOT_SELECTED);
+
+        assertThat(event.equivalentTo(null)).isFalse();
+    }
+
+    @Test
+    void testDeclineReasonDisplayNames() {
+        assertThat(DeclineReason.NOT_SELECTED.displayName()).isEqualTo("落選");
+        assertThat(DeclineReason.CANCELLED_BY_USER.displayName()).isEqualTo("キャンセル");
+        assertThat(DeclineReason.EVENT_CANCELLED.displayName()).isEqualTo("イベント中止");
+    }
+}
