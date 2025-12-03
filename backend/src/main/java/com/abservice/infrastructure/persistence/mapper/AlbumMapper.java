@@ -5,7 +5,7 @@ import com.abservice.domain.model.aggregate.album.Track;
 import com.abservice.domain.model.aggregate.album.TrackTune;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
-import com.abservice.domain.model.vo.album.Isrc;
+import com.abservice.domain.model.vo.album.Isdn;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.ArtistCreditName;
@@ -81,7 +81,8 @@ public final class AlbumMapper {
 
         return Album.reconstruct(new Album.Id(entity.getDomainId()), new AlbumTitle(entity.getTitle()),
                 BusinessDate.of(entity.getReleaseDate()), artistCredit, eventReleasedAt,
-                entity.getCatalogNumber() != null ? new CatalogNumber(entity.getCatalogNumber()) : null, tracks);
+                entity.getCatalogNumber() != null ? new CatalogNumber(entity.getCatalogNumber()) : null,
+                entity.getIsdn() != null ? new Isdn(entity.getIsdn()) : null, tracks);
     }
 
     /**
@@ -130,6 +131,7 @@ public final class AlbumMapper {
         }
 
         albumEntity.setCatalogNumber(album.catalogNumber() != null ? album.catalogNumber().value() : null);
+        albumEntity.setIsdn(album.isdn() != null ? album.isdn().value() : null);
 
         // トラックを変換
         if (album.tracks() != null && !album.tracks().isEmpty()) {
@@ -167,8 +169,7 @@ public final class AlbumMapper {
         return Track.reconstruct(new Track.Id(entity.getDomainId()), entity.getTrackNo(),
                 new TrackTitle(entity.getTitle()), artistCredit,
                 entity.getRecordingDate() != null ? BusinessDate.of(entity.getRecordingDate()) : null,
-                entity.getRecordingPlace(), entity.getIsLive(),
-                entity.getIsrc() != null ? new Isrc(entity.getIsrc()) : null, trackTunes);
+                entity.getRecordingPlace(), entity.getIsLive(), trackTunes);
     }
 
     /**
@@ -200,7 +201,6 @@ public final class AlbumMapper {
         trackEntity.setRecordingDate(track.recordingDate() != null ? track.recordingDate().asLocalDate() : null);
         trackEntity.setRecordingPlace(track.recordingPlace());
         trackEntity.setIsLive(track.isLive());
-        trackEntity.setIsrc(track.isrc() != null ? track.isrc().value() : null);
 
         // TrackTunesを変換
         if (track.tunes() != null && !track.tunes().isEmpty()) {

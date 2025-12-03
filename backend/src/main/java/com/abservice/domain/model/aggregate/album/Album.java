@@ -9,6 +9,7 @@ import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.aggregate.Aggregate;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
+import com.abservice.domain.model.vo.album.Isdn;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
@@ -39,6 +40,7 @@ public class Album implements Aggregate<Album, Album.Id> {
     private final ArtistCredit artistCredit; // アルバム全体のアーティスト名義（必須）
     private final EventReleasedAt eventReleasedAt; // nullable: イベント頒布情報が不明な場合
     private final CatalogNumber catalogNumber; // nullable
+    private final Isdn isdn; // nullable: ISDN（国際標準同人誌番号）
     private final List<Track> tracks;
 
     /**
@@ -54,17 +56,19 @@ public class Album implements Aggregate<Album, Album.Id> {
      *            イベント頒布情報（nullable）
      * @param catalogNumber
      *            カタログ番号（nullable）
+     * @param isdn
+     *            ISDN（nullable）
      * @return 新規Album
      */
     public static Album create(AlbumTitle title, BusinessDate releaseDate, ArtistCredit artistCredit,
-            EventReleasedAt eventReleasedAt, CatalogNumber catalogNumber) {
+            EventReleasedAt eventReleasedAt, CatalogNumber catalogNumber, Isdn isdn) {
         if (title == null) {
             throw new IllegalArgumentException("Album title cannot be null");
         }
         if (artistCredit == null) {
             throw new IllegalArgumentException("Artist credit cannot be null");
         }
-        return new Album(Id.generate(), title, releaseDate, artistCredit, eventReleasedAt, catalogNumber,
+        return new Album(Id.generate(), title, releaseDate, artistCredit, eventReleasedAt, catalogNumber, isdn,
                 Collections.emptyList());
     }
 
@@ -83,14 +87,16 @@ public class Album implements Aggregate<Album, Album.Id> {
      *            イベント頒布情報（nullable）
      * @param catalogNumber
      *            カタログ番号（nullable）
+     * @param isdn
+     *            ISDN（nullable）
      * @param tracks
      *            トラックリスト
      * @return 再構成されたAlbum
      */
     @SuppressWarnings("checkstyle:ParameterNumber")
     public static Album reconstruct(Id id, AlbumTitle title, BusinessDate releaseDate, ArtistCredit artistCredit,
-            EventReleasedAt eventReleasedAt, CatalogNumber catalogNumber, List<Track> tracks) {
-        return new Album(id, title, releaseDate, artistCredit, eventReleasedAt, catalogNumber, tracks);
+            EventReleasedAt eventReleasedAt, CatalogNumber catalogNumber, Isdn isdn, List<Track> tracks) {
+        return new Album(id, title, releaseDate, artistCredit, eventReleasedAt, catalogNumber, isdn, tracks);
     }
 
     /**

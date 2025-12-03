@@ -69,9 +69,6 @@ public class TrackEntity extends AuditableEntity {
     @Column(name = "is_live")
     private Boolean isLive;
 
-    @Column(name = "isrc", length = 20)
-    private String isrc;
-
     @OneToMany(mappedBy = "track", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<TrackTuneEntity> trackTunes = new ArrayList<>();
 }

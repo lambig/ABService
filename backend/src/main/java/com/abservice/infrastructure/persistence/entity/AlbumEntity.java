@@ -78,6 +78,9 @@ public class AlbumEntity extends AuditableEntity {
     @Column(name = "catalog_number", length = 100)
     private String catalogNumber;
 
+    @Column(name = "isdn", length = 20)
+    private String isdn;
+
     @OneToMany(mappedBy = "album", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<TrackEntity> tracks = new ArrayList<>();
 
