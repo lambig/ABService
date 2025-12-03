@@ -69,6 +69,24 @@ public class Track implements DomainEntity<Track, Track.Id> {
     }
 
     /**
+     * 新規トラックを生成（簡略版）
+     *
+     * @param trackNo
+     *            トラック番号
+     * @param title
+     *            トラックタイトル
+     * @param artistCredit
+     *            アーティストクレジット（nullable）
+     * @param recordingDate
+     *            録音日（nullable）
+     * @return 新規Track
+     */
+    public static Track create(Integer trackNo, TrackTitle title, ArtistCredit artistCredit,
+            BusinessDate recordingDate) {
+        return create(trackNo, title, artistCredit, recordingDate, null, null);
+    }
+
+    /**
      * 永続化層からの再構成
      *
      * @param id

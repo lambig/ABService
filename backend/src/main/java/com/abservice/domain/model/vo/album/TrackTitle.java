@@ -34,6 +34,17 @@ public record TrackTitle(String value) implements ValueObject<TrackTitle> {
         }
     }
 
+    /**
+     * ファクトリメソッド
+     *
+     * @param value
+     *            トラックタイトル
+     * @return TrackTitleインスタンス
+     */
+    public static TrackTitle of(String value) {
+        return new TrackTitle(value);
+    }
+
     @Override
     public boolean equivalentTo(TrackTitle other) {
         if (other == null) {

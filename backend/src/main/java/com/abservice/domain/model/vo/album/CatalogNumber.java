@@ -34,6 +34,17 @@ public record CatalogNumber(String value) implements ValueObject<CatalogNumber> 
         }
     }
 
+    /**
+     * ファクトリメソッド
+     *
+     * @param value
+     *            カタログナンバー
+     * @return CatalogNumberインスタンス
+     */
+    public static CatalogNumber of(String value) {
+        return new CatalogNumber(value);
+    }
+
     @Override
     public boolean equivalentTo(CatalogNumber other) {
         if (other == null) {

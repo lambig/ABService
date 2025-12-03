@@ -101,7 +101,24 @@ public class EventReleasedAt implements ValueObject<EventReleasedAt> {
     }
 
     /**
-     * 全ての情報を指定して生成（複数日程対応）
+     * イベント名と年月日で生成
+     *
+     * @param name
+     *            イベント名
+     * @param year
+     *            年
+     * @param month
+     *            月
+     * @param dayOfMonth
+     *            日
+     * @return EventReleasedAt
+     */
+    public static EventReleasedAt atEvent(String name, int year, int month, int dayOfMonth) {
+        return of(name, BusinessDate.of(year, month, dayOfMonth));
+    }
+
+    /**
+     * イベント名、年月日、開催場所で生成
      *
      * @param name
      *            イベント名

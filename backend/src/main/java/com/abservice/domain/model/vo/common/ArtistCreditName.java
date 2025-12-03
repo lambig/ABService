@@ -34,6 +34,17 @@ public record ArtistCreditName(String value) implements ValueObject<ArtistCredit
         }
     }
 
+    /**
+     * ファクトリメソッド
+     *
+     * @param value
+     *            アーティスト名義
+     * @return ArtistCreditNameインスタンス
+     */
+    public static ArtistCreditName of(String value) {
+        return new ArtistCreditName(value);
+    }
+
     @Override
     public boolean equivalentTo(ArtistCreditName other) {
         if (other == null) {

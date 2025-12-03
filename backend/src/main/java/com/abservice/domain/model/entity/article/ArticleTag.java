@@ -22,6 +22,33 @@ public class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.Id> {
     private final String name;
 
     /**
+     * 新規タグを生成
+     *
+     * @param name
+     *            タグ名
+     * @return 新規ArticleTag
+     */
+    public static ArticleTag create(String name) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Tag name cannot be blank");
+        }
+        return new ArticleTag(Id.generate(), name);
+    }
+
+    /**
+     * 永続化層からの再構成
+     *
+     * @param id
+     *            タグID
+     * @param name
+     *            タグ名
+     * @return 再構成されたArticleTag
+     */
+    public static ArticleTag reconstruct(Id id, String name) {
+        return new ArticleTag(id, name);
+    }
+
+    /**
      * 記事タグID
      *
      * @param value

@@ -46,6 +46,17 @@ public record Price(Integer amount) implements ValueObject<Price> {
     }
 
     /**
+     * 金額を指定してPriceインスタンスを生成
+     *
+     * @param amount
+     *            金額（円）
+     * @return Priceインスタンス
+     */
+    public static Price of(Integer amount) {
+        return new Price(amount);
+    }
+
+    /**
      * BigDecimal形式で金額を取得
      *
      * @return 金額（BigDecimal）

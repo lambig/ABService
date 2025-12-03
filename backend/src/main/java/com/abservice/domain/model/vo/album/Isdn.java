@@ -43,6 +43,17 @@ public record Isdn(String value) implements ValueObject<Isdn> {
         value = normalizeAndValidate(value);
     }
 
+    /**
+     * ファクトリメソッド
+     *
+     * @param value
+     *            ISDN
+     * @return Isdnインスタンス
+     */
+    public static Isdn of(String value) {
+        return new Isdn(value);
+    }
+
     private static String normalizeAndValidate(String value) {
         var normalized = value.trim().replace("-", "");
         validateFormat(normalized, value);

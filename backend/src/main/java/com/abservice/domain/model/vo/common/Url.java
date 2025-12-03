@@ -41,6 +41,17 @@ public record Url(String value) implements ValueObject<Url> {
         validateUriFormat(value);
     }
 
+    /**
+     * ファクトリメソッド
+     *
+     * @param value
+     *            URL文字列
+     * @return Urlインスタンス
+     */
+    public static Url of(String value) {
+        return new Url(value);
+    }
+
     private static void validateUriFormat(String value) {
         try {
             new URI(value);

@@ -34,6 +34,17 @@ public record AlbumTitle(String value) implements ValueObject<AlbumTitle> {
         }
     }
 
+    /**
+     * ファクトリメソッド
+     *
+     * @param value
+     *            アルバムタイトル
+     * @return AlbumTitleインスタンス
+     */
+    public static AlbumTitle of(String value) {
+        return new AlbumTitle(value);
+    }
+
     @Override
     public boolean equivalentTo(AlbumTitle other) {
         if (other == null) {

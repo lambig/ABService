@@ -108,6 +108,21 @@ public record BusinessDate(LocalDate value) implements ValueObject<BusinessDate>
     }
 
     /**
+     * 年月日からビジネス日付を生成
+     *
+     * @param year
+     *            年
+     * @param month
+     *            月
+     * @param dayOfMonth
+     *            日
+     * @return ビジネス日付
+     */
+    public static BusinessDate of(int year, int month, int dayOfMonth) {
+        return new BusinessDate(LocalDate.of(year, month, dayOfMonth));
+    }
+
+    /**
      * {@link BusinessDateTime}からビジネス日付を生成
      *
      * <p>

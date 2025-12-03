@@ -34,6 +34,17 @@ public record TuneTitle(String value) implements ValueObject<TuneTitle> {
         }
     }
 
+    /**
+     * ファクトリメソッド
+     *
+     * @param value
+     *            チューンタイトル
+     * @return TuneTitleインスタンス
+     */
+    public static TuneTitle of(String value) {
+        return new TuneTitle(value);
+    }
+
     @Override
     public boolean equivalentTo(TuneTitle other) {
         if (other == null) {

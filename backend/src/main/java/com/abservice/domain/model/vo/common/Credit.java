@@ -34,6 +34,17 @@ public record Credit(String value) implements ValueObject<Credit> {
         }
     }
 
+    /**
+     * ファクトリメソッド
+     *
+     * @param value
+     *            クレジット
+     * @return Creditインスタンス
+     */
+    public static Credit of(String value) {
+        return new Credit(value);
+    }
+
     @Override
     public boolean equivalentTo(Credit other) {
         if (other == null) {
