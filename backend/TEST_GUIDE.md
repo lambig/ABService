@@ -88,7 +88,7 @@ class AlbumRepositoryImplTest {
     @RunOnVertxContext
     void shouldSaveAndFindAlbum(UniAsserter asserter) {
         var album = Album.create(...);
-        
+
         // Save操作のテスト
         asserter.assertThat(
             () -> repository.save(album),
@@ -97,7 +97,7 @@ class AlbumRepositoryImplTest {
                 asserter.assertEquals(album.id(), saved.id());
             }
         );
-        
+
         // Find操作のテスト
         asserter.assertThat(
             () -> repository.findById(album.id()),
