@@ -3,6 +3,8 @@ package com.abservice.infrastructure.persistence.mapper;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.vo.article.ArticleType;
+import com.abservice.domain.model.vo.article.MarkupContent;
+import com.abservice.domain.model.vo.article.MarkupFormat;
 import com.abservice.infrastructure.persistence.entity.ArticleEntity;
 
 import java.time.LocalDateTime;
@@ -33,15 +35,23 @@ public final class ArticleMapper {
     public static Article toDomain(ArticleEntity entity) {
         return Optional.ofNullable(entity)
                 .map(e -> Article.reconstruct(new Article.Id(e.getDomainId()), ArticleType.valueOf(e.getArticleType()),
-                        Optional.ofNullable(e.getAlbumId()).map(Album.Id::new).orElse(null), e.getTitle(), e.getBody(),
-                        e.getIntroShort(), convertToLocalDateTime(e.getPublishedAt()),
-                        convertToLocalDateTime(e.getUpdatedAtBusiness()),
+                        Optional.ofNullable(e.getAlbumId()).map(Album.Id::new).orElse(null), e.getTitle(),
+                        createMarkupContent(e.getBody(), e.getBodyFormat()), e.getIntroShort(),
+                        convertToLocalDateTime(e.getPublishedAt()), convertToLocalDateTime(e.getUpdatedAtBusiness()),
                         Optional.ofNullable(e.getIsPublic()).orElse(false), Collections.emptyList()))
                 .orElse(null);
     }
 
     private static LocalDateTime convertToLocalDateTime(java.time.Instant instant) {
         return Optional.ofNullable(instant).map(i -> LocalDateTime.ofInstant(i, ZoneOffset.UTC)).orElse(null);
+    }
+
+    private static MarkupContent createMarkupContent(String body, String bodyFormat) {
+        if (body == null) {
+            return null;
+        }
+        MarkupFormat format = bodyFormat != null ? MarkupFormat.valueOf(bodyFormat) : MarkupFormat.PLAIN_TEXT;
+        return new MarkupContent(body, format);
     }
 
     /**
@@ -58,7 +68,13 @@ public final class ArticleMapper {
             articleEntity.setArticleType(a.articleType().name());
             articleEntity.setAlbumId(Optional.ofNullable(a.albumId()).map(Album.Id::value).orElse(null));
             articleEntity.setTitle(a.title());
-            articleEntity.setBody(a.body());
+            if (a.body() != null) {
+                articleEntity.setBody(a.body().content());
+                articleEntity.setBodyFormat(a.body().format().name());
+            } else {
+                articleEntity.setBody(null);
+                articleEntity.setBodyFormat(MarkupFormat.PLAIN_TEXT.name());
+            }
             articleEntity.setIntroShort(a.introShort());
             articleEntity.setPublishedAt(convertToInstant(a.publishedAt()));
             articleEntity.setUpdatedAtBusiness(convertToInstant(a.updatedAtBusiness()));

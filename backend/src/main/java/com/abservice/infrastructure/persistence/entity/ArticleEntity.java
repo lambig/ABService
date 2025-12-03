@@ -53,6 +53,9 @@ public class ArticleEntity extends AuditableEntity {
     @Column(name = "body", columnDefinition = "TEXT")
     private String body;
 
+    @Column(name = "body_format", nullable = false, length = 20)
+    private String bodyFormat = "PLAIN_TEXT";
+
     @Column(name = "intro_short", columnDefinition = "TEXT")
     private String introShort;
 

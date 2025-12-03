@@ -10,6 +10,7 @@ import com.abservice.domain.model.aggregate.Aggregate;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.entity.article.ArticleTag;
 import com.abservice.domain.model.vo.article.ArticleType;
+import com.abservice.domain.model.vo.article.MarkupContent;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -36,7 +37,7 @@ public class Article implements Aggregate<Article, Article.Id> {
     private final ArticleType articleType;
     private final Album.Id albumId; // nullable: アルバム記事の場合のみ参照
     private final String title;
-    private final String body;
+    private final MarkupContent body; // nullable: 記事本文（マークアップ可能）
     private final String introShort; // nullable: お品書きや一覧表示用概要
     private final LocalDateTime publishedAt; // nullable: 公開日（掲載日の業務意味）
     private final LocalDateTime updatedAtBusiness; // nullable: 更新日（「修正した」意味。監査とは別概念）
@@ -53,12 +54,12 @@ public class Article implements Aggregate<Article, Article.Id> {
      * @param title
      *            タイトル
      * @param body
-     *            本文
+     *            本文（nullable）
      * @param introShort
      *            ショート紹介文（nullable）
      * @return 新規Article
      */
-    public static Article create(ArticleType articleType, Album.Id albumId, String title, String body,
+    public static Article create(ArticleType articleType, Album.Id albumId, String title, MarkupContent body,
             String introShort) {
         if (articleType == null) {
             throw new IllegalArgumentException("Article type cannot be null");
@@ -82,7 +83,7 @@ public class Article implements Aggregate<Article, Article.Id> {
      * @param title
      *            タイトル
      * @param body
-     *            本文
+     *            本文（nullable）
      * @param introShort
      *            ショート紹介文（nullable）
      * @param publishedAt
@@ -96,9 +97,9 @@ public class Article implements Aggregate<Article, Article.Id> {
      * @return 再構成されたArticle
      */
     @SuppressWarnings("checkstyle:ParameterNumber")
-    public static Article reconstruct(Id id, ArticleType articleType, Album.Id albumId, String title, String body,
-            String introShort, LocalDateTime publishedAt, LocalDateTime updatedAtBusiness, boolean publicFlag,
-            List<ArticleTag> tags) {
+    public static Article reconstruct(Id id, ArticleType articleType, Album.Id albumId, String title,
+            MarkupContent body, String introShort, LocalDateTime publishedAt, LocalDateTime updatedAtBusiness,
+            boolean publicFlag, List<ArticleTag> tags) {
         return new Article(id, articleType, albumId, title, body, introShort, publishedAt, updatedAtBusiness,
                 publicFlag, tags);
     }
@@ -124,7 +125,7 @@ public class Article implements Aggregate<Article, Article.Id> {
      *            新しい記事本文
      * @return 更新されたArticle
      */
-    public Article changeBody(String newBody) {
+    public Article changeBody(MarkupContent newBody) {
         return withBody(newBody).withUpdatedAtBusiness(LocalDateTime.now());
     }
 

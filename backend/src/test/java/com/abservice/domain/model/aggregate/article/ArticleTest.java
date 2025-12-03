@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.entity.article.ArticleTag;
 import com.abservice.domain.model.vo.article.ArticleType;
+import com.abservice.domain.model.vo.article.MarkupContent;
 
 @DisplayName("Article集約のテスト")
 class ArticleTest {
@@ -25,7 +26,7 @@ class ArticleTest {
             // Arrange
             var articleType = ArticleType.NOTE;
             var title = "Test Article";
-            var body = "This is a test article body.";
+            var body = MarkupContent.markdown("This is a test article body.");
 
             // Act
             var article = Article.create(articleType, null, title, body, null);
@@ -51,7 +52,7 @@ class ArticleTest {
             var articleType = ArticleType.ALBUM;
             var albumId = Album.Id.generate();
             var title = "Album Review";
-            var body = "This is an album review.";
+            var body = MarkupContent.markdown("This is an album review.");
             var introShort = "Short intro";
 
             // Act
@@ -68,7 +69,7 @@ class ArticleTest {
         void createWithNullArticleTypeShouldThrowException() {
             // Act & Assert
             var exception = assertThrows(IllegalArgumentException.class, () -> {
-                Article.create(null, null, "Title", "Body", null);
+                Article.create(null, null, "Title", MarkupContent.plainText("Body"), null);
             });
             assertEquals("Article type cannot be null", exception.getMessage());
         }
@@ -78,7 +79,7 @@ class ArticleTest {
         void createWithNullTitleShouldThrowException() {
             // Act & Assert
             var exception = assertThrows(IllegalArgumentException.class, () -> {
-                Article.create(ArticleType.NOTE, null, null, "Body", null);
+                Article.create(ArticleType.NOTE, null, null, MarkupContent.plainText("Body"), null);
             });
             assertEquals("Article title cannot be null or blank", exception.getMessage());
         }
@@ -88,7 +89,7 @@ class ArticleTest {
         void createWithBlankTitleShouldThrowException() {
             // Act & Assert
             var exception = assertThrows(IllegalArgumentException.class, () -> {
-                Article.create(ArticleType.NOTE, null, "   ", "Body", null);
+                Article.create(ArticleType.NOTE, null, "   ", MarkupContent.plainText("Body"), null);
             });
             assertEquals("Article title cannot be null or blank", exception.getMessage());
         }
@@ -149,7 +150,7 @@ class ArticleTest {
         void changeBodyWithValidBodyShouldSucceed() {
             // Arrange
             var article = createTestArticle();
-            var newBody = "Updated body content";
+            var newBody = MarkupContent.markdown("Updated body content");
 
             // Act
             var updated = article.changeBody(newBody);
@@ -234,7 +235,8 @@ class ArticleTest {
         @DisplayName("アルバム記事にアルバムIDを設定できること")
         void setAlbumIdForAlbumArticleShouldSucceed() {
             // Arrange
-            var article = Article.create(ArticleType.ALBUM, null, "Album Article", "Body", null);
+            var article = Article.create(ArticleType.ALBUM, null, "Album Article", MarkupContent.plainText("Body"),
+                    null);
             var albumId = Album.Id.generate();
 
             // Act
@@ -249,7 +251,7 @@ class ArticleTest {
         @DisplayName("アルバム記事以外にアルバムIDを設定しようとすると例外が発生すること")
         void setAlbumIdForNonAlbumArticleShouldThrowException() {
             // Arrange
-            var article = Article.create(ArticleType.NOTE, null, "Blog Post", "Body", null);
+            var article = Article.create(ArticleType.NOTE, null, "Blog Post", MarkupContent.plainText("Body"), null);
             var albumId = Album.Id.generate();
 
             // Act & Assert
@@ -268,7 +270,7 @@ class ArticleTest {
         @DisplayName("記事種別を変更できること")
         void changeArticleTypeWithValidTypeShouldSucceed() {
             // Arrange
-            var article = Article.create(ArticleType.NOTE, null, "Title", "Body", null);
+            var article = Article.create(ArticleType.NOTE, null, "Title", MarkupContent.plainText("Body"), null);
 
             // Act
             var updated = article.changeArticleType(ArticleType.NEWS);
@@ -283,7 +285,8 @@ class ArticleTest {
         void changeArticleTypeFromAlbumToOtherShouldClearAlbumId() {
             // Arrange
             var albumId = Album.Id.generate();
-            var article = Article.create(ArticleType.ALBUM, albumId, "Album Article", "Body", null);
+            var article = Article.create(ArticleType.ALBUM, albumId, "Album Article", MarkupContent.plainText("Body"),
+                    null);
 
             // Act
             var updated = article.changeArticleType(ArticleType.NOTE);
@@ -510,7 +513,8 @@ class ArticleTest {
     // テストヘルパーメソッド
 
     private Article createTestArticle() {
-        return Article.create(ArticleType.NOTE, null, "Test Article", "Test article body content", null);
+        return Article.create(ArticleType.NOTE, null, "Test Article",
+                MarkupContent.markdown("Test article body content"), null);
     }
 
     private ArticleTag createTestTag(String name) {
