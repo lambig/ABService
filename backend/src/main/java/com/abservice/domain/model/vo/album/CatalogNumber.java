@@ -1,6 +1,7 @@
 package com.abservice.domain.model.vo.album;
 
 import com.abservice.domain.model.vo.ValueObject;
+import org.jspecify.annotations.NonNull;
 
 import java.util.Optional;
 
@@ -16,19 +17,19 @@ import java.util.Optional;
  * </ul>
  *
  * @param value
- *            カタログナンバー
+ *            カタログナンバー（non-null）
  */
-public record CatalogNumber(String value) implements ValueObject<CatalogNumber> {
+public record CatalogNumber(@NonNull String value) implements ValueObject<CatalogNumber> {
     /**
      * コンストラクタ
      *
      * @param value
-     *            カタログナンバー
+     *            カタログナンバー（non-null）
      * @throws IllegalArgumentException
-     *             カタログナンバーがnullまたは空白の場合、または最大長を超える場合
+     *             カタログナンバーが空白の場合、または最大長を超える場合
      */
     public CatalogNumber {
-        if (value == null || value.isBlank()) {
+        if (value.isBlank()) {
             throw new IllegalArgumentException("Catalog number cannot be blank");
         }
         if (value.length() > 100) {
@@ -40,10 +41,10 @@ public record CatalogNumber(String value) implements ValueObject<CatalogNumber> 
      * ファクトリメソッド
      *
      * @param value
-     *            カタログナンバー
+     *            カタログナンバー（non-null）
      * @return CatalogNumberインスタンス
      */
-    public static CatalogNumber of(String value) {
+    public static CatalogNumber of(@NonNull String value) {
         return new CatalogNumber(value);
     }
 
