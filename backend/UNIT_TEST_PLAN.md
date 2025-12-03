@@ -2,14 +2,16 @@
 
 ## 📊 現状分析（2025年12月3日時点）
 
-- **実装クラス総数**: 75クラス（Duration削除により-1）
-- **テストクラス総数**: 18クラス
+- **実装クラス総数**: 72クラス
+- **テストクラス総数**: 31クラス
   - **既存**: 2クラス（`BusinessDate`, `BusinessDateTime`）
   - **Phase 1完了**: 4クラス（`Price`, `Isrc`, `ArtistCredit`, `EventReleasedAt`）
   - **Phase 2完了**: 9クラス（`AlbumTitle`, `CatalogNumber`, `TrackTitle`, `TuneTitle`, `EventName`, `LabelTag`, `Url`, `ArtistCreditName`, `Credit`）
   - **Phase 3完了**: 3クラス（`ChannelType`, `TuneKind`, `ArticleType`）
-- **テストメソッド総数**: 199メソッド
-- **テストカバレッジ**: 約24% (18/75クラス)
+  - **Phase 4完了**: 9クラス（`Album`, `Article`, `Tune`, `AlbumArticle`, `ConfirmedEvent`, `DeclinedEvent`, `SelectedEvent`, `TentativeEvent`, `EventMatchingService`）
+  - **Phase 5完了**: 4クラス（`Track`, `TrackTune`, `AlbumAcquisitionChannel`, `AlbumDistribution`）
+- **テストメソッド総数**: 472メソッド
+- **テストカバレッジ**: 約43% (31/72クラス)
 
 ## 🎯 テスト追加計画（10フェーズ）
 
@@ -82,19 +84,20 @@
 
 ---
 
-### Phase 5: Entityのビジネスロジックテスト 🟡
+### Phase 5: Entityのビジネスロジックテスト 🟢
 
 **対象**: エンティティの振る舞い
 
-| クラス名 | パス | 行数 | 優先度 |
-|---------|------|------|--------|
-| `Track` | `domain/model/aggregate/album/Track.java` | 291 | 高 |
-| `AlbumAcquisitionChannel` | `domain/model/aggregate/album/AlbumAcquisitionChannel.java` | 160 | 中 |
-| `TrackTune` | `domain/model/aggregate/album/TrackTune.java` | 119 | 中 |
-| `AlbumDistribution` | `domain/model/aggregate/album/AlbumDistribution.java` | 105 | 中 |
-| `ArticleTag` | `domain/model/entity/article/ArticleTag.java` | 60 | 低 |
+| クラス名 | パス | 行数 | 優先度 | ステータス |
+|---------|------|------|--------|----------|
+| `Track` | `domain/model/aggregate/album/Track.java` | 291 | 高 | ✅ **完了** |
+| `AlbumAcquisitionChannel` | `domain/model/aggregate/albumarticle/AlbumAcquisitionChannel.java` | 160 | 中 | ✅ **完了** |
+| `TrackTune` | `domain/model/aggregate/album/TrackTune.java` | 119 | 中 | ✅ **完了** |
+| `AlbumDistribution` | `domain/model/aggregate/albumarticle/AlbumDistribution.java` | 105 | 中 | ✅ **完了** |
+| `ArticleTag` | `domain/model/entity/article/ArticleTag.java` | 60 | 低 | ✅ **Articleテスト内で実装済み** |
 
 **テスト種別**: ユニットテスト (`src/test/java/`)
+**テストメソッド追加数**: 92メソッド
 
 ---
 
@@ -267,6 +270,8 @@ cd backend
 - **Phase 1 進捗**: 4/4 完了 (100%) ✅ **完了**
 - **Phase 2 進捗**: 9/9 完了 (100%) ✅ **完了**
 - **Phase 3 進捗**: 3/3 完了 (100%) ✅ **完了**
+- **Phase 4 進捗**: 4/4 完了 (100%) ✅ **完了**（EventやEventMatchingServiceも追加実装）
+- **Phase 5 進捗**: 5/5 完了 (100%) ✅ **完了**
 - **最大規模クラス**: `Album` (323行)
 - **最大規模マッパー**: `AlbumMapper` (264行)
 - **集約ルート数**: 4つ（Album, Article, Tune, AlbumArticle）
