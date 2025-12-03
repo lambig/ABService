@@ -1,5 +1,7 @@
 package com.abservice.domain.model.aggregate.article;
 
+import static java.util.function.Predicate.not;
+
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.aggregate.Aggregate;
 import com.abservice.domain.model.aggregate.album.Album;
@@ -73,7 +75,7 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
             @NonNull String title, @Nullable MarkupContent body, @Nullable String introShort) {
         var validatedType = Optional.ofNullable(articleType)
                 .orElseThrow(() -> new IllegalArgumentException("Article type cannot be null"));
-        var validatedTitle = Optional.ofNullable(title).filter(t -> !t.isBlank())
+        var validatedTitle = Optional.ofNullable(title).filter(not(String::isBlank))
                 .orElseThrow(() -> new IllegalArgumentException("Article title cannot be null or blank"));
         return new Article(Id.generate(), validatedType, albumId, validatedTitle, body, introShort, null, null, false,
                 Collections.emptyList());
@@ -121,7 +123,7 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article changeTitle(@NonNull String newTitle) {
-        var validatedTitle = Optional.ofNullable(newTitle).filter(t -> !t.isBlank())
+        var validatedTitle = Optional.ofNullable(newTitle).filter(not(String::isBlank))
                 .orElseThrow(() -> new IllegalArgumentException("Article title cannot be null or blank"));
         return withTitle(validatedTitle).withUpdatedAtBusiness(LocalDateTime.now());
     }
@@ -258,7 +260,7 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      */
     public record Id(@NonNull String value) implements EntityId<Article> {
         public Id {
-            Optional.ofNullable(value).filter(v -> !v.isBlank())
+            Optional.ofNullable(value).filter(not(String::isBlank))
                     .orElseThrow(() -> new IllegalArgumentException("Article ID cannot be blank"));
             if (!EntityId.isValidUuid(value)) {
                 throw new IllegalArgumentException("Article ID must be a valid UUID: " + value);

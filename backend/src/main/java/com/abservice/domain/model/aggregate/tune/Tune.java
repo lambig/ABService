@@ -1,5 +1,7 @@
 package com.abservice.domain.model.aggregate.tune;
 
+import static java.util.function.Predicate.not;
+
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.aggregate.Aggregate;
 import com.abservice.domain.model.vo.common.Credit;
@@ -224,7 +226,7 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
      */
     public record Id(@NonNull String value) implements EntityId<Tune> {
         public Id {
-            Optional.ofNullable(value).filter(v -> !v.isBlank())
+            Optional.ofNullable(value).filter(not(String::isBlank))
                     .orElseThrow(() -> new IllegalArgumentException("Tune ID cannot be blank"));
             if (!EntityId.isValidUuid(value)) {
                 throw new IllegalArgumentException("Tune ID must be a valid UUID: " + value);

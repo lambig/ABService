@@ -1,5 +1,7 @@
 package com.abservice.infrastructure.persistence.mapper;
 
+import static java.util.function.Predicate.not;
+
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.album.Track;
 import com.abservice.domain.model.aggregate.album.TrackTune;
@@ -75,7 +77,7 @@ public final class AlbumMapper {
     }
 
     private static List<EventDateAndSpace> extractDateAndSpaces(AlbumEntity entity) {
-        return Optional.ofNullable(entity.getEventDateSpaces()).filter(list -> !list.isEmpty())
+        return Optional.ofNullable(entity.getEventDateSpaces()).filter(not(List::isEmpty))
                 .map(list -> list.stream()
                         .map(e -> new EventDateAndSpace(BusinessDate.of(e.getEventDate()), e.getSpaceNumber()))
                         .collect(Collectors.toList()))
@@ -119,7 +121,7 @@ public final class AlbumMapper {
     }
 
     private static void setTracksField(AlbumEntity entity, Album album) {
-        Optional.ofNullable(album.tracks()).filter(tracks -> !tracks.isEmpty())
+        Optional.ofNullable(album.tracks()).filter(not(List::isEmpty))
                 .map(tracks -> tracks.stream().map(track -> trackToEntity(track, entity)).collect(Collectors.toList()))
                 .ifPresent(entity::setTracks);
     }
@@ -129,7 +131,7 @@ public final class AlbumMapper {
         albumEntity.setEventPlace(event.place());
         albumEntity.setEventNote(event.note());
 
-        Optional.ofNullable(event.dateAndSpaces()).filter(list -> !list.isEmpty()).ifPresent(dateAndSpaces -> {
+        Optional.ofNullable(event.dateAndSpaces()).filter(not(List::isEmpty)).ifPresent(dateAndSpaces -> {
             populateDateAndSpaceEntities(albumEntity, dateAndSpaces);
             populateLegacyDateAndSpace(albumEntity, dateAndSpaces.get(0));
         });
@@ -213,7 +215,7 @@ public final class AlbumMapper {
     }
 
     private static void setTrackTunesField(TrackEntity entity, Track track) {
-        Optional.ofNullable(track.tunes()).filter(tunes -> !tunes.isEmpty()).map(tunes -> tunes.stream()
+        Optional.ofNullable(track.tunes()).filter(not(List::isEmpty)).map(tunes -> tunes.stream()
                 .map(trackTune -> trackTuneToEntity(trackTune, entity)).collect(Collectors.toList()))
                 .ifPresent(entity::setTrackTunes);
     }

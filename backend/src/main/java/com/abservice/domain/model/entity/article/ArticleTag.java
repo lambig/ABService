@@ -1,5 +1,7 @@
 package com.abservice.domain.model.entity.article;
 
+import static java.util.function.Predicate.not;
+
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.entity.DomainEntity;
 import java.util.Optional;
@@ -33,7 +35,7 @@ public class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@NonNull 
      * @return 新規ArticleTag
      */
     public static @NonNull ArticleTag create(@NonNull String name) {
-        var validatedName = Optional.ofNullable(name).filter(n -> !n.isBlank())
+        var validatedName = Optional.ofNullable(name).filter(not(String::isBlank))
                 .orElseThrow(() -> new IllegalArgumentException("Tag name cannot be blank"));
         return new ArticleTag(Id.generate(), validatedName);
     }
@@ -59,7 +61,7 @@ public class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@NonNull 
      */
     public record Id(@NonNull String value) implements EntityId<ArticleTag> {
         public Id {
-            Optional.ofNullable(value).filter(v -> !v.isBlank())
+            Optional.ofNullable(value).filter(not(String::isBlank))
                     .orElseThrow(() -> new IllegalArgumentException("ArticleTag ID cannot be blank"));
             if (!EntityId.isValidUuid(value)) {
                 throw new IllegalArgumentException("ArticleTag ID must be a valid UUID: " + value);

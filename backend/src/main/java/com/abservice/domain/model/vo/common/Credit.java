@@ -1,5 +1,7 @@
 package com.abservice.domain.model.vo.common;
 
+import static java.util.function.Predicate.not;
+
 import com.abservice.domain.model.vo.ValueObject;
 import java.util.Optional;
 import org.jspecify.annotations.NonNull;
@@ -28,7 +30,7 @@ public record Credit(@NonNull String value) implements ValueObject<Credit> {
      *             クレジットがnullまたは空白の場合、または最大長を超える場合
      */
     public Credit {
-        Optional.ofNullable(value).filter(v -> !v.isBlank())
+        Optional.ofNullable(value).filter(not(String::isBlank))
                 .orElseThrow(() -> new IllegalArgumentException("Credit cannot be blank"));
         if (value.length() > 255) {
             throw new IllegalArgumentException("Credit must be 255 characters or less");
