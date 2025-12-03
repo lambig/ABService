@@ -28,11 +28,11 @@ public class EventReleasedAt implements ValueObject<EventReleasedAt> {
 
     @Override
     public boolean equivalentTo(EventReleasedAt other) {
-        if (other == null) {
-            return false;
-        }
-        return this.name.equivalentTo(other.name) && java.util.Objects.equals(this.dateAndSpaces, other.dateAndSpaces)
-                && java.util.Objects.equals(this.place, other.place) && java.util.Objects.equals(this.note, other.note);
+        return java.util.Optional.ofNullable(other)
+                .map(o -> this.name.equivalentTo(o.name)
+                        && java.util.Objects.equals(this.dateAndSpaces, o.dateAndSpaces)
+                        && java.util.Objects.equals(this.place, o.place) && java.util.Objects.equals(this.note, o.note))
+                .orElse(false);
     }
 
     /**

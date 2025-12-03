@@ -21,6 +21,8 @@ import java.net.URISyntaxException;
  *            URL文字列
  */
 public record Url(String value) implements ValueObject<Url> {
+    private static final int MAX_LENGTH = 500;
+
     /**
      * コンストラクタ
      *
@@ -33,9 +35,13 @@ public record Url(String value) implements ValueObject<Url> {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException("URL cannot be blank");
         }
-        if (value.length() > 500) {
-            throw new IllegalArgumentException("URL must be 500 characters or less");
+        if (value.length() > MAX_LENGTH) {
+            throw new IllegalArgumentException("URL must be " + MAX_LENGTH + " characters or less");
         }
+        validateUriFormat(value);
+    }
+
+    private static void validateUriFormat(String value) {
         try {
             new URI(value);
         } catch (URISyntaxException e) {

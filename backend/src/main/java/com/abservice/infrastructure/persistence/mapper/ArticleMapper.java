@@ -8,6 +8,7 @@ import com.abservice.infrastructure.persistence.entity.ArticleEntity;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Collections;
+import java.util.Optional;
 
 /**
  * Article Mapper
@@ -30,21 +31,17 @@ public final class ArticleMapper {
      * @return Article
      */
     public static Article toDomain(ArticleEntity entity) {
-        if (entity == null) {
-            return null;
-        }
+        return Optional.ofNullable(entity)
+                .map(e -> Article.reconstruct(new Article.Id(e.getDomainId()), ArticleType.valueOf(e.getArticleType()),
+                        Optional.ofNullable(e.getAlbumId()).map(Album.Id::new).orElse(null), e.getTitle(), e.getBody(),
+                        e.getIntroShort(), convertToLocalDateTime(e.getPublishedAt()),
+                        convertToLocalDateTime(e.getUpdatedAtBusiness()),
+                        Optional.ofNullable(e.getIsPublic()).orElse(false), Collections.emptyList()))
+                .orElse(null);
+    }
 
-        return Article.reconstruct(new Article.Id(entity.getDomainId()), ArticleType.valueOf(entity.getArticleType()),
-                entity.getAlbumId() != null ? new Album.Id(entity.getAlbumId()) : null, entity.getTitle(),
-                entity.getBody(), entity.getIntroShort(),
-                entity.getPublishedAt() != null
-                        ? LocalDateTime.ofInstant(entity.getPublishedAt(), ZoneOffset.UTC)
-                        : null,
-                entity.getUpdatedAtBusiness() != null
-                        ? LocalDateTime.ofInstant(entity.getUpdatedAtBusiness(), ZoneOffset.UTC)
-                        : null,
-                entity.getIsPublic() != null ? entity.getIsPublic() : false, Collections.emptyList() // タグは簡略化のため空リスト
-        );
+    private static LocalDateTime convertToLocalDateTime(java.time.Instant instant) {
+        return Optional.ofNullable(instant).map(i -> LocalDateTime.ofInstant(i, ZoneOffset.UTC)).orElse(null);
     }
 
     /**
@@ -55,25 +52,22 @@ public final class ArticleMapper {
      * @return ArticleEntity
      */
     public static ArticleEntity toEntity(Article article) {
-        if (article == null) {
-            return null;
-        }
+        return Optional.ofNullable(article).map(a -> {
+            var articleEntity = new ArticleEntity();
+            articleEntity.setDomainId(a.id().value());
+            articleEntity.setArticleType(a.articleType().name());
+            articleEntity.setAlbumId(Optional.ofNullable(a.albumId()).map(Album.Id::value).orElse(null));
+            articleEntity.setTitle(a.title());
+            articleEntity.setBody(a.body());
+            articleEntity.setIntroShort(a.introShort());
+            articleEntity.setPublishedAt(convertToInstant(a.publishedAt()));
+            articleEntity.setUpdatedAtBusiness(convertToInstant(a.updatedAtBusiness()));
+            articleEntity.setIsPublic(a.publicFlag());
+            return articleEntity;
+        }).orElse(null);
+    }
 
-        var articleEntity = new ArticleEntity();
-        articleEntity.setDomainId(article.id().value());
-        articleEntity.setArticleType(article.articleType().name());
-        articleEntity.setAlbumId(article.albumId() != null ? article.albumId().value() : null);
-        articleEntity.setTitle(article.title());
-        articleEntity.setBody(article.body());
-        articleEntity.setIntroShort(article.introShort());
-        articleEntity
-                .setPublishedAt(article.publishedAt() != null ? article.publishedAt().toInstant(ZoneOffset.UTC) : null);
-        articleEntity.setUpdatedAtBusiness(
-                article.updatedAtBusiness() != null ? article.updatedAtBusiness().toInstant(ZoneOffset.UTC) : null);
-        articleEntity.setIsPublic(article.publicFlag());
-
-        // タグリンクは簡略化のため省略
-
-        return articleEntity;
+    private static java.time.Instant convertToInstant(LocalDateTime dateTime) {
+        return Optional.ofNullable(dateTime).map(dt -> dt.toInstant(ZoneOffset.UTC)).orElse(null);
     }
 }

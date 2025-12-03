@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventDateAndSpace;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * 確定イベント Value Object
@@ -50,11 +51,14 @@ public record ConfirmedEvent(EventName name, List<EventDateAndSpace> dateAndSpac
         if (dateAndSpaces == null || dateAndSpaces.isEmpty()) {
             throw new IllegalArgumentException("Confirmed event must have at least one date and space");
         }
-        // スペース番号が全て設定されているか検証
-        if (dateAndSpaces.stream().anyMatch(ds -> ds.spaceNumber() == null || ds.spaceNumber().isBlank())) {
+        validateAllSpaceNumbers(dateAndSpaces);
+        dateAndSpaces = Collections.unmodifiableList(dateAndSpaces);
+    }
+
+    private static void validateAllSpaceNumbers(List<EventDateAndSpace> dateAndSpaces) {
+        if (dateAndSpaces.stream().anyMatch(ds -> StringUtils.isBlank(ds.spaceNumber()))) {
             throw new IllegalArgumentException("Confirmed event must have space number for all dates");
         }
-        dateAndSpaces = Collections.unmodifiableList(dateAndSpaces);
     }
 
     /**
@@ -135,13 +139,11 @@ public record ConfirmedEvent(EventName name, List<EventDateAndSpace> dateAndSpac
 
     @Override
     public boolean equivalentTo(EventToParticipate other) {
-        if (other == null) {
-            return false;
-        }
-        if (!(other instanceof ConfirmedEvent confirmed)) {
-            return false;
-        }
-        return this.name.equivalentTo(confirmed.name) && this.dateAndSpaces.equals(confirmed.dateAndSpaces)
-                && java.util.Objects.equals(this.place, confirmed.place);
+        return java.util.Optional.ofNullable(other).filter(o -> o instanceof ConfirmedEvent)
+                .map(o -> (ConfirmedEvent) o)
+                .map(confirmed -> this.name.equivalentTo(confirmed.name)
+                        && this.dateAndSpaces.equals(confirmed.dateAndSpaces)
+                        && java.util.Objects.equals(this.place, confirmed.place))
+                .orElse(false);
     }
 }

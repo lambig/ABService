@@ -57,17 +57,27 @@ public record SelectedEvent(EventName name, List<BusinessDate> selectedDates, Li
      *             イベント名がnull、またはselectedDatesが空の場合
      */
     public SelectedEvent {
+        validateName(name);
+        validateSelectedDates(selectedDates);
+        declinedDates = normalizeDeclinedDates(declinedDates);
+        selectedDates = Collections.unmodifiableList(selectedDates);
+        declinedDates = Collections.unmodifiableList(declinedDates);
+    }
+
+    private static void validateName(EventName name) {
         if (name == null) {
             throw new IllegalArgumentException("Event name cannot be null");
         }
-        if (selectedDates == null || selectedDates.isEmpty()) {
+    }
+
+    private static void validateSelectedDates(List<BusinessDate> dates) {
+        if (dates == null || dates.isEmpty()) {
             throw new IllegalArgumentException("Selected event must have at least one selected date");
         }
-        if (declinedDates == null) {
-            declinedDates = List.of();
-        }
-        selectedDates = Collections.unmodifiableList(selectedDates);
-        declinedDates = Collections.unmodifiableList(declinedDates);
+    }
+
+    private static List<BusinessDate> normalizeDeclinedDates(List<BusinessDate> dates) {
+        return dates != null ? dates : List.of();
     }
 
     /**
@@ -202,13 +212,10 @@ public record SelectedEvent(EventName name, List<BusinessDate> selectedDates, Li
 
     @Override
     public boolean equivalentTo(EventToParticipate other) {
-        if (other == null) {
-            return false;
-        }
-        if (!(other instanceof SelectedEvent selected)) {
-            return false;
-        }
-        return this.name.equivalentTo(selected.name) && this.selectedDates.equals(selected.selectedDates)
-                && java.util.Objects.equals(this.place, selected.place);
+        return java.util.Optional.ofNullable(other).filter(o -> o instanceof SelectedEvent).map(o -> (SelectedEvent) o)
+                .map(selected -> this.name.equivalentTo(selected.name)
+                        && this.selectedDates.equals(selected.selectedDates)
+                        && java.util.Objects.equals(this.place, selected.place))
+                .orElse(false);
     }
 }

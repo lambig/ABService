@@ -106,6 +106,12 @@
         <module name="SimplifyBooleanExpression"/>
         <module name="SimplifyBooleanReturn"/>
 
+        <!-- Complexity -->
+        <module name="CyclomaticComplexity">
+            <property name="max" value="4"/>
+            <property name="switchBlockAsSingleDecisionPoint" value="true"/>
+        </module>
+
         <!-- Class Design -->
         <module name="FinalClass"/>
         <module name="HideUtilityClassConstructor"/>

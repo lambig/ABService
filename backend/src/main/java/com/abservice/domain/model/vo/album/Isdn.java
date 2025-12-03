@@ -38,19 +38,26 @@ public record Isdn(String value) implements ValueObject<Isdn> {
      *             ISDNがnullまたは不正なフォーマットの場合
      */
     public Isdn {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("ISDN cannot be blank");
-        }
+        org.apache.commons.lang3.Validate.isTrue(org.apache.commons.lang3.StringUtils.isNotBlank(value),
+                "ISDN cannot be blank");
+        value = normalizeAndValidate(value);
+    }
+
+    private static String normalizeAndValidate(String value) {
         var normalized = value.trim().replace("-", "");
-        if (!ISDN_SIMPLE_PATTERN.matcher(normalized).matches()) {
-            throw new IllegalArgumentException(
-                    "ISDN must be 13 digits starting with 278 or 279 (hyphens optional). Got: " + value);
-        }
-        // チェックデジットの検証（モジュラス10 ウェイト3・1）
-        if (!isValidCheckDigit(normalized)) {
-            throw new IllegalArgumentException("ISDN check digit is invalid: " + value);
-        }
-        value = normalized; // ハイフンを除去して統一フォーマットで保持
+        validateFormat(normalized, value);
+        validateCheckDigit(normalized, value);
+        return normalized;
+    }
+
+    private static void validateFormat(String normalized, String original) {
+        org.apache.commons.lang3.Validate.isTrue(ISDN_SIMPLE_PATTERN.matcher(normalized).matches(),
+                "ISDN must be 13 digits starting with 278 or 279 (hyphens optional). Got: %s", original);
+    }
+
+    private static void validateCheckDigit(String normalized, String original) {
+        org.apache.commons.lang3.Validate.isTrue(isValidCheckDigit(normalized), "ISDN check digit is invalid: %s",
+                original);
     }
 
     /**

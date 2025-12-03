@@ -44,25 +44,19 @@ public class EventMatchingService implements DomainService {
      * @return 同一イベントと判定される場合true
      */
     public boolean isSameEvent(EventToParticipate toParticipate, EventReleasedAt releasedAt) {
-        if (toParticipate == null || releasedAt == null) {
-            return false;
-        }
+        return java.util.Optional
+                .ofNullable(toParticipate).flatMap(tp -> java.util.Optional.ofNullable(releasedAt)
+                        .filter(ra -> tp.name().equivalentTo(ra.name())).map(ra -> matchesEventDetails(tp, ra)))
+                .orElse(false);
+    }
 
-        // イベント名の一致は必須
-        if (!toParticipate.name().equivalentTo(releasedAt.name())) {
-            return false;
-        }
-
-        // 未確定イベントの場合はイベント名のみで判断
+    private boolean matchesEventDetails(EventToParticipate toParticipate, EventReleasedAt releasedAt) {
         if (toParticipate instanceof TentativeEvent) {
             return true;
         }
-
-        // 確定イベントの場合は日付・スペースも厳密に比較
         if (toParticipate instanceof ConfirmedEvent confirmed) {
             return confirmed.dateAndSpaces().equals(releasedAt.dateAndSpaces());
         }
-
         return false;
     }
 
@@ -80,33 +74,33 @@ public class EventMatchingService implements DomainService {
      * @return イベント名と日付が一致する場合true
      */
     public boolean matchesEventNameAndDate(EventToParticipate toParticipate, EventReleasedAt releasedAt) {
-        if (toParticipate == null || releasedAt == null) {
-            return false;
-        }
+        return java.util.Optional
+                .ofNullable(toParticipate).flatMap(tp -> java.util.Optional.ofNullable(releasedAt)
+                        .filter(ra -> tp.name().equivalentTo(ra.name())).map(ra -> matchesDateDetails(tp, ra)))
+                .orElse(false);
+    }
 
-        // イベント名の一致は必須
-        if (!toParticipate.name().equivalentTo(releasedAt.name())) {
-            return false;
-        }
-
-        // 未確定イベントの場合
+    private boolean matchesDateDetails(EventToParticipate toParticipate, EventReleasedAt releasedAt) {
         if (toParticipate instanceof TentativeEvent tentative) {
-            // 暫定日付がない場合は名前のみで一致とみなす
-            if (tentative.tentativeDates().isEmpty()) {
-                return true;
-            }
-            // 暫定日付がある場合は、releasedAtの日付リストにいずれかの日付が含まれるか確認
-            var releasedDates = releasedAt.dateAndSpaces().stream().map(ds -> ds.date()).toList();
-            return tentative.tentativeDates().stream().anyMatch(releasedDates::contains);
+            return matchesTentativeDates(tentative, releasedAt);
         }
-
-        // 確定イベントの場合は日付のみを比較（スペース番号は無視）
         if (toParticipate instanceof ConfirmedEvent confirmed) {
-            var participateDates = confirmed.dateAndSpaces().stream().map(ds -> ds.date()).toList();
-            var releasedDates = releasedAt.dateAndSpaces().stream().map(ds -> ds.date()).toList();
-            return participateDates.equals(releasedDates);
+            return matchesConfirmedDates(confirmed, releasedAt);
         }
-
         return false;
+    }
+
+    private boolean matchesTentativeDates(TentativeEvent tentative, EventReleasedAt releasedAt) {
+        if (tentative.tentativeDates().isEmpty()) {
+            return true;
+        }
+        var releasedDates = releasedAt.dateAndSpaces().stream().map(ds -> ds.date()).toList();
+        return tentative.tentativeDates().stream().anyMatch(releasedDates::contains);
+    }
+
+    private boolean matchesConfirmedDates(ConfirmedEvent confirmed, EventReleasedAt releasedAt) {
+        var participateDates = confirmed.dateAndSpaces().stream().map(ds -> ds.date()).toList();
+        var releasedDates = releasedAt.dateAndSpaces().stream().map(ds -> ds.date()).toList();
+        return participateDates.equals(releasedDates);
     }
 }

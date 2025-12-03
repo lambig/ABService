@@ -57,16 +57,28 @@ public record DeclinedEvent(EventName name, List<BusinessDate> declinedDates, St
      *             イベント名がnull、declinedDatesが空、またはreasonがnullの場合
      */
     public DeclinedEvent {
+        validateName(name);
+        validateDeclinedDates(declinedDates);
+        validateReason(reason);
+        declinedDates = Collections.unmodifiableList(declinedDates);
+    }
+
+    private static void validateName(EventName name) {
         if (name == null) {
             throw new IllegalArgumentException("Event name cannot be null");
         }
-        if (declinedDates == null || declinedDates.isEmpty()) {
+    }
+
+    private static void validateDeclinedDates(List<BusinessDate> dates) {
+        if (dates == null || dates.isEmpty()) {
             throw new IllegalArgumentException("Declined event must have at least one declined date");
         }
+    }
+
+    private static void validateReason(DeclineReason reason) {
         if (reason == null) {
             throw new IllegalArgumentException("Decline reason cannot be null");
         }
-        declinedDates = Collections.unmodifiableList(declinedDates);
     }
 
     /**
@@ -154,13 +166,10 @@ public record DeclinedEvent(EventName name, List<BusinessDate> declinedDates, St
 
     @Override
     public boolean equivalentTo(EventToParticipate other) {
-        if (other == null) {
-            return false;
-        }
-        if (!(other instanceof DeclinedEvent declined)) {
-            return false;
-        }
-        return this.name.equivalentTo(declined.name) && this.declinedDates.equals(declined.declinedDates)
-                && java.util.Objects.equals(this.place, declined.place) && this.reason == declined.reason;
+        return java.util.Optional.ofNullable(other).filter(o -> o instanceof DeclinedEvent).map(o -> (DeclinedEvent) o)
+                .map(declined -> this.name.equivalentTo(declined.name)
+                        && this.declinedDates.equals(declined.declinedDates)
+                        && java.util.Objects.equals(this.place, declined.place) && this.reason == declined.reason)
+                .orElse(false);
     }
 }

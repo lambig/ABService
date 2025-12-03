@@ -24,6 +24,7 @@ import com.abservice.infrastructure.persistence.entity.TrackTuneId;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -47,42 +48,43 @@ public final class AlbumMapper {
      * @return Album
      */
     public static Album toDomain(AlbumEntity entity) {
-        if (entity == null) {
-            return null;
-        }
+        return Optional.ofNullable(entity)
+                .map(e -> Album.reconstruct(new Album.Id(e.getDomainId()), new AlbumTitle(e.getTitle()),
+                        BusinessDate.of(e.getReleaseDate()), buildArtistCredit(e), buildEventReleasedAt(e),
+                        Optional.ofNullable(e.getCatalogNumber()).map(CatalogNumber::new).orElse(null),
+                        Optional.ofNullable(e.getIsdn()).map(Isdn::new).orElse(null), buildTracks(e)))
+                .orElse(null);
+    }
 
-        var tracks = entity.getTracks() != null
-                ? entity.getTracks().stream().map(AlbumMapper::trackToDomain).collect(Collectors.toList())
-                : Collections.<Track>emptyList();
+    private static ArtistCredit buildArtistCredit(AlbumEntity entity) {
+        return new ArtistCredit(new ArtistCreditName(entity.getArtistDisplayName()), entity.getArtistSortKey());
+    }
 
-        // ArtistCredit (VO) を構築
-        var artistCredit = new ArtistCredit(new ArtistCreditName(entity.getArtistDisplayName()),
-                entity.getArtistSortKey());
+    private static List<Track> buildTracks(AlbumEntity entity) {
+        return Optional.ofNullable(entity.getTracks())
+                .map(list -> list.stream().map(AlbumMapper::trackToDomain).collect(Collectors.toList()))
+                .orElseGet(Collections::emptyList);
+    }
 
-        // EventReleasedAt (VO) を構築
-        EventReleasedAt eventReleasedAt = null;
-        if (entity.getEventName() != null) {
-            // 新しいテーブルから日付・スペース情報を取得
-            List<EventDateAndSpace> dateAndSpaces = entity.getEventDateSpaces() != null
-                    ? entity.getEventDateSpaces().stream()
-                            .map(e -> new EventDateAndSpace(BusinessDate.of(e.getEventDate()), e.getSpaceNumber()))
-                            .collect(Collectors.toList())
-                    : null;
+    private static EventReleasedAt buildEventReleasedAt(AlbumEntity entity) {
+        return Optional.ofNullable(entity.getEventName()).map(eventName -> {
+            var dateAndSpaces = extractDateAndSpaces(entity);
+            return new EventReleasedAt(new EventName(eventName), dateAndSpaces, entity.getEventPlace(),
+                    entity.getEventNote());
+        }).orElse(null);
+    }
 
-            // 後方互換性：新テーブルにデータがない場合は古いカラムから取得
-            if ((dateAndSpaces == null || dateAndSpaces.isEmpty()) && entity.getEventDate() != null) {
-                dateAndSpaces = List.of(
-                        new EventDateAndSpace(BusinessDate.of(entity.getEventDate()), entity.getEventSpaceNumber()));
-            }
+    private static List<EventDateAndSpace> extractDateAndSpaces(AlbumEntity entity) {
+        return Optional.ofNullable(entity.getEventDateSpaces()).filter(list -> !list.isEmpty())
+                .map(list -> list.stream()
+                        .map(e -> new EventDateAndSpace(BusinessDate.of(e.getEventDate()), e.getSpaceNumber()))
+                        .collect(Collectors.toList()))
+                .or(() -> buildLegacyDateAndSpaces(entity)).orElse(null);
+    }
 
-            eventReleasedAt = new EventReleasedAt(new EventName(entity.getEventName()), dateAndSpaces,
-                    entity.getEventPlace(), entity.getEventNote());
-        }
-
-        return Album.reconstruct(new Album.Id(entity.getDomainId()), new AlbumTitle(entity.getTitle()),
-                BusinessDate.of(entity.getReleaseDate()), artistCredit, eventReleasedAt,
-                entity.getCatalogNumber() != null ? new CatalogNumber(entity.getCatalogNumber()) : null,
-                entity.getIsdn() != null ? new Isdn(entity.getIsdn()) : null, tracks);
+    private static Optional<List<EventDateAndSpace>> buildLegacyDateAndSpaces(AlbumEntity entity) {
+        return Optional.ofNullable(entity.getEventDate()).map(
+                eventDate -> List.of(new EventDateAndSpace(BusinessDate.of(eventDate), entity.getEventSpaceNumber())));
     }
 
     /**
@@ -93,54 +95,60 @@ public final class AlbumMapper {
      * @return AlbumEntity
      */
     public static AlbumEntity toEntity(Album album) {
-        if (album == null) {
-            return null;
-        }
+        return Optional.ofNullable(album).map(a -> {
+            var albumEntity = new AlbumEntity();
+            albumEntity.setDomainId(a.id().value());
+            albumEntity.setTitle(a.title().value());
+            albumEntity.setReleaseDate(a.releaseDate().asLocalDate());
+            setArtistCreditFields(albumEntity, a.artistCredit());
+            Optional.ofNullable(a.eventReleasedAt()).ifPresent(event -> populateEventFields(albumEntity, event));
+            setCatalogFields(albumEntity, a);
+            setTracksField(albumEntity, a);
+            return albumEntity;
+        }).orElse(null);
+    }
 
-        var albumEntity = new AlbumEntity();
-        albumEntity.setDomainId(album.id().value());
-        albumEntity.setTitle(album.title().value());
-        albumEntity.setReleaseDate(album.releaseDate().asLocalDate());
+    private static void setArtistCreditFields(AlbumEntity entity, ArtistCredit credit) {
+        entity.setArtistDisplayName(credit.displayName().value());
+        entity.setArtistSortKey(credit.sortKey());
+    }
 
-        // ArtistCredit (VO) を分解
-        albumEntity.setArtistDisplayName(album.artistCredit().displayName().value());
-        albumEntity.setArtistSortKey(album.artistCredit().sortKey());
+    private static void setCatalogFields(AlbumEntity entity, Album album) {
+        entity.setCatalogNumber(Optional.ofNullable(album.catalogNumber()).map(CatalogNumber::value).orElse(null));
+        entity.setIsdn(Optional.ofNullable(album.isdn()).map(Isdn::value).orElse(null));
+    }
 
-        // EventReleasedAt (VO) を分解
-        if (album.eventReleasedAt() != null) {
-            albumEntity.setEventName(album.eventReleasedAt().name().value());
-            albumEntity.setEventPlace(album.eventReleasedAt().place());
-            albumEntity.setEventNote(album.eventReleasedAt().note());
+    private static void setTracksField(AlbumEntity entity, Album album) {
+        Optional.ofNullable(album.tracks()).filter(tracks -> !tracks.isEmpty())
+                .map(tracks -> tracks.stream().map(track -> trackToEntity(track, entity)).collect(Collectors.toList()))
+                .ifPresent(entity::setTracks);
+    }
 
-            // 日付・スペース情報を新テーブルに保存
-            if (album.eventReleasedAt().dateAndSpaces() != null && !album.eventReleasedAt().dateAndSpaces().isEmpty()) {
-                var dateSpaceEntities = album.eventReleasedAt().dateAndSpaces().stream().map(ds -> {
-                    var entity = new AlbumEventDateSpaceEntity();
-                    entity.setAlbum(albumEntity);
-                    entity.setEventDate(ds.date().asLocalDate());
-                    entity.setSpaceNumber(ds.spaceNumber());
-                    return entity;
-                }).collect(Collectors.toList());
-                albumEntity.setEventDateSpaces(dateSpaceEntities);
+    private static void populateEventFields(AlbumEntity albumEntity, EventReleasedAt event) {
+        albumEntity.setEventName(event.name().value());
+        albumEntity.setEventPlace(event.place());
+        albumEntity.setEventNote(event.note());
 
-                // 後方互換性：最初の日付・スペースを古いカラムにも保存
-                var firstDateSpace = album.eventReleasedAt().dateAndSpaces().get(0);
-                albumEntity.setEventDate(firstDateSpace.date().asLocalDate());
-                albumEntity.setEventSpaceNumber(firstDateSpace.spaceNumber());
-            }
-        }
+        Optional.ofNullable(event.dateAndSpaces()).filter(list -> !list.isEmpty()).ifPresent(dateAndSpaces -> {
+            populateDateAndSpaceEntities(albumEntity, dateAndSpaces);
+            populateLegacyDateAndSpace(albumEntity, dateAndSpaces.get(0));
+        });
+    }
 
-        albumEntity.setCatalogNumber(album.catalogNumber() != null ? album.catalogNumber().value() : null);
-        albumEntity.setIsdn(album.isdn() != null ? album.isdn().value() : null);
+    private static void populateDateAndSpaceEntities(AlbumEntity albumEntity, List<EventDateAndSpace> dateAndSpaces) {
+        var entities = dateAndSpaces.stream().map(ds -> {
+            var entity = new AlbumEventDateSpaceEntity();
+            entity.setAlbum(albumEntity);
+            entity.setEventDate(ds.date().asLocalDate());
+            entity.setSpaceNumber(ds.spaceNumber());
+            return entity;
+        }).collect(Collectors.toList());
+        albumEntity.setEventDateSpaces(entities);
+    }
 
-        // トラックを変換
-        if (album.tracks() != null && !album.tracks().isEmpty()) {
-            var trackEntities = album.tracks().stream().map(track -> trackToEntity(track, albumEntity))
-                    .collect(Collectors.toList());
-            albumEntity.setTracks(trackEntities);
-        }
-
-        return albumEntity;
+    private static void populateLegacyDateAndSpace(AlbumEntity albumEntity, EventDateAndSpace firstDateSpace) {
+        albumEntity.setEventDate(firstDateSpace.date().asLocalDate());
+        albumEntity.setEventSpaceNumber(firstDateSpace.spaceNumber());
     }
 
     /**
@@ -151,25 +159,23 @@ public final class AlbumMapper {
      * @return Track
      */
     private static Track trackToDomain(TrackEntity entity) {
-        if (entity == null) {
-            return null;
-        }
+        return Optional.ofNullable(entity)
+                .map(e -> Track.reconstruct(new Track.Id(e.getDomainId()), e.getTrackNo(), new TrackTitle(e.getTitle()),
+                        buildTrackArtistCredit(e),
+                        Optional.ofNullable(e.getRecordingDate()).map(BusinessDate::of).orElse(null),
+                        e.getRecordingPlace(), e.getIsLive(), buildTrackTunes(e)))
+                .orElse(null);
+    }
 
-        var trackTunes = entity.getTrackTunes() != null
-                ? entity.getTrackTunes().stream().map(AlbumMapper::trackTuneToDomain).collect(Collectors.toList())
-                : Collections.<TrackTune>emptyList();
+    private static ArtistCredit buildTrackArtistCredit(TrackEntity entity) {
+        return Optional.ofNullable(entity.getArtistDisplayName())
+                .map(name -> new ArtistCredit(new ArtistCreditName(name), entity.getArtistSortKey())).orElse(null);
+    }
 
-        // ArtistCredit (VO) を構築 - nullの場合はAlbumから継承
-        ArtistCredit artistCredit = null;
-        if (entity.getArtistDisplayName() != null) {
-            artistCredit = new ArtistCredit(new ArtistCreditName(entity.getArtistDisplayName()),
-                    entity.getArtistSortKey());
-        }
-
-        return Track.reconstruct(new Track.Id(entity.getDomainId()), entity.getTrackNo(),
-                new TrackTitle(entity.getTitle()), artistCredit,
-                entity.getRecordingDate() != null ? BusinessDate.of(entity.getRecordingDate()) : null,
-                entity.getRecordingPlace(), entity.getIsLive(), trackTunes);
+    private static List<TrackTune> buildTrackTunes(TrackEntity entity) {
+        return Optional.ofNullable(entity.getTrackTunes())
+                .map(list -> list.stream().map(AlbumMapper::trackTuneToDomain).collect(Collectors.toList()))
+                .orElseGet(Collections::emptyList);
     }
 
     /**
@@ -182,34 +188,31 @@ public final class AlbumMapper {
      * @return TrackEntity
      */
     private static TrackEntity trackToEntity(Track track, AlbumEntity albumEntity) {
-        if (track == null) {
-            return null;
-        }
+        return Optional.ofNullable(track).map(t -> {
+            var trackEntity = new TrackEntity();
+            trackEntity.setDomainId(t.id().value());
+            trackEntity.setAlbum(albumEntity);
+            trackEntity.setTrackNo(t.trackNo());
+            trackEntity.setTitle(t.title().value());
+            Optional.ofNullable(t.artistCredit()).ifPresent(ac -> setTrackArtistCredit(trackEntity, ac));
+            trackEntity.setRecordingDate(
+                    Optional.ofNullable(t.recordingDate()).map(BusinessDate::asLocalDate).orElse(null));
+            trackEntity.setRecordingPlace(t.recordingPlace());
+            trackEntity.setIsLive(t.isLive());
+            setTrackTunesField(trackEntity, t);
+            return trackEntity;
+        }).orElse(null);
+    }
 
-        var trackEntity = new TrackEntity();
-        trackEntity.setDomainId(track.id().value());
-        trackEntity.setAlbum(albumEntity);
-        trackEntity.setTrackNo(track.trackNo());
-        trackEntity.setTitle(track.title().value());
+    private static void setTrackArtistCredit(TrackEntity entity, ArtistCredit credit) {
+        entity.setArtistDisplayName(credit.displayName().value());
+        entity.setArtistSortKey(credit.sortKey());
+    }
 
-        // ArtistCredit (VO) を分解
-        if (track.artistCredit() != null) {
-            trackEntity.setArtistDisplayName(track.artistCredit().displayName().value());
-            trackEntity.setArtistSortKey(track.artistCredit().sortKey());
-        }
-
-        trackEntity.setRecordingDate(track.recordingDate() != null ? track.recordingDate().asLocalDate() : null);
-        trackEntity.setRecordingPlace(track.recordingPlace());
-        trackEntity.setIsLive(track.isLive());
-
-        // TrackTunesを変換
-        if (track.tunes() != null && !track.tunes().isEmpty()) {
-            var trackTuneEntities = track.tunes().stream().map(trackTune -> trackTuneToEntity(trackTune, trackEntity))
-                    .collect(Collectors.toList());
-            trackEntity.setTrackTunes(trackTuneEntities);
-        }
-
-        return trackEntity;
+    private static void setTrackTunesField(TrackEntity entity, Track track) {
+        Optional.ofNullable(track.tunes()).filter(tunes -> !tunes.isEmpty()).map(tunes -> tunes.stream()
+                .map(trackTune -> trackTuneToEntity(trackTune, entity)).collect(Collectors.toList()))
+                .ifPresent(entity::setTrackTunes);
     }
 
     /**
@@ -220,15 +223,13 @@ public final class AlbumMapper {
      * @return TrackTune
      */
     private static TrackTune trackTuneToDomain(TrackTuneEntity entity) {
-        if (entity == null) {
-            return null;
-        }
-
-        return TrackTune.reconstruct(entity.getId().getSeq(),
-                entity.getTuneId() != null ? new Tune.Id(entity.getTuneId()) : null,
-                entity.getComposerCreditOverride() != null ? new Credit(entity.getComposerCreditOverride()) : null,
-                entity.getArrangerCreditOverride() != null ? new Credit(entity.getArrangerCreditOverride()) : null,
-                entity.getLinkUrl() != null ? new Url(entity.getLinkUrl()) : null);
+        return Optional.ofNullable(entity)
+                .map(e -> TrackTune.reconstruct(e.getId().getSeq(),
+                        Optional.ofNullable(e.getTuneId()).map(Tune.Id::new).orElse(null),
+                        Optional.ofNullable(e.getComposerCreditOverride()).map(Credit::new).orElse(null),
+                        Optional.ofNullable(e.getArrangerCreditOverride()).map(Credit::new).orElse(null),
+                        Optional.ofNullable(e.getLinkUrl()).map(Url::new).orElse(null)))
+                .orElse(null);
     }
 
     /**
@@ -241,21 +242,17 @@ public final class AlbumMapper {
      * @return TrackTuneEntity
      */
     private static TrackTuneEntity trackTuneToEntity(TrackTune trackTune, TrackEntity trackEntity) {
-        if (trackTune == null) {
-            return null;
-        }
-
-        var trackTuneEntity = new TrackTuneEntity();
-        var id = new TrackTuneId(trackEntity.getTrackId(), trackTune.seq());
-        trackTuneEntity.setId(id);
-        trackTuneEntity.setTrack(trackEntity);
-        trackTuneEntity.setTuneId(trackTune.tuneId() != null ? trackTune.tuneId().value() : null);
-        trackTuneEntity.setComposerCreditOverride(
-                trackTune.composerCreditOverride() != null ? trackTune.composerCreditOverride().value() : null);
-        trackTuneEntity.setArrangerCreditOverride(
-                trackTune.arrangerCreditOverride() != null ? trackTune.arrangerCreditOverride().value() : null);
-        trackTuneEntity.setLinkUrl(trackTune.linkUrl() != null ? trackTune.linkUrl().value() : null);
-
-        return trackTuneEntity;
+        return Optional.ofNullable(trackTune).map(tt -> {
+            var trackTuneEntity = new TrackTuneEntity();
+            trackTuneEntity.setId(new TrackTuneId(trackEntity.getTrackId(), tt.seq()));
+            trackTuneEntity.setTrack(trackEntity);
+            trackTuneEntity.setTuneId(Optional.ofNullable(tt.tuneId()).map(Tune.Id::value).orElse(null));
+            trackTuneEntity.setComposerCreditOverride(
+                    Optional.ofNullable(tt.composerCreditOverride()).map(Credit::value).orElse(null));
+            trackTuneEntity.setArrangerCreditOverride(
+                    Optional.ofNullable(tt.arrangerCreditOverride()).map(Credit::value).orElse(null));
+            trackTuneEntity.setLinkUrl(Optional.ofNullable(tt.linkUrl()).map(Url::value).orElse(null));
+            return trackTuneEntity;
+        }).orElse(null);
     }
 }
