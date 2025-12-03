@@ -125,6 +125,11 @@ sourceSets {
     }
 }
 
+// Set duplicate handling strategy for resource processing
+tasks.withType(ProcessResources) {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
 // Integration test task (requires database)
 task integrationTest(type: Test) {
     description = 'Run integration tests with database'

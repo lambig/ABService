@@ -68,8 +68,8 @@ public class Track implements DomainEntity<Track, Track.Id> {
         if (title == null) {
             throw new IllegalArgumentException("Track title cannot be null");
         }
-        return new Track(Id.generate(), trackNo, title, artistCredit, recordingDate, recordingPlace, isLive,
-                isrc, Collections.emptyList());
+        return new Track(Id.generate(), trackNo, title, artistCredit, recordingDate, recordingPlace, isLive, isrc,
+                Collections.emptyList());
     }
 
     /**
@@ -97,10 +97,8 @@ public class Track implements DomainEntity<Track, Track.Id> {
      */
     @SuppressWarnings("checkstyle:ParameterNumber")
     public static Track reconstruct(Id id, Integer trackNo, TrackTitle title, ArtistCredit artistCredit,
-            BusinessDate recordingDate, String recordingPlace, Boolean isLive, Isrc isrc,
-            List<TrackTune> tunes) {
-        return new Track(id, trackNo, title, artistCredit, recordingDate, recordingPlace, isLive, isrc,
-                tunes);
+            BusinessDate recordingDate, String recordingPlace, Boolean isLive, Isrc isrc, List<TrackTune> tunes) {
+        return new Track(id, trackNo, title, artistCredit, recordingDate, recordingPlace, isLive, isrc, tunes);
     }
 
     /**
