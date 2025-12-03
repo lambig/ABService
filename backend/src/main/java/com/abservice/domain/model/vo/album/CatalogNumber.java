@@ -2,6 +2,8 @@ package com.abservice.domain.model.vo.album;
 
 import com.abservice.domain.model.vo.ValueObject;
 
+import java.util.Optional;
+
 /**
  * カタログナンバーの値オブジェクト
  *
@@ -47,9 +49,6 @@ public record CatalogNumber(String value) implements ValueObject<CatalogNumber> 
 
     @Override
     public boolean equivalentTo(CatalogNumber other) {
-        if (other == null) {
-            return false;
-        }
-        return this.value.equals(other.value);
+        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
     }
 }

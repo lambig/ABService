@@ -22,11 +22,8 @@ public class EventDateAndSpace implements ValueObject<EventDateAndSpace> {
 
     @Override
     public boolean equivalentTo(EventDateAndSpace other) {
-        if (other == null) {
-            return false;
-        }
-        return java.util.Objects.equals(this.date, other.date)
-                && java.util.Objects.equals(this.spaceNumber, other.spaceNumber);
+        return java.util.Optional.ofNullable(other).filter(o -> java.util.Objects.equals(this.date, o.date)
+                && java.util.Objects.equals(this.spaceNumber, o.spaceNumber)).isPresent();
     }
 
     /**

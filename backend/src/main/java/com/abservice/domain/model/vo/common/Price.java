@@ -3,6 +3,7 @@ package com.abservice.domain.model.vo.common;
 import com.abservice.domain.model.vo.ValueObject;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 
 /**
  * 価格の値オブジェクト
@@ -76,9 +77,6 @@ public record Price(Integer amount) implements ValueObject<Price> {
 
     @Override
     public boolean equivalentTo(Price other) {
-        if (other == null) {
-            return false;
-        }
-        return this.amount.equals(other.amount);
+        return Optional.ofNullable(other).filter(o -> this.amount.equals(o.amount)).isPresent();
     }
 }

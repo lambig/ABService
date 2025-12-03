@@ -2,6 +2,8 @@ package com.abservice.domain.model.vo.event;
 
 import com.abservice.domain.model.vo.ValueObject;
 
+import java.util.Optional;
+
 /**
  * イベント名の値オブジェクト
  *
@@ -36,9 +38,6 @@ public record EventName(String value) implements ValueObject<EventName> {
 
     @Override
     public boolean equivalentTo(EventName other) {
-        if (other == null) {
-            return false;
-        }
-        return this.value.equals(other.value);
+        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
     }
 }

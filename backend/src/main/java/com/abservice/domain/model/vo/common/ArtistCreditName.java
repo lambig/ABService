@@ -2,6 +2,8 @@ package com.abservice.domain.model.vo.common;
 
 import com.abservice.domain.model.vo.ValueObject;
 
+import java.util.Optional;
+
 /**
  * アーティスト名義の値オブジェクト
  *
@@ -47,9 +49,6 @@ public record ArtistCreditName(String value) implements ValueObject<ArtistCredit
 
     @Override
     public boolean equivalentTo(ArtistCreditName other) {
-        if (other == null) {
-            return false;
-        }
-        return this.value.equals(other.value);
+        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
     }
 }

@@ -2,6 +2,8 @@ package com.abservice.domain.model.vo.album;
 
 import com.abservice.domain.model.vo.ValueObject;
 
+import java.util.Optional;
+
 /**
  * アルバムタイトルの値オブジェクト
  *
@@ -47,9 +49,6 @@ public record AlbumTitle(String value) implements ValueObject<AlbumTitle> {
 
     @Override
     public boolean equivalentTo(AlbumTitle other) {
-        if (other == null) {
-            return false;
-        }
-        return this.value.equals(other.value);
+        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
     }
 }

@@ -21,11 +21,9 @@ public class ArtistCredit implements ValueObject<ArtistCredit> {
 
     @Override
     public boolean equivalentTo(ArtistCredit other) {
-        if (other == null) {
-            return false;
-        }
-        return this.displayName.equivalentTo(other.displayName)
-                && java.util.Objects.equals(this.sortKey, other.sortKey);
+        return java.util.Optional.ofNullable(other).filter(
+                o -> this.displayName.equivalentTo(o.displayName) && java.util.Objects.equals(this.sortKey, o.sortKey))
+                .isPresent();
     }
 
     /**

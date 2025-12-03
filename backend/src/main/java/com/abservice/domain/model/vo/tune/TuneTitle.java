@@ -2,6 +2,8 @@ package com.abservice.domain.model.vo.tune;
 
 import com.abservice.domain.model.vo.ValueObject;
 
+import java.util.Optional;
+
 /**
  * チューンタイトルの値オブジェクト
  *
@@ -47,9 +49,6 @@ public record TuneTitle(String value) implements ValueObject<TuneTitle> {
 
     @Override
     public boolean equivalentTo(TuneTitle other) {
-        if (other == null) {
-            return false;
-        }
-        return this.value.equals(other.value);
+        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
     }
 }

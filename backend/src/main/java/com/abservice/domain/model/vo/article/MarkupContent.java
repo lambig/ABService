@@ -2,6 +2,9 @@ package com.abservice.domain.model.vo.article;
 
 import com.abservice.domain.model.vo.ValueObject;
 
+import java.util.Objects;
+import java.util.Optional;
+
 /**
  * マークアップコンテンツの値オブジェクト
  *
@@ -87,16 +90,7 @@ public record MarkupContent(String content, MarkupFormat format) implements Valu
 
     @Override
     public boolean equivalentTo(MarkupContent other) {
-        if (other == null) {
-            return false;
-        }
-        return contentEquals(other) && this.format == other.format;
-    }
-
-    private boolean contentEquals(MarkupContent other) {
-        if (this.content == null) {
-            return other.content == null;
-        }
-        return this.content.equals(other.content);
+        return Optional.ofNullable(other)
+                .filter(o -> Objects.equals(this.content, o.content) && this.format == o.format).isPresent();
     }
 }

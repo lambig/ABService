@@ -4,6 +4,7 @@ import com.abservice.domain.model.vo.ValueObject;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Optional;
 
 /**
  * URLの値オブジェクト
@@ -62,9 +63,6 @@ public record Url(String value) implements ValueObject<Url> {
 
     @Override
     public boolean equivalentTo(Url other) {
-        if (other == null) {
-            return false;
-        }
-        return this.value.equals(other.value);
+        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
     }
 }

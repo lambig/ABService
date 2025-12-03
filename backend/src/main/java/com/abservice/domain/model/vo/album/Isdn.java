@@ -2,6 +2,7 @@ package com.abservice.domain.model.vo.album;
 
 import com.abservice.domain.model.vo.ValueObject;
 
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
@@ -108,9 +109,6 @@ public record Isdn(String value) implements ValueObject<Isdn> {
 
     @Override
     public boolean equivalentTo(Isdn other) {
-        if (other == null) {
-            return false;
-        }
-        return this.value.equals(other.value);
+        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
     }
 }

@@ -2,6 +2,8 @@ package com.abservice.domain.model.vo.album;
 
 import com.abservice.domain.model.vo.ValueObject;
 
+import java.util.Optional;
+
 /**
  * トラックタイトルの値オブジェクト
  *
@@ -47,9 +49,6 @@ public record TrackTitle(String value) implements ValueObject<TrackTitle> {
 
     @Override
     public boolean equivalentTo(TrackTitle other) {
-        if (other == null) {
-            return false;
-        }
-        return this.value.equals(other.value);
+        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
     }
 }

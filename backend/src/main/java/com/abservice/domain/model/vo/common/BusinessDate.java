@@ -3,6 +3,7 @@ package com.abservice.domain.model.vo.common;
 import com.abservice.domain.model.vo.ValueObject;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 /**
  * ビジネス日付値オブジェクト
@@ -77,10 +78,7 @@ public record BusinessDate(LocalDate value) implements ValueObject<BusinessDate>
 
     @Override
     public boolean equivalentTo(BusinessDate other) {
-        if (other == null) {
-            return false;
-        }
-        return this.value.equals(other.value);
+        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
     }
 
     @Override
