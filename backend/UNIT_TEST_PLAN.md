@@ -3,8 +3,13 @@
 ## 📊 現状分析（2025年12月3日時点）
 
 - **実装クラス総数**: 75クラス（Duration削除により-1）
-- **テストクラス総数**: 2クラス（`BusinessDate`, `BusinessDateTime`）
-- **テストカバレッジ**: 約2.7%
+- **テストクラス総数**: 18クラス
+  - **既存**: 2クラス（`BusinessDate`, `BusinessDateTime`）
+  - **Phase 1完了**: 4クラス（`Price`, `Isrc`, `ArtistCredit`, `EventReleasedAt`）
+  - **Phase 2完了**: 9クラス（`AlbumTitle`, `CatalogNumber`, `TrackTitle`, `TuneTitle`, `EventName`, `LabelTag`, `Url`, `ArtistCreditName`, `Credit`）
+  - **Phase 3完了**: 3クラス（`ChannelType`, `TuneKind`, `ArticleType`）
+- **テストメソッド総数**: 199メソッド
+- **テストカバレッジ**: 約24% (18/75クラス)
 
 ## 🎯 テスト追加計画（10フェーズ）
 
@@ -15,10 +20,10 @@
 | クラス名 | パス | 行数 | 優先度 | 理由 | ステータス |
 |---------|------|------|--------|------|----------|
 | ~~`Duration`~~ | ~~`domain/model/vo/album/Duration.java`~~ | ~~79~~ | ~~最高~~ | ~~時間計算ロジック、バリデーション~~ | ❌ 削除済み |
-| `Price` | `domain/model/vo/common/Price.java` | 74 | 最高 | 金額計算ロジック | 未着手 |
-| `Isrc` | `domain/model/vo/album/Isrc.java` | 65 | 高 | 複雑なフォーマットバリデーション | 未着手 |
-| `EventReleasedAt` | `domain/model/vo/common/EventReleasedAt.java` | 140 | 高 | 複雑な構造、イベント情報 | 未着手 |
-| `ArtistCredit` | `domain/model/vo/common/ArtistCredit.java` | 70 | 高 | 複雑なロジック | 未着手 |
+| `Price` | `domain/model/vo/common/Price.java` | 74 | 最高 | 金額計算ロジック | ✅ **完了** |
+| `Isrc` | `domain/model/vo/album/Isrc.java` | 65 | 高 | 複雑なフォーマットバリデーション | ✅ **完了** |
+| `EventReleasedAt` | `domain/model/vo/common/EventReleasedAt.java` | 140 | 高 | 複雑な構造、イベント情報 | ✅ **完了** |
+| `ArtistCredit` | `domain/model/vo/common/ArtistCredit.java` | 70 | 高 | 複雑なロジック | ✅ **完了** |
 
 **テスト種別**: ユニットテスト (`src/test/java/`)
 **依存**: なし（純粋なビジネスロジック）
@@ -29,17 +34,17 @@
 
 **対象**: タイトル系、名前系など単純なバリデーションを持つVO
 
-| クラス名 | パス | 優先度 |
-|---------|------|--------|
-| `AlbumTitle` | `domain/model/vo/album/AlbumTitle.java` | 中 |
-| `CatalogNumber` | `domain/model/vo/album/CatalogNumber.java` | 中 |
-| `TrackTitle` | `domain/model/vo/album/TrackTitle.java` | 中 |
-| `TuneTitle` | `domain/model/vo/tune/TuneTitle.java` | 中 |
-| `EventName` | `domain/model/vo/event/EventName.java` | 中 |
-| `LabelTag` | `domain/model/vo/album/LabelTag.java` | 中 |
-| `Url` | `domain/model/vo/common/Url.java` | 中 |
-| `ArtistCreditName` | `domain/model/vo/common/ArtistCreditName.java` | 中 |
-| `Credit` | `domain/model/vo/common/Credit.java` | 中 |
+| クラス名 | パス | 優先度 | ステータス |
+|---------|------|--------|----------|
+| `AlbumTitle` | `domain/model/vo/album/AlbumTitle.java` | 中 | ✅ **完了** |
+| `CatalogNumber` | `domain/model/vo/album/CatalogNumber.java` | 中 | ✅ **完了** |
+| `TrackTitle` | `domain/model/vo/album/TrackTitle.java` | 中 | ✅ **完了** |
+| `TuneTitle` | `domain/model/vo/tune/TuneTitle.java` | 中 | ✅ **完了** |
+| `EventName` | `domain/model/vo/event/EventName.java` | 中 | ✅ **完了** |
+| `LabelTag` | `domain/model/vo/album/LabelTag.java` | 中 | ✅ **完了** |
+| `Url` | `domain/model/vo/common/Url.java` | 中 | ✅ **完了** |
+| `ArtistCreditName` | `domain/model/vo/common/ArtistCreditName.java` | 中 | ✅ **完了** |
+| `Credit` | `domain/model/vo/common/Credit.java` | 中 | ✅ **完了** |
 
 **テスト種別**: ユニットテスト (`src/test/java/`)
 **テストパターン**: 類似（効率的に実装可能）
@@ -50,11 +55,11 @@
 
 **対象**: Enum型のVO
 
-| クラス名 | パス | 優先度 |
-|---------|------|--------|
-| `AcquisitionChannelType` | `domain/model/vo/album/AcquisitionChannelType.java` | 低 |
-| `TuneType` | `domain/model/vo/tune/TuneType.java` | 低 |
-| `ArticleType` | `domain/model/vo/article/ArticleType.java` | 低 |
+| クラス名 | パス | 優先度 | ステータス |
+|---------|------|--------|----------|
+| `ChannelType` | `domain/model/vo/album/ChannelType.java` | 低 | ✅ **完了** |
+| `TuneKind` | `domain/model/vo/tune/TuneKind.java` | 低 | ✅ **完了** |
+| `ArticleType` | `domain/model/vo/article/ArticleType.java` | 低 | ✅ **完了** |
 
 **テスト種別**: ユニットテスト (`src/test/java/`)
 **テスト内容**: Enum値の網羅性確認
@@ -259,7 +264,9 @@ cd backend
 ## 🔍 参考情報
 
 - **既存テスト**: `BusinessDate`, `BusinessDateTime` (2クラス)
-- **Phase 1 進捗**: 0/4 完了 (0%) - Duration削除により計画変更
+- **Phase 1 進捗**: 4/4 完了 (100%) ✅ **完了**
+- **Phase 2 進捗**: 9/9 完了 (100%) ✅ **完了**
+- **Phase 3 進捗**: 3/3 完了 (100%) ✅ **完了**
 - **最大規模クラス**: `Album` (323行)
 - **最大規模マッパー**: `AlbumMapper` (264行)
 - **集約ルート数**: 4つ（Album, Article, Tune, AlbumArticle）
