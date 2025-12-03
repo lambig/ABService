@@ -50,14 +50,14 @@ class MarkupContentTest {
         }
 
         @Test
-        @DisplayName("nullコンテンツでも生成できること")
-        void createWithNullContentShouldSucceed() {
+        @DisplayName("nullコンテンツは空文字列として生成されること")
+        void createWithNullContentShouldConvertToEmpty() {
             // Arrange & Act
             var content = MarkupContent.markdown(null);
 
             // Assert
             assertNotNull(content);
-            assertNull(content.content());
+            assertEquals("", content.content());
             assertEquals(MarkupFormat.MARKDOWN, content.format());
         }
 
@@ -77,13 +77,13 @@ class MarkupContentTest {
     class IsEmptyTest {
 
         @Test
-        @DisplayName("nullコンテンツは空と判定されること")
-        void nullContentShouldBeEmpty() {
-            // Arrange
-            var content = MarkupContent.plainText(null);
-
+        @DisplayName("plainTextでnullコンテンツを渡すと例外が発生すること")
+        void plainTextWithNullShouldThrowException() {
             // Act & Assert
-            assertTrue(content.isEmpty());
+            var exception = assertThrows(IllegalArgumentException.class, () -> {
+                MarkupContent.plainText(null);
+            });
+            assertEquals("Content cannot be null", exception.getMessage());
         }
 
         @Test
@@ -122,10 +122,10 @@ class MarkupContentTest {
     class LengthTest {
 
         @Test
-        @DisplayName("nullコンテンツの長さは0であること")
-        void nullContentLengthShouldBeZero() {
+        @DisplayName("空文字列コンテンツの長さは0であること")
+        void emptyContentLengthShouldBeZero() {
             // Arrange
-            var content = MarkupContent.plainText(null);
+            var content = MarkupContent.markdown("");
 
             // Act & Assert
             assertEquals(0, content.length());
@@ -193,11 +193,11 @@ class MarkupContentTest {
         }
 
         @Test
-        @DisplayName("両方nullのコンテンツは等価であること")
-        void bothNullContentShouldBeEquivalent() {
+        @DisplayName("両方空文字列のコンテンツは等価であること")
+        void bothEmptyContentShouldBeEquivalent() {
             // Arrange
-            var content1 = MarkupContent.markdown(null);
-            var content2 = MarkupContent.markdown(null);
+            var content1 = MarkupContent.markdown("");
+            var content2 = MarkupContent.markdown("");
 
             // Act & Assert
             assertTrue(content1.equivalentTo(content2));

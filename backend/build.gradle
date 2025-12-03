@@ -27,8 +27,14 @@ dependencies {
     // Mutiny（Reactive Streamsライブラリ - quarkus-hibernate-reactive-panacheに含まれる）
     implementation 'io.smallrye.reactive:mutiny'
 
+    // Hibernate Validator（Jakarta Bean Validation実装）
+    implementation 'io.quarkus:quarkus-hibernate-validator'
+
     // UUID v7生成用（業務IDに使用）
     implementation 'com.fasterxml.uuid:java-uuid-generator:5.1.0'
+
+    // JSpecify（nullability annotations）
+    compileOnly 'org.jspecify:jspecify:1.0.0'
 
     // Lombok（Java 25対応版）- @Withによる不変更新パターン、@Getter/@Setter等に使用
     compileOnly 'org.projectlombok:lombok:1.18.42'
