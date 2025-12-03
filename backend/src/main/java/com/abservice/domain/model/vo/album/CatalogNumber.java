@@ -26,10 +26,10 @@ public record CatalogNumber(@NonNull String value) implements ValueObject<Catalo
      * @param value
      *            カタログナンバー（non-null）
      * @throws IllegalArgumentException
-     *             カタログナンバーが空白の場合、または最大長を超える場合
+     *             カタログナンバーがnull、空白の場合、または最大長を超える場合
      */
     public CatalogNumber {
-        if (value.isBlank()) {
+        if (value == null || value.isBlank()) {
             throw new IllegalArgumentException("Catalog number cannot be blank");
         }
         if (value.length() > 100) {

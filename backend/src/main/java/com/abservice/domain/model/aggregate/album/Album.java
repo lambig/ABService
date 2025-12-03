@@ -4,6 +4,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.aggregate.Aggregate;
@@ -34,13 +38,21 @@ import lombok.experimental.Accessors;
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Album implements Aggregate<Album, Album.Id> {
     @EqualsAndHashCode.Include
+    @NonNull
     private final Id id;
+    @NonNull
     private final AlbumTitle title;
+    @NonNull
     private final BusinessDate releaseDate;
+    @NonNull
     private final ArtistCredit artistCredit; // アルバム全体のアーティスト名義（必須）
+    @Nullable
     private final EventReleasedAt eventReleasedAt; // nullable: イベント頒布情報が不明な場合
+    @Nullable
     private final CatalogNumber catalogNumber; // nullable
+    @Nullable
     private final Isdn isdn; // nullable: ISDN（国際標準同人誌番号）
+    @NonNull
     private final List<Track> tracks;
 
     /**
@@ -60,14 +72,12 @@ public class Album implements Aggregate<Album, Album.Id> {
      *            ISDN（nullable）
      * @return 新規Album
      */
-    public static Album create(AlbumTitle title, BusinessDate releaseDate, ArtistCredit artistCredit,
-            EventReleasedAt eventReleasedAt, CatalogNumber catalogNumber, Isdn isdn) {
-        if (title == null) {
-            throw new IllegalArgumentException("Album title cannot be null");
-        }
-        if (artistCredit == null) {
-            throw new IllegalArgumentException("Artist credit cannot be null");
-        }
+    public static @NonNull Album create(@NonNull AlbumTitle title, @NonNull BusinessDate releaseDate,
+            @NonNull ArtistCredit artistCredit, @Nullable EventReleasedAt eventReleasedAt,
+            @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn) {
+        Optional.ofNullable(title).orElseThrow(() -> new IllegalArgumentException("Album title cannot be null"));
+        Optional.ofNullable(artistCredit)
+                .orElseThrow(() -> new IllegalArgumentException("Artist credit cannot be null"));
         return new Album(Id.generate(), title, releaseDate, artistCredit, eventReleasedAt, catalogNumber, isdn,
                 Collections.emptyList());
     }
@@ -94,8 +104,10 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 再構成されたAlbum
      */
     @SuppressWarnings("checkstyle:ParameterNumber")
-    public static Album reconstruct(Id id, AlbumTitle title, BusinessDate releaseDate, ArtistCredit artistCredit,
-            EventReleasedAt eventReleasedAt, CatalogNumber catalogNumber, Isdn isdn, List<Track> tracks) {
+    public static @NonNull Album reconstruct(@NonNull Id id, @NonNull AlbumTitle title,
+            @NonNull BusinessDate releaseDate, @NonNull ArtistCredit artistCredit,
+            @Nullable EventReleasedAt eventReleasedAt, @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn,
+            @NonNull List<Track> tracks) {
         return new Album(id, title, releaseDate, artistCredit, eventReleasedAt, catalogNumber, isdn, tracks);
     }
 
@@ -106,11 +118,9 @@ public class Album implements Aggregate<Album, Album.Id> {
      *            新しいアルバムタイトル
      * @return 更新されたAlbum
      */
-    public Album changeTitle(AlbumTitle newTitle) {
-        if (newTitle == null) {
-            throw new IllegalArgumentException("Album title cannot be null");
-        }
-        return withTitle(newTitle);
+    public @NonNull Album changeTitle(@NonNull AlbumTitle newTitle) {
+        return withTitle(Optional.ofNullable(newTitle)
+                .orElseThrow(() -> new IllegalArgumentException("Album title cannot be null")));
     }
 
     /**
@@ -120,7 +130,7 @@ public class Album implements Aggregate<Album, Album.Id> {
      *            新しいリリース日
      * @return 更新されたAlbum
      */
-    public Album changeReleaseDate(BusinessDate newReleaseDate) {
+    public @NonNull Album changeReleaseDate(@NonNull BusinessDate newReleaseDate) {
         return withReleaseDate(newReleaseDate);
     }
 
@@ -131,11 +141,9 @@ public class Album implements Aggregate<Album, Album.Id> {
      *            新しいアーティストクレジット
      * @return 更新されたAlbum
      */
-    public Album changeArtistCredit(ArtistCredit newArtistCredit) {
-        if (newArtistCredit == null) {
-            throw new IllegalArgumentException("Artist credit cannot be null");
-        }
-        return withArtistCredit(newArtistCredit);
+    public @NonNull Album changeArtistCredit(@NonNull ArtistCredit newArtistCredit) {
+        return withArtistCredit(Optional.ofNullable(newArtistCredit)
+                .orElseThrow(() -> new IllegalArgumentException("Artist credit cannot be null")));
     }
 
     /**
@@ -145,7 +153,7 @@ public class Album implements Aggregate<Album, Album.Id> {
      *            新しいイベント頒布情報
      * @return 更新されたAlbum
      */
-    public Album changeEventReleasedAt(EventReleasedAt newEventReleasedAt) {
+    public @NonNull Album changeEventReleasedAt(@Nullable EventReleasedAt newEventReleasedAt) {
         return withEventReleasedAt(newEventReleasedAt);
     }
 
@@ -156,7 +164,7 @@ public class Album implements Aggregate<Album, Album.Id> {
      *            新しいカタログナンバー
      * @return 更新されたAlbum
      */
-    public Album changeCatalogNumber(CatalogNumber newCatalogNumber) {
+    public @NonNull Album changeCatalogNumber(@Nullable CatalogNumber newCatalogNumber) {
         return withCatalogNumber(newCatalogNumber);
     }
 
@@ -167,16 +175,15 @@ public class Album implements Aggregate<Album, Album.Id> {
      *            追加するトラック
      * @return 更新されたAlbum
      */
-    public Album addTrack(Track track) {
-        if (track == null) {
-            throw new IllegalArgumentException("Track cannot be null");
-        }
+    public @NonNull Album addTrack(@NonNull Track track) {
+        var validatedTrack = Optional.ofNullable(track)
+                .orElseThrow(() -> new IllegalArgumentException("Track cannot be null"));
         // トラック番号の重複チェック
-        if (tracks.stream().anyMatch(t -> t.trackNo().equals(track.trackNo()))) {
-            throw new IllegalArgumentException("Track number " + track.trackNo() + " already exists");
+        if (tracks.stream().anyMatch(t -> t.trackNo().equals(validatedTrack.trackNo()))) {
+            throw new IllegalArgumentException("Track number " + validatedTrack.trackNo() + " already exists");
         }
         var newTracks = new ArrayList<>(tracks);
-        newTracks.add(track);
+        newTracks.add(validatedTrack);
         return withTracks(Collections.unmodifiableList(newTracks));
     }
 
@@ -187,14 +194,13 @@ public class Album implements Aggregate<Album, Album.Id> {
      *            削除するトラックのID
      * @return 更新されたAlbum
      */
-    public Album removeTrack(Track.Id trackId) {
-        if (trackId == null) {
-            throw new IllegalArgumentException("Track ID cannot be null");
-        }
+    public @NonNull Album removeTrack(Track.@NonNull Id trackId) {
+        var validatedTrackId = Optional.ofNullable(trackId)
+                .orElseThrow(() -> new IllegalArgumentException("Track ID cannot be null"));
         var newTracks = new ArrayList<>(tracks);
-        var removed = newTracks.removeIf(t -> t.id().equals(trackId));
+        var removed = newTracks.removeIf(t -> t.id().equals(validatedTrackId));
         if (!removed) {
-            throw new IllegalArgumentException("Track with ID " + trackId.value() + " not found");
+            throw new IllegalArgumentException("Track with ID " + validatedTrackId.value() + " not found");
         }
         return withTracks(Collections.unmodifiableList(newTracks));
     }
@@ -206,22 +212,21 @@ public class Album implements Aggregate<Album, Album.Id> {
      *            更新するトラック
      * @return 更新されたAlbum
      */
-    public Album updateTrack(Track updatedTrack) {
-        if (updatedTrack == null) {
-            throw new IllegalArgumentException("Updated track cannot be null");
-        }
+    public @NonNull Album updateTrack(@NonNull Track updatedTrack) {
+        var validatedTrack = Optional.ofNullable(updatedTrack)
+                .orElseThrow(() -> new IllegalArgumentException("Updated track cannot be null"));
         var newTracks = new ArrayList<>(tracks);
-        var index = newTracks.stream().filter(t -> t.id().equals(updatedTrack.id())).findFirst().map(newTracks::indexOf)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Track with ID " + updatedTrack.id().value() + " not found"));
+        var index = newTracks.stream().filter(t -> t.id().equals(validatedTrack.id())).findFirst()
+                .map(newTracks::indexOf).orElseThrow(() -> new IllegalArgumentException(
+                        "Track with ID " + validatedTrack.id().value() + " not found"));
 
         // トラック番号の重複チェック（自分自身以外）
-        if (newTracks.stream().filter(t -> !t.id().equals(updatedTrack.id()))
-                .anyMatch(t -> t.trackNo().equals(updatedTrack.trackNo()))) {
-            throw new IllegalArgumentException("Track number " + updatedTrack.trackNo() + " already exists");
+        if (newTracks.stream().filter(t -> !t.id().equals(validatedTrack.id()))
+                .anyMatch(t -> t.trackNo().equals(validatedTrack.trackNo()))) {
+            throw new IllegalArgumentException("Track number " + validatedTrack.trackNo() + " already exists");
         }
 
-        newTracks.set(index, updatedTrack);
+        newTracks.set(index, validatedTrack);
         return withTracks(Collections.unmodifiableList(newTracks));
     }
 
@@ -232,13 +237,12 @@ public class Album implements Aggregate<Album, Album.Id> {
      *            新しい順序のトラックIDリスト
      * @return 更新されたAlbum
      */
-    public Album reorderTracks(List<Track.Id> orderedTrackIds) {
-        if (orderedTrackIds == null || orderedTrackIds.size() != tracks.size()) {
-            throw new IllegalArgumentException("Ordered track IDs must match the number of tracks");
-        }
+    public @NonNull Album reorderTracks(@NonNull List<Track.@NonNull Id> orderedTrackIds) {
+        var validatedIds = Optional.ofNullable(orderedTrackIds).filter(ids -> ids.size() == tracks.size())
+                .orElseThrow(() -> new IllegalArgumentException("Ordered track IDs must match the number of tracks"));
 
         var trackNo = new java.util.concurrent.atomic.AtomicInteger(1);
-        var newTracks = orderedTrackIds.stream().map(trackId -> {
+        var newTracks = validatedIds.stream().map(trackId -> {
             var track = tracks.stream().filter(t -> t.id().equals(trackId)).findFirst()
                     .orElseThrow(() -> new IllegalArgumentException("Track with ID " + trackId.value() + " not found"));
             return track.withTrackNo(trackNo.getAndIncrement());
@@ -252,7 +256,7 @@ public class Album implements Aggregate<Album, Album.Id> {
      *
      * @return トラック番号順にソートされたトラックリスト
      */
-    public List<Track> getTracksSortedByTrackNo() {
+    public @NonNull List<Track> getTracksSortedByTrackNo() {
         return tracks.stream().sorted(Comparator.comparing(Track::trackNo)).toList();
     }
 
@@ -263,7 +267,7 @@ public class Album implements Aggregate<Album, Album.Id> {
      *            トラックID
      * @return トラック
      */
-    public Track getTrack(Track.Id trackId) {
+    public @NonNull Track getTrack(Track.@NonNull Id trackId) {
         return tracks.stream().filter(t -> t.id().equals(trackId)).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Track with ID " + trackId.value() + " not found"));
     }
@@ -282,12 +286,12 @@ public class Album implements Aggregate<Album, Album.Id> {
      *
      * @return トラックリストの不変コピー
      */
-    public List<Track> getTracks() {
+    public @NonNull List<Track> getTracks() {
         return Collections.unmodifiableList(tracks);
     }
 
     @Override
-    public Id id() {
+    public @NonNull Id id() {
         return id;
     }
 
@@ -297,7 +301,7 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @param value
      *            ID値（UUIDv7形式の文字列）
      */
-    public record Id(String value) implements EntityId<Album> {
+    public record Id(@NonNull String value) implements EntityId<Album> {
         public Id {
             if (value == null || value.isBlank()) {
                 throw new IllegalArgumentException("Album ID cannot be blank");
@@ -310,14 +314,14 @@ public class Album implements Aggregate<Album, Album.Id> {
         /**
          * UUIDv7を生成してAlbum.Idを作成
          */
-        public static Id generate() {
+        public static @NonNull Id generate() {
             return new Id(EntityId.generateUuidV7());
         }
 
         /**
          * 文字列からAlbum.Idを生成
          */
-        public static Id of(String value) {
+        public static @NonNull Id of(@NonNull String value) {
             return new Id(value);
         }
     }

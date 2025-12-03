@@ -1,5 +1,13 @@
 package com.abservice.domain.model.aggregate.album;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.entity.DomainEntity;
 import com.abservice.domain.model.vo.album.TrackTitle;
@@ -11,10 +19,6 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.With;
 import lombok.experimental.Accessors;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 /**
  * トラック（集約内エンティティ）
@@ -30,13 +34,21 @@ import java.util.List;
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Track implements DomainEntity<Track, Track.Id> {
     @EqualsAndHashCode.Include
+    @NonNull
     private final Id id;
+    @NonNull
     private final Integer trackNo;
+    @NonNull
     private final TrackTitle title;
+    @Nullable
     private final ArtistCredit artistCredit; // nullable: nullの場合はAlbumのartistCreditを継承
+    @Nullable
     private final BusinessDate recordingDate;
+    @Nullable
     private final String recordingPlace;
+    @Nullable
     private final Boolean isLive;
+    @NonNull
     private final List<TrackTune> tunes;
 
     /**
@@ -59,13 +71,15 @@ public class Track implements DomainEntity<Track, Track.Id> {
      * @return 新規Track
      */
     @SuppressWarnings("checkstyle:ParameterNumber")
-    public static Track create(Integer trackNo, TrackTitle title, ArtistCredit artistCredit, BusinessDate recordingDate,
-            String recordingPlace, Boolean isLive) {
-        if (title == null) {
-            throw new IllegalArgumentException("Track title cannot be null");
-        }
-        return new Track(Id.generate(), trackNo, title, artistCredit, recordingDate, recordingPlace, isLive,
-                Collections.emptyList());
+    public static @NonNull Track create(@NonNull Integer trackNo, @NonNull TrackTitle title,
+            @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate, @Nullable String recordingPlace,
+            @Nullable Boolean isLive) {
+        return new Track(Id.generate(),
+                Optional.ofNullable(trackNo)
+                        .orElseThrow(() -> new IllegalArgumentException("Track number cannot be null")),
+                Optional.ofNullable(title)
+                        .orElseThrow(() -> new IllegalArgumentException("Track title cannot be null")),
+                artistCredit, recordingDate, recordingPlace, isLive, Collections.emptyList());
     }
 
     /**
@@ -81,8 +95,8 @@ public class Track implements DomainEntity<Track, Track.Id> {
      *            録音日（nullable）
      * @return 新規Track
      */
-    public static Track create(Integer trackNo, TrackTitle title, ArtistCredit artistCredit,
-            BusinessDate recordingDate) {
+    public static @NonNull Track create(@NonNull Integer trackNo, @NonNull TrackTitle title,
+            @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate) {
         return create(trackNo, title, artistCredit, recordingDate, null, null);
     }
 
@@ -108,8 +122,9 @@ public class Track implements DomainEntity<Track, Track.Id> {
      * @return 再構成されたTrack
      */
     @SuppressWarnings("checkstyle:ParameterNumber")
-    public static Track reconstruct(Id id, Integer trackNo, TrackTitle title, ArtistCredit artistCredit,
-            BusinessDate recordingDate, String recordingPlace, Boolean isLive, List<TrackTune> tunes) {
+    public static @NonNull Track reconstruct(@NonNull Id id, @NonNull Integer trackNo, @NonNull TrackTitle title,
+            @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate, @Nullable String recordingPlace,
+            @Nullable Boolean isLive, @NonNull List<TrackTune> tunes) {
         return new Track(id, trackNo, title, artistCredit, recordingDate, recordingPlace, isLive, tunes);
     }
 
@@ -120,11 +135,9 @@ public class Track implements DomainEntity<Track, Track.Id> {
      *            新しいトラックタイトル
      * @return 更新されたTrack
      */
-    public Track changeTitle(TrackTitle newTitle) {
-        if (newTitle == null) {
-            throw new IllegalArgumentException("Track title cannot be null");
-        }
-        return withTitle(newTitle);
+    public @NonNull Track changeTitle(@NonNull TrackTitle newTitle) {
+        return withTitle(Optional.ofNullable(newTitle)
+                .orElseThrow(() -> new IllegalArgumentException("Track title cannot be null")));
     }
 
     /**
@@ -134,7 +147,7 @@ public class Track implements DomainEntity<Track, Track.Id> {
      *            新しいアーティストクレジット
      * @return 更新されたTrack
      */
-    public Track changeArtistCredit(ArtistCredit newArtistCredit) {
+    public @NonNull Track changeArtistCredit(@Nullable ArtistCredit newArtistCredit) {
         return withArtistCredit(newArtistCredit);
     }
 
@@ -145,7 +158,7 @@ public class Track implements DomainEntity<Track, Track.Id> {
      *            新しい録音日
      * @return 更新されたTrack
      */
-    public Track changeRecordingDate(BusinessDate newRecordingDate) {
+    public @NonNull Track changeRecordingDate(@Nullable BusinessDate newRecordingDate) {
         return withRecordingDate(newRecordingDate);
     }
 
@@ -156,7 +169,7 @@ public class Track implements DomainEntity<Track, Track.Id> {
      *            新しい録音場所
      * @return 更新されたTrack
      */
-    public Track changeRecordingPlace(String newRecordingPlace) {
+    public @NonNull Track changeRecordingPlace(@Nullable String newRecordingPlace) {
         return withRecordingPlace(newRecordingPlace);
     }
 
@@ -167,7 +180,7 @@ public class Track implements DomainEntity<Track, Track.Id> {
      *            新しいライブフラグ
      * @return 更新されたTrack
      */
-    public Track changeIsLive(Boolean newIsLive) {
+    public @NonNull Track changeIsLive(@Nullable Boolean newIsLive) {
         return withIsLive(newIsLive);
     }
 
@@ -178,16 +191,15 @@ public class Track implements DomainEntity<Track, Track.Id> {
      *            追加するチューン
      * @return 更新されたTrack
      */
-    public Track addTune(TrackTune tune) {
-        if (tune == null) {
-            throw new IllegalArgumentException("Tune cannot be null");
-        }
+    public @NonNull Track addTune(@NonNull TrackTune tune) {
+        var validatedTune = Optional.ofNullable(tune)
+                .orElseThrow(() -> new IllegalArgumentException("Tune cannot be null"));
         // seqの重複チェック
-        if (tunes.stream().anyMatch(t -> t.seq().equals(tune.seq()))) {
-            throw new IllegalArgumentException("Tune seq " + tune.seq() + " already exists in this track");
+        if (tunes.stream().anyMatch(t -> t.seq().equals(validatedTune.seq()))) {
+            throw new IllegalArgumentException("Tune seq " + validatedTune.seq() + " already exists in this track");
         }
         var newTunes = new ArrayList<>(tunes);
-        newTunes.add(tune);
+        newTunes.add(validatedTune);
         return withTunes(Collections.unmodifiableList(newTunes));
     }
 
@@ -198,14 +210,13 @@ public class Track implements DomainEntity<Track, Track.Id> {
      *            削除するチューンのseq
      * @return 更新されたTrack
      */
-    public Track removeTune(Integer seq) {
-        if (seq == null) {
-            throw new IllegalArgumentException("Seq cannot be null");
-        }
+    public @NonNull Track removeTune(@NonNull Integer seq) {
+        var validatedSeq = Optional.ofNullable(seq)
+                .orElseThrow(() -> new IllegalArgumentException("Seq cannot be null"));
         var newTunes = new ArrayList<>(tunes);
-        var removed = newTunes.removeIf(t -> t.seq().equals(seq));
+        var removed = newTunes.removeIf(t -> t.seq().equals(validatedSeq));
         if (!removed) {
-            throw new IllegalArgumentException("Tune with seq " + seq + " not found");
+            throw new IllegalArgumentException("Tune with seq " + validatedSeq + " not found");
         }
         return withTunes(Collections.unmodifiableList(newTunes));
     }
@@ -217,14 +228,14 @@ public class Track implements DomainEntity<Track, Track.Id> {
      *            更新するチューン
      * @return 更新されたTrack
      */
-    public Track updateTune(TrackTune updatedTune) {
-        if (updatedTune == null) {
-            throw new IllegalArgumentException("Updated tune cannot be null");
-        }
+    public @NonNull Track updateTune(@NonNull TrackTune updatedTune) {
+        var validatedTune = Optional.ofNullable(updatedTune)
+                .orElseThrow(() -> new IllegalArgumentException("Updated tune cannot be null"));
         var newTunes = new ArrayList<>(tunes);
-        var index = newTunes.stream().filter(t -> t.seq().equals(updatedTune.seq())).findFirst().map(newTunes::indexOf)
-                .orElseThrow(() -> new IllegalArgumentException("Tune with seq " + updatedTune.seq() + " not found"));
-        newTunes.set(index, updatedTune);
+        var index = newTunes.stream().filter(t -> t.seq().equals(validatedTune.seq())).findFirst()
+                .map(newTunes::indexOf)
+                .orElseThrow(() -> new IllegalArgumentException("Tune with seq " + validatedTune.seq() + " not found"));
+        newTunes.set(index, validatedTune);
         return withTunes(Collections.unmodifiableList(newTunes));
     }
 
@@ -233,12 +244,12 @@ public class Track implements DomainEntity<Track, Track.Id> {
      *
      * @return チューンリストの不変コピー
      */
-    public List<TrackTune> getTunes() {
+    public @NonNull List<TrackTune> getTunes() {
         return Collections.unmodifiableList(tunes);
     }
 
     @Override
-    public Id id() {
+    public @NonNull Id id() {
         return id;
     }
 
@@ -248,7 +259,7 @@ public class Track implements DomainEntity<Track, Track.Id> {
      * @param value
      *            ID値（UUIDv7形式の文字列）
      */
-    public record Id(String value) implements EntityId<Track> {
+    public record Id(@NonNull String value) implements EntityId<Track> {
         public Id {
             if (value == null || value.isBlank()) {
                 throw new IllegalArgumentException("Track ID cannot be blank");
@@ -261,14 +272,14 @@ public class Track implements DomainEntity<Track, Track.Id> {
         /**
          * UUIDv7を生成してTrack.Idを作成
          */
-        public static Id generate() {
+        public static @NonNull Id generate() {
             return new Id(EntityId.generateUuidV7());
         }
 
         /**
          * 文字列からTrack.Idを生成
          */
-        public static Id of(String value) {
+        public static @NonNull Id of(@NonNull String value) {
             return new Id(value);
         }
     }
