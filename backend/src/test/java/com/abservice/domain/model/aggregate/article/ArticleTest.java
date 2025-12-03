@@ -2,6 +2,7 @@ package com.abservice.domain.model.aggregate.article;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
@@ -12,6 +13,7 @@ import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.entity.article.ArticleTag;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.model.vo.article.MarkupContent;
+import com.abservice.domain.model.vo.common.BusinessDateTime;
 
 @DisplayName("Article集約のテスト")
 class ArticleTest {
@@ -105,9 +107,10 @@ class ArticleTest {
             // Arrange
             var article = createTestArticle();
             var newTitle = "Updated Title";
+            var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
-            var updated = article.changeTitle(newTitle);
+            var updated = article.changeTitle(newTitle, currentDateTime);
 
             // Assert
             assertEquals(newTitle, updated.title());
@@ -119,10 +122,11 @@ class ArticleTest {
         void changeTitleWithNullShouldThrowException() {
             // Arrange
             var article = createTestArticle();
+            var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act & Assert
             var exception = assertThrows(IllegalArgumentException.class, () -> {
-                article.changeTitle(null);
+                article.changeTitle(null, currentDateTime);
             });
             assertEquals("Article title cannot be null or blank", exception.getMessage());
         }
@@ -132,10 +136,11 @@ class ArticleTest {
         void changeTitleWithBlankShouldThrowException() {
             // Arrange
             var article = createTestArticle();
+            var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act & Assert
             var exception = assertThrows(IllegalArgumentException.class, () -> {
-                article.changeTitle("  ");
+                article.changeTitle("  ", currentDateTime);
             });
             assertEquals("Article title cannot be null or blank", exception.getMessage());
         }
@@ -151,9 +156,10 @@ class ArticleTest {
             // Arrange
             var article = createTestArticle();
             var newBody = MarkupContent.markdown("Updated body content");
+            var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
-            var updated = article.changeBody(newBody);
+            var updated = article.changeBody(newBody, currentDateTime);
 
             // Assert
             assertEquals(newBody, updated.body());
@@ -165,9 +171,10 @@ class ArticleTest {
         void changeBodyWithNullShouldSucceed() {
             // Arrange
             var article = createTestArticle();
+            var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
-            var updated = article.changeBody(null);
+            var updated = article.changeBody(null, currentDateTime);
 
             // Assert
             assertNull(updated.body());
@@ -183,10 +190,11 @@ class ArticleTest {
         void publishShouldSetPublicFlag() {
             // Arrange
             var article = createTestArticle();
+            var currentDateTime = BusinessDateTime.of(Instant.now());
             assertFalse(article.isPublic());
 
             // Act
-            var published = article.publish();
+            var published = article.publish(currentDateTime);
 
             // Assert
             assertTrue(published.isPublic());
@@ -200,11 +208,12 @@ class ArticleTest {
         void publishAlreadyPublishedShouldKeepOriginalPublishedAt() {
             // Arrange
             var article = createTestArticle();
-            var firstPublished = article.publish();
+            var currentDateTime = BusinessDateTime.of(Instant.now());
+            var firstPublished = article.publish(currentDateTime);
             var originalPublishedAt = firstPublished.publishedAt();
 
             // Act
-            var republished = firstPublished.publish();
+            var republished = firstPublished.publish(currentDateTime);
 
             // Assert
             assertEquals(originalPublishedAt, republished.publishedAt());
@@ -214,11 +223,12 @@ class ArticleTest {
         @DisplayName("記事を非公開化できること")
         void unpublishShouldUnsetPublicFlag() {
             // Arrange
-            var article = createTestArticle().publish();
+            var currentDateTime = BusinessDateTime.of(Instant.now());
+            var article = createTestArticle().publish(currentDateTime);
             assertTrue(article.isPublic());
 
             // Act
-            var unpublished = article.unpublish();
+            var unpublished = article.unpublish(currentDateTime);
 
             // Assert
             assertFalse(unpublished.isPublic());
@@ -238,9 +248,10 @@ class ArticleTest {
             var article = Article.create(ArticleType.ALBUM, null, "Album Article", MarkupContent.plainText("Body"),
                     null);
             var albumId = Album.Id.generate();
+            var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
-            var updated = article.setAlbumId(albumId);
+            var updated = article.setAlbumId(albumId, currentDateTime);
 
             // Assert
             assertEquals(albumId, updated.albumId());
@@ -253,10 +264,11 @@ class ArticleTest {
             // Arrange
             var article = Article.create(ArticleType.NOTE, null, "Blog Post", MarkupContent.plainText("Body"), null);
             var albumId = Album.Id.generate();
+            var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act & Assert
             var exception = assertThrows(IllegalStateException.class, () -> {
-                article.setAlbumId(albumId);
+                article.setAlbumId(albumId, currentDateTime);
             });
             assertEquals("Cannot set album ID for non-ALBUM article type", exception.getMessage());
         }
@@ -271,9 +283,10 @@ class ArticleTest {
         void changeArticleTypeWithValidTypeShouldSucceed() {
             // Arrange
             var article = Article.create(ArticleType.NOTE, null, "Title", MarkupContent.plainText("Body"), null);
+            var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
-            var updated = article.changeArticleType(ArticleType.NEWS);
+            var updated = article.changeArticleType(ArticleType.NEWS, currentDateTime);
 
             // Assert
             assertEquals(ArticleType.NEWS, updated.articleType());
@@ -287,9 +300,10 @@ class ArticleTest {
             var albumId = Album.Id.generate();
             var article = Article.create(ArticleType.ALBUM, albumId, "Album Article", MarkupContent.plainText("Body"),
                     null);
+            var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
-            var updated = article.changeArticleType(ArticleType.NOTE);
+            var updated = article.changeArticleType(ArticleType.NOTE, currentDateTime);
 
             // Assert
             assertEquals(ArticleType.NOTE, updated.articleType());
@@ -301,10 +315,11 @@ class ArticleTest {
         void changeArticleTypeWithNullShouldThrowException() {
             // Arrange
             var article = createTestArticle();
+            var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act & Assert
             var exception = assertThrows(IllegalArgumentException.class, () -> {
-                article.changeArticleType(null);
+                article.changeArticleType(null, currentDateTime);
             });
             assertEquals("Article type cannot be null", exception.getMessage());
         }
@@ -320,9 +335,10 @@ class ArticleTest {
             // Arrange
             var article = createTestArticle();
             var tag = createTestTag("TestTag");
+            var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
-            var updated = article.addTag(tag);
+            var updated = article.addTag(tag, currentDateTime);
 
             // Assert
             assertEquals(1, updated.getTags().size());
@@ -338,9 +354,11 @@ class ArticleTest {
             var tag1 = createTestTag("Tag1");
             var tag2 = createTestTag("Tag2");
             var tag3 = createTestTag("Tag3");
+            var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
-            var updated = article.addTag(tag1).addTag(tag2).addTag(tag3);
+            var updated = article.addTag(tag1, currentDateTime).addTag(tag2, currentDateTime).addTag(tag3,
+                    currentDateTime);
 
             // Assert
             assertEquals(3, updated.getTags().size());
@@ -352,10 +370,11 @@ class ArticleTest {
         void addTagWithNullShouldThrowException() {
             // Arrange
             var article = createTestArticle();
+            var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act & Assert
             var exception = assertThrows(IllegalArgumentException.class, () -> {
-                article.addTag(null);
+                article.addTag(null, currentDateTime);
             });
             assertEquals("Tag cannot be null", exception.getMessage());
         }
@@ -367,12 +386,13 @@ class ArticleTest {
             var article = createTestArticle();
             var tag1 = createTestTag("Tag1");
             var tag2 = ArticleTag.reconstruct(tag1.id(), "Tag2"); // 同じIDで異なる名前
-            article = article.addTag(tag1);
+            var currentDateTime = BusinessDateTime.of(Instant.now());
+            article = article.addTag(tag1, currentDateTime);
 
             // Act & Assert
             var finalArticle = article;
             var exception = assertThrows(IllegalArgumentException.class, () -> {
-                finalArticle.addTag(tag2);
+                finalArticle.addTag(tag2, currentDateTime);
             });
             assertTrue(exception.getMessage().contains("already exists"));
         }
@@ -388,10 +408,11 @@ class ArticleTest {
             // Arrange
             var article = createTestArticle();
             var tag = createTestTag("TagToRemove");
-            article = article.addTag(tag);
+            var currentDateTime = BusinessDateTime.of(Instant.now());
+            article = article.addTag(tag, currentDateTime);
 
             // Act
-            var updated = article.removeTag(tag.id());
+            var updated = article.removeTag(tag.id(), currentDateTime);
 
             // Assert
             assertEquals(0, updated.getTags().size());
@@ -407,10 +428,11 @@ class ArticleTest {
             var tag1 = createTestTag("Tag1");
             var tag2 = createTestTag("Tag2");
             var tag3 = createTestTag("Tag3");
-            article = article.addTag(tag1).addTag(tag2).addTag(tag3);
+            var currentDateTime = BusinessDateTime.of(Instant.now());
+            article = article.addTag(tag1, currentDateTime).addTag(tag2, currentDateTime).addTag(tag3, currentDateTime);
 
             // Act
-            var updated = article.removeTag(tag2.id());
+            var updated = article.removeTag(tag2.id(), currentDateTime);
 
             // Assert
             assertEquals(2, updated.getTags().size());
@@ -425,11 +447,12 @@ class ArticleTest {
             // Arrange
             var article = createTestArticle();
             var tag = createTestTag("Tag");
-            article = article.addTag(tag);
+            var currentDateTime = BusinessDateTime.of(Instant.now());
+            article = article.addTag(tag, currentDateTime);
             var nonExistentId = ArticleTag.Id.generate();
 
             // Act
-            var updated = article.removeTag(nonExistentId);
+            var updated = article.removeTag(nonExistentId, currentDateTime);
 
             // Assert
             assertEquals(1, updated.getTags().size()); // タグは削除されていない
@@ -440,10 +463,11 @@ class ArticleTest {
         void removeTagWithNullIdShouldThrowException() {
             // Arrange
             var article = createTestArticle();
+            var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act & Assert
             var exception = assertThrows(IllegalArgumentException.class, () -> {
-                article.removeTag(null);
+                article.removeTag(null, currentDateTime);
             });
             assertEquals("Tag ID cannot be null", exception.getMessage());
         }
