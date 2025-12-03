@@ -93,7 +93,7 @@ record Event(EventName name, boolean confirmed, boolean declined, String spaceNu
 // ✅ 推奨: BusinessDateを使用
 public class Album implements Aggregate<Album, Album.Id> {
     private final BusinessDate releaseDate;
-    
+
     public static Album create(AlbumTitle title, BusinessDate releaseDate, ...) {
         return new Album(Id.generate(), title, releaseDate, ...);
     }
