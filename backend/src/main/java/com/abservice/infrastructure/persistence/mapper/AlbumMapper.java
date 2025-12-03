@@ -141,6 +141,9 @@ public final class AlbumMapper {
             entity.setAlbum(albumEntity);
             entity.setEventDate(ds.date().asLocalDate());
             entity.setSpaceNumber(ds.spaceNumber());
+            // 監査カラムのデフォルト値を設定
+            entity.setCreatedByService("abservice");
+            entity.setUpdatedByService("abservice");
             return entity;
         }).collect(Collectors.toList());
         albumEntity.setEventDateSpaces(entities);

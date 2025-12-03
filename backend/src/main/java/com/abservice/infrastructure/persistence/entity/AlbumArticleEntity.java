@@ -32,7 +32,7 @@ public class AlbumArticleEntity extends AuditableEntity {
     @Column(name = "album_id")
     private Long albumId;
 
-    @Column(name = "domain_id", nullable = false, unique = true, columnDefinition = "UUID")
+    @Column(name = "domain_id", nullable = false, unique = true)
     private String domainId;
 
     @OneToOne(fetch = FetchType.LAZY)

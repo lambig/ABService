@@ -39,6 +39,7 @@ dependencies {
     implementation 'org.apache.commons:commons-collections4:4.5.0-M2'
 
     testImplementation 'io.quarkus:quarkus-junit5'
+    testImplementation 'io.quarkus:quarkus-test-vertx'
     testImplementation 'io.rest-assured:rest-assured'
     testImplementation 'org.assertj:assertj-core:3.27.1'
 }

@@ -40,7 +40,7 @@ public class TrackEntity extends AuditableEntity {
     @Column(name = "track_id")
     private Long trackId;
 
-    @Column(name = "domain_id", nullable = false, unique = true, columnDefinition = "UUID")
+    @Column(name = "domain_id", nullable = false, unique = true)
     private String domainId;
 
     @ManyToOne(fetch = FetchType.LAZY)

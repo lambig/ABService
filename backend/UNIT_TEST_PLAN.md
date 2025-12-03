@@ -2,16 +2,16 @@
 
 ## 📊 現状分析（2025年12月3日時点）
 
-- **実装クラス総数**: 72クラス
+- **実装クラス総数**: 84クラス
 - **テストクラス総数**: 31クラス
   - **既存**: 2クラス（`BusinessDate`, `BusinessDateTime`）
-  - **Phase 1完了**: 4クラス（`Price`, `Isrc`, `ArtistCredit`, `EventReleasedAt`）
+  - **Phase 1完了**: 4クラス（`Price`, `Isdn`, `ArtistCredit`, `EventReleasedAt`）
   - **Phase 2完了**: 9クラス（`AlbumTitle`, `CatalogNumber`, `TrackTitle`, `TuneTitle`, `EventName`, `LabelTag`, `Url`, `ArtistCreditName`, `Credit`）
   - **Phase 3完了**: 3クラス（`ChannelType`, `TuneKind`, `ArticleType`）
   - **Phase 4完了**: 9クラス（`Album`, `Article`, `Tune`, `AlbumArticle`, `ConfirmedEvent`, `DeclinedEvent`, `SelectedEvent`, `TentativeEvent`, `EventMatchingService`）
   - **Phase 5完了**: 4クラス（`Track`, `TrackTune`, `AlbumAcquisitionChannel`, `AlbumDistribution`）
-- **テストメソッド総数**: 472メソッド
-- **テストカバレッジ**: 約43% (31/72クラス)
+- **テストメソッド総数**: 478メソッド
+- **テストカバレッジ**: 約37% (31/84クラス)
 
 ## 🎯 テスト追加計画（10フェーズ）
 
@@ -23,7 +23,7 @@
 |---------|------|------|--------|------|----------|
 | ~~`Duration`~~ | ~~`domain/model/vo/album/Duration.java`~~ | ~~79~~ | ~~最高~~ | ~~時間計算ロジック、バリデーション~~ | ❌ 削除済み |
 | `Price` | `domain/model/vo/common/Price.java` | 74 | 最高 | 金額計算ロジック | ✅ **完了** |
-| `Isrc` | `domain/model/vo/album/Isrc.java` | 65 | 高 | 複雑なフォーマットバリデーション | ✅ **完了** |
+| ~~`Isrc`~~ → `Isdn` | `domain/model/vo/album/Isdn.java` | 117 | 高 | 複雑なフォーマットバリデーション（ISRC→ISDN変更） | ✅ **完了** |
 | `EventReleasedAt` | `domain/model/vo/common/EventReleasedAt.java` | 140 | 高 | 複雑な構造、イベント情報 | ✅ **完了** |
 | `ArtistCredit` | `domain/model/vo/common/ArtistCredit.java` | 70 | 高 | 複雑なロジック | ✅ **完了** |
 

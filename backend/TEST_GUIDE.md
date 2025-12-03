@@ -40,6 +40,11 @@ backend/src/
 - `@QuarkusTest` **使用しない**
 - JUnit標準アノテーションのみ (`@Test`, `@BeforeEach`, etc.)
 
+**アサーションライブラリ:**
+- **AssertJ** を使用
+- `assertThat()` による流暢なアサーション
+- 例: `assertThat(result).isNotNull().hasSize(2);`
+
 **命名規則:**
 - `*Test.java`
 
@@ -59,7 +64,48 @@ backend/src/
 
 **アノテーション:**
 - `@QuarkusTest` 必須
-- `@TestTransaction` (必要に応じて)
+- `@RunOnVertxContext` リアクティブなDB操作に必須
+- `@TestTransaction` (必要に応じて、ただしReactiveでは非推奨)
+
+**アサーション方法:**
+- **UniAsserter** を使用（Quarkus/Mutiny標準）
+- `@RunOnVertxContext`と組み合わせてVertxコンテキスト内で実行
+- AssertJは使用せず、`UniAsserter`のメソッドを使用:
+  - `asserter.assertEquals(expected, actual)`
+  - `asserter.assertNotNull(value)`
+  - `asserter.assertTrue(condition)`
+  - `asserter.assertThat(() -> uniOperation, result -> { ... })`
+  - `asserter.assertFailedWith(() -> uniOperation, ExceptionClass.class)`
+
+**統合テストの例:**
+```java
+@QuarkusTest
+class AlbumRepositoryImplTest {
+    @Inject
+    AlbumRepositoryImpl repository;
+
+    @Test
+    @RunOnVertxContext
+    void shouldSaveAndFindAlbum(UniAsserter asserter) {
+        var album = Album.create(...);
+        
+        // Save操作のテスト
+        asserter.assertThat(
+            () -> repository.save(album),
+            saved -> {
+                asserter.assertNotNull(saved);
+                asserter.assertEquals(album.id(), saved.id());
+            }
+        );
+        
+        // Find操作のテスト
+        asserter.assertThat(
+            () -> repository.findById(album.id()),
+            found -> asserter.assertNotNull(found)
+        );
+    }
+}
+```
 
 **命名規則:**
 - `*IntegrationTest.java`

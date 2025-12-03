@@ -36,7 +36,7 @@ public class TrackTuneEntity extends AuditableEntity {
     @JoinColumn(name = "track_id", nullable = false)
     private TrackEntity track;
 
-    @Column(name = "tune_id", columnDefinition = "UUID")
+    @Column(name = "tune_id")
     private String tuneId;
 
     @Column(name = "composer_credit_override", length = 255)
