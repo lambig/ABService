@@ -2,7 +2,6 @@ package com.abservice.domain.model.aggregate.album;
 
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.entity.DomainEntity;
-import com.abservice.domain.model.vo.album.Duration;
 import com.abservice.domain.model.vo.album.Isrc;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
@@ -38,7 +37,6 @@ public class Track implements DomainEntity<Track, Track.Id> {
     private final ArtistCredit artistCredit; // nullable: nullの場合はAlbumのartistCreditを継承
     private final BusinessDate recordingDate;
     private final String recordingPlace;
-    private final Duration duration;
     private final Boolean isLive;
     private final Isrc isrc;
     private final List<TrackTune> tunes;
@@ -66,11 +64,11 @@ public class Track implements DomainEntity<Track, Track.Id> {
      */
     @SuppressWarnings("checkstyle:ParameterNumber")
     public static Track create(Integer trackNo, TrackTitle title, ArtistCredit artistCredit, BusinessDate recordingDate,
-            String recordingPlace, Duration duration, Boolean isLive, Isrc isrc) {
+            String recordingPlace, Boolean isLive, Isrc isrc) {
         if (title == null) {
             throw new IllegalArgumentException("Track title cannot be null");
         }
-        return new Track(Id.generate(), trackNo, title, artistCredit, recordingDate, recordingPlace, duration, isLive,
+        return new Track(Id.generate(), trackNo, title, artistCredit, recordingDate, recordingPlace, isLive,
                 isrc, Collections.emptyList());
     }
 
@@ -89,8 +87,6 @@ public class Track implements DomainEntity<Track, Track.Id> {
      *            録音日
      * @param recordingPlace
      *            録音場所
-     * @param duration
-     *            再生時間
      * @param isLive
      *            ライブフラグ
      * @param isrc
@@ -101,9 +97,9 @@ public class Track implements DomainEntity<Track, Track.Id> {
      */
     @SuppressWarnings("checkstyle:ParameterNumber")
     public static Track reconstruct(Id id, Integer trackNo, TrackTitle title, ArtistCredit artistCredit,
-            BusinessDate recordingDate, String recordingPlace, Duration duration, Boolean isLive, Isrc isrc,
+            BusinessDate recordingDate, String recordingPlace, Boolean isLive, Isrc isrc,
             List<TrackTune> tunes) {
-        return new Track(id, trackNo, title, artistCredit, recordingDate, recordingPlace, duration, isLive, isrc,
+        return new Track(id, trackNo, title, artistCredit, recordingDate, recordingPlace, isLive, isrc,
                 tunes);
     }
 
@@ -152,17 +148,6 @@ public class Track implements DomainEntity<Track, Track.Id> {
      */
     public Track changeRecordingPlace(String newRecordingPlace) {
         return withRecordingPlace(newRecordingPlace);
-    }
-
-    /**
-     * 再生時間を変更
-     *
-     * @param newDuration
-     *            新しい再生時間
-     * @return 更新されたTrack
-     */
-    public Track changeDuration(Duration newDuration) {
-        return withDuration(newDuration);
     }
 
     /**

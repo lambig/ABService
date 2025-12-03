@@ -129,17 +129,17 @@ sourceSets {
 task integrationTest(type: Test) {
     description = 'Run integration tests with database'
     group = 'verification'
-    
+
     testClassesDirs = sourceSets.integrationTest.output.classesDirs
     classpath = sourceSets.integrationTest.runtimeClasspath
-    
+
     useJUnitPlatform()
     systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
     jvmArgs '--add-opens', 'java.base/java.lang=ALL-UNNAMED'
-    
+
     // DB connection wait timeout
     systemProperty 'quarkus.test.wait-time', 'PT30S'
-    
+
     shouldRunAfter test
 }
 

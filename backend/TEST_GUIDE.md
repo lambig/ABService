@@ -146,7 +146,7 @@ class AlbumTitleTest {
         var title = new AlbumTitle("Test Album");
         assertThat(title.value()).isEqualTo("Test Album");
     }
-    
+
     @Test
     void testInvalidTitle() {
         assertThatThrownBy(() -> new AlbumTitle(""))
@@ -170,20 +170,20 @@ import static org.assertj.core.api.Assertions.*;
 
 @QuarkusTest
 class AlbumRepositoryIntegrationTest {
-    
+
     @Inject
     AlbumRepository albumRepository;
-    
+
     @Test
     void testSaveAndFind() {
         var album = Album.create(
             Album.Id.generate(),
             new AlbumTitle("Integration Test")
         );
-        
+
         var saved = albumRepository.save(album).await().indefinitely();
         var found = albumRepository.findById(saved.id()).await().indefinitely();
-        
+
         assertThat(found).isPresent();
         assertThat(found.get().title()).isEqualTo(album.title());
     }
@@ -201,7 +201,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Run unit tests
         run: ./gradlew test
-        
+
   integration-test:
     runs-on: ubuntu-latest
     needs: unit-test

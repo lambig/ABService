@@ -2,9 +2,9 @@
 
 ## 📊 現状分析（2025年12月3日時点）
 
-- **実装クラス総数**: 76クラス
-- **テストクラス総数**: 2クラス（`BusinessDate`と`BusinessDateTime`のみ）
-- **テストカバレッジ**: 約2.6%
+- **実装クラス総数**: 75クラス（Duration削除により-1）
+- **テストクラス総数**: 2クラス（`BusinessDate`, `BusinessDateTime`）
+- **テストカバレッジ**: 約2.7%
 
 ## 🎯 テスト追加計画（10フェーズ）
 
@@ -12,15 +12,15 @@
 
 **対象**: 複雑なバリデーションや計算ロジックを持つVO
 
-| クラス名 | パス | 行数 | 優先度 | 理由 |
-|---------|------|------|--------|------|
-| `Duration` | `domain/model/vo/album/Duration.java` | 79 | 最高 | 時間計算ロジック、バリデーション |
-| `Price` | `domain/model/vo/common/Price.java` | 74 | 最高 | 金額計算ロジック |
-| `Isrc` | `domain/model/vo/album/Isrc.java` | 65 | 高 | 複雑なフォーマットバリデーション |
-| `EventReleasedAt` | `domain/model/vo/common/EventReleasedAt.java` | 140 | 高 | 複雑な構造、イベント情報 |
-| `ArtistCredit` | `domain/model/vo/common/ArtistCredit.java` | 70 | 高 | 複雑なロジック |
+| クラス名 | パス | 行数 | 優先度 | 理由 | ステータス |
+|---------|------|------|--------|------|----------|
+| ~~`Duration`~~ | ~~`domain/model/vo/album/Duration.java`~~ | ~~79~~ | ~~最高~~ | ~~時間計算ロジック、バリデーション~~ | ❌ 削除済み |
+| `Price` | `domain/model/vo/common/Price.java` | 74 | 最高 | 金額計算ロジック | 未着手 |
+| `Isrc` | `domain/model/vo/album/Isrc.java` | 65 | 高 | 複雑なフォーマットバリデーション | 未着手 |
+| `EventReleasedAt` | `domain/model/vo/common/EventReleasedAt.java` | 140 | 高 | 複雑な構造、イベント情報 | 未着手 |
+| `ArtistCredit` | `domain/model/vo/common/ArtistCredit.java` | 70 | 高 | 複雑なロジック | 未着手 |
 
-**テスト種別**: ユニットテスト (`src/test/java/`)  
+**テスト種別**: ユニットテスト (`src/test/java/`)
 **依存**: なし（純粋なビジネスロジック）
 
 ---
@@ -41,7 +41,7 @@
 | `ArtistCreditName` | `domain/model/vo/common/ArtistCreditName.java` | 中 |
 | `Credit` | `domain/model/vo/common/Credit.java` | 中 |
 
-**テスト種別**: ユニットテスト (`src/test/java/`)  
+**テスト種別**: ユニットテスト (`src/test/java/`)
 **テストパターン**: 類似（効率的に実装可能）
 
 ---
@@ -56,7 +56,7 @@
 | `TuneType` | `domain/model/vo/tune/TuneType.java` | 低 |
 | `ArticleType` | `domain/model/vo/article/ArticleType.java` | 低 |
 
-**テスト種別**: ユニットテスト (`src/test/java/`)  
+**テスト種別**: ユニットテスト (`src/test/java/`)
 **テスト内容**: Enum値の網羅性確認
 
 ---
@@ -72,7 +72,7 @@
 | `Tune` | `domain/model/aggregate/tune/Tune.java` | 237 | 高 | チューン集約 |
 | `AlbumArticle` | `domain/model/aggregate/albumarticle/AlbumArticle.java` | 210 | 高 | アルバム記事集約 |
 
-**テスト種別**: ユニットテスト (`src/test/java/`)  
+**テスト種別**: ユニットテスト (`src/test/java/`)
 **依存**: モックを使用してリポジトリや外部依存を切り離す
 
 ---
@@ -102,7 +102,7 @@
 | `QueryService` | `application/service/QueryService.java` | 109 | 中 |
 | `CommandService` | `application/service/CommandService.java` | 85 | 中 |
 
-**テスト種別**: ユニットテスト (`src/test/java/`)  
+**テスト種別**: ユニットテスト (`src/test/java/`)
 **依存**: リポジトリをモック化してロジックをテスト
 
 ---
@@ -118,8 +118,8 @@
 | `TuneRepositoryImpl` | `infrastructure/persistence/repository/TuneRepositoryImpl.java` | 195 | 高 |
 | `AlbumArticleRepositoryImpl` | `infrastructure/persistence/repository/AlbumArticleRepositoryImpl.java` | 191 | 高 |
 
-**テスト種別**: 統合テスト (`src/integrationTest/java/`)  
-**依存**: データベース必要、`@QuarkusTest`使用  
+**テスト種別**: 統合テスト (`src/integrationTest/java/`)
+**依存**: データベース必要、`@QuarkusTest`使用
 **前提**: `docker-compose up -d` + `./gradlew flywayMigrate`
 
 ---
@@ -135,7 +135,7 @@
 | `TuneMapper` | `infrastructure/persistence/mapper/TuneMapper.java` | 70 | 中 |
 | `AlbumArticleMapper` | `infrastructure/persistence/mapper/AlbumArticleMapper.java` | 65 | 中 |
 
-**テスト種別**: 統合テスト (`src/integrationTest/java/`)  
+**テスト種別**: 統合テスト (`src/integrationTest/java/`)
 **依存**: データベース必要（関連エンティティの読み込みのため）
 
 ---
@@ -151,7 +151,7 @@
 | `AlbumArticleDataSource` | `infrastructure/persistence/datasource/AlbumArticleDataSource.java` | 109 | 中 |
 | `TuneDataSource` | `infrastructure/persistence/datasource/TuneDataSource.java` | 86 | 中 |
 
-**テスト種別**: 統合テスト (`src/integrationTest/java/`)  
+**テスト種別**: 統合テスト (`src/integrationTest/java/`)
 **依存**: データベース必要
 
 ---
@@ -166,7 +166,7 @@
 | `SampleResource` | `interfaces/rest/SampleResource.java` | 低 |
 | `HealthResource` | `interfaces/rest/HealthResource.java` | 低 |
 
-**テスト種別**: 統合テスト (`src/integrationTest/java/`)  
+**テスト種別**: 統合テスト (`src/integrationTest/java/`)
 **依存**: REST Assured使用、エンドツーエンドテスト
 
 ---
@@ -259,10 +259,11 @@ cd backend
 ## 🔍 参考情報
 
 - **既存テスト**: `BusinessDate`, `BusinessDateTime` (2クラス)
+- **Phase 1 進捗**: 0/4 完了 (0%) - Duration削除により計画変更
 - **最大規模クラス**: `Album` (323行)
 - **最大規模マッパー**: `AlbumMapper` (264行)
 - **集約ルート数**: 4つ（Album, Article, Tune, AlbumArticle）
-- **Value Object数**: 21クラス（基底除く）
+- **Value Object数**: 20クラス（基底除く、Duration削除後）
 - **リポジトリ実装数**: 4クラス
 
 詳細は `TEST_GUIDE.md` を参照。

@@ -66,9 +66,6 @@ public class TrackEntity extends AuditableEntity {
     @Column(name = "recording_place", length = 255)
     private String recordingPlace;
 
-    @Column(name = "duration_msec")
-    private Integer durationMsec;
-
     @Column(name = "is_live")
     private Boolean isLive;
 

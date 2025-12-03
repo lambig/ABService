@@ -5,7 +5,6 @@ import com.abservice.domain.model.aggregate.album.Track;
 import com.abservice.domain.model.aggregate.album.TrackTune;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
-import com.abservice.domain.model.vo.album.Duration;
 import com.abservice.domain.model.vo.album.Isrc;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
@@ -168,8 +167,7 @@ public final class AlbumMapper {
         return Track.reconstruct(new Track.Id(entity.getDomainId()), entity.getTrackNo(),
                 new TrackTitle(entity.getTitle()), artistCredit,
                 entity.getRecordingDate() != null ? BusinessDate.of(entity.getRecordingDate()) : null,
-                entity.getRecordingPlace(),
-                entity.getDurationMsec() != null ? new Duration(entity.getDurationMsec()) : null, entity.getIsLive(),
+                entity.getRecordingPlace(), entity.getIsLive(),
                 entity.getIsrc() != null ? new Isrc(entity.getIsrc()) : null, trackTunes);
     }
 
@@ -201,7 +199,6 @@ public final class AlbumMapper {
 
         trackEntity.setRecordingDate(track.recordingDate() != null ? track.recordingDate().asLocalDate() : null);
         trackEntity.setRecordingPlace(track.recordingPlace());
-        trackEntity.setDurationMsec(track.duration() != null ? track.duration().milliseconds() : null);
         trackEntity.setIsLive(track.isLive());
         trackEntity.setIsrc(track.isrc() != null ? track.isrc().value() : null);
 
