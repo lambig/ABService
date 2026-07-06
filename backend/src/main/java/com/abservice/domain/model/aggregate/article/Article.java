@@ -9,7 +9,6 @@ import com.abservice.domain.model.entity.article.ArticleTag;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.model.vo.article.MarkupContent;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -50,9 +49,9 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
     @Nullable
     private final String introShort; // nullable: お品書きや一覧表示用概要
     @Nullable
-    private final LocalDateTime publishedAt; // nullable: 公開日（掲載日の業務意味）
+    private final BusinessDateTime publishedAt; // nullable: 公開日（掲載日の業務意味）
     @Nullable
-    private final LocalDateTime updatedAtBusiness; // nullable: 更新日（「修正した」意味。監査とは別概念）
+    private final BusinessDateTime updatedAtBusiness; // nullable: 更新日（「修正した」意味。監査とは別概念）
     private final boolean publicFlag; // 公開/非公開フラグ
     @NonNull
     private final List<ArticleTag> tags; // 記事タグのリスト
@@ -110,8 +109,8 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
     @SuppressWarnings("checkstyle:ParameterNumber")
     public static @NonNull Article reconstruct(@NonNull Id id, @NonNull ArticleType articleType,
             Album.@Nullable Id albumId, @NonNull String title, @Nullable MarkupContent body,
-            @Nullable String introShort, @Nullable LocalDateTime publishedAt, @Nullable LocalDateTime updatedAtBusiness,
-            boolean publicFlag, @NonNull List<ArticleTag> tags) {
+            @Nullable String introShort, @Nullable BusinessDateTime publishedAt,
+            @Nullable BusinessDateTime updatedAtBusiness, boolean publicFlag, @NonNull List<ArticleTag> tags) {
         return new Article(id, articleType, albumId, title, body, introShort, publishedAt, updatedAtBusiness,
                 publicFlag, tags);
     }
@@ -128,7 +127,7 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
     public @NonNull Article changeTitle(@NonNull String newTitle, @NonNull BusinessDateTime currentDateTime) {
         var validatedTitle = Optional.ofNullable(newTitle).filter(not(String::isBlank))
                 .orElseThrow(() -> new IllegalArgumentException("Article title cannot be null or blank"));
-        return withTitle(validatedTitle).withUpdatedAtBusiness(currentDateTime.asLocalDateTime());
+        return withTitle(validatedTitle).withUpdatedAtBusiness(currentDateTime);
     }
 
     /**
@@ -141,7 +140,7 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article changeBody(@Nullable MarkupContent newBody, @NonNull BusinessDateTime currentDateTime) {
-        return withBody(newBody).withUpdatedAtBusiness(currentDateTime.asLocalDateTime());
+        return withBody(newBody).withUpdatedAtBusiness(currentDateTime);
     }
 
     /**
@@ -155,7 +154,7 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      */
     public @NonNull Article changeIntroShort(@Nullable String newIntroShort,
             @NonNull BusinessDateTime currentDateTime) {
-        return withIntroShort(newIntroShort).withUpdatedAtBusiness(currentDateTime.asLocalDateTime());
+        return withIntroShort(newIntroShort).withUpdatedAtBusiness(currentDateTime);
     }
 
     /**
@@ -166,8 +165,8 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article publish(@NonNull BusinessDateTime currentDateTime) {
-        LocalDateTime now = currentDateTime.asLocalDateTime();
-        return withPublicFlag(true).withPublishedAt(publishedAt == null ? now : publishedAt).withUpdatedAtBusiness(now);
+        return withPublicFlag(true).withPublishedAt(publishedAt == null ? currentDateTime : publishedAt)
+                .withUpdatedAtBusiness(currentDateTime);
     }
 
     /**
@@ -178,7 +177,7 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article unpublish(@NonNull BusinessDateTime currentDateTime) {
-        return withPublicFlag(false).withUpdatedAtBusiness(currentDateTime.asLocalDateTime());
+        return withPublicFlag(false).withUpdatedAtBusiness(currentDateTime);
     }
 
     /**
@@ -203,7 +202,7 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
         if (articleType != ArticleType.ALBUM) {
             throw new IllegalStateException("Cannot set album ID for non-ALBUM article type");
         }
-        return withAlbumId(newAlbumId).withUpdatedAtBusiness(currentDateTime.asLocalDateTime());
+        return withAlbumId(newAlbumId).withUpdatedAtBusiness(currentDateTime);
     }
 
     /**
@@ -220,11 +219,10 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
         var validatedType = Optional.ofNullable(newArticleType)
                 .orElseThrow(() -> new IllegalArgumentException("Article type cannot be null"));
         // ALBUM以外の種別に変更する場合、albumIdをクリア
-        LocalDateTime now = currentDateTime.asLocalDateTime();
         if (validatedType != ArticleType.ALBUM && albumId != null) {
-            return withArticleType(validatedType).withAlbumId(null).withUpdatedAtBusiness(now);
+            return withArticleType(validatedType).withAlbumId(null).withUpdatedAtBusiness(currentDateTime);
         }
-        return withArticleType(validatedType).withUpdatedAtBusiness(now);
+        return withArticleType(validatedType).withUpdatedAtBusiness(currentDateTime);
     }
 
     /**
@@ -245,7 +243,7 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
         }
         var newTags = new ArrayList<>(tags);
         newTags.add(validatedTag);
-        return withTags(Collections.unmodifiableList(newTags)).withUpdatedAtBusiness(currentDateTime.asLocalDateTime());
+        return withTags(Collections.unmodifiableList(newTags)).withUpdatedAtBusiness(currentDateTime);
     }
 
     /**
@@ -262,7 +260,7 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
                 .orElseThrow(() -> new IllegalArgumentException("Tag ID cannot be null"));
         var newTags = tags.stream().filter(t -> !t.id().equals(validatedTagId))
                 .collect(java.util.stream.Collectors.toList());
-        return withTags(Collections.unmodifiableList(newTags)).withUpdatedAtBusiness(currentDateTime.asLocalDateTime());
+        return withTags(Collections.unmodifiableList(newTags)).withUpdatedAtBusiness(currentDateTime);
     }
 
     /**

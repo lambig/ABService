@@ -5,10 +5,10 @@ import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.model.vo.article.MarkupContent;
 import com.abservice.domain.model.vo.article.MarkupFormat;
+import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.infrastructure.persistence.entity.ArticleEntity;
 
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.Optional;
 
@@ -37,13 +37,13 @@ public final class ArticleMapper {
                 .map(e -> Article.reconstruct(new Article.Id(e.getDomainId()), ArticleType.valueOf(e.getArticleType()),
                         Optional.ofNullable(e.getAlbumId()).map(Album.Id::new).orElse(null), e.getTitle(),
                         createMarkupContent(e.getBody(), e.getBodyFormat()), e.getIntroShort(),
-                        convertToLocalDateTime(e.getPublishedAt()), convertToLocalDateTime(e.getUpdatedAtBusiness()),
+                        toBusinessDateTime(e.getPublishedAt()), toBusinessDateTime(e.getUpdatedAtBusiness()),
                         Optional.ofNullable(e.getIsPublic()).orElse(false), Collections.emptyList()))
                 .orElse(null);
     }
 
-    private static LocalDateTime convertToLocalDateTime(java.time.Instant instant) {
-        return Optional.ofNullable(instant).map(i -> LocalDateTime.ofInstant(i, ZoneOffset.UTC)).orElse(null);
+    private static BusinessDateTime toBusinessDateTime(Instant instant) {
+        return Optional.ofNullable(instant).map(BusinessDateTime::of).orElse(null);
     }
 
     private static MarkupContent createMarkupContent(String body, String bodyFormat) {
@@ -76,14 +76,14 @@ public final class ArticleMapper {
                 articleEntity.setBodyFormat(MarkupFormat.PLAIN_TEXT.name());
             }
             articleEntity.setIntroShort(a.introShort());
-            articleEntity.setPublishedAt(convertToInstant(a.publishedAt()));
-            articleEntity.setUpdatedAtBusiness(convertToInstant(a.updatedAtBusiness()));
+            articleEntity.setPublishedAt(toInstant(a.publishedAt()));
+            articleEntity.setUpdatedAtBusiness(toInstant(a.updatedAtBusiness()));
             articleEntity.setIsPublic(a.publicFlag());
             return articleEntity;
         }).orElse(null);
     }
 
-    private static java.time.Instant convertToInstant(LocalDateTime dateTime) {
-        return Optional.ofNullable(dateTime).map(dt -> dt.toInstant(ZoneOffset.UTC)).orElse(null);
+    private static Instant toInstant(BusinessDateTime businessDateTime) {
+        return Optional.ofNullable(businessDateTime).map(BusinessDateTime::value).orElse(null);
     }
 }

@@ -3,14 +3,13 @@ package com.abservice.infrastructure.persistence.repository;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.vo.article.ArticleType;
+import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.repository.article.ArticleRepository;
 import com.abservice.infrastructure.persistence.datasource.ArticleDataSource;
 import com.abservice.infrastructure.persistence.mapper.ArticleMapper;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -180,13 +179,12 @@ public class ArticleRepositoryImpl implements ArticleRepository {
     }
 
     @Override
-    public Uni<List<Article>> findByPublishedAtBetween(LocalDateTime startDate, LocalDateTime endDate) {
+    public Uni<List<Article>> findByPublishedAtBetween(BusinessDateTime startDate, BusinessDateTime endDate) {
         if (startDate == null || endDate == null) {
             return Uni.createFrom().item(List.of());
         }
 
-        return dataSource
-                .findByPublishedAtBetween(startDate.toInstant(ZoneOffset.UTC), endDate.toInstant(ZoneOffset.UTC))
+        return dataSource.findByPublishedAtBetween(startDate.value(), endDate.value())
                 .map(entities -> entities.stream().map(ArticleMapper::toDomain).collect(Collectors.toList()));
     }
 

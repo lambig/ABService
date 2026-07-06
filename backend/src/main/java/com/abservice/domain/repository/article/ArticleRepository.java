@@ -3,9 +3,9 @@ package com.abservice.domain.repository.article;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.vo.article.ArticleType;
+import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.repository.Repository;
 import io.smallrye.mutiny.Uni;
-import java.time.LocalDateTime;
 
 /**
  * 記事リポジトリ
@@ -52,7 +52,7 @@ public interface ArticleRepository extends Repository<Article, Article.Id> {
      *            終了日時
      * @return 該当する記事のリスト
      */
-    Uni<java.util.List<Article>> findByPublishedAtBetween(LocalDateTime startDate, LocalDateTime endDate);
+    Uni<java.util.List<Article>> findByPublishedAtBetween(BusinessDateTime startDate, BusinessDateTime endDate);
 
     /**
      * タイトルで記事を検索（部分一致）
