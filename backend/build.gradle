@@ -48,6 +48,9 @@ dependencies {
     testImplementation 'io.quarkus:quarkus-test-vertx'
     testImplementation 'io.rest-assured:rest-assured'
     testImplementation 'org.assertj:assertj-core:3.27.1'
+
+    // ArchUnit（アーキテクチャ制約の強制。arch相当のレイヤー/依存/命名ルールを再現）
+    testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.2'
 }
 
 group = 'com.abservice'
