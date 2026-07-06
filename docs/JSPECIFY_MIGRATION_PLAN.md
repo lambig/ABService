@@ -1,5 +1,9 @@
 # JSpecify Nullability Annotations Migration Plan
 
+> ⚠️ **進捗の正は [STATUS_AND_ROADMAP.md](STATUS_AND_ROADMAP.md) §5.1 を参照。**
+> このドキュメントは方針・改修パターンのリファレンスです。以下「進捗状況」節の記載は当時のものです。
+> 2026-07-06 の実コード検証では、jspecify を import している domain クラスは **11件**（`Album`, `Track`, `Article`, `Tune`, `ArticleTag`, `CatalogNumber`, `AlbumTitle`, `TuneTitle`, `Credit`, `ArtistCredit`, `MarkupContent`）で、当時からほぼ進んでいません。`AlbumArticle` 集約・集約内エンティティ・大半のVO・infrastructure/application層は未対応です。
+
 ## 概要
 
 コードベース全体にJSpecifyのnullabilityアノテーション（`@NonNull`, `@Nullable`）を追加し、null安全性を向上させる改修計画。

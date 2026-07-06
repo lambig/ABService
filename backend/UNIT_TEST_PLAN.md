@@ -1,5 +1,9 @@
 # ユニットテスト追加計画
 
+> ⚠️ **進捗の正は [docs/STATUS_AND_ROADMAP.md](../docs/STATUS_AND_ROADMAP.md) §5.2 を参照。**
+> Phase 1–5（ユニットテスト31クラス）は完了。Phase 6–10（App Service / Repository統合 / Mapper / DataSource / REST）は未着手です。
+> 一部パス記述が陳腐化しているため注意（実態: `QueryService` は `application/query/`、REST Resource はルート直下 `com/abservice/*.java`、`SampleResource` は現 `GreetingResource`）。
+
 ## 📊 現状分析（2025年12月3日時点）
 
 - **実装クラス総数**: 84クラス
@@ -107,8 +111,10 @@
 
 | クラス名 | パス | 行数 | 優先度 |
 |---------|------|------|--------|
-| `QueryService` | `application/service/QueryService.java` | 109 | 中 |
+| `QueryService` | `application/query/QueryService.java` | 109 | 中 |
 | `CommandService` | `application/service/CommandService.java` | 85 | 中 |
+
+> 注: 上記2つは基底インターフェース。実際のテスト対象は今後実装する具象ユースケース（`*Service`）。
 
 **テスト種別**: ユニットテスト (`src/test/java/`)
 **依存**: リポジトリをモック化してロジックをテスト
@@ -170,9 +176,11 @@
 
 | クラス名 | パス | 優先度 |
 |---------|------|--------|
-| `CircleMemberResource` | `interfaces/rest/CircleMemberResource.java` | 低 |
-| `SampleResource` | `interfaces/rest/SampleResource.java` | 低 |
-| `HealthResource` | `interfaces/rest/HealthResource.java` | 低 |
+| `CircleMemberResource` | `com/abservice/CircleMemberResource.java` | 低 |
+| `GreetingResource` | `com/abservice/GreetingResource.java` | 低 |
+| `HealthResource` | `com/abservice/HealthResource.java` | 低 |
+
+> 注: 上記はサンプルResource。本命は今後実装する集約向けの Command/Query Resource（`presentation/rest/` 想定）。
 
 **テスト種別**: 統合テスト (`src/integrationTest/java/`)
 **依存**: REST Assured使用、エンドツーエンドテスト

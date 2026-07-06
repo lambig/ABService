@@ -1,5 +1,8 @@
 # Value Object化によるモデリング簡素化
 
+> ℹ️ **完了済みリファクタリングの記録**（履歴ドキュメント）。
+> 本文中の `EventInfo` VO はその後 **`EventReleasedAt` にリネームされ、複数日程参加に対応する形へ構造が変化**しています（コミット `655ef5b` / `e43e76e` 参照）。現行のドメインモデルは `DOMAIN_MODEL_DESIGN.md`、全体状況は [STATUS_AND_ROADMAP.md](STATUS_AND_ROADMAP.md) を参照してください。
+
 ## 変更概要
 
 ArtistCreditとEventを独立した集約ルートからValue Object (VO)に変更しました。

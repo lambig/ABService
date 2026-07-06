@@ -6,6 +6,10 @@ ABServiceは、モノリポジトリ構成で構築されたWebサービスで�
 
 ## ドキュメント一覧
 
+### 🚀 再開時にまず読む
+
+- **[STATUS_AND_ROADMAP.md](STATUS_AND_ROADMAP.md)** - 開発状況と再開ロードマップ（レイヤー別の検証済み現状・全残タスク棚卸し・優先度付き計画・ArchUnit導入計画）。**進捗の正はこのドキュメント**
+
 ### 設計ドキュメント
 
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - システムアーキテクチャ

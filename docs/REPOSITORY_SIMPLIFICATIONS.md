@@ -1,5 +1,9 @@
 # リポジトリ実装における簡略化事項と今後の対応
 
+> ⚠️ **2026-07-06 時点で、以下3件の簡略化はいずれも未解消**（実コード確認済み）。
+> Article タグ (`ArticleMapper.java:41`) / AlbumArticle 頒布情報 (`AlbumArticleMapper.java:37`) / AlbumArticle 入手経路 (`AlbumArticleMapper.java:38`)。
+> 全体の優先順位は [STATUS_AND_ROADMAP.md](STATUS_AND_ROADMAP.md) §4 を参照。本ドキュメントは各簡略化箇所の実装要件リファレンスです。
+
 ## 概要
 
 本ドキュメントでは、リポジトリ実装において一時的に簡略化された機能と、それらを完全に実装するための方針を記載します。
