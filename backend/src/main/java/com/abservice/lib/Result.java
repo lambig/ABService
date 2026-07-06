@@ -17,22 +17,22 @@ import org.jspecify.annotations.NonNull;
  *
  * <pre>{@code
  * // デフォルト例外
- * Album album = Album.create(name, catalogNumber).resolve();
+ * Album album = Album.create(title, catalogNumber).resolve();
  *
  * // カスタム例外
- * Album album = Album.create(name, catalogNumber).resolve(errors -> new ValidationException("アルバム情報が不正です", errors));
+ * Album album = Album.create(title, catalogNumber).resolve(errors -> new ValidationException("アルバム情報が不正です", errors));
  * }</pre>
  *
  * <h3>パターン2: orElse() - 失敗時にデフォルト値を返す</h3>
  *
  * <pre>{@code
- * Album album = Album.create(name, catalogNumber).orElse(defaultAlbum);
+ * Album album = Album.create(title, catalogNumber).orElse(defaultAlbum);
  * }</pre>
  *
  * <h3>パターン3: orElseGet() - 失敗時に関数を実行してデフォルト値を取得</h3>
  *
  * <pre>{@code
- * Album album = Album.create(name, catalogNumber).orElseGet(errors -> {
+ * Album album = Album.create(title, catalogNumber).orElseGet(errors -> {
  *     // エラーに基づいてデフォルト値を生成
  *     return Album.createDefault();
  * });
@@ -41,7 +41,7 @@ import org.jspecify.annotations.NonNull;
  * <h3>パターン4: orElseDo() - 失敗時に副作用のある処理を実行</h3>
  *
  * <pre>{@code
- * Album album = Album.create(name, catalogNumber).orElseDo(errors -> {
+ * Album album = Album.create(title, catalogNumber).orElseDo(errors -> {
  *     // ログ記録などの副作用のある処理
  *     logger.error("アルバム生成失敗: {}", errors);
  *     notificationService.send("エラーが発生しました");

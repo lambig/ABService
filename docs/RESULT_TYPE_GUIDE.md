@@ -2,7 +2,7 @@
 
 ## 概要
 
-`Result<T>`型は、処理の成功または失敗を表現するための型です。Kotlinの参考プロジェクト (`ABService`) から移植されました。
+`Result<T>`型は、処理の成功または失敗を表現するための型です。
 
 成功時は値を、失敗時はエラーのリストを保持します。エラーが予測されうる処理全般で使用できる汎用的な型です。
 
@@ -24,18 +24,18 @@ Result<Album> result = Result.success(album);
 ```java
 // 単一のエラー
 Result<Album> result = Result.failure(
-    new ErrorResult("catalogNumber", "メールアドレスの形式が不正です")
+    new ErrorResult("title", "タイトルの形式が不正です")
 );
 
 // 複数のエラー
 Result<Album> result = Result.failure(
-    new ErrorResult("name", "名前は必須です"),
-    new ErrorResult("catalogNumber", "メールアドレスの形式が不正です")
+    new ErrorResult("title", "タイトルは必須です"),
+    new ErrorResult("catalogNumber", "カタログ番号の形式が不正です")
 );
 
 // エラーコード付き
 Result<Album> result = Result.failure(
-    new ErrorResult("catalogNumber", "メールアドレスの形式が不正です", "E001")
+    new ErrorResult("title", "タイトルの形式が不正です", "E001")
 );
 ```
 
@@ -47,10 +47,10 @@ Result<Album> result = Result.failure(
 
 ```java
 // デフォルト例外（IllegalStateException）
-Album album = Album.create(name, catalogNumber).resolve();
+Album album = Album.create(title, catalogNumber).resolve();
 
 // カスタム例外
-Album album = Album.create(name, catalogNumber).resolve(errors ->
+Album album = Album.create(title, catalogNumber).resolve(errors ->
     new ValidationException("アルバム情報が不正です", errors)
 );
 ```
@@ -60,7 +60,7 @@ Album album = Album.create(name, catalogNumber).resolve(errors ->
 失敗時に固定のデフォルト値を返します。
 
 ```java
-Album album = Album.create(name, catalogNumber).orElse(defaultAlbum);
+Album album = Album.create(title, catalogNumber).orElse(defaultAlbum);
 ```
 
 ### パターン3: `orElseGet()` - 失敗時に関数を実行してデフォルト値を取得
@@ -69,7 +69,7 @@ Album album = Album.create(name, catalogNumber).orElse(defaultAlbum);
 エラー情報に基づいて異なるデフォルト値を生成することもできます。
 
 ```java
-Album album = Album.create(name, catalogNumber).orElseGet(errors -> {
+Album album = Album.create(title, catalogNumber).orElseGet(errors -> {
     // エラーに基づいてデフォルト値を生成
     logger.warn("アルバム生成失敗: {}", errors);
     return Album.createDefault();
@@ -82,7 +82,7 @@ Album album = Album.create(name, catalogNumber).orElseGet(errors -> {
 処理実行後、例外をスローします。
 
 ```java
-Album album = Album.create(name, catalogNumber).orElseDo(errors -> {
+Album album = Album.create(title, catalogNumber).orElseDo(errors -> {
     // ログ記録などの副作用のある処理
     logger.error("アルバム生成失敗: {}", errors);
     notificationService.send("エラーが発生しました");
@@ -95,22 +95,22 @@ Album album = Album.create(name, catalogNumber).orElseDo(errors -> {
 ### Value Objectの生成
 
 ```java
-public record CatalogNumber(String value) {
+public record AlbumTitle(String value) {
 
-  public static Result<CatalogNumber> create(String value) {
+  public static Result<AlbumTitle> create(String value) {
     if (value == null || value.isBlank()) {
       return Result.failure(
-          new ErrorResult("catalogNumber", "メールアドレスは必須です", "E001")
+          new ErrorResult("title", "タイトルは必須です", "E001")
       );
     }
 
-    if (!value.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) {
+    if (value.length() > 200) {
       return Result.failure(
-          new ErrorResult("catalogNumber", "メールアドレスの形式が不正です", "E002")
+          new ErrorResult("title", "タイトルは200文字以内です", "E002")
       );
     }
 
-    return Result.success(new CatalogNumber(value));
+    return Result.success(new AlbumTitle(value));
   }
 }
 ```
@@ -121,20 +121,20 @@ public record CatalogNumber(String value) {
 
 ```java
 public class Album {
-  private final AlbumId id;
-  private final AlbumTitle name;
+  private final Album.Id id;
+  private final AlbumTitle title;
   private final CatalogNumber catalogNumber;
 
-  public static Result<Album> create(String name, String catalogNumber) {
-    Result<AlbumTitle> nameResult = AlbumTitle.create(name);
-    Result<CatalogNumber> catalogNumberResult = CatalogNumber.create(catalogNumber);
+  public static Result<Album> create(String title, String catalogNumber) {
+    Result<AlbumTitle> titleResult = AlbumTitle.create(title);
+    Result<CatalogNumber> catalogResult = CatalogNumber.create(catalogNumber);
 
     // 両方のバリデーションを実行し、エラーを集約
     List<ErrorResult> errors = new ArrayList<>();
-    if (nameResult instanceof Result.Failure<AlbumTitle> failure) {
+    if (titleResult instanceof Result.Failure<AlbumTitle> failure) {
       errors.addAll(failure.errors());
     }
-    if (catalogNumberResult instanceof Result.Failure<CatalogNumber> failure) {
+    if (catalogResult instanceof Result.Failure<CatalogNumber> failure) {
       errors.addAll(failure.errors());
     }
 
@@ -143,9 +143,9 @@ public class Album {
     }
 
     return Result.success(new Album(
-        AlbumId.generate(),
-        ((Result.Success<AlbumTitle>) nameResult).value(),
-        ((Result.Success<CatalogNumber>) catalogNumberResult).value()
+        Album.Id.generate(),
+        ((Result.Success<AlbumTitle>) titleResult).value(),
+        ((Result.Success<CatalogNumber>) catalogResult).value()
     ));
   }
 }
@@ -155,11 +155,11 @@ public class Album {
 
 ```java
 @ApplicationScoped
-public class AlbumService {
+public class RegisterAlbumService {
 
   public AlbumDto registerAlbum(RegisterAlbumCommand command) {
     Result<Album> result = Album.create(
-        command.name(),
+        command.title(),
         command.catalogNumber()
     );
 
@@ -183,7 +183,7 @@ public class AlbumResource {
   @POST
   public Response registerAlbum(RegisterAlbumRequest request) {
     Result<Album> result = Album.create(
-        request.name(),
+        request.title(),
         request.catalogNumber()
     );
 
@@ -215,10 +215,10 @@ public class AlbumResource {
 
 ```java
 // Good
-public static Result<CatalogNumber> create(String value) { ... }
+public static Result<AlbumTitle> create(String value) { ... }
 
 // Bad
-public static CatalogNumber create(String value) throws ValidationException { ... }
+public static AlbumTitle create(String value) throws ValidationException { ... }
 ```
 
 ### 2. Application層で適切に処理
@@ -241,10 +241,9 @@ Resource層では、Resultをswitch式で分岐してHTTPレスポンスに変�
 エラーコードを設定することで、クライアント側での詳細なエラーハンドリングが可能になります。
 
 ```java
-new ErrorResult("catalogNumber", "メールアドレスの形式が不正です", "E002")
+new ErrorResult("title", "タイトルの形式が不正です", "E002")
 ```
 
 ## 参考
 
-- オリジナルのKotlin実装: `ABService/src/main/kotlin/com/internal/album/lib/Result.kt`
 - テストコード: `backend/src/test/java/com/abservice/lib/ResultTest.java`

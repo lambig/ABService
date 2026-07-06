@@ -163,13 +163,6 @@ CREATE INDEX idx_existing_table_created_at ON existing_table(created_at);
 CREATE INDEX idx_existing_table_updated_at ON existing_table(updated_at);
 ```
 
-## 参考
-
-この実装は [ABService](https://github.com/lambig/ABService) プロジェクトの共通監査列設計を参考にしています。
-
-詳細は以下を参照してください:
-- [ABService CODING_GUIDELINES.md](https://github.com/lambig/ABService/blob/main/docs/CODING_GUIDELINES.md)
-
 ## 関連クラス
 
 - `com.abservice.infrastructure.persistence.AuditableEntity` - 共通監査列を持つエンティティの基底クラス

@@ -41,13 +41,13 @@ import com.abservice.domain.model.entity.DomainEntity;
  *
  * <pre>{@code
  * // ✅ 正しい: 型安全なID参照
- * public record Album(AlbumId id, DriverLicenseId driverLicenseId) implements Aggregate<Album, AlbumId> {
+ * public record Article(ArticleId id, AlbumId albumId) implements Aggregate<Article, ArticleId> {
  * }
  *
  * // ❌ 間違い: オブジェクト参照
- * public record Album(AlbumId id, DriverLicense driverLicense) // 集約境界違反
+ * public record Article(ArticleId id, Album album) // 集約境界違反
  *         implements
- *             Aggregate<Album, AlbumId> {
+ *             Aggregate<Article, ArticleId> {
  * }
  * }</pre>
  *
@@ -58,7 +58,7 @@ import com.abservice.domain.model.entity.DomainEntity;
  * interface AlbumRepository extends Repository<Album, AlbumId>
  *
  * // ❌ 集約内エンティティにRepositoryは作らない
- * // interface PersonalDetailRepository  // 作成禁止
+ * // interface TrackRepository  // 作成禁止
  * }</pre>
  *
  * @param <T>

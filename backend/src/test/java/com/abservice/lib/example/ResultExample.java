@@ -18,32 +18,32 @@ public final class ResultExample {
         // ユーティリティクラスのためインスタンス化を禁止
     }
 
-    /** メールアドレスを表すValue Object */
+    /** カタログ番号を表すValue Object */
     public record CatalogNumber(String value) {
 
         public static Result<CatalogNumber> create(@Nullable String value) {
             if (value == null || value.isBlank()) {
-                return Result.failure(new ErrorResult("catalogNumber", "メールアドレスは必須です", "E001"));
+                return Result.failure(new ErrorResult("catalogNumber", "カタログ番号は必須です", "C001"));
             }
 
-            if (!value.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) {
-                return Result.failure(new ErrorResult("catalogNumber", "メールアドレスの形式が不正です", "E002"));
+            if (!value.matches("^[A-Z]{2,4}-[0-9]{3,5}$")) {
+                return Result.failure(new ErrorResult("catalogNumber", "カタログ番号の形式が不正です", "C002"));
             }
 
             return Result.success(new CatalogNumber(value));
         }
     }
 
-    /** アルバム名を表すValue Object */
+    /** アルバムタイトルを表すValue Object */
     public record AlbumTitle(String value) {
 
         public static Result<AlbumTitle> create(@Nullable String value) {
             if (value == null || value.isBlank()) {
-                return Result.failure(new ErrorResult("name", "名前は必須です", "N001"));
+                return Result.failure(new ErrorResult("title", "タイトルは必須です", "T001"));
             }
 
             if (value.length() > 100) {
-                return Result.failure(new ErrorResult("name", "名前は100文字以内で入力してください", "N002"));
+                return Result.failure(new ErrorResult("title", "タイトルは100文字以内で入力してください", "T002"));
             }
 
             return Result.success(new AlbumTitle(value));
@@ -51,27 +51,27 @@ public final class ResultExample {
     }
 
     /** アルバムを表すEntity */
-    public record Album(AlbumTitle name, CatalogNumber catalogNumber) {
+    public record Album(AlbumTitle title, CatalogNumber catalogNumber) {
 
         /**
          * アルバムを生成します
          *
-         * @param name
-         *            名前
+         * @param title
+         *            タイトル
          * @param catalogNumber
-         *            メールアドレス
+         *            カタログ番号
          * @return 生成結果
          */
-        public static Result<Album> create(@Nullable String name, @Nullable String catalogNumber) {
-            Result<AlbumTitle> nameResult = AlbumTitle.create(name);
-            Result<CatalogNumber> catalogNumberResult = CatalogNumber.create(catalogNumber);
+        public static Result<Album> create(@Nullable String title, @Nullable String catalogNumber) {
+            Result<AlbumTitle> titleResult = AlbumTitle.create(title);
+            Result<CatalogNumber> catalogResult = CatalogNumber.create(catalogNumber);
 
             // 両方のバリデーションを実行し、エラーを集約
             List<ErrorResult> errors = new ArrayList<>();
-            if (nameResult instanceof Result.Failure<AlbumTitle> failure) {
+            if (titleResult instanceof Result.Failure<AlbumTitle> failure) {
                 errors.addAll(failure.errors());
             }
-            if (catalogNumberResult instanceof Result.Failure<CatalogNumber> failure) {
+            if (catalogResult instanceof Result.Failure<CatalogNumber> failure) {
                 errors.addAll(failure.errors());
             }
 
@@ -79,8 +79,8 @@ public final class ResultExample {
                 return Result.failure(errors);
             }
 
-            return Result.success(new Album(((Result.Success<AlbumTitle>) nameResult).value(),
-                    ((Result.Success<CatalogNumber>) catalogNumberResult).value()));
+            return Result.success(new Album(((Result.Success<AlbumTitle>) titleResult).value(),
+                    ((Result.Success<CatalogNumber>) catalogResult).value()));
         }
     }
 
@@ -112,7 +112,7 @@ public final class ResultExample {
 
     private static void example1Success() {
         System.out.println("【例1: 成功ケース】");
-        Result<Album> result = Album.create("山田太郎", "taro@example.com");
+        Result<Album> result = Album.create("BEST ALBUM", "ABC-1234");
 
         Album album = result.resolve();
         System.out.println("アルバムを生成しました: " + album);
@@ -125,7 +125,7 @@ public final class ResultExample {
 
         try {
             CatalogNumber catalogNumber = result.resolve();
-            System.out.println("メールアドレス: " + catalogNumber);
+            System.out.println("カタログ番号: " + catalogNumber);
         } catch (IllegalStateException e) {
             System.out.println("例外がスローされました: " + e.getMessage());
         }
@@ -136,8 +136,8 @@ public final class ResultExample {
         System.out.println("【例3: 失敗ケース - orElse()】");
         Result<CatalogNumber> result = CatalogNumber.create("");
 
-        CatalogNumber catalogNumber = result.orElse(new CatalogNumber("default@example.com"));
-        System.out.println("メールアドレス: " + catalogNumber);
+        CatalogNumber catalogNumber = result.orElse(new CatalogNumber("ZZZ-0000"));
+        System.out.println("カタログ番号: " + catalogNumber);
         System.out.println();
     }
 
@@ -147,9 +147,9 @@ public final class ResultExample {
 
         CatalogNumber catalogNumber = result.orElseGet(errors -> {
             System.out.println("エラーが発生しました: " + errors);
-            return new CatalogNumber("fallback@example.com");
+            return new CatalogNumber("ZZZ-9999");
         });
-        System.out.println("メールアドレス: " + catalogNumber);
+        System.out.println("カタログ番号: " + catalogNumber);
         System.out.println();
     }
 
@@ -162,7 +162,7 @@ public final class ResultExample {
                 System.out.println("副作用のある処理を実行: エラーをログ記録");
                 System.out.println("エラー内容: " + errors);
             });
-            System.out.println("メールアドレス: " + catalogNumber);
+            System.out.println("カタログ番号: " + catalogNumber);
         } catch (IllegalStateException e) {
             System.out.println("処理実行後に例外がスローされました: " + e.getMessage());
         }
@@ -171,7 +171,7 @@ public final class ResultExample {
 
     private static void example6MultipleErrors() {
         System.out.println("【例6: 複数のエラー】");
-        Result<Album> result = Album.create("", "invalid-catalogNumber");
+        Result<Album> result = Album.create("", "invalid");
 
         if (result instanceof Result.Failure<Album> failure) {
             System.out.println("バリデーションエラーが発生しました:");
@@ -184,10 +184,10 @@ public final class ResultExample {
 
     private static void example7SwitchExpression() {
         System.out.println("【例7: switch式でのパターンマッチング】");
-        Result<Album> result = Album.create("山田太郎", "taro@example.com");
+        Result<Album> result = Album.create("BEST ALBUM", "ABC-1234");
 
         String message = switch (result) {
-            case Result.Success<Album> success -> "アルバムを生成しました: " + success.value().name().value();
+            case Result.Success<Album> success -> "アルバムを生成しました: " + success.value().title().value();
             case Result.Failure<Album> failure -> "エラー: "
                     + failure.errors().stream().map(ErrorResult::toString).reduce((a, b) -> a + ", " + b).orElse("");
         };

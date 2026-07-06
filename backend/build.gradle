@@ -49,7 +49,7 @@ dependencies {
     testImplementation 'io.rest-assured:rest-assured'
     testImplementation 'org.assertj:assertj-core:3.27.1'
 
-    // ArchUnit（アーキテクチャ制約の強制。arch相当のレイヤー/依存/命名ルールを再現）
+    // ArchUnit（アーキテクチャ制約の強制。レイヤー/依存/命名ルールをテストで検証）
     testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.2'
 }
 

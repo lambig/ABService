@@ -18,7 +18,7 @@
 | **インフラ層** | 🟢 完成（一部簡略化残） | JPAエンティティ・Mapper・RepositoryImpl（4集約）、Flyway V1〜V24、Reactive Panache。§4 の簡略化3件が未解消 |
 | **アプリケーション層** | 🟡 基底のみ | `CommandService` / `QueryService` インターフェース（使用例つき）は完備。**具象ユースケースは0件** |
 | **プレゼンテーション層** | 🔴 未着手 | サンプル `GreetingResource` / `HealthResource` / `CircleMemberResource` のみ。集約向けRESTエンドポイント・DTO・ExceptionMapperなし |
-| **共通基盤（lib）** | 🟡 一部 | `Result` / `ErrorResult` は移植済み。ただし combinator（`map`/`flatMap`/`zip`）とドメイン例外階層は未整備（§3, §5） |
+| **共通基盤（lib）** | 🟡 一部 | `Result` / `ErrorResult` は実装済み。ただし combinator（`map`/`flatMap`/`zip`）とドメイン例外階層は未整備（§3, §5） |
 | **テスト** | 🟡 ユニット充実・統合が薄い | ユニット31クラス（VO/集約/エンティティ）。統合テストは `AlbumRepositoryImplTest` と `SystemBusinessDateTimeProviderTest` の2本のみ |
 | **静的解析** | 🟡 style層のみ | Checkstyle + Spotless 稼働。SpotBugs は Java25非対応で無効。**アーキテクチャ制約の強制（ArchUnit）は未導入**（§7） |
 | **フロントエンド** | ⬜ 未調査 | `frontend-admin`（Svelte）/ `frontend-public`（Svelte+Astro）。本ドキュメントの対象外 |
@@ -27,68 +27,63 @@
 
 ---
 
-## 2. 参考アーキテクチャ: internal-platforms / products/album
+## 2. 目標アーキテクチャと設計方針
 
-再開development のアーキテクチャ参照先は `internal-platforms/products/album`（Kotlin/Quarkus/Reactive）です。ABService は Java プロジェクトのため、Kotlin固有の機構（value class, sealed, `init`）は直接移植できませんが、**レイヤー構成・CQRS・エラー設計・テスト分割の思想はそのまま踏襲可能**です。基底型は別リポジトリ `common-libs-kotlin`（`com.abservice:internal-lib`）に集約されています。
+ABService は Quarkus/Reactive を土台に、DDD レイヤ構成・CQRS・段階的なエラー設計を採用します。本節は目標とするパッケージ構成と設計パターン（Java での実現方針）を示します。
 
-### 2.1 album のレイヤー構成（参照マップ）
+### 2.1 目標パッケージ構成
 
 ```
-com.abservice.album/
+com.abservice/
 ├── domain/
-│   ├── model/{aggregate, entity, vo, transition}
+│   ├── model/{aggregate, entity, vo}
 │   ├── repository/            interface（実装は infrastructure）
 │   ├── service/               ドメインサービス interface (+ 一部Impl)
 │   ├── factory/               ファクトリ interface + Impl
-│   ├── external/              外部サービス抽象
-│   └── exception/             ドメイン例外階層 ★ABServiceに不足
+│   └── exception/             ドメイン例外階層 ★未整備
 ├── application/
 │   ├── service/<agg>/         CommandService実装 + Input/Output DTO
 │   └── query/                 QueryService実装 + Request/Result
 │       ├── model/             Read Model DTO
 │       └── mapper/            Row→DTO マッパー
 ├── infrastructure/
-│   ├── persistence/{repository, entity(*Record), mapper}
-│   ├── client/                外部/イベント発行
-│   ├── domainservice/         ドメインサービスImpl
+│   ├── persistence/{repository, entity(*Entity), mapper, datasource}
 │   └── datetime/
-├── presentation/api/          ★ABServiceに不足
-│   ├── *Resource.kt           CQRSで分割（Command/Query/PartialUpdate/Leave）
-│   ├── request/               リクエストDTO + Jacksonデシリアライザ
-│   ├── response/              レスポンスDTO + エラーレスポンス
-│   └── exception/             JAX-RS ExceptionMapper
-└── lib/logging/
+└── presentation/rest/         ★未着手
+    ├── *Resource.java         CQRSで分割（Command/Query）
+    ├── request/               リクエストDTO
+    ├── response/              レスポンスDTO + エラーレスポンス
+    └── exception/             JAX-RS ExceptionMapper
 ```
 
-ABService の現行パッケージ（`com.abservice.domain / application / infrastructure`）はこの構成とほぼ一致しています。**未整備なのは `application` の具象、`presentation`（丸ごと）、`domain/exception` の階層化**の3点です。
+現行パッケージ（`com.abservice.domain / application / infrastructure`）はこの構成にほぼ沿っています。**未整備なのは `application` の具象、`presentation`（丸ごと）、`domain/exception` の階層化**の3点です。
 
-### 2.2 album から取り込むべき設計パターン
+### 2.2 採用する設計パターン
 
-| パターン | album の実装 | ABService への適用方針 |
-|---|---|---|
-| **CQRS の Read/Write 分離** | Command は Repository（Panache/Write Model）経由、Query は `PgPool` 直SQL（Read Model、Repository/Domainを経由しない） | ABService は既に `DataSource`（Panache）と `Repository` を分離済み。Query は `DataSource` を使い Read Model DTO を返す方針で踏襲 |
-| **Command ユースケース** | `@ApplicationScoped class RegisterAlbumService : CommandService<Input, Output>` / `@WithTransaction execute(): Uni<Output>` | `CommandService` 基底の使用例（`UpdateAlbumTitleService`）どおりに実装。Input/Output は同パッケージの record |
-| **Query ユースケース** | `QueryService<Request, Result>` / `@WithSession query(): Uni<Result>`、`QueryStatus`(SUCCESS/INSUFFICIENT_DATA/NOT_FOUND)で200/422/404を出し分け | `application/query/` に配置。Read Model は `application/query/model/` |
-| **REST Resource** | CQRSで分割（`AlbumCommandResource` / `AlbumQueryResource`）、`Uni<Response>` 返却、MicroProfile OpenAPIアノテーション | `presentation/rest/`（README記載の想定パッケージ）に集約ごとに Command/Query Resource を作成 |
-| **VO の2系統生成** | `ofPersisted()`（DB復元・例外戦略）と `fromInput()`（外部入力・`Result`戦略）を分離 | ABService の VO は現状コンパクトコンストラクタで例外throwのみ。外部入力用に `Result` を返す `fromInput()` の追加を検討（§5） |
-| **3層のエラー表現** | 値検証=`Result`、未存在=empty `Uni`+`failWith`、ビジネス違反=`DomainException`階層 | §3 / §5 参照。ABService は `Result` はあるが例外階層が未整備 |
-| **テスト3分割** | `unitTest`（Fake注入・DI無）/ `integrationTest`（@QuarkusTest・実DB）/ `communicationTest`（実HTTP） | ABService は unit / integrationTest の2分割済み。communicationは外部連携が出てきた時点で検討 |
-| **ガイドライン文書の流用** | `products/album/docs/guidelines/*.md`（DOMAIN_MODEL_CHARTER, STATE_MANAGEMENT_DESIGN, TEST_GUIDELINES, API_DESIGN_GUIDELINES, CODE_QUALITY） | 再開development の規約整備で内容を参照・流用可能 |
+| パターン | ABService での方針 |
+|---|---|
+| **CQRS の Read/Write 分離** | Command は `Repository`（Panache/Write Model）経由、Query は `DataSource` 直アクセスで Read Model DTO を返す。両者は既に分離済み |
+| **Command ユースケース** | `@ApplicationScoped` な `CommandService<Input, Output>` 実装。`@WithTransaction execute(): Uni<Output>`。Input/Output は同パッケージの record |
+| **Query ユースケース** | `QueryService<Request, Result>` を `application/query/` に配置。`@WithSession query(): Uni<Result>`。Read Model は `application/query/model/`。ステータス(SUCCESS/INSUFFICIENT_DATA/NOT_FOUND)で 200/422/404 を出し分け |
+| **REST Resource** | `presentation/rest/` に集約ごとに Command/Query Resource を作成。`Uni<Response>` 返却、MicroProfile OpenAPI アノテーション |
+| **VO の2系統生成** | 現状はコンパクトコンストラクタで例外throwのみ。外部入力用に `Result` を返す `fromInput()` の追加を検討（§5） |
+| **3層のエラー表現** | 値検証=`Result`、未存在=empty `Uni`+`failWith`、ビジネス違反=`DomainException` 階層。§3 / §5 参照 |
+| **テスト分割** | `unitTest`（Fake注入・DI無）/ `integrationTest`（@QuarkusTest・実DB）の2分割済み。実HTTP のテストは外部連携が出た時点で検討 |
 
 ---
 
 ## 3. エラーハンドリング設計のギャップ
 
-album は「値検証 / 未存在 / ビジネス違反」を層で明確に使い分けています。ABService の現状との差分:
+「値検証 / 未存在 / ビジネス違反」を層で明確に使い分ける方針です。ABService の現状との差分:
 
-| 種別 | album | ABService 現状 | 対応 |
+| 種別 | 目標 | ABService 現状 | 対応 |
 |---|---|---|---|
-| 値検証（複数エラー収集） | `Result<T>` + `resolve/zip/map/flatMap` | `Result<T>` あり。ただし **combinator が `resolve`/`orElse`/`orElseGet`/`orElseDo` のみ**。`map`/`flatMap`/`zip`（複数VO検証の合成）が無い | `Result` に `map`/`flatMap`/`zip` を追加（album の `Result.kt` 相当） |
+| 値検証（複数エラー収集） | `Result<T>` + `resolve/zip/map/flatMap` | `Result<T>` あり。ただし **combinator が `resolve`/`orElse`/`orElseGet`/`orElseDo` のみ**。`map`/`flatMap`/`zip`（複数VO検証の合成）が無い | `Result` に `map`/`flatMap`/`zip` を追加 |
 | リソース未存在 | empty `Uni` → `.onItem().ifNull().failWith { EntityNotFoundException }` | Repository は実装済みだが、未存在→例外化の共通パターン未確立 | ユースケース実装時に規約化 |
 | ビジネスルール違反 | `DomainException` 階層（`ValidationException` / `EntityNotFoundException` / `BusinessRuleViolationException` + 具象） | `DomainException` は **単一の基底クラスのみ**。サブクラス階層なし | 例外階層を整備（下記） |
 | HTTP変換 | `@Provider ExceptionMapper<DomainException>` で 400/404/409/5xx に変換 | 未実装 | presentation層で `ExceptionMapper` を実装 |
 
-**整備すべき例外階層（album準拠）:**
+**整備すべき例外階層:**
 ```
 DomainException (abstract, errorCode付き)
 ├── ValidationException(List<ErrorResult>)   → 400
@@ -177,15 +172,15 @@ DomainException (abstract, errorCode付き)
 
 ---
 
-## 7. ArchUnit 導入計画（arch相当のアーキテクチャ制約）
+## 7. ArchUnit 導入計画（アーキテクチャ制約の強制）
 
-album は `common-libs-kotlin/arch-rules`（カスタム arch ルール25件）でアーキテクチャ制約を強制しています。ABService は Java プロジェクトのため arch は使えず、**同等の制約を ArchUnit で再現**します。
+ABService のアーキテクチャ制約（レイヤー依存方向・配置・ライブラリ依存・戻り値契約など）を ArchUnit のテストで強制します。CI で違反を検出し、新規コードを最初から制約に沿わせます。
 
 ### 7.1 導入と基本ルール（フェーズAで先行）
 
 ```gradle
 // build.gradle（test依存）
-testImplementation 'com.tngtech.archunit:archunit-junit5:1.3.0'
+testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.2'
 ```
 アーキテクチャテストは `src/test/java/com/abservice/architecture/` に JUnit5 テストとして配置（DB不要なので unit 側でよい）。
 
@@ -198,30 +193,27 @@ testImplementation 'com.tngtech.archunit:archunit-junit5:1.3.0'
 
 app/presentation の構造に依存する命名・戻り値・テスト規約ルール（§7.2 の表の残り）は**フェーズD**で追加する。
 
-### 7.2 ArchUnit で再現する制約 全体（archルール → ArchUnit、移植可能な12件）
+### 7.2 ArchUnit で強制する制約（全体）
 
-下表のうち §7.1 に挙げた基本ルールはフェーズAで先行導入。残り（命名・戻り値型契約・テスト規約など）はフェーズDで追加する。
+下表のうち §7.1 に挙げた基本ルールはフェーズAで先行導入済み。残り（命名・戻り値型契約・テスト規約など）はフェーズDで追加する。
 
-| arch ルール | ArchUnit での表現 |
+| ルール | 内容 |
 |---|---|
-| `ForbiddenJpaEntityOutsidePersistenceLayer` | `@Entity` 付与クラスは `..infrastructure.persistence.entity..` 内のみ |
-| `ForbiddenJavaTimeInDomain` | `..domain.model..` から `java.time..` への依存禁止（`BusinessDate`/`BusinessDateTime` は除外） |
-| `ForbiddenProviderInDomainModel` | ドメインモデルは `BusinessDateTimeProvider` 型フィールドを持たない |
-| `ForbiddenPrintlnOutsideLogging` | `System.out`/`System.err` アクセスをロギングパッケージ以外で禁止 |
-| `RequireRecordSuffixForJpaEntity` | `@Entity` 付与クラス名は所定サフィックス（現行は `*Entity`。albumは `*Record`。**命名規約の決定が必要**） |
-| `ForbiddenTransactionalAnnotation` | `@Transactional` 禁止（Reactive は `@WithTransaction`） |
-| `ForbiddenJUnitAssertions` | テストで JUnit 標準 assertion 依存を禁止し AssertJ に統一 |
-| `RequireDisplayNameOnTestMethods` | `@Test` メソッドは `@DisplayName` 必須 |
-| `RequireUniReturnTypeOnRepository` | `Repository` 継承IFのメソッド戻り値は `Uni<...>` |
-| `RequireUniReturnTypeOnApplicationService` | ApplicationService の `execute`/`query` 戻り値は `Uni<...>` |
-| `ForbiddenUniInDomainModel` | ドメインモデルの戻り値に `Uni` 禁止（同期実装） |
-| `RequirePrivateConstructorForEntityId` / `ForbiddenInternalConstructorInDomainModel` | `EntityId` 実装のコンストラクタは private / domain.model のコンストラクタは非public |
-| （追加）レイヤー依存方向 | `layeredArchitecture()` で domain ← application ← presentation、domain ← infrastructure を強制 |
+| @Entity の配置 | `@Entity` 付与クラスは `..infrastructure.persistence.entity..` 内のみ |
+| domain の java.time 禁止 | `..domain..` から `java.time..` への依存禁止（`BusinessDate`/`BusinessDateTime` は除外） |
+| Provider を持たない | ドメインモデルは `BusinessDateTimeProvider` 型フィールドを持たない |
+| println 禁止 | `System.out`/`System.err` アクセスをロギングパッケージ以外で禁止 |
+| Entity 命名 | `@Entity` 付与クラス名は `*Entity` サフィックス |
+| @Transactional 禁止 | Reactive は `@WithTransaction` を使う |
+| JUnit assertion 禁止 | テストは AssertJ に統一 |
+| @DisplayName 必須 | `@Test` メソッドは `@DisplayName` を付与 |
+| Repository の戻り値 | `Repository` 継承IFのメソッド戻り値は `Uni<...>` |
+| ApplicationService の戻り値 | `execute`/`query` の戻り値は `Uni<...>` |
+| domain の Uni 禁止 | ドメインモデルの戻り値に `Uni` を使わない（同期実装） |
+| コンストラクタ可視性 | `EntityId` 実装のコンストラクタは private、`domain.model` のコンストラクタは非public |
+| レイヤー依存方向 | domain ← application ← presentation、domain ← infrastructure |
 
-### 7.3 ArchUnit で再現しない（Java非適用 or 本文/コメント検査）
-
-以下は Kotlin構文依存またはメソッド本文/コメント検査のため ArchUnit では表現不可。Java側では対象外、必要なら Checkstyle/PMD で個別対応:
-`ForbiddenLogicalOperators`, `ForbiddenFullyQualifiedTypeReference`, `PreferWhenForValueBranches`, `ProhibitWhenForUnitBranches`, `ForbiddenMutableCollectionFactory`, `ForbiddenTryCatchInDomain`, `RequireValidationInValueObject`, `ForbiddenBacktickTestMethodName`, `RequireSuppressJustification`, `ForbiddenNotNullAssertionInDomain`(`!!`), `RequireValueClassForEntityId`(value class), `ForbiddenInitInValueObject`(init) — 後3者は Kotlin固有概念で該当なし。
+メソッド本文やコメントの検査が必要な制約（try-catch 禁止、VO のバリデーション必須など）は ArchUnit では表現できないため対象外。必要なら Checkstyle/PMD で個別対応する。
 
 ---
 
@@ -230,7 +222,5 @@ app/presentation の構造に依存する命名・戻り値・テスト規約ル
 - 個別計画（背景・詳細手順）: `JSPECIFY_MIGRATION_PLAN.md` / `REPOSITORY_SIMPLIFICATIONS.md` / `UNIT_TEST_PLAN.md`（`backend/`）/ `VO_REFACTORING.md`
 - 設計: `ARCHITECTURE.md` / `DOMAIN_MODEL_DESIGN.md` / `DATABASE_DESIGN.md` / `ID_DESIGN_POLICY.md` / `AUDIT_COLUMNS.md`
 - 規約: `CODING_GUIDELINES.md` / `RESULT_TYPE_GUIDE.md` / `REPOSITORY_IMPLEMENTATION.md`
-- 移行元: `MIGRATION_NOTES.md`
-- 参考実装（外部）: `internal-platforms/products/album`、基底型 `common-libs-kotlin/lib`、archルール `common-libs-kotlin/arch-rules`
 </content>
 </invoke>

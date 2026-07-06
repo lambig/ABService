@@ -24,7 +24,7 @@ import io.smallrye.mutiny.Uni;
  *
  * <pre>{@code
  * interface AlbumRepository extends Repository<Album, Album.Id> {
- *     Uni<Album> findByCatalogNumber(AlbumTitle catalogNumber);
+ *     Uni<Album> findByTitle(AlbumTitle title);
  * }
  *
  * // CommandServiceでの使用

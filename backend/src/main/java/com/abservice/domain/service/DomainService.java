@@ -35,9 +35,8 @@ package com.abservice.domain.service;
  *     // 複数集約の協調
  *     @ApplicationScoped
  *     public class ArticleAlbumLinkService implements DomainService {
- *         public Uni<Void> assignCarToAlbum(Album album, Car car) {
- *             album.assignCar(car.id()); // CarIdを渡す（型安全）
- *             car.assignOwner(album.id()); // AlbumIdを渡す（型安全）
+ *         public Uni<Void> linkAlbumToArticle(Article article, Album album) {
+ *             article.setAlbumId(album.id()); // AlbumIdを渡す（型安全）
  *             return Uni.createFrom().voidItem();
  *         }
  *     }

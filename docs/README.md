@@ -26,7 +26,6 @@ ABServiceは、モノリポジトリ構成で構築されたWebサービスで�
 
 ### その他
 
-- **[MIGRATION_NOTES.md](MIGRATION_NOTES.md)** - ABServiceからの移行ガイド
 - **[VO_REFACTORING.md](VO_REFACTORING.md)** - Value Objectリファクタリング計画
 - **[JSPECIFY_MIGRATION_PLAN.md](JSPECIFY_MIGRATION_PLAN.md)** - JSpecify移行計画
 - **[REPOSITORY_SIMPLIFICATIONS.md](REPOSITORY_SIMPLIFICATIONS.md)** - リポジトリ簡素化計画

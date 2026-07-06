@@ -21,10 +21,6 @@ import java.time.Instant;
  * <li>version: 楽観ロック用バージョン番号</li>
  * </ul>
  * </p>
- *
- * @see <a href=
- *      "https://github.com/lambig/ABService/blob/main/docs/CODING_GUIDELINES.md">参考:
- *      ABService CODING_GUIDELINES</a>
  */
 @MappedSuperclass
 public abstract class AuditableEntity {
@@ -50,7 +46,7 @@ public abstract class AuditableEntity {
     /**
      * 作成時のアプリケーションサービス名
      * <p>
-     * 例: "album-service", "order-service" など
+     * 例: "album-service", "article-service" など
      * </p>
      */
     @Column(name = "created_by_service", length = 255)
@@ -59,7 +55,7 @@ public abstract class AuditableEntity {
     /**
      * 更新時のアプリケーションサービス名
      * <p>
-     * 例: "album-service", "order-service" など
+     * 例: "album-service", "article-service" など
      * </p>
      */
     @Column(name = "updated_by_service", length = 255)

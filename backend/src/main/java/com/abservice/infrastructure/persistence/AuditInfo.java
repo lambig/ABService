@@ -7,7 +7,7 @@ package com.abservice.infrastructure.persistence;
  * </p>
  *
  * @param serviceName
- *            操作を実行したアプリケーションサービス名（例: "album-service", "order-service"）
+ *            操作を実行したアプリケーションサービス名（例: "album-service", "article-service"）
  * @param userId
  *            操作を実行したユーザーID（外部サービスのユーザーID、例: Cognito User ID）
  */

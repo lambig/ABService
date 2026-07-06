@@ -29,14 +29,14 @@ import io.smallrye.mutiny.Uni;
  *     private final CatalogNumberUniquenessService catalogNumberUniquenessService;
  *
  *     public record CreateParams(
- *         String name,
+ *         String title,
  *         String catalogNumber,
- *         String phoneNumber
+ *         String artistName
  *     ) implements Factory.Params {}
  *
  *     &#64;Override
  *     public Uni<Album> create(CreateParams params) {
- *         AlbumTitle catalogNumber = AlbumTitle.of(params.catalogNumber());
+ *         CatalogNumber catalogNumber = CatalogNumber.of(params.catalogNumber());
  *
  *         return catalogNumberUniquenessService.isCatalogNumberUnique(catalogNumber, null)
  *             .onItem().transform(isUnique -> {
@@ -45,9 +45,9 @@ import io.smallrye.mutiny.Uni;
  *                 }
  *
  *                 return Album.create(
- *                     name: params.name(),
+ *                     title: AlbumTitle.of(params.title()),
  *                     catalogNumber: catalogNumber,
- *                     phoneNumber: PhoneNumber.of(params.phoneNumber())
+ *                     artistCredit: ArtistCredit.of(params.artistName())
  *                 );
  *             });
  *     }

@@ -38,24 +38,24 @@ import com.abservice.domain.model.DomainObject;
  *     public class Album implements Aggregate<Album, AlbumId> {
  *         @EqualsAndHashCode.Include
  *         private final AlbumId id;
- *         private final String name;
+ *         private final String title;
  *         private final String catalogNumber;
  *
- *         // Lombokが生成: private withName(), private withCatalogNumber()
+ *         // Lombokが生成: private withTitle(), private withCatalogNumber()
  *
  *         // 業務的な意味を持つpublicメソッドを提供
- *         public Album changeName(String newName) {
+ *         public Album changeTitle(String newTitle) {
  *             // バリデーション
- *             if (newName == null || newName.isBlank()) {
- *                 throw new IllegalArgumentException("Name cannot be empty");
+ *             if (newTitle == null || newTitle.isBlank()) {
+ *                 throw new IllegalArgumentException("Title cannot be empty");
  *             }
- *             return withName(newName); // private witherを使用
+ *             return withTitle(newTitle); // private witherを使用
  *         }
  *
- *         public Album updateCatalogNumber(String newCatalogNumber) {
+ *         public Album changeCatalogNumber(String newCatalogNumber) {
  *             // バリデーション
- *             if (newCatalogNumber == null || !newCatalogNumber.contains("@")) {
- *                 throw new IllegalArgumentException("Invalid catalogNumber");
+ *             if (newCatalogNumber == null || newCatalogNumber.isBlank()) {
+ *                 throw new IllegalArgumentException("Invalid catalog number");
  *             }
  *             return withCatalogNumber(newCatalogNumber); // private witherを使用
  *         }
@@ -68,9 +68,9 @@ import com.abservice.domain.model.DomainObject;
  *
  *     // ❌ 禁止
  *     public class Album {
- *         private String catalogNumber;
- *         public void setCatalogNumber(String catalogNumber) {
- *             this.catalogNumber = catalogNumber;
+ *         private String title;
+ *         public void setTitle(String title) {
+ *             this.title = title;
  *         } // Setter禁止
  *     }
  * }
