@@ -1,10 +1,10 @@
 package com.abservice.domain.model.aggregate.album;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
@@ -182,9 +182,7 @@ public class Album implements Aggregate<Album, Album.Id> {
         if (tracks.stream().anyMatch(t -> t.trackNo().equals(validatedTrack.trackNo()))) {
             throw new IllegalArgumentException("Track number " + validatedTrack.trackNo() + " already exists");
         }
-        var newTracks = new ArrayList<>(tracks);
-        newTracks.add(validatedTrack);
-        return withTracks(Collections.unmodifiableList(newTracks));
+        return withTracks(Stream.concat(tracks.stream(), Stream.of(validatedTrack)).toList());
     }
 
     /**
@@ -197,12 +195,10 @@ public class Album implements Aggregate<Album, Album.Id> {
     public @NonNull Album removeTrack(Track.@NonNull Id trackId) {
         var validatedTrackId = Optional.ofNullable(trackId)
                 .orElseThrow(() -> new IllegalArgumentException("Track ID cannot be null"));
-        var newTracks = new ArrayList<>(tracks);
-        var removed = newTracks.removeIf(t -> t.id().equals(validatedTrackId));
-        if (!removed) {
+        if (tracks.stream().noneMatch(t -> t.id().equals(validatedTrackId))) {
             throw new IllegalArgumentException("Track with ID " + validatedTrackId.value() + " not found");
         }
-        return withTracks(Collections.unmodifiableList(newTracks));
+        return withTracks(tracks.stream().filter(t -> !t.id().equals(validatedTrackId)).toList());
     }
 
     /**
@@ -215,19 +211,15 @@ public class Album implements Aggregate<Album, Album.Id> {
     public @NonNull Album updateTrack(@NonNull Track updatedTrack) {
         var validatedTrack = Optional.ofNullable(updatedTrack)
                 .orElseThrow(() -> new IllegalArgumentException("Updated track cannot be null"));
-        var newTracks = new ArrayList<>(tracks);
-        var index = newTracks.stream().filter(t -> t.id().equals(validatedTrack.id())).findFirst()
-                .map(newTracks::indexOf).orElseThrow(() -> new IllegalArgumentException(
-                        "Track with ID " + validatedTrack.id().value() + " not found"));
-
+        if (tracks.stream().noneMatch(t -> t.id().equals(validatedTrack.id()))) {
+            throw new IllegalArgumentException("Track with ID " + validatedTrack.id().value() + " not found");
+        }
         // トラック番号の重複チェック（自分自身以外）
-        if (newTracks.stream().filter(t -> !t.id().equals(validatedTrack.id()))
+        if (tracks.stream().filter(t -> !t.id().equals(validatedTrack.id()))
                 .anyMatch(t -> t.trackNo().equals(validatedTrack.trackNo()))) {
             throw new IllegalArgumentException("Track number " + validatedTrack.trackNo() + " already exists");
         }
-
-        newTracks.set(index, validatedTrack);
-        return withTracks(Collections.unmodifiableList(newTracks));
+        return withTracks(tracks.stream().map(t -> t.id().equals(validatedTrack.id()) ? validatedTrack : t).toList());
     }
 
     /**

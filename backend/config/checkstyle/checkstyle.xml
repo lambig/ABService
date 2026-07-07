@@ -101,7 +101,12 @@
             <property name="ignoreConstructorParameter" value="true"/>
             <property name="ignoreSetter" value="true"/>
         </module>
-        <module name="IllegalInstantiation"/>
+        <!-- domain 層では可変コレクションの直接生成を禁止（不変生成 List.of/Stream.toList 等を使う）。domain 以外は suppressions.xml で抑制 -->
+        <module name="IllegalInstantiation">
+            <property name="id" value="DomainNoMutableCollection"/>
+            <property name="classes"
+                value="java.util.ArrayList,java.util.LinkedList,java.util.HashMap,java.util.LinkedHashMap,java.util.TreeMap,java.util.HashSet,java.util.LinkedHashSet,java.util.TreeSet"/>
+        </module>
         <module name="InnerAssignment"/>
         <module name="MissingSwitchDefault"/>
         <module name="MultipleVariableDeclarations"/>

@@ -1,8 +1,8 @@
 package com.abservice.domain.model.aggregate.albumarticle;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 
 import com.abservice.domain.model.aggregate.Aggregate;
 import com.abservice.domain.model.aggregate.album.Album;
@@ -151,9 +151,7 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
             throw new IllegalArgumentException(
                     "Acquisition channel with ID " + channel.id().value() + " already exists");
         }
-        var newChannels = new ArrayList<>(acquisitionChannels);
-        newChannels.add(channel);
-        return withAcquisitionChannels(Collections.unmodifiableList(newChannels));
+        return withAcquisitionChannels(Stream.concat(acquisitionChannels.stream(), Stream.of(channel)).toList());
     }
 
     /**
@@ -167,12 +165,10 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
         if (channelId == null) {
             throw new IllegalArgumentException("Channel ID cannot be null");
         }
-        var newChannels = new ArrayList<>(acquisitionChannels);
-        var removed = newChannels.removeIf(c -> c.id().equals(channelId));
-        if (!removed) {
+        if (acquisitionChannels.stream().noneMatch(c -> c.id().equals(channelId))) {
             throw new IllegalArgumentException("Acquisition channel with ID " + channelId.value() + " not found");
         }
-        return withAcquisitionChannels(Collections.unmodifiableList(newChannels));
+        return withAcquisitionChannels(acquisitionChannels.stream().filter(c -> !c.id().equals(channelId)).toList());
     }
 
     /**
@@ -186,12 +182,12 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
         if (updatedChannel == null) {
             throw new IllegalArgumentException("Updated channel cannot be null");
         }
-        var newChannels = new ArrayList<>(acquisitionChannels);
-        var index = newChannels.stream().filter(c -> c.id().equals(updatedChannel.id())).findFirst()
-                .map(newChannels::indexOf).orElseThrow(() -> new IllegalArgumentException(
-                        "Acquisition channel with ID " + updatedChannel.id().value() + " not found"));
-        newChannels.set(index, updatedChannel);
-        return withAcquisitionChannels(Collections.unmodifiableList(newChannels));
+        if (acquisitionChannels.stream().noneMatch(c -> c.id().equals(updatedChannel.id()))) {
+            throw new IllegalArgumentException(
+                    "Acquisition channel with ID " + updatedChannel.id().value() + " not found");
+        }
+        return withAcquisitionChannels(acquisitionChannels.stream()
+                .map(c -> c.id().equals(updatedChannel.id()) ? updatedChannel : c).toList());
     }
 
     /**
