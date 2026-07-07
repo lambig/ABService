@@ -16,7 +16,7 @@ import lombok.experimental.Accessors;
 @Getter
 @Accessors(fluent = true)
 @EqualsAndHashCode
-public class EventDateAndSpace implements ValueObject<EventDateAndSpace> {
+public final class EventDateAndSpace implements ValueObject<EventDateAndSpace> {
     private final BusinessDate date;
     private final String spaceNumber;
 
@@ -34,7 +34,7 @@ public class EventDateAndSpace implements ValueObject<EventDateAndSpace> {
      * @param spaceNumber
      *            スペース番号（nullable、例：東A-01）
      */
-    public EventDateAndSpace(BusinessDate date, String spaceNumber) {
+    private EventDateAndSpace(BusinessDate date, String spaceNumber) {
         if (date == null) {
             throw new IllegalArgumentException("Event date cannot be null");
         }

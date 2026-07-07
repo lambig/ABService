@@ -24,27 +24,26 @@ class ArtistCreditTest {
     }
 
     @Test
-    void testCreateWithConstructor() {
+    void testCreateWithSortKey() {
         ArtistCreditName name = new ArtistCreditName("Test Artist");
-        ArtistCredit credit = new ArtistCredit(name, "Sort Key");
+        ArtistCredit credit = ArtistCredit.of(name.value(), "Sort Key");
 
         assertThat(credit.displayName()).isEqualTo(name);
         assertThat(credit.sortKey()).isEqualTo("Sort Key");
     }
 
     @Test
-    void testCreateWithConstructorNullSortKey() {
-        ArtistCreditName name = new ArtistCreditName("Test Artist");
-        ArtistCredit credit = new ArtistCredit(name, null);
+    void testCreateWithNullSortKeyDefaultsToDisplayName() {
+        ArtistCredit credit = ArtistCredit.of("Test Artist", null);
 
-        assertThat(credit.displayName()).isEqualTo(name);
+        assertThat(credit.displayName().value()).isEqualTo("Test Artist");
         assertThat(credit.sortKey()).isEqualTo("Test Artist");
     }
 
     @Test
     void testCreateWithNullDisplayName() {
-        assertThatThrownBy(() -> new ArtistCredit(null, "Sort Key")).isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Display name cannot be null");
+        assertThatThrownBy(() -> ArtistCredit.of(null, "Sort Key")).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Artist credit name cannot be blank");
     }
 
     @Test

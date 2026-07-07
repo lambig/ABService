@@ -18,7 +18,7 @@ import org.jspecify.annotations.Nullable;
 @Getter
 @Accessors(fluent = true)
 @EqualsAndHashCode
-public class ArtistCredit implements ValueObject<ArtistCredit> {
+public final class ArtistCredit implements ValueObject<ArtistCredit> {
     @NonNull
     private final ArtistCreditName displayName;
     @NonNull
@@ -39,7 +39,7 @@ public class ArtistCredit implements ValueObject<ArtistCredit> {
      * @param sortKey
      *            ソートキー（nullの場合はdisplayNameの値を使用）
      */
-    public ArtistCredit(@NonNull ArtistCreditName displayName, @Nullable String sortKey) {
+    private ArtistCredit(@NonNull ArtistCreditName displayName, @Nullable String sortKey) {
         this.displayName = Optional.ofNullable(displayName)
                 .orElseThrow(() -> new IllegalArgumentException("Display name cannot be null"));
         this.sortKey = sortKey != null ? sortKey : displayName.value();

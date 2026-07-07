@@ -3,6 +3,7 @@ package com.abservice.architecture;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noConstructors;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 
@@ -125,6 +126,22 @@ class LayeredArchitectureTest {
     void domainModelMethodsShouldNotReturnUni(JavaClasses classes) {
         noMethods().that().areDeclaredInClassesThat().resideInAPackage("..domain.model..").should()
                 .haveRawReturnType("io.smallrye.mutiny.Uni").as("ドメインモデルの戻り値に Uni を使わない（同期実装）").check(classes);
+    }
+
+    /**
+     * ドメインモデル（record を除く）のコンストラクタは非 public でなければならない（生成はファクトリ経由）。
+     *
+     * <p>
+     * record は Java の制約上 canonical constructor を record 自身より狭くできないため対象外とする。
+     * record（VO / EntityId）の生成制御はコンパクトコンストラクタの検証とファクトリ（{@code of} /
+     * {@code fromInput}）で担保する。
+     * </p>
+     */
+    @ArchTest
+    void domainModelConstructorsShouldNotBePublic(JavaClasses classes) {
+        noConstructors().that().areDeclaredInClassesThat().resideInAPackage("..domain.model..").and()
+                .areDeclaredInClassesThat().areNotRecords().should().bePublic()
+                .as("ドメインモデル（非record）のコンストラクタは非publicにする（生成はファクトリ経由）").check(classes);
     }
 
     /**

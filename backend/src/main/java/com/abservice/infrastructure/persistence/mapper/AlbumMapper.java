@@ -10,13 +10,11 @@ import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
-import com.abservice.domain.model.vo.common.ArtistCreditName;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.EventDateAndSpace;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.domain.model.vo.common.Url;
-import com.abservice.domain.model.vo.event.EventName;
 import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.infrastructure.persistence.entity.AlbumEntity;
 import com.abservice.infrastructure.persistence.entity.AlbumEventDateSpaceEntity;
@@ -59,7 +57,7 @@ public final class AlbumMapper {
     }
 
     private static ArtistCredit buildArtistCredit(AlbumEntity entity) {
-        return new ArtistCredit(new ArtistCreditName(entity.getArtistDisplayName()), entity.getArtistSortKey());
+        return ArtistCredit.of(entity.getArtistDisplayName(), entity.getArtistSortKey());
     }
 
     private static List<Track> buildTracks(AlbumEntity entity) {
@@ -71,22 +69,21 @@ public final class AlbumMapper {
     private static EventReleasedAt buildEventReleasedAt(AlbumEntity entity) {
         return Optional.ofNullable(entity.getEventName()).map(eventName -> {
             var dateAndSpaces = extractDateAndSpaces(entity);
-            return new EventReleasedAt(new EventName(eventName), dateAndSpaces, entity.getEventPlace(),
-                    entity.getEventNote());
+            return EventReleasedAt.of(eventName, dateAndSpaces, entity.getEventPlace(), entity.getEventNote());
         }).orElse(null);
     }
 
     private static List<EventDateAndSpace> extractDateAndSpaces(AlbumEntity entity) {
         return Optional.ofNullable(entity.getEventDateSpaces()).filter(not(List::isEmpty))
                 .map(list -> list.stream()
-                        .map(e -> new EventDateAndSpace(BusinessDate.of(e.getEventDate()), e.getSpaceNumber()))
+                        .map(e -> EventDateAndSpace.of(BusinessDate.of(e.getEventDate()), e.getSpaceNumber()))
                         .collect(Collectors.toList()))
                 .or(() -> buildLegacyDateAndSpaces(entity)).orElse(null);
     }
 
     private static Optional<List<EventDateAndSpace>> buildLegacyDateAndSpaces(AlbumEntity entity) {
         return Optional.ofNullable(entity.getEventDate()).map(
-                eventDate -> List.of(new EventDateAndSpace(BusinessDate.of(eventDate), entity.getEventSpaceNumber())));
+                eventDate -> List.of(EventDateAndSpace.of(BusinessDate.of(eventDate), entity.getEventSpaceNumber())));
     }
 
     /**
@@ -174,7 +171,7 @@ public final class AlbumMapper {
 
     private static ArtistCredit buildTrackArtistCredit(TrackEntity entity) {
         return Optional.ofNullable(entity.getArtistDisplayName())
-                .map(name -> new ArtistCredit(new ArtistCreditName(name), entity.getArtistSortKey())).orElse(null);
+                .map(name -> ArtistCredit.of(name, entity.getArtistSortKey())).orElse(null);
     }
 
     private static List<TrackTune> buildTrackTunes(TrackEntity entity) {
