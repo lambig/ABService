@@ -1,30 +1,36 @@
 package com.abservice.domain.model.vo.album;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@DisplayName("カタログ番号")
 class CatalogNumberTest {
 
+    @DisplayName("有効なカタログ番号を生成できる")
     @Test
     void testCreateValidCatalogNumber() {
         CatalogNumber catalog = new CatalogNumber("ABC-0001");
         assertThat(catalog.value()).isEqualTo("ABC-0001");
     }
 
+    @DisplayName("年号を含むカタログ番号を生成できる")
     @Test
     void testCreateCatalogNumberWithYear() {
         CatalogNumber catalog = new CatalogNumber("XYZ-2024-01");
         assertThat(catalog.value()).isEqualTo("XYZ-2024-01");
     }
 
+    @DisplayName("英数字のみのカタログ番号を生成できる")
     @Test
     void testCreateCatalogNumberAlphanumericOnly() {
         CatalogNumber catalog = new CatalogNumber("ABC123");
         assertThat(catalog.value()).isEqualTo("ABC123");
     }
 
+    @DisplayName("最大長100文字のカタログ番号を生成できる")
     @Test
     void testCreateCatalogNumberMaxLength() {
         String maxLengthCatalog = "A".repeat(100);
@@ -32,24 +38,28 @@ class CatalogNumberTest {
         assertThat(catalog.value()).hasSize(100);
     }
 
+    @DisplayName("nullのカタログ番号は例外となる")
     @Test
     void testCreateCatalogNumberNull() {
         assertThatThrownBy(() -> new CatalogNumber(null)).isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Catalog number cannot be blank");
     }
 
+    @DisplayName("空文字のカタログ番号は例外となる")
     @Test
     void testCreateCatalogNumberEmpty() {
         assertThatThrownBy(() -> new CatalogNumber("")).isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Catalog number cannot be blank");
     }
 
+    @DisplayName("空白のみのカタログ番号は例外となる")
     @Test
     void testCreateCatalogNumberBlank() {
         assertThatThrownBy(() -> new CatalogNumber("   ")).isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Catalog number cannot be blank");
     }
 
+    @DisplayName("100文字を超えるカタログ番号は例外となる")
     @Test
     void testCreateCatalogNumberTooLong() {
         String tooLongCatalog = "A".repeat(101);
@@ -57,6 +67,7 @@ class CatalogNumberTest {
                 .hasMessage("Catalog number must be 100 characters or less");
     }
 
+    @DisplayName("同じ値のカタログ番号は同等と判定される")
     @Test
     void testEquivalentToSame() {
         CatalogNumber catalog1 = new CatalogNumber("ABC-0001");
@@ -65,6 +76,7 @@ class CatalogNumberTest {
         assertThat(catalog1.equivalentTo(catalog2)).isTrue();
     }
 
+    @DisplayName("異なる値のカタログ番号は同等でないと判定される")
     @Test
     void testEquivalentToDifferent() {
         CatalogNumber catalog1 = new CatalogNumber("ABC-0001");
@@ -73,12 +85,14 @@ class CatalogNumberTest {
         assertThat(catalog1.equivalentTo(catalog2)).isFalse();
     }
 
+    @DisplayName("nullとの同等判定はfalseとなる")
     @Test
     void testEquivalentToNull() {
         CatalogNumber catalog = new CatalogNumber("ABC-0001");
         assertThat(catalog.equivalentTo(null)).isFalse();
     }
 
+    @DisplayName("同じ値は等価、異なる値は非等価となる")
     @Test
     void testEquality() {
         CatalogNumber catalog1 = new CatalogNumber("ABC-0001");
@@ -89,6 +103,7 @@ class CatalogNumberTest {
         assertThat(catalog1).isNotEqualTo(catalog3);
     }
 
+    @DisplayName("同じ値のカタログ番号はhashCodeが一致する")
     @Test
     void testHashCode() {
         CatalogNumber catalog1 = new CatalogNumber("ABC-0001");
