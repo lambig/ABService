@@ -3,12 +3,14 @@ package com.abservice.architecture;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
+import com.tngtech.archunit.library.GeneralCodingRules;
 
 /**
  * アーキテクチャ制約テスト（フェーズA: 基本ルール）
@@ -104,5 +106,43 @@ class LayeredArchitectureTest {
         methods().that().areDeclaredInClassesThat().resideInAPackage("..domain.repository..").and()
                 .areDeclaredInClassesThat().areInterfaces().should().haveRawReturnType("io.smallrye.mutiny.Uni")
                 .as("Repository インターフェースのメソッドは Uni<...> を返さなければならない").check(classes);
+    }
+
+    /**
+     * ドメインモデルは {@code BusinessDateTimeProvider} を保持してはならない（日時は引数で受け取る）。
+     */
+    @ArchTest
+    void domainModelShouldNotHoldBusinessDateTimeProvider(JavaClasses classes) {
+        noFields().that().areDeclaredInClassesThat().resideInAPackage("..domain.model..").should()
+                .haveRawType("com.abservice.domain.service.BusinessDateTimeProvider")
+                .as("ドメインモデルは BusinessDateTimeProvider をフィールドに保持してはならない").check(classes);
+    }
+
+    /**
+     * ドメインモデルのメソッドは {@code Uni<...>} を返してはならない（同期実装）。
+     */
+    @ArchTest
+    void domainModelMethodsShouldNotReturnUni(JavaClasses classes) {
+        noMethods().that().areDeclaredInClassesThat().resideInAPackage("..domain.model..").should()
+                .haveRawReturnType("io.smallrye.mutiny.Uni").as("ドメインモデルの戻り値に Uni を使わない（同期実装）").check(classes);
+    }
+
+    /**
+     * JPAエンティティ（{@code @Entity}）のクラス名は {@code *Entity} サフィックスにする。
+     */
+    @ArchTest
+    void jpaEntitiesShouldHaveEntitySuffix(JavaClasses classes) {
+        classes().that().areAnnotatedWith("jakarta.persistence.Entity").should().haveSimpleNameEndingWith("Entity")
+                .as("@Entity 付与クラス名は *Entity サフィックスにする").check(classes);
+    }
+
+    /**
+     * 標準出力ストリーム（{@code System.out} / {@code System.err} /
+     * {@code printStackTrace}）を使わない。
+     */
+    @ArchTest
+    void classesShouldNotAccessStandardStreams(JavaClasses classes) {
+        GeneralCodingRules.NO_CLASSES_SHOULD_ACCESS_STANDARD_STREAMS
+                .as("System.out / System.err / printStackTrace をロギング以外で使わない").check(classes);
     }
 }
