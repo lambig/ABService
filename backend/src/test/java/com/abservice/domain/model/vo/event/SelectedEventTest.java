@@ -7,10 +7,13 @@ import java.time.LocalDate;
 import java.util.List;
 
 import com.abservice.domain.model.vo.common.BusinessDate;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+@DisplayName("選択済みイベント(SelectedEvent)")
 class SelectedEventTest {
 
+    @DisplayName("単一日付で生成すると名前・日付が設定され会場はnull、状態は選択済みになる")
     @Test
     void testCreateWithSingleDate() {
         BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
@@ -26,6 +29,7 @@ class SelectedEventTest {
         assertThat(event.isDeclined()).isFalse();
     }
 
+    @DisplayName("単一日付と会場で生成すると名前・日付・会場が設定される")
     @Test
     void testCreateWithSingleDateAndPlace() {
         BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
@@ -36,6 +40,7 @@ class SelectedEventTest {
         assertThat(event.place()).isEqualTo("市民会館");
     }
 
+    @DisplayName("複数日付と会場で生成すると全ての日付と会場が設定される")
     @Test
     void testCreateWithMultipleDates() {
         BusinessDate date1 = BusinessDate.of(LocalDate.of(2024, 12, 30));
@@ -49,6 +54,7 @@ class SelectedEventTest {
         assertThat(event.place()).isEqualTo("東京ビッグサイト");
     }
 
+    @DisplayName("応募済みイベントから生成すると名前が引き継がれ日付・会場が設定される")
     @Test
     void testCreateFromTentative() {
         AppliedEvent applied = AppliedEvent.of("M3-2024春");
@@ -61,6 +67,7 @@ class SelectedEventTest {
         assertThat(selected.place()).isEqualTo("東京流通センター");
     }
 
+    @DisplayName("名前がnullの場合はIllegalArgumentExceptionを送出する")
     @Test
     void testCreateWithNullName() {
         BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
@@ -70,12 +77,14 @@ class SelectedEventTest {
                 .isInstanceOf(IllegalArgumentException.class).hasMessage("Event name cannot be null");
     }
 
+    @DisplayName("選択日付が空の場合はIllegalArgumentExceptionを送出する")
     @Test
     void testCreateWithEmptyDates() {
         assertThatThrownBy(() -> SelectedEvent.of("イベント", List.of(), null)).isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Selected event must have at least one selected date");
     }
 
+    @DisplayName("選択日付がnullの場合はIllegalArgumentExceptionを送出する")
     @Test
     void testCreateWithNullDates() {
         assertThatThrownBy(() -> new SelectedEvent(new EventName("イベント"), null, List.of(), null))
@@ -83,6 +92,7 @@ class SelectedEventTest {
                 .hasMessage("Selected event must have at least one selected date");
     }
 
+    @DisplayName("選択日付リストは変更不可でありaddするとUnsupportedOperationExceptionを送出する")
     @Test
     void testSelectedDatesIsUnmodifiable() {
         BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
@@ -92,6 +102,7 @@ class SelectedEventTest {
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 
+    @DisplayName("名前・日付・会場が同一なイベント同士はequivalentToがtrueになる")
     @Test
     void testEquivalentToSame() {
         BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
@@ -101,6 +112,7 @@ class SelectedEventTest {
         assertThat(event1.equivalentTo(event2)).isTrue();
     }
 
+    @DisplayName("名前が異なるイベント同士はequivalentToがfalseになる")
     @Test
     void testEquivalentToDifferentName() {
         BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
@@ -110,6 +122,7 @@ class SelectedEventTest {
         assertThat(event1.equivalentTo(event2)).isFalse();
     }
 
+    @DisplayName("日付が異なるイベント同士はequivalentToがfalseになる")
     @Test
     void testEquivalentToDifferentDates() {
         SelectedEvent event1 = SelectedEvent.of("イベント", BusinessDate.of(LocalDate.of(2024, 5, 5)));
@@ -118,6 +131,7 @@ class SelectedEventTest {
         assertThat(event1.equivalentTo(event2)).isFalse();
     }
 
+    @DisplayName("nullとの比較ではequivalentToがfalseになる")
     @Test
     void testEquivalentToNull() {
         SelectedEvent event = SelectedEvent.of("イベント", BusinessDate.of(LocalDate.of(2024, 5, 5)));
@@ -125,6 +139,7 @@ class SelectedEventTest {
         assertThat(event.equivalentTo(null)).isFalse();
     }
 
+    @DisplayName("型が異なるイベント(AppliedEvent)との比較ではequivalentToがfalseになる")
     @Test
     void testEquivalentToDifferentType() {
         BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
@@ -134,6 +149,7 @@ class SelectedEventTest {
         assertThat(selected.equivalentTo(applied)).isFalse();
     }
 
+    @DisplayName("一部選択で生成すると部分選択と判定され選択日付と辞退日付が保持される")
     @Test
     void testPartialSelection() {
         BusinessDate selectedDate = BusinessDate.of(LocalDate.of(2024, 4, 28));
@@ -147,6 +163,7 @@ class SelectedEventTest {
         assertThat(partialSelected.declinedDates()).hasSize(1);
     }
 
+    @DisplayName("全選択で生成すると完全選択と判定され辞退日付は空になる")
     @Test
     void testFullSelection() {
         BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
@@ -157,6 +174,7 @@ class SelectedEventTest {
         assertThat(fullSelected.declinedDates()).isEmpty();
     }
 
+    @DisplayName("応募済みイベントから一部選択で生成すると名前が引き継がれ部分選択と判定される")
     @Test
     void testFromAppliedPartial() {
         AppliedEvent applied = AppliedEvent.of("M3-2024春");
