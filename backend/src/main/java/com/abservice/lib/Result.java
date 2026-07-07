@@ -1,7 +1,9 @@
 package com.abservice.lib;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.jspecify.annotations.NonNull;
 
@@ -167,6 +169,41 @@ public sealed interface Result<T> {
     }
 
     /**
+     * 成功時の値を変換します。 失敗時はエラーをそのまま引き継ぎ、変換関数は実行されません。
+     *
+     * @param mapper
+     *            成功値を変換する関数
+     * @return 変換後のResult
+     * @param <U>
+     *            変換後の値の型
+     */
+    default <U> Result<U> map(Function<? super T, ? extends U> mapper) {
+        return switch (this) {
+            case Success<T> success -> Result.success(mapper.apply(success.value()));
+            case Failure<T> failure -> Result.failure(failure.errors());
+        };
+    }
+
+    /**
+     * 成功時に {@code Result} を返す関数を適用し、結果を平坦化します。 失敗時はエラーをそのまま引き継ぎ、変換関数は実行されません。
+     *
+     * <p>
+     * 後続処理もバリデーション（{@code Result} 返却）で、直前の成功値に依存して連鎖させたい場合に使用します。
+     *
+     * @param mapper
+     *            成功値から {@code Result} を生成する関数
+     * @return 適用後のResult
+     * @param <U>
+     *            変換後の値の型
+     */
+    default <U> Result<U> flatMap(Function<? super T, ? extends Result<U>> mapper) {
+        return switch (this) {
+            case Success<T> success -> mapper.apply(success.value());
+            case Failure<T> failure -> Result.failure(failure.errors());
+        };
+    }
+
+    /**
      * 成功のResultを生成します
      *
      * @param value
@@ -203,5 +240,117 @@ public sealed interface Result<T> {
      */
     static <T> Result<T> failure(ErrorResult... errors) {
         return new Failure<>(errors);
+    }
+
+    /**
+     * 2つのResultを合成します。 両方が成功の場合は combiner を適用して成功を返し、
+     * いずれか（または両方）が失敗の場合は<b>すべてのエラーを集約</b>して失敗を返します。
+     *
+     * <p>
+     * 複数のValue Object検証を独立に実行し、エラーをまとめて1つのResultにする用途に使用します。
+     *
+     * <pre>{@code
+     * Result<Album> album = Result.zip(AlbumTitle.fromInput(title), CatalogNumber.fromInput(catalogNumber),
+     *         (t, c) -> Album.reconstruct(Album.Id.generate(), t, c));
+     * }</pre>
+     *
+     * @param a
+     *            1つ目のResult
+     * @param b
+     *            2つ目のResult
+     * @param combiner
+     *            両成功値から結果を生成する関数
+     * @return 合成結果（成功、または全エラーを集約した失敗）
+     * @param <A>
+     *            1つ目の値の型
+     * @param <B>
+     *            2つ目の値の型
+     * @param <R>
+     *            合成後の値の型
+     */
+    static <A, B, R> Result<R> zip(Result<A> a, Result<B> b, BiFunction<? super A, ? super B, ? extends R> combiner) {
+        if (a instanceof Success<A> sa && b instanceof Success<B> sb) {
+            return Result.success(combiner.apply(sa.value(), sb.value()));
+        }
+        List<ErrorResult> errors = new ArrayList<>();
+        collectErrors(a, errors);
+        collectErrors(b, errors);
+        return Result.failure(errors);
+    }
+
+    /**
+     * 3つのResultを合成します。 すべて成功の場合は combiner を適用して成功を返し、
+     * 1つでも失敗があれば<b>すべてのエラーを集約</b>して失敗を返します。
+     *
+     * @param a
+     *            1つ目のResult
+     * @param b
+     *            2つ目のResult
+     * @param c
+     *            3つ目のResult
+     * @param combiner
+     *            全成功値から結果を生成する関数
+     * @return 合成結果（成功、または全エラーを集約した失敗）
+     * @param <A>
+     *            1つ目の値の型
+     * @param <B>
+     *            2つ目の値の型
+     * @param <C>
+     *            3つ目の値の型
+     * @param <R>
+     *            合成後の値の型
+     */
+    static <A, B, C, R> Result<R> zip(Result<A> a, Result<B> b, Result<C> c,
+            TriFunction<? super A, ? super B, ? super C, ? extends R> combiner) {
+        if (a instanceof Success<A> sa && b instanceof Success<B> sb && c instanceof Success<C> sc) {
+            return Result.success(combiner.apply(sa.value(), sb.value(), sc.value()));
+        }
+        List<ErrorResult> errors = new ArrayList<>();
+        collectErrors(a, errors);
+        collectErrors(b, errors);
+        collectErrors(c, errors);
+        return Result.failure(errors);
+    }
+
+    /**
+     * Result が失敗の場合、そのエラーを sink に追加します。 zip のエラー集約用の内部ヘルパです。
+     *
+     * @param result
+     *            検査対象のResult
+     * @param sink
+     *            エラーを追加するリスト
+     */
+    private static void collectErrors(Result<?> result, List<ErrorResult> sink) {
+        if (result instanceof Failure<?> failure) {
+            sink.addAll(failure.errors());
+        }
+    }
+
+    /**
+     * 3引数版の関数インターフェース（{@link #zip(Result, Result, Result, TriFunction)} 用）。
+     *
+     * @param <A>
+     *            1つ目の引数の型
+     * @param <B>
+     *            2つ目の引数の型
+     * @param <C>
+     *            3つ目の引数の型
+     * @param <R>
+     *            戻り値の型
+     */
+    @FunctionalInterface
+    interface TriFunction<A, B, C, R> {
+        /**
+         * 3つの引数を受け取り結果を生成します。
+         *
+         * @param a
+         *            1つ目の引数
+         * @param b
+         *            2つ目の引数
+         * @param c
+         *            3つ目の引数
+         * @return 生成結果
+         */
+        R apply(A a, B b, C c);
     }
 }

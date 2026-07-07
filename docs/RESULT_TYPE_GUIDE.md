@@ -90,6 +90,40 @@ Album album = Album.create(title, catalogNumber).orElseDo(errors -> {
 // ここで例外がスローされる
 ```
 
+### パターン5: `map` / `flatMap` / `zip` - 値の変換と合成
+
+失敗を例外やデフォルト値へ「畳み込む」前に、`Result` を保ったまま値を変換・合成するためのコンビネータです。
+
+#### `map` - 成功値を変換する
+
+成功時のみ変換関数を適用します。失敗時はエラーをそのまま引き継ぎ、関数は実行されません。
+
+```java
+Result<Integer> length = AlbumTitle.create(title).map(t -> t.value().length());
+```
+
+#### `flatMap` - `Result` を返す処理を連鎖する
+
+後続処理も `Result` を返し、直前の成功値に依存して連鎖させたい場合に使用します。ネストした `Result<Result<T>>` を平坦化します。
+
+```java
+Result<Album> album = AlbumTitle.create(title)
+    .flatMap(t -> Album.createWithTitle(t)); // createWithTitle は Result<Album> を返す
+```
+
+#### `zip` - 複数の検証を合成し、エラーを集約する
+
+独立した複数の `Result`（例: 複数の Value Object 検証）を合成します。**すべて成功した場合のみ** combiner を適用し、1つでも失敗があれば**すべてのエラーを集約**して失敗を返します。2引数・3引数版があります。
+
+```java
+// 2つの検証を合成。両方失敗すれば errors には両方のエラーが含まれる
+Result<Album> album = Result.zip(
+    AlbumTitle.create(title),
+    CatalogNumber.create(catalogNumber),
+    (t, c) -> new Album(Album.Id.generate(), t, c)
+);
+```
+
 ## ドメインモデルでの使用例
 
 ### Value Objectの生成
@@ -117,7 +151,7 @@ public record AlbumTitle(String value) {
 
 ### Entityの生成
 
-複数のバリデーションエラーを集約して返す例：
+複数のバリデーションエラーを集約して返す例。`zip` を使うと、各検証を独立に実行しつつエラーを自動で集約でき、`instanceof` による分岐やエラーリストの手組みが不要になります：
 
 ```java
 public class Album {
@@ -126,30 +160,17 @@ public class Album {
   private final CatalogNumber catalogNumber;
 
   public static Result<Album> create(String title, String catalogNumber) {
-    Result<AlbumTitle> titleResult = AlbumTitle.create(title);
-    Result<CatalogNumber> catalogResult = CatalogNumber.create(catalogNumber);
-
-    // 両方のバリデーションを実行し、エラーを集約
-    List<ErrorResult> errors = new ArrayList<>();
-    if (titleResult instanceof Result.Failure<AlbumTitle> failure) {
-      errors.addAll(failure.errors());
-    }
-    if (catalogResult instanceof Result.Failure<CatalogNumber> failure) {
-      errors.addAll(failure.errors());
-    }
-
-    if (!errors.isEmpty()) {
-      return Result.failure(errors);
-    }
-
-    return Result.success(new Album(
-        Album.Id.generate(),
-        ((Result.Success<AlbumTitle>) titleResult).value(),
-        ((Result.Success<CatalogNumber>) catalogResult).value()
-    ));
+    // 両方成功時のみ Album を生成。いずれか失敗すれば全エラーが集約される
+    return Result.zip(
+        AlbumTitle.create(title),
+        CatalogNumber.create(catalogNumber),
+        (t, c) -> new Album(Album.Id.generate(), t, c)
+    );
   }
 }
 ```
+
+> `zip` は独立した検証（前段の成否に依存しない）の合成に使います。前段の成功値に依存して次の検証を行う場合は `flatMap` で連鎖します。
 
 ## Application層での使用例
 
@@ -226,9 +247,9 @@ public static AlbumTitle create(String value) throws ValidationException { ... }
 Application層では、Resultを適切な形に変換します。
 
 ```java
-// resolve()でドメイン例外に変換
+// resolve()でドメイン例外に変換（値検証エラーは ValidationException）
 Album album = result.resolve(errors ->
-    new DomainException("アルバム情報が不正です", errors)
+    new ValidationException("アルバム情報が不正です", errors)
 );
 ```
 
