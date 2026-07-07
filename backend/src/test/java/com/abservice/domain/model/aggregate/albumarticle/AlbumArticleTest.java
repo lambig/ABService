@@ -1,6 +1,7 @@
 package com.abservice.domain.model.aggregate.albumarticle;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 
@@ -35,15 +36,15 @@ class AlbumArticleTest {
             var albumArticle = AlbumArticle.create(albumId, introLong, introShort, firstEventSpace, labelTag, null);
 
             // Assert
-            assertNotNull(albumArticle);
-            assertEquals(albumId, albumArticle.albumId());
-            assertEquals(albumId, albumArticle.id()); // AlbumArticleのIDはAlbum.Id
-            assertEquals(introLong, albumArticle.introLong());
-            assertEquals(introShort, albumArticle.introShort());
-            assertEquals(firstEventSpace, albumArticle.firstEventSpace());
-            assertEquals(labelTag, albumArticle.labelTag());
-            assertNull(albumArticle.distribution());
-            assertTrue(albumArticle.getAcquisitionChannels().isEmpty());
+            assertThat(albumArticle).isNotNull();
+            assertThat(albumArticle.albumId()).isEqualTo(albumId);
+            assertThat(albumArticle.id()).isEqualTo(albumId); // AlbumArticleのIDはAlbum.Id
+            assertThat(albumArticle.introLong()).isEqualTo(introLong);
+            assertThat(albumArticle.introShort()).isEqualTo(introShort);
+            assertThat(albumArticle.firstEventSpace()).isEqualTo(firstEventSpace);
+            assertThat(albumArticle.labelTag()).isEqualTo(labelTag);
+            assertThat(albumArticle.distribution()).isNull();
+            assertThat(albumArticle.getAcquisitionChannels().isEmpty()).isTrue();
         }
 
         @Test
@@ -63,18 +64,17 @@ class AlbumArticleTest {
                     distribution);
 
             // Assert
-            assertNotNull(albumArticle);
-            assertEquals(distribution, albumArticle.distribution());
+            assertThat(albumArticle).isNotNull();
+            assertThat(albumArticle.distribution()).isEqualTo(distribution);
         }
 
         @Test
         @DisplayName("アルバムIDがnullの場合は例外が発生すること")
         void createWithNullAlbumIdShouldThrowException() {
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 AlbumArticle.create(null, "intro", "short", "space", null, null);
-            });
-            assertEquals("Album ID cannot be null", exception.getMessage());
+            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Album ID cannot be null");
         }
 
         @Test
@@ -87,12 +87,12 @@ class AlbumArticleTest {
             var albumArticle = AlbumArticle.create(albumId, null, null, null, null, null);
 
             // Assert
-            assertNotNull(albumArticle);
-            assertNull(albumArticle.introLong());
-            assertNull(albumArticle.introShort());
-            assertNull(albumArticle.firstEventSpace());
-            assertNull(albumArticle.labelTag());
-            assertNull(albumArticle.distribution());
+            assertThat(albumArticle).isNotNull();
+            assertThat(albumArticle.introLong()).isNull();
+            assertThat(albumArticle.introShort()).isNull();
+            assertThat(albumArticle.firstEventSpace()).isNull();
+            assertThat(albumArticle.labelTag()).isNull();
+            assertThat(albumArticle.distribution()).isNull();
         }
     }
 
@@ -112,8 +112,8 @@ class AlbumArticleTest {
             var updated = albumArticle.updateIntro(newIntroLong, newIntroShort);
 
             // Assert
-            assertEquals(newIntroLong, updated.introLong());
-            assertEquals(newIntroShort, updated.introShort());
+            assertThat(updated.introLong()).isEqualTo(newIntroLong);
+            assertThat(updated.introShort()).isEqualTo(newIntroShort);
         }
 
         @Test
@@ -126,8 +126,8 @@ class AlbumArticleTest {
             var updated = albumArticle.updateIntro(null, null);
 
             // Assert
-            assertNull(updated.introLong());
-            assertNull(updated.introShort());
+            assertThat(updated.introLong()).isNull();
+            assertThat(updated.introShort()).isNull();
         }
     }
 
@@ -146,7 +146,7 @@ class AlbumArticleTest {
             var updated = albumArticle.changeFirstEventSpace(newSpace);
 
             // Assert
-            assertEquals(newSpace, updated.firstEventSpace());
+            assertThat(updated.firstEventSpace()).isEqualTo(newSpace);
         }
 
         @Test
@@ -159,7 +159,7 @@ class AlbumArticleTest {
             var updated = albumArticle.changeFirstEventSpace(null);
 
             // Assert
-            assertNull(updated.firstEventSpace());
+            assertThat(updated.firstEventSpace()).isNull();
         }
     }
 
@@ -178,7 +178,7 @@ class AlbumArticleTest {
             var updated = albumArticle.updateLabelTag(newLabelTag);
 
             // Assert
-            assertEquals(newLabelTag, updated.labelTag());
+            assertThat(updated.labelTag()).isEqualTo(newLabelTag);
         }
 
         @Test
@@ -191,7 +191,7 @@ class AlbumArticleTest {
             var updated = albumArticle.updateLabelTag(null);
 
             // Assert
-            assertNull(updated.labelTag());
+            assertThat(updated.labelTag()).isNull();
         }
     }
 
@@ -211,7 +211,7 @@ class AlbumArticleTest {
             var updated = albumArticle.setDistribution(distribution);
 
             // Assert
-            assertEquals(distribution, updated.distribution());
+            assertThat(updated.distribution()).isEqualTo(distribution);
         }
 
         @Test
@@ -224,7 +224,7 @@ class AlbumArticleTest {
             var updated = albumArticle.setDistribution(null);
 
             // Assert
-            assertNull(updated.distribution());
+            assertThat(updated.distribution()).isNull();
         }
     }
 
@@ -243,8 +243,8 @@ class AlbumArticleTest {
             var updated = albumArticle.addAcquisitionChannel(channel);
 
             // Assert
-            assertEquals(1, updated.getAcquisitionChannels().size());
-            assertTrue(updated.getAcquisitionChannels().contains(channel));
+            assertThat(updated.getAcquisitionChannels().size()).isEqualTo(1);
+            assertThat(updated.getAcquisitionChannels().contains(channel)).isTrue();
         }
 
         @Test
@@ -261,8 +261,8 @@ class AlbumArticleTest {
                     .addAcquisitionChannel(channel3);
 
             // Assert
-            assertEquals(3, updated.getAcquisitionChannels().size());
-            assertEquals(List.of(channel1, channel2, channel3), updated.getAcquisitionChannels());
+            assertThat(updated.getAcquisitionChannels().size()).isEqualTo(3);
+            assertThat(updated.getAcquisitionChannels()).isEqualTo(List.of(channel1, channel2, channel3));
         }
 
         @Test
@@ -272,10 +272,9 @@ class AlbumArticleTest {
             var albumArticle = createTestAlbumArticle();
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 albumArticle.addAcquisitionChannel(null);
-            });
-            assertEquals("Acquisition channel cannot be null", exception.getMessage());
+            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Acquisition channel cannot be null");
         }
 
         @Test
@@ -290,10 +289,9 @@ class AlbumArticleTest {
 
             // Act & Assert
             var finalAlbumArticle = albumArticle;
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 finalAlbumArticle.addAcquisitionChannel(channel2);
-            });
-            assertTrue(exception.getMessage().contains("already exists"));
+            }).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("already exists");
         }
     }
 
@@ -313,8 +311,8 @@ class AlbumArticleTest {
             var updated = albumArticle.removeAcquisitionChannel(channel.id());
 
             // Assert
-            assertEquals(0, updated.getAcquisitionChannels().size());
-            assertFalse(updated.getAcquisitionChannels().contains(channel));
+            assertThat(updated.getAcquisitionChannels().size()).isEqualTo(0);
+            assertThat(updated.getAcquisitionChannels().contains(channel)).isFalse();
         }
 
         @Test
@@ -332,10 +330,10 @@ class AlbumArticleTest {
             var updated = albumArticle.removeAcquisitionChannel(channel2.id());
 
             // Assert
-            assertEquals(2, updated.getAcquisitionChannels().size());
-            assertTrue(updated.getAcquisitionChannels().contains(channel1));
-            assertFalse(updated.getAcquisitionChannels().contains(channel2));
-            assertTrue(updated.getAcquisitionChannels().contains(channel3));
+            assertThat(updated.getAcquisitionChannels().size()).isEqualTo(2);
+            assertThat(updated.getAcquisitionChannels().contains(channel1)).isTrue();
+            assertThat(updated.getAcquisitionChannels().contains(channel2)).isFalse();
+            assertThat(updated.getAcquisitionChannels().contains(channel3)).isTrue();
         }
 
         @Test
@@ -346,10 +344,9 @@ class AlbumArticleTest {
             var nonExistentId = AlbumAcquisitionChannel.Id.generate();
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 albumArticle.removeAcquisitionChannel(nonExistentId);
-            });
-            assertTrue(exception.getMessage().contains("not found"));
+            }).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("not found");
         }
 
         @Test
@@ -359,10 +356,9 @@ class AlbumArticleTest {
             var albumArticle = createTestAlbumArticle();
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 albumArticle.removeAcquisitionChannel(null);
-            });
-            assertEquals("Channel ID cannot be null", exception.getMessage());
+            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Channel ID cannot be null");
         }
     }
 
@@ -386,8 +382,8 @@ class AlbumArticleTest {
 
             // Assert
             var resultChannel = updated.getAcquisitionChannels().get(0);
-            assertEquals("Updated Name", resultChannel.getName());
-            assertEquals(ChannelType.ONLINE_SHOP, resultChannel.getChannelType());
+            assertThat(resultChannel.getName()).isEqualTo("Updated Name");
+            assertThat(resultChannel.getChannelType()).isEqualTo(ChannelType.ONLINE_SHOP);
         }
 
         @Test
@@ -397,10 +393,9 @@ class AlbumArticleTest {
             var albumArticle = createTestAlbumArticle();
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 albumArticle.updateAcquisitionChannel(null);
-            });
-            assertEquals("Updated channel cannot be null", exception.getMessage());
+            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Updated channel cannot be null");
         }
 
         @Test
@@ -415,10 +410,9 @@ class AlbumArticleTest {
 
             // Act & Assert
             var finalAlbumArticle = albumArticle;
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 finalAlbumArticle.updateAcquisitionChannel(nonExistentChannel);
-            });
-            assertTrue(exception.getMessage().contains("not found"));
+            }).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("not found");
         }
     }
 
@@ -434,8 +428,8 @@ class AlbumArticleTest {
             var albumArticle = AlbumArticle.create(albumId, "intro", "short", "space", null, null);
 
             // Act & Assert
-            assertEquals(albumId, albumArticle.id());
-            assertEquals(albumId, albumArticle.albumId());
+            assertThat(albumArticle.id()).isEqualTo(albumId);
+            assertThat(albumArticle.albumId()).isEqualTo(albumId);
         }
     }
 

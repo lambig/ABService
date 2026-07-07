@@ -1,6 +1,7 @@
 package com.abservice.domain.model.aggregate.tune;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -29,17 +30,17 @@ class TuneTest {
             var tune = Tune.create(title, tuneKind, composerCredit, null, null, null, null, null, null);
 
             // Assert
-            assertNotNull(tune);
-            assertNotNull(tune.id());
-            assertEquals(title, tune.title());
-            assertEquals(tuneKind, tune.tuneKind());
-            assertEquals(composerCredit, tune.defaultComposerCredit());
-            assertNull(tune.defaultArrangerCredit());
-            assertNull(tune.originalWorkTitle());
-            assertNull(tune.originalWorkCredit());
-            assertNull(tune.tuneType());
-            assertNull(tune.defaultKey());
-            assertNull(tune.defaultTempo());
+            assertThat(tune).isNotNull();
+            assertThat(tune.id()).isNotNull();
+            assertThat(tune.title()).isEqualTo(title);
+            assertThat(tune.tuneKind()).isEqualTo(tuneKind);
+            assertThat(tune.defaultComposerCredit()).isEqualTo(composerCredit);
+            assertThat(tune.defaultArrangerCredit()).isNull();
+            assertThat(tune.originalWorkTitle()).isNull();
+            assertThat(tune.originalWorkCredit()).isNull();
+            assertThat(tune.tuneType()).isNull();
+            assertThat(tune.defaultKey()).isNull();
+            assertThat(tune.defaultTempo()).isNull();
         }
 
         @Test
@@ -61,13 +62,13 @@ class TuneTest {
                     originalWorkCredit, tuneType, defaultKey, defaultTempo);
 
             // Assert
-            assertNotNull(tune);
-            assertEquals(arrangerCredit, tune.defaultArrangerCredit());
-            assertEquals(originalWorkTitle, tune.originalWorkTitle());
-            assertEquals(originalWorkCredit, tune.originalWorkCredit());
-            assertEquals(tuneType, tune.tuneType());
-            assertEquals(defaultKey, tune.defaultKey());
-            assertEquals(defaultTempo, tune.defaultTempo());
+            assertThat(tune).isNotNull();
+            assertThat(tune.defaultArrangerCredit()).isEqualTo(arrangerCredit);
+            assertThat(tune.originalWorkTitle()).isEqualTo(originalWorkTitle);
+            assertThat(tune.originalWorkCredit()).isEqualTo(originalWorkCredit);
+            assertThat(tune.tuneType()).isEqualTo(tuneType);
+            assertThat(tune.defaultKey()).isEqualTo(defaultKey);
+            assertThat(tune.defaultTempo()).isEqualTo(defaultTempo);
         }
 
         @Test
@@ -78,10 +79,9 @@ class TuneTest {
             var composerCredit = Credit.of("Composer");
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 Tune.create(null, tuneKind, composerCredit, null, null, null, null, null, null);
-            });
-            assertEquals("Tune title cannot be null", exception.getMessage());
+            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Tune title cannot be null");
         }
 
         @Test
@@ -92,10 +92,9 @@ class TuneTest {
             var composerCredit = Credit.of("Composer");
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 Tune.create(title, null, composerCredit, null, null, null, null, null, null);
-            });
-            assertEquals("Tune kind cannot be null", exception.getMessage());
+            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Tune kind cannot be null");
         }
     }
 
@@ -114,8 +113,8 @@ class TuneTest {
             var updated = tune.changeTitle(newTitle);
 
             // Assert
-            assertEquals(newTitle, updated.title());
-            assertEquals(tune.id(), updated.id()); // IDは変わらない
+            assertThat(updated.title()).isEqualTo(newTitle);
+            assertThat(updated.id()).isEqualTo(tune.id()); // IDは変わらない
         }
 
         @Test
@@ -125,10 +124,9 @@ class TuneTest {
             var tune = createTestTune();
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 tune.changeTitle(null);
-            });
-            assertEquals("Tune title cannot be null", exception.getMessage());
+            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Tune title cannot be null");
         }
     }
 
@@ -147,7 +145,7 @@ class TuneTest {
             var updated = tune.changeDefaultComposerCredit(newCredit);
 
             // Assert
-            assertEquals(newCredit, updated.defaultComposerCredit());
+            assertThat(updated.defaultComposerCredit()).isEqualTo(newCredit);
         }
 
         @Test
@@ -160,7 +158,7 @@ class TuneTest {
             var updated = tune.changeDefaultComposerCredit(null);
 
             // Assert
-            assertNull(updated.defaultComposerCredit());
+            assertThat(updated.defaultComposerCredit()).isNull();
         }
     }
 
@@ -179,7 +177,7 @@ class TuneTest {
             var updated = tune.changeDefaultArrangerCredit(newCredit);
 
             // Assert
-            assertEquals(newCredit, updated.defaultArrangerCredit());
+            assertThat(updated.defaultArrangerCredit()).isEqualTo(newCredit);
         }
 
         @Test
@@ -192,7 +190,7 @@ class TuneTest {
             var updated = tune.changeDefaultArrangerCredit(null);
 
             // Assert
-            assertNull(updated.defaultArrangerCredit());
+            assertThat(updated.defaultArrangerCredit()).isNull();
         }
     }
 
@@ -212,8 +210,8 @@ class TuneTest {
             var updated = tune.changeOriginalWorkInfo(newTitle, newCredit);
 
             // Assert
-            assertEquals(newTitle, updated.originalWorkTitle());
-            assertEquals(newCredit, updated.originalWorkCredit());
+            assertThat(updated.originalWorkTitle()).isEqualTo(newTitle);
+            assertThat(updated.originalWorkCredit()).isEqualTo(newCredit);
         }
 
         @Test
@@ -223,15 +221,13 @@ class TuneTest {
             var tune = createArrangementTune();
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 tune.changeOriginalWorkInfo(null, "Credit");
-            });
-            assertTrue(exception.getMessage().contains("Original work title is required"));
+            }).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Original work title is required");
 
-            exception = assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 tune.changeOriginalWorkInfo("   ", "Credit");
-            });
-            assertTrue(exception.getMessage().contains("Original work title is required"));
+            }).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Original work title is required");
         }
 
         @Test
@@ -244,8 +240,8 @@ class TuneTest {
             var updated = tune.changeOriginalWorkInfo(null, null);
 
             // Assert
-            assertNull(updated.originalWorkTitle());
-            assertNull(updated.originalWorkCredit());
+            assertThat(updated.originalWorkTitle()).isNull();
+            assertThat(updated.originalWorkCredit()).isNull();
         }
     }
 
@@ -264,7 +260,7 @@ class TuneTest {
             var updated = tune.changeTuneType(newTuneType);
 
             // Assert
-            assertEquals(newTuneType, updated.tuneType());
+            assertThat(updated.tuneType()).isEqualTo(newTuneType);
         }
 
         @Test
@@ -277,7 +273,7 @@ class TuneTest {
             var updated = tune.changeTuneType(null);
 
             // Assert
-            assertNull(updated.tuneType());
+            assertThat(updated.tuneType()).isNull();
         }
     }
 
@@ -296,7 +292,7 @@ class TuneTest {
             var updated = tune.changeDefaultKey(newKey);
 
             // Assert
-            assertEquals(newKey, updated.defaultKey());
+            assertThat(updated.defaultKey()).isEqualTo(newKey);
         }
 
         @Test
@@ -309,7 +305,7 @@ class TuneTest {
             var updated = tune.changeDefaultKey(null);
 
             // Assert
-            assertNull(updated.defaultKey());
+            assertThat(updated.defaultKey()).isNull();
         }
     }
 
@@ -328,7 +324,7 @@ class TuneTest {
             var updated = tune.changeDefaultTempo(newTempo);
 
             // Assert
-            assertEquals(newTempo, updated.defaultTempo());
+            assertThat(updated.defaultTempo()).isEqualTo(newTempo);
         }
 
         @Test
@@ -341,7 +337,7 @@ class TuneTest {
             var updated = tune.changeDefaultTempo(null);
 
             // Assert
-            assertNull(updated.defaultTempo());
+            assertThat(updated.defaultTempo()).isNull();
         }
 
         @Test
@@ -351,10 +347,9 @@ class TuneTest {
             var tune = createTestTune();
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 tune.changeDefaultTempo(-1);
-            });
-            assertEquals("Tempo must be positive", exception.getMessage());
+            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Tempo must be positive");
         }
 
         @Test
@@ -364,10 +359,9 @@ class TuneTest {
             var tune = createTestTune();
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 tune.changeDefaultTempo(0);
-            });
-            assertEquals("Tempo must be positive", exception.getMessage());
+            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Tempo must be positive");
         }
     }
 
@@ -382,9 +376,9 @@ class TuneTest {
             var id = Tune.Id.generate();
 
             // Assert
-            assertNotNull(id);
-            assertNotNull(id.value());
-            assertFalse(id.value().isBlank());
+            assertThat(id).isNotNull();
+            assertThat(id.value()).isNotNull();
+            assertThat(id.value().isBlank()).isFalse();
         }
 
         @Test
@@ -397,25 +391,25 @@ class TuneTest {
             var id = Tune.Id.of(validUuid);
 
             // Assert
-            assertEquals(validUuid, id.value());
+            assertThat(id.value()).isEqualTo(validUuid);
         }
 
         @Test
         @DisplayName("空文字列からIDを生成しようとすると例外が発生すること")
         void ofWithBlankStringShouldThrowException() {
             // Act & Assert
-            assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 Tune.Id.of("");
-            });
+            }).isInstanceOf(IllegalArgumentException.class);
         }
 
         @Test
         @DisplayName("不正なUUID形式の文字列からIDを生成しようとすると例外が発生すること")
         void ofWithInvalidUuidShouldThrowException() {
             // Act & Assert
-            assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 Tune.Id.of("invalid-uuid");
-            });
+            }).isInstanceOf(IllegalArgumentException.class);
         }
 
         @Test
@@ -427,8 +421,8 @@ class TuneTest {
             var id2 = Tune.Id.of(value);
 
             // Act & Assert
-            assertEquals(id1, id2);
-            assertEquals(id1.hashCode(), id2.hashCode());
+            assertThat(id2).isEqualTo(id1);
+            assertThat(id2.hashCode()).isEqualTo(id1.hashCode());
         }
     }
 
