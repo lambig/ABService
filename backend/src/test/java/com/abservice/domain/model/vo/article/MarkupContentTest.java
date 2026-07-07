@@ -1,7 +1,9 @@
 package com.abservice.domain.model.vo.article;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.abservice.lib.Result;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -202,6 +204,69 @@ class MarkupContentTest {
             // Act & Assert
             assertTrue(content1.equivalentTo(content2));
             assertEquals(content1, content2);
+        }
+    }
+
+    @Nested
+    @DisplayName("fromInput（外部入力からの生成）")
+    class FromInputTest {
+
+        @Test
+        @DisplayName("有効な形式とコンテンツで成功する")
+        void validInputShouldSucceed() {
+            // Act
+            Result<MarkupContent> result = MarkupContent.fromInput("# Title", "MARKDOWN");
+
+            // Assert
+            var content = result.resolve();
+            assertThat(content.content()).isEqualTo("# Title");
+            assertThat(content.format()).isEqualTo(MarkupFormat.MARKDOWN);
+        }
+
+        @Test
+        @DisplayName("形式の前後空白を許容する")
+        void surroundingWhitespaceInFormatIsTrimmed() {
+            // Act
+            Result<MarkupContent> result = MarkupContent.fromInput("x", "  HTML  ");
+
+            // Assert
+            assertThat(result.resolve().format()).isEqualTo(MarkupFormat.HTML);
+        }
+
+        @Test
+        @DisplayName("nullコンテンツは空文字列として成功する")
+        void nullContentShouldBecomeEmpty() {
+            // Act
+            Result<MarkupContent> result = MarkupContent.fromInput(null, "PLAIN_TEXT");
+
+            // Assert
+            assertThat(result.resolve().content()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("形式がnullは必須エラーになる")
+        void nullFormatShouldFailAsRequired() {
+            // Act
+            Result<MarkupContent> result = MarkupContent.fromInput("x", null);
+
+            // Assert
+            assertThat(result).isInstanceOf(Result.Failure.class);
+            assertThat(((Result.Failure<MarkupContent>) result).errors()).singleElement().satisfies(e -> {
+                assertThat(e.field()).isEqualTo("format");
+                assertThat(e.code()).isEqualTo("MARKUP_FORMAT_REQUIRED");
+            });
+        }
+
+        @Test
+        @DisplayName("未知の形式は不正エラーになる")
+        void unknownFormatShouldFailAsInvalid() {
+            // Act
+            Result<MarkupContent> result = MarkupContent.fromInput("x", "XML");
+
+            // Assert
+            assertThat(result).isInstanceOf(Result.Failure.class);
+            assertThat(((Result.Failure<MarkupContent>) result).errors()).singleElement()
+                    .satisfies(e -> assertThat(e.code()).isEqualTo("MARKUP_FORMAT_INVALID"));
         }
     }
 }

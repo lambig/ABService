@@ -1,9 +1,12 @@
 package com.abservice.domain.model.vo.article;
 
 import com.abservice.domain.model.vo.ValueObject;
-import org.jspecify.annotations.NonNull;
-
+import com.abservice.lib.ErrorResult;
+import com.abservice.lib.Result;
+import java.util.Arrays;
 import java.util.Optional;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * マークアップコンテンツの値オブジェクト
@@ -71,6 +74,35 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
      */
     public static MarkupContent html(String content) {
         return new MarkupContent(content != null ? content : "", MarkupFormat.HTML);
+    }
+
+    /**
+     * 外部入力（文字列）からマークアップコンテンツを生成します。
+     *
+     * <p>
+     * 例外をスローせず、検証結果を {@link Result} で返します。 形式（{@code format}）は {@link MarkupFormat}
+     * の列挙子名で指定し、未指定・未知の値は {@code Failure} を返します。 コンテンツ本体が {@code null}
+     * の場合は空文字列として扱います（既存の {@link #markdown(String)} 等と同方針）。 信頼できる内部生成には
+     * {@link #plainText(String)} などのファクトリを使用してください。
+     * </p>
+     *
+     * @param content
+     *            コンテンツテキスト（{@code null} は空文字列として扱う）
+     * @param format
+     *            マークアップ形式を表す文字列（列挙子名。前後空白は許容）
+     * @return 成功時は {@code MarkupContent}、失敗時はエラー
+     */
+    public static Result<MarkupContent> fromInput(@Nullable String content, @Nullable String format) {
+        return parseFormat(format).map(fmt -> new MarkupContent(content != null ? content : "", fmt));
+    }
+
+    private static Result<MarkupFormat> parseFormat(@Nullable String format) {
+        if (format == null || format.isBlank()) {
+            return Result.failure(new ErrorResult("format", "マークアップ形式は必須です", "MARKUP_FORMAT_REQUIRED"));
+        }
+        return Arrays.stream(MarkupFormat.values()).filter(f -> f.name().equals(format.trim())).findFirst()
+                .<Result<MarkupFormat>>map(Result::success).orElseGet(() -> Result
+                        .failure(new ErrorResult("format", "不正なマークアップ形式です: " + format, "MARKUP_FORMAT_INVALID")));
     }
 
     /**
