@@ -4,7 +4,7 @@
 > 開発が一時停止していた ABService を再開するにあたり、散在していた計画ドキュメント（`JSPECIFY_MIGRATION_PLAN.md` / `VO_REFACTORING.md` / `REPOSITORY_SIMPLIFICATIONS.md` / `UNIT_TEST_PLAN.md` 等）の内容を、**実コードと突き合わせて検証した現状**として1本に集約し、優先度付きの再開計画を示すマスタードキュメントです。
 > 個別の計画docは背景・詳細手順のリファレンスとして残していますが、進捗の正はこのドキュメントを参照してください。
 >
-> 最終更新: 2026-07-06 / 検証時コミット: `1b09cd0`
+> 最終更新: 2026-07-07 / 検証時コミット: `1b09cd0`
 
 ---
 
@@ -18,7 +18,7 @@
 | **インフラ層** | 🟢 完成（一部簡略化残） | JPAエンティティ・Mapper・RepositoryImpl（4集約）、Flyway V1〜V24、Reactive Panache。§4 の簡略化3件が未解消 |
 | **アプリケーション層** | 🟡 基底のみ | `CommandService` / `QueryService` インターフェース（使用例つき）は完備。**具象ユースケースは0件** |
 | **プレゼンテーション層** | 🔴 未着手 | サンプル `GreetingResource` / `HealthResource` / `CircleMemberResource` のみ。集約向けRESTエンドポイント・DTO・ExceptionMapperなし |
-| **共通基盤（lib）** | 🟡 一部 | `Result` / `ErrorResult` は実装済み。ただし combinator（`map`/`flatMap`/`zip`）とドメイン例外階層は未整備（§3, §5） |
+| **共通基盤（lib）** | 🟢 完成 | `Result`（combinator `map`/`flatMap`/`zip` 含む）/ `ErrorResult` を実装。ドメイン例外階層（`DomainException` 抽象基底 + `ValidationException`/`EntityNotFoundException`/`BusinessRuleViolationException`）も整備済み |
 | **テスト** | 🟡 ユニット充実・統合が薄い | ユニット31クラス（VO/集約/エンティティ）。統合テストは `AlbumRepositoryImplTest` と `SystemBusinessDateTimeProviderTest` の2本のみ |
 | **静的解析** | 🟡 style層のみ | Checkstyle + Spotless 稼働。SpotBugs は Java25非対応で無効。**アーキテクチャ制約の強制（ArchUnit）は未導入**（§7） |
 | **フロントエンド** | ⬜ 未調査 | `frontend-admin`（Svelte）/ `frontend-public`（Svelte+Astro）。本ドキュメントの対象外 |
@@ -40,7 +40,7 @@ com.abservice/
 │   ├── repository/            interface（実装は infrastructure）
 │   ├── service/               ドメインサービス interface (+ 一部Impl)
 │   ├── factory/               ファクトリ interface + Impl
-│   └── exception/             ドメイン例外階層 ★未整備
+│   └── exception/             ドメイン例外階層
 ├── application/
 │   ├── service/<agg>/         CommandService実装 + Input/Output DTO
 │   └── query/                 QueryService実装 + Request/Result
@@ -56,7 +56,7 @@ com.abservice/
     └── exception/             JAX-RS ExceptionMapper
 ```
 
-現行パッケージ（`com.abservice.domain / application / infrastructure`）はこの構成にほぼ沿っています。**未整備なのは `application` の具象、`presentation`（丸ごと）、`domain/exception` の階層化**の3点です。
+現行パッケージ（`com.abservice.domain / application / infrastructure`）はこの構成にほぼ沿っています。**未整備なのは `application` の具象と `presentation`（丸ごと）**の2点です。
 
 ### 2.2 採用する設計パターン
 
@@ -78,9 +78,9 @@ com.abservice/
 
 | 種別 | 目標 | ABService 現状 | 対応 |
 |---|---|---|---|
-| 値検証（複数エラー収集） | `Result<T>` + `resolve/zip/map/flatMap` | `Result<T>` あり。ただし **combinator が `resolve`/`orElse`/`orElseGet`/`orElseDo` のみ**。`map`/`flatMap`/`zip`（複数VO検証の合成）が無い | `Result` に `map`/`flatMap`/`zip` を追加 |
+| 値検証（複数エラー収集） | `Result<T>` + `resolve/zip/map/flatMap` | `resolve`/`orElse*`/`map`/`flatMap`/`zip`（arity 2・3、エラー集約）を実装済み | 対応不要 |
 | リソース未存在 | empty `Uni` → `.onItem().ifNull().failWith { EntityNotFoundException }` | Repository は実装済みだが、未存在→例外化の共通パターン未確立 | ユースケース実装時に規約化 |
-| ビジネスルール違反 | `DomainException` 階層（`ValidationException` / `EntityNotFoundException` / `BusinessRuleViolationException` + 具象） | `DomainException` は **単一の基底クラスのみ**。サブクラス階層なし | 例外階層を整備（下記） |
+| ビジネスルール違反 | `DomainException` 階層（`ValidationException` / `EntityNotFoundException` / `BusinessRuleViolationException` + 具象） | `DomainException`（abstract・`errorCode`付き）+ 3サブクラスを整備済み（下記）。HTTP変換は presentation 層に委譲 | 対応不要 |
 | HTTP変換 | `@Provider ExceptionMapper<DomainException>` で 400/404/409/5xx に変換 | 未実装 | presentation層で `ExceptionMapper` を実装 |
 
 **整備すべき例外階層:**
@@ -138,8 +138,6 @@ DomainException (abstract, errorCode付き)
 ### 5.4 その他
 
 - `VO_REFACTORING.md` は完了済みの記録だが命名が陳腐化（`EventInfo` → 実際は `EventReleasedAt`、複数日程対応で構造も変化）
-- `Result` の combinator 拡充（§3）
-- ドメイン例外階層の整備（§3）
 
 ---
 
@@ -149,8 +147,8 @@ DomainException (abstract, errorCode付き)
 
 ### フェーズ A: エラー設計とlib・静的解析の土台（縦通しの前提）
 1. **ArchUnit 導入 ＋ 基本ルール先行**（§7.1）: `archunit-junit5` を test依存に追加し、レイヤー依存方向（domain ← application ← presentation、domain ← infrastructure）・`@Entity` の配置・`@Transactional` 禁止・Repository/ApplicationService の `Uni` 返却契約など、**既存構造だけで検証できる基本ルール**を先に入れる。以降の新規コードが最初から制約に沿うようにする（詳細な命名/戻り値ルールはフェーズDに残す）
-2. `Result` に `map` / `flatMap` / `zip`（複数VO検証の合成）を追加
-3. `DomainException` 階層を整備（`ValidationException` / `EntityNotFoundException` / `BusinessRuleViolationException`）
+2. 🟢 完了: `Result` に `map` / `flatMap` / `zip`（複数VO検証の合成。arity 2・3でエラー集約）を追加
+3. 🟢 完了: `DomainException` 階層を整備（abstract 基底 + `ValidationException` / `EntityNotFoundException` / `BusinessRuleViolationException`。HTTP変換は presentation 層へ委譲）
 4. VO に外部入力用 `fromInput()`（`Result`返却）を段階導入（まず縦通しで使うVOから）
 
 ### フェーズ B: 縦の1本通し（Article集約でパターン確立）
