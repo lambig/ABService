@@ -5,6 +5,7 @@ import static java.util.function.Predicate.not;
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.entity.DomainEntity;
 import java.util.Optional;
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -18,7 +19,7 @@ import org.jspecify.annotations.NonNull;
  * </p>
  */
 @Getter
-@AllArgsConstructor
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@NonNull Id> {
     @EqualsAndHashCode.Include

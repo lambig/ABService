@@ -73,12 +73,12 @@ class EventReleasedAtTest {
     }
 
     @Test
-    void testCreateWithConstructor() {
+    void testCreateWithDateAndSpaces() {
         EventName name = new EventName("テストイベント");
         BusinessDate date = BusinessDate.of(LocalDate.of(2023, 5, 1));
         List<EventDateAndSpace> dateAndSpaces = List.of(EventDateAndSpace.of(date, "A-01"));
 
-        EventReleasedAt event = new EventReleasedAt(name, dateAndSpaces, "会場名", "備考");
+        EventReleasedAt event = EventReleasedAt.of(name.value(), dateAndSpaces, "会場名", "備考");
 
         assertThat(event.name()).isEqualTo(name);
         assertThat(event.dateAndSpaces()).isUnmodifiable();
@@ -89,15 +89,15 @@ class EventReleasedAtTest {
     @Test
     void testCreateWithNullDateAndSpaces() {
         EventName name = new EventName("テストイベント");
-        EventReleasedAt event = new EventReleasedAt(name, null, "会場名", "備考");
+        EventReleasedAt event = EventReleasedAt.of(name.value(), null, "会場名", "備考");
 
         assertThat(event.dateAndSpaces()).isEmpty();
     }
 
     @Test
     void testCreateWithNullName() {
-        assertThatThrownBy(() -> new EventReleasedAt(null, null, null, null))
-                .isInstanceOf(IllegalArgumentException.class).hasMessage("Event name cannot be null");
+        assertThatThrownBy(() -> EventReleasedAt.of(null, null, null, null))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("Event name cannot be blank");
     }
 
     @Test

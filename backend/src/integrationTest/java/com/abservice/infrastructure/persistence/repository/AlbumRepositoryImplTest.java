@@ -7,11 +7,9 @@ import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
-import com.abservice.domain.model.vo.common.ArtistCreditName;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventDateAndSpace;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
-import com.abservice.domain.model.vo.event.EventName;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.TestReactiveTransaction;
 import io.quarkus.test.vertx.RunOnVertxContext;
@@ -42,7 +40,7 @@ class AlbumRepositoryImplTest {
     private BusinessDate testReleaseDate;
 
     private void initTestData() {
-        testArtistCredit = new ArtistCredit(new ArtistCreditName("Test Artist"), "test-artist");
+        testArtistCredit = ArtistCredit.of("Test Artist", "test-artist");
         testReleaseDate = BusinessDate.of(LocalDate.of(2024, 1, 1));
     }
 
@@ -125,8 +123,8 @@ class AlbumRepositoryImplTest {
     void shouldSaveAlbumWithEvent(UniAsserter asserter) {
         initTestData();
 
-        var eventReleasedAt = new EventReleasedAt(new EventName("Test Event"),
-                List.of(new EventDateAndSpace(testReleaseDate, "A-01")), "Test Venue", "Test Note");
+        var eventReleasedAt = EventReleasedAt.of("Test Event", List.of(EventDateAndSpace.of(testReleaseDate, "A-01")),
+                "Test Venue", "Test Note");
 
         var album = Album.create(new AlbumTitle("Album with Event"), testReleaseDate, testArtistCredit, eventReleasedAt,
                 null, null);

@@ -20,7 +20,7 @@ import lombok.experimental.Accessors;
 @Getter
 @Accessors(fluent = true)
 @EqualsAndHashCode
-public class EventReleasedAt implements ValueObject<EventReleasedAt> {
+public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
     private final EventName name;
     private final List<EventDateAndSpace> dateAndSpaces;
     private final String place;
@@ -47,7 +47,7 @@ public class EventReleasedAt implements ValueObject<EventReleasedAt> {
      * @param note
      *            補足情報（nullable）
      */
-    public EventReleasedAt(EventName name, List<EventDateAndSpace> dateAndSpaces, String place, String note) {
+    private EventReleasedAt(EventName name, List<EventDateAndSpace> dateAndSpaces, String place, String note) {
         if (name == null) {
             throw new IllegalArgumentException("Event name cannot be null");
         }
