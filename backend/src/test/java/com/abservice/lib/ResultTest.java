@@ -209,6 +209,182 @@ class ResultTest {
     }
 
     @Nested
+    @DisplayName("map")
+    class MapTest {
+
+        @Test
+        @DisplayName("成功時は値を変換する")
+        void mapShouldTransformSuccessValue() {
+            // Arrange
+            Result<Integer> result = Result.success(21);
+
+            // Act
+            Result<Integer> mapped = result.map(v -> v * 2);
+
+            // Assert
+            assertThat(mapped.resolve()).isEqualTo(42);
+        }
+
+        @Test
+        @DisplayName("失敗時はエラーを引き継ぎ変換関数を実行しない")
+        void mapShouldPropagateFailureWithoutApplyingMapper() {
+            // Arrange
+            ErrorResult error = new ErrorResult("field", "message");
+            Result<Integer> result = Result.failure(error);
+            var applied = new boolean[]{false};
+
+            // Act
+            Result<Integer> mapped = result.map(v -> {
+                applied[0] = true;
+                return v * 2;
+            });
+
+            // Assert
+            assertThat(applied[0]).isFalse();
+            assertThat(mapped).isInstanceOf(Result.Failure.class);
+            assertThat(((Result.Failure<Integer>) mapped).errors()).containsExactly(error);
+        }
+    }
+
+    @Nested
+    @DisplayName("flatMap")
+    class FlatMapTest {
+
+        @Test
+        @DisplayName("成功時はResultを返す関数を適用し平坦化する")
+        void flatMapShouldChainSuccess() {
+            // Arrange
+            Result<Integer> result = Result.success(10);
+
+            // Act
+            Result<String> mapped = result.flatMap(v -> Result.success("value=" + v));
+
+            // Assert
+            assertThat(mapped.resolve()).isEqualTo("value=10");
+        }
+
+        @Test
+        @DisplayName("成功時に関数が失敗を返せばその失敗になる")
+        void flatMapShouldReturnFailureFromMapper() {
+            // Arrange
+            ErrorResult error = new ErrorResult("field", "invalid");
+            Result<Integer> result = Result.success(10);
+
+            // Act
+            Result<String> mapped = result.flatMap(v -> Result.failure(error));
+
+            // Assert
+            assertThat(mapped).isInstanceOf(Result.Failure.class);
+            assertThat(((Result.Failure<String>) mapped).errors()).containsExactly(error);
+        }
+
+        @Test
+        @DisplayName("失敗時はエラーを引き継ぎ変換関数を実行しない")
+        void flatMapShouldPropagateFailureWithoutApplyingMapper() {
+            // Arrange
+            ErrorResult error = new ErrorResult("field", "message");
+            Result<Integer> result = Result.failure(error);
+            var applied = new boolean[]{false};
+
+            // Act
+            Result<String> mapped = result.flatMap(v -> {
+                applied[0] = true;
+                return Result.success("value=" + v);
+            });
+
+            // Assert
+            assertThat(applied[0]).isFalse();
+            assertThat(mapped).isInstanceOf(Result.Failure.class);
+            assertThat(((Result.Failure<String>) mapped).errors()).containsExactly(error);
+        }
+    }
+
+    @Nested
+    @DisplayName("zip")
+    class ZipTest {
+
+        @Test
+        @DisplayName("2引数: 両方成功でcombinerを適用する")
+        void zip2ShouldCombineBothSuccess() {
+            // Arrange
+            Result<String> a = Result.success("foo");
+            Result<Integer> b = Result.success(3);
+
+            // Act
+            Result<String> combined = Result.zip(a, b, (s, n) -> s.repeat(n));
+
+            // Assert
+            assertThat(combined.resolve()).isEqualTo("foofoofoo");
+        }
+
+        @Test
+        @DisplayName("2引数: 片方が失敗ならそのエラーを返す")
+        void zip2ShouldReturnFailureWhenOneFails() {
+            // Arrange
+            ErrorResult error = new ErrorResult("b", "invalid");
+            Result<String> a = Result.success("foo");
+            Result<Integer> b = Result.failure(error);
+
+            // Act
+            Result<String> combined = Result.zip(a, b, (s, n) -> s.repeat(n));
+
+            // Assert
+            assertThat(combined).isInstanceOf(Result.Failure.class);
+            assertThat(((Result.Failure<String>) combined).errors()).containsExactly(error);
+        }
+
+        @Test
+        @DisplayName("2引数: 両方失敗なら全エラーを集約する")
+        void zip2ShouldAccumulateAllErrors() {
+            // Arrange
+            ErrorResult errorA = new ErrorResult("a", "invalid a");
+            ErrorResult errorB = new ErrorResult("b", "invalid b");
+            Result<String> a = Result.failure(errorA);
+            Result<Integer> b = Result.failure(errorB);
+
+            // Act
+            Result<String> combined = Result.zip(a, b, (s, n) -> s.repeat(n));
+
+            // Assert
+            assertThat(combined).isInstanceOf(Result.Failure.class);
+            assertThat(((Result.Failure<String>) combined).errors()).containsExactly(errorA, errorB);
+        }
+
+        @Test
+        @DisplayName("3引数: すべて成功でcombinerを適用する")
+        void zip3ShouldCombineAllSuccess() {
+            // Arrange
+            Result<String> a = Result.success("a");
+            Result<String> b = Result.success("b");
+            Result<String> c = Result.success("c");
+
+            // Act
+            Result<String> combined = Result.zip(a, b, c, (x, y, z) -> x + y + z);
+
+            // Assert
+            assertThat(combined.resolve()).isEqualTo("abc");
+        }
+
+        @Test
+        @DisplayName("3引数: 複数失敗なら全エラーを順序どおり集約する")
+        void zip3ShouldAccumulateAllErrorsInOrder() {
+            // Arrange
+            ErrorResult errorA = new ErrorResult("a", "invalid a");
+            ErrorResult errorC = new ErrorResult("c", "invalid c");
+            Result<String> a = Result.failure(errorA);
+            Result<String> b = Result.success("b");
+            Result<String> c = Result.failure(errorC);
+
+            // Act
+            Result<String> combined = Result.zip(a, b, c, (x, y, z) -> x + y + z);
+
+            // Assert
+            assertThat(combined).isInstanceOf(Result.Failure.class);
+            assertThat(((Result.Failure<String>) combined).errors()).containsExactly(errorA, errorC);
+        }
+    }
+
+    @Nested
     @DisplayName("ファクトリメソッド")
     class FactoryMethodTest {
 
