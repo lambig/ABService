@@ -149,6 +149,13 @@
                 value="@SuppressWarnings には同行末尾に理由コメント（// で始まり10文字以上）を付与してください"/>
         </module>
 
+        <!-- JUnit の Assertions は使用禁止（AssertJ の assertThat / assertThatThrownBy に統一） -->
+        <module name="RegexpSinglelineJava">
+            <property name="format" value="import\s+(static\s+)?org\.junit\.jupiter\.api\.Assertions"/>
+            <property name="message"
+                value="JUnit の Assertions は使用禁止。AssertJ（assertThat / assertThatThrownBy）を使用してください"/>
+        </module>
+
         <!-- domain 層では try/catch/finally を禁止（domain 以外は suppressions.xml で抑制） -->
         <module name="IllegalToken">
             <property name="id" value="DomainNoTryCatch"/>
