@@ -66,7 +66,7 @@ com.abservice/
 | **Command ユースケース** | `@ApplicationScoped` な `CommandService<Input, Output>` 実装。`@WithTransaction execute(): Uni<Output>`。Input/Output は同パッケージの record |
 | **Query ユースケース** | `QueryService<Request, Result>` を `application/query/` に配置。`@WithSession query(): Uni<Result>`。Read Model は `application/query/model/`。ステータス(SUCCESS/INSUFFICIENT_DATA/NOT_FOUND)で 200/422/404 を出し分け |
 | **REST Resource** | `presentation/rest/` に集約ごとに Command/Query Resource を作成。`Uni<Response>` 返却、MicroProfile OpenAPI アノテーション |
-| **VO の2系統生成** | 現状はコンパクトコンストラクタで例外throwのみ。外部入力用に `Result` を返す `fromInput()` の追加を検討（§5） |
+| **VO の2系統生成** | 内部生成は例外throwのコンパクトコンストラクタ/`of()`、外部入力は `Result` を返す `fromInput()` の2系統。Article集約のVO（`ArticleType`/`MarkupContent`）で導入済み、他VOは順次横展開 |
 | **3層のエラー表現** | 値検証=`Result`、未存在=empty `Uni`+`failWith`、ビジネス違反=`DomainException` 階層。§3 / §5 参照 |
 | **テスト分割** | `unitTest`（Fake注入・DI無）/ `integrationTest`（@QuarkusTest・実DB）の2分割済み。実HTTP のテストは外部連携が出た時点で検討 |
 
@@ -149,7 +149,7 @@ DomainException (abstract, errorCode付き)
 1. **ArchUnit 導入 ＋ 基本ルール先行**（§7.1）: `archunit-junit5` を test依存に追加し、レイヤー依存方向（domain ← application ← presentation、domain ← infrastructure）・`@Entity` の配置・`@Transactional` 禁止・Repository/ApplicationService の `Uni` 返却契約など、**既存構造だけで検証できる基本ルール**を先に入れる。以降の新規コードが最初から制約に沿うようにする（詳細な命名/戻り値ルールはフェーズDに残す）
 2. 🟢 完了: `Result` に `map` / `flatMap` / `zip`（複数VO検証の合成。arity 2・3でエラー集約）を追加
 3. 🟢 完了: `DomainException` 階層を整備（abstract 基底 + `ValidationException` / `EntityNotFoundException` / `BusinessRuleViolationException`。HTTP変換は presentation 層へ委譲）
-4. VO に外部入力用 `fromInput()`（`Result`返却）を段階導入（まず縦通しで使うVOから）
+4. 🟡 一部: VO に外部入力用 `fromInput()`（`Result`返却）を段階導入。Article集約のVO（`ArticleType`/`MarkupContent`）は導入済み、残VOはフェーズCで横展開
 
 ### フェーズ B: 縦の1本通し（Article集約でパターン確立）
 4. Command ユースケース1件（例: 記事作成）を `CommandService` で実装 + Input/Output DTO
