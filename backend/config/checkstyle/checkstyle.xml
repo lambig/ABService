@@ -135,5 +135,13 @@
             <property name="allowSamelineSingleParameterlessAnnotation" value="false"/>
             <property name="allowSamelineParameterizedAnnotation" value="false"/>
         </module>
+
+        <!-- @SuppressWarnings には同行末尾に理由コメント（// で始まり10文字以上）を必須とする -->
+        <module name="RegexpSinglelineJava">
+            <property name="format" value="@SuppressWarnings\([^)]*\)(?!\s*//.{10,})"/>
+            <property name="ignoreComments" value="false"/>
+            <property name="message"
+                value="@SuppressWarnings には同行末尾に理由コメント（// で始まり10文字以上）を付与してください"/>
+        </module>
     </module>
 </module>

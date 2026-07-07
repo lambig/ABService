@@ -70,7 +70,7 @@ public class Track implements DomainEntity<Track, Track.Id> {
      *            ライブフラグ
      * @return 新規Track
      */
-    @SuppressWarnings("checkstyle:ParameterNumber")
+    @SuppressWarnings("checkstyle:ParameterNumber") // 生成に必要な全項目を受け取るため引数が多い
     public static @NonNull Track create(@NonNull Integer trackNo, @NonNull TrackTitle title,
             @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate, @Nullable String recordingPlace,
             @Nullable Boolean isLive) {
@@ -121,7 +121,7 @@ public class Track implements DomainEntity<Track, Track.Id> {
      *            チューンリスト
      * @return 再構成されたTrack
      */
-    @SuppressWarnings("checkstyle:ParameterNumber")
+    @SuppressWarnings("checkstyle:ParameterNumber") // 永続化からの再構成で全項目を受け取るため引数が多い
     public static @NonNull Track reconstruct(@NonNull Id id, @NonNull Integer trackNo, @NonNull TrackTitle title,
             @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate, @Nullable String recordingPlace,
             @Nullable Boolean isLive, @NonNull List<TrackTune> tunes) {

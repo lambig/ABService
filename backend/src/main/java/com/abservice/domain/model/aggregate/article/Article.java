@@ -106,7 +106,7 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      *            タグリスト
      * @return 再構成されたArticle
      */
-    @SuppressWarnings("checkstyle:ParameterNumber")
+    @SuppressWarnings("checkstyle:ParameterNumber") // 永続化からの再構成で全項目を受け取るため引数が多い
     public static @NonNull Article reconstruct(@NonNull Id id, @NonNull ArticleType articleType,
             Album.@Nullable Id albumId, @NonNull String title, @Nullable MarkupContent body,
             @Nullable String introShort, @Nullable BusinessDateTime publishedAt,

@@ -81,7 +81,7 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      *            入手経路リスト
      * @return 再構成されたAlbumArticle
      */
-    @SuppressWarnings("checkstyle:ParameterNumber")
+    @SuppressWarnings("checkstyle:ParameterNumber") // 永続化からの再構成で全項目を受け取るため引数が多い
     public static AlbumArticle reconstruct(Album.Id albumId, String introLong, String introShort,
             String firstEventSpace, LabelTag labelTag, AlbumDistribution distribution,
             List<AlbumAcquisitionChannel> acquisitionChannels) {
