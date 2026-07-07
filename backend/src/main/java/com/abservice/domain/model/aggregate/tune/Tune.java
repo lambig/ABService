@@ -79,7 +79,7 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
      *            デフォルトテンポ（nullable）
      * @return 新規Tune
      */
-    @SuppressWarnings("checkstyle:ParameterNumber")
+    @SuppressWarnings("checkstyle:ParameterNumber") // 生成に必要な全項目を受け取るため引数が多い
     public static @NonNull Tune create(@NonNull TuneTitle title, @NonNull TuneKind tuneKind,
             @Nullable Credit defaultComposerCredit, @Nullable Credit defaultArrangerCredit,
             @Nullable String originalWorkTitle, @Nullable String originalWorkCredit, @Nullable String tuneType,
@@ -117,7 +117,7 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
      *            デフォルトテンポ（nullable）
      * @return 再構成されたTune
      */
-    @SuppressWarnings("checkstyle:ParameterNumber")
+    @SuppressWarnings("checkstyle:ParameterNumber") // 永続化からの再構成で全項目を受け取るため引数が多い
     public static @NonNull Tune reconstruct(@NonNull Id id, @NonNull TuneTitle title, @NonNull TuneKind tuneKind,
             @Nullable Credit defaultComposerCredit, @Nullable Credit defaultArrangerCredit,
             @Nullable String originalWorkTitle, @Nullable String originalWorkCredit, @Nullable String tuneType,
