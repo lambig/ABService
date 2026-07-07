@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# 同一ブランチの古い実行はキャンセルして最新のみ走らせる
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-check:
+    name: Backend full check (spotless / checkstyle / unit+ArchUnit / integration)
+    runs-on: ubuntu-latest
+
+    # 統合テスト用 PostgreSQL（docker-compose と同じ postgres:15-alpine / abservice）
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: abservice
+          POSTGRES_USER: abservice
+          POSTGRES_PASSWORD: abservice
+          POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U abservice -d abservice"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # integrationTest の datasource（既定値と一致。明示して意図を残す）
+      DB_URL: jdbc:postgresql://localhost:5432/abservice
+      DB_USERNAME: abservice
+      DB_PASSWORD: abservice
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25 (Corretto)
+        uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Ensure gradlew is executable
+        run: chmod +x backend/gradlew
+
+      # check = spotlessCheck / checkstyleMain / checkstyleTest / test（ArchUnit含む） / integrationTest
+      - name: Run full check
+        run: backend/gradlew -p backend --no-daemon --console=plain check
+
+      - name: Upload reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-reports
+          path: |
+            backend/build/reports/tests/
+            backend/build/reports/checkstyle/
+          if-no-files-found: ignore
+          retention-days: 7
