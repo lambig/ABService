@@ -7,4 +7,8 @@
     <!-- Suppress checks for generated code -->
     <suppress checks=".*" files=".*[\\/]generated[\\/].*"/>
     <suppress checks=".*" files=".*[\\/]build[\\/].*"/>
+
+    <!-- try/catch 禁止（DomainNoTryCatch）は production の domain 層のみに適用。それ以外は抑制する -->
+    <suppress id="DomainNoTryCatch"
+        files="^(?!.*[\\/]src[\\/]main[\\/]java[\\/]com[\\/]abservice[\\/]domain[\\/]).*$"/>
 </suppressions>

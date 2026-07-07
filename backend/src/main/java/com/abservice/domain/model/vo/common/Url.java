@@ -3,7 +3,6 @@ package com.abservice.domain.model.vo.common;
 import com.abservice.domain.model.vo.ValueObject;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Optional;
 
 /**
@@ -54,11 +53,8 @@ public record Url(String value) implements ValueObject<Url> {
     }
 
     private static void validateUriFormat(String value) {
-        try {
-            new URI(value);
-        } catch (URISyntaxException e) {
-            throw new IllegalArgumentException("Invalid URL format: " + value, e);
-        }
+        // URI.create は不正な構文の場合に IllegalArgumentException（URISyntaxException を内包）を送出する
+        URI.create(value);
     }
 
     @Override

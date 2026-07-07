@@ -143,5 +143,11 @@
             <property name="message"
                 value="@SuppressWarnings には同行末尾に理由コメント（// で始まり10文字以上）を付与してください"/>
         </module>
+
+        <!-- domain 層では try/catch/finally を禁止（domain 以外は suppressions.xml で抑制） -->
+        <module name="IllegalToken">
+            <property name="id" value="DomainNoTryCatch"/>
+            <property name="tokens" value="LITERAL_TRY"/>
+        </module>
     </module>
 </module>

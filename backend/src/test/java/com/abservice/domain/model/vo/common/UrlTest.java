@@ -72,14 +72,12 @@ class UrlTest {
 
     @Test
     void testCreateUrlInvalidFormat() {
-        assertThatThrownBy(() -> new Url("not a valid url")).isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Invalid URL format");
+        assertThatThrownBy(() -> new Url("not a valid url")).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void testCreateUrlInvalidScheme() {
-        assertThatThrownBy(() -> new Url("ht tp://example.com")).isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Invalid URL format");
+        assertThatThrownBy(() -> new Url("ht tp://example.com")).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
