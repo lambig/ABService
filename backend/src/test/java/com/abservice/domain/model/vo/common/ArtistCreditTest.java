@@ -1,13 +1,16 @@
 package com.abservice.domain.model.vo.common;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@DisplayName("ArtistCredit値オブジェクトのテスト")
 class ArtistCreditTest {
 
     @Test
+    @DisplayName("表示名のみで生成するとソートキーは表示名と同じになる")
     void testCreateWithDisplayNameOnly() {
         ArtistCredit credit = ArtistCredit.of("Foo Bar");
 
@@ -16,6 +19,7 @@ class ArtistCreditTest {
     }
 
     @Test
+    @DisplayName("表示名とソートキーを指定して生成できる")
     void testCreateWithDisplayNameAndSortKey() {
         ArtistCredit credit = ArtistCredit.of("Foo Bar feat. Baz", "Foo Bar");
 
@@ -24,6 +28,7 @@ class ArtistCreditTest {
     }
 
     @Test
+    @DisplayName("ソートキーを指定して生成できる")
     void testCreateWithSortKey() {
         ArtistCreditName name = new ArtistCreditName("Test Artist");
         ArtistCredit credit = ArtistCredit.of(name.value(), "Sort Key");
@@ -33,6 +38,7 @@ class ArtistCreditTest {
     }
 
     @Test
+    @DisplayName("ソートキーがnullの場合は表示名がソートキーになる")
     void testCreateWithNullSortKeyDefaultsToDisplayName() {
         ArtistCredit credit = ArtistCredit.of("Test Artist", null);
 
@@ -41,12 +47,14 @@ class ArtistCreditTest {
     }
 
     @Test
+    @DisplayName("表示名がnullの場合は例外が送出される")
     void testCreateWithNullDisplayName() {
         assertThatThrownBy(() -> ArtistCredit.of(null, "Sort Key")).isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Artist credit name cannot be blank");
     }
 
     @Test
+    @DisplayName("同じ内容のArtistCreditは等価と判定される")
     void testEquivalentToSameArtistCredit() {
         ArtistCredit credit1 = ArtistCredit.of("Foo Bar", "Foo");
         ArtistCredit credit2 = ArtistCredit.of("Foo Bar", "Foo");
@@ -55,6 +63,7 @@ class ArtistCreditTest {
     }
 
     @Test
+    @DisplayName("表示名が異なる場合は等価でないと判定される")
     void testEquivalentToDifferentDisplayName() {
         ArtistCredit credit1 = ArtistCredit.of("Foo Bar", "Foo");
         ArtistCredit credit2 = ArtistCredit.of("Baz Qux", "Foo");
@@ -63,6 +72,7 @@ class ArtistCreditTest {
     }
 
     @Test
+    @DisplayName("ソートキーが異なる場合は等価でないと判定される")
     void testEquivalentToDifferentSortKey() {
         ArtistCredit credit1 = ArtistCredit.of("Foo Bar", "Foo");
         ArtistCredit credit2 = ArtistCredit.of("Foo Bar", "Bar");
@@ -71,6 +81,7 @@ class ArtistCreditTest {
     }
 
     @Test
+    @DisplayName("nullとの比較では等価でないと判定される")
     void testEquivalentToNull() {
         ArtistCredit credit = ArtistCredit.of("Foo Bar");
 
@@ -78,6 +89,7 @@ class ArtistCreditTest {
     }
 
     @Test
+    @DisplayName("同じ内容は等しく異なる内容は等しくないと判定される")
     void testEquality() {
         ArtistCredit credit1 = ArtistCredit.of("Foo Bar", "Foo");
         ArtistCredit credit2 = ArtistCredit.of("Foo Bar", "Foo");
@@ -88,6 +100,7 @@ class ArtistCreditTest {
     }
 
     @Test
+    @DisplayName("同じ内容のArtistCreditは同じハッシュコードを返す")
     void testHashCode() {
         ArtistCredit credit1 = ArtistCredit.of("Foo Bar", "Foo");
         ArtistCredit credit2 = ArtistCredit.of("Foo Bar", "Foo");
@@ -96,6 +109,7 @@ class ArtistCreditTest {
     }
 
     @Test
+    @DisplayName("日本語の表示名とソートキーを扱える")
     void testJapaneseCharacters() {
         ArtistCredit credit = ArtistCredit.of("東方アレンジ", "とうほう");
 
@@ -104,6 +118,7 @@ class ArtistCreditTest {
     }
 
     @Test
+    @DisplayName("フィーチャリング表記を含む表示名とソートキーを保持できる")
     void testFeaturedArtist() {
         ArtistCredit credit = ArtistCredit.of("Artist A feat. Artist B", "Artist A");
 
