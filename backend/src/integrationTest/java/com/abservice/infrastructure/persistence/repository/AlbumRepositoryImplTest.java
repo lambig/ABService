@@ -15,8 +15,9 @@ import io.quarkus.test.TestReactiveTransaction;
 import io.quarkus.test.vertx.RunOnVertxContext;
 import io.quarkus.test.vertx.UniAsserter;
 import jakarta.inject.Inject;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -54,16 +55,16 @@ class AlbumRepositoryImplTest {
 
         // Save the album
         asserter.assertThat(() -> repository.save(album), saved -> {
-            Assertions.assertNotNull(saved);
-            Assertions.assertEquals(album.id(), saved.id());
-            Assertions.assertEquals("Test Album", saved.title().value());
+            assertThat(saved).isNotNull();
+            assertThat(saved.id()).isEqualTo(album.id());
+            assertThat(saved.title().value()).isEqualTo("Test Album");
         });
 
         // Find the saved album
         asserter.assertThat(() -> repository.findById(album.id()), found -> {
-            Assertions.assertNotNull(found);
-            Assertions.assertEquals(album.id(), found.id());
-            Assertions.assertEquals("Test Album", found.title().value());
+            assertThat(found).isNotNull();
+            assertThat(found.id()).isEqualTo(album.id());
+            assertThat(found.title().value()).isEqualTo("Test Album");
         });
     }
 
@@ -81,9 +82,9 @@ class AlbumRepositoryImplTest {
                 .addTrack(track1).addTrack(track2);
 
         asserter.assertThat(() -> repository.save(album), saved -> {
-            Assertions.assertEquals(2, saved.tracks().size());
-            Assertions.assertEquals("Track 1", saved.tracks().get(0).title().value());
-            Assertions.assertEquals("Track 2", saved.tracks().get(1).title().value());
+            assertThat(saved.tracks().size()).isEqualTo(2);
+            assertThat(saved.tracks().get(0).title().value()).isEqualTo("Track 1");
+            assertThat(saved.tracks().get(1).title().value()).isEqualTo("Track 2");
         });
     }
 
@@ -97,8 +98,8 @@ class AlbumRepositoryImplTest {
                 new CatalogNumber("TEST-001"), null);
 
         asserter.assertThat(() -> repository.save(album), saved -> {
-            Assertions.assertNotNull(saved.catalogNumber());
-            Assertions.assertEquals("TEST-001", saved.catalogNumber().value());
+            assertThat(saved.catalogNumber()).isNotNull();
+            assertThat(saved.catalogNumber().value()).isEqualTo("TEST-001");
         });
     }
 
@@ -112,8 +113,8 @@ class AlbumRepositoryImplTest {
                 new Isdn("2784702901978"));
 
         asserter.assertThat(() -> repository.save(album), saved -> {
-            Assertions.assertNotNull(saved.isdn());
-            Assertions.assertEquals("2784702901978", saved.isdn().value());
+            assertThat(saved.isdn()).isNotNull();
+            assertThat(saved.isdn().value()).isEqualTo("2784702901978");
         });
     }
 
@@ -130,9 +131,9 @@ class AlbumRepositoryImplTest {
                 null, null);
 
         asserter.assertThat(() -> repository.save(album), saved -> {
-            Assertions.assertNotNull(saved.eventReleasedAt());
-            Assertions.assertEquals("Test Event", saved.eventReleasedAt().name().value());
-            Assertions.assertEquals("Test Venue", saved.eventReleasedAt().place());
+            assertThat(saved.eventReleasedAt()).isNotNull();
+            assertThat(saved.eventReleasedAt().name().value()).isEqualTo("Test Event");
+            assertThat(saved.eventReleasedAt().place()).isEqualTo("Test Venue");
         });
     }
 
@@ -146,15 +147,15 @@ class AlbumRepositoryImplTest {
 
         // Save original
         asserter.assertThat(() -> repository.save(album),
-                saved -> Assertions.assertEquals("Original Title", saved.title().value()));
+                saved -> assertThat(saved.title().value()).isEqualTo("Original Title"));
 
         // Update
         var updated = Album.reconstruct(album.id(), new AlbumTitle("Updated Title"), testReleaseDate, testArtistCredit,
                 null, null, null, List.of());
 
         asserter.assertThat(() -> repository.save(updated), result -> {
-            Assertions.assertEquals(album.id(), result.id());
-            Assertions.assertEquals("Updated Title", result.title().value());
+            assertThat(result.id()).isEqualTo(album.id());
+            assertThat(result.title().value()).isEqualTo("Updated Title");
         });
     }
 
@@ -168,13 +169,13 @@ class AlbumRepositoryImplTest {
                 null);
 
         // Save
-        asserter.assertThat(() -> repository.save(album), saved -> Assertions.assertNotNull(saved));
+        asserter.assertThat(() -> repository.save(album), saved -> assertThat(saved).isNotNull());
 
         // Delete
         asserter.execute(() -> repository.deleteById(album.id()));
 
         // Verify deletion
-        asserter.assertThat(() -> repository.findById(album.id()), found -> Assertions.assertNull(found));
+        asserter.assertThat(() -> repository.findById(album.id()), found -> assertThat(found).isNull());
     }
 
     @Test
@@ -189,11 +190,11 @@ class AlbumRepositoryImplTest {
         asserter.execute(() -> repository.save(album));
 
         // Check exists
-        asserter.assertThat(() -> repository.existsById(album.id()), exists -> Assertions.assertTrue(exists));
+        asserter.assertThat(() -> repository.existsById(album.id()), exists -> assertThat(exists).isTrue());
 
         // Check non-existent
         var nonExistentId = new Album.Id("01234567-89ab-7def-0123-456789abcdef");
-        asserter.assertThat(() -> repository.existsById(nonExistentId), exists -> Assertions.assertFalse(exists));
+        asserter.assertThat(() -> repository.existsById(nonExistentId), exists -> assertThat(exists).isFalse());
     }
 
     @Test
@@ -210,7 +211,7 @@ class AlbumRepositoryImplTest {
         asserter.execute(() -> repository.save(album2));
 
         // Verify count
-        asserter.assertThat(() -> repository.count(), count -> Assertions.assertTrue(count >= 2));
+        asserter.assertThat(() -> repository.count(), count -> assertThat(count >= 2).isTrue());
     }
 
     @Test
@@ -227,8 +228,8 @@ class AlbumRepositoryImplTest {
 
         // Find by title
         asserter.assertThat(() -> repository.findByTitle(title), found -> {
-            Assertions.assertTrue(found.size() >= 1);
-            Assertions.assertTrue(found.stream().anyMatch(a -> a.title().value().equals("Unique Title for Search")));
+            assertThat(found.size() >= 1).isTrue();
+            assertThat(found.stream().anyMatch(a -> a.title().value().equals("Unique Title for Search"))).isTrue();
         });
     }
 
@@ -247,8 +248,8 @@ class AlbumRepositoryImplTest {
 
         // Find by catalog number
         asserter.assertThat(() -> repository.findByCatalogNumber(catalogNumber), found -> {
-            Assertions.assertNotNull(found);
-            Assertions.assertEquals(catalogNumber, found.catalogNumber());
+            assertThat(found).isNotNull();
+            assertThat(found.catalogNumber()).isEqualTo(catalogNumber);
         });
     }
 
@@ -260,10 +261,10 @@ class AlbumRepositoryImplTest {
         asserter.assertFailedWith(() -> repository.save(null), IllegalArgumentException.class);
 
         // Find by null ID should return null
-        asserter.assertThat(() -> repository.findById(null), found -> Assertions.assertNull(found));
+        asserter.assertThat(() -> repository.findById(null), found -> assertThat(found).isNull());
 
         // Exists with null ID should return false
-        asserter.assertThat(() -> repository.existsById(null), exists -> Assertions.assertFalse(exists));
+        asserter.assertThat(() -> repository.existsById(null), exists -> assertThat(exists).isFalse());
 
         // Delete with null ID should not throw
         asserter.execute(() -> repository.deleteById(null));
