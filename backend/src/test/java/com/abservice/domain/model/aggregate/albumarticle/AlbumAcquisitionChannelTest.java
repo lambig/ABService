@@ -1,6 +1,7 @@
 package com.abservice.domain.model.aggregate.albumarticle;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -27,12 +28,12 @@ class AlbumAcquisitionChannelTest {
             var channel = AlbumAcquisitionChannel.create(channelType, name, null, null);
 
             // Assert
-            assertNotNull(channel);
-            assertNotNull(channel.id());
-            assertEquals(channelType, channel.getChannelType());
-            assertEquals(name, channel.getName());
-            assertNull(channel.getUrl());
-            assertNull(channel.getNote());
+            assertThat(channel).isNotNull();
+            assertThat(channel.id()).isNotNull();
+            assertThat(channel.getChannelType()).isEqualTo(channelType);
+            assertThat(channel.getName()).isEqualTo(name);
+            assertThat(channel.getUrl()).isNull();
+            assertThat(channel.getNote()).isNull();
         }
 
         @Test
@@ -48,11 +49,11 @@ class AlbumAcquisitionChannelTest {
             var channel = AlbumAcquisitionChannel.create(channelType, name, url, note);
 
             // Assert
-            assertNotNull(channel);
-            assertEquals(channelType, channel.getChannelType());
-            assertEquals(name, channel.getName());
-            assertEquals(url, channel.getUrl());
-            assertEquals(note, channel.getNote());
+            assertThat(channel).isNotNull();
+            assertThat(channel.getChannelType()).isEqualTo(channelType);
+            assertThat(channel.getName()).isEqualTo(name);
+            assertThat(channel.getUrl()).isEqualTo(url);
+            assertThat(channel.getNote()).isEqualTo(note);
         }
 
         @Test
@@ -62,10 +63,9 @@ class AlbumAcquisitionChannelTest {
             var name = "Test Shop";
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 AlbumAcquisitionChannel.create(null, name, null, null);
-            });
-            assertEquals("Channel type cannot be null", exception.getMessage());
+            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Channel type cannot be null");
         }
 
         @Test
@@ -75,10 +75,9 @@ class AlbumAcquisitionChannelTest {
             var channelType = ChannelType.DL_SITE;
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 AlbumAcquisitionChannel.create(channelType, null, null, null);
-            });
-            assertEquals("Name cannot be blank", exception.getMessage());
+            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Name cannot be blank");
         }
 
         @Test
@@ -88,10 +87,9 @@ class AlbumAcquisitionChannelTest {
             var channelType = ChannelType.DL_SITE;
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 AlbumAcquisitionChannel.create(channelType, "   ", null, null);
-            });
-            assertEquals("Name cannot be blank", exception.getMessage());
+            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Name cannot be blank");
         }
     }
 
@@ -113,12 +111,12 @@ class AlbumAcquisitionChannelTest {
             var channel = AlbumAcquisitionChannel.reconstruct(id, channelType, name, url, note);
 
             // Assert
-            assertNotNull(channel);
-            assertEquals(id, channel.id());
-            assertEquals(channelType, channel.getChannelType());
-            assertEquals(name, channel.getName());
-            assertEquals(url, channel.getUrl());
-            assertEquals(note, channel.getNote());
+            assertThat(channel).isNotNull();
+            assertThat(channel.id()).isEqualTo(id);
+            assertThat(channel.getChannelType()).isEqualTo(channelType);
+            assertThat(channel.getName()).isEqualTo(name);
+            assertThat(channel.getUrl()).isEqualTo(url);
+            assertThat(channel.getNote()).isEqualTo(note);
         }
     }
 
@@ -137,9 +135,9 @@ class AlbumAcquisitionChannelTest {
             var updated = channel.changeChannelType(newChannelType);
 
             // Assert
-            assertEquals(newChannelType, updated.getChannelType());
-            assertEquals(channel.id(), updated.id());
-            assertEquals(channel.getName(), updated.getName());
+            assertThat(updated.getChannelType()).isEqualTo(newChannelType);
+            assertThat(updated.id()).isEqualTo(channel.id());
+            assertThat(updated.getName()).isEqualTo(channel.getName());
         }
 
         @Test
@@ -149,10 +147,9 @@ class AlbumAcquisitionChannelTest {
             var channel = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop", null, null);
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 channel.changeChannelType(null);
-            });
-            assertEquals("Channel type cannot be null", exception.getMessage());
+            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Channel type cannot be null");
         }
     }
 
@@ -171,7 +168,7 @@ class AlbumAcquisitionChannelTest {
             var updated = channel.changeName(newName);
 
             // Assert
-            assertEquals(newName, updated.getName());
+            assertThat(updated.getName()).isEqualTo(newName);
         }
 
         @Test
@@ -181,10 +178,9 @@ class AlbumAcquisitionChannelTest {
             var channel = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop", null, null);
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 channel.changeName(null);
-            });
-            assertEquals("Name cannot be blank", exception.getMessage());
+            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Name cannot be blank");
         }
 
         @Test
@@ -194,10 +190,9 @@ class AlbumAcquisitionChannelTest {
             var channel = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop", null, null);
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 channel.changeName("   ");
-            });
-            assertEquals("Name cannot be blank", exception.getMessage());
+            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Name cannot be blank");
         }
     }
 
@@ -216,7 +211,7 @@ class AlbumAcquisitionChannelTest {
             var updated = channel.changeUrl(url);
 
             // Assert
-            assertEquals(url, updated.getUrl());
+            assertThat(updated.getUrl()).isEqualTo(url);
         }
 
         @Test
@@ -230,7 +225,7 @@ class AlbumAcquisitionChannelTest {
             var updated = channel.changeUrl(null);
 
             // Assert
-            assertNull(updated.getUrl());
+            assertThat(updated.getUrl()).isNull();
         }
     }
 
@@ -249,7 +244,7 @@ class AlbumAcquisitionChannelTest {
             var updated = channel.changeNote(note);
 
             // Assert
-            assertEquals(note, updated.getNote());
+            assertThat(updated.getNote()).isEqualTo(note);
         }
 
         @Test
@@ -262,7 +257,7 @@ class AlbumAcquisitionChannelTest {
             var updated = channel.changeNote(null);
 
             // Assert
-            assertNull(updated.getNote());
+            assertThat(updated.getNote()).isNull();
         }
     }
 
@@ -277,9 +272,9 @@ class AlbumAcquisitionChannelTest {
             var id = AlbumAcquisitionChannel.Id.generate();
 
             // Assert
-            assertNotNull(id);
-            assertNotNull(id.value());
-            assertFalse(id.value().isBlank());
+            assertThat(id).isNotNull();
+            assertThat(id.value()).isNotNull();
+            assertThat(id.value().isBlank()).isFalse();
         }
 
         @Test
@@ -293,35 +288,35 @@ class AlbumAcquisitionChannelTest {
             var id2 = AlbumAcquisitionChannel.Id.of(value);
 
             // Assert
-            assertEquals(id1, id2);
-            assertEquals(value, id2.value());
+            assertThat(id2).isEqualTo(id1);
+            assertThat(id2.value()).isEqualTo(value);
         }
 
         @Test
         @DisplayName("nullの文字列からIDを生成しようとすると例外が発生すること")
         void ofWithNullShouldThrowException() {
             // Act & Assert
-            assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 AlbumAcquisitionChannel.Id.of(null);
-            });
+            }).isInstanceOf(IllegalArgumentException.class);
         }
 
         @Test
         @DisplayName("空文字列からIDを生成しようとすると例外が発生すること")
         void ofWithBlankStringShouldThrowException() {
             // Act & Assert
-            assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 AlbumAcquisitionChannel.Id.of("");
-            });
+            }).isInstanceOf(IllegalArgumentException.class);
         }
 
         @Test
         @DisplayName("不正なUUID形式の文字列からIDを生成しようとすると例外が発生すること")
         void ofWithInvalidUuidShouldThrowException() {
             // Act & Assert
-            assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 AlbumAcquisitionChannel.Id.of("not-a-uuid");
-            });
+            }).isInstanceOf(IllegalArgumentException.class);
         }
     }
 
@@ -338,8 +333,8 @@ class AlbumAcquisitionChannelTest {
             var channel2 = AlbumAcquisitionChannel.reconstruct(id, ChannelType.STREAMING, "Shop2", null, null);
 
             // Act & Assert
-            assertEquals(channel1, channel2);
-            assertEquals(channel1.hashCode(), channel2.hashCode());
+            assertThat(channel2).isEqualTo(channel1);
+            assertThat(channel2.hashCode()).isEqualTo(channel1.hashCode());
         }
 
         @Test
@@ -350,7 +345,7 @@ class AlbumAcquisitionChannelTest {
             var channel2 = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop1", null, null);
 
             // Act & Assert
-            assertNotEquals(channel1, channel2);
+            assertThat(channel2).isNotEqualTo(channel1);
         }
     }
 }

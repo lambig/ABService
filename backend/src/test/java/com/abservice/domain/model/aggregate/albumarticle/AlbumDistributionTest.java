@@ -1,6 +1,6 @@
 package com.abservice.domain.model.aggregate.albumarticle;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -23,11 +23,11 @@ class AlbumDistributionTest {
             var distribution = AlbumDistribution.create(null, null, null, null);
 
             // Assert
-            assertNotNull(distribution);
-            assertNull(distribution.getPhysicalPrice());
-            assertNull(distribution.getDownloadPrice());
-            assertNull(distribution.getDemoUrl());
-            assertNull(distribution.getNote());
+            assertThat(distribution).isNotNull();
+            assertThat(distribution.getPhysicalPrice()).isNull();
+            assertThat(distribution.getDownloadPrice()).isNull();
+            assertThat(distribution.getDemoUrl()).isNull();
+            assertThat(distribution.getNote()).isNull();
         }
 
         @Test
@@ -43,11 +43,11 @@ class AlbumDistributionTest {
             var distribution = AlbumDistribution.create(physicalPrice, downloadPrice, demoUrl, note);
 
             // Assert
-            assertNotNull(distribution);
-            assertEquals(physicalPrice, distribution.getPhysicalPrice());
-            assertEquals(downloadPrice, distribution.getDownloadPrice());
-            assertEquals(demoUrl, distribution.getDemoUrl());
-            assertEquals(note, distribution.getNote());
+            assertThat(distribution).isNotNull();
+            assertThat(distribution.getPhysicalPrice()).isEqualTo(physicalPrice);
+            assertThat(distribution.getDownloadPrice()).isEqualTo(downloadPrice);
+            assertThat(distribution.getDemoUrl()).isEqualTo(demoUrl);
+            assertThat(distribution.getNote()).isEqualTo(note);
         }
 
         @Test
@@ -60,8 +60,8 @@ class AlbumDistributionTest {
             var distribution = AlbumDistribution.create(physicalPrice, null, null, null);
 
             // Assert
-            assertEquals(physicalPrice, distribution.getPhysicalPrice());
-            assertNull(distribution.getDownloadPrice());
+            assertThat(distribution.getPhysicalPrice()).isEqualTo(physicalPrice);
+            assertThat(distribution.getDownloadPrice()).isNull();
         }
 
         @Test
@@ -74,8 +74,8 @@ class AlbumDistributionTest {
             var distribution = AlbumDistribution.create(null, downloadPrice, null, null);
 
             // Assert
-            assertNull(distribution.getPhysicalPrice());
-            assertEquals(downloadPrice, distribution.getDownloadPrice());
+            assertThat(distribution.getPhysicalPrice()).isNull();
+            assertThat(distribution.getDownloadPrice()).isEqualTo(downloadPrice);
         }
     }
 
@@ -96,11 +96,11 @@ class AlbumDistributionTest {
             var distribution = AlbumDistribution.reconstruct(physicalPrice, downloadPrice, demoUrl, note);
 
             // Assert
-            assertNotNull(distribution);
-            assertEquals(physicalPrice, distribution.getPhysicalPrice());
-            assertEquals(downloadPrice, distribution.getDownloadPrice());
-            assertEquals(demoUrl, distribution.getDemoUrl());
-            assertEquals(note, distribution.getNote());
+            assertThat(distribution).isNotNull();
+            assertThat(distribution.getPhysicalPrice()).isEqualTo(physicalPrice);
+            assertThat(distribution.getDownloadPrice()).isEqualTo(downloadPrice);
+            assertThat(distribution.getDemoUrl()).isEqualTo(demoUrl);
+            assertThat(distribution.getNote()).isEqualTo(note);
         }
     }
 
@@ -119,7 +119,7 @@ class AlbumDistributionTest {
             var updated = distribution.changePhysicalPrice(newPrice);
 
             // Assert
-            assertEquals(newPrice, updated.getPhysicalPrice());
+            assertThat(updated.getPhysicalPrice()).isEqualTo(newPrice);
         }
 
         @Test
@@ -132,7 +132,7 @@ class AlbumDistributionTest {
             var updated = distribution.changePhysicalPrice(null);
 
             // Assert
-            assertNull(updated.getPhysicalPrice());
+            assertThat(updated.getPhysicalPrice()).isNull();
         }
 
         @Test
@@ -149,9 +149,9 @@ class AlbumDistributionTest {
             var updated = distribution.changePhysicalPrice(newPrice);
 
             // Assert
-            assertEquals(downloadPrice, updated.getDownloadPrice());
-            assertEquals(demoUrl, updated.getDemoUrl());
-            assertEquals(note, updated.getNote());
+            assertThat(updated.getDownloadPrice()).isEqualTo(downloadPrice);
+            assertThat(updated.getDemoUrl()).isEqualTo(demoUrl);
+            assertThat(updated.getNote()).isEqualTo(note);
         }
     }
 
@@ -170,7 +170,7 @@ class AlbumDistributionTest {
             var updated = distribution.changeDownloadPrice(newPrice);
 
             // Assert
-            assertEquals(newPrice, updated.getDownloadPrice());
+            assertThat(updated.getDownloadPrice()).isEqualTo(newPrice);
         }
 
         @Test
@@ -183,7 +183,7 @@ class AlbumDistributionTest {
             var updated = distribution.changeDownloadPrice(null);
 
             // Assert
-            assertNull(updated.getDownloadPrice());
+            assertThat(updated.getDownloadPrice()).isNull();
         }
 
         @Test
@@ -200,9 +200,9 @@ class AlbumDistributionTest {
             var updated = distribution.changeDownloadPrice(newPrice);
 
             // Assert
-            assertEquals(physicalPrice, updated.getPhysicalPrice());
-            assertEquals(demoUrl, updated.getDemoUrl());
-            assertEquals(note, updated.getNote());
+            assertThat(updated.getPhysicalPrice()).isEqualTo(physicalPrice);
+            assertThat(updated.getDemoUrl()).isEqualTo(demoUrl);
+            assertThat(updated.getNote()).isEqualTo(note);
         }
     }
 
@@ -221,7 +221,7 @@ class AlbumDistributionTest {
             var updated = distribution.changeDemoUrl(newUrl);
 
             // Assert
-            assertEquals(newUrl, updated.getDemoUrl());
+            assertThat(updated.getDemoUrl()).isEqualTo(newUrl);
         }
 
         @Test
@@ -234,7 +234,7 @@ class AlbumDistributionTest {
             var updated = distribution.changeDemoUrl(null);
 
             // Assert
-            assertNull(updated.getDemoUrl());
+            assertThat(updated.getDemoUrl()).isNull();
         }
 
         @Test
@@ -251,9 +251,9 @@ class AlbumDistributionTest {
             var updated = distribution.changeDemoUrl(newUrl);
 
             // Assert
-            assertEquals(physicalPrice, updated.getPhysicalPrice());
-            assertEquals(downloadPrice, updated.getDownloadPrice());
-            assertEquals(note, updated.getNote());
+            assertThat(updated.getPhysicalPrice()).isEqualTo(physicalPrice);
+            assertThat(updated.getDownloadPrice()).isEqualTo(downloadPrice);
+            assertThat(updated.getNote()).isEqualTo(note);
         }
     }
 
@@ -272,7 +272,7 @@ class AlbumDistributionTest {
             var updated = distribution.changeNote(newNote);
 
             // Assert
-            assertEquals(newNote, updated.getNote());
+            assertThat(updated.getNote()).isEqualTo(newNote);
         }
 
         @Test
@@ -285,7 +285,7 @@ class AlbumDistributionTest {
             var updated = distribution.changeNote(null);
 
             // Assert
-            assertNull(updated.getNote());
+            assertThat(updated.getNote()).isNull();
         }
 
         @Test
@@ -302,9 +302,9 @@ class AlbumDistributionTest {
             var updated = distribution.changeNote(newNote);
 
             // Assert
-            assertEquals(physicalPrice, updated.getPhysicalPrice());
-            assertEquals(downloadPrice, updated.getDownloadPrice());
-            assertEquals(demoUrl, updated.getDemoUrl());
+            assertThat(updated.getPhysicalPrice()).isEqualTo(physicalPrice);
+            assertThat(updated.getDownloadPrice()).isEqualTo(downloadPrice);
+            assertThat(updated.getDemoUrl()).isEqualTo(demoUrl);
         }
     }
 
@@ -325,10 +325,10 @@ class AlbumDistributionTest {
             var step4 = step3.changeNote("イベント頒布開始");
 
             // Assert
-            assertEquals(Price.of(1000), step4.getPhysicalPrice());
-            assertEquals(Price.of(500), step4.getDownloadPrice());
-            assertEquals(Url.of("https://demo.example.com"), step4.getDemoUrl());
-            assertEquals("イベント頒布開始", step4.getNote());
+            assertThat(step4.getPhysicalPrice()).isEqualTo(Price.of(1000));
+            assertThat(step4.getDownloadPrice()).isEqualTo(Price.of(500));
+            assertThat(step4.getDemoUrl()).isEqualTo(Url.of("https://demo.example.com"));
+            assertThat(step4.getNote()).isEqualTo("イベント頒布開始");
         }
 
         @Test
@@ -342,9 +342,9 @@ class AlbumDistributionTest {
                     .changeNote("価格改定後");
 
             // Assert
-            assertEquals(Price.of(800), revised.getPhysicalPrice());
-            assertEquals(Price.of(400), revised.getDownloadPrice());
-            assertEquals("価格改定後", revised.getNote());
+            assertThat(revised.getPhysicalPrice()).isEqualTo(Price.of(800));
+            assertThat(revised.getDownloadPrice()).isEqualTo(Price.of(400));
+            assertThat(revised.getNote()).isEqualTo("価格改定後");
         }
 
         @Test
@@ -358,10 +358,10 @@ class AlbumDistributionTest {
             var ended = distribution.changePhysicalPrice(null).changeDownloadPrice(null).changeNote("頒布終了");
 
             // Assert
-            assertNull(ended.getPhysicalPrice());
-            assertNull(ended.getDownloadPrice());
-            assertEquals(Url.of("https://demo.example.com"), ended.getDemoUrl()); // デモは残す
-            assertEquals("頒布終了", ended.getNote());
+            assertThat(ended.getPhysicalPrice()).isNull();
+            assertThat(ended.getDownloadPrice()).isNull();
+            assertThat(ended.getDemoUrl()).isEqualTo(Url.of("https://demo.example.com")); // デモは残す
+            assertThat(ended.getNote()).isEqualTo("頒布終了");
         }
     }
 }
