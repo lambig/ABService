@@ -1,9 +1,9 @@
 package com.abservice.domain.model.aggregate.album;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
@@ -198,9 +198,7 @@ public class Track implements DomainEntity<Track, Track.Id> {
         if (tunes.stream().anyMatch(t -> t.seq().equals(validatedTune.seq()))) {
             throw new IllegalArgumentException("Tune seq " + validatedTune.seq() + " already exists in this track");
         }
-        var newTunes = new ArrayList<>(tunes);
-        newTunes.add(validatedTune);
-        return withTunes(Collections.unmodifiableList(newTunes));
+        return withTunes(Stream.concat(tunes.stream(), Stream.of(validatedTune)).toList());
     }
 
     /**
@@ -213,12 +211,10 @@ public class Track implements DomainEntity<Track, Track.Id> {
     public @NonNull Track removeTune(@NonNull Integer seq) {
         var validatedSeq = Optional.ofNullable(seq)
                 .orElseThrow(() -> new IllegalArgumentException("Seq cannot be null"));
-        var newTunes = new ArrayList<>(tunes);
-        var removed = newTunes.removeIf(t -> t.seq().equals(validatedSeq));
-        if (!removed) {
+        if (tunes.stream().noneMatch(t -> t.seq().equals(validatedSeq))) {
             throw new IllegalArgumentException("Tune with seq " + validatedSeq + " not found");
         }
-        return withTunes(Collections.unmodifiableList(newTunes));
+        return withTunes(tunes.stream().filter(t -> !t.seq().equals(validatedSeq)).toList());
     }
 
     /**
@@ -231,12 +227,10 @@ public class Track implements DomainEntity<Track, Track.Id> {
     public @NonNull Track updateTune(@NonNull TrackTune updatedTune) {
         var validatedTune = Optional.ofNullable(updatedTune)
                 .orElseThrow(() -> new IllegalArgumentException("Updated tune cannot be null"));
-        var newTunes = new ArrayList<>(tunes);
-        var index = newTunes.stream().filter(t -> t.seq().equals(validatedTune.seq())).findFirst()
-                .map(newTunes::indexOf)
-                .orElseThrow(() -> new IllegalArgumentException("Tune with seq " + validatedTune.seq() + " not found"));
-        newTunes.set(index, validatedTune);
-        return withTunes(Collections.unmodifiableList(newTunes));
+        if (tunes.stream().noneMatch(t -> t.seq().equals(validatedTune.seq()))) {
+            throw new IllegalArgumentException("Tune with seq " + validatedTune.seq() + " not found");
+        }
+        return withTunes(tunes.stream().map(t -> t.seq().equals(validatedTune.seq()) ? validatedTune : t).toList());
     }
 
     /**

@@ -9,10 +9,10 @@ import com.abservice.domain.model.entity.article.ArticleTag;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.model.vo.article.MarkupContent;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -241,9 +241,8 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
         if (tags.stream().anyMatch(t -> t.id().equals(validatedTag.id()))) {
             throw new IllegalArgumentException("Tag with ID " + validatedTag.id().value() + " already exists");
         }
-        var newTags = new ArrayList<>(tags);
-        newTags.add(validatedTag);
-        return withTags(Collections.unmodifiableList(newTags)).withUpdatedAtBusiness(currentDateTime);
+        return withTags(Stream.concat(tags.stream(), Stream.of(validatedTag)).toList())
+                .withUpdatedAtBusiness(currentDateTime);
     }
 
     /**

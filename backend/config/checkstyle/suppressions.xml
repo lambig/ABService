@@ -11,4 +11,8 @@
     <!-- try/catch 禁止（DomainNoTryCatch）は production の domain 層のみに適用。それ以外は抑制する -->
     <suppress id="DomainNoTryCatch"
         files="^(?!.*[\\/]src[\\/]main[\\/]java[\\/]com[\\/]abservice[\\/]domain[\\/]).*$"/>
+
+    <!-- 可変コレクション生成禁止（DomainNoMutableCollection）も production の domain 層のみに適用 -->
+    <suppress id="DomainNoMutableCollection"
+        files="^(?!.*[\\/]src[\\/]main[\\/]java[\\/]com[\\/]abservice[\\/]domain[\\/]).*$"/>
 </suppressions>
