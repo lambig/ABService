@@ -1,6 +1,7 @@
 package com.abservice.domain.model.aggregate.album;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 
@@ -35,15 +36,15 @@ class AlbumTest {
             var album = Album.create(title, releaseDate, artistCredit, null, null, null);
 
             // Assert
-            assertNotNull(album);
-            assertNotNull(album.id());
-            assertEquals(title, album.title());
-            assertEquals(releaseDate, album.releaseDate());
-            assertEquals(artistCredit, album.artistCredit());
-            assertNull(album.eventReleasedAt());
-            assertNull(album.catalogNumber());
-            assertNull(album.isdn());
-            assertTrue(album.getTracks().isEmpty());
+            assertThat(album).isNotNull();
+            assertThat(album.id()).isNotNull();
+            assertThat(album.title()).isEqualTo(title);
+            assertThat(album.releaseDate()).isEqualTo(releaseDate);
+            assertThat(album.artistCredit()).isEqualTo(artistCredit);
+            assertThat(album.eventReleasedAt()).isNull();
+            assertThat(album.catalogNumber()).isNull();
+            assertThat(album.isdn()).isNull();
+            assertThat(album.getTracks().isEmpty()).isTrue();
         }
 
         @Test
@@ -62,10 +63,10 @@ class AlbumTest {
             var album = Album.create(title, releaseDate, artistCredit, eventReleasedAt, catalogNumber, isdn);
 
             // Assert
-            assertNotNull(album);
-            assertEquals(eventReleasedAt, album.eventReleasedAt());
-            assertEquals(catalogNumber, album.catalogNumber());
-            assertEquals(isdn, album.isdn());
+            assertThat(album).isNotNull();
+            assertThat(album.eventReleasedAt()).isEqualTo(eventReleasedAt);
+            assertThat(album.catalogNumber()).isEqualTo(catalogNumber);
+            assertThat(album.isdn()).isEqualTo(isdn);
         }
 
         @Test
@@ -76,10 +77,8 @@ class AlbumTest {
             var artistCredit = ArtistCredit.of("Artist");
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
-                Album.create(null, releaseDate, artistCredit, null, null, null);
-            });
-            assertEquals("Album title cannot be null", exception.getMessage());
+            assertThatThrownBy(() -> Album.create(null, releaseDate, artistCredit, null, null, null))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessage("Album title cannot be null");
         }
 
         @Test
@@ -90,10 +89,8 @@ class AlbumTest {
             var releaseDate = BusinessDate.of(2024, 1, 15);
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
-                Album.create(title, releaseDate, null, null, null, null);
-            });
-            assertEquals("Artist credit cannot be null", exception.getMessage());
+            assertThatThrownBy(() -> Album.create(title, releaseDate, null, null, null, null))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessage("Artist credit cannot be null");
         }
     }
 
@@ -112,8 +109,8 @@ class AlbumTest {
             var updated = album.changeTitle(newTitle);
 
             // Assert
-            assertEquals(newTitle, updated.title());
-            assertEquals(album.id(), updated.id()); // IDは変わらない
+            assertThat(updated.title()).isEqualTo(newTitle);
+            assertThat(updated.id()).isEqualTo(album.id()); // IDは変わらない
         }
 
         @Test
@@ -123,10 +120,8 @@ class AlbumTest {
             var album = createTestAlbum();
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
-                album.changeTitle(null);
-            });
-            assertEquals("Album title cannot be null", exception.getMessage());
+            assertThatThrownBy(() -> album.changeTitle(null)).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Album title cannot be null");
         }
     }
 
@@ -145,7 +140,7 @@ class AlbumTest {
             var updated = album.changeArtistCredit(newCredit);
 
             // Assert
-            assertEquals(newCredit, updated.artistCredit());
+            assertThat(updated.artistCredit()).isEqualTo(newCredit);
         }
 
         @Test
@@ -155,10 +150,8 @@ class AlbumTest {
             var album = createTestAlbum();
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
-                album.changeArtistCredit(null);
-            });
-            assertEquals("Artist credit cannot be null", exception.getMessage());
+            assertThatThrownBy(() -> album.changeArtistCredit(null)).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Artist credit cannot be null");
         }
     }
 
@@ -177,8 +170,8 @@ class AlbumTest {
             var updated = album.addTrack(track);
 
             // Assert
-            assertEquals(1, updated.getTrackCount());
-            assertTrue(updated.getTracks().contains(track));
+            assertThat(updated.getTrackCount()).isEqualTo(1);
+            assertThat(updated.getTracks().contains(track)).isTrue();
         }
 
         @Test
@@ -194,8 +187,8 @@ class AlbumTest {
             var updated = album.addTrack(track1).addTrack(track2).addTrack(track3);
 
             // Assert
-            assertEquals(3, updated.getTrackCount());
-            assertEquals(List.of(track1, track2, track3), updated.getTracks());
+            assertThat(updated.getTrackCount()).isEqualTo(3);
+            assertThat(updated.getTracks()).isEqualTo(List.of(track1, track2, track3));
         }
 
         @Test
@@ -205,10 +198,8 @@ class AlbumTest {
             var album = createTestAlbum();
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
-                album.addTrack(null);
-            });
-            assertEquals("Track cannot be null", exception.getMessage());
+            assertThatThrownBy(() -> album.addTrack(null)).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Track cannot be null");
         }
 
         @Test
@@ -222,10 +213,8 @@ class AlbumTest {
 
             // Act & Assert
             var finalAlbum = album;
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
-                finalAlbum.addTrack(track2);
-            });
-            assertEquals("Track number 1 already exists", exception.getMessage());
+            assertThatThrownBy(() -> finalAlbum.addTrack(track2)).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Track number 1 already exists");
         }
     }
 
@@ -245,8 +234,8 @@ class AlbumTest {
             var updated = album.removeTrack(track.id());
 
             // Assert
-            assertEquals(0, updated.getTrackCount());
-            assertFalse(updated.getTracks().contains(track));
+            assertThat(updated.getTrackCount()).isEqualTo(0);
+            assertThat(updated.getTracks().contains(track)).isFalse();
         }
 
         @Test
@@ -263,10 +252,10 @@ class AlbumTest {
             var updated = album.removeTrack(track2.id());
 
             // Assert
-            assertEquals(2, updated.getTrackCount());
-            assertTrue(updated.getTracks().contains(track1));
-            assertFalse(updated.getTracks().contains(track2));
-            assertTrue(updated.getTracks().contains(track3));
+            assertThat(updated.getTrackCount()).isEqualTo(2);
+            assertThat(updated.getTracks().contains(track1)).isTrue();
+            assertThat(updated.getTracks().contains(track2)).isFalse();
+            assertThat(updated.getTracks().contains(track3)).isTrue();
         }
 
         @Test
@@ -277,10 +266,8 @@ class AlbumTest {
             var nonExistentId = Track.Id.generate();
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
-                album.removeTrack(nonExistentId);
-            });
-            assertTrue(exception.getMessage().contains("not found"));
+            assertThatThrownBy(() -> album.removeTrack(nonExistentId)).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("not found");
         }
 
         @Test
@@ -290,10 +277,8 @@ class AlbumTest {
             var album = createTestAlbum();
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
-                album.removeTrack(null);
-            });
-            assertEquals("Track ID cannot be null", exception.getMessage());
+            assertThatThrownBy(() -> album.removeTrack(null)).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Track ID cannot be null");
         }
     }
 
@@ -318,7 +303,7 @@ class AlbumTest {
 
             // Assert
             var resultTrack = updated.getTrack(originalTrack.id());
-            assertEquals("Updated Title", resultTrack.title().value());
+            assertThat(resultTrack.title().value()).isEqualTo("Updated Title");
         }
 
         @Test
@@ -328,10 +313,8 @@ class AlbumTest {
             var album = createTestAlbum();
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
-                album.updateTrack(null);
-            });
-            assertEquals("Updated track cannot be null", exception.getMessage());
+            assertThatThrownBy(() -> album.updateTrack(null)).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Updated track cannot be null");
         }
 
         @Test
@@ -346,10 +329,8 @@ class AlbumTest {
 
             // Act & Assert
             var finalAlbum = album;
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
-                finalAlbum.updateTrack(nonExistentTrack);
-            });
-            assertTrue(exception.getMessage().contains("not found"));
+            assertThatThrownBy(() -> finalAlbum.updateTrack(nonExistentTrack))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("not found");
         }
 
         @Test
@@ -368,10 +349,8 @@ class AlbumTest {
 
             // Act & Assert
             var finalAlbum = album;
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
-                finalAlbum.updateTrack(updatedTrack);
-            });
-            assertEquals("Track number 1 already exists", exception.getMessage());
+            assertThatThrownBy(() -> finalAlbum.updateTrack(updatedTrack)).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Track number 1 already exists");
         }
     }
 
@@ -397,13 +376,13 @@ class AlbumTest {
 
             // Assert
             var sortedTracks = updated.getTracksSortedByTrackNo();
-            assertEquals(3, sortedTracks.size());
-            assertEquals(track3.id(), sortedTracks.get(0).id());
-            assertEquals(1, sortedTracks.get(0).trackNo());
-            assertEquals(track2.id(), sortedTracks.get(1).id());
-            assertEquals(2, sortedTracks.get(1).trackNo());
-            assertEquals(track1.id(), sortedTracks.get(2).id());
-            assertEquals(3, sortedTracks.get(2).trackNo());
+            assertThat(sortedTracks.size()).isEqualTo(3);
+            assertThat(sortedTracks.get(0).id()).isEqualTo(track3.id());
+            assertThat(sortedTracks.get(0).trackNo()).isEqualTo(1);
+            assertThat(sortedTracks.get(1).id()).isEqualTo(track2.id());
+            assertThat(sortedTracks.get(1).trackNo()).isEqualTo(2);
+            assertThat(sortedTracks.get(2).id()).isEqualTo(track1.id());
+            assertThat(sortedTracks.get(2).trackNo()).isEqualTo(3);
         }
 
         @Test
@@ -418,10 +397,9 @@ class AlbumTest {
 
             // Act & Assert
             var finalAlbum = album;
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
-                finalAlbum.reorderTracks(invalidOrder);
-            });
-            assertEquals("Ordered track IDs must match the number of tracks", exception.getMessage());
+            assertThatThrownBy(() -> finalAlbum.reorderTracks(invalidOrder))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Ordered track IDs must match the number of tracks");
         }
 
         @Test
@@ -436,10 +414,8 @@ class AlbumTest {
 
             // Act & Assert
             var finalAlbum = album;
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
-                finalAlbum.reorderTracks(invalidOrder);
-            });
-            assertTrue(exception.getMessage().contains("not found"));
+            assertThatThrownBy(() -> finalAlbum.reorderTracks(invalidOrder))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("not found");
         }
     }
 
@@ -459,9 +435,9 @@ class AlbumTest {
             var result = album.getTrack(track.id());
 
             // Assert
-            assertNotNull(result);
-            assertEquals(track.id(), result.id());
-            assertEquals(track.title(), result.title());
+            assertThat(result).isNotNull();
+            assertThat(result.id()).isEqualTo(track.id());
+            assertThat(result.title()).isEqualTo(track.title());
         }
 
         @Test
@@ -472,10 +448,8 @@ class AlbumTest {
             var nonExistentId = Track.Id.generate();
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
-                album.getTrack(nonExistentId);
-            });
-            assertTrue(exception.getMessage().contains("not found"));
+            assertThatThrownBy(() -> album.getTrack(nonExistentId)).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("not found");
         }
 
         @Test
@@ -493,10 +467,10 @@ class AlbumTest {
             var sorted = album.getTracksSortedByTrackNo();
 
             // Assert
-            assertEquals(3, sorted.size());
-            assertEquals(1, sorted.get(0).trackNo());
-            assertEquals(2, sorted.get(1).trackNo());
-            assertEquals(3, sorted.get(2).trackNo());
+            assertThat(sorted.size()).isEqualTo(3);
+            assertThat(sorted.get(0).trackNo()).isEqualTo(1);
+            assertThat(sorted.get(1).trackNo()).isEqualTo(2);
+            assertThat(sorted.get(2).trackNo()).isEqualTo(3);
         }
     }
 
@@ -511,9 +485,9 @@ class AlbumTest {
             var id = Album.Id.generate();
 
             // Assert
-            assertNotNull(id);
-            assertNotNull(id.value());
-            assertFalse(id.value().isBlank());
+            assertThat(id).isNotNull();
+            assertThat(id.value()).isNotNull();
+            assertThat(id.value().isBlank()).isFalse();
         }
 
         @Test
@@ -526,25 +500,21 @@ class AlbumTest {
             var id = Album.Id.of(validUuid);
 
             // Assert
-            assertEquals(validUuid, id.value());
+            assertThat(id.value()).isEqualTo(validUuid);
         }
 
         @Test
         @DisplayName("空文字列からIDを生成しようとすると例外が発生すること")
         void ofWithBlankStringShouldThrowException() {
             // Act & Assert
-            assertThrows(IllegalArgumentException.class, () -> {
-                Album.Id.of("");
-            });
+            assertThatThrownBy(() -> Album.Id.of("")).isInstanceOf(IllegalArgumentException.class);
         }
 
         @Test
         @DisplayName("不正なUUID形式の文字列からIDを生成しようとすると例外が発生すること")
         void ofWithInvalidUuidShouldThrowException() {
             // Act & Assert
-            assertThrows(IllegalArgumentException.class, () -> {
-                Album.Id.of("invalid-uuid");
-            });
+            assertThatThrownBy(() -> Album.Id.of("invalid-uuid")).isInstanceOf(IllegalArgumentException.class);
         }
 
         @Test
@@ -556,8 +526,8 @@ class AlbumTest {
             var id2 = Album.Id.of(value);
 
             // Act & Assert
-            assertEquals(id1, id2);
-            assertEquals(id1.hashCode(), id2.hashCode());
+            assertThat(id2).isEqualTo(id1);
+            assertThat(id2.hashCode()).isEqualTo(id1.hashCode());
         }
     }
 

@@ -1,6 +1,7 @@
 package com.abservice.domain.model.aggregate.album;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -28,12 +29,12 @@ class TrackTuneTest {
             var trackTune = TrackTune.create(seq, tuneId, null, null, null);
 
             // Assert
-            assertNotNull(trackTune);
-            assertEquals(seq, trackTune.seq());
-            assertEquals(tuneId, trackTune.tuneId());
-            assertNull(trackTune.composerCreditOverride());
-            assertNull(trackTune.arrangerCreditOverride());
-            assertNull(trackTune.linkUrl());
+            assertThat(trackTune).isNotNull();
+            assertThat(trackTune.seq()).isEqualTo(seq);
+            assertThat(trackTune.tuneId()).isEqualTo(tuneId);
+            assertThat(trackTune.composerCreditOverride()).isNull();
+            assertThat(trackTune.arrangerCreditOverride()).isNull();
+            assertThat(trackTune.linkUrl()).isNull();
         }
 
         @Test
@@ -50,12 +51,12 @@ class TrackTuneTest {
             var trackTune = TrackTune.create(seq, tuneId, composerCredit, arrangerCredit, url);
 
             // Assert
-            assertNotNull(trackTune);
-            assertEquals(seq, trackTune.seq());
-            assertEquals(tuneId, trackTune.tuneId());
-            assertEquals(composerCredit, trackTune.composerCreditOverride());
-            assertEquals(arrangerCredit, trackTune.arrangerCreditOverride());
-            assertEquals(url, trackTune.linkUrl());
+            assertThat(trackTune).isNotNull();
+            assertThat(trackTune.seq()).isEqualTo(seq);
+            assertThat(trackTune.tuneId()).isEqualTo(tuneId);
+            assertThat(trackTune.composerCreditOverride()).isEqualTo(composerCredit);
+            assertThat(trackTune.arrangerCreditOverride()).isEqualTo(arrangerCredit);
+            assertThat(trackTune.linkUrl()).isEqualTo(url);
         }
 
         @Test
@@ -68,8 +69,8 @@ class TrackTuneTest {
             var trackTune = TrackTune.create(seq, null, null, null, null);
 
             // Assert
-            assertNotNull(trackTune);
-            assertNull(trackTune.tuneId());
+            assertThat(trackTune).isNotNull();
+            assertThat(trackTune.tuneId()).isNull();
         }
 
         @Test
@@ -79,10 +80,9 @@ class TrackTuneTest {
             var tuneId = Tune.Id.generate();
 
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
+            assertThatThrownBy(() -> {
                 TrackTune.create(null, tuneId, null, null, null);
-            });
-            assertEquals("Seq cannot be null", exception.getMessage());
+            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Seq cannot be null");
         }
     }
 
@@ -104,12 +104,12 @@ class TrackTuneTest {
             var trackTune = TrackTune.reconstruct(seq, tuneId, composerCredit, arrangerCredit, url);
 
             // Assert
-            assertNotNull(trackTune);
-            assertEquals(seq, trackTune.seq());
-            assertEquals(tuneId, trackTune.tuneId());
-            assertEquals(composerCredit, trackTune.composerCreditOverride());
-            assertEquals(arrangerCredit, trackTune.arrangerCreditOverride());
-            assertEquals(url, trackTune.linkUrl());
+            assertThat(trackTune).isNotNull();
+            assertThat(trackTune.seq()).isEqualTo(seq);
+            assertThat(trackTune.tuneId()).isEqualTo(tuneId);
+            assertThat(trackTune.composerCreditOverride()).isEqualTo(composerCredit);
+            assertThat(trackTune.arrangerCreditOverride()).isEqualTo(arrangerCredit);
+            assertThat(trackTune.linkUrl()).isEqualTo(url);
         }
     }
 
@@ -128,8 +128,8 @@ class TrackTuneTest {
             var updated = original.changeTuneId(newTuneId);
 
             // Assert
-            assertEquals(newTuneId, updated.tuneId());
-            assertEquals(original.seq(), updated.seq());
+            assertThat(updated.tuneId()).isEqualTo(newTuneId);
+            assertThat(updated.seq()).isEqualTo(original.seq());
         }
 
         @Test
@@ -142,7 +142,7 @@ class TrackTuneTest {
             var updated = original.changeTuneId(null);
 
             // Assert
-            assertNull(updated.tuneId());
+            assertThat(updated.tuneId()).isNull();
         }
     }
 
@@ -161,7 +161,7 @@ class TrackTuneTest {
             var updated = original.changeComposerCreditOverride(composerCredit);
 
             // Assert
-            assertEquals(composerCredit, updated.composerCreditOverride());
+            assertThat(updated.composerCreditOverride()).isEqualTo(composerCredit);
         }
 
         @Test
@@ -175,7 +175,7 @@ class TrackTuneTest {
             var updated = original.changeComposerCreditOverride(null);
 
             // Assert
-            assertNull(updated.composerCreditOverride());
+            assertThat(updated.composerCreditOverride()).isNull();
         }
 
         @Test
@@ -192,10 +192,10 @@ class TrackTuneTest {
             var updated = original.changeComposerCreditOverride(composerCredit);
 
             // Assert
-            assertEquals(original.seq(), updated.seq());
-            assertEquals(original.tuneId(), updated.tuneId());
-            assertEquals(original.arrangerCreditOverride(), updated.arrangerCreditOverride());
-            assertEquals(original.linkUrl(), updated.linkUrl());
+            assertThat(updated.seq()).isEqualTo(original.seq());
+            assertThat(updated.tuneId()).isEqualTo(original.tuneId());
+            assertThat(updated.arrangerCreditOverride()).isEqualTo(original.arrangerCreditOverride());
+            assertThat(updated.linkUrl()).isEqualTo(original.linkUrl());
         }
     }
 
@@ -214,7 +214,7 @@ class TrackTuneTest {
             var updated = original.changeArrangerCreditOverride(arrangerCredit);
 
             // Assert
-            assertEquals(arrangerCredit, updated.arrangerCreditOverride());
+            assertThat(updated.arrangerCreditOverride()).isEqualTo(arrangerCredit);
         }
 
         @Test
@@ -228,7 +228,7 @@ class TrackTuneTest {
             var updated = original.changeArrangerCreditOverride(null);
 
             // Assert
-            assertNull(updated.arrangerCreditOverride());
+            assertThat(updated.arrangerCreditOverride()).isNull();
         }
 
         @Test
@@ -245,10 +245,10 @@ class TrackTuneTest {
             var updated = original.changeArrangerCreditOverride(arrangerCredit);
 
             // Assert
-            assertEquals(original.seq(), updated.seq());
-            assertEquals(original.tuneId(), updated.tuneId());
-            assertEquals(original.composerCreditOverride(), updated.composerCreditOverride());
-            assertEquals(original.linkUrl(), updated.linkUrl());
+            assertThat(updated.seq()).isEqualTo(original.seq());
+            assertThat(updated.tuneId()).isEqualTo(original.tuneId());
+            assertThat(updated.composerCreditOverride()).isEqualTo(original.composerCreditOverride());
+            assertThat(updated.linkUrl()).isEqualTo(original.linkUrl());
         }
     }
 
@@ -267,7 +267,7 @@ class TrackTuneTest {
             var updated = original.changeLinkUrl(url);
 
             // Assert
-            assertEquals(url, updated.linkUrl());
+            assertThat(updated.linkUrl()).isEqualTo(url);
         }
 
         @Test
@@ -281,7 +281,7 @@ class TrackTuneTest {
             var updated = original.changeLinkUrl(null);
 
             // Assert
-            assertNull(updated.linkUrl());
+            assertThat(updated.linkUrl()).isNull();
         }
 
         @Test
@@ -298,10 +298,10 @@ class TrackTuneTest {
             var updated = original.changeLinkUrl(url);
 
             // Assert
-            assertEquals(original.seq(), updated.seq());
-            assertEquals(original.tuneId(), updated.tuneId());
-            assertEquals(original.composerCreditOverride(), updated.composerCreditOverride());
-            assertEquals(original.arrangerCreditOverride(), updated.arrangerCreditOverride());
+            assertThat(updated.seq()).isEqualTo(original.seq());
+            assertThat(updated.tuneId()).isEqualTo(original.tuneId());
+            assertThat(updated.composerCreditOverride()).isEqualTo(original.composerCreditOverride());
+            assertThat(updated.arrangerCreditOverride()).isEqualTo(original.arrangerCreditOverride());
         }
     }
 
@@ -319,8 +319,8 @@ class TrackTuneTest {
             var trackTune2 = TrackTune.create(1, tuneId2, null, null, null);
 
             // Act & Assert
-            assertEquals(trackTune1, trackTune2);
-            assertEquals(trackTune1.hashCode(), trackTune2.hashCode());
+            assertThat(trackTune2).isEqualTo(trackTune1);
+            assertThat(trackTune2.hashCode()).isEqualTo(trackTune1.hashCode());
         }
 
         @Test
@@ -332,7 +332,7 @@ class TrackTuneTest {
             var trackTune2 = TrackTune.create(2, tuneId, null, null, null);
 
             // Act & Assert
-            assertNotEquals(trackTune1, trackTune2);
+            assertThat(trackTune2).isNotEqualTo(trackTune1);
         }
     }
 }

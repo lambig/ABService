@@ -1,7 +1,7 @@
 package com.abservice.domain.model.vo.article;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.abservice.lib.Result;
 import org.junit.jupiter.api.DisplayName;
@@ -22,9 +22,9 @@ class MarkupContentTest {
             var content = MarkupContent.plainText("Hello, World!");
 
             // Assert
-            assertNotNull(content);
-            assertEquals("Hello, World!", content.content());
-            assertEquals(MarkupFormat.PLAIN_TEXT, content.format());
+            assertThat(content).isNotNull();
+            assertThat(content.content()).isEqualTo("Hello, World!");
+            assertThat(content.format()).isEqualTo(MarkupFormat.PLAIN_TEXT);
         }
 
         @Test
@@ -34,9 +34,9 @@ class MarkupContentTest {
             var content = MarkupContent.markdown("# Title\n\nThis is **bold**.");
 
             // Assert
-            assertNotNull(content);
-            assertEquals("# Title\n\nThis is **bold**.", content.content());
-            assertEquals(MarkupFormat.MARKDOWN, content.format());
+            assertThat(content).isNotNull();
+            assertThat(content.content()).isEqualTo("# Title\n\nThis is **bold**.");
+            assertThat(content.format()).isEqualTo(MarkupFormat.MARKDOWN);
         }
 
         @Test
@@ -46,9 +46,9 @@ class MarkupContentTest {
             var content = MarkupContent.html("<h1>Title</h1><p>Paragraph</p>");
 
             // Assert
-            assertNotNull(content);
-            assertEquals("<h1>Title</h1><p>Paragraph</p>", content.content());
-            assertEquals(MarkupFormat.HTML, content.format());
+            assertThat(content).isNotNull();
+            assertThat(content.content()).isEqualTo("<h1>Title</h1><p>Paragraph</p>");
+            assertThat(content.format()).isEqualTo(MarkupFormat.HTML);
         }
 
         @Test
@@ -58,19 +58,17 @@ class MarkupContentTest {
             var content = MarkupContent.markdown(null);
 
             // Assert
-            assertNotNull(content);
-            assertEquals("", content.content());
-            assertEquals(MarkupFormat.MARKDOWN, content.format());
+            assertThat(content).isNotNull();
+            assertThat(content.content()).isEqualTo("");
+            assertThat(content.format()).isEqualTo(MarkupFormat.MARKDOWN);
         }
 
         @Test
         @DisplayName("nullフォーマットでは例外が発生すること")
         void createWithNullFormatShouldThrowException() {
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
-                new MarkupContent("content", null);
-            });
-            assertEquals("Markup format cannot be null", exception.getMessage());
+            assertThatThrownBy(() -> new MarkupContent("content", null)).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Markup format cannot be null");
         }
     }
 
@@ -82,10 +80,8 @@ class MarkupContentTest {
         @DisplayName("plainTextでnullコンテンツを渡すと例外が発生すること")
         void plainTextWithNullShouldThrowException() {
             // Act & Assert
-            var exception = assertThrows(IllegalArgumentException.class, () -> {
-                MarkupContent.plainText(null);
-            });
-            assertEquals("Content cannot be null", exception.getMessage());
+            assertThatThrownBy(() -> MarkupContent.plainText(null)).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Content cannot be null");
         }
 
         @Test
@@ -95,7 +91,7 @@ class MarkupContentTest {
             var content = MarkupContent.plainText("");
 
             // Act & Assert
-            assertTrue(content.isEmpty());
+            assertThat(content.isEmpty()).isTrue();
         }
 
         @Test
@@ -105,7 +101,7 @@ class MarkupContentTest {
             var content = MarkupContent.plainText("   ");
 
             // Act & Assert
-            assertTrue(content.isEmpty());
+            assertThat(content.isEmpty()).isTrue();
         }
 
         @Test
@@ -115,7 +111,7 @@ class MarkupContentTest {
             var content = MarkupContent.markdown("Content");
 
             // Act & Assert
-            assertFalse(content.isEmpty());
+            assertThat(content.isEmpty()).isFalse();
         }
     }
 
@@ -130,7 +126,7 @@ class MarkupContentTest {
             var content = MarkupContent.markdown("");
 
             // Act & Assert
-            assertEquals(0, content.length());
+            assertThat(content.length()).isEqualTo(0);
         }
 
         @Test
@@ -140,7 +136,7 @@ class MarkupContentTest {
             var content = MarkupContent.markdown("Hello");
 
             // Act & Assert
-            assertEquals(5, content.length());
+            assertThat(content.length()).isEqualTo(5);
         }
     }
 
@@ -156,8 +152,8 @@ class MarkupContentTest {
             var content2 = MarkupContent.markdown("Test");
 
             // Act & Assert
-            assertTrue(content1.equivalentTo(content2));
-            assertEquals(content1, content2);
+            assertThat(content1.equivalentTo(content2)).isTrue();
+            assertThat(content2).isEqualTo(content1);
         }
 
         @Test
@@ -168,8 +164,8 @@ class MarkupContentTest {
             var content2 = MarkupContent.markdown("Test2");
 
             // Act & Assert
-            assertFalse(content1.equivalentTo(content2));
-            assertNotEquals(content1, content2);
+            assertThat(content1.equivalentTo(content2)).isFalse();
+            assertThat(content2).isNotEqualTo(content1);
         }
 
         @Test
@@ -180,8 +176,8 @@ class MarkupContentTest {
             var content2 = MarkupContent.html("Test");
 
             // Act & Assert
-            assertFalse(content1.equivalentTo(content2));
-            assertNotEquals(content1, content2);
+            assertThat(content1.equivalentTo(content2)).isFalse();
+            assertThat(content2).isNotEqualTo(content1);
         }
 
         @Test
@@ -191,7 +187,7 @@ class MarkupContentTest {
             var content = MarkupContent.plainText("Test");
 
             // Act & Assert
-            assertFalse(content.equivalentTo(null));
+            assertThat(content.equivalentTo(null)).isFalse();
         }
 
         @Test
@@ -202,8 +198,8 @@ class MarkupContentTest {
             var content2 = MarkupContent.markdown("");
 
             // Act & Assert
-            assertTrue(content1.equivalentTo(content2));
-            assertEquals(content1, content2);
+            assertThat(content1.equivalentTo(content2)).isTrue();
+            assertThat(content2).isEqualTo(content1);
         }
     }
 
