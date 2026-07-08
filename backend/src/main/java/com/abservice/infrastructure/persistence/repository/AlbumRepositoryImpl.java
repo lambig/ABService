@@ -10,8 +10,10 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * AlbumRepository実装
@@ -54,12 +56,11 @@ public class AlbumRepositoryImpl implements AlbumRepository {
 
                                     // トラックを更新
                                     existingEntity.getTracks().clear();
-                                    if (entity.getTracks() != null) {
-                                        entity.getTracks().forEach(track -> {
-                                            track.setAlbum(existingEntity);
-                                            existingEntity.getTracks().add(track);
-                                        });
-                                    }
+                                    Optional.ofNullable(entity.getTracks())
+                                            .ifPresent(tracks -> tracks.forEach(track -> {
+                                                track.setAlbum(existingEntity);
+                                                existingEntity.getTracks().add(track);
+                                            }));
 
                                     return dataSource.persistAndFlush(existingEntity);
                                 })
@@ -178,7 +179,7 @@ public class AlbumRepositoryImpl implements AlbumRepository {
 
     @Override
     public Uni<List<Album>> findByArtistName(String artistName) {
-        return artistName == null || artistName.isBlank()
+        return StringUtils.isBlank(artistName)
                 ? Uni.createFrom().item(List.of())
                 : dataSource.findByArtistDisplayName(artistName)
                         .map(entities -> entities.stream().map(AlbumMapper::toDomain).collect(Collectors.toList()));
@@ -186,7 +187,7 @@ public class AlbumRepositoryImpl implements AlbumRepository {
 
     @Override
     public Uni<List<Album>> findByEventName(String eventName) {
-        return eventName == null || eventName.isBlank()
+        return StringUtils.isBlank(eventName)
                 ? Uni.createFrom().item(List.of())
                 : dataSource.findByEventName(eventName)
                         .map(entities -> entities.stream().map(AlbumMapper::toDomain).collect(Collectors.toList()));

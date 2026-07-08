@@ -8,6 +8,7 @@ import java.util.function.Function;
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.lib.ErrorResult;
+import org.apache.commons.collections4.ListUtils;
 
 /**
  * 申込中イベント Value Object
@@ -46,10 +47,7 @@ public record ApplyingEvent(EventName name, List<BusinessDate> tentativeDates) i
                 () -> new ErrorResult("name", "Event name cannot be null", "EVENT_NAME_REQUIRED"))
                 .verify(name, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
-        if (tentativeDates == null) {
-            tentativeDates = List.of();
-        }
-        tentativeDates = Collections.unmodifiableList(tentativeDates);
+        tentativeDates = Collections.unmodifiableList(ListUtils.emptyIfNull(tentativeDates));
     }
 
     /**

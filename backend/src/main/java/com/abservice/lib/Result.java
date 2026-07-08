@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.NonNull;
 
 /**
@@ -73,9 +74,7 @@ public sealed interface Result<T> {
      */
     record Failure<T>(@NonNull List<ErrorResult> errors) implements Result<T> {
         public Failure {
-            if (errors.isEmpty()) {
-                throw new IllegalArgumentException("errors must not be empty");
-            }
+            Validate.notEmpty(errors, "errors must not be empty");
         }
 
         public Failure(ErrorResult... errors) {

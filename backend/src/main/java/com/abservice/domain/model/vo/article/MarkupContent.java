@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
+import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
@@ -100,7 +101,7 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
     public static Result<MarkupContent> fromInput(@Nullable String content, @Nullable String format) {
         final String safeContent = Optional.ofNullable(content).orElse("");
         return Policy
-                .of((String v) -> v != null && !v.isBlank(),
+                .<String>of(StringUtils::isNotBlank,
                         () -> new ErrorResult("format", "マークアップ形式は必須です", "MARKUP_FORMAT_REQUIRED"))
                 .verify(format,
                         Function.identity())

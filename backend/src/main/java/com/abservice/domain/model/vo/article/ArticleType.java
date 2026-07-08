@@ -5,6 +5,7 @@ import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import java.util.Arrays;
 import java.util.function.Function;
+import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -44,7 +45,7 @@ public enum ArticleType {
      */
     public static Result<ArticleType> fromInput(@Nullable String value) {
         return Policy
-                .of((String v) -> v != null && !v.isBlank(),
+                .<String>of(StringUtils::isNotBlank,
                         () -> new ErrorResult("articleType", "記事種別は必須です", "ARTICLE_TYPE_REQUIRED"))
                 .verify(value,
                         Function.identity())

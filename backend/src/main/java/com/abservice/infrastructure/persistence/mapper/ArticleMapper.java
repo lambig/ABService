@@ -71,13 +71,13 @@ public final class ArticleMapper {
             articleEntity.setArticleType(a.articleType().name());
             articleEntity.setAlbumId(Optional.ofNullable(a.albumId()).map(Album.Id::value).orElse(null));
             articleEntity.setTitle(a.title());
-            if (a.body() != null) {
-                articleEntity.setBody(a.body().content());
-                articleEntity.setBodyFormat(a.body().format().name());
-            } else {
+            Optional.ofNullable(a.body()).ifPresentOrElse(body -> {
+                articleEntity.setBody(body.content());
+                articleEntity.setBodyFormat(body.format().name());
+            }, () -> {
                 articleEntity.setBody(null);
                 articleEntity.setBodyFormat(MarkupFormat.PLAIN_TEXT.name());
-            }
+            });
             articleEntity.setIntroShort(a.introShort());
             articleEntity.setPublishedAt(toInstant(a.publishedAt()));
             articleEntity.setUpdatedAtBusiness(toInstant(a.updatedAtBusiness()));
