@@ -7,44 +7,52 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@DisplayName("ArticleType列挙型")
 class ArticleTypeTest {
 
+    @DisplayName("全列挙子が定義順に並ぶ")
     @Test
     void testEnumValues() {
         assertThat(ArticleType.values()).containsExactly(ArticleType.ALBUM, ArticleType.NOTE, ArticleType.NEWS,
                 ArticleType.EVENT, ArticleType.OTHER);
     }
 
+    @DisplayName("valueOfでALBUMを取得できる")
     @Test
     void testValueOfALBUM() {
         ArticleType type = ArticleType.valueOf("ALBUM");
         assertThat(type).isEqualTo(ArticleType.ALBUM);
     }
 
+    @DisplayName("valueOfでNOTEを取得できる")
     @Test
     void testValueOfNOTE() {
         ArticleType type = ArticleType.valueOf("NOTE");
         assertThat(type).isEqualTo(ArticleType.NOTE);
     }
 
+    @DisplayName("valueOfでNEWSを取得できる")
     @Test
     void testValueOfNEWS() {
         ArticleType type = ArticleType.valueOf("NEWS");
         assertThat(type).isEqualTo(ArticleType.NEWS);
     }
 
+    @DisplayName("valueOfでEVENTを取得できる")
     @Test
     void testValueOfEVENT() {
         ArticleType type = ArticleType.valueOf("EVENT");
         assertThat(type).isEqualTo(ArticleType.EVENT);
     }
 
+    @DisplayName("valueOfでOTHERを取得できる")
     @Test
     void testValueOfOTHER() {
         ArticleType type = ArticleType.valueOf("OTHER");
         assertThat(type).isEqualTo(ArticleType.OTHER);
     }
 
+    @DisplayName("nameが列挙子名を返す")
     @Test
     void testName() {
         assertThat(ArticleType.ALBUM.name()).isEqualTo("ALBUM");
@@ -54,6 +62,7 @@ class ArticleTypeTest {
         assertThat(ArticleType.OTHER.name()).isEqualTo("OTHER");
     }
 
+    @DisplayName("列挙子は5つである")
     @Test
     void testEnumCount() {
         assertThat(ArticleType.values()).hasSize(5);

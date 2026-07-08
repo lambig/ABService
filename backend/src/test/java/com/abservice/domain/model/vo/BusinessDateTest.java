@@ -2,14 +2,17 @@ package com.abservice.domain.model.vo;
 
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@DisplayName("BusinessDate値オブジェクト")
 class BusinessDateTest {
 
+    @DisplayName("LocalDateから生成できる")
     @Test
     void testCreateFromLocalDate() {
         LocalDate localDate = LocalDate.of(2025, 1, 1);
@@ -18,6 +21,7 @@ class BusinessDateTest {
         assertThat(businessDate.value()).isEqualTo(localDate);
     }
 
+    @DisplayName("BusinessDateTimeへ変換できる")
     @Test
     void testAsBusinessDateTime() {
         LocalDate localDate = LocalDate.of(2025, 1, 1);
@@ -27,6 +31,7 @@ class BusinessDateTest {
         assertThat(businessDateTime.asLocalDate()).isEqualTo(localDate);
     }
 
+    @DisplayName("同じ日付同士はequivalentToがtrueを返す")
     @Test
     void testEquivalentTo() {
         LocalDate localDate = LocalDate.of(2025, 1, 1);
@@ -36,6 +41,7 @@ class BusinessDateTest {
         assertThat(bd1.equivalentTo(bd2)).isTrue();
     }
 
+    @DisplayName("日付の前後でcompareToが順序を返す")
     @Test
     void testComparable() {
         BusinessDate bd1 = BusinessDate.of(LocalDate.of(2025, 1, 1));
