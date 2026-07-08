@@ -4,7 +4,7 @@
 > 開発が一時停止していた ABService を再開するにあたり、散在していた計画ドキュメント（`JSPECIFY_MIGRATION_PLAN.md` / `VO_REFACTORING.md` / `REPOSITORY_SIMPLIFICATIONS.md` / `UNIT_TEST_PLAN.md` 等）の内容を、**実コードと突き合わせて検証した現状**として1本に集約し、優先度付きの再開計画を示すマスタードキュメントです。
 > 個別の計画docは背景・詳細手順のリファレンスとして残していますが、進捗の正はこのドキュメントを参照してください。
 >
-> 最終更新: 2026-07-07 / 検証時コミット: `1b09cd0`
+> 最終更新: 2026-07-08 / 検証時コミット: `47a1aaf`
 
 ---
 
@@ -164,7 +164,7 @@ DomainException (abstract, errorCode付き)
 11. RepositoryImpl 統合テスト（Phase 7）を残り3集約に追加
 
 ### フェーズ D: 品質ゲート
-12. **ArchUnit 詳細ルールの追加**（§7.2）: app/presentation の構造が揃ってから、命名規約（`*Entity` サフィックス等）・戻り値型契約・`@DisplayName` 必須・AssertJ統一など、構造依存の残りルールを段階追加（導入と基本ルールはフェーズAで実施済み）
+12. **ArchUnit 詳細ルールの追加**（§7.2）: app/presentation の構造が揃ってから、命名規約・戻り値型契約（`ApplicationService` の `execute`/`query` は `Uni<...>` 返却 等）といった構造依存の残りルールを段階追加する。テスト規約のうち `@DisplayName` 必須は `TestConventionsArchTest` で、AssertJ 統一は Checkstyle で強制済み
 13. JSpecify 移行の続行（§5.1、集約→エンティティ→VO→infra の順）
 14. DataSource 統合テスト（Phase 9）、カバレッジ計測（JaCoCo導入検討）
 
@@ -189,11 +189,11 @@ testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.2'
 - `@Transactional` 禁止（Reactive は `@WithTransaction`）
 - `Repository` 継承IFのメソッド戻り値は `Uni<...>`
 
-app/presentation の構造に依存する命名・戻り値・テスト規約ルール（§7.2 の表の残り）は**フェーズD**で追加する。
+テスト規約のうち `@DisplayName` 必須は `TestConventionsArchTest` で強制済み（§7.2）。app/presentation の構造に依存する命名・戻り値型契約ルール（§7.2 の表の残り）は、それらのレイヤー実装後（**フェーズD**）に追加する。
 
 ### 7.2 ArchUnit で強制する制約（全体）
 
-下表のうち §7.1 に挙げた基本ルールはフェーズAで先行導入済み。残り（命名・戻り値型契約・テスト規約など）はフェーズDで追加する。
+下表のうち §7.1 に挙げた基本ルールはフェーズAで先行導入済み。テスト規約の `@DisplayName` 必須は `TestConventionsArchTest`（テストクラスを検査対象に含めるため `LayeredArchitectureTest` とは別クラス）で強制済み。残る命名・戻り値型契約など app/presentation の構造に依存するルールは、それらのレイヤー実装後（フェーズD）に追加する。なお「JUnit assertion 禁止」は ArchUnit ではなく Checkstyle で強制している。
 
 | ルール | 内容 |
 |---|---|
@@ -204,7 +204,7 @@ app/presentation の構造に依存する命名・戻り値・テスト規約ル
 | Entity 命名 | `@Entity` 付与クラス名は `*Entity` サフィックス |
 | @Transactional 禁止 | Reactive は `@WithTransaction` を使う |
 | JUnit assertion 禁止 | テストは AssertJ に統一 |
-| @DisplayName 必須 | `@Test` メソッドは `@DisplayName` を付与 |
+| @DisplayName 必須 | `@Test` / `@ParameterizedTest` メソッドは `@DisplayName` を付与（`TestConventionsArchTest` で強制） |
 | Repository の戻り値 | `Repository` 継承IFのメソッド戻り値は `Uni<...>` |
 | ApplicationService の戻り値 | `execute`/`query` の戻り値は `Uni<...>` |
 | domain の Uni 禁止 | ドメインモデルの戻り値に `Uni` を使わない（同期実装） |
