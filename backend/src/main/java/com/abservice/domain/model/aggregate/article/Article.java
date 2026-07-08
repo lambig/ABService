@@ -220,10 +220,9 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
         final var validatedType = Optional.ofNullable(newArticleType)
                 .orElseThrow(() -> new IllegalArgumentException("Article type cannot be null"));
         // ALBUM以外の種別に変更する場合、albumIdをクリア
-        if (validatedType != ArticleType.ALBUM && albumId != null) {
-            return withArticleType(validatedType).withAlbumId(null).withUpdatedAtBusiness(currentDateTime);
-        }
-        return withArticleType(validatedType).withUpdatedAtBusiness(currentDateTime);
+        return (validatedType != ArticleType.ALBUM && albumId != null
+                ? withArticleType(validatedType).withAlbumId(null)
+                : withArticleType(validatedType)).withUpdatedAtBusiness(currentDateTime);
     }
 
     /**

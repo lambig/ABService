@@ -28,15 +28,14 @@ public final class AlbumArticleMapper {
      * @return AlbumArticle
      */
     public static AlbumArticle toDomain(AlbumArticleEntity entity) {
-        if (entity == null) {
-            return null;
-        }
-
-        return AlbumArticle.reconstruct(new Album.Id(entity.getDomainId()), entity.getIntroLong(),
-                entity.getIntroShort(), entity.getFirstEventSpace(),
-                entity.getLabelTag() != null ? LabelTag.valueOf(entity.getLabelTag()) : null, null, // 頒布情報は簡略化のためnull
-                Collections.emptyList() // 入手経路は簡略化のため空リスト
-        );
+        return switch (entity) {
+            case null -> null;
+            // 頒布情報は簡略化のためnull、入手経路は簡略化のため空リスト
+            default -> AlbumArticle.reconstruct(new Album.Id(entity.getDomainId()), entity.getIntroLong(),
+                    entity.getIntroShort(), entity.getFirstEventSpace(),
+                    entity.getLabelTag() != null ? LabelTag.valueOf(entity.getLabelTag()) : null, null,
+                    Collections.emptyList());
+        };
     }
 
     /**
@@ -47,19 +46,20 @@ public final class AlbumArticleMapper {
      * @return AlbumArticleEntity
      */
     public static AlbumArticleEntity toEntity(AlbumArticle albumArticle) {
-        if (albumArticle == null) {
-            return null;
-        }
+        return switch (albumArticle) {
+            case null -> null;
+            default -> {
+                final var albumArticleEntity = new AlbumArticleEntity();
+                albumArticleEntity.setDomainId(albumArticle.albumId().value());
+                albumArticleEntity.setIntroLong(albumArticle.introLong());
+                albumArticleEntity.setIntroShort(albumArticle.introShort());
+                albumArticleEntity.setFirstEventSpace(albumArticle.firstEventSpace());
+                albumArticleEntity.setLabelTag(albumArticle.labelTag() != null ? albumArticle.labelTag().name() : null);
 
-        final var albumArticleEntity = new AlbumArticleEntity();
-        albumArticleEntity.setDomainId(albumArticle.albumId().value());
-        albumArticleEntity.setIntroLong(albumArticle.introLong());
-        albumArticleEntity.setIntroShort(albumArticle.introShort());
-        albumArticleEntity.setFirstEventSpace(albumArticle.firstEventSpace());
-        albumArticleEntity.setLabelTag(albumArticle.labelTag() != null ? albumArticle.labelTag().name() : null);
+                // 頒布情報と入手経路は簡略化のため省略
 
-        // 頒布情報と入手経路は簡略化のため省略
-
-        return albumArticleEntity;
+                yield albumArticleEntity;
+            }
+        };
     }
 }

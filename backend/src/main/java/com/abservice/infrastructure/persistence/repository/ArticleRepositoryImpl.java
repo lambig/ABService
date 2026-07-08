@@ -32,63 +32,61 @@ public class ArticleRepositoryImpl implements ArticleRepository {
 
     @Override
     public Uni<Article> save(Article aggregate) {
-        if (aggregate == null) {
-            return Uni.createFrom().failure(new IllegalArgumentException("Article cannot be null"));
-        }
+        return switch (aggregate) {
+            case null -> Uni.createFrom().failure(new IllegalArgumentException("Article cannot be null"));
+            default -> {
+                final var entity = ArticleMapper.toEntity(aggregate);
 
-        final var entity = ArticleMapper.toEntity(aggregate);
-
-        return dataSource.existsByArticleId(entity.getDomainId()).flatMap(exists -> {
-            if (exists) {
-                return dataSource.find("domainId", entity.getDomainId()).firstResult().flatMap(existingEntity -> {
-                    existingEntity.setArticleType(entity.getArticleType());
-                    existingEntity.setAlbumId(entity.getAlbumId());
-                    existingEntity.setTitle(entity.getTitle());
-                    existingEntity.setBody(entity.getBody());
-                    existingEntity.setIntroShort(entity.getIntroShort());
-                    existingEntity.setPublishedAt(entity.getPublishedAt());
-                    existingEntity.setUpdatedAtBusiness(entity.getUpdatedAtBusiness());
-                    existingEntity.setIsPublic(entity.getIsPublic());
-                    return dataSource.persistAndFlush(existingEntity);
-                });
-            } else {
-                return dataSource.persistAndFlush(entity);
+                yield dataSource.existsByArticleId(entity.getDomainId()).flatMap(exists -> exists
+                        ? dataSource.find("domainId", entity.getDomainId()).firstResult().flatMap(existingEntity -> {
+                            existingEntity.setArticleType(entity.getArticleType());
+                            existingEntity.setAlbumId(entity.getAlbumId());
+                            existingEntity.setTitle(entity.getTitle());
+                            existingEntity.setBody(entity.getBody());
+                            existingEntity.setIntroShort(entity.getIntroShort());
+                            existingEntity.setPublishedAt(entity.getPublishedAt());
+                            existingEntity.setUpdatedAtBusiness(entity.getUpdatedAtBusiness());
+                            existingEntity.setIsPublic(entity.getIsPublic());
+                            return dataSource.persistAndFlush(existingEntity);
+                        })
+                        : dataSource.persistAndFlush(entity)).map(ArticleMapper::toDomain);
             }
-        }).map(ArticleMapper::toDomain);
+        };
     }
 
     @Override
     public Uni<List<Article>> saveAll(Iterable<Article> aggregates) {
-        if (aggregates == null) {
-            return Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null"));
-        }
+        return switch (aggregates) {
+            case null -> Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null"));
+            default -> {
+                final var unis = StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
+                        .collect(Collectors.toList());
 
-        final var unis = StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
-                .collect(Collectors.toList());
-
-        return Uni.join().all(unis).andFailFast();
+                yield Uni.join().all(unis).andFailFast();
+            }
+        };
     }
 
     @Override
     public Uni<Article> findById(Article.Id id) {
-        if (id == null) {
-            return Uni.createFrom().nullItem();
-        }
-
-        return dataSource.find("domainId", id.value()).firstResult().map(ArticleMapper::toDomain);
+        return switch (id) {
+            case null -> Uni.createFrom().nullItem();
+            default -> dataSource.find("domainId", id.value()).firstResult().map(ArticleMapper::toDomain);
+        };
     }
 
     @Override
     public Uni<List<Article>> findAllById(Iterable<Article.Id> ids) {
-        if (ids == null) {
-            return Uni.createFrom().item(List.of());
-        }
+        return switch (ids) {
+            case null -> Uni.createFrom().item(List.of());
+            default -> {
+                final var unis = StreamSupport.stream(ids.spliterator(), false).map(this::findById)
+                        .collect(Collectors.toList());
 
-        final var unis = StreamSupport.stream(ids.spliterator(), false).map(this::findById)
-                .collect(Collectors.toList());
-
-        return Uni.join().all(unis).andFailFast()
-                .map(list -> list.stream().filter(article -> article != null).collect(Collectors.toList()));
+                yield Uni.join().all(unis).andFailFast()
+                        .map(list -> list.stream().filter(article -> article != null).collect(Collectors.toList()));
+            }
+        };
     }
 
     @Override
@@ -99,52 +97,52 @@ public class ArticleRepositoryImpl implements ArticleRepository {
 
     @Override
     public Uni<Void> delete(Article aggregate) {
-        if (aggregate == null) {
-            return Uni.createFrom().voidItem();
-        }
-        return deleteById(aggregate.id());
+        return switch (aggregate) {
+            case null -> Uni.createFrom().voidItem();
+            default -> deleteById(aggregate.id());
+        };
     }
 
     @Override
     public Uni<Void> deleteAll(Iterable<Article> aggregates) {
-        if (aggregates == null) {
-            return Uni.createFrom().voidItem();
-        }
+        return switch (aggregates) {
+            case null -> Uni.createFrom().voidItem();
+            default -> {
+                final var unis = StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
+                        .collect(Collectors.toList());
 
-        final var unis = StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
-                .collect(Collectors.toList());
-
-        return Uni.join().all(unis).andFailFast().replaceWithVoid();
+                yield Uni.join().all(unis).andFailFast().replaceWithVoid();
+            }
+        };
     }
 
     @Override
     public Uni<Void> deleteById(Article.Id id) {
-        if (id == null) {
-            return Uni.createFrom().voidItem();
-        }
-
-        return dataSource.deleteByArticleId(id.value()).replaceWithVoid();
+        return switch (id) {
+            case null -> Uni.createFrom().voidItem();
+            default -> dataSource.deleteByArticleId(id.value()).replaceWithVoid();
+        };
     }
 
     @Override
     public Uni<Void> deleteAllById(Iterable<Article.Id> ids) {
-        if (ids == null) {
-            return Uni.createFrom().voidItem();
-        }
+        return switch (ids) {
+            case null -> Uni.createFrom().voidItem();
+            default -> {
+                final var unis = StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
+                        .collect(Collectors.toList());
 
-        final var unis = StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
-                .collect(Collectors.toList());
-
-        return Uni.join().all(unis).andFailFast().replaceWithVoid();
+                yield Uni.join().all(unis).andFailFast().replaceWithVoid();
+            }
+        };
     }
 
     @Override
     public Uni<Boolean> existsById(Article.Id id) {
-        if (id == null) {
-            return Uni.createFrom().item(false);
-        }
-
-        return dataSource.existsByArticleId(id.value());
+        return switch (id) {
+            case null -> Uni.createFrom().item(false);
+            default -> dataSource.existsByArticleId(id.value());
+        };
     }
 
     @Override
@@ -156,21 +154,19 @@ public class ArticleRepositoryImpl implements ArticleRepository {
 
     @Override
     public Uni<List<Article>> findByArticleType(ArticleType articleType) {
-        if (articleType == null) {
-            return Uni.createFrom().item(List.of());
-        }
-
-        return dataSource.findByArticleType(articleType.name())
-                .map(entities -> entities.stream().map(ArticleMapper::toDomain).collect(Collectors.toList()));
+        return switch (articleType) {
+            case null -> Uni.createFrom().item(List.of());
+            default -> dataSource.findByArticleType(articleType.name())
+                    .map(entities -> entities.stream().map(ArticleMapper::toDomain).collect(Collectors.toList()));
+        };
     }
 
     @Override
     public Uni<Article> findByAlbumId(Album.Id albumId) {
-        if (albumId == null) {
-            return Uni.createFrom().nullItem();
-        }
-
-        return dataSource.findByAlbumId(albumId.value()).map(ArticleMapper::toDomain);
+        return switch (albumId) {
+            case null -> Uni.createFrom().nullItem();
+            default -> dataSource.findByAlbumId(albumId.value()).map(ArticleMapper::toDomain);
+        };
     }
 
     @Override
@@ -181,21 +177,18 @@ public class ArticleRepositoryImpl implements ArticleRepository {
 
     @Override
     public Uni<List<Article>> findByPublishedAtBetween(BusinessDateTime startDate, BusinessDateTime endDate) {
-        if (startDate == null || endDate == null) {
-            return Uni.createFrom().item(List.of());
-        }
-
-        return dataSource.findByPublishedAtBetween(startDate.value(), endDate.value())
-                .map(entities -> entities.stream().map(ArticleMapper::toDomain).collect(Collectors.toList()));
+        return startDate == null || endDate == null
+                ? Uni.createFrom().item(List.of())
+                : dataSource.findByPublishedAtBetween(startDate.value(), endDate.value())
+                        .map(entities -> entities.stream().map(ArticleMapper::toDomain).collect(Collectors.toList()));
     }
 
     @Override
     public Uni<List<Article>> findByTitleContaining(String titleKeyword) {
-        if (titleKeyword == null) {
-            return Uni.createFrom().item(List.of());
-        }
-
-        return dataSource.findByTitleContaining(titleKeyword)
-                .map(entities -> entities.stream().map(ArticleMapper::toDomain).collect(Collectors.toList()));
+        return switch (titleKeyword) {
+            case null -> Uni.createFrom().item(List.of());
+            default -> dataSource.findByTitleContaining(titleKeyword)
+                    .map(entities -> entities.stream().map(ArticleMapper::toDomain).collect(Collectors.toList()));
+        };
     }
 }

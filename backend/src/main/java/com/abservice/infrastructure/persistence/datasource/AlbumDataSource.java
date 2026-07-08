@@ -1,6 +1,7 @@
 package com.abservice.infrastructure.persistence.datasource;
 
 import com.abservice.infrastructure.persistence.entity.AlbumEntity;
+import com.abservice.infrastructure.persistence.entity.TrackEntity;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -33,14 +34,16 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
      * @return 永続化されたアルバムエンティティ
      */
     public Uni<AlbumEntity> persistAlbumWithRelations(AlbumEntity albumEntity) {
-        return persist(albumEntity).onItem().transformToUni(savedAlbum -> sessionFactory.withSession(session -> {
-            // トラックをpersist
-            if (albumEntity.getTracks() != null && !albumEntity.getTracks().isEmpty()) {
-                albumEntity.getTracks().forEach(track -> track.setAlbum(savedAlbum));
-                return session.persistAll(albumEntity.getTracks().toArray()).replaceWith(savedAlbum);
-            }
-            return Uni.createFrom().item(savedAlbum);
-        }));
+        return persist(albumEntity).onItem()
+                .transformToUni(savedAlbum -> sessionFactory.withSession(session -> switch (albumEntity.getTracks()) {
+                    // トラックをpersist
+                    case null -> Uni.createFrom().item(savedAlbum);
+                    case List<TrackEntity> tracks when tracks.isEmpty() -> Uni.createFrom().item(savedAlbum);
+                    default -> {
+                        albumEntity.getTracks().forEach(track -> track.setAlbum(savedAlbum));
+                        yield session.persistAll(albumEntity.getTracks().toArray()).replaceWith(savedAlbum);
+                    }
+                }));
     }
 
     /**

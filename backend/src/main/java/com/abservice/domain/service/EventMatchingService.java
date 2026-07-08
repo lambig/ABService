@@ -53,13 +53,8 @@ public class EventMatchingService implements DomainService {
     }
 
     private boolean matchesEventDetails(EventToParticipate toParticipate, EventReleasedAt releasedAt) {
-        if (toParticipate instanceof TentativeEvent) {
-            return true;
-        }
-        if (toParticipate instanceof ConfirmedEvent confirmed) {
-            return confirmed.dateAndSpaces().equals(releasedAt.dateAndSpaces());
-        }
-        return false;
+        return toParticipate instanceof TentativeEvent || (toParticipate instanceof ConfirmedEvent confirmed
+                && confirmed.dateAndSpaces().equals(releasedAt.dateAndSpaces()));
     }
 
     /**
@@ -83,21 +78,14 @@ public class EventMatchingService implements DomainService {
     }
 
     private boolean matchesDateDetails(EventToParticipate toParticipate, EventReleasedAt releasedAt) {
-        if (toParticipate instanceof TentativeEvent tentative) {
-            return matchesTentativeDates(tentative, releasedAt);
-        }
-        if (toParticipate instanceof ConfirmedEvent confirmed) {
-            return matchesConfirmedDates(confirmed, releasedAt);
-        }
-        return false;
+        return toParticipate instanceof TentativeEvent tentative
+                ? matchesTentativeDates(tentative, releasedAt)
+                : toParticipate instanceof ConfirmedEvent confirmed && matchesConfirmedDates(confirmed, releasedAt);
     }
 
     private boolean matchesTentativeDates(TentativeEvent tentative, EventReleasedAt releasedAt) {
-        if (tentative.tentativeDates().isEmpty()) {
-            return true;
-        }
-        final var releasedDates = releasedAt.dateAndSpaces().stream().map(ds -> ds.date()).toList();
-        return tentative.tentativeDates().stream().anyMatch(releasedDates::contains);
+        return tentative.tentativeDates().isEmpty() || tentative.tentativeDates().stream()
+                .anyMatch(releasedAt.dateAndSpaces().stream().map(ds -> ds.date()).toList()::contains);
     }
 
     private boolean matchesConfirmedDates(ConfirmedEvent confirmed, EventReleasedAt releasedAt) {

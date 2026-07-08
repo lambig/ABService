@@ -22,15 +22,11 @@ public final class ResultExample {
     public record CatalogNumber(String value) {
 
         public static Result<CatalogNumber> create(@Nullable String value) {
-            if (value == null || value.isBlank()) {
-                return Result.failure(new ErrorResult("catalogNumber", "カタログ番号は必須です", "C001"));
-            }
-
-            if (!value.matches("^[A-Z]{2,4}-[0-9]{3,5}$")) {
-                return Result.failure(new ErrorResult("catalogNumber", "カタログ番号の形式が不正です", "C002"));
-            }
-
-            return Result.success(new CatalogNumber(value));
+            return value == null || value.isBlank()
+                    ? Result.failure(new ErrorResult("catalogNumber", "カタログ番号は必須です", "C001"))
+                    : !value.matches("^[A-Z]{2,4}-[0-9]{3,5}$")
+                            ? Result.failure(new ErrorResult("catalogNumber", "カタログ番号の形式が不正です", "C002"))
+                            : Result.success(new CatalogNumber(value));
         }
     }
 
@@ -38,15 +34,11 @@ public final class ResultExample {
     public record AlbumTitle(String value) {
 
         public static Result<AlbumTitle> create(@Nullable String value) {
-            if (value == null || value.isBlank()) {
-                return Result.failure(new ErrorResult("title", "タイトルは必須です", "T001"));
-            }
-
-            if (value.length() > 100) {
-                return Result.failure(new ErrorResult("title", "タイトルは100文字以内で入力してください", "T002"));
-            }
-
-            return Result.success(new AlbumTitle(value));
+            return value == null || value.isBlank()
+                    ? Result.failure(new ErrorResult("title", "タイトルは必須です", "T001"))
+                    : value.length() > 100
+                            ? Result.failure(new ErrorResult("title", "タイトルは100文字以内で入力してください", "T002"))
+                            : Result.success(new AlbumTitle(value));
         }
     }
 
@@ -75,12 +67,10 @@ public final class ResultExample {
                 errors.addAll(failure.errors());
             }
 
-            if (!errors.isEmpty()) {
-                return Result.failure(errors);
-            }
-
-            return Result.success(new Album(((Result.Success<AlbumTitle>) titleResult).value(),
-                    ((Result.Success<CatalogNumber>) catalogResult).value()));
+            return errors.isEmpty()
+                    ? Result.success(new Album(((Result.Success<AlbumTitle>) titleResult).value(),
+                            ((Result.Success<CatalogNumber>) catalogResult).value()))
+                    : Result.failure(errors);
         }
     }
 

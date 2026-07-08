@@ -107,15 +107,6 @@ public interface DomainEntity<T extends DomainEntity<T, ID>, ID> extends DomainO
      */
     @Override
     default boolean equivalentTo(T other) {
-        if (other == null) {
-            return false;
-        }
-        if (this == other) {
-            return true;
-        }
-        if (!this.getClass().equals(other.getClass())) {
-            return false;
-        }
-        return this.id().equals(other.id());
+        return other != null && this.getClass().equals(other.getClass()) && this.id().equals(other.id());
     }
 }
