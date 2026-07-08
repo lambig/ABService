@@ -256,34 +256,10 @@ ABService は Java プロジェクトのため、Kotlin 向けの detekt カス�
 
 ### 7.4 機能的スタイル強制の残ルール・設計バックログ
 
-命令的な `if`・逐次検査・生ラムダを排し、**式・Optional・filter・Policy・多態**で表現する機能的スタイルを全面採用する。既に本文適用は完了しているが（src/main の実 `if` は 0）、以下は**ルール化（静的解析での強制）と支援 API がまだ**の項目。導入時は「導入前に違反を検出できること（no-op でない証跡）」と「フォーマッタ/PMD の整合（違反0）」を確認する。
+命令的な `if`・逐次検査・生ラムダを排し、**式・Optional・filter・Policy・多態**で表現する機能的スタイルを全面採用する。本文適用は完了済み（src/main の実 `if` は 0）。**ルール化（静的解析での強制）と支援 API の残項目**は GitHub issue で管理する。
 
-**ルール化（PMD / Checkstyle / ArchUnit）**
-
-| # | ルール | 意図 / 検出方針 |
-|---|---|---|
-| 1 | `if` 文全廃 | 検査・分岐は Optional/filter/switch式/Uni/Multi へ。PMD `//IfStatement` を禁止（Javadoc例は対象外） |
-| 2 | null 条件三項の禁止 | `x != null ? … : …` を `Optional` へ。null 判定の `ConditionalExpression` を検出 |
-| 3 | 逐次 null+空/blank チェックの禁止 | `x == null \|\| x.isBlank()` / `x != null && !x.isEmpty()` を `StringUtils.isBlank/isNotBlank`・`CollectionUtils.isEmpty/isNotEmpty` へ。`==null`/`!=null` と `.isEmpty()/.isBlank()` の論理結合を検出 |
-| 4 | VO 検証は `Policy` 経由 | コンパクトコンストラクタ/ファクトリの検証は `Policy` で表現（`RequireValidationInValueObject` を fromInput 以外にも拡張） |
-| 5 | `switch (this)` の禁止 | sealed 型の種別分岐は switch でなく多態（各バリアントで override） |
-| 6 | 否定ラムダの `not` メソッド参照化 | `x -> !x.foo()` を `Predicate.not(X::foo)` へ（本体が単一の `!メソッド呼び出し` のラムダを検出） |
-| 7 | 中置論理演算子の禁止 | `&&`/`\|\|`/`!` を述語合成 DSL（`and`/`or`/`not` 相当）へ。Checkstyle `IllegalToken`（`LAND`/`LOR`/`LNOT`） |
-| 8 | 不要変数の禁止 | `UnnecessaryLocalBeforeReturn` / `UnusedLocalVariable` / `UnusedAssignment`（PMD） |
-
-**支援 API / ライブラリ**
-
-| # | 項目 | 内容 |
-|---|---|---|
-| 9 | 述語合成 DSL | `&&`/`\|\|`/`!` を置換する `and`/`or`/`not` 相当（#7 の前提。Wave 4） |
-| 10 | `multiple`（多フィールド検証） | Tuple/Record で複数フィールドを受けてまとめて検証し `Result` を返すメソッド。`Policies.combine`（値構築＋throwaway が必要）に代わる、検証専用の合成 API。導入後に多フィールド VO（`DeclinedEvent` 等）の逐次検証を一括置換 |
-
-**その他**
-
-| # | 項目 | 内容 |
-|---|---|---|
-| 11 | 三項の書式 | 単純 `return` 以外の三項で第一項（条件）を行頭に。Eclipse フォーマッタでは文脈依存の強制が難しく方針未確定 |
-| 12 | Javadoc のコード例更新 | `DomainEntity` / `Factory` の例が旧 `if` スタイルのため新スタイルへ |
+- トラッキング: **#37**（`harness-backlog` ラベル）
+- 各項目の詳細・検出方針・受け入れ条件は個別 issue（#26–#36）を参照。導入時は「導入前に違反を検出できること」「フォーマッタ/PMD 整合（違反 0）」を確認する。
 
 ---
 
