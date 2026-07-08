@@ -4,7 +4,7 @@
 > 開発が一時停止していた ABService を再開するにあたり、散在していた計画ドキュメント（`JSPECIFY_MIGRATION_PLAN.md` / `VO_REFACTORING.md` / `REPOSITORY_SIMPLIFICATIONS.md` / `UNIT_TEST_PLAN.md` 等）の内容を、**実コードと突き合わせて検証した現状**として1本に集約し、優先度付きの再開計画を示すマスタードキュメントです。
 > 個別の計画docは背景・詳細手順のリファレンスとして残していますが、進捗の正はこのドキュメントを参照してください。
 >
-> 最終更新: 2026-07-07 / 検証時コミット: `1b09cd0`
+> 最終更新: 2026-07-08 / 検証時コミット: `47a1aaf`
 
 ---
 
@@ -164,7 +164,7 @@ DomainException (abstract, errorCode付き)
 11. RepositoryImpl 統合テスト（Phase 7）を残り3集約に追加
 
 ### フェーズ D: 品質ゲート
-12. **ArchUnit 詳細ルールの追加**（§7.2）: app/presentation の構造が揃ってから、命名規約（`*Entity` サフィックス等）・戻り値型契約・`@DisplayName` 必須・AssertJ統一など、構造依存の残りルールを段階追加（導入と基本ルールはフェーズAで実施済み）
+12. **ArchUnit 詳細ルールの追加**（§7.2）: app/presentation の構造が揃ってから、命名規約・戻り値型契約（`ApplicationService` の `execute`/`query` は `Uni<...>` 返却 等）といった構造依存の残りルールを段階追加する。テスト規約のうち `@DisplayName` 必須は `TestConventionsArchTest` で、AssertJ 統一は Checkstyle で強制済み
 13. JSpecify 移行の続行（§5.1、集約→エンティティ→VO→infra の順）
 14. DataSource 統合テスト（Phase 9）、カバレッジ計測（JaCoCo導入検討）
 
@@ -189,11 +189,11 @@ testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.2'
 - `@Transactional` 禁止（Reactive は `@WithTransaction`）
 - `Repository` 継承IFのメソッド戻り値は `Uni<...>`
 
-app/presentation の構造に依存する命名・戻り値・テスト規約ルール（§7.2 の表の残り）は**フェーズD**で追加する。
+テスト規約のうち `@DisplayName` 必須は `TestConventionsArchTest` で強制済み（§7.2）。app/presentation の構造に依存する命名・戻り値型契約ルール（§7.2 の表の残り）は、それらのレイヤー実装後（**フェーズD**）に追加する。
 
 ### 7.2 ArchUnit で強制する制約（全体）
 
-下表のうち §7.1 に挙げた基本ルールはフェーズAで先行導入済み。残り（命名・戻り値型契約・テスト規約など）はフェーズDで追加する。
+下表のうち §7.1 に挙げた基本ルールはフェーズAで先行導入済み。テスト規約の `@DisplayName` 必須は `TestConventionsArchTest`（テストクラスを検査対象に含めるため `LayeredArchitectureTest` とは別クラス）で強制済み。残る命名・戻り値型契約など app/presentation の構造に依存するルールは、それらのレイヤー実装後（フェーズD）に追加する。なお「JUnit assertion 禁止」は ArchUnit ではなく Checkstyle で強制している。
 
 | ルール | 内容 |
 |---|---|
@@ -204,7 +204,7 @@ app/presentation の構造に依存する命名・戻り値・テスト規約ル
 | Entity 命名 | `@Entity` 付与クラス名は `*Entity` サフィックス |
 | @Transactional 禁止 | Reactive は `@WithTransaction` を使う |
 | JUnit assertion 禁止 | テストは AssertJ に統一 |
-| @DisplayName 必須 | `@Test` メソッドは `@DisplayName` を付与 |
+| @DisplayName 必須 | `@Test` / `@ParameterizedTest` メソッドは `@DisplayName` を付与（`TestConventionsArchTest` で強制） |
 | Repository の戻り値 | `Repository` 継承IFのメソッド戻り値は `Uni<...>` |
 | ApplicationService の戻り値 | `execute`/`query` の戻り値は `Uni<...>` |
 | domain の Uni 禁止 | ドメインモデルの戻り値に `Uni` を使わない（同期実装） |
@@ -212,6 +212,47 @@ app/presentation の構造に依存する命名・戻り値・テスト規約ル
 | レイヤー依存方向 | domain ← application ← presentation、domain ← infrastructure |
 
 メソッド本文やコメントの検査が必要な制約（try-catch 禁止、VO のバリデーション必須など）は ArchUnit では表現できないため対象外。必要なら Checkstyle/PMD で個別対応する。
+
+### 7.3 detekt カスタムルール26件との対応（Java 担保手段）
+
+ABService は Java プロジェクトのため、Kotlin 向けの detekt カスタムルール26件はそのまま使えない。同等の制約を **ArchUnit / Checkstyle / javac・言語文法**で担保するか、Java に構文的対応物がないものは対象外とする。移植可否は「**強制手段の構文**」ではなく「**制約の意図が Java に適用可能か**」で判定する。
+
+現状: **強制済み14件（ArchUnit 10・Checkstyle 4）／ 対象外5件 ／ 未強制の欠落7件**。Java 相当のある21件に対し 14件（約67%）を強制。
+
+| detekt ルール | 制約の意図 | Java での担保手段 | 状態 |
+|---|---|---|---|
+| ForbiddenJpaEntityOutsidePersistenceLayer | `@Entity` は永続化層のみ | ArchUnit | ✅強制 |
+| RequireRecordSuffixForJpaEntity | JPA エンティティは `*Entity` 命名 | ArchUnit | ✅強制 |
+| ForbiddenJavaTimeInDomain | domain の `java.time` 直接依存禁止 | ArchUnit | ✅強制 |
+| ForbiddenTransactionalAnnotation | `@Transactional` 禁止（Reactive は `@WithTransaction`） | ArchUnit | ✅強制 |
+| RequireUniReturnTypeOnRepository | Repository の戻り値は `Uni<...>` | ArchUnit | ✅強制 |
+| ForbiddenUniInDomainModel | domain モデルの戻り値に `Uni` を使わない | ArchUnit | ✅強制 |
+| ForbiddenProviderInDomainModel | domain モデルは `BusinessDateTimeProvider` を保持しない | ArchUnit | ✅強制 |
+| ForbiddenPrintlnOutsideLogging | `System.out`/`System.err` をロギング以外で禁止 | ArchUnit | ✅強制 |
+| RequireDisplayNameOnTestMethods | `@Test`/`@ParameterizedTest` に `@DisplayName` 必須 | ArchUnit（`TestConventionsArchTest`） | ✅強制 |
+| ForbiddenInternalConstructorInDomainModel | domain モデルのコンストラクタ可視性を絞る | ArchUnit（**非 record のみ**。record はコンパクトコンストラクタ＋ファクトリ規約で担保） | 🟡部分 |
+| ForbiddenTryCatchInDomain | domain で try/catch 禁止 | Checkstyle（`DomainNoTryCatch`） | ✅強制 |
+| RequireSuppressJustification | 抑制に理由必須 | Checkstyle（`@SuppressWarnings` 理由コメント必須） | ✅強制 |
+| ForbiddenJUnitAssertions | テストは AssertJ に統一 | Checkstyle（JUnit `Assertions` import 禁止） | ✅強制 |
+| ForbiddenMutableCollectionFactory | domain で可変コレクション生成禁止 | Checkstyle（`DomainNoMutableCollection`） | ✅強制 |
+| ForbiddenNotNullAssertionInDomain | `!!`（not-null assertion）禁止 | Java に該当演算子なし。意図は JSpecify 移行（§5.1）へ | ⛔対象外 |
+| ForbiddenBacktickTestMethodName | バッククォートのテストメソッド名禁止 | Java はメソッド名に空白不可。可読名は `@DisplayName` で充足 | ⛔対象外 |
+| ProhibitWhenForUnitBranches | 副作用分岐に `when` を使わず `if` を使う | Java は `if`=文で自動充足（副作用は `if`/`switch` 文） | ⛔対象外 |
+| ForbiddenInitInValueObject | VO で `init` ブロック禁止（検証を集約） | record に `init` なし。意図は VO 検証集約（下記 RequireValidationInValueObject）へ | ⛔対象外 |
+| RequireUniReturnTypeOnApplicationService | ApplicationService の `execute`/`query` は `Uni<...>` | ArchUnit（**アプリ層の具象実装後**に追加） | ❌保留 |
+| RequireValidationInValueObject | VO は検証を持つ | PMD（メソッド本文検査。ArchUnit では表現不可） | ❌未 |
+| ForbiddenLogicalOperators | 中置論理演算子 `&&`/`\|\|`/`!` を禁止し宣言的合成へ | Checkstyle `IllegalToken`（`LAND`/`LOR`/`LNOT`） | ❌未 |
+| ForbiddenVarInDomain | domain で可変変数禁止 | Checkstyle（domain の field/local に `final` 強制） | ❌未 |
+| RequireValueClassForEntityId | EntityId は値型 | ArchUnit（EntityId 実装は record であること） | ❌未 |
+| RequirePrivateConstructorForEntityId | EntityId の生成を検証経由に限定 | public record は canonical constructor を private 化できない（言語制約）。全生成経路でコンパクトコンストラクタ検証が必ず走るため意図は充足 | ⛔対象外 |
+| ForbiddenFullyQualifiedTypeReference | インライン FQN 禁止（import + 単純名） | Checkstyle 正規表現 | ❌未 |
+| PreferWhenForValueBranches | 値の分岐を `if` で返さず式にする | PMD（**`if` 文の値 return 禁止＋`switch` 文禁止 → ternary / switch 式へ**） | ❌未 |
+
+**`if`/式の運用方針**（PreferWhenForValueBranches の Java 仕様）:
+
+- 値の生成は**式のみ**（ternary `?:` または switch 式）。`if` 文での値 return と `switch` 文は禁止する。
+- `if` が許されるのは **副作用への分岐**と**例外（`throw`）への分岐**のみ。`if (c) throw ...;`・`if (c) { sideEffect(); }`・値を伴わない `return;` は許容し、`if (c) return <値>;` は禁止する。
+- sealed 型に switch 式を用いれば、網羅性は **javac がコンパイル時に担保**する（lint 不要）。例外分岐の `if` を許す方針は §3 のエラー設計（ビジネス違反=`DomainException` 階層への分岐）と整合する。
 
 ---
 
