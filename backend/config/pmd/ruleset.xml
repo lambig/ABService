@@ -30,4 +30,25 @@
         </properties>
     </rule>
 
+    <rule name="RequireValidationInValueObject"
+          language="java"
+          message="外部入力ファクトリ fromInput は検証を伴う必要があります。Policy#verify / Result#zip / Policies#combine / Policies#nested / Result#failure のいずれか、または内部の値オブジェクトへの fromInput 委譲を本文に含めてください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            値オブジェクト等の外部入力ファクトリ（static メソッド fromInput）が、
+            検証インジケータ（メソッド呼び出し名 verify / zip / combine / nested /
+            failure、または内部の値オブジェクトへ委譲する fromInput 呼び出し）を
+            1 つも含まない場合に違反とする。未検証値からの生成を防ぐ。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//MethodDeclaration[@Name = "fromInput"]
+    [not(.//MethodCall[@MethodName = ("verify", "zip", "combine", "nested", "failure", "fromInput")])]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
 </ruleset>

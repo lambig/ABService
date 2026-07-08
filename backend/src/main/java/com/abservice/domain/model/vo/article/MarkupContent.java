@@ -1,10 +1,12 @@
 package com.abservice.domain.model.vo.article;
 
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.function.Function;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
@@ -93,16 +95,20 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
      * @return 成功時は {@code MarkupContent}、失敗時はエラー
      */
     public static Result<MarkupContent> fromInput(@Nullable String content, @Nullable String format) {
-        return parseFormat(format).map(fmt -> new MarkupContent(content != null ? content : "", fmt));
+        final String safeContent = content != null ? content : "";
+        return Policy
+                .of((String v) -> v != null && !v.isBlank(),
+                        () -> new ErrorResult("format", "マークアップ形式は必須です", "MARKUP_FORMAT_REQUIRED"))
+                .verify(format,
+                        Function.identity())
+                .flatMap(f -> Policy
+                        .of(MarkupContent::isKnownFormat,
+                                () -> new ErrorResult("format", "不正なマークアップ形式です: " + f, "MARKUP_FORMAT_INVALID"))
+                        .verify(f, valid -> new MarkupContent(safeContent, MarkupFormat.valueOf(valid.trim()))));
     }
 
-    private static Result<MarkupFormat> parseFormat(@Nullable String format) {
-        if (format == null || format.isBlank()) {
-            return Result.failure(new ErrorResult("format", "マークアップ形式は必須です", "MARKUP_FORMAT_REQUIRED"));
-        }
-        return Arrays.stream(MarkupFormat.values()).filter(f -> f.name().equals(format.trim())).findFirst()
-                .<Result<MarkupFormat>>map(Result::success).orElseGet(() -> Result
-                        .failure(new ErrorResult("format", "不正なマークアップ形式です: " + format, "MARKUP_FORMAT_INVALID")));
+    private static boolean isKnownFormat(@Nullable String value) {
+        return value != null && Arrays.stream(MarkupFormat.values()).anyMatch(f -> f.name().equals(value.trim()));
     }
 
     /**
