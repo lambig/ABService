@@ -4,7 +4,6 @@ import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import java.util.List;
 import java.util.function.Function;
-import java.util.stream.Stream;
 
 /**
  * 複数のポリシーを合成し、エラーを集約するポリシー。
@@ -27,10 +26,7 @@ final class CompositePolicy<T> implements Policy<T> {
     @Override
     public <R> Result<R> verify(T value, Function<? super T, ? extends R> constructor) {
         final List<ErrorResult> errors = rules.stream().map(rule -> rule.verify(value, Function.identity()))
-                .flatMap(r -> r instanceof Result.Failure<T> f
-                        ? f.errors().stream()
-                        : Stream.<ErrorResult>empty())
-                .toList();
+                .flatMap(r -> r.errors().stream()).toList();
         return errors.isEmpty()
                 ? Result.success(constructor.apply(value))
                 : Result.failure(errors);
