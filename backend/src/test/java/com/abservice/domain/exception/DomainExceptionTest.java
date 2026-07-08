@@ -19,9 +19,9 @@ class DomainExceptionTest {
         @DisplayName("サブクラスはDomainExceptionかつRuntimeExceptionである")
         void subclassesAreDomainAndRuntimeException() {
             // Arrange
-            DomainException validation = new ValidationException(List.of(new ErrorResult("f", "m")));
-            DomainException notFound = new EntityNotFoundException("not found");
-            DomainException businessRule = new BusinessRuleViolationException("violated");
+            final DomainException validation = new ValidationException(List.of(new ErrorResult("f", "m")));
+            final DomainException notFound = new EntityNotFoundException("not found");
+            final DomainException businessRule = new BusinessRuleViolationException("violated");
 
             // Assert
             assertThat(validation).isInstanceOf(DomainException.class).isInstanceOf(RuntimeException.class);
@@ -38,11 +38,11 @@ class DomainExceptionTest {
         @DisplayName("メッセージとエラーリストを保持する")
         void holdsMessageAndErrors() {
             // Arrange
-            ErrorResult error1 = new ErrorResult("title", "必須です");
-            ErrorResult error2 = new ErrorResult("catalogNumber", "形式が不正です");
+            final ErrorResult error1 = new ErrorResult("title", "必須です");
+            final ErrorResult error2 = new ErrorResult("catalogNumber", "形式が不正です");
 
             // Act
-            ValidationException ex = new ValidationException("入力が不正です", List.of(error1, error2));
+            final ValidationException ex = new ValidationException("入力が不正です", List.of(error1, error2));
 
             // Assert
             assertThat(ex.getMessage()).isEqualTo("入力が不正です");
@@ -54,11 +54,11 @@ class DomainExceptionTest {
         @DisplayName("エラーリストのみ指定するとメッセージを組み立てる")
         void buildsMessageFromErrors() {
             // Arrange
-            ErrorResult error1 = new ErrorResult("title", "必須です");
-            ErrorResult error2 = new ErrorResult("catalogNumber", "形式が不正です", "E002");
+            final ErrorResult error1 = new ErrorResult("title", "必須です");
+            final ErrorResult error2 = new ErrorResult("catalogNumber", "形式が不正です", "E002");
 
             // Act
-            ValidationException ex = new ValidationException(List.of(error1, error2));
+            final ValidationException ex = new ValidationException(List.of(error1, error2));
 
             // Assert
             assertThat(ex.getMessage()).isEqualTo("title: 必須です, catalogNumber: 形式が不正です (code: E002)");
@@ -69,7 +69,7 @@ class DomainExceptionTest {
         @DisplayName("保持するエラーリストは不変である")
         void errorsListIsUnmodifiable() {
             // Arrange
-            ValidationException ex = new ValidationException(List.of(new ErrorResult("f", "m")));
+            final ValidationException ex = new ValidationException(List.of(new ErrorResult("f", "m")));
 
             // Act & Assert
             assertThatThrownBy(() -> ex.errors().add(new ErrorResult("x", "y")))
@@ -85,7 +85,7 @@ class DomainExceptionTest {
         @DisplayName("メッセージとエラーコードを保持する")
         void holdsMessageAndErrorCode() {
             // Act
-            EntityNotFoundException ex = new EntityNotFoundException("Article が見つかりません");
+            final EntityNotFoundException ex = new EntityNotFoundException("Article が見つかりません");
 
             // Assert
             assertThat(ex.getMessage()).isEqualTo("Article が見つかりません");
@@ -96,7 +96,7 @@ class DomainExceptionTest {
         @DisplayName("of()でエンティティ名とIDからメッセージを組み立てる")
         void ofBuildsMessage() {
             // Act
-            EntityNotFoundException ex = EntityNotFoundException.of("Article", "abc-123");
+            final EntityNotFoundException ex = EntityNotFoundException.of("Article", "abc-123");
 
             // Assert
             assertThat(ex.getMessage()).isEqualTo("Article が見つかりません: id=abc-123");
@@ -112,7 +112,7 @@ class DomainExceptionTest {
         @DisplayName("メッセージとエラーコードを保持する")
         void holdsMessageAndErrorCode() {
             // Act
-            BusinessRuleViolationException ex = new BusinessRuleViolationException("非公開にできません");
+            final BusinessRuleViolationException ex = new BusinessRuleViolationException("非公開にできません");
 
             // Assert
             assertThat(ex.getMessage()).isEqualTo("非公開にできません");
@@ -123,10 +123,10 @@ class DomainExceptionTest {
         @DisplayName("起因例外を保持する")
         void holdsCause() {
             // Arrange
-            IllegalStateException cause = new IllegalStateException("root");
+            final IllegalStateException cause = new IllegalStateException("root");
 
             // Act
-            BusinessRuleViolationException ex = new BusinessRuleViolationException("違反", cause);
+            final BusinessRuleViolationException ex = new BusinessRuleViolationException("違反", cause);
 
             // Assert
             assertThat(ex.getCause()).isSameAs(cause);

@@ -44,7 +44,7 @@ public enum ArticleType {
         if (value == null || value.isBlank()) {
             return Result.failure(new ErrorResult("articleType", "記事種別は必須です", "ARTICLE_TYPE_REQUIRED"));
         }
-        var matched = Arrays.stream(values()).filter(t -> t.name().equals(value.trim())).findFirst();
+        final var matched = Arrays.stream(values()).filter(t -> t.name().equals(value.trim())).findFirst();
         if (matched.isEmpty()) {
             return Result.failure(new ErrorResult("articleType", "不正な記事種別です: " + value, "ARTICLE_TYPE_INVALID"));
         }

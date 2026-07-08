@@ -140,7 +140,7 @@ public record DeclinedEvent(EventName name, List<BusinessDate> declinedDates, St
      * @return DeclinedEvent
      */
     public static DeclinedEvent fromTentative(TentativeEvent tentative, DeclineReason reason) {
-        var dates = tentative.tentativeDates();
+        final var dates = tentative.tentativeDates();
         if (dates.isEmpty()) {
             throw new IllegalArgumentException("Cannot decline event without dates");
         }
@@ -157,7 +157,7 @@ public record DeclinedEvent(EventName name, List<BusinessDate> declinedDates, St
      * @return DeclinedEvent
      */
     public static DeclinedEvent fromApplied(AppliedEvent applied, DeclineReason reason) {
-        var dates = applied.tentativeDates();
+        final var dates = applied.tentativeDates();
         if (dates.isEmpty()) {
             throw new IllegalArgumentException("Cannot decline event without dates");
         }

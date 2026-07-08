@@ -16,8 +16,8 @@ class SelectedEventTest {
     @DisplayName("単一日付で生成すると名前・日付が設定され会場はnull、状態は選択済みになる")
     @Test
     void testCreateWithSingleDate() {
-        BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
-        SelectedEvent event = SelectedEvent.of("地元音楽フェス2024", date);
+        final BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
+        final SelectedEvent event = SelectedEvent.of("地元音楽フェス2024", date);
 
         assertThat(event.name().value()).isEqualTo("地元音楽フェス2024");
         assertThat(event.selectedDates()).hasSize(1);
@@ -32,8 +32,8 @@ class SelectedEventTest {
     @DisplayName("単一日付と会場で生成すると名前・日付・会場が設定される")
     @Test
     void testCreateWithSingleDateAndPlace() {
-        BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
-        SelectedEvent event = SelectedEvent.of("地元音楽フェス2024", date, "市民会館");
+        final BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
+        final SelectedEvent event = SelectedEvent.of("地元音楽フェス2024", date, "市民会館");
 
         assertThat(event.name().value()).isEqualTo("地元音楽フェス2024");
         assertThat(event.selectedDates()).hasSize(1);
@@ -43,11 +43,11 @@ class SelectedEventTest {
     @DisplayName("複数日付と会場で生成すると全ての日付と会場が設定される")
     @Test
     void testCreateWithMultipleDates() {
-        BusinessDate date1 = BusinessDate.of(LocalDate.of(2024, 12, 30));
-        BusinessDate date2 = BusinessDate.of(LocalDate.of(2024, 12, 31));
-        List<BusinessDate> dates = List.of(date1, date2);
+        final BusinessDate date1 = BusinessDate.of(LocalDate.of(2024, 12, 30));
+        final BusinessDate date2 = BusinessDate.of(LocalDate.of(2024, 12, 31));
+        final List<BusinessDate> dates = List.of(date1, date2);
 
-        SelectedEvent event = SelectedEvent.of("コミックマーケット104", dates, "東京ビッグサイト");
+        final SelectedEvent event = SelectedEvent.of("コミックマーケット104", dates, "東京ビッグサイト");
 
         assertThat(event.name().value()).isEqualTo("コミックマーケット104");
         assertThat(event.selectedDates()).hasSize(2);
@@ -57,10 +57,10 @@ class SelectedEventTest {
     @DisplayName("応募済みイベントから生成すると名前が引き継がれ日付・会場が設定される")
     @Test
     void testCreateFromTentative() {
-        AppliedEvent applied = AppliedEvent.of("M3-2024春");
-        BusinessDate date = BusinessDate.of(LocalDate.of(2024, 4, 28));
+        final AppliedEvent applied = AppliedEvent.of("M3-2024春");
+        final BusinessDate date = BusinessDate.of(LocalDate.of(2024, 4, 28));
 
-        SelectedEvent selected = SelectedEvent.fromApplied(applied, List.of(date), "東京流通センター");
+        final SelectedEvent selected = SelectedEvent.fromApplied(applied, List.of(date), "東京流通センター");
 
         assertThat(selected.name()).isEqualTo(applied.name());
         assertThat(selected.selectedDates()).hasSize(1);
@@ -70,8 +70,8 @@ class SelectedEventTest {
     @DisplayName("名前がnullの場合はIllegalArgumentExceptionを送出する")
     @Test
     void testCreateWithNullName() {
-        BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
-        List<BusinessDate> dates = List.of(date);
+        final BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
+        final List<BusinessDate> dates = List.of(date);
 
         assertThatThrownBy(() -> new SelectedEvent(null, dates, List.of(), null))
                 .isInstanceOf(IllegalArgumentException.class).hasMessage("Event name cannot be null");
@@ -95,8 +95,8 @@ class SelectedEventTest {
     @DisplayName("選択日付リストは変更不可でありaddするとUnsupportedOperationExceptionを送出する")
     @Test
     void testSelectedDatesIsUnmodifiable() {
-        BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
-        SelectedEvent event = SelectedEvent.of("イベント", date);
+        final BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
+        final SelectedEvent event = SelectedEvent.of("イベント", date);
 
         assertThatThrownBy(() -> event.selectedDates().add(BusinessDate.of(LocalDate.of(2024, 5, 6))))
                 .isInstanceOf(UnsupportedOperationException.class);
@@ -105,9 +105,9 @@ class SelectedEventTest {
     @DisplayName("名前・日付・会場が同一なイベント同士はequivalentToがtrueになる")
     @Test
     void testEquivalentToSame() {
-        BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
-        SelectedEvent event1 = SelectedEvent.of("イベント", date, "会場");
-        SelectedEvent event2 = SelectedEvent.of("イベント", date, "会場");
+        final BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
+        final SelectedEvent event1 = SelectedEvent.of("イベント", date, "会場");
+        final SelectedEvent event2 = SelectedEvent.of("イベント", date, "会場");
 
         assertThat(event1.equivalentTo(event2)).isTrue();
     }
@@ -115,9 +115,9 @@ class SelectedEventTest {
     @DisplayName("名前が異なるイベント同士はequivalentToがfalseになる")
     @Test
     void testEquivalentToDifferentName() {
-        BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
-        SelectedEvent event1 = SelectedEvent.of("イベントA", date);
-        SelectedEvent event2 = SelectedEvent.of("イベントB", date);
+        final BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
+        final SelectedEvent event1 = SelectedEvent.of("イベントA", date);
+        final SelectedEvent event2 = SelectedEvent.of("イベントB", date);
 
         assertThat(event1.equivalentTo(event2)).isFalse();
     }
@@ -125,8 +125,8 @@ class SelectedEventTest {
     @DisplayName("日付が異なるイベント同士はequivalentToがfalseになる")
     @Test
     void testEquivalentToDifferentDates() {
-        SelectedEvent event1 = SelectedEvent.of("イベント", BusinessDate.of(LocalDate.of(2024, 5, 5)));
-        SelectedEvent event2 = SelectedEvent.of("イベント", BusinessDate.of(LocalDate.of(2024, 5, 6)));
+        final SelectedEvent event1 = SelectedEvent.of("イベント", BusinessDate.of(LocalDate.of(2024, 5, 5)));
+        final SelectedEvent event2 = SelectedEvent.of("イベント", BusinessDate.of(LocalDate.of(2024, 5, 6)));
 
         assertThat(event1.equivalentTo(event2)).isFalse();
     }
@@ -134,7 +134,7 @@ class SelectedEventTest {
     @DisplayName("nullとの比較ではequivalentToがfalseになる")
     @Test
     void testEquivalentToNull() {
-        SelectedEvent event = SelectedEvent.of("イベント", BusinessDate.of(LocalDate.of(2024, 5, 5)));
+        final SelectedEvent event = SelectedEvent.of("イベント", BusinessDate.of(LocalDate.of(2024, 5, 5)));
 
         assertThat(event.equivalentTo(null)).isFalse();
     }
@@ -142,9 +142,9 @@ class SelectedEventTest {
     @DisplayName("型が異なるイベント(AppliedEvent)との比較ではequivalentToがfalseになる")
     @Test
     void testEquivalentToDifferentType() {
-        BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
-        SelectedEvent selected = SelectedEvent.of("イベント", date);
-        AppliedEvent applied = AppliedEvent.of("イベント", date);
+        final BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
+        final SelectedEvent selected = SelectedEvent.of("イベント", date);
+        final AppliedEvent applied = AppliedEvent.of("イベント", date);
 
         assertThat(selected.equivalentTo(applied)).isFalse();
     }
@@ -152,9 +152,9 @@ class SelectedEventTest {
     @DisplayName("一部選択で生成すると部分選択と判定され選択日付と辞退日付が保持される")
     @Test
     void testPartialSelection() {
-        BusinessDate selectedDate = BusinessDate.of(LocalDate.of(2024, 4, 28));
-        BusinessDate declinedDate = BusinessDate.of(LocalDate.of(2024, 4, 29));
-        SelectedEvent partialSelected = SelectedEvent.ofPartial("M3-2024春", List.of(selectedDate),
+        final BusinessDate selectedDate = BusinessDate.of(LocalDate.of(2024, 4, 28));
+        final BusinessDate declinedDate = BusinessDate.of(LocalDate.of(2024, 4, 29));
+        final SelectedEvent partialSelected = SelectedEvent.ofPartial("M3-2024春", List.of(selectedDate),
                 List.of(declinedDate), "東京流通センター");
 
         assertThat(partialSelected.isPartialSelection()).isTrue();
@@ -166,8 +166,8 @@ class SelectedEventTest {
     @DisplayName("全選択で生成すると完全選択と判定され辞退日付は空になる")
     @Test
     void testFullSelection() {
-        BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
-        SelectedEvent fullSelected = SelectedEvent.of("イベント", date);
+        final BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
+        final SelectedEvent fullSelected = SelectedEvent.of("イベント", date);
 
         assertThat(fullSelected.isFullSelection()).isTrue();
         assertThat(fullSelected.isPartialSelection()).isFalse();
@@ -177,11 +177,11 @@ class SelectedEventTest {
     @DisplayName("応募済みイベントから一部選択で生成すると名前が引き継がれ部分選択と判定される")
     @Test
     void testFromAppliedPartial() {
-        AppliedEvent applied = AppliedEvent.of("M3-2024春");
-        BusinessDate selectedDate = BusinessDate.of(LocalDate.of(2024, 4, 28));
-        BusinessDate declinedDate = BusinessDate.of(LocalDate.of(2024, 4, 29));
+        final AppliedEvent applied = AppliedEvent.of("M3-2024春");
+        final BusinessDate selectedDate = BusinessDate.of(LocalDate.of(2024, 4, 28));
+        final BusinessDate declinedDate = BusinessDate.of(LocalDate.of(2024, 4, 29));
 
-        SelectedEvent partialSelected = SelectedEvent.fromAppliedPartial(applied, List.of(selectedDate),
+        final SelectedEvent partialSelected = SelectedEvent.fromAppliedPartial(applied, List.of(selectedDate),
                 List.of(declinedDate), "東京流通センター");
 
         assertThat(partialSelected.name()).isEqualTo(applied.name());

@@ -40,7 +40,7 @@ public record Isrc(String value) implements ValueObject<Isrc> {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException("ISRC cannot be blank");
         }
-        var normalized = value.toUpperCase().trim();
+        final var normalized = value.toUpperCase().trim();
         if (!ISRC_PATTERN.matcher(normalized).matches()) {
             throw new IllegalArgumentException("ISRC must match the format: CC-XXX-YY-NNNNN (hyphens optional)");
         }

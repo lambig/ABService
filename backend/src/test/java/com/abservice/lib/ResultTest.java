@@ -18,10 +18,10 @@ class ResultTest {
         @DisplayName("resolve()で値を取得できる")
         void resolveShouldReturnValue() {
             // Arrange
-            Result<String> result = Result.success("test value");
+            final Result<String> result = Result.success("test value");
 
             // Act
-            String value = result.resolve();
+            final String value = result.resolve();
 
             // Assert
             assertThat(value).isEqualTo("test value");
@@ -31,10 +31,10 @@ class ResultTest {
         @DisplayName("orElse()で値を取得できる")
         void orElseShouldReturnValue() {
             // Arrange
-            Result<String> result = Result.success("test value");
+            final Result<String> result = Result.success("test value");
 
             // Act
-            String value = result.orElse("default");
+            final String value = result.orElse("default");
 
             // Assert
             assertThat(value).isEqualTo("test value");
@@ -44,10 +44,10 @@ class ResultTest {
         @DisplayName("orElseGet()で値を取得できる")
         void orElseGetShouldReturnValue() {
             // Arrange
-            Result<String> result = Result.success("test value");
+            final Result<String> result = Result.success("test value");
 
             // Act
-            String value = result.orElseGet(errors -> "default");
+            final String value = result.orElseGet(errors -> "default");
 
             // Assert
             assertThat(value).isEqualTo("test value");
@@ -57,10 +57,10 @@ class ResultTest {
         @DisplayName("orElseDo()で値を取得できる")
         void orElseDoShouldReturnValue() {
             // Arrange
-            Result<String> result = Result.success("test value");
+            final Result<String> result = Result.success("test value");
 
             // Act
-            String value = result.orElseDo(errors -> {
+            final String value = result.orElseDo(errors -> {
             });
 
             // Assert
@@ -76,8 +76,8 @@ class ResultTest {
         @DisplayName("resolve()でデフォルト例外をスローする")
         void resolveShouldThrowDefaultException() {
             // Arrange
-            ErrorResult error = new ErrorResult("field", "message");
-            Result<String> result = Result.failure(error);
+            final ErrorResult error = new ErrorResult("field", "message");
+            final Result<String> result = Result.failure(error);
 
             // Act & Assert
             assertThatThrownBy(result::resolve).isInstanceOf(IllegalStateException.class)
@@ -88,8 +88,8 @@ class ResultTest {
         @DisplayName("resolve()でカスタム例外をスローする")
         void resolveShouldThrowCustomException() {
             // Arrange
-            ErrorResult error = new ErrorResult("field", "message");
-            Result<String> result = Result.failure(error);
+            final ErrorResult error = new ErrorResult("field", "message");
+            final Result<String> result = Result.failure(error);
 
             // Act & Assert
             assertThatThrownBy(() -> result.resolve(errors -> new IllegalArgumentException("custom")))
@@ -100,11 +100,11 @@ class ResultTest {
         @DisplayName("orElse()でデフォルト値を返す")
         void orElseShouldReturnDefault() {
             // Arrange
-            ErrorResult error = new ErrorResult("field", "message");
-            Result<String> result = Result.failure(error);
+            final ErrorResult error = new ErrorResult("field", "message");
+            final Result<String> result = Result.failure(error);
 
             // Act
-            String value = result.orElse("default");
+            final String value = result.orElse("default");
 
             // Assert
             assertThat(value).isEqualTo("default");
@@ -114,11 +114,11 @@ class ResultTest {
         @DisplayName("orElseGet()でサプライヤーから値を取得する")
         void orElseGetShouldReturnSuppliedValue() {
             // Arrange
-            ErrorResult error = new ErrorResult("field", "message");
-            Result<String> result = Result.failure(error);
+            final ErrorResult error = new ErrorResult("field", "message");
+            final Result<String> result = Result.failure(error);
 
             // Act
-            String value = result.orElseGet(errors -> "supplied value");
+            final String value = result.orElseGet(errors -> "supplied value");
 
             // Assert
             assertThat(value).isEqualTo("supplied value");
@@ -128,12 +128,12 @@ class ResultTest {
         @DisplayName("orElseGet()でエラーをサプライヤーに渡す")
         void orElseGetShouldPassErrorsToSupplier() {
             // Arrange
-            ErrorResult error1 = new ErrorResult("field1", "message1");
-            ErrorResult error2 = new ErrorResult("field2", "message2");
-            Result<String> result = Result.failure(error1, error2);
+            final ErrorResult error1 = new ErrorResult("field1", "message1");
+            final ErrorResult error2 = new ErrorResult("field2", "message2");
+            final Result<String> result = Result.failure(error1, error2);
 
             // Act
-            String value = result.orElseGet(errors -> {
+            final String value = result.orElseGet(errors -> {
                 assertThat(errors).hasSize(2);
                 return "supplied value";
             });
@@ -146,9 +146,9 @@ class ResultTest {
         @DisplayName("orElseDo()でアクションを実行してから例外をスローする")
         void orElseDoShouldExecuteActionAndThrow() {
             // Arrange
-            ErrorResult error = new ErrorResult("field", "message");
-            Result<String> result = Result.failure(error);
-            var executed = new boolean[]{false};
+            final ErrorResult error = new ErrorResult("field", "message");
+            final Result<String> result = Result.failure(error);
+            final var executed = new boolean[]{false};
 
             // Act & Assert
             assertThatThrownBy(() -> result.orElseDo(errors -> {
@@ -167,7 +167,7 @@ class ResultTest {
         @DisplayName("コードなしで生成できる")
         void constructorWithoutCode() {
             // Act
-            ErrorResult error = new ErrorResult("field", "message");
+            final ErrorResult error = new ErrorResult("field", "message");
 
             // Assert
             assertThat(error.field()).isEqualTo("field");
@@ -179,7 +179,7 @@ class ResultTest {
         @DisplayName("コードありで生成できる")
         void constructorWithCode() {
             // Act
-            ErrorResult error = new ErrorResult("field", "message", "ERR001");
+            final ErrorResult error = new ErrorResult("field", "message", "ERR001");
 
             // Assert
             assertThat(error.field()).isEqualTo("field");
@@ -191,7 +191,7 @@ class ResultTest {
         @DisplayName("toString()でコードなしのフォーマット")
         void toStringWithoutCode() {
             // Arrange
-            ErrorResult error = new ErrorResult("field", "message");
+            final ErrorResult error = new ErrorResult("field", "message");
 
             // Act & Assert
             assertThat(error.toString()).isEqualTo("field: message");
@@ -201,7 +201,7 @@ class ResultTest {
         @DisplayName("toString()でコードありのフォーマット")
         void toStringWithCode() {
             // Arrange
-            ErrorResult error = new ErrorResult("field", "message", "ERR001");
+            final ErrorResult error = new ErrorResult("field", "message", "ERR001");
 
             // Act & Assert
             assertThat(error.toString()).isEqualTo("field: message (code: ERR001)");
@@ -216,10 +216,10 @@ class ResultTest {
         @DisplayName("成功時は値を変換する")
         void mapShouldTransformSuccessValue() {
             // Arrange
-            Result<Integer> result = Result.success(21);
+            final Result<Integer> result = Result.success(21);
 
             // Act
-            Result<Integer> mapped = result.map(v -> v * 2);
+            final Result<Integer> mapped = result.map(v -> v * 2);
 
             // Assert
             assertThat(mapped.resolve()).isEqualTo(42);
@@ -229,12 +229,12 @@ class ResultTest {
         @DisplayName("失敗時はエラーを引き継ぎ変換関数を実行しない")
         void mapShouldPropagateFailureWithoutApplyingMapper() {
             // Arrange
-            ErrorResult error = new ErrorResult("field", "message");
-            Result<Integer> result = Result.failure(error);
-            var applied = new boolean[]{false};
+            final ErrorResult error = new ErrorResult("field", "message");
+            final Result<Integer> result = Result.failure(error);
+            final var applied = new boolean[]{false};
 
             // Act
-            Result<Integer> mapped = result.map(v -> {
+            final Result<Integer> mapped = result.map(v -> {
                 applied[0] = true;
                 return v * 2;
             });
@@ -254,10 +254,10 @@ class ResultTest {
         @DisplayName("成功時はResultを返す関数を適用し平坦化する")
         void flatMapShouldChainSuccess() {
             // Arrange
-            Result<Integer> result = Result.success(10);
+            final Result<Integer> result = Result.success(10);
 
             // Act
-            Result<String> mapped = result.flatMap(v -> Result.success("value=" + v));
+            final Result<String> mapped = result.flatMap(v -> Result.success("value=" + v));
 
             // Assert
             assertThat(mapped.resolve()).isEqualTo("value=10");
@@ -267,11 +267,11 @@ class ResultTest {
         @DisplayName("成功時に関数が失敗を返せばその失敗になる")
         void flatMapShouldReturnFailureFromMapper() {
             // Arrange
-            ErrorResult error = new ErrorResult("field", "invalid");
-            Result<Integer> result = Result.success(10);
+            final ErrorResult error = new ErrorResult("field", "invalid");
+            final Result<Integer> result = Result.success(10);
 
             // Act
-            Result<String> mapped = result.flatMap(v -> Result.failure(error));
+            final Result<String> mapped = result.flatMap(v -> Result.failure(error));
 
             // Assert
             assertThat(mapped).isInstanceOf(Result.Failure.class);
@@ -282,12 +282,12 @@ class ResultTest {
         @DisplayName("失敗時はエラーを引き継ぎ変換関数を実行しない")
         void flatMapShouldPropagateFailureWithoutApplyingMapper() {
             // Arrange
-            ErrorResult error = new ErrorResult("field", "message");
-            Result<Integer> result = Result.failure(error);
-            var applied = new boolean[]{false};
+            final ErrorResult error = new ErrorResult("field", "message");
+            final Result<Integer> result = Result.failure(error);
+            final var applied = new boolean[]{false};
 
             // Act
-            Result<String> mapped = result.flatMap(v -> {
+            final Result<String> mapped = result.flatMap(v -> {
                 applied[0] = true;
                 return Result.success("value=" + v);
             });
@@ -307,11 +307,11 @@ class ResultTest {
         @DisplayName("2引数: 両方成功でcombinerを適用する")
         void zip2ShouldCombineBothSuccess() {
             // Arrange
-            Result<String> a = Result.success("foo");
-            Result<Integer> b = Result.success(3);
+            final Result<String> a = Result.success("foo");
+            final Result<Integer> b = Result.success(3);
 
             // Act
-            Result<String> combined = Result.zip(a, b, (s, n) -> s.repeat(n));
+            final Result<String> combined = Result.zip(a, b, (s, n) -> s.repeat(n));
 
             // Assert
             assertThat(combined.resolve()).isEqualTo("foofoofoo");
@@ -321,12 +321,12 @@ class ResultTest {
         @DisplayName("2引数: 片方が失敗ならそのエラーを返す")
         void zip2ShouldReturnFailureWhenOneFails() {
             // Arrange
-            ErrorResult error = new ErrorResult("b", "invalid");
-            Result<String> a = Result.success("foo");
-            Result<Integer> b = Result.failure(error);
+            final ErrorResult error = new ErrorResult("b", "invalid");
+            final Result<String> a = Result.success("foo");
+            final Result<Integer> b = Result.failure(error);
 
             // Act
-            Result<String> combined = Result.zip(a, b, (s, n) -> s.repeat(n));
+            final Result<String> combined = Result.zip(a, b, (s, n) -> s.repeat(n));
 
             // Assert
             assertThat(combined).isInstanceOf(Result.Failure.class);
@@ -337,13 +337,13 @@ class ResultTest {
         @DisplayName("2引数: 両方失敗なら全エラーを集約する")
         void zip2ShouldAccumulateAllErrors() {
             // Arrange
-            ErrorResult errorA = new ErrorResult("a", "invalid a");
-            ErrorResult errorB = new ErrorResult("b", "invalid b");
-            Result<String> a = Result.failure(errorA);
-            Result<Integer> b = Result.failure(errorB);
+            final ErrorResult errorA = new ErrorResult("a", "invalid a");
+            final ErrorResult errorB = new ErrorResult("b", "invalid b");
+            final Result<String> a = Result.failure(errorA);
+            final Result<Integer> b = Result.failure(errorB);
 
             // Act
-            Result<String> combined = Result.zip(a, b, (s, n) -> s.repeat(n));
+            final Result<String> combined = Result.zip(a, b, (s, n) -> s.repeat(n));
 
             // Assert
             assertThat(combined).isInstanceOf(Result.Failure.class);
@@ -354,12 +354,12 @@ class ResultTest {
         @DisplayName("3引数: すべて成功でcombinerを適用する")
         void zip3ShouldCombineAllSuccess() {
             // Arrange
-            Result<String> a = Result.success("a");
-            Result<String> b = Result.success("b");
-            Result<String> c = Result.success("c");
+            final Result<String> a = Result.success("a");
+            final Result<String> b = Result.success("b");
+            final Result<String> c = Result.success("c");
 
             // Act
-            Result<String> combined = Result.zip(a, b, c, (x, y, z) -> x + y + z);
+            final Result<String> combined = Result.zip(a, b, c, (x, y, z) -> x + y + z);
 
             // Assert
             assertThat(combined.resolve()).isEqualTo("abc");
@@ -369,14 +369,14 @@ class ResultTest {
         @DisplayName("3引数: 複数失敗なら全エラーを順序どおり集約する")
         void zip3ShouldAccumulateAllErrorsInOrder() {
             // Arrange
-            ErrorResult errorA = new ErrorResult("a", "invalid a");
-            ErrorResult errorC = new ErrorResult("c", "invalid c");
-            Result<String> a = Result.failure(errorA);
-            Result<String> b = Result.success("b");
-            Result<String> c = Result.failure(errorC);
+            final ErrorResult errorA = new ErrorResult("a", "invalid a");
+            final ErrorResult errorC = new ErrorResult("c", "invalid c");
+            final Result<String> a = Result.failure(errorA);
+            final Result<String> b = Result.success("b");
+            final Result<String> c = Result.failure(errorC);
 
             // Act
-            Result<String> combined = Result.zip(a, b, c, (x, y, z) -> x + y + z);
+            final Result<String> combined = Result.zip(a, b, c, (x, y, z) -> x + y + z);
 
             // Assert
             assertThat(combined).isInstanceOf(Result.Failure.class);
@@ -392,7 +392,7 @@ class ResultTest {
         @DisplayName("success()で成功を生成できる")
         void success() {
             // Act
-            Result<String> result = Result.success("value");
+            final Result<String> result = Result.success("value");
 
             // Assert
             assertThat(result).isInstanceOf(Result.Success.class);
@@ -403,11 +403,11 @@ class ResultTest {
         @DisplayName("failure()でリストから失敗を生成できる")
         void failureWithList() {
             // Arrange
-            List<ErrorResult> errors = List.of(new ErrorResult("field1", "message1"),
+            final List<ErrorResult> errors = List.of(new ErrorResult("field1", "message1"),
                     new ErrorResult("field2", "message2"));
 
             // Act
-            Result<String> result = Result.failure(errors);
+            final Result<String> result = Result.failure(errors);
 
             // Assert
             assertThat(result).isInstanceOf(Result.Failure.class);
@@ -418,11 +418,11 @@ class ResultTest {
         @DisplayName("failure()で可変長引数から失敗を生成できる")
         void failureWithVarargs() {
             // Arrange
-            ErrorResult error1 = new ErrorResult("field1", "message1");
-            ErrorResult error2 = new ErrorResult("field2", "message2");
+            final ErrorResult error1 = new ErrorResult("field1", "message1");
+            final ErrorResult error2 = new ErrorResult("field2", "message2");
 
             // Act
-            Result<String> result = Result.failure(error1, error2);
+            final Result<String> result = Result.failure(error1, error2);
 
             // Assert
             assertThat(result).isInstanceOf(Result.Failure.class);

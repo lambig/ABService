@@ -56,7 +56,7 @@ public record Isdn(String value) implements ValueObject<Isdn> {
     }
 
     private static String normalizeAndValidate(String value) {
-        var normalized = value.trim().replace("-", "");
+        final var normalized = value.trim().replace("-", "");
         validateFormat(normalized, value);
         validateCheckDigit(normalized, value);
         return normalized;
@@ -85,10 +85,10 @@ public record Isdn(String value) implements ValueObject<Isdn> {
         }
         int sum = 0;
         for (int i = 0; i < 12; i++) {
-            int digit = Character.getNumericValue(isdn.charAt(i));
+            final int digit = Character.getNumericValue(isdn.charAt(i));
             sum += (i % 2 == 0) ? digit : digit * 3;
         }
-        int checkDigit = (10 - (sum % 10)) % 10;
+        final int checkDigit = (10 - (sum % 10)) % 10;
         return checkDigit == Character.getNumericValue(isdn.charAt(12));
     }
 

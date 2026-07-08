@@ -25,13 +25,13 @@ class TrackTest {
         @DisplayName("必須フィールドのみで生成できること")
         void createWithMinimalFieldsShouldSucceed() {
             // Arrange
-            var trackNo = 1;
-            var title = TrackTitle.of("Track 1");
-            var artistCredit = ArtistCredit.of("Test Artist");
-            var recordingDate = BusinessDate.of(2024, 1, 15);
+            final var trackNo = 1;
+            final var title = TrackTitle.of("Track 1");
+            final var artistCredit = ArtistCredit.of("Test Artist");
+            final var recordingDate = BusinessDate.of(2024, 1, 15);
 
             // Act
-            var track = Track.create(trackNo, title, artistCredit, recordingDate);
+            final var track = Track.create(trackNo, title, artistCredit, recordingDate);
 
             // Assert
             assertThat(track).isNotNull();
@@ -49,15 +49,15 @@ class TrackTest {
         @DisplayName("すべてのフィールドを指定して生成できること")
         void createWithAllFieldsShouldSucceed() {
             // Arrange
-            var trackNo = 2;
-            var title = TrackTitle.of("Track 2");
-            var artistCredit = ArtistCredit.of("Full Artist");
-            var recordingDate = BusinessDate.of(2024, 5, 1);
-            var recordingPlace = "Studio ABC";
-            var isLive = false;
+            final var trackNo = 2;
+            final var title = TrackTitle.of("Track 2");
+            final var artistCredit = ArtistCredit.of("Full Artist");
+            final var recordingDate = BusinessDate.of(2024, 5, 1);
+            final var recordingPlace = "Studio ABC";
+            final var isLive = false;
 
             // Act
-            var track = Track.create(trackNo, title, artistCredit, recordingDate, recordingPlace, isLive);
+            final var track = Track.create(trackNo, title, artistCredit, recordingDate, recordingPlace, isLive);
 
             // Assert
             assertThat(track).isNotNull();
@@ -73,9 +73,9 @@ class TrackTest {
         @DisplayName("タイトルがnullの場合は例外が発生すること")
         void createWithNullTitleShouldThrowException() {
             // Arrange
-            var trackNo = 1;
-            var artistCredit = ArtistCredit.of("Artist");
-            var recordingDate = BusinessDate.of(2024, 1, 15);
+            final var trackNo = 1;
+            final var artistCredit = ArtistCredit.of("Artist");
+            final var recordingDate = BusinessDate.of(2024, 1, 15);
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -87,12 +87,12 @@ class TrackTest {
         @DisplayName("artistCreditがnullでも生成できること（アルバムから継承）")
         void createWithNullArtistCreditShouldSucceed() {
             // Arrange
-            var trackNo = 1;
-            var title = TrackTitle.of("Track 1");
-            var recordingDate = BusinessDate.of(2024, 1, 15);
+            final var trackNo = 1;
+            final var title = TrackTitle.of("Track 1");
+            final var recordingDate = BusinessDate.of(2024, 1, 15);
 
             // Act
-            var track = Track.create(trackNo, title, null, recordingDate);
+            final var track = Track.create(trackNo, title, null, recordingDate);
 
             // Assert
             assertThat(track).isNotNull();
@@ -108,12 +108,12 @@ class TrackTest {
         @DisplayName("タイトルを変更できること")
         void changeTitleShouldSucceed() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Original"), ArtistCredit.of("Artist"),
+            final var track = Track.create(1, TrackTitle.of("Original"), ArtistCredit.of("Artist"),
                     BusinessDate.of(2024, 1, 1));
-            var newTitle = TrackTitle.of("Updated");
+            final var newTitle = TrackTitle.of("Updated");
 
             // Act
-            var updated = track.changeTitle(newTitle);
+            final var updated = track.changeTitle(newTitle);
 
             // Assert
             assertThat(updated.title()).isEqualTo(newTitle);
@@ -125,7 +125,7 @@ class TrackTest {
         @DisplayName("nullのタイトルに変更しようとすると例外が発生すること")
         void changeTitleToNullShouldThrowException() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Original"), ArtistCredit.of("Artist"),
+            final var track = Track.create(1, TrackTitle.of("Original"), ArtistCredit.of("Artist"),
                     BusinessDate.of(2024, 1, 1));
 
             // Act & Assert
@@ -143,12 +143,12 @@ class TrackTest {
         @DisplayName("アーティストクレジットを変更できること")
         void changeArtistCreditShouldSucceed() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Original Artist"),
+            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Original Artist"),
                     BusinessDate.of(2024, 1, 1));
-            var newCredit = ArtistCredit.of("New Artist");
+            final var newCredit = ArtistCredit.of("New Artist");
 
             // Act
-            var updated = track.changeArtistCredit(newCredit);
+            final var updated = track.changeArtistCredit(newCredit);
 
             // Assert
             assertThat(updated.artistCredit()).isEqualTo(newCredit);
@@ -158,11 +158,11 @@ class TrackTest {
         @DisplayName("アーティストクレジットをnullに変更できること")
         void changeArtistCreditToNullShouldSucceed() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Original Artist"),
+            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Original Artist"),
                     BusinessDate.of(2024, 1, 1));
 
             // Act
-            var updated = track.changeArtistCredit(null);
+            final var updated = track.changeArtistCredit(null);
 
             // Assert
             assertThat(updated.artistCredit()).isNull();
@@ -177,11 +177,12 @@ class TrackTest {
         @DisplayName("録音日を変更できること")
         void changeRecordingDateShouldSucceed() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
-            var newDate = BusinessDate.of(2024, 12, 31);
+            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1));
+            final var newDate = BusinessDate.of(2024, 12, 31);
 
             // Act
-            var updated = track.changeRecordingDate(newDate);
+            final var updated = track.changeRecordingDate(newDate);
 
             // Assert
             assertThat(updated.recordingDate()).isEqualTo(newDate);
@@ -191,10 +192,11 @@ class TrackTest {
         @DisplayName("録音日をnullに変更できること")
         void changeRecordingDateToNullShouldSucceed() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
+            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1));
 
             // Act
-            var updated = track.changeRecordingDate(null);
+            final var updated = track.changeRecordingDate(null);
 
             // Assert
             assertThat(updated.recordingDate()).isNull();
@@ -209,12 +211,12 @@ class TrackTest {
         @DisplayName("録音場所を変更できること")
         void changeRecordingPlaceShouldSucceed() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1),
-                    "Studio A", false);
-            var newPlace = "Studio B";
+            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1), "Studio A", false);
+            final var newPlace = "Studio B";
 
             // Act
-            var updated = track.changeRecordingPlace(newPlace);
+            final var updated = track.changeRecordingPlace(newPlace);
 
             // Assert
             assertThat(updated.recordingPlace()).isEqualTo(newPlace);
@@ -224,11 +226,11 @@ class TrackTest {
         @DisplayName("録音場所をnullに変更できること")
         void changeRecordingPlaceToNullShouldSucceed() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1),
-                    "Studio A", false);
+            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1), "Studio A", false);
 
             // Act
-            var updated = track.changeRecordingPlace(null);
+            final var updated = track.changeRecordingPlace(null);
 
             // Assert
             assertThat(updated.recordingPlace()).isNull();
@@ -243,11 +245,11 @@ class TrackTest {
         @DisplayName("ライブフラグを変更できること")
         void changeIsLiveShouldSucceed() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1),
-                    "Studio", false);
+            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1), "Studio", false);
 
             // Act
-            var updated = track.changeIsLive(true);
+            final var updated = track.changeIsLive(true);
 
             // Assert
             assertThat(updated.isLive()).isTrue();
@@ -257,11 +259,11 @@ class TrackTest {
         @DisplayName("ライブフラグをnullに変更できること")
         void changeIsLiveToNullShouldSucceed() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1),
-                    "Studio", true);
+            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1), "Studio", true);
 
             // Act
-            var updated = track.changeIsLive(null);
+            final var updated = track.changeIsLive(null);
 
             // Assert
             assertThat(updated.isLive()).isNull();
@@ -276,12 +278,13 @@ class TrackTest {
         @DisplayName("チューンを追加できること")
         void addTuneShouldSucceed() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
-            var tuneId = Tune.Id.generate();
-            var trackTune = TrackTune.create(1, tuneId, null, null, null);
+            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1));
+            final var tuneId = Tune.Id.generate();
+            final var trackTune = TrackTune.create(1, tuneId, null, null, null);
 
             // Act
-            var updated = track.addTune(trackTune);
+            final var updated = track.addTune(trackTune);
 
             // Assert
             assertThat(updated.getTunes().size()).isEqualTo(1);
@@ -292,12 +295,13 @@ class TrackTest {
         @DisplayName("複数のチューンを追加できること")
         void addMultipleTunesShouldSucceed() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
-            var tune1 = TrackTune.create(1, Tune.Id.generate(), null, null, null);
-            var tune2 = TrackTune.create(2, Tune.Id.generate(), null, null, null);
+            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1));
+            final var tune1 = TrackTune.create(1, Tune.Id.generate(), null, null, null);
+            final var tune2 = TrackTune.create(2, Tune.Id.generate(), null, null, null);
 
             // Act
-            var updated = track.addTune(tune1).addTune(tune2);
+            final var updated = track.addTune(tune1).addTune(tune2);
 
             // Assert
             assertThat(updated.getTunes().size()).isEqualTo(2);
@@ -309,7 +313,8 @@ class TrackTest {
         @DisplayName("nullのチューンを追加しようとすると例外が発生すること")
         void addNullTuneShouldThrowException() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
+            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1));
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -321,10 +326,11 @@ class TrackTest {
         @DisplayName("重複したseqのチューンを追加しようとすると例外が発生すること")
         void addDuplicateSeqTuneShouldThrowException() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
-            var tune1 = TrackTune.create(1, Tune.Id.generate(), null, null, null);
-            var tune2 = TrackTune.create(1, Tune.Id.generate(), null, null, null);
-            var trackWithTune = track.addTune(tune1);
+            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1));
+            final var tune1 = TrackTune.create(1, Tune.Id.generate(), null, null, null);
+            final var tune2 = TrackTune.create(1, Tune.Id.generate(), null, null, null);
+            final var trackWithTune = track.addTune(tune1);
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -341,12 +347,13 @@ class TrackTest {
         @DisplayName("チューンを削除できること")
         void removeTuneShouldSucceed() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
-            var tune = TrackTune.create(1, Tune.Id.generate(), null, null, null);
-            var trackWithTune = track.addTune(tune);
+            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1));
+            final var tune = TrackTune.create(1, Tune.Id.generate(), null, null, null);
+            final var trackWithTune = track.addTune(tune);
 
             // Act
-            var updated = trackWithTune.removeTune(1);
+            final var updated = trackWithTune.removeTune(1);
 
             // Assert
             assertThat(updated.getTunes().isEmpty()).isTrue();
@@ -356,14 +363,15 @@ class TrackTest {
         @DisplayName("複数のチューンから特定のチューンを削除できること")
         void removeSpecificTuneFromMultipleShouldSucceed() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
-            var tune1 = TrackTune.create(1, Tune.Id.generate(), null, null, null);
-            var tune2 = TrackTune.create(2, Tune.Id.generate(), null, null, null);
-            var tune3 = TrackTune.create(3, Tune.Id.generate(), null, null, null);
-            var trackWithTunes = track.addTune(tune1).addTune(tune2).addTune(tune3);
+            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1));
+            final var tune1 = TrackTune.create(1, Tune.Id.generate(), null, null, null);
+            final var tune2 = TrackTune.create(2, Tune.Id.generate(), null, null, null);
+            final var tune3 = TrackTune.create(3, Tune.Id.generate(), null, null, null);
+            final var trackWithTunes = track.addTune(tune1).addTune(tune2).addTune(tune3);
 
             // Act
-            var updated = trackWithTunes.removeTune(2);
+            final var updated = trackWithTunes.removeTune(2);
 
             // Assert
             assertThat(updated.getTunes().size()).isEqualTo(2);
@@ -376,7 +384,8 @@ class TrackTest {
         @DisplayName("nullのseqで削除しようとすると例外が発生すること")
         void removeWithNullSeqShouldThrowException() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
+            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1));
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -388,7 +397,8 @@ class TrackTest {
         @DisplayName("存在しないseqで削除しようとすると例外が発生すること")
         void removeNonExistentSeqShouldThrowException() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
+            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1));
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -405,15 +415,16 @@ class TrackTest {
         @DisplayName("チューンを更新できること")
         void updateTuneShouldSucceed() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
-            var originalTune = TrackTune.create(1, Tune.Id.generate(), null, null, null);
-            var trackWithTune = track.addTune(originalTune);
+            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1));
+            final var originalTune = TrackTune.create(1, Tune.Id.generate(), null, null, null);
+            final var trackWithTune = track.addTune(originalTune);
 
-            var composerCredit = Credit.of("New Composer");
-            var updatedTune = originalTune.changeComposerCreditOverride(composerCredit);
+            final var composerCredit = Credit.of("New Composer");
+            final var updatedTune = originalTune.changeComposerCreditOverride(composerCredit);
 
             // Act
-            var updated = trackWithTune.updateTune(updatedTune);
+            final var updated = trackWithTune.updateTune(updatedTune);
 
             // Assert
             assertThat(updated.getTunes().size()).isEqualTo(1);
@@ -424,16 +435,17 @@ class TrackTest {
         @DisplayName("複数のチューンの中から特定のチューンを更新できること")
         void updateSpecificTuneFromMultipleShouldSucceed() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
-            var tune1 = TrackTune.create(1, Tune.Id.generate(), null, null, null);
-            var tune2 = TrackTune.create(2, Tune.Id.generate(), null, null, null);
-            var trackWithTunes = track.addTune(tune1).addTune(tune2);
+            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1));
+            final var tune1 = TrackTune.create(1, Tune.Id.generate(), null, null, null);
+            final var tune2 = TrackTune.create(2, Tune.Id.generate(), null, null, null);
+            final var trackWithTunes = track.addTune(tune1).addTune(tune2);
 
-            var url = Url.of("https://example.com");
-            var updatedTune2 = tune2.changeLinkUrl(url);
+            final var url = Url.of("https://example.com");
+            final var updatedTune2 = tune2.changeLinkUrl(url);
 
             // Act
-            var updated = trackWithTunes.updateTune(updatedTune2);
+            final var updated = trackWithTunes.updateTune(updatedTune2);
 
             // Assert
             assertThat(updated.getTunes().size()).isEqualTo(2);
@@ -445,7 +457,8 @@ class TrackTest {
         @DisplayName("nullのチューンで更新しようとすると例外が発生すること")
         void updateWithNullTuneShouldThrowException() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
+            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1));
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -457,8 +470,9 @@ class TrackTest {
         @DisplayName("存在しないseqのチューンで更新しようとすると例外が発生すること")
         void updateNonExistentTuneShouldThrowException() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
-            var nonExistentTune = TrackTune.create(999, Tune.Id.generate(), null, null, null);
+            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1));
+            final var nonExistentTune = TrackTune.create(999, Tune.Id.generate(), null, null, null);
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -475,12 +489,13 @@ class TrackTest {
         @DisplayName("チューンリストが不変であること")
         void getTunesShouldReturnUnmodifiableList() {
             // Arrange
-            var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
-            var tune = TrackTune.create(1, Tune.Id.generate(), null, null, null);
-            var trackWithTune = track.addTune(tune);
+            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1));
+            final var tune = TrackTune.create(1, Tune.Id.generate(), null, null, null);
+            final var trackWithTune = track.addTune(tune);
 
             // Act
-            var tunes = trackWithTune.getTunes();
+            final var tunes = trackWithTune.getTunes();
 
             // Assert
             assertThatThrownBy(() -> {
@@ -497,7 +512,7 @@ class TrackTest {
         @DisplayName("UUIDv7形式のIDを生成できること")
         void generateShouldCreateValidId() {
             // Act
-            var id = Track.Id.generate();
+            final var id = Track.Id.generate();
 
             // Assert
             assertThat(id).isNotNull();
@@ -509,11 +524,11 @@ class TrackTest {
         @DisplayName("文字列からIDを生成できること")
         void ofShouldCreateIdFromString() {
             // Arrange
-            var id1 = Track.Id.generate();
-            var value = id1.value();
+            final var id1 = Track.Id.generate();
+            final var value = id1.value();
 
             // Act
-            var id2 = Track.Id.of(value);
+            final var id2 = Track.Id.of(value);
 
             // Assert
             assertThat(id2).isEqualTo(id1);

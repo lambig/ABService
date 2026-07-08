@@ -91,7 +91,7 @@ public sealed interface Result<T> {
      */
     default T resolve() {
         return resolve(errors -> {
-            String errorMessage = errors.stream().map(e -> e.field() + ": " + e.message())
+            final String errorMessage = errors.stream().map(e -> e.field() + ": " + e.message())
                     .reduce((a, b) -> a + ", " + b).orElse("Unknown error");
             return new IllegalStateException("エラー: " + errorMessage);
         });
@@ -161,7 +161,7 @@ public sealed interface Result<T> {
             case Success<T> success -> success.value();
             case Failure<T> failure -> {
                 action.accept(failure.errors());
-                String errorMessage = failure.errors().stream().map(e -> e.field() + ": " + e.message())
+                final String errorMessage = failure.errors().stream().map(e -> e.field() + ": " + e.message())
                         .reduce((a, b) -> a + ", " + b).orElse("Unknown error");
                 throw new IllegalStateException("エラー: " + errorMessage);
             }
@@ -272,7 +272,7 @@ public sealed interface Result<T> {
         if (a instanceof Success<A> sa && b instanceof Success<B> sb) {
             return Result.success(combiner.apply(sa.value(), sb.value()));
         }
-        List<ErrorResult> errors = new ArrayList<>();
+        final List<ErrorResult> errors = new ArrayList<>();
         collectErrors(a, errors);
         collectErrors(b, errors);
         return Result.failure(errors);
@@ -305,7 +305,7 @@ public sealed interface Result<T> {
         if (a instanceof Success<A> sa && b instanceof Success<B> sb && c instanceof Success<C> sc) {
             return Result.success(combiner.apply(sa.value(), sb.value(), sc.value()));
         }
-        List<ErrorResult> errors = new ArrayList<>();
+        final List<ErrorResult> errors = new ArrayList<>();
         collectErrors(a, errors);
         collectErrors(b, errors);
         collectErrors(c, errors);

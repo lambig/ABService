@@ -35,7 +35,7 @@ public class ArticleRepositoryImpl implements ArticleRepository {
             return Uni.createFrom().failure(new IllegalArgumentException("Article cannot be null"));
         }
 
-        var entity = ArticleMapper.toEntity(aggregate);
+        final var entity = ArticleMapper.toEntity(aggregate);
 
         return dataSource.existsByArticleId(entity.getDomainId()).flatMap(exists -> {
             if (exists) {
@@ -62,7 +62,7 @@ public class ArticleRepositoryImpl implements ArticleRepository {
             return Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null"));
         }
 
-        var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
+        final var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
                 .collect(Collectors.toList());
 
         return Uni.join().all(unis).andFailFast();
@@ -83,7 +83,7 @@ public class ArticleRepositoryImpl implements ArticleRepository {
             return Uni.createFrom().item(List.of());
         }
 
-        var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false).map(this::findById)
+        final var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false).map(this::findById)
                 .collect(Collectors.toList());
 
         return Uni.join().all(unis).andFailFast()
@@ -110,7 +110,7 @@ public class ArticleRepositoryImpl implements ArticleRepository {
             return Uni.createFrom().voidItem();
         }
 
-        var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
+        final var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
                 .collect(Collectors.toList());
 
         return Uni.join().all(unis).andFailFast().replaceWithVoid();
@@ -131,7 +131,7 @@ public class ArticleRepositoryImpl implements ArticleRepository {
             return Uni.createFrom().voidItem();
         }
 
-        var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
+        final var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
                 .collect(Collectors.toList());
 
         return Uni.join().all(unis).andFailFast().replaceWithVoid();

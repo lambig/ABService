@@ -12,22 +12,22 @@ class TrackTitleTest {
     @DisplayName("有効なタイトルで生成できる")
     @Test
     void testCreateValidTitle() {
-        TrackTitle title = new TrackTitle("Track 01 - Amazing Song");
+        final TrackTitle title = new TrackTitle("Track 01 - Amazing Song");
         assertThat(title.value()).isEqualTo("Track 01 - Amazing Song");
     }
 
     @DisplayName("日本語のタイトルで生成できる")
     @Test
     void testCreateTitleWithJapanese() {
-        TrackTitle title = new TrackTitle("恋色マスタースパーク");
+        final TrackTitle title = new TrackTitle("恋色マスタースパーク");
         assertThat(title.value()).isEqualTo("恋色マスタースパーク");
     }
 
     @DisplayName("最大長255文字のタイトルで生成できる")
     @Test
     void testCreateTitleMaxLength() {
-        String maxLengthTitle = "a".repeat(255);
-        TrackTitle title = new TrackTitle(maxLengthTitle);
+        final String maxLengthTitle = "a".repeat(255);
+        final TrackTitle title = new TrackTitle(maxLengthTitle);
         assertThat(title.value()).hasSize(255);
     }
 
@@ -55,7 +55,7 @@ class TrackTitleTest {
     @DisplayName("256文字以上の場合は例外を投げる")
     @Test
     void testCreateTitleTooLong() {
-        String tooLongTitle = "a".repeat(256);
+        final String tooLongTitle = "a".repeat(256);
         assertThatThrownBy(() -> new TrackTitle(tooLongTitle)).isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Track title must be 255 characters or less");
     }
@@ -63,8 +63,8 @@ class TrackTitleTest {
     @DisplayName("同じ値同士はequivalentToがtrueを返す")
     @Test
     void testEquivalentToSame() {
-        TrackTitle title1 = new TrackTitle("Track Title");
-        TrackTitle title2 = new TrackTitle("Track Title");
+        final TrackTitle title1 = new TrackTitle("Track Title");
+        final TrackTitle title2 = new TrackTitle("Track Title");
 
         assertThat(title1.equivalentTo(title2)).isTrue();
     }
@@ -72,8 +72,8 @@ class TrackTitleTest {
     @DisplayName("異なる値同士はequivalentToがfalseを返す")
     @Test
     void testEquivalentToDifferent() {
-        TrackTitle title1 = new TrackTitle("Track A");
-        TrackTitle title2 = new TrackTitle("Track B");
+        final TrackTitle title1 = new TrackTitle("Track A");
+        final TrackTitle title2 = new TrackTitle("Track B");
 
         assertThat(title1.equivalentTo(title2)).isFalse();
     }
@@ -81,16 +81,16 @@ class TrackTitleTest {
     @DisplayName("nullとのequivalentToはfalseを返す")
     @Test
     void testEquivalentToNull() {
-        TrackTitle title = new TrackTitle("Track Title");
+        final TrackTitle title = new TrackTitle("Track Title");
         assertThat(title.equivalentTo(null)).isFalse();
     }
 
     @DisplayName("同じ値は等価で異なる値は非等価となる")
     @Test
     void testEquality() {
-        TrackTitle title1 = new TrackTitle("Track Title");
-        TrackTitle title2 = new TrackTitle("Track Title");
-        TrackTitle title3 = new TrackTitle("Different Title");
+        final TrackTitle title1 = new TrackTitle("Track Title");
+        final TrackTitle title2 = new TrackTitle("Track Title");
+        final TrackTitle title3 = new TrackTitle("Different Title");
 
         assertThat(title1).isEqualTo(title2);
         assertThat(title1).isNotEqualTo(title3);
@@ -99,8 +99,8 @@ class TrackTitleTest {
     @DisplayName("同じ値は同じhashCodeを返す")
     @Test
     void testHashCode() {
-        TrackTitle title1 = new TrackTitle("Track Title");
-        TrackTitle title2 = new TrackTitle("Track Title");
+        final TrackTitle title1 = new TrackTitle("Track Title");
+        final TrackTitle title2 = new TrackTitle("Track Title");
 
         assertThat(title1.hashCode()).isEqualTo(title2.hashCode());
     }

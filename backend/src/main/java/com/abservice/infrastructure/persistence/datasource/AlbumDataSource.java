@@ -109,8 +109,8 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
      * @return 該当するアルバムのリスト
      */
     public Uni<List<AlbumEntity>> findByReleaseYear(int year) {
-        LocalDate startDate = LocalDate.of(year, 1, 1);
-        LocalDate endDate = LocalDate.of(year, 12, 31);
+        final LocalDate startDate = LocalDate.of(year, 1, 1);
+        final LocalDate endDate = LocalDate.of(year, 12, 31);
 
         return sessionFactory
                 .withSession(session -> session

@@ -63,11 +63,11 @@ public final class ResultExample {
          * @return 生成結果
          */
         public static Result<Album> create(@Nullable String title, @Nullable String catalogNumber) {
-            Result<AlbumTitle> titleResult = AlbumTitle.create(title);
-            Result<CatalogNumber> catalogResult = CatalogNumber.create(catalogNumber);
+            final Result<AlbumTitle> titleResult = AlbumTitle.create(title);
+            final Result<CatalogNumber> catalogResult = CatalogNumber.create(catalogNumber);
 
             // 両方のバリデーションを実行し、エラーを集約
-            List<ErrorResult> errors = new ArrayList<>();
+            final List<ErrorResult> errors = new ArrayList<>();
             if (titleResult instanceof Result.Failure<AlbumTitle> failure) {
                 errors.addAll(failure.errors());
             }
@@ -112,19 +112,19 @@ public final class ResultExample {
 
     private static void example1Success() {
         System.out.println("【例1: 成功ケース】");
-        Result<Album> result = Album.create("BEST ALBUM", "ABC-1234");
+        final Result<Album> result = Album.create("BEST ALBUM", "ABC-1234");
 
-        Album album = result.resolve();
+        final Album album = result.resolve();
         System.out.println("アルバムを生成しました: " + album);
         System.out.println();
     }
 
     private static void example2FailureWithResolve() {
         System.out.println("【例2: 失敗ケース - resolve()】");
-        Result<CatalogNumber> result = CatalogNumber.create("");
+        final Result<CatalogNumber> result = CatalogNumber.create("");
 
         try {
-            CatalogNumber catalogNumber = result.resolve();
+            final CatalogNumber catalogNumber = result.resolve();
             System.out.println("カタログ番号: " + catalogNumber);
         } catch (IllegalStateException e) {
             System.out.println("例外がスローされました: " + e.getMessage());
@@ -134,18 +134,18 @@ public final class ResultExample {
 
     private static void example3FailureWithOrElse() {
         System.out.println("【例3: 失敗ケース - orElse()】");
-        Result<CatalogNumber> result = CatalogNumber.create("");
+        final Result<CatalogNumber> result = CatalogNumber.create("");
 
-        CatalogNumber catalogNumber = result.orElse(new CatalogNumber("ZZZ-0000"));
+        final CatalogNumber catalogNumber = result.orElse(new CatalogNumber("ZZZ-0000"));
         System.out.println("カタログ番号: " + catalogNumber);
         System.out.println();
     }
 
     private static void example4FailureWithOrElseGet() {
         System.out.println("【例4: 失敗ケース - orElseGet()】");
-        Result<CatalogNumber> result = CatalogNumber.create("");
+        final Result<CatalogNumber> result = CatalogNumber.create("");
 
-        CatalogNumber catalogNumber = result.orElseGet(errors -> {
+        final CatalogNumber catalogNumber = result.orElseGet(errors -> {
             System.out.println("エラーが発生しました: " + errors);
             return new CatalogNumber("ZZZ-9999");
         });
@@ -155,10 +155,10 @@ public final class ResultExample {
 
     private static void example5FailureWithOrElseDo() {
         System.out.println("【例5: 失敗ケース - orElseDo()】");
-        Result<CatalogNumber> result = CatalogNumber.create("");
+        final Result<CatalogNumber> result = CatalogNumber.create("");
 
         try {
-            CatalogNumber catalogNumber = result.orElseDo(errors -> {
+            final CatalogNumber catalogNumber = result.orElseDo(errors -> {
                 System.out.println("副作用のある処理を実行: エラーをログ記録");
                 System.out.println("エラー内容: " + errors);
             });
@@ -171,11 +171,11 @@ public final class ResultExample {
 
     private static void example6MultipleErrors() {
         System.out.println("【例6: 複数のエラー】");
-        Result<Album> result = Album.create("", "invalid");
+        final Result<Album> result = Album.create("", "invalid");
 
         if (result instanceof Result.Failure<Album> failure) {
             System.out.println("バリデーションエラーが発生しました:");
-            for (ErrorResult error : failure.errors()) {
+            for (final ErrorResult error : failure.errors()) {
                 System.out.println("  - " + error);
             }
         }
@@ -184,9 +184,9 @@ public final class ResultExample {
 
     private static void example7SwitchExpression() {
         System.out.println("【例7: switch式でのパターンマッチング】");
-        Result<Album> result = Album.create("BEST ALBUM", "ABC-1234");
+        final Result<Album> result = Album.create("BEST ALBUM", "ABC-1234");
 
-        String message = switch (result) {
+        final String message = switch (result) {
             case Result.Success<Album> success -> "アルバムを生成しました: " + success.value().title().value();
             case Result.Failure<Album> failure -> "エラー: "
                     + failure.errors().stream().map(ErrorResult::toString).reduce((a, b) -> a + ", " + b).orElse("");

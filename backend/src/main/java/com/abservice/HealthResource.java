@@ -15,7 +15,7 @@ public class HealthResource {
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public Response health() {
-        Map<String, Object> health = new HashMap<>();
+        final Map<String, Object> health = new HashMap<>();
         health.put("status", "UP");
         health.put("timestamp", LocalDateTime.now());
         health.put("service", "ABService Backend");

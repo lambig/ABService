@@ -21,11 +21,11 @@ class AlbumAcquisitionChannelTest {
         @DisplayName("必須フィールドのみで生成できること")
         void createWithMinimalFieldsShouldSucceed() {
             // Arrange
-            var channelType = ChannelType.DL_SITE;
-            var name = "Test Shop";
+            final var channelType = ChannelType.DL_SITE;
+            final var name = "Test Shop";
 
             // Act
-            var channel = AlbumAcquisitionChannel.create(channelType, name, null, null);
+            final var channel = AlbumAcquisitionChannel.create(channelType, name, null, null);
 
             // Assert
             assertThat(channel).isNotNull();
@@ -40,13 +40,13 @@ class AlbumAcquisitionChannelTest {
         @DisplayName("すべてのフィールドを指定して生成できること")
         void createWithAllFieldsShouldSucceed() {
             // Arrange
-            var channelType = ChannelType.STREAMING;
-            var name = "My Bandcamp";
-            var url = Url.of("https://example.bandcamp.com");
-            var note = "デジタル版のみ";
+            final var channelType = ChannelType.STREAMING;
+            final var name = "My Bandcamp";
+            final var url = Url.of("https://example.bandcamp.com");
+            final var note = "デジタル版のみ";
 
             // Act
-            var channel = AlbumAcquisitionChannel.create(channelType, name, url, note);
+            final var channel = AlbumAcquisitionChannel.create(channelType, name, url, note);
 
             // Assert
             assertThat(channel).isNotNull();
@@ -60,7 +60,7 @@ class AlbumAcquisitionChannelTest {
         @DisplayName("チャネルタイプがnullの場合は例外が発生すること")
         void createWithNullChannelTypeShouldThrowException() {
             // Arrange
-            var name = "Test Shop";
+            final var name = "Test Shop";
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -72,7 +72,7 @@ class AlbumAcquisitionChannelTest {
         @DisplayName("名前がnullの場合は例外が発生すること")
         void createWithNullNameShouldThrowException() {
             // Arrange
-            var channelType = ChannelType.DL_SITE;
+            final var channelType = ChannelType.DL_SITE;
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -84,7 +84,7 @@ class AlbumAcquisitionChannelTest {
         @DisplayName("名前が空文字列の場合は例外が発生すること")
         void createWithBlankNameShouldThrowException() {
             // Arrange
-            var channelType = ChannelType.DL_SITE;
+            final var channelType = ChannelType.DL_SITE;
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -101,14 +101,14 @@ class AlbumAcquisitionChannelTest {
         @DisplayName("永続化層から再構成できること")
         void reconstructShouldSucceed() {
             // Arrange
-            var id = AlbumAcquisitionChannel.Id.generate();
-            var channelType = ChannelType.STREAMING;
-            var name = "My Bandcamp";
-            var url = Url.of("https://example.bandcamp.com");
-            var note = "デジタル版のみ";
+            final var id = AlbumAcquisitionChannel.Id.generate();
+            final var channelType = ChannelType.STREAMING;
+            final var name = "My Bandcamp";
+            final var url = Url.of("https://example.bandcamp.com");
+            final var note = "デジタル版のみ";
 
             // Act
-            var channel = AlbumAcquisitionChannel.reconstruct(id, channelType, name, url, note);
+            final var channel = AlbumAcquisitionChannel.reconstruct(id, channelType, name, url, note);
 
             // Assert
             assertThat(channel).isNotNull();
@@ -128,11 +128,11 @@ class AlbumAcquisitionChannelTest {
         @DisplayName("チャネルタイプを変更できること")
         void changeChannelTypeShouldSucceed() {
             // Arrange
-            var channel = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop", null, null);
-            var newChannelType = ChannelType.STREAMING;
+            final var channel = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop", null, null);
+            final var newChannelType = ChannelType.STREAMING;
 
             // Act
-            var updated = channel.changeChannelType(newChannelType);
+            final var updated = channel.changeChannelType(newChannelType);
 
             // Assert
             assertThat(updated.getChannelType()).isEqualTo(newChannelType);
@@ -144,7 +144,7 @@ class AlbumAcquisitionChannelTest {
         @DisplayName("nullのチャネルタイプに変更しようとすると例外が発生すること")
         void changeChannelTypeToNullShouldThrowException() {
             // Arrange
-            var channel = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop", null, null);
+            final var channel = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop", null, null);
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -161,11 +161,11 @@ class AlbumAcquisitionChannelTest {
         @DisplayName("名前を変更できること")
         void changeNameShouldSucceed() {
             // Arrange
-            var channel = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Old Name", null, null);
-            var newName = "New Name";
+            final var channel = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Old Name", null, null);
+            final var newName = "New Name";
 
             // Act
-            var updated = channel.changeName(newName);
+            final var updated = channel.changeName(newName);
 
             // Assert
             assertThat(updated.getName()).isEqualTo(newName);
@@ -175,7 +175,7 @@ class AlbumAcquisitionChannelTest {
         @DisplayName("nullの名前に変更しようとすると例外が発生すること")
         void changeNameToNullShouldThrowException() {
             // Arrange
-            var channel = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop", null, null);
+            final var channel = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop", null, null);
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -187,7 +187,7 @@ class AlbumAcquisitionChannelTest {
         @DisplayName("空文字列の名前に変更しようとすると例外が発生すること")
         void changeNameToBlankShouldThrowException() {
             // Arrange
-            var channel = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop", null, null);
+            final var channel = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop", null, null);
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -204,11 +204,11 @@ class AlbumAcquisitionChannelTest {
         @DisplayName("URLを変更できること")
         void changeUrlShouldSucceed() {
             // Arrange
-            var channel = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop", null, null);
-            var url = Url.of("https://example.com");
+            final var channel = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop", null, null);
+            final var url = Url.of("https://example.com");
 
             // Act
-            var updated = channel.changeUrl(url);
+            final var updated = channel.changeUrl(url);
 
             // Assert
             assertThat(updated.getUrl()).isEqualTo(url);
@@ -218,11 +218,11 @@ class AlbumAcquisitionChannelTest {
         @DisplayName("URLをnullに変更できること")
         void changeUrlToNullShouldSucceed() {
             // Arrange
-            var url = Url.of("https://example.com");
-            var channel = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop", url, null);
+            final var url = Url.of("https://example.com");
+            final var channel = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop", url, null);
 
             // Act
-            var updated = channel.changeUrl(null);
+            final var updated = channel.changeUrl(null);
 
             // Assert
             assertThat(updated.getUrl()).isNull();
@@ -237,11 +237,11 @@ class AlbumAcquisitionChannelTest {
         @DisplayName("補足を変更できること")
         void changeNoteShouldSucceed() {
             // Arrange
-            var channel = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop", null, null);
-            var note = "新しい補足情報";
+            final var channel = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop", null, null);
+            final var note = "新しい補足情報";
 
             // Act
-            var updated = channel.changeNote(note);
+            final var updated = channel.changeNote(note);
 
             // Assert
             assertThat(updated.getNote()).isEqualTo(note);
@@ -251,10 +251,10 @@ class AlbumAcquisitionChannelTest {
         @DisplayName("補足をnullに変更できること")
         void changeNoteToNullShouldSucceed() {
             // Arrange
-            var channel = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop", null, "旧補足");
+            final var channel = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop", null, "旧補足");
 
             // Act
-            var updated = channel.changeNote(null);
+            final var updated = channel.changeNote(null);
 
             // Assert
             assertThat(updated.getNote()).isNull();
@@ -269,7 +269,7 @@ class AlbumAcquisitionChannelTest {
         @DisplayName("UUIDv7形式のIDを生成できること")
         void generateShouldCreateValidId() {
             // Act
-            var id = AlbumAcquisitionChannel.Id.generate();
+            final var id = AlbumAcquisitionChannel.Id.generate();
 
             // Assert
             assertThat(id).isNotNull();
@@ -281,11 +281,11 @@ class AlbumAcquisitionChannelTest {
         @DisplayName("文字列からIDを生成できること")
         void ofShouldCreateIdFromString() {
             // Arrange
-            var id1 = AlbumAcquisitionChannel.Id.generate();
-            var value = id1.value();
+            final var id1 = AlbumAcquisitionChannel.Id.generate();
+            final var value = id1.value();
 
             // Act
-            var id2 = AlbumAcquisitionChannel.Id.of(value);
+            final var id2 = AlbumAcquisitionChannel.Id.of(value);
 
             // Assert
             assertThat(id2).isEqualTo(id1);
@@ -328,9 +328,9 @@ class AlbumAcquisitionChannelTest {
         @DisplayName("同じIDのAlbumAcquisitionChannelは等しいこと")
         void channelsWithSameIdShouldBeEqual() {
             // Arrange
-            var id = AlbumAcquisitionChannel.Id.generate();
-            var channel1 = AlbumAcquisitionChannel.reconstruct(id, ChannelType.DL_SITE, "Shop1", null, null);
-            var channel2 = AlbumAcquisitionChannel.reconstruct(id, ChannelType.STREAMING, "Shop2", null, null);
+            final var id = AlbumAcquisitionChannel.Id.generate();
+            final var channel1 = AlbumAcquisitionChannel.reconstruct(id, ChannelType.DL_SITE, "Shop1", null, null);
+            final var channel2 = AlbumAcquisitionChannel.reconstruct(id, ChannelType.STREAMING, "Shop2", null, null);
 
             // Act & Assert
             assertThat(channel2).isEqualTo(channel1);
@@ -341,8 +341,8 @@ class AlbumAcquisitionChannelTest {
         @DisplayName("異なるIDのAlbumAcquisitionChannelは等しくないこと")
         void channelsWithDifferentIdShouldNotBeEqual() {
             // Arrange
-            var channel1 = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop1", null, null);
-            var channel2 = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop1", null, null);
+            final var channel1 = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop1", null, null);
+            final var channel2 = AlbumAcquisitionChannel.create(ChannelType.DL_SITE, "Shop1", null, null);
 
             // Act & Assert
             assertThat(channel2).isNotEqualTo(channel1);

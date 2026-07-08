@@ -12,44 +12,44 @@ class UrlTest {
     @DisplayName("http形式のURLで生成でき、値が保持される")
     @Test
     void testCreateValidUrlHttp() {
-        Url url = new Url("http://example.com");
+        final Url url = new Url("http://example.com");
         assertThat(url.value()).isEqualTo("http://example.com");
     }
 
     @DisplayName("https形式のURLで生成でき、値が保持される")
     @Test
     void testCreateValidUrlHttps() {
-        Url url = new Url("https://example.com");
+        final Url url = new Url("https://example.com");
         assertThat(url.value()).isEqualTo("https://example.com");
     }
 
     @DisplayName("パス付きURLで生成でき、値が保持される")
     @Test
     void testCreateValidUrlWithPath() {
-        Url url = new Url("https://example.com/path/to/page");
+        final Url url = new Url("https://example.com/path/to/page");
         assertThat(url.value()).isEqualTo("https://example.com/path/to/page");
     }
 
     @DisplayName("クエリパラメータ付きURLで生成でき、値が保持される")
     @Test
     void testCreateValidUrlWithQuery() {
-        Url url = new Url("https://example.com/search?q=test&lang=ja");
+        final Url url = new Url("https://example.com/search?q=test&lang=ja");
         assertThat(url.value()).isEqualTo("https://example.com/search?q=test&lang=ja");
     }
 
     @DisplayName("フラグメント付きURLで生成でき、値が保持される")
     @Test
     void testCreateValidUrlWithFragment() {
-        Url url = new Url("https://example.com/page#section");
+        final Url url = new Url("https://example.com/page#section");
         assertThat(url.value()).isEqualTo("https://example.com/page#section");
     }
 
     @DisplayName("最大長500文字のURLで生成できる")
     @Test
     void testCreateValidUrlMaxLength() {
-        String domain = "https://example.com/";
-        String path = "a".repeat(500 - domain.length());
-        Url url = new Url(domain + path);
+        final String domain = "https://example.com/";
+        final String path = "a".repeat(500 - domain.length());
+        final Url url = new Url(domain + path);
         assertThat(url.value()).hasSize(500);
     }
 
@@ -77,7 +77,7 @@ class UrlTest {
     @DisplayName("500文字を超えるURLはIllegalArgumentException（URL must be 500 characters or less）を送出する")
     @Test
     void testCreateUrlTooLong() {
-        String tooLongUrl = "https://example.com/" + "a".repeat(500);
+        final String tooLongUrl = "https://example.com/" + "a".repeat(500);
         assertThatThrownBy(() -> new Url(tooLongUrl)).isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("URL must be 500 characters or less");
     }
@@ -97,8 +97,8 @@ class UrlTest {
     @DisplayName("同じ値のURL同士はequivalentToがtrueを返す")
     @Test
     void testEquivalentToSame() {
-        Url url1 = new Url("https://example.com");
-        Url url2 = new Url("https://example.com");
+        final Url url1 = new Url("https://example.com");
+        final Url url2 = new Url("https://example.com");
 
         assertThat(url1.equivalentTo(url2)).isTrue();
     }
@@ -106,8 +106,8 @@ class UrlTest {
     @DisplayName("異なる値のURL同士はequivalentToがfalseを返す")
     @Test
     void testEquivalentToDifferent() {
-        Url url1 = new Url("https://example.com");
-        Url url2 = new Url("https://different.com");
+        final Url url1 = new Url("https://example.com");
+        final Url url2 = new Url("https://different.com");
 
         assertThat(url1.equivalentTo(url2)).isFalse();
     }
@@ -115,16 +115,16 @@ class UrlTest {
     @DisplayName("nullとの比較ではequivalentToがfalseを返す")
     @Test
     void testEquivalentToNull() {
-        Url url = new Url("https://example.com");
+        final Url url = new Url("https://example.com");
         assertThat(url.equivalentTo(null)).isFalse();
     }
 
     @DisplayName("同じ値はequalsで等しく、異なる値は等しくない")
     @Test
     void testEquality() {
-        Url url1 = new Url("https://example.com");
-        Url url2 = new Url("https://example.com");
-        Url url3 = new Url("https://different.com");
+        final Url url1 = new Url("https://example.com");
+        final Url url2 = new Url("https://example.com");
+        final Url url3 = new Url("https://different.com");
 
         assertThat(url1).isEqualTo(url2);
         assertThat(url1).isNotEqualTo(url3);
@@ -133,8 +133,8 @@ class UrlTest {
     @DisplayName("同じ値のURLは同一のhashCodeを返す")
     @Test
     void testHashCode() {
-        Url url1 = new Url("https://example.com");
-        Url url2 = new Url("https://example.com");
+        final Url url1 = new Url("https://example.com");
+        final Url url2 = new Url("https://example.com");
 
         assertThat(url1.hashCode()).isEqualTo(url2.hashCode());
     }
@@ -142,7 +142,7 @@ class UrlTest {
     @DisplayName("日本語ドメイン・日本語パスを含むURLで生成でき、値が保持される")
     @Test
     void testUrlWithJapaneseDomain() {
-        Url url = new Url("https://例え.jp/パス");
+        final Url url = new Url("https://例え.jp/パス");
         assertThat(url.value()).isEqualTo("https://例え.jp/パス");
     }
 }

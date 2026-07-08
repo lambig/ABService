@@ -12,22 +12,22 @@ class AlbumTitleTest {
     @DisplayName("有効なタイトルで生成できる")
     @Test
     void testCreateValidTitle() {
-        AlbumTitle title = new AlbumTitle("My Awesome Album");
+        final AlbumTitle title = new AlbumTitle("My Awesome Album");
         assertThat(title.value()).isEqualTo("My Awesome Album");
     }
 
     @DisplayName("日本語のタイトルで生成できる")
     @Test
     void testCreateTitleWithJapanese() {
-        AlbumTitle title = new AlbumTitle("東方アレンジアルバム");
+        final AlbumTitle title = new AlbumTitle("東方アレンジアルバム");
         assertThat(title.value()).isEqualTo("東方アレンジアルバム");
     }
 
     @DisplayName("最大長255文字のタイトルで生成できる")
     @Test
     void testCreateTitleMaxLength() {
-        String maxLengthTitle = "a".repeat(255);
-        AlbumTitle title = new AlbumTitle(maxLengthTitle);
+        final String maxLengthTitle = "a".repeat(255);
+        final AlbumTitle title = new AlbumTitle(maxLengthTitle);
         assertThat(title.value()).hasSize(255);
     }
 
@@ -55,7 +55,7 @@ class AlbumTitleTest {
     @DisplayName("256文字を超えるタイトルは例外となる")
     @Test
     void testCreateTitleTooLong() {
-        String tooLongTitle = "a".repeat(256);
+        final String tooLongTitle = "a".repeat(256);
         assertThatThrownBy(() -> new AlbumTitle(tooLongTitle)).isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Album title must be 255 characters or less");
     }
@@ -63,8 +63,8 @@ class AlbumTitleTest {
     @DisplayName("同じ値同士はequivalentToがtrueとなる")
     @Test
     void testEquivalentToSame() {
-        AlbumTitle title1 = new AlbumTitle("Album Title");
-        AlbumTitle title2 = new AlbumTitle("Album Title");
+        final AlbumTitle title1 = new AlbumTitle("Album Title");
+        final AlbumTitle title2 = new AlbumTitle("Album Title");
 
         assertThat(title1.equivalentTo(title2)).isTrue();
     }
@@ -72,8 +72,8 @@ class AlbumTitleTest {
     @DisplayName("異なる値同士はequivalentToがfalseとなる")
     @Test
     void testEquivalentToDifferent() {
-        AlbumTitle title1 = new AlbumTitle("Album A");
-        AlbumTitle title2 = new AlbumTitle("Album B");
+        final AlbumTitle title1 = new AlbumTitle("Album A");
+        final AlbumTitle title2 = new AlbumTitle("Album B");
 
         assertThat(title1.equivalentTo(title2)).isFalse();
     }
@@ -81,16 +81,16 @@ class AlbumTitleTest {
     @DisplayName("nullとのequivalentToはfalseとなる")
     @Test
     void testEquivalentToNull() {
-        AlbumTitle title = new AlbumTitle("Album Title");
+        final AlbumTitle title = new AlbumTitle("Album Title");
         assertThat(title.equivalentTo(null)).isFalse();
     }
 
     @DisplayName("同じ値は等価で異なる値は非等価となる")
     @Test
     void testEquality() {
-        AlbumTitle title1 = new AlbumTitle("Album Title");
-        AlbumTitle title2 = new AlbumTitle("Album Title");
-        AlbumTitle title3 = new AlbumTitle("Different Title");
+        final AlbumTitle title1 = new AlbumTitle("Album Title");
+        final AlbumTitle title2 = new AlbumTitle("Album Title");
+        final AlbumTitle title3 = new AlbumTitle("Different Title");
 
         assertThat(title1).isEqualTo(title2);
         assertThat(title1).isNotEqualTo(title3);
@@ -99,8 +99,8 @@ class AlbumTitleTest {
     @DisplayName("同じ値のhashCodeは一致する")
     @Test
     void testHashCode() {
-        AlbumTitle title1 = new AlbumTitle("Album Title");
-        AlbumTitle title2 = new AlbumTitle("Album Title");
+        final AlbumTitle title1 = new AlbumTitle("Album Title");
+        final AlbumTitle title2 = new AlbumTitle("Album Title");
 
         assertThat(title1.hashCode()).isEqualTo(title2.hashCode());
     }

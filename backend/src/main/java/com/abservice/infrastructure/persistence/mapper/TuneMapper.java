@@ -51,7 +51,7 @@ public final class TuneMapper {
             return null;
         }
 
-        var tuneEntity = new TuneEntity();
+        final var tuneEntity = new TuneEntity();
         tuneEntity.setDomainId(tune.id().value());
         tuneEntity.setTitle(tune.title().value());
         tuneEntity.setTuneKind(tune.tuneKind().name());

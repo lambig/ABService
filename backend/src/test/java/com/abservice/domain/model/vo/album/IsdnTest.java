@@ -14,7 +14,7 @@ class IsdnTest {
     @DisplayName("ハイフン付きの値からISDNを生成できる")
     @Test
     void shouldCreateIsdnWithHyphens() {
-        Isdn isdn = new Isdn("278-4-702901-97-8");
+        final Isdn isdn = new Isdn("278-4-702901-97-8");
 
         assertThat(isdn.value()).isEqualTo("2784702901978");
         assertThat(isdn.formattedValue()).isEqualTo("278-4-702901-97-8");
@@ -23,7 +23,7 @@ class IsdnTest {
     @DisplayName("ハイフンなしの値からISDNを生成できる")
     @Test
     void shouldCreateIsdnWithoutHyphens() {
-        Isdn isdn = new Isdn("2784702901978");
+        final Isdn isdn = new Isdn("2784702901978");
 
         assertThat(isdn.value()).isEqualTo("2784702901978");
         assertThat(isdn.formattedValue()).isEqualTo("278-4-702901-97-8");
@@ -32,7 +32,7 @@ class IsdnTest {
     @DisplayName("前後の空白を除去して正規化する")
     @Test
     void shouldNormalizeWhitespace() {
-        Isdn isdn = new Isdn("  2784702901978  ");
+        final Isdn isdn = new Isdn("  2784702901978  ");
 
         assertThat(isdn.value()).isEqualTo("2784702901978");
     }
@@ -42,7 +42,7 @@ class IsdnTest {
     void shouldAccept279Prefix() {
         // 有効なチェックデジットを持つISDNを使用
         // 279-4-123456-78-0
-        Isdn isdn = new Isdn("2794123456780");
+        final Isdn isdn = new Isdn("2794123456780");
 
         assertThat(isdn.value()).startsWith("2794");
     }
@@ -77,7 +77,7 @@ class IsdnTest {
     @DisplayName("値としての意味を保持する")
     @Test
     void shouldHaveValueSemantics() {
-        Isdn isdn = new Isdn("2784702901978");
+        final Isdn isdn = new Isdn("2784702901978");
 
         assertThat(isdn.value()).isEqualTo("2784702901978");
     }
@@ -85,8 +85,8 @@ class IsdnTest {
     @DisplayName("同じ値なら等価と判定する")
     @Test
     void shouldBeEquivalentWhenSameValue() {
-        Isdn isdn1 = new Isdn("278-4-702901-97-8");
-        Isdn isdn2 = new Isdn("2784702901978");
+        final Isdn isdn1 = new Isdn("278-4-702901-97-8");
+        final Isdn isdn2 = new Isdn("2784702901978");
 
         assertThat(isdn1.equivalentTo(isdn2)).isTrue();
     }
@@ -94,8 +94,8 @@ class IsdnTest {
     @DisplayName("値が異なれば等価と判定しない")
     @Test
     void shouldNotBeEquivalentWhenDifferentValue() {
-        Isdn isdn1 = new Isdn("278-4-702901-97-8");
-        Isdn isdn2 = new Isdn("2794123456780");
+        final Isdn isdn1 = new Isdn("278-4-702901-97-8");
+        final Isdn isdn2 = new Isdn("2794123456780");
 
         assertThat(isdn1.equivalentTo(isdn2)).isFalse();
     }
@@ -103,7 +103,7 @@ class IsdnTest {
     @DisplayName("nullとは等価と判定しない")
     @Test
     void shouldNotBeEquivalentToNull() {
-        Isdn isdn = new Isdn("278-4-702901-97-8");
+        final Isdn isdn = new Isdn("278-4-702901-97-8");
 
         assertThat(isdn.equivalentTo(null)).isFalse();
     }
@@ -111,9 +111,9 @@ class IsdnTest {
     @DisplayName("同じ値ならequalsで等しく異なる値なら等しくない")
     @Test
     void shouldBeEqualWhenSameValue() {
-        Isdn isdn1 = new Isdn("278-4-702901-97-8");
-        Isdn isdn2 = new Isdn("2784702901978");
-        Isdn isdn3 = new Isdn("2794123456780");
+        final Isdn isdn1 = new Isdn("278-4-702901-97-8");
+        final Isdn isdn2 = new Isdn("2784702901978");
+        final Isdn isdn3 = new Isdn("2794123456780");
 
         assertThat(isdn1).isEqualTo(isdn2);
         assertThat(isdn1).isNotEqualTo(isdn3);
@@ -122,8 +122,8 @@ class IsdnTest {
     @DisplayName("等価な値同士は同じハッシュコードを持つ")
     @Test
     void shouldHaveSameHashCodeWhenEquivalent() {
-        Isdn isdn1 = new Isdn("278-4-702901-97-8");
-        Isdn isdn2 = new Isdn("2784702901978");
+        final Isdn isdn1 = new Isdn("278-4-702901-97-8");
+        final Isdn isdn2 = new Isdn("2784702901978");
 
         assertThat(isdn1.hashCode()).isEqualTo(isdn2.hashCode());
     }

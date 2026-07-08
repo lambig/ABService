@@ -176,7 +176,7 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album addTrack(@NonNull Track track) {
-        var validatedTrack = Optional.ofNullable(track)
+        final var validatedTrack = Optional.ofNullable(track)
                 .orElseThrow(() -> new IllegalArgumentException("Track cannot be null"));
         // トラック番号の重複チェック
         if (tracks.stream().anyMatch(t -> t.trackNo().equals(validatedTrack.trackNo()))) {
@@ -193,7 +193,7 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album removeTrack(Track.@NonNull Id trackId) {
-        var validatedTrackId = Optional.ofNullable(trackId)
+        final var validatedTrackId = Optional.ofNullable(trackId)
                 .orElseThrow(() -> new IllegalArgumentException("Track ID cannot be null"));
         if (tracks.stream().noneMatch(t -> t.id().equals(validatedTrackId))) {
             throw new IllegalArgumentException("Track with ID " + validatedTrackId.value() + " not found");
@@ -209,7 +209,7 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album updateTrack(@NonNull Track updatedTrack) {
-        var validatedTrack = Optional.ofNullable(updatedTrack)
+        final var validatedTrack = Optional.ofNullable(updatedTrack)
                 .orElseThrow(() -> new IllegalArgumentException("Updated track cannot be null"));
         if (tracks.stream().noneMatch(t -> t.id().equals(validatedTrack.id()))) {
             throw new IllegalArgumentException("Track with ID " + validatedTrack.id().value() + " not found");
@@ -230,12 +230,12 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album reorderTracks(@NonNull List<Track.@NonNull Id> orderedTrackIds) {
-        var validatedIds = Optional.ofNullable(orderedTrackIds).filter(ids -> ids.size() == tracks.size())
+        final var validatedIds = Optional.ofNullable(orderedTrackIds).filter(ids -> ids.size() == tracks.size())
                 .orElseThrow(() -> new IllegalArgumentException("Ordered track IDs must match the number of tracks"));
 
-        var trackNo = new java.util.concurrent.atomic.AtomicInteger(1);
-        var newTracks = validatedIds.stream().map(trackId -> {
-            var track = tracks.stream().filter(t -> t.id().equals(trackId)).findFirst()
+        final var trackNo = new java.util.concurrent.atomic.AtomicInteger(1);
+        final var newTracks = validatedIds.stream().map(trackId -> {
+            final var track = tracks.stream().filter(t -> t.id().equals(trackId)).findFirst()
                     .orElseThrow(() -> new IllegalArgumentException("Track with ID " + trackId.value() + " not found"));
             return track.withTrackNo(trackNo.getAndIncrement());
         }).toList();

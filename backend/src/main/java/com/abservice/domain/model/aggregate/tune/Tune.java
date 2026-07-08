@@ -84,9 +84,9 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
             @Nullable Credit defaultComposerCredit, @Nullable Credit defaultArrangerCredit,
             @Nullable String originalWorkTitle, @Nullable String originalWorkCredit, @Nullable String tuneType,
             @Nullable String defaultKey, @Nullable Integer defaultTempo) {
-        var validatedTitle = Optional.ofNullable(title)
+        final var validatedTitle = Optional.ofNullable(title)
                 .orElseThrow(() -> new IllegalArgumentException("Tune title cannot be null"));
-        var validatedKind = Optional.ofNullable(tuneKind)
+        final var validatedKind = Optional.ofNullable(tuneKind)
                 .orElseThrow(() -> new IllegalArgumentException("Tune kind cannot be null"));
         return new Tune(Id.generate(), validatedTitle, validatedKind, defaultComposerCredit, defaultArrangerCredit,
                 originalWorkTitle, originalWorkCredit, tuneType, defaultKey, defaultTempo);

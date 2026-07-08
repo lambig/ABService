@@ -18,17 +18,18 @@ class SystemBusinessDateTimeProviderTest {
 
     @Test
     void testNow() {
-        Instant before = Instant.now();
-        BusinessDateTime businessDateTime = provider.now().await().indefinitely();
-        Instant after = Instant.now();
+        final Instant before = Instant.now();
+        final BusinessDateTime businessDateTime = provider.now().await().indefinitely();
+        final Instant after = Instant.now();
 
         assertThat(businessDateTime.value()).isBetween(before, after);
     }
 
     @Test
     void testToday() {
-        BusinessDate businessDate = provider.today().await().indefinitely();
-        BusinessDate expected = BusinessDate.of(Instant.now().atZone(BusinessDateTime.BUSINESS_ZONE_ID).toLocalDate());
+        final BusinessDate businessDate = provider.today().await().indefinitely();
+        final BusinessDate expected = BusinessDate
+                .of(Instant.now().atZone(BusinessDateTime.BUSINESS_ZONE_ID).toLocalDate());
 
         assertThat(businessDate.value()).isEqualTo(expected.value());
     }

@@ -27,12 +27,12 @@ class ArticleTest {
         @DisplayName("正常な値で生成できること")
         void createWithValidValuesShouldSucceed() {
             // Arrange
-            var articleType = ArticleType.NOTE;
-            var title = "Test Article";
-            var body = MarkupContent.markdown("This is a test article body.");
+            final var articleType = ArticleType.NOTE;
+            final var title = "Test Article";
+            final var body = MarkupContent.markdown("This is a test article body.");
 
             // Act
-            var article = Article.create(articleType, null, title, body, null);
+            final var article = Article.create(articleType, null, title, body, null);
 
             // Assert
             assertThat(article).isNotNull();
@@ -52,14 +52,14 @@ class ArticleTest {
         @DisplayName("アルバム記事として生成できること")
         void createAsAlbumArticleShouldSucceed() {
             // Arrange
-            var articleType = ArticleType.ALBUM;
-            var albumId = Album.Id.generate();
-            var title = "Album Review";
-            var body = MarkupContent.markdown("This is an album review.");
-            var introShort = "Short intro";
+            final var articleType = ArticleType.ALBUM;
+            final var albumId = Album.Id.generate();
+            final var title = "Album Review";
+            final var body = MarkupContent.markdown("This is an album review.");
+            final var introShort = "Short intro";
 
             // Act
-            var article = Article.create(articleType, albumId, title, body, introShort);
+            final var article = Article.create(articleType, albumId, title, body, introShort);
 
             // Assert
             assertThat(article.articleType()).isEqualTo(ArticleType.ALBUM);
@@ -103,12 +103,12 @@ class ArticleTest {
         @DisplayName("タイトルを変更できること")
         void changeTitleWithValidTitleShouldSucceed() {
             // Arrange
-            var article = createTestArticle();
-            var newTitle = "Updated Title";
-            var currentDateTime = BusinessDateTime.of(Instant.now());
+            final var article = createTestArticle();
+            final var newTitle = "Updated Title";
+            final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
-            var updated = article.changeTitle(newTitle, currentDateTime);
+            final var updated = article.changeTitle(newTitle, currentDateTime);
 
             // Assert
             assertThat(updated.title()).isEqualTo(newTitle);
@@ -119,8 +119,8 @@ class ArticleTest {
         @DisplayName("nullのタイトルに変更しようとすると例外が発生すること")
         void changeTitleWithNullShouldThrowException() {
             // Arrange
-            var article = createTestArticle();
-            var currentDateTime = BusinessDateTime.of(Instant.now());
+            final var article = createTestArticle();
+            final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -132,8 +132,8 @@ class ArticleTest {
         @DisplayName("空文字のタイトルに変更しようとすると例外が発生すること")
         void changeTitleWithBlankShouldThrowException() {
             // Arrange
-            var article = createTestArticle();
-            var currentDateTime = BusinessDateTime.of(Instant.now());
+            final var article = createTestArticle();
+            final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -150,12 +150,12 @@ class ArticleTest {
         @DisplayName("本文を変更できること")
         void changeBodyWithValidBodyShouldSucceed() {
             // Arrange
-            var article = createTestArticle();
-            var newBody = MarkupContent.markdown("Updated body content");
-            var currentDateTime = BusinessDateTime.of(Instant.now());
+            final var article = createTestArticle();
+            final var newBody = MarkupContent.markdown("Updated body content");
+            final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
-            var updated = article.changeBody(newBody, currentDateTime);
+            final var updated = article.changeBody(newBody, currentDateTime);
 
             // Assert
             assertThat(updated.body()).isEqualTo(newBody);
@@ -166,11 +166,11 @@ class ArticleTest {
         @DisplayName("本文をnullに変更できること")
         void changeBodyWithNullShouldSucceed() {
             // Arrange
-            var article = createTestArticle();
-            var currentDateTime = BusinessDateTime.of(Instant.now());
+            final var article = createTestArticle();
+            final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
-            var updated = article.changeBody(null, currentDateTime);
+            final var updated = article.changeBody(null, currentDateTime);
 
             // Assert
             assertThat(updated.body()).isNull();
@@ -185,12 +185,12 @@ class ArticleTest {
         @DisplayName("記事を公開できること")
         void publishShouldSetPublicFlag() {
             // Arrange
-            var article = createTestArticle();
-            var currentDateTime = BusinessDateTime.of(Instant.now());
+            final var article = createTestArticle();
+            final var currentDateTime = BusinessDateTime.of(Instant.now());
             assertThat(article.isPublic()).isFalse();
 
             // Act
-            var published = article.publish(currentDateTime);
+            final var published = article.publish(currentDateTime);
 
             // Assert
             assertThat(published.isPublic()).isTrue();
@@ -203,13 +203,13 @@ class ArticleTest {
         @DisplayName("既に公開済みの記事を再度公開してもpublishedAtは変わらないこと")
         void publishAlreadyPublishedShouldKeepOriginalPublishedAt() {
             // Arrange
-            var article = createTestArticle();
-            var currentDateTime = BusinessDateTime.of(Instant.now());
-            var firstPublished = article.publish(currentDateTime);
-            var originalPublishedAt = firstPublished.publishedAt();
+            final var article = createTestArticle();
+            final var currentDateTime = BusinessDateTime.of(Instant.now());
+            final var firstPublished = article.publish(currentDateTime);
+            final var originalPublishedAt = firstPublished.publishedAt();
 
             // Act
-            var republished = firstPublished.publish(currentDateTime);
+            final var republished = firstPublished.publish(currentDateTime);
 
             // Assert
             assertThat(republished.publishedAt()).isEqualTo(originalPublishedAt);
@@ -219,12 +219,12 @@ class ArticleTest {
         @DisplayName("記事を非公開化できること")
         void unpublishShouldUnsetPublicFlag() {
             // Arrange
-            var currentDateTime = BusinessDateTime.of(Instant.now());
-            var article = createTestArticle().publish(currentDateTime);
+            final var currentDateTime = BusinessDateTime.of(Instant.now());
+            final var article = createTestArticle().publish(currentDateTime);
             assertThat(article.isPublic()).isTrue();
 
             // Act
-            var unpublished = article.unpublish(currentDateTime);
+            final var unpublished = article.unpublish(currentDateTime);
 
             // Assert
             assertThat(unpublished.isPublic()).isFalse();
@@ -241,13 +241,13 @@ class ArticleTest {
         @DisplayName("アルバム記事にアルバムIDを設定できること")
         void setAlbumIdForAlbumArticleShouldSucceed() {
             // Arrange
-            var article = Article.create(ArticleType.ALBUM, null, "Album Article", MarkupContent.plainText("Body"),
-                    null);
-            var albumId = Album.Id.generate();
-            var currentDateTime = BusinessDateTime.of(Instant.now());
+            final var article = Article.create(ArticleType.ALBUM, null, "Album Article",
+                    MarkupContent.plainText("Body"), null);
+            final var albumId = Album.Id.generate();
+            final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
-            var updated = article.setAlbumId(albumId, currentDateTime);
+            final var updated = article.setAlbumId(albumId, currentDateTime);
 
             // Assert
             assertThat(updated.albumId()).isEqualTo(albumId);
@@ -258,9 +258,10 @@ class ArticleTest {
         @DisplayName("アルバム記事以外にアルバムIDを設定しようとすると例外が発生すること")
         void setAlbumIdForNonAlbumArticleShouldThrowException() {
             // Arrange
-            var article = Article.create(ArticleType.NOTE, null, "Blog Post", MarkupContent.plainText("Body"), null);
-            var albumId = Album.Id.generate();
-            var currentDateTime = BusinessDateTime.of(Instant.now());
+            final var article = Article.create(ArticleType.NOTE, null, "Blog Post", MarkupContent.plainText("Body"),
+                    null);
+            final var albumId = Album.Id.generate();
+            final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -277,11 +278,11 @@ class ArticleTest {
         @DisplayName("記事種別を変更できること")
         void changeArticleTypeWithValidTypeShouldSucceed() {
             // Arrange
-            var article = Article.create(ArticleType.NOTE, null, "Title", MarkupContent.plainText("Body"), null);
-            var currentDateTime = BusinessDateTime.of(Instant.now());
+            final var article = Article.create(ArticleType.NOTE, null, "Title", MarkupContent.plainText("Body"), null);
+            final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
-            var updated = article.changeArticleType(ArticleType.NEWS, currentDateTime);
+            final var updated = article.changeArticleType(ArticleType.NEWS, currentDateTime);
 
             // Assert
             assertThat(updated.articleType()).isEqualTo(ArticleType.NEWS);
@@ -292,13 +293,13 @@ class ArticleTest {
         @DisplayName("アルバム記事から他の種別に変更するとアルバムIDがクリアされること")
         void changeArticleTypeFromAlbumToOtherShouldClearAlbumId() {
             // Arrange
-            var albumId = Album.Id.generate();
-            var article = Article.create(ArticleType.ALBUM, albumId, "Album Article", MarkupContent.plainText("Body"),
-                    null);
-            var currentDateTime = BusinessDateTime.of(Instant.now());
+            final var albumId = Album.Id.generate();
+            final var article = Article.create(ArticleType.ALBUM, albumId, "Album Article",
+                    MarkupContent.plainText("Body"), null);
+            final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
-            var updated = article.changeArticleType(ArticleType.NOTE, currentDateTime);
+            final var updated = article.changeArticleType(ArticleType.NOTE, currentDateTime);
 
             // Assert
             assertThat(updated.articleType()).isEqualTo(ArticleType.NOTE);
@@ -309,8 +310,8 @@ class ArticleTest {
         @DisplayName("nullの記事種別に変更しようとすると例外が発生すること")
         void changeArticleTypeWithNullShouldThrowException() {
             // Arrange
-            var article = createTestArticle();
-            var currentDateTime = BusinessDateTime.of(Instant.now());
+            final var article = createTestArticle();
+            final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -327,12 +328,12 @@ class ArticleTest {
         @DisplayName("タグを追加できること")
         void addTagWithValidTagShouldSucceed() {
             // Arrange
-            var article = createTestArticle();
-            var tag = createTestTag("TestTag");
-            var currentDateTime = BusinessDateTime.of(Instant.now());
+            final var article = createTestArticle();
+            final var tag = createTestTag("TestTag");
+            final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
-            var updated = article.addTag(tag, currentDateTime);
+            final var updated = article.addTag(tag, currentDateTime);
 
             // Assert
             assertThat(updated.getTags().size()).isEqualTo(1);
@@ -344,14 +345,14 @@ class ArticleTest {
         @DisplayName("複数のタグを追加できること")
         void addTagWithMultipleTagsShouldSucceed() {
             // Arrange
-            var article = createTestArticle();
-            var tag1 = createTestTag("Tag1");
-            var tag2 = createTestTag("Tag2");
-            var tag3 = createTestTag("Tag3");
-            var currentDateTime = BusinessDateTime.of(Instant.now());
+            final var article = createTestArticle();
+            final var tag1 = createTestTag("Tag1");
+            final var tag2 = createTestTag("Tag2");
+            final var tag3 = createTestTag("Tag3");
+            final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
-            var updated = article.addTag(tag1, currentDateTime).addTag(tag2, currentDateTime).addTag(tag3,
+            final var updated = article.addTag(tag1, currentDateTime).addTag(tag2, currentDateTime).addTag(tag3,
                     currentDateTime);
 
             // Assert
@@ -363,8 +364,8 @@ class ArticleTest {
         @DisplayName("nullのタグを追加しようとすると例外が発生すること")
         void addTagWithNullShouldThrowException() {
             // Arrange
-            var article = createTestArticle();
-            var currentDateTime = BusinessDateTime.of(Instant.now());
+            final var article = createTestArticle();
+            final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -377,13 +378,13 @@ class ArticleTest {
         void addTagWithDuplicateIdShouldThrowException() {
             // Arrange
             var article = createTestArticle();
-            var tag1 = createTestTag("Tag1");
-            var tag2 = ArticleTag.reconstruct(tag1.id(), "Tag2"); // 同じIDで異なる名前
-            var currentDateTime = BusinessDateTime.of(Instant.now());
+            final var tag1 = createTestTag("Tag1");
+            final var tag2 = ArticleTag.reconstruct(tag1.id(), "Tag2"); // 同じIDで異なる名前
+            final var currentDateTime = BusinessDateTime.of(Instant.now());
             article = article.addTag(tag1, currentDateTime);
 
             // Act & Assert
-            var finalArticle = article;
+            final var finalArticle = article;
             assertThatThrownBy(() -> {
                 finalArticle.addTag(tag2, currentDateTime);
             }).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("already exists");
@@ -399,12 +400,12 @@ class ArticleTest {
         void removeTagWithExistingTagShouldSucceed() {
             // Arrange
             var article = createTestArticle();
-            var tag = createTestTag("TagToRemove");
-            var currentDateTime = BusinessDateTime.of(Instant.now());
+            final var tag = createTestTag("TagToRemove");
+            final var currentDateTime = BusinessDateTime.of(Instant.now());
             article = article.addTag(tag, currentDateTime);
 
             // Act
-            var updated = article.removeTag(tag.id(), currentDateTime);
+            final var updated = article.removeTag(tag.id(), currentDateTime);
 
             // Assert
             assertThat(updated.getTags().size()).isEqualTo(0);
@@ -417,14 +418,14 @@ class ArticleTest {
         void removeTagFromMultipleTagsShouldSucceed() {
             // Arrange
             var article = createTestArticle();
-            var tag1 = createTestTag("Tag1");
-            var tag2 = createTestTag("Tag2");
-            var tag3 = createTestTag("Tag3");
-            var currentDateTime = BusinessDateTime.of(Instant.now());
+            final var tag1 = createTestTag("Tag1");
+            final var tag2 = createTestTag("Tag2");
+            final var tag3 = createTestTag("Tag3");
+            final var currentDateTime = BusinessDateTime.of(Instant.now());
             article = article.addTag(tag1, currentDateTime).addTag(tag2, currentDateTime).addTag(tag3, currentDateTime);
 
             // Act
-            var updated = article.removeTag(tag2.id(), currentDateTime);
+            final var updated = article.removeTag(tag2.id(), currentDateTime);
 
             // Assert
             assertThat(updated.getTags().size()).isEqualTo(2);
@@ -438,13 +439,13 @@ class ArticleTest {
         void removeTagWithNonExistentTagShouldSucceed() {
             // Arrange
             var article = createTestArticle();
-            var tag = createTestTag("Tag");
-            var currentDateTime = BusinessDateTime.of(Instant.now());
+            final var tag = createTestTag("Tag");
+            final var currentDateTime = BusinessDateTime.of(Instant.now());
             article = article.addTag(tag, currentDateTime);
-            var nonExistentId = ArticleTag.Id.generate();
+            final var nonExistentId = ArticleTag.Id.generate();
 
             // Act
-            var updated = article.removeTag(nonExistentId, currentDateTime);
+            final var updated = article.removeTag(nonExistentId, currentDateTime);
 
             // Assert
             assertThat(updated.getTags().size()).isEqualTo(1); // タグは削除されていない
@@ -454,8 +455,8 @@ class ArticleTest {
         @DisplayName("nullのIDでタグを削除しようとすると例外が発生すること")
         void removeTagWithNullIdShouldThrowException() {
             // Arrange
-            var article = createTestArticle();
-            var currentDateTime = BusinessDateTime.of(Instant.now());
+            final var article = createTestArticle();
+            final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -472,7 +473,7 @@ class ArticleTest {
         @DisplayName("IDを生成できること")
         void generateShouldCreateValidId() {
             // Act
-            var id = Article.Id.generate();
+            final var id = Article.Id.generate();
 
             // Assert
             assertThat(id).isNotNull();
@@ -484,10 +485,10 @@ class ArticleTest {
         @DisplayName("文字列からIDを生成できること")
         void ofWithValidUuidShouldSucceed() {
             // Arrange
-            var validUuid = Article.Id.generate().value();
+            final var validUuid = Article.Id.generate().value();
 
             // Act
-            var id = Article.Id.of(validUuid);
+            final var id = Article.Id.of(validUuid);
 
             // Assert
             assertThat(id.value()).isEqualTo(validUuid);
@@ -515,9 +516,9 @@ class ArticleTest {
         @DisplayName("同じ値のIDは等しいこと")
         void equalsWithSameValueShouldBeEqual() {
             // Arrange
-            var value = Article.Id.generate().value();
-            var id1 = Article.Id.of(value);
-            var id2 = Article.Id.of(value);
+            final var value = Article.Id.generate().value();
+            final var id1 = Article.Id.of(value);
+            final var id2 = Article.Id.of(value);
 
             // Act & Assert
             assertThat(id2).isEqualTo(id1);

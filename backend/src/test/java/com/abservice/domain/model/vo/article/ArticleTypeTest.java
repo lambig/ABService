@@ -20,35 +20,35 @@ class ArticleTypeTest {
     @DisplayName("valueOfでALBUMを取得できる")
     @Test
     void testValueOfALBUM() {
-        ArticleType type = ArticleType.valueOf("ALBUM");
+        final ArticleType type = ArticleType.valueOf("ALBUM");
         assertThat(type).isEqualTo(ArticleType.ALBUM);
     }
 
     @DisplayName("valueOfでNOTEを取得できる")
     @Test
     void testValueOfNOTE() {
-        ArticleType type = ArticleType.valueOf("NOTE");
+        final ArticleType type = ArticleType.valueOf("NOTE");
         assertThat(type).isEqualTo(ArticleType.NOTE);
     }
 
     @DisplayName("valueOfでNEWSを取得できる")
     @Test
     void testValueOfNEWS() {
-        ArticleType type = ArticleType.valueOf("NEWS");
+        final ArticleType type = ArticleType.valueOf("NEWS");
         assertThat(type).isEqualTo(ArticleType.NEWS);
     }
 
     @DisplayName("valueOfでEVENTを取得できる")
     @Test
     void testValueOfEVENT() {
-        ArticleType type = ArticleType.valueOf("EVENT");
+        final ArticleType type = ArticleType.valueOf("EVENT");
         assertThat(type).isEqualTo(ArticleType.EVENT);
     }
 
     @DisplayName("valueOfでOTHERを取得できる")
     @Test
     void testValueOfOTHER() {
-        ArticleType type = ArticleType.valueOf("OTHER");
+        final ArticleType type = ArticleType.valueOf("OTHER");
         assertThat(type).isEqualTo(ArticleType.OTHER);
     }
 
@@ -76,7 +76,7 @@ class ArticleTypeTest {
         @DisplayName("有効な列挙子名で成功する")
         void validNameShouldSucceed() {
             // Act
-            Result<ArticleType> result = ArticleType.fromInput("ALBUM");
+            final Result<ArticleType> result = ArticleType.fromInput("ALBUM");
 
             // Assert
             assertThat(result.resolve()).isEqualTo(ArticleType.ALBUM);
@@ -86,7 +86,7 @@ class ArticleTypeTest {
         @DisplayName("前後の空白を許容する")
         void surroundingWhitespaceIsTrimmed() {
             // Act
-            Result<ArticleType> result = ArticleType.fromInput("  NOTE  ");
+            final Result<ArticleType> result = ArticleType.fromInput("  NOTE  ");
 
             // Assert
             assertThat(result.resolve()).isEqualTo(ArticleType.NOTE);
@@ -96,11 +96,11 @@ class ArticleTypeTest {
         @DisplayName("nullは必須エラーになる")
         void nullShouldFailAsRequired() {
             // Act
-            Result<ArticleType> result = ArticleType.fromInput(null);
+            final Result<ArticleType> result = ArticleType.fromInput(null);
 
             // Assert
             assertThat(result).isInstanceOf(Result.Failure.class);
-            var errors = ((Result.Failure<ArticleType>) result).errors();
+            final var errors = ((Result.Failure<ArticleType>) result).errors();
             assertThat(errors).singleElement().satisfies(e -> {
                 assertThat(e.field()).isEqualTo("articleType");
                 assertThat(e.code()).isEqualTo("ARTICLE_TYPE_REQUIRED");
@@ -111,7 +111,7 @@ class ArticleTypeTest {
         @DisplayName("空白のみは必須エラーになる")
         void blankShouldFailAsRequired() {
             // Act
-            Result<ArticleType> result = ArticleType.fromInput("   ");
+            final Result<ArticleType> result = ArticleType.fromInput("   ");
 
             // Assert
             assertThat(result).isInstanceOf(Result.Failure.class);
@@ -123,7 +123,7 @@ class ArticleTypeTest {
         @DisplayName("未知の値は不正エラーになる")
         void unknownValueShouldFailAsInvalid() {
             // Act
-            Result<ArticleType> result = ArticleType.fromInput("UNKNOWN");
+            final Result<ArticleType> result = ArticleType.fromInput("UNKNOWN");
 
             // Assert
             assertThat(result).isInstanceOf(Result.Failure.class);
@@ -135,7 +135,7 @@ class ArticleTypeTest {
         @DisplayName("小文字は不正エラーになる（列挙子名は大文字）")
         void lowercaseShouldFailAsInvalid() {
             // Act
-            Result<ArticleType> result = ArticleType.fromInput("album");
+            final Result<ArticleType> result = ArticleType.fromInput("album");
 
             // Assert
             assertThat(result).isInstanceOf(Result.Failure.class);
