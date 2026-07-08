@@ -27,16 +27,15 @@ public final class TuneMapper {
      * @return Tune
      */
     public static Tune toDomain(TuneEntity entity) {
-        if (entity == null) {
-            return null;
-        }
-
-        return Tune.reconstruct(new Tune.Id(entity.getDomainId()), new TuneTitle(entity.getTitle()),
-                TuneKind.valueOf(entity.getTuneKind()),
-                entity.getDefaultComposerCredit() != null ? new Credit(entity.getDefaultComposerCredit()) : null,
-                entity.getDefaultArrangerCredit() != null ? new Credit(entity.getDefaultArrangerCredit()) : null,
-                entity.getOriginalWorkTitle(), entity.getOriginalWorkCredit(), entity.getTuneType(),
-                entity.getDefaultKey(), entity.getDefaultTempo());
+        return switch (entity) {
+            case null -> null;
+            default -> Tune.reconstruct(new Tune.Id(entity.getDomainId()), new TuneTitle(entity.getTitle()),
+                    TuneKind.valueOf(entity.getTuneKind()),
+                    entity.getDefaultComposerCredit() != null ? new Credit(entity.getDefaultComposerCredit()) : null,
+                    entity.getDefaultArrangerCredit() != null ? new Credit(entity.getDefaultArrangerCredit()) : null,
+                    entity.getOriginalWorkTitle(), entity.getOriginalWorkCredit(), entity.getTuneType(),
+                    entity.getDefaultKey(), entity.getDefaultTempo());
+        };
     }
 
     /**
@@ -47,24 +46,25 @@ public final class TuneMapper {
      * @return TuneEntity
      */
     public static TuneEntity toEntity(Tune tune) {
-        if (tune == null) {
-            return null;
-        }
+        return switch (tune) {
+            case null -> null;
+            default -> {
+                final var tuneEntity = new TuneEntity();
+                tuneEntity.setDomainId(tune.id().value());
+                tuneEntity.setTitle(tune.title().value());
+                tuneEntity.setTuneKind(tune.tuneKind().name());
+                tuneEntity.setDefaultComposerCredit(
+                        tune.defaultComposerCredit() != null ? tune.defaultComposerCredit().value() : null);
+                tuneEntity.setDefaultArrangerCredit(
+                        tune.defaultArrangerCredit() != null ? tune.defaultArrangerCredit().value() : null);
+                tuneEntity.setOriginalWorkTitle(tune.originalWorkTitle());
+                tuneEntity.setOriginalWorkCredit(tune.originalWorkCredit());
+                tuneEntity.setTuneType(tune.tuneType());
+                tuneEntity.setDefaultKey(tune.defaultKey());
+                tuneEntity.setDefaultTempo(tune.defaultTempo());
 
-        final var tuneEntity = new TuneEntity();
-        tuneEntity.setDomainId(tune.id().value());
-        tuneEntity.setTitle(tune.title().value());
-        tuneEntity.setTuneKind(tune.tuneKind().name());
-        tuneEntity.setDefaultComposerCredit(
-                tune.defaultComposerCredit() != null ? tune.defaultComposerCredit().value() : null);
-        tuneEntity.setDefaultArrangerCredit(
-                tune.defaultArrangerCredit() != null ? tune.defaultArrangerCredit().value() : null);
-        tuneEntity.setOriginalWorkTitle(tune.originalWorkTitle());
-        tuneEntity.setOriginalWorkCredit(tune.originalWorkCredit());
-        tuneEntity.setTuneType(tune.tuneType());
-        tuneEntity.setDefaultKey(tune.defaultKey());
-        tuneEntity.setDefaultTempo(tune.defaultTempo());
-
-        return tuneEntity;
+                yield tuneEntity;
+            }
+        };
     }
 }

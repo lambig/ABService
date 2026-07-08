@@ -270,13 +270,9 @@ public sealed interface Result<T> {
      *            合成後の値の型
      */
     static <A, B, R> Result<R> zip(Result<A> a, Result<B> b, BiFunction<? super A, ? super B, ? extends R> combiner) {
-        if (a instanceof Success<A> sa && b instanceof Success<B> sb) {
-            return Result.success(combiner.apply(sa.value(), sb.value()));
-        }
-        final List<ErrorResult> errors = new ArrayList<>();
-        collectErrors(a, errors);
-        collectErrors(b, errors);
-        return Result.failure(errors);
+        return a instanceof Success<A> sa && b instanceof Success<B> sb
+                ? Result.success(combiner.apply(sa.value(), sb.value()))
+                : Result.failure(aggregateErrors(a, b));
     }
 
     /**
@@ -303,14 +299,9 @@ public sealed interface Result<T> {
      */
     static <A, B, C, R> Result<R> zip(Result<A> a, Result<B> b, Result<C> c,
             TriFunction<? super A, ? super B, ? super C, ? extends R> combiner) {
-        if (a instanceof Success<A> sa && b instanceof Success<B> sb && c instanceof Success<C> sc) {
-            return Result.success(combiner.apply(sa.value(), sb.value(), sc.value()));
-        }
-        final List<ErrorResult> errors = new ArrayList<>();
-        collectErrors(a, errors);
-        collectErrors(b, errors);
-        collectErrors(c, errors);
-        return Result.failure(errors);
+        return a instanceof Success<A> sa && b instanceof Success<B> sb && c instanceof Success<C> sc
+                ? Result.success(combiner.apply(sa.value(), sb.value(), sc.value()))
+                : Result.failure(aggregateErrors(a, b, c));
     }
 
     /**
@@ -325,6 +316,21 @@ public sealed interface Result<T> {
         if (result instanceof Failure<?> failure) {
             sink.addAll(failure.errors());
         }
+    }
+
+    /**
+     * 複数のResultから失敗エラーを引数順に集約してリストにまとめます。 zip のエラー集約用の内部ヘルパです。
+     *
+     * @param results
+     *            検査対象のResult（引数順にエラーを集約）
+     * @return 全失敗エラーを集約したリスト
+     */
+    private static List<ErrorResult> aggregateErrors(Result<?>... results) {
+        final List<ErrorResult> errors = new ArrayList<>();
+        for (final Result<?> result : results) {
+            collectErrors(result, errors);
+        }
+        return errors;
     }
 
     /**

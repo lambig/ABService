@@ -31,59 +31,57 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
 
     @Override
     public Uni<AlbumArticle> save(AlbumArticle aggregate) {
-        if (aggregate == null) {
-            return Uni.createFrom().failure(new IllegalArgumentException("AlbumArticle cannot be null"));
-        }
+        return switch (aggregate) {
+            case null -> Uni.createFrom().failure(new IllegalArgumentException("AlbumArticle cannot be null"));
+            default -> {
+                final var entity = AlbumArticleMapper.toEntity(aggregate);
 
-        final var entity = AlbumArticleMapper.toEntity(aggregate);
-
-        return dataSource.existsByAlbumId(entity.getDomainId()).flatMap(exists -> {
-            if (exists) {
-                return dataSource.find("domainId", entity.getDomainId()).firstResult().flatMap(existingEntity -> {
-                    existingEntity.setIntroLong(entity.getIntroLong());
-                    existingEntity.setIntroShort(entity.getIntroShort());
-                    existingEntity.setFirstEventSpace(entity.getFirstEventSpace());
-                    existingEntity.setLabelTag(entity.getLabelTag());
-                    return dataSource.persistAndFlush(existingEntity);
-                });
-            } else {
-                return dataSource.persistAndFlush(entity);
+                yield dataSource.existsByAlbumId(entity.getDomainId()).flatMap(exists -> exists
+                        ? dataSource.find("domainId", entity.getDomainId()).firstResult().flatMap(existingEntity -> {
+                            existingEntity.setIntroLong(entity.getIntroLong());
+                            existingEntity.setIntroShort(entity.getIntroShort());
+                            existingEntity.setFirstEventSpace(entity.getFirstEventSpace());
+                            existingEntity.setLabelTag(entity.getLabelTag());
+                            return dataSource.persistAndFlush(existingEntity);
+                        })
+                        : dataSource.persistAndFlush(entity)).map(AlbumArticleMapper::toDomain);
             }
-        }).map(AlbumArticleMapper::toDomain);
+        };
     }
 
     @Override
     public Uni<List<AlbumArticle>> saveAll(Iterable<AlbumArticle> aggregates) {
-        if (aggregates == null) {
-            return Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null"));
-        }
+        return switch (aggregates) {
+            case null -> Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null"));
+            default -> {
+                final var unis = StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
+                        .collect(Collectors.toList());
 
-        final var unis = StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
-                .collect(Collectors.toList());
-
-        return Uni.join().all(unis).andFailFast();
+                yield Uni.join().all(unis).andFailFast();
+            }
+        };
     }
 
     @Override
     public Uni<AlbumArticle> findById(Album.Id id) {
-        if (id == null) {
-            return Uni.createFrom().nullItem();
-        }
-
-        return dataSource.find("domainId", id.value()).firstResult().map(AlbumArticleMapper::toDomain);
+        return switch (id) {
+            case null -> Uni.createFrom().nullItem();
+            default -> dataSource.find("domainId", id.value()).firstResult().map(AlbumArticleMapper::toDomain);
+        };
     }
 
     @Override
     public Uni<List<AlbumArticle>> findAllById(Iterable<Album.Id> ids) {
-        if (ids == null) {
-            return Uni.createFrom().item(List.of());
-        }
+        return switch (ids) {
+            case null -> Uni.createFrom().item(List.of());
+            default -> {
+                final var unis = StreamSupport.stream(ids.spliterator(), false).map(this::findById)
+                        .collect(Collectors.toList());
 
-        final var unis = StreamSupport.stream(ids.spliterator(), false).map(this::findById)
-                .collect(Collectors.toList());
-
-        return Uni.join().all(unis).andFailFast()
-                .map(list -> list.stream().filter(albumArticle -> albumArticle != null).collect(Collectors.toList()));
+                yield Uni.join().all(unis).andFailFast().map(list -> list.stream()
+                        .filter(albumArticle -> albumArticle != null).collect(Collectors.toList()));
+            }
+        };
     }
 
     @Override
@@ -94,52 +92,52 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
 
     @Override
     public Uni<Void> delete(AlbumArticle aggregate) {
-        if (aggregate == null) {
-            return Uni.createFrom().voidItem();
-        }
-        return deleteById(aggregate.albumId());
+        return switch (aggregate) {
+            case null -> Uni.createFrom().voidItem();
+            default -> deleteById(aggregate.albumId());
+        };
     }
 
     @Override
     public Uni<Void> deleteAll(Iterable<AlbumArticle> aggregates) {
-        if (aggregates == null) {
-            return Uni.createFrom().voidItem();
-        }
+        return switch (aggregates) {
+            case null -> Uni.createFrom().voidItem();
+            default -> {
+                final var unis = StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
+                        .collect(Collectors.toList());
 
-        final var unis = StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
-                .collect(Collectors.toList());
-
-        return Uni.join().all(unis).andFailFast().replaceWithVoid();
+                yield Uni.join().all(unis).andFailFast().replaceWithVoid();
+            }
+        };
     }
 
     @Override
     public Uni<Void> deleteById(Album.Id id) {
-        if (id == null) {
-            return Uni.createFrom().voidItem();
-        }
-
-        return dataSource.deleteByAlbumId(id.value()).replaceWithVoid();
+        return switch (id) {
+            case null -> Uni.createFrom().voidItem();
+            default -> dataSource.deleteByAlbumId(id.value()).replaceWithVoid();
+        };
     }
 
     @Override
     public Uni<Void> deleteAllById(Iterable<Album.Id> ids) {
-        if (ids == null) {
-            return Uni.createFrom().voidItem();
-        }
+        return switch (ids) {
+            case null -> Uni.createFrom().voidItem();
+            default -> {
+                final var unis = StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
+                        .collect(Collectors.toList());
 
-        final var unis = StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
-                .collect(Collectors.toList());
-
-        return Uni.join().all(unis).andFailFast().replaceWithVoid();
+                yield Uni.join().all(unis).andFailFast().replaceWithVoid();
+            }
+        };
     }
 
     @Override
     public Uni<Boolean> existsById(Album.Id id) {
-        if (id == null) {
-            return Uni.createFrom().item(false);
-        }
-
-        return dataSource.existsByAlbumId(id.value());
+        return switch (id) {
+            case null -> Uni.createFrom().item(false);
+            default -> dataSource.existsByAlbumId(id.value());
+        };
     }
 
     @Override
@@ -151,31 +149,28 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
 
     @Override
     public Uni<AlbumArticle> findByAlbumId(Album.Id albumId) {
-        if (albumId == null) {
-            return Uni.createFrom().nullItem();
-        }
-
-        return dataSource.findByAlbumId(albumId.value()).map(AlbumArticleMapper::toDomain);
+        return switch (albumId) {
+            case null -> Uni.createFrom().nullItem();
+            default -> dataSource.findByAlbumId(albumId.value()).map(AlbumArticleMapper::toDomain);
+        };
     }
 
     @Override
     public Uni<List<AlbumArticle>> findByLabelTag(LabelTag labelTag) {
-        if (labelTag == null) {
-            return Uni.createFrom().item(List.of());
-        }
-
-        return dataSource.findByLabelTag(labelTag.name())
-                .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).collect(Collectors.toList()));
+        return switch (labelTag) {
+            case null -> Uni.createFrom().item(List.of());
+            default -> dataSource.findByLabelTag(labelTag.name())
+                    .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).collect(Collectors.toList()));
+        };
     }
 
     @Override
     public Uni<List<AlbumArticle>> findByFirstEventSpaceContaining(String spaceKeyword) {
-        if (spaceKeyword == null) {
-            return Uni.createFrom().item(List.of());
-        }
-
-        return dataSource.findByFirstEventSpaceContaining(spaceKeyword)
-                .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).collect(Collectors.toList()));
+        return switch (spaceKeyword) {
+            case null -> Uni.createFrom().item(List.of());
+            default -> dataSource.findByFirstEventSpaceContaining(spaceKeyword)
+                    .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).collect(Collectors.toList()));
+        };
     }
 
     @Override

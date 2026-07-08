@@ -47,11 +47,15 @@ public final class ArticleMapper {
     }
 
     private static MarkupContent createMarkupContent(String body, String bodyFormat) {
-        if (body == null) {
-            return null;
-        }
-        final MarkupFormat format = bodyFormat != null ? MarkupFormat.valueOf(bodyFormat) : MarkupFormat.PLAIN_TEXT;
-        return new MarkupContent(body, format);
+        return switch (body) {
+            case null -> null;
+            default -> {
+                final MarkupFormat format = bodyFormat != null
+                        ? MarkupFormat.valueOf(bodyFormat)
+                        : MarkupFormat.PLAIN_TEXT;
+                yield new MarkupContent(body, format);
+            }
+        };
     }
 
     /**

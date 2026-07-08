@@ -106,12 +106,7 @@ public record ApplyingEvent(EventName name, List<BusinessDate> tentativeDates) i
 
     @Override
     public boolean equivalentTo(EventToParticipate other) {
-        if (other == null) {
-            return false;
-        }
-        if (!(other instanceof ApplyingEvent applying)) {
-            return false;
-        }
-        return this.name.equivalentTo(applying.name) && this.tentativeDates.equals(applying.tentativeDates);
+        return other instanceof ApplyingEvent applying && this.name.equivalentTo(applying.name)
+                && this.tentativeDates.equals(applying.tentativeDates);
     }
 }

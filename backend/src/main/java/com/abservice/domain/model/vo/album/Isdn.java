@@ -6,6 +6,7 @@ import org.apache.commons.lang3.Validate;
 
 import java.util.Optional;
 import java.util.regex.Pattern;
+import java.util.stream.IntStream;
 
 /**
  * ISDN（国際標準同人誌番号）の値オブジェクト
@@ -80,14 +81,14 @@ public record Isdn(String value) implements ValueObject<Isdn> {
      * @return チェックデジットが正しければtrue
      */
     private static boolean isValidCheckDigit(String isdn) {
-        if (isdn.length() != 13) {
-            return false;
-        }
-        int sum = 0;
-        for (int i = 0; i < 12; i++) {
+        return isdn.length() == 13 && checkDigitMatches(isdn);
+    }
+
+    private static boolean checkDigitMatches(String isdn) {
+        final int sum = IntStream.range(0, 12).map(i -> {
             final int digit = Character.getNumericValue(isdn.charAt(i));
-            sum += (i % 2 == 0) ? digit : digit * 3;
-        }
+            return (i % 2 == 0) ? digit : digit * 3;
+        }).sum();
         final int checkDigit = (10 - (sum % 10)) % 10;
         return checkDigit == Character.getNumericValue(isdn.charAt(12));
     }
@@ -98,13 +99,11 @@ public record Isdn(String value) implements ValueObject<Isdn> {
      * @return ハイフン付きISDN（例: 278-4-702901-97-8）
      */
     public String formattedValue() {
-        // 日本の場合: 278-4-XXXXXX-XX-X (3-1-7-2-1の構成)
-        if (value.startsWith("2784") || value.startsWith("2794")) {
-            return value.substring(0, 3) + "-" + value.substring(3, 4) + "-" + value.substring(4, 10) + "-"
-                    + value.substring(10, 12) + "-" + value.substring(12, 13);
-        }
-        // その他の地域は簡略表示
-        return value.substring(0, 3) + "-" + value.substring(3, 12) + "-" + value.substring(12, 13);
+        // 日本の場合: 278-4-XXXXXX-XX-X (3-1-7-2-1の構成)、その他の地域は簡略表示
+        return value.startsWith("2784") || value.startsWith("2794")
+                ? value.substring(0, 3) + "-" + value.substring(3, 4) + "-" + value.substring(4, 10) + "-"
+                        + value.substring(10, 12) + "-" + value.substring(12, 13)
+                : value.substring(0, 3) + "-" + value.substring(3, 12) + "-" + value.substring(12, 13);
     }
 
     @Override

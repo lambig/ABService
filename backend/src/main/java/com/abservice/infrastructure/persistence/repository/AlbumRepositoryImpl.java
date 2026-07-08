@@ -31,78 +31,77 @@ public class AlbumRepositoryImpl implements AlbumRepository {
 
     @Override
     public Uni<Album> save(Album aggregate) {
-        if (aggregate == null) {
-            return Uni.createFrom().failure(new IllegalArgumentException("Album cannot be null"));
-        }
+        return switch (aggregate) {
+            case null -> Uni.createFrom().failure(new IllegalArgumentException("Album cannot be null"));
+            default -> {
+                final var entity = AlbumMapper.toEntity(aggregate);
 
-        final var entity = AlbumMapper.toEntity(aggregate);
+                // 既存確認
+                yield dataSource.existsByAlbumId(entity.getDomainId())
+                        // 更新の場合は既存のエンティティをマージ、そうでなければ新規作成
+                        .flatMap(exists -> exists
+                                ? dataSource.findByIdWithTracks(entity.getDomainId()).flatMap(existingEntity -> {
+                                    // エンティティの更新
+                                    existingEntity.setTitle(entity.getTitle());
+                                    existingEntity.setReleaseDate(entity.getReleaseDate());
+                                    existingEntity.setArtistDisplayName(entity.getArtistDisplayName());
+                                    existingEntity.setArtistSortKey(entity.getArtistSortKey());
+                                    existingEntity.setEventName(entity.getEventName());
+                                    existingEntity.setEventDate(entity.getEventDate());
+                                    existingEntity.setEventPlace(entity.getEventPlace());
+                                    existingEntity.setEventNote(entity.getEventNote());
+                                    existingEntity.setCatalogNumber(entity.getCatalogNumber());
 
-        // 既存確認
-        return dataSource.existsByAlbumId(entity.getDomainId()).flatMap(exists -> {
-            if (exists) {
-                // 更新の場合は既存のエンティティをマージ
-                return dataSource.findByIdWithTracks(entity.getDomainId()).flatMap(existingEntity -> {
-                    // エンティティの更新
-                    existingEntity.setTitle(entity.getTitle());
-                    existingEntity.setReleaseDate(entity.getReleaseDate());
-                    existingEntity.setArtistDisplayName(entity.getArtistDisplayName());
-                    existingEntity.setArtistSortKey(entity.getArtistSortKey());
-                    existingEntity.setEventName(entity.getEventName());
-                    existingEntity.setEventDate(entity.getEventDate());
-                    existingEntity.setEventPlace(entity.getEventPlace());
-                    existingEntity.setEventNote(entity.getEventNote());
-                    existingEntity.setCatalogNumber(entity.getCatalogNumber());
+                                    // トラックを更新
+                                    existingEntity.getTracks().clear();
+                                    if (entity.getTracks() != null) {
+                                        entity.getTracks().forEach(track -> {
+                                            track.setAlbum(existingEntity);
+                                            existingEntity.getTracks().add(track);
+                                        });
+                                    }
 
-                    // トラックを更新
-                    existingEntity.getTracks().clear();
-                    if (entity.getTracks() != null) {
-                        entity.getTracks().forEach(track -> {
-                            track.setAlbum(existingEntity);
-                            existingEntity.getTracks().add(track);
-                        });
-                    }
-
-                    return dataSource.persistAndFlush(existingEntity);
-                });
-            } else {
-                // 新規作成
-                return dataSource.persistAlbumWithRelations(entity);
+                                    return dataSource.persistAndFlush(existingEntity);
+                                })
+                                : dataSource.persistAlbumWithRelations(entity))
+                        .map(AlbumMapper::toDomain);
             }
-        }).map(AlbumMapper::toDomain);
+        };
     }
 
     @Override
     public Uni<List<Album>> saveAll(Iterable<Album> aggregates) {
-        if (aggregates == null) {
-            return Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null"));
-        }
+        return switch (aggregates) {
+            case null -> Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null"));
+            default -> {
+                final var unis = StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
+                        .collect(Collectors.toList());
 
-        final var unis = StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
-                .collect(Collectors.toList());
-
-        return Uni.join().all(unis).andFailFast();
+                yield Uni.join().all(unis).andFailFast();
+            }
+        };
     }
 
     @Override
     public Uni<Album> findById(Album.Id id) {
-        if (id == null) {
-            return Uni.createFrom().nullItem();
-        }
-
-        return dataSource.findByIdWithTracks(id.value()).map(AlbumMapper::toDomain);
+        return switch (id) {
+            case null -> Uni.createFrom().nullItem();
+            default -> dataSource.findByIdWithTracks(id.value()).map(AlbumMapper::toDomain);
+        };
     }
 
     @Override
     public Uni<List<Album>> findAllById(Iterable<Album.Id> ids) {
-        if (ids == null) {
-            return Uni.createFrom().item(List.of());
-        }
+        return switch (ids) {
+            case null -> Uni.createFrom().item(List.of());
+            default -> {
+                final var unis = StreamSupport.stream(ids.spliterator(), false).map(this::findById)
+                        .collect(Collectors.toList());
 
-        final var unis = StreamSupport.stream(ids.spliterator(), false).map(this::findById)
-                .collect(Collectors.toList());
-
-        return Uni.join().all(unis).andFailFast()
-                .map(list -> list.stream().filter(album -> album != null).collect(Collectors.toList()));
+                yield Uni.join().all(unis).andFailFast()
+                        .map(list -> list.stream().filter(album -> album != null).collect(Collectors.toList()));
+            }
+        };
     }
 
     @Override
@@ -113,52 +112,52 @@ public class AlbumRepositoryImpl implements AlbumRepository {
 
     @Override
     public Uni<Void> delete(Album aggregate) {
-        if (aggregate == null) {
-            return Uni.createFrom().voidItem();
-        }
-        return deleteById(aggregate.id());
+        return switch (aggregate) {
+            case null -> Uni.createFrom().voidItem();
+            default -> deleteById(aggregate.id());
+        };
     }
 
     @Override
     public Uni<Void> deleteAll(Iterable<Album> aggregates) {
-        if (aggregates == null) {
-            return Uni.createFrom().voidItem();
-        }
+        return switch (aggregates) {
+            case null -> Uni.createFrom().voidItem();
+            default -> {
+                final var unis = StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
+                        .collect(Collectors.toList());
 
-        final var unis = StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
-                .collect(Collectors.toList());
-
-        return Uni.join().all(unis).andFailFast().replaceWithVoid();
+                yield Uni.join().all(unis).andFailFast().replaceWithVoid();
+            }
+        };
     }
 
     @Override
     public Uni<Void> deleteById(Album.Id id) {
-        if (id == null) {
-            return Uni.createFrom().voidItem();
-        }
-
-        return dataSource.deleteByAlbumId(id.value()).replaceWithVoid();
+        return switch (id) {
+            case null -> Uni.createFrom().voidItem();
+            default -> dataSource.deleteByAlbumId(id.value()).replaceWithVoid();
+        };
     }
 
     @Override
     public Uni<Void> deleteAllById(Iterable<Album.Id> ids) {
-        if (ids == null) {
-            return Uni.createFrom().voidItem();
-        }
+        return switch (ids) {
+            case null -> Uni.createFrom().voidItem();
+            default -> {
+                final var unis = StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
+                        .collect(Collectors.toList());
 
-        final var unis = StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
-                .collect(Collectors.toList());
-
-        return Uni.join().all(unis).andFailFast().replaceWithVoid();
+                yield Uni.join().all(unis).andFailFast().replaceWithVoid();
+            }
+        };
     }
 
     @Override
     public Uni<Boolean> existsById(Album.Id id) {
-        if (id == null) {
-            return Uni.createFrom().item(false);
-        }
-
-        return dataSource.existsByAlbumId(id.value());
+        return switch (id) {
+            case null -> Uni.createFrom().item(false);
+            default -> dataSource.existsByAlbumId(id.value());
+        };
     }
 
     @Override
@@ -170,41 +169,35 @@ public class AlbumRepositoryImpl implements AlbumRepository {
 
     @Override
     public Uni<List<Album>> findByTitle(AlbumTitle title) {
-        if (title == null) {
-            return Uni.createFrom().item(List.of());
-        }
-
-        return dataSource.findByTitle(title.value())
-                .map(entities -> entities.stream().map(AlbumMapper::toDomain).collect(Collectors.toList()));
+        return switch (title) {
+            case null -> Uni.createFrom().item(List.of());
+            default -> dataSource.findByTitle(title.value())
+                    .map(entities -> entities.stream().map(AlbumMapper::toDomain).collect(Collectors.toList()));
+        };
     }
 
     @Override
     public Uni<List<Album>> findByArtistName(String artistName) {
-        if (artistName == null || artistName.isBlank()) {
-            return Uni.createFrom().item(List.of());
-        }
-
-        return dataSource.findByArtistDisplayName(artistName)
-                .map(entities -> entities.stream().map(AlbumMapper::toDomain).collect(Collectors.toList()));
+        return artistName == null || artistName.isBlank()
+                ? Uni.createFrom().item(List.of())
+                : dataSource.findByArtistDisplayName(artistName)
+                        .map(entities -> entities.stream().map(AlbumMapper::toDomain).collect(Collectors.toList()));
     }
 
     @Override
     public Uni<List<Album>> findByEventName(String eventName) {
-        if (eventName == null || eventName.isBlank()) {
-            return Uni.createFrom().item(List.of());
-        }
-
-        return dataSource.findByEventName(eventName)
-                .map(entities -> entities.stream().map(AlbumMapper::toDomain).collect(Collectors.toList()));
+        return eventName == null || eventName.isBlank()
+                ? Uni.createFrom().item(List.of())
+                : dataSource.findByEventName(eventName)
+                        .map(entities -> entities.stream().map(AlbumMapper::toDomain).collect(Collectors.toList()));
     }
 
     @Override
     public Uni<Album> findByCatalogNumber(CatalogNumber catalogNumber) {
-        if (catalogNumber == null) {
-            return Uni.createFrom().nullItem();
-        }
-
-        return dataSource.findByCatalogNumber(catalogNumber.value()).map(AlbumMapper::toDomain);
+        return switch (catalogNumber) {
+            case null -> Uni.createFrom().nullItem();
+            default -> dataSource.findByCatalogNumber(catalogNumber.value()).map(AlbumMapper::toDomain);
+        };
     }
 
     @Override

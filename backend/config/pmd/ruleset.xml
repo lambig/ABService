@@ -51,4 +51,37 @@
         </properties>
     </rule>
 
+    <rule name="ForbiddenSwitchStatement"
+          language="java"
+          message="switch 文は禁止です。値を返す分岐は switch 式（return switch(...)）にしてください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>switch 文（statement）を禁止し、switch 式を強制する（値分岐の式化）。</description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//SwitchStatement
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
+    <rule name="ForbiddenIfValueReturn"
+          language="java"
+          message="if 文で値を返しています。値分岐は三項演算子か switch 式で表現してください（if は副作用・例外分岐のみ）。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            if 文の分岐内で値を伴う return（return &lt;式&gt;;）を禁止する。
+            throw・値なし return は許容。値の生成は三項/switch 式へ。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//IfStatement//ReturnStatement[count(*) > 0]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
 </ruleset>
