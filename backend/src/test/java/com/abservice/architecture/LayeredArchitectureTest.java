@@ -162,4 +162,34 @@ class LayeredArchitectureTest {
         GeneralCodingRules.NO_CLASSES_SHOULD_ACCESS_STANDARD_STREAMS
                 .as("System.out / System.err / printStackTrace をロギング以外で使わない").check(classes);
     }
+
+    /**
+     * {@code EntityId} を実装する具象型は record でなければならない（値型・不変）。
+     *
+     * <p>
+     * Kotlin の {@code value class} 相当を Java では record で表現する。生成の一元化と検証は record
+     * のコンパクトコンストラクタ＋ファクトリ（{@code of} / {@code generate}）で担保する。
+     * </p>
+     */
+    @ArchTest
+    void entityIdImplementationsShouldBeRecords(JavaClasses classes) {
+        classes().that().implement("com.abservice.domain.model.EntityId").should().beRecords()
+                .as("EntityId 実装は record にする（値型・不変。生成はコンパクトコンストラクタ＋ファクトリで担保）").check(classes);
+    }
+
+    /**
+     * ApplicationService の {@code execute} / {@code query} は {@code Uni<...>}
+     * を返さなければならない。
+     *
+     * <p>
+     * {@code CommandService.execute} / {@code QueryService.query} の基底契約（リアクティブ）を、
+     * 具象ユースケース実装が生えても維持させる前方ガード。具象未整備の現時点では基底IFの2メソッドが対象。
+     * </p>
+     */
+    @ArchTest
+    void applicationServiceExecuteAndQueryShouldReturnUni(JavaClasses classes) {
+        methods().that().haveNameMatching("execute|query").and().areDeclaredInClassesThat()
+                .resideInAPackage(APPLICATION).should().haveRawReturnType("io.smallrye.mutiny.Uni")
+                .as("ApplicationService の execute/query は Uni<...> を返す").allowEmptyShould(true).check(classes);
+    }
 }
