@@ -50,7 +50,7 @@ public final class ArticleMapper {
         if (body == null) {
             return null;
         }
-        MarkupFormat format = bodyFormat != null ? MarkupFormat.valueOf(bodyFormat) : MarkupFormat.PLAIN_TEXT;
+        final MarkupFormat format = bodyFormat != null ? MarkupFormat.valueOf(bodyFormat) : MarkupFormat.PLAIN_TEXT;
         return new MarkupContent(body, format);
     }
 
@@ -63,7 +63,7 @@ public final class ArticleMapper {
      */
     public static ArticleEntity toEntity(Article article) {
         return Optional.ofNullable(article).map(a -> {
-            var articleEntity = new ArticleEntity();
+            final var articleEntity = new ArticleEntity();
             articleEntity.setDomainId(a.id().value());
             articleEntity.setArticleType(a.articleType().name());
             articleEntity.setAlbumId(Optional.ofNullable(a.albumId()).map(Album.Id::value).orElse(null));

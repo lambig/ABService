@@ -22,11 +22,11 @@ class TrackTuneTest {
         @DisplayName("必須フィールドのみで生成できること")
         void createWithMinimalFieldsShouldSucceed() {
             // Arrange
-            var seq = 1;
-            var tuneId = Tune.Id.generate();
+            final var seq = 1;
+            final var tuneId = Tune.Id.generate();
 
             // Act
-            var trackTune = TrackTune.create(seq, tuneId, null, null, null);
+            final var trackTune = TrackTune.create(seq, tuneId, null, null, null);
 
             // Assert
             assertThat(trackTune).isNotNull();
@@ -41,14 +41,14 @@ class TrackTuneTest {
         @DisplayName("すべてのフィールドを指定して生成できること")
         void createWithAllFieldsShouldSucceed() {
             // Arrange
-            var seq = 1;
-            var tuneId = Tune.Id.generate();
-            var composerCredit = Credit.of("Composer");
-            var arrangerCredit = Credit.of("Arranger");
-            var url = Url.of("https://example.com");
+            final var seq = 1;
+            final var tuneId = Tune.Id.generate();
+            final var composerCredit = Credit.of("Composer");
+            final var arrangerCredit = Credit.of("Arranger");
+            final var url = Url.of("https://example.com");
 
             // Act
-            var trackTune = TrackTune.create(seq, tuneId, composerCredit, arrangerCredit, url);
+            final var trackTune = TrackTune.create(seq, tuneId, composerCredit, arrangerCredit, url);
 
             // Assert
             assertThat(trackTune).isNotNull();
@@ -63,10 +63,10 @@ class TrackTuneTest {
         @DisplayName("tuneIdがnullでも生成できること（MC、環境音などの場合）")
         void createWithNullTuneIdShouldSucceed() {
             // Arrange
-            var seq = 1;
+            final var seq = 1;
 
             // Act
-            var trackTune = TrackTune.create(seq, null, null, null, null);
+            final var trackTune = TrackTune.create(seq, null, null, null, null);
 
             // Assert
             assertThat(trackTune).isNotNull();
@@ -77,7 +77,7 @@ class TrackTuneTest {
         @DisplayName("seqがnullの場合は例外が発生すること")
         void createWithNullSeqShouldThrowException() {
             // Arrange
-            var tuneId = Tune.Id.generate();
+            final var tuneId = Tune.Id.generate();
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -94,14 +94,14 @@ class TrackTuneTest {
         @DisplayName("永続化層から再構成できること")
         void reconstructShouldSucceed() {
             // Arrange
-            var seq = 1;
-            var tuneId = Tune.Id.generate();
-            var composerCredit = Credit.of("Composer");
-            var arrangerCredit = Credit.of("Arranger");
-            var url = Url.of("https://example.com");
+            final var seq = 1;
+            final var tuneId = Tune.Id.generate();
+            final var composerCredit = Credit.of("Composer");
+            final var arrangerCredit = Credit.of("Arranger");
+            final var url = Url.of("https://example.com");
 
             // Act
-            var trackTune = TrackTune.reconstruct(seq, tuneId, composerCredit, arrangerCredit, url);
+            final var trackTune = TrackTune.reconstruct(seq, tuneId, composerCredit, arrangerCredit, url);
 
             // Assert
             assertThat(trackTune).isNotNull();
@@ -121,11 +121,11 @@ class TrackTuneTest {
         @DisplayName("チューンIDを変更できること")
         void changeTuneIdShouldSucceed() {
             // Arrange
-            var original = TrackTune.create(1, Tune.Id.generate(), null, null, null);
-            var newTuneId = Tune.Id.generate();
+            final var original = TrackTune.create(1, Tune.Id.generate(), null, null, null);
+            final var newTuneId = Tune.Id.generate();
 
             // Act
-            var updated = original.changeTuneId(newTuneId);
+            final var updated = original.changeTuneId(newTuneId);
 
             // Assert
             assertThat(updated.tuneId()).isEqualTo(newTuneId);
@@ -136,10 +136,10 @@ class TrackTuneTest {
         @DisplayName("チューンIDをnullに変更できること")
         void changeTuneIdToNullShouldSucceed() {
             // Arrange
-            var original = TrackTune.create(1, Tune.Id.generate(), null, null, null);
+            final var original = TrackTune.create(1, Tune.Id.generate(), null, null, null);
 
             // Act
-            var updated = original.changeTuneId(null);
+            final var updated = original.changeTuneId(null);
 
             // Assert
             assertThat(updated.tuneId()).isNull();
@@ -154,11 +154,11 @@ class TrackTuneTest {
         @DisplayName("作曲者クレジット上書きを変更できること")
         void changeComposerCreditOverrideShouldSucceed() {
             // Arrange
-            var original = TrackTune.create(1, Tune.Id.generate(), null, null, null);
-            var composerCredit = Credit.of("New Composer");
+            final var original = TrackTune.create(1, Tune.Id.generate(), null, null, null);
+            final var composerCredit = Credit.of("New Composer");
 
             // Act
-            var updated = original.changeComposerCreditOverride(composerCredit);
+            final var updated = original.changeComposerCreditOverride(composerCredit);
 
             // Assert
             assertThat(updated.composerCreditOverride()).isEqualTo(composerCredit);
@@ -168,11 +168,11 @@ class TrackTuneTest {
         @DisplayName("作曲者クレジット上書きをnullに変更できること")
         void changeComposerCreditOverrideToNullShouldSucceed() {
             // Arrange
-            var composerCredit = Credit.of("Composer");
-            var original = TrackTune.create(1, Tune.Id.generate(), composerCredit, null, null);
+            final var composerCredit = Credit.of("Composer");
+            final var original = TrackTune.create(1, Tune.Id.generate(), composerCredit, null, null);
 
             // Act
-            var updated = original.changeComposerCreditOverride(null);
+            final var updated = original.changeComposerCreditOverride(null);
 
             // Assert
             assertThat(updated.composerCreditOverride()).isNull();
@@ -182,14 +182,14 @@ class TrackTuneTest {
         @DisplayName("作曲者クレジット上書きを変更しても他のフィールドは変わらないこと")
         void changeComposerCreditOverrideShouldNotAffectOtherFields() {
             // Arrange
-            var tuneId = Tune.Id.generate();
-            var arrangerCredit = Credit.of("Arranger");
-            var url = Url.of("https://example.com");
-            var original = TrackTune.create(1, tuneId, null, arrangerCredit, url);
-            var composerCredit = Credit.of("Composer");
+            final var tuneId = Tune.Id.generate();
+            final var arrangerCredit = Credit.of("Arranger");
+            final var url = Url.of("https://example.com");
+            final var original = TrackTune.create(1, tuneId, null, arrangerCredit, url);
+            final var composerCredit = Credit.of("Composer");
 
             // Act
-            var updated = original.changeComposerCreditOverride(composerCredit);
+            final var updated = original.changeComposerCreditOverride(composerCredit);
 
             // Assert
             assertThat(updated.seq()).isEqualTo(original.seq());
@@ -207,11 +207,11 @@ class TrackTuneTest {
         @DisplayName("アレンジャークレジット上書きを変更できること")
         void changeArrangerCreditOverrideShouldSucceed() {
             // Arrange
-            var original = TrackTune.create(1, Tune.Id.generate(), null, null, null);
-            var arrangerCredit = Credit.of("New Arranger");
+            final var original = TrackTune.create(1, Tune.Id.generate(), null, null, null);
+            final var arrangerCredit = Credit.of("New Arranger");
 
             // Act
-            var updated = original.changeArrangerCreditOverride(arrangerCredit);
+            final var updated = original.changeArrangerCreditOverride(arrangerCredit);
 
             // Assert
             assertThat(updated.arrangerCreditOverride()).isEqualTo(arrangerCredit);
@@ -221,11 +221,11 @@ class TrackTuneTest {
         @DisplayName("アレンジャークレジット上書きをnullに変更できること")
         void changeArrangerCreditOverrideToNullShouldSucceed() {
             // Arrange
-            var arrangerCredit = Credit.of("Arranger");
-            var original = TrackTune.create(1, Tune.Id.generate(), null, arrangerCredit, null);
+            final var arrangerCredit = Credit.of("Arranger");
+            final var original = TrackTune.create(1, Tune.Id.generate(), null, arrangerCredit, null);
 
             // Act
-            var updated = original.changeArrangerCreditOverride(null);
+            final var updated = original.changeArrangerCreditOverride(null);
 
             // Assert
             assertThat(updated.arrangerCreditOverride()).isNull();
@@ -235,14 +235,14 @@ class TrackTuneTest {
         @DisplayName("アレンジャークレジット上書きを変更しても他のフィールドは変わらないこと")
         void changeArrangerCreditOverrideShouldNotAffectOtherFields() {
             // Arrange
-            var tuneId = Tune.Id.generate();
-            var composerCredit = Credit.of("Composer");
-            var url = Url.of("https://example.com");
-            var original = TrackTune.create(1, tuneId, composerCredit, null, url);
-            var arrangerCredit = Credit.of("Arranger");
+            final var tuneId = Tune.Id.generate();
+            final var composerCredit = Credit.of("Composer");
+            final var url = Url.of("https://example.com");
+            final var original = TrackTune.create(1, tuneId, composerCredit, null, url);
+            final var arrangerCredit = Credit.of("Arranger");
 
             // Act
-            var updated = original.changeArrangerCreditOverride(arrangerCredit);
+            final var updated = original.changeArrangerCreditOverride(arrangerCredit);
 
             // Assert
             assertThat(updated.seq()).isEqualTo(original.seq());
@@ -260,11 +260,11 @@ class TrackTuneTest {
         @DisplayName("リンクURLを変更できること")
         void changeLinkUrlShouldSucceed() {
             // Arrange
-            var original = TrackTune.create(1, Tune.Id.generate(), null, null, null);
-            var url = Url.of("https://example.com");
+            final var original = TrackTune.create(1, Tune.Id.generate(), null, null, null);
+            final var url = Url.of("https://example.com");
 
             // Act
-            var updated = original.changeLinkUrl(url);
+            final var updated = original.changeLinkUrl(url);
 
             // Assert
             assertThat(updated.linkUrl()).isEqualTo(url);
@@ -274,11 +274,11 @@ class TrackTuneTest {
         @DisplayName("リンクURLをnullに変更できること")
         void changeLinkUrlToNullShouldSucceed() {
             // Arrange
-            var url = Url.of("https://example.com");
-            var original = TrackTune.create(1, Tune.Id.generate(), null, null, url);
+            final var url = Url.of("https://example.com");
+            final var original = TrackTune.create(1, Tune.Id.generate(), null, null, url);
 
             // Act
-            var updated = original.changeLinkUrl(null);
+            final var updated = original.changeLinkUrl(null);
 
             // Assert
             assertThat(updated.linkUrl()).isNull();
@@ -288,14 +288,14 @@ class TrackTuneTest {
         @DisplayName("リンクURLを変更しても他のフィールドは変わらないこと")
         void changeLinkUrlShouldNotAffectOtherFields() {
             // Arrange
-            var tuneId = Tune.Id.generate();
-            var composerCredit = Credit.of("Composer");
-            var arrangerCredit = Credit.of("Arranger");
-            var original = TrackTune.create(1, tuneId, composerCredit, arrangerCredit, null);
-            var url = Url.of("https://example.com");
+            final var tuneId = Tune.Id.generate();
+            final var composerCredit = Credit.of("Composer");
+            final var arrangerCredit = Credit.of("Arranger");
+            final var original = TrackTune.create(1, tuneId, composerCredit, arrangerCredit, null);
+            final var url = Url.of("https://example.com");
 
             // Act
-            var updated = original.changeLinkUrl(url);
+            final var updated = original.changeLinkUrl(url);
 
             // Assert
             assertThat(updated.seq()).isEqualTo(original.seq());
@@ -313,10 +313,10 @@ class TrackTuneTest {
         @DisplayName("同じseqのTrackTuneは等しいこと")
         void trackTunesWithSameSeqShouldBeEqual() {
             // Arrange
-            var tuneId1 = Tune.Id.generate();
-            var tuneId2 = Tune.Id.generate();
-            var trackTune1 = TrackTune.create(1, tuneId1, null, null, null);
-            var trackTune2 = TrackTune.create(1, tuneId2, null, null, null);
+            final var tuneId1 = Tune.Id.generate();
+            final var tuneId2 = Tune.Id.generate();
+            final var trackTune1 = TrackTune.create(1, tuneId1, null, null, null);
+            final var trackTune2 = TrackTune.create(1, tuneId2, null, null, null);
 
             // Act & Assert
             assertThat(trackTune2).isEqualTo(trackTune1);
@@ -327,9 +327,9 @@ class TrackTuneTest {
         @DisplayName("異なるseqのTrackTuneは等しくないこと")
         void trackTunesWithDifferentSeqShouldNotBeEqual() {
             // Arrange
-            var tuneId = Tune.Id.generate();
-            var trackTune1 = TrackTune.create(1, tuneId, null, null, null);
-            var trackTune2 = TrackTune.create(2, tuneId, null, null, null);
+            final var tuneId = Tune.Id.generate();
+            final var trackTune1 = TrackTune.create(1, tuneId, null, null, null);
+            final var trackTune2 = TrackTune.create(2, tuneId, null, null, null);
 
             // Act & Assert
             assertThat(trackTune2).isNotEqualTo(trackTune1);

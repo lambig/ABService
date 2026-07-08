@@ -19,7 +19,7 @@ class MarkupContentTest {
         @DisplayName("プレーンテキストを生成できること")
         void createPlainTextShouldSucceed() {
             // Arrange & Act
-            var content = MarkupContent.plainText("Hello, World!");
+            final var content = MarkupContent.plainText("Hello, World!");
 
             // Assert
             assertThat(content).isNotNull();
@@ -31,7 +31,7 @@ class MarkupContentTest {
         @DisplayName("Markdownを生成できること")
         void createMarkdownShouldSucceed() {
             // Arrange & Act
-            var content = MarkupContent.markdown("# Title\n\nThis is **bold**.");
+            final var content = MarkupContent.markdown("# Title\n\nThis is **bold**.");
 
             // Assert
             assertThat(content).isNotNull();
@@ -43,7 +43,7 @@ class MarkupContentTest {
         @DisplayName("HTMLを生成できること")
         void createHtmlShouldSucceed() {
             // Arrange & Act
-            var content = MarkupContent.html("<h1>Title</h1><p>Paragraph</p>");
+            final var content = MarkupContent.html("<h1>Title</h1><p>Paragraph</p>");
 
             // Assert
             assertThat(content).isNotNull();
@@ -55,7 +55,7 @@ class MarkupContentTest {
         @DisplayName("nullコンテンツは空文字列として生成されること")
         void createWithNullContentShouldConvertToEmpty() {
             // Arrange & Act
-            var content = MarkupContent.markdown(null);
+            final var content = MarkupContent.markdown(null);
 
             // Assert
             assertThat(content).isNotNull();
@@ -88,7 +88,7 @@ class MarkupContentTest {
         @DisplayName("空文字列コンテンツは空と判定されること")
         void emptyStringContentShouldBeEmpty() {
             // Arrange
-            var content = MarkupContent.plainText("");
+            final var content = MarkupContent.plainText("");
 
             // Act & Assert
             assertThat(content.isEmpty()).isTrue();
@@ -98,7 +98,7 @@ class MarkupContentTest {
         @DisplayName("空白のみのコンテンツは空と判定されること")
         void blankContentShouldBeEmpty() {
             // Arrange
-            var content = MarkupContent.plainText("   ");
+            final var content = MarkupContent.plainText("   ");
 
             // Act & Assert
             assertThat(content.isEmpty()).isTrue();
@@ -108,7 +108,7 @@ class MarkupContentTest {
         @DisplayName("テキストを含むコンテンツは空でないと判定されること")
         void nonEmptyContentShouldNotBeEmpty() {
             // Arrange
-            var content = MarkupContent.markdown("Content");
+            final var content = MarkupContent.markdown("Content");
 
             // Act & Assert
             assertThat(content.isEmpty()).isFalse();
@@ -123,7 +123,7 @@ class MarkupContentTest {
         @DisplayName("空文字列コンテンツの長さは0であること")
         void emptyContentLengthShouldBeZero() {
             // Arrange
-            var content = MarkupContent.markdown("");
+            final var content = MarkupContent.markdown("");
 
             // Act & Assert
             assertThat(content.length()).isEqualTo(0);
@@ -133,7 +133,7 @@ class MarkupContentTest {
         @DisplayName("コンテンツの文字数を取得できること")
         void shouldReturnCorrectLength() {
             // Arrange
-            var content = MarkupContent.markdown("Hello");
+            final var content = MarkupContent.markdown("Hello");
 
             // Act & Assert
             assertThat(content.length()).isEqualTo(5);
@@ -148,8 +148,8 @@ class MarkupContentTest {
         @DisplayName("同じ内容と形式は等価であること")
         void sameContentAndFormatShouldBeEquivalent() {
             // Arrange
-            var content1 = MarkupContent.markdown("Test");
-            var content2 = MarkupContent.markdown("Test");
+            final var content1 = MarkupContent.markdown("Test");
+            final var content2 = MarkupContent.markdown("Test");
 
             // Act & Assert
             assertThat(content1.equivalentTo(content2)).isTrue();
@@ -160,8 +160,8 @@ class MarkupContentTest {
         @DisplayName("異なる内容は等価でないこと")
         void differentContentShouldNotBeEquivalent() {
             // Arrange
-            var content1 = MarkupContent.markdown("Test1");
-            var content2 = MarkupContent.markdown("Test2");
+            final var content1 = MarkupContent.markdown("Test1");
+            final var content2 = MarkupContent.markdown("Test2");
 
             // Act & Assert
             assertThat(content1.equivalentTo(content2)).isFalse();
@@ -172,8 +172,8 @@ class MarkupContentTest {
         @DisplayName("異なる形式は等価でないこと")
         void differentFormatShouldNotBeEquivalent() {
             // Arrange
-            var content1 = MarkupContent.markdown("Test");
-            var content2 = MarkupContent.html("Test");
+            final var content1 = MarkupContent.markdown("Test");
+            final var content2 = MarkupContent.html("Test");
 
             // Act & Assert
             assertThat(content1.equivalentTo(content2)).isFalse();
@@ -184,7 +184,7 @@ class MarkupContentTest {
         @DisplayName("nullとの比較は等価でないこと")
         void nullShouldNotBeEquivalent() {
             // Arrange
-            var content = MarkupContent.plainText("Test");
+            final var content = MarkupContent.plainText("Test");
 
             // Act & Assert
             assertThat(content.equivalentTo(null)).isFalse();
@@ -194,8 +194,8 @@ class MarkupContentTest {
         @DisplayName("両方空文字列のコンテンツは等価であること")
         void bothEmptyContentShouldBeEquivalent() {
             // Arrange
-            var content1 = MarkupContent.markdown("");
-            var content2 = MarkupContent.markdown("");
+            final var content1 = MarkupContent.markdown("");
+            final var content2 = MarkupContent.markdown("");
 
             // Act & Assert
             assertThat(content1.equivalentTo(content2)).isTrue();
@@ -211,10 +211,10 @@ class MarkupContentTest {
         @DisplayName("有効な形式とコンテンツで成功する")
         void validInputShouldSucceed() {
             // Act
-            Result<MarkupContent> result = MarkupContent.fromInput("# Title", "MARKDOWN");
+            final Result<MarkupContent> result = MarkupContent.fromInput("# Title", "MARKDOWN");
 
             // Assert
-            var content = result.resolve();
+            final var content = result.resolve();
             assertThat(content.content()).isEqualTo("# Title");
             assertThat(content.format()).isEqualTo(MarkupFormat.MARKDOWN);
         }
@@ -223,7 +223,7 @@ class MarkupContentTest {
         @DisplayName("形式の前後空白を許容する")
         void surroundingWhitespaceInFormatIsTrimmed() {
             // Act
-            Result<MarkupContent> result = MarkupContent.fromInput("x", "  HTML  ");
+            final Result<MarkupContent> result = MarkupContent.fromInput("x", "  HTML  ");
 
             // Assert
             assertThat(result.resolve().format()).isEqualTo(MarkupFormat.HTML);
@@ -233,7 +233,7 @@ class MarkupContentTest {
         @DisplayName("nullコンテンツは空文字列として成功する")
         void nullContentShouldBecomeEmpty() {
             // Act
-            Result<MarkupContent> result = MarkupContent.fromInput(null, "PLAIN_TEXT");
+            final Result<MarkupContent> result = MarkupContent.fromInput(null, "PLAIN_TEXT");
 
             // Assert
             assertThat(result.resolve().content()).isEmpty();
@@ -243,7 +243,7 @@ class MarkupContentTest {
         @DisplayName("形式がnullは必須エラーになる")
         void nullFormatShouldFailAsRequired() {
             // Act
-            Result<MarkupContent> result = MarkupContent.fromInput("x", null);
+            final Result<MarkupContent> result = MarkupContent.fromInput("x", null);
 
             // Assert
             assertThat(result).isInstanceOf(Result.Failure.class);
@@ -257,7 +257,7 @@ class MarkupContentTest {
         @DisplayName("未知の形式は不正エラーになる")
         void unknownFormatShouldFailAsInvalid() {
             // Act
-            Result<MarkupContent> result = MarkupContent.fromInput("x", "XML");
+            final Result<MarkupContent> result = MarkupContent.fromInput("x", "XML");
 
             // Assert
             assertThat(result).isInstanceOf(Result.Failure.class);

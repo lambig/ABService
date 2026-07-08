@@ -18,35 +18,35 @@ class ChannelTypeTest {
     @DisplayName("valueOf(\"EVENT\") が EVENT を返す")
     @Test
     void testValueOfEVENT() {
-        ChannelType type = ChannelType.valueOf("EVENT");
+        final ChannelType type = ChannelType.valueOf("EVENT");
         assertThat(type).isEqualTo(ChannelType.EVENT);
     }
 
     @DisplayName("valueOf(\"ONLINE_SHOP\") が ONLINE_SHOP を返す")
     @Test
     void testValueOfOnlineShop() {
-        ChannelType type = ChannelType.valueOf("ONLINE_SHOP");
+        final ChannelType type = ChannelType.valueOf("ONLINE_SHOP");
         assertThat(type).isEqualTo(ChannelType.ONLINE_SHOP);
     }
 
     @DisplayName("valueOf(\"DL_SITE\") が DL_SITE を返す")
     @Test
     void testValueOfDlSite() {
-        ChannelType type = ChannelType.valueOf("DL_SITE");
+        final ChannelType type = ChannelType.valueOf("DL_SITE");
         assertThat(type).isEqualTo(ChannelType.DL_SITE);
     }
 
     @DisplayName("valueOf(\"STREAMING\") が STREAMING を返す")
     @Test
     void testValueOfSTREAMING() {
-        ChannelType type = ChannelType.valueOf("STREAMING");
+        final ChannelType type = ChannelType.valueOf("STREAMING");
         assertThat(type).isEqualTo(ChannelType.STREAMING);
     }
 
     @DisplayName("valueOf(\"OTHER\") が OTHER を返す")
     @Test
     void testValueOfOTHER() {
-        ChannelType type = ChannelType.valueOf("OTHER");
+        final ChannelType type = ChannelType.valueOf("OTHER");
         assertThat(type).isEqualTo(ChannelType.OTHER);
     }
 

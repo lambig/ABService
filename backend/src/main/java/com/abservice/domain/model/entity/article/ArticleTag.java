@@ -36,7 +36,7 @@ public class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@NonNull 
      * @return 新規ArticleTag
      */
     public static @NonNull ArticleTag create(@NonNull String name) {
-        var validatedName = Optional.ofNullable(name).filter(not(String::isBlank))
+        final var validatedName = Optional.ofNullable(name).filter(not(String::isBlank))
                 .orElseThrow(() -> new IllegalArgumentException("Tag name cannot be blank"));
         return new ArticleTag(Id.generate(), validatedName);
     }

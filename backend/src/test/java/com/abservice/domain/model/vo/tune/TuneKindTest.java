@@ -17,21 +17,21 @@ class TuneKindTest {
     @DisplayName("valueOf(\"TRAD\")はTRADを返す")
     @Test
     void testValueOfTRAD() {
-        TuneKind kind = TuneKind.valueOf("TRAD");
+        final TuneKind kind = TuneKind.valueOf("TRAD");
         assertThat(kind).isEqualTo(TuneKind.TRAD);
     }
 
     @DisplayName("valueOf(\"ORIGINAL\")はORIGINALを返す")
     @Test
     void testValueOfORIGINAL() {
-        TuneKind kind = TuneKind.valueOf("ORIGINAL");
+        final TuneKind kind = TuneKind.valueOf("ORIGINAL");
         assertThat(kind).isEqualTo(TuneKind.ORIGINAL);
     }
 
     @DisplayName("valueOf(\"ARRANGEMENT\")はARRANGEMENTを返す")
     @Test
     void testValueOfARRANGEMENT() {
-        TuneKind kind = TuneKind.valueOf("ARRANGEMENT");
+        final TuneKind kind = TuneKind.valueOf("ARRANGEMENT");
         assertThat(kind).isEqualTo(TuneKind.ARRANGEMENT);
     }
 

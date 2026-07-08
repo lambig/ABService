@@ -22,12 +22,12 @@ class TuneTest {
         @DisplayName("正常な値で生成できること")
         void createWithValidValuesShouldSucceed() {
             // Arrange
-            var title = TuneTitle.of("Test Tune");
-            var tuneKind = TuneKind.TRAD;
-            var composerCredit = Credit.of("Test Composer");
+            final var title = TuneTitle.of("Test Tune");
+            final var tuneKind = TuneKind.TRAD;
+            final var composerCredit = Credit.of("Test Composer");
 
             // Act
-            var tune = Tune.create(title, tuneKind, composerCredit, null, null, null, null, null, null);
+            final var tune = Tune.create(title, tuneKind, composerCredit, null, null, null, null, null, null);
 
             // Assert
             assertThat(tune).isNotNull();
@@ -47,18 +47,18 @@ class TuneTest {
         @DisplayName("すべてのフィールドを指定して生成できること")
         void createWithAllFieldsShouldSucceed() {
             // Arrange
-            var title = TuneTitle.of("Complete Tune");
-            var tuneKind = TuneKind.ARRANGEMENT;
-            var composerCredit = Credit.of("Original Composer");
-            var arrangerCredit = Credit.of("Arranger Name");
-            var originalWorkTitle = "Original Work Title";
-            var originalWorkCredit = "Original Artist";
-            var tuneType = "Reel";
-            var defaultKey = "D Major";
-            var defaultTempo = 120;
+            final var title = TuneTitle.of("Complete Tune");
+            final var tuneKind = TuneKind.ARRANGEMENT;
+            final var composerCredit = Credit.of("Original Composer");
+            final var arrangerCredit = Credit.of("Arranger Name");
+            final var originalWorkTitle = "Original Work Title";
+            final var originalWorkCredit = "Original Artist";
+            final var tuneType = "Reel";
+            final var defaultKey = "D Major";
+            final var defaultTempo = 120;
 
             // Act
-            var tune = Tune.create(title, tuneKind, composerCredit, arrangerCredit, originalWorkTitle,
+            final var tune = Tune.create(title, tuneKind, composerCredit, arrangerCredit, originalWorkTitle,
                     originalWorkCredit, tuneType, defaultKey, defaultTempo);
 
             // Assert
@@ -75,8 +75,8 @@ class TuneTest {
         @DisplayName("タイトルがnullの場合は例外が発生すること")
         void createWithNullTitleShouldThrowException() {
             // Arrange
-            var tuneKind = TuneKind.ORIGINAL;
-            var composerCredit = Credit.of("Composer");
+            final var tuneKind = TuneKind.ORIGINAL;
+            final var composerCredit = Credit.of("Composer");
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -88,8 +88,8 @@ class TuneTest {
         @DisplayName("チューン種別がnullの場合は例外が発生すること")
         void createWithNullTuneKindShouldThrowException() {
             // Arrange
-            var title = TuneTitle.of("Test Tune");
-            var composerCredit = Credit.of("Composer");
+            final var title = TuneTitle.of("Test Tune");
+            final var composerCredit = Credit.of("Composer");
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -106,11 +106,11 @@ class TuneTest {
         @DisplayName("タイトルを変更できること")
         void changeTitleWithValidTitleShouldSucceed() {
             // Arrange
-            var tune = createTestTune();
-            var newTitle = TuneTitle.of("Updated Tune Title");
+            final var tune = createTestTune();
+            final var newTitle = TuneTitle.of("Updated Tune Title");
 
             // Act
-            var updated = tune.changeTitle(newTitle);
+            final var updated = tune.changeTitle(newTitle);
 
             // Assert
             assertThat(updated.title()).isEqualTo(newTitle);
@@ -121,7 +121,7 @@ class TuneTest {
         @DisplayName("nullのタイトルに変更しようとすると例外が発生すること")
         void changeTitleWithNullShouldThrowException() {
             // Arrange
-            var tune = createTestTune();
+            final var tune = createTestTune();
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -138,11 +138,11 @@ class TuneTest {
         @DisplayName("作曲者クレジットを変更できること")
         void changeDefaultComposerCreditWithValidCreditShouldSucceed() {
             // Arrange
-            var tune = createTestTune();
-            var newCredit = Credit.of("New Composer");
+            final var tune = createTestTune();
+            final var newCredit = Credit.of("New Composer");
 
             // Act
-            var updated = tune.changeDefaultComposerCredit(newCredit);
+            final var updated = tune.changeDefaultComposerCredit(newCredit);
 
             // Assert
             assertThat(updated.defaultComposerCredit()).isEqualTo(newCredit);
@@ -152,10 +152,10 @@ class TuneTest {
         @DisplayName("作曲者クレジットをnullに変更できること")
         void changeDefaultComposerCreditWithNullShouldSucceed() {
             // Arrange
-            var tune = createTestTune();
+            final var tune = createTestTune();
 
             // Act
-            var updated = tune.changeDefaultComposerCredit(null);
+            final var updated = tune.changeDefaultComposerCredit(null);
 
             // Assert
             assertThat(updated.defaultComposerCredit()).isNull();
@@ -170,11 +170,11 @@ class TuneTest {
         @DisplayName("アレンジャークレジットを変更できること")
         void changeDefaultArrangerCreditWithValidCreditShouldSucceed() {
             // Arrange
-            var tune = createTestTune();
-            var newCredit = Credit.of("New Arranger");
+            final var tune = createTestTune();
+            final var newCredit = Credit.of("New Arranger");
 
             // Act
-            var updated = tune.changeDefaultArrangerCredit(newCredit);
+            final var updated = tune.changeDefaultArrangerCredit(newCredit);
 
             // Assert
             assertThat(updated.defaultArrangerCredit()).isEqualTo(newCredit);
@@ -184,10 +184,10 @@ class TuneTest {
         @DisplayName("アレンジャークレジットをnullに変更できること")
         void changeDefaultArrangerCreditWithNullShouldSucceed() {
             // Arrange
-            var tune = createTestTune();
+            final var tune = createTestTune();
 
             // Act
-            var updated = tune.changeDefaultArrangerCredit(null);
+            final var updated = tune.changeDefaultArrangerCredit(null);
 
             // Assert
             assertThat(updated.defaultArrangerCredit()).isNull();
@@ -202,12 +202,12 @@ class TuneTest {
         @DisplayName("原曲情報を変更できること")
         void changeOriginalWorkInfoWithValidInfoShouldSucceed() {
             // Arrange
-            var tune = createArrangementTune();
-            var newTitle = "New Original Title";
-            var newCredit = "New Original Artist";
+            final var tune = createArrangementTune();
+            final var newTitle = "New Original Title";
+            final var newCredit = "New Original Artist";
 
             // Act
-            var updated = tune.changeOriginalWorkInfo(newTitle, newCredit);
+            final var updated = tune.changeOriginalWorkInfo(newTitle, newCredit);
 
             // Assert
             assertThat(updated.originalWorkTitle()).isEqualTo(newTitle);
@@ -218,7 +218,7 @@ class TuneTest {
         @DisplayName("アレンジ曲の原曲タイトルをnullや空文字に変更しようとすると例外が発生すること")
         void changeOriginalWorkInfoForArrangementWithNullShouldThrowException() {
             // Arrange
-            var tune = createArrangementTune();
+            final var tune = createArrangementTune();
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -234,10 +234,10 @@ class TuneTest {
         @DisplayName("オリジナル曲の原曲情報をnullに変更できること")
         void changeOriginalWorkInfoForOriginalWithNullShouldSucceed() {
             // Arrange
-            var tune = createTestTune(); // ORIGINAL
+            final var tune = createTestTune(); // ORIGINAL
 
             // Act
-            var updated = tune.changeOriginalWorkInfo(null, null);
+            final var updated = tune.changeOriginalWorkInfo(null, null);
 
             // Assert
             assertThat(updated.originalWorkTitle()).isNull();
@@ -253,11 +253,11 @@ class TuneTest {
         @DisplayName("チューンタイプを変更できること")
         void changeTuneTypeWithValidTypeShouldSucceed() {
             // Arrange
-            var tune = createTestTune();
-            var newTuneType = "Jig";
+            final var tune = createTestTune();
+            final var newTuneType = "Jig";
 
             // Act
-            var updated = tune.changeTuneType(newTuneType);
+            final var updated = tune.changeTuneType(newTuneType);
 
             // Assert
             assertThat(updated.tuneType()).isEqualTo(newTuneType);
@@ -267,10 +267,10 @@ class TuneTest {
         @DisplayName("チューンタイプをnullに変更できること")
         void changeTuneTypeWithNullShouldSucceed() {
             // Arrange
-            var tune = createTestTune();
+            final var tune = createTestTune();
 
             // Act
-            var updated = tune.changeTuneType(null);
+            final var updated = tune.changeTuneType(null);
 
             // Assert
             assertThat(updated.tuneType()).isNull();
@@ -285,11 +285,11 @@ class TuneTest {
         @DisplayName("デフォルトキーを変更できること")
         void changeDefaultKeyWithValidKeyShouldSucceed() {
             // Arrange
-            var tune = createTestTune();
-            var newKey = "E Minor";
+            final var tune = createTestTune();
+            final var newKey = "E Minor";
 
             // Act
-            var updated = tune.changeDefaultKey(newKey);
+            final var updated = tune.changeDefaultKey(newKey);
 
             // Assert
             assertThat(updated.defaultKey()).isEqualTo(newKey);
@@ -299,10 +299,10 @@ class TuneTest {
         @DisplayName("デフォルトキーをnullに変更できること")
         void changeDefaultKeyWithNullShouldSucceed() {
             // Arrange
-            var tune = createTestTune();
+            final var tune = createTestTune();
 
             // Act
-            var updated = tune.changeDefaultKey(null);
+            final var updated = tune.changeDefaultKey(null);
 
             // Assert
             assertThat(updated.defaultKey()).isNull();
@@ -317,11 +317,11 @@ class TuneTest {
         @DisplayName("デフォルトテンポを変更できること")
         void changeDefaultTempoWithValidTempoShouldSucceed() {
             // Arrange
-            var tune = createTestTune();
-            var newTempo = 140;
+            final var tune = createTestTune();
+            final var newTempo = 140;
 
             // Act
-            var updated = tune.changeDefaultTempo(newTempo);
+            final var updated = tune.changeDefaultTempo(newTempo);
 
             // Assert
             assertThat(updated.defaultTempo()).isEqualTo(newTempo);
@@ -331,10 +331,10 @@ class TuneTest {
         @DisplayName("デフォルトテンポをnullに変更できること")
         void changeDefaultTempoWithNullShouldSucceed() {
             // Arrange
-            var tune = createTestTune();
+            final var tune = createTestTune();
 
             // Act
-            var updated = tune.changeDefaultTempo(null);
+            final var updated = tune.changeDefaultTempo(null);
 
             // Assert
             assertThat(updated.defaultTempo()).isNull();
@@ -344,7 +344,7 @@ class TuneTest {
         @DisplayName("負のテンポに変更しようとすると例外が発生すること")
         void changeDefaultTempoWithNegativeShouldThrowException() {
             // Arrange
-            var tune = createTestTune();
+            final var tune = createTestTune();
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -356,7 +356,7 @@ class TuneTest {
         @DisplayName("ゼロのテンポに変更しようとすると例外が発生すること")
         void changeDefaultTempoWithZeroShouldThrowException() {
             // Arrange
-            var tune = createTestTune();
+            final var tune = createTestTune();
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -373,7 +373,7 @@ class TuneTest {
         @DisplayName("IDを生成できること")
         void generateShouldCreateValidId() {
             // Act
-            var id = Tune.Id.generate();
+            final var id = Tune.Id.generate();
 
             // Assert
             assertThat(id).isNotNull();
@@ -385,10 +385,10 @@ class TuneTest {
         @DisplayName("文字列からIDを生成できること")
         void ofWithValidUuidShouldSucceed() {
             // Arrange
-            var validUuid = Tune.Id.generate().value();
+            final var validUuid = Tune.Id.generate().value();
 
             // Act
-            var id = Tune.Id.of(validUuid);
+            final var id = Tune.Id.of(validUuid);
 
             // Assert
             assertThat(id.value()).isEqualTo(validUuid);
@@ -416,9 +416,9 @@ class TuneTest {
         @DisplayName("同じ値のIDは等しいこと")
         void equalsWithSameValueShouldBeEqual() {
             // Arrange
-            var value = Tune.Id.generate().value();
-            var id1 = Tune.Id.of(value);
-            var id2 = Tune.Id.of(value);
+            final var value = Tune.Id.generate().value();
+            final var id1 = Tune.Id.of(value);
+            final var id2 = Tune.Id.of(value);
 
             // Act & Assert
             assertThat(id2).isEqualTo(id1);

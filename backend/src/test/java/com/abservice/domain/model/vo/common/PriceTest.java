@@ -14,14 +14,14 @@ class PriceTest {
     @DisplayName("正の金額でPriceを生成すると、その金額が保持される")
     @Test
     void testCreateValidPrice() {
-        Price price = new Price(1000);
+        final Price price = new Price(1000);
         assertThat(price.amount()).isEqualTo(1000);
     }
 
     @DisplayName("金額0でPriceを生成すると、金額が0となり無料と判定される")
     @Test
     void testCreateZeroPrice() {
-        Price price = new Price(0);
+        final Price price = new Price(0);
         assertThat(price.amount()).isEqualTo(0);
         assertThat(price.isFree()).isTrue();
     }
@@ -29,7 +29,7 @@ class PriceTest {
     @DisplayName("free()ファクトリメソッドは金額0で無料のPriceを生成する")
     @Test
     void testFreeFactoryMethod() {
-        Price price = Price.free();
+        final Price price = Price.free();
         assertThat(price.amount()).isEqualTo(0);
         assertThat(price.isFree()).isTrue();
     }
@@ -51,8 +51,8 @@ class PriceTest {
     @DisplayName("toBigDecimalは金額を同値のBigDecimalに変換する")
     @Test
     void testToBigDecimal() {
-        Price price = new Price(1500);
-        BigDecimal bigDecimal = price.toBigDecimal();
+        final Price price = new Price(1500);
+        final BigDecimal bigDecimal = price.toBigDecimal();
 
         assertThat(bigDecimal).isEqualByComparingTo(BigDecimal.valueOf(1500));
     }
@@ -60,22 +60,22 @@ class PriceTest {
     @DisplayName("金額が0のときisFreeはtrueを返す")
     @Test
     void testIsFreeWhenZero() {
-        Price price = new Price(0);
+        final Price price = new Price(0);
         assertThat(price.isFree()).isTrue();
     }
 
     @DisplayName("金額が0でないときisFreeはfalseを返す")
     @Test
     void testIsFreeWhenNonZero() {
-        Price price = new Price(100);
+        final Price price = new Price(100);
         assertThat(price.isFree()).isFalse();
     }
 
     @DisplayName("同じ金額のPrice同士のequivalentToはtrueを返す")
     @Test
     void testEquivalentToSamePrice() {
-        Price price1 = new Price(1000);
-        Price price2 = new Price(1000);
+        final Price price1 = new Price(1000);
+        final Price price2 = new Price(1000);
 
         assertThat(price1.equivalentTo(price2)).isTrue();
     }
@@ -83,8 +83,8 @@ class PriceTest {
     @DisplayName("異なる金額のPrice同士のequivalentToはfalseを返す")
     @Test
     void testEquivalentToDifferentPrice() {
-        Price price1 = new Price(1000);
-        Price price2 = new Price(2000);
+        final Price price1 = new Price(1000);
+        final Price price2 = new Price(2000);
 
         assertThat(price1.equivalentTo(price2)).isFalse();
     }
@@ -92,16 +92,16 @@ class PriceTest {
     @DisplayName("nullに対するequivalentToはfalseを返す")
     @Test
     void testEquivalentToNull() {
-        Price price = new Price(1000);
+        final Price price = new Price(1000);
         assertThat(price.equivalentTo(null)).isFalse();
     }
 
     @DisplayName("同じ金額のPriceはequalsで等しく、異なる金額のPriceは等しくない")
     @Test
     void testEquality() {
-        Price price1 = new Price(1000);
-        Price price2 = new Price(1000);
-        Price price3 = new Price(2000);
+        final Price price1 = new Price(1000);
+        final Price price2 = new Price(1000);
+        final Price price3 = new Price(2000);
 
         assertThat(price1).isEqualTo(price2);
         assertThat(price1).isNotEqualTo(price3);
@@ -110,8 +110,8 @@ class PriceTest {
     @DisplayName("同じ金額のPrice同士のhashCodeは一致する")
     @Test
     void testHashCode() {
-        Price price1 = new Price(1000);
-        Price price2 = new Price(1000);
+        final Price price1 = new Price(1000);
+        final Price price2 = new Price(1000);
 
         assertThat(price1.hashCode()).isEqualTo(price2.hashCode());
     }

@@ -192,7 +192,7 @@ public class Track implements DomainEntity<Track, Track.Id> {
      * @return 更新されたTrack
      */
     public @NonNull Track addTune(@NonNull TrackTune tune) {
-        var validatedTune = Optional.ofNullable(tune)
+        final var validatedTune = Optional.ofNullable(tune)
                 .orElseThrow(() -> new IllegalArgumentException("Tune cannot be null"));
         // seqの重複チェック
         if (tunes.stream().anyMatch(t -> t.seq().equals(validatedTune.seq()))) {
@@ -209,7 +209,7 @@ public class Track implements DomainEntity<Track, Track.Id> {
      * @return 更新されたTrack
      */
     public @NonNull Track removeTune(@NonNull Integer seq) {
-        var validatedSeq = Optional.ofNullable(seq)
+        final var validatedSeq = Optional.ofNullable(seq)
                 .orElseThrow(() -> new IllegalArgumentException("Seq cannot be null"));
         if (tunes.stream().noneMatch(t -> t.seq().equals(validatedSeq))) {
             throw new IllegalArgumentException("Tune with seq " + validatedSeq + " not found");
@@ -225,7 +225,7 @@ public class Track implements DomainEntity<Track, Track.Id> {
      * @return 更新されたTrack
      */
     public @NonNull Track updateTune(@NonNull TrackTune updatedTune) {
-        var validatedTune = Optional.ofNullable(updatedTune)
+        final var validatedTune = Optional.ofNullable(updatedTune)
                 .orElseThrow(() -> new IllegalArgumentException("Updated tune cannot be null"));
         if (tunes.stream().noneMatch(t -> t.seq().equals(validatedTune.seq()))) {
             throw new IllegalArgumentException("Tune with seq " + validatedTune.seq() + " not found");

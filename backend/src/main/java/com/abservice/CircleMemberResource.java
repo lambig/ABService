@@ -16,7 +16,7 @@ public class CircleMemberResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getAllCircleMembers() {
         // モックデータを返す
-        Map<String, Object> member1 = new HashMap<>();
+        final Map<String, Object> member1 = new HashMap<>();
         member1.put("id", 1L);
         member1.put("username", "admin");
         member1.put("displayName", "Administrator");
@@ -24,7 +24,7 @@ public class CircleMemberResource {
         member1.put("bio", "System administrator");
         member1.put("isActive", true);
 
-        Map<String, Object> member2 = new HashMap<>();
+        final Map<String, Object> member2 = new HashMap<>();
         member2.put("id", 2L);
         member2.put("username", "john_doe");
         member2.put("displayName", "John Doe");
@@ -32,7 +32,7 @@ public class CircleMemberResource {
         member2.put("bio", "Software developer");
         member2.put("isActive", true);
 
-        List<Map<String, Object>> members = List.of(member1, member2);
+        final List<Map<String, Object>> members = List.of(member1, member2);
 
         return Response.ok(members).build();
     }

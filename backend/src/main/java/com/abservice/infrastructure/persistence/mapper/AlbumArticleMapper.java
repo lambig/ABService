@@ -51,7 +51,7 @@ public final class AlbumArticleMapper {
             return null;
         }
 
-        var albumArticleEntity = new AlbumArticleEntity();
+        final var albumArticleEntity = new AlbumArticleEntity();
         albumArticleEntity.setDomainId(albumArticle.albumId().value());
         albumArticleEntity.setIntroLong(albumArticle.introLong());
         albumArticleEntity.setIntroShort(albumArticle.introShort());

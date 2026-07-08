@@ -108,6 +108,10 @@
                 value="java.util.ArrayList,java.util.LinkedList,java.util.HashMap,java.util.LinkedHashMap,java.util.TreeMap,java.util.HashSet,java.util.LinkedHashSet,java.util.TreeSet"/>
         </module>
         <module name="InnerAssignment"/>
+        <!-- ローカル変数・拡張for変数は常に final（final var 徹底。可変ローカルを避ける） -->
+        <module name="FinalLocalVariable">
+            <property name="validateEnhancedForLoopVariable" value="true"/>
+        </module>
         <module name="MissingSwitchDefault"/>
         <module name="MultipleVariableDeclarations"/>
         <module name="SimplifyBooleanExpression"/>

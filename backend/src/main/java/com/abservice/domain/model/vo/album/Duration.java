@@ -51,9 +51,9 @@ public record Duration(Integer milliseconds) implements ValueObject<Duration> {
      * @return MM:SS形式の文字列
      */
     public String toMinutesSeconds() {
-        var totalSeconds = toSeconds();
-        var minutes = totalSeconds / 60;
-        var seconds = totalSeconds % 60;
+        final var totalSeconds = toSeconds();
+        final var minutes = totalSeconds / 60;
+        final var seconds = totalSeconds % 60;
         return String.format("%d:%02d", minutes, seconds);
     }
 
@@ -63,10 +63,10 @@ public record Duration(Integer milliseconds) implements ValueObject<Duration> {
      * @return HH:MM:SS形式の文字列
      */
     public String toHoursMinutesSeconds() {
-        var totalSeconds = toSeconds();
-        var hours = totalSeconds / 3600;
-        var minutes = (totalSeconds % 3600) / 60;
-        var seconds = totalSeconds % 60;
+        final var totalSeconds = toSeconds();
+        final var hours = totalSeconds / 3600;
+        final var minutes = (totalSeconds % 3600) / 60;
+        final var seconds = totalSeconds % 60;
         return String.format("%d:%02d:%02d", hours, minutes, seconds);
     }
 

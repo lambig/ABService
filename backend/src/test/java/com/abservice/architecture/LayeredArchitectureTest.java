@@ -1,6 +1,7 @@
 package com.abservice.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.fields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noConstructors;
@@ -175,6 +176,21 @@ class LayeredArchitectureTest {
     void entityIdImplementationsShouldBeRecords(JavaClasses classes) {
         classes().that().implement("com.abservice.domain.model.EntityId").should().beRecords()
                 .as("EntityId 実装は record にする（値型・不変。生成はコンパクトコンストラクタ＋ファクトリで担保）").check(classes);
+    }
+
+    /**
+     * ドメインモデルのフィールドは {@code final} でなければならない（不変な状態）。
+     *
+     * <p>
+     * Kotlin の {@code ForbiddenVarInDomain}（domain の可変変数禁止）に対応する Java 制約。Java の
+     * {@code var} は型推論であり可変性とは無関係のため、意図（＝ドメイン状態の不変性）はフィールドの {@code final}
+     * 化で担保する。状態変更は Wither（新インスタンス生成）で表現する。
+     * </p>
+     */
+    @ArchTest
+    void domainModelFieldsShouldBeFinal(JavaClasses classes) {
+        fields().that().areDeclaredInClassesThat().resideInAPackage("..domain.model..").should().beFinal()
+                .as("ドメインモデルのフィールドは final にする（不変。状態変更は Wither で表現）").check(classes);
     }
 
     /**

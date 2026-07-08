@@ -12,7 +12,7 @@ class ArtistCreditTest {
     @Test
     @DisplayName("表示名のみで生成するとソートキーは表示名と同じになる")
     void testCreateWithDisplayNameOnly() {
-        ArtistCredit credit = ArtistCredit.of("Foo Bar");
+        final ArtistCredit credit = ArtistCredit.of("Foo Bar");
 
         assertThat(credit.displayName().value()).isEqualTo("Foo Bar");
         assertThat(credit.sortKey()).isEqualTo("Foo Bar");
@@ -21,7 +21,7 @@ class ArtistCreditTest {
     @Test
     @DisplayName("表示名とソートキーを指定して生成できる")
     void testCreateWithDisplayNameAndSortKey() {
-        ArtistCredit credit = ArtistCredit.of("Foo Bar feat. Baz", "Foo Bar");
+        final ArtistCredit credit = ArtistCredit.of("Foo Bar feat. Baz", "Foo Bar");
 
         assertThat(credit.displayName().value()).isEqualTo("Foo Bar feat. Baz");
         assertThat(credit.sortKey()).isEqualTo("Foo Bar");
@@ -30,8 +30,8 @@ class ArtistCreditTest {
     @Test
     @DisplayName("ソートキーを指定して生成できる")
     void testCreateWithSortKey() {
-        ArtistCreditName name = new ArtistCreditName("Test Artist");
-        ArtistCredit credit = ArtistCredit.of(name.value(), "Sort Key");
+        final ArtistCreditName name = new ArtistCreditName("Test Artist");
+        final ArtistCredit credit = ArtistCredit.of(name.value(), "Sort Key");
 
         assertThat(credit.displayName()).isEqualTo(name);
         assertThat(credit.sortKey()).isEqualTo("Sort Key");
@@ -40,7 +40,7 @@ class ArtistCreditTest {
     @Test
     @DisplayName("ソートキーがnullの場合は表示名がソートキーになる")
     void testCreateWithNullSortKeyDefaultsToDisplayName() {
-        ArtistCredit credit = ArtistCredit.of("Test Artist", null);
+        final ArtistCredit credit = ArtistCredit.of("Test Artist", null);
 
         assertThat(credit.displayName().value()).isEqualTo("Test Artist");
         assertThat(credit.sortKey()).isEqualTo("Test Artist");
@@ -56,8 +56,8 @@ class ArtistCreditTest {
     @Test
     @DisplayName("同じ内容のArtistCreditは等価と判定される")
     void testEquivalentToSameArtistCredit() {
-        ArtistCredit credit1 = ArtistCredit.of("Foo Bar", "Foo");
-        ArtistCredit credit2 = ArtistCredit.of("Foo Bar", "Foo");
+        final ArtistCredit credit1 = ArtistCredit.of("Foo Bar", "Foo");
+        final ArtistCredit credit2 = ArtistCredit.of("Foo Bar", "Foo");
 
         assertThat(credit1.equivalentTo(credit2)).isTrue();
     }
@@ -65,8 +65,8 @@ class ArtistCreditTest {
     @Test
     @DisplayName("表示名が異なる場合は等価でないと判定される")
     void testEquivalentToDifferentDisplayName() {
-        ArtistCredit credit1 = ArtistCredit.of("Foo Bar", "Foo");
-        ArtistCredit credit2 = ArtistCredit.of("Baz Qux", "Foo");
+        final ArtistCredit credit1 = ArtistCredit.of("Foo Bar", "Foo");
+        final ArtistCredit credit2 = ArtistCredit.of("Baz Qux", "Foo");
 
         assertThat(credit1.equivalentTo(credit2)).isFalse();
     }
@@ -74,8 +74,8 @@ class ArtistCreditTest {
     @Test
     @DisplayName("ソートキーが異なる場合は等価でないと判定される")
     void testEquivalentToDifferentSortKey() {
-        ArtistCredit credit1 = ArtistCredit.of("Foo Bar", "Foo");
-        ArtistCredit credit2 = ArtistCredit.of("Foo Bar", "Bar");
+        final ArtistCredit credit1 = ArtistCredit.of("Foo Bar", "Foo");
+        final ArtistCredit credit2 = ArtistCredit.of("Foo Bar", "Bar");
 
         assertThat(credit1.equivalentTo(credit2)).isFalse();
     }
@@ -83,7 +83,7 @@ class ArtistCreditTest {
     @Test
     @DisplayName("nullとの比較では等価でないと判定される")
     void testEquivalentToNull() {
-        ArtistCredit credit = ArtistCredit.of("Foo Bar");
+        final ArtistCredit credit = ArtistCredit.of("Foo Bar");
 
         assertThat(credit.equivalentTo(null)).isFalse();
     }
@@ -91,9 +91,9 @@ class ArtistCreditTest {
     @Test
     @DisplayName("同じ内容は等しく異なる内容は等しくないと判定される")
     void testEquality() {
-        ArtistCredit credit1 = ArtistCredit.of("Foo Bar", "Foo");
-        ArtistCredit credit2 = ArtistCredit.of("Foo Bar", "Foo");
-        ArtistCredit credit3 = ArtistCredit.of("Baz Qux", "Baz");
+        final ArtistCredit credit1 = ArtistCredit.of("Foo Bar", "Foo");
+        final ArtistCredit credit2 = ArtistCredit.of("Foo Bar", "Foo");
+        final ArtistCredit credit3 = ArtistCredit.of("Baz Qux", "Baz");
 
         assertThat(credit1).isEqualTo(credit2);
         assertThat(credit1).isNotEqualTo(credit3);
@@ -102,8 +102,8 @@ class ArtistCreditTest {
     @Test
     @DisplayName("同じ内容のArtistCreditは同じハッシュコードを返す")
     void testHashCode() {
-        ArtistCredit credit1 = ArtistCredit.of("Foo Bar", "Foo");
-        ArtistCredit credit2 = ArtistCredit.of("Foo Bar", "Foo");
+        final ArtistCredit credit1 = ArtistCredit.of("Foo Bar", "Foo");
+        final ArtistCredit credit2 = ArtistCredit.of("Foo Bar", "Foo");
 
         assertThat(credit1.hashCode()).isEqualTo(credit2.hashCode());
     }
@@ -111,7 +111,7 @@ class ArtistCreditTest {
     @Test
     @DisplayName("日本語の表示名とソートキーを扱える")
     void testJapaneseCharacters() {
-        ArtistCredit credit = ArtistCredit.of("東方アレンジ", "とうほう");
+        final ArtistCredit credit = ArtistCredit.of("東方アレンジ", "とうほう");
 
         assertThat(credit.displayName().value()).isEqualTo("東方アレンジ");
         assertThat(credit.sortKey()).isEqualTo("とうほう");
@@ -120,7 +120,7 @@ class ArtistCreditTest {
     @Test
     @DisplayName("フィーチャリング表記を含む表示名とソートキーを保持できる")
     void testFeaturedArtist() {
-        ArtistCredit credit = ArtistCredit.of("Artist A feat. Artist B", "Artist A");
+        final ArtistCredit credit = ArtistCredit.of("Artist A feat. Artist B", "Artist A");
 
         assertThat(credit.displayName().value()).isEqualTo("Artist A feat. Artist B");
         assertThat(credit.sortKey()).isEqualTo("Artist A");

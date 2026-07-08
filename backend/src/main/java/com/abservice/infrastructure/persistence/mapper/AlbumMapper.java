@@ -68,7 +68,7 @@ public final class AlbumMapper {
 
     private static EventReleasedAt buildEventReleasedAt(AlbumEntity entity) {
         return Optional.ofNullable(entity.getEventName()).map(eventName -> {
-            var dateAndSpaces = extractDateAndSpaces(entity);
+            final var dateAndSpaces = extractDateAndSpaces(entity);
             return EventReleasedAt.of(eventName, dateAndSpaces, entity.getEventPlace(), entity.getEventNote());
         }).orElse(null);
     }
@@ -95,7 +95,7 @@ public final class AlbumMapper {
      */
     public static AlbumEntity toEntity(Album album) {
         return Optional.ofNullable(album).map(a -> {
-            var albumEntity = new AlbumEntity();
+            final var albumEntity = new AlbumEntity();
             albumEntity.setDomainId(a.id().value());
             albumEntity.setTitle(a.title().value());
             albumEntity.setReleaseDate(a.releaseDate().asLocalDate());
@@ -135,8 +135,8 @@ public final class AlbumMapper {
     }
 
     private static void populateDateAndSpaceEntities(AlbumEntity albumEntity, List<EventDateAndSpace> dateAndSpaces) {
-        var entities = dateAndSpaces.stream().map(ds -> {
-            var entity = new AlbumEventDateSpaceEntity();
+        final var entities = dateAndSpaces.stream().map(ds -> {
+            final var entity = new AlbumEventDateSpaceEntity();
             entity.setAlbum(albumEntity);
             entity.setEventDate(ds.date().asLocalDate());
             entity.setSpaceNumber(ds.spaceNumber());
@@ -191,7 +191,7 @@ public final class AlbumMapper {
      */
     private static TrackEntity trackToEntity(Track track, AlbumEntity albumEntity) {
         return Optional.ofNullable(track).map(t -> {
-            var trackEntity = new TrackEntity();
+            final var trackEntity = new TrackEntity();
             trackEntity.setDomainId(t.id().value());
             trackEntity.setAlbum(albumEntity);
             trackEntity.setTrackNo(t.trackNo());
@@ -245,7 +245,7 @@ public final class AlbumMapper {
      */
     private static TrackTuneEntity trackTuneToEntity(TrackTune trackTune, TrackEntity trackEntity) {
         return Optional.ofNullable(trackTune).map(tt -> {
-            var trackTuneEntity = new TrackTuneEntity();
+            final var trackTuneEntity = new TrackTuneEntity();
             trackTuneEntity.setId(new TrackTuneId(trackEntity.getTrackId(), tt.seq()));
             trackTuneEntity.setTrack(trackEntity);
             trackTuneEntity.setTuneId(Optional.ofNullable(tt.tuneId()).map(Tune.Id::value).orElse(null));

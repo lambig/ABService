@@ -26,14 +26,15 @@ class AlbumArticleTest {
         @DisplayName("正常な値で生成できること")
         void createWithValidValuesShouldSucceed() {
             // Arrange
-            var albumId = Album.Id.generate();
-            var introLong = "This is a long introduction.";
-            var introShort = "Short intro";
-            var firstEventSpace = "東X-00b";
-            var labelTag = LabelTag.NEW;
+            final var albumId = Album.Id.generate();
+            final var introLong = "This is a long introduction.";
+            final var introShort = "Short intro";
+            final var firstEventSpace = "東X-00b";
+            final var labelTag = LabelTag.NEW;
 
             // Act
-            var albumArticle = AlbumArticle.create(albumId, introLong, introShort, firstEventSpace, labelTag, null);
+            final var albumArticle = AlbumArticle.create(albumId, introLong, introShort, firstEventSpace, labelTag,
+                    null);
 
             // Assert
             assertThat(albumArticle).isNotNull();
@@ -51,16 +52,16 @@ class AlbumArticleTest {
         @DisplayName("すべてのフィールドを指定して生成できること")
         void createWithAllFieldsShouldSucceed() {
             // Arrange
-            var albumId = Album.Id.generate();
-            var introLong = "Complete introduction text.";
-            var introShort = "Complete short";
-            var firstEventSpace = "西Y-99c";
-            var labelTag = LabelTag.OTHER;
-            var distribution = AlbumDistribution.create(Price.of(1000), Price.of(500),
+            final var albumId = Album.Id.generate();
+            final var introLong = "Complete introduction text.";
+            final var introShort = "Complete short";
+            final var firstEventSpace = "西Y-99c";
+            final var labelTag = LabelTag.OTHER;
+            final var distribution = AlbumDistribution.create(Price.of(1000), Price.of(500),
                     Url.of("https://example.com/demo"), "Demo available");
 
             // Act
-            var albumArticle = AlbumArticle.create(albumId, introLong, introShort, firstEventSpace, labelTag,
+            final var albumArticle = AlbumArticle.create(albumId, introLong, introShort, firstEventSpace, labelTag,
                     distribution);
 
             // Assert
@@ -81,10 +82,10 @@ class AlbumArticleTest {
         @DisplayName("nullableフィールドがnullでも生成できること")
         void createWithNullableFieldsShouldSucceed() {
             // Arrange
-            var albumId = Album.Id.generate();
+            final var albumId = Album.Id.generate();
 
             // Act
-            var albumArticle = AlbumArticle.create(albumId, null, null, null, null, null);
+            final var albumArticle = AlbumArticle.create(albumId, null, null, null, null, null);
 
             // Assert
             assertThat(albumArticle).isNotNull();
@@ -104,12 +105,12 @@ class AlbumArticleTest {
         @DisplayName("紹介文を更新できること")
         void updateIntroWithValidValuesShouldSucceed() {
             // Arrange
-            var albumArticle = createTestAlbumArticle();
-            var newIntroLong = "Updated long introduction.";
-            var newIntroShort = "Updated short";
+            final var albumArticle = createTestAlbumArticle();
+            final var newIntroLong = "Updated long introduction.";
+            final var newIntroShort = "Updated short";
 
             // Act
-            var updated = albumArticle.updateIntro(newIntroLong, newIntroShort);
+            final var updated = albumArticle.updateIntro(newIntroLong, newIntroShort);
 
             // Assert
             assertThat(updated.introLong()).isEqualTo(newIntroLong);
@@ -120,10 +121,10 @@ class AlbumArticleTest {
         @DisplayName("紹介文をnullに更新できること")
         void updateIntroWithNullShouldSucceed() {
             // Arrange
-            var albumArticle = createTestAlbumArticle();
+            final var albumArticle = createTestAlbumArticle();
 
             // Act
-            var updated = albumArticle.updateIntro(null, null);
+            final var updated = albumArticle.updateIntro(null, null);
 
             // Assert
             assertThat(updated.introLong()).isNull();
@@ -139,11 +140,11 @@ class AlbumArticleTest {
         @DisplayName("初出イベントスペースを変更できること")
         void changeFirstEventSpaceWithValidSpaceShouldSucceed() {
             // Arrange
-            var albumArticle = createTestAlbumArticle();
-            var newSpace = "東Z-12c";
+            final var albumArticle = createTestAlbumArticle();
+            final var newSpace = "東Z-12c";
 
             // Act
-            var updated = albumArticle.changeFirstEventSpace(newSpace);
+            final var updated = albumArticle.changeFirstEventSpace(newSpace);
 
             // Assert
             assertThat(updated.firstEventSpace()).isEqualTo(newSpace);
@@ -153,10 +154,10 @@ class AlbumArticleTest {
         @DisplayName("初出イベントスペースをnullに変更できること")
         void changeFirstEventSpaceWithNullShouldSucceed() {
             // Arrange
-            var albumArticle = createTestAlbumArticle();
+            final var albumArticle = createTestAlbumArticle();
 
             // Act
-            var updated = albumArticle.changeFirstEventSpace(null);
+            final var updated = albumArticle.changeFirstEventSpace(null);
 
             // Assert
             assertThat(updated.firstEventSpace()).isNull();
@@ -171,11 +172,11 @@ class AlbumArticleTest {
         @DisplayName("ラベルタグを更新できること")
         void updateLabelTagWithValidTagShouldSucceed() {
             // Arrange
-            var albumArticle = createTestAlbumArticle();
-            var newLabelTag = LabelTag.COMPILATION;
+            final var albumArticle = createTestAlbumArticle();
+            final var newLabelTag = LabelTag.COMPILATION;
 
             // Act
-            var updated = albumArticle.updateLabelTag(newLabelTag);
+            final var updated = albumArticle.updateLabelTag(newLabelTag);
 
             // Assert
             assertThat(updated.labelTag()).isEqualTo(newLabelTag);
@@ -185,10 +186,10 @@ class AlbumArticleTest {
         @DisplayName("ラベルタグをnullに更新できること")
         void updateLabelTagWithNullShouldSucceed() {
             // Arrange
-            var albumArticle = createTestAlbumArticle();
+            final var albumArticle = createTestAlbumArticle();
 
             // Act
-            var updated = albumArticle.updateLabelTag(null);
+            final var updated = albumArticle.updateLabelTag(null);
 
             // Assert
             assertThat(updated.labelTag()).isNull();
@@ -203,12 +204,12 @@ class AlbumArticleTest {
         @DisplayName("頒布情報を設定できること")
         void setDistributionWithValidDistributionShouldSucceed() {
             // Arrange
-            var albumArticle = createTestAlbumArticle();
-            var distribution = AlbumDistribution.create(Price.of(1500), Price.of(800),
+            final var albumArticle = createTestAlbumArticle();
+            final var distribution = AlbumDistribution.create(Price.of(1500), Price.of(800),
                     Url.of("https://example.com/demo"), "New distribution info");
 
             // Act
-            var updated = albumArticle.setDistribution(distribution);
+            final var updated = albumArticle.setDistribution(distribution);
 
             // Assert
             assertThat(updated.distribution()).isEqualTo(distribution);
@@ -218,10 +219,10 @@ class AlbumArticleTest {
         @DisplayName("頒布情報をnullに設定できること")
         void setDistributionWithNullShouldSucceed() {
             // Arrange
-            var albumArticle = createTestAlbumArticle();
+            final var albumArticle = createTestAlbumArticle();
 
             // Act
-            var updated = albumArticle.setDistribution(null);
+            final var updated = albumArticle.setDistribution(null);
 
             // Assert
             assertThat(updated.distribution()).isNull();
@@ -236,11 +237,11 @@ class AlbumArticleTest {
         @DisplayName("入手経路を追加できること")
         void addAcquisitionChannelWithValidChannelShouldSucceed() {
             // Arrange
-            var albumArticle = createTestAlbumArticle();
-            var channel = createTestChannel("BOOTH");
+            final var albumArticle = createTestAlbumArticle();
+            final var channel = createTestChannel("BOOTH");
 
             // Act
-            var updated = albumArticle.addAcquisitionChannel(channel);
+            final var updated = albumArticle.addAcquisitionChannel(channel);
 
             // Assert
             assertThat(updated.getAcquisitionChannels().size()).isEqualTo(1);
@@ -251,13 +252,13 @@ class AlbumArticleTest {
         @DisplayName("複数の入手経路を追加できること")
         void addAcquisitionChannelWithMultipleChannelsShouldSucceed() {
             // Arrange
-            var albumArticle = createTestAlbumArticle();
-            var channel1 = createTestChannel("BOOTH");
-            var channel2 = createTestChannel("Bandcamp");
-            var channel3 = createTestChannel("委託ショップ");
+            final var albumArticle = createTestAlbumArticle();
+            final var channel1 = createTestChannel("BOOTH");
+            final var channel2 = createTestChannel("Bandcamp");
+            final var channel3 = createTestChannel("委託ショップ");
 
             // Act
-            var updated = albumArticle.addAcquisitionChannel(channel1).addAcquisitionChannel(channel2)
+            final var updated = albumArticle.addAcquisitionChannel(channel1).addAcquisitionChannel(channel2)
                     .addAcquisitionChannel(channel3);
 
             // Assert
@@ -269,7 +270,7 @@ class AlbumArticleTest {
         @DisplayName("nullの入手経路を追加しようとすると例外が発生すること")
         void addAcquisitionChannelWithNullShouldThrowException() {
             // Arrange
-            var albumArticle = createTestAlbumArticle();
+            final var albumArticle = createTestAlbumArticle();
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -282,13 +283,13 @@ class AlbumArticleTest {
         void addAcquisitionChannelWithDuplicateIdShouldThrowException() {
             // Arrange
             var albumArticle = createTestAlbumArticle();
-            var channel1 = createTestChannel("BOOTH");
-            var channel2 = AlbumAcquisitionChannel.reconstruct(channel1.id(), ChannelType.ONLINE_SHOP, "Different Name",
-                    null, null);
+            final var channel1 = createTestChannel("BOOTH");
+            final var channel2 = AlbumAcquisitionChannel.reconstruct(channel1.id(), ChannelType.ONLINE_SHOP,
+                    "Different Name", null, null);
             albumArticle = albumArticle.addAcquisitionChannel(channel1);
 
             // Act & Assert
-            var finalAlbumArticle = albumArticle;
+            final var finalAlbumArticle = albumArticle;
             assertThatThrownBy(() -> {
                 finalAlbumArticle.addAcquisitionChannel(channel2);
             }).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("already exists");
@@ -304,11 +305,11 @@ class AlbumArticleTest {
         void removeAcquisitionChannelWithExistingChannelShouldSucceed() {
             // Arrange
             var albumArticle = createTestAlbumArticle();
-            var channel = createTestChannel("BOOTH");
+            final var channel = createTestChannel("BOOTH");
             albumArticle = albumArticle.addAcquisitionChannel(channel);
 
             // Act
-            var updated = albumArticle.removeAcquisitionChannel(channel.id());
+            final var updated = albumArticle.removeAcquisitionChannel(channel.id());
 
             // Assert
             assertThat(updated.getAcquisitionChannels().size()).isEqualTo(0);
@@ -320,14 +321,14 @@ class AlbumArticleTest {
         void removeAcquisitionChannelFromMultipleChannelsShouldSucceed() {
             // Arrange
             var albumArticle = createTestAlbumArticle();
-            var channel1 = createTestChannel("BOOTH");
-            var channel2 = createTestChannel("Bandcamp");
-            var channel3 = createTestChannel("委託ショップ");
+            final var channel1 = createTestChannel("BOOTH");
+            final var channel2 = createTestChannel("Bandcamp");
+            final var channel3 = createTestChannel("委託ショップ");
             albumArticle = albumArticle.addAcquisitionChannel(channel1).addAcquisitionChannel(channel2)
                     .addAcquisitionChannel(channel3);
 
             // Act
-            var updated = albumArticle.removeAcquisitionChannel(channel2.id());
+            final var updated = albumArticle.removeAcquisitionChannel(channel2.id());
 
             // Assert
             assertThat(updated.getAcquisitionChannels().size()).isEqualTo(2);
@@ -340,8 +341,8 @@ class AlbumArticleTest {
         @DisplayName("存在しない入手経路を削除しようとすると例外が発生すること")
         void removeAcquisitionChannelWithNonExistentChannelShouldThrowException() {
             // Arrange
-            var albumArticle = createTestAlbumArticle();
-            var nonExistentId = AlbumAcquisitionChannel.Id.generate();
+            final var albumArticle = createTestAlbumArticle();
+            final var nonExistentId = AlbumAcquisitionChannel.Id.generate();
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -353,7 +354,7 @@ class AlbumArticleTest {
         @DisplayName("nullのIDで入手経路を削除しようとすると例外が発生すること")
         void removeAcquisitionChannelWithNullIdShouldThrowException() {
             // Arrange
-            var albumArticle = createTestAlbumArticle();
+            final var albumArticle = createTestAlbumArticle();
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -371,17 +372,17 @@ class AlbumArticleTest {
         void updateAcquisitionChannelWithValidChannelShouldSucceed() {
             // Arrange
             var albumArticle = createTestAlbumArticle();
-            var originalChannel = createTestChannel("Original Name");
+            final var originalChannel = createTestChannel("Original Name");
             albumArticle = albumArticle.addAcquisitionChannel(originalChannel);
 
-            var updatedChannel = AlbumAcquisitionChannel.reconstruct(originalChannel.id(), ChannelType.ONLINE_SHOP,
-                    "Updated Name", Url.of("https://updated.example.com"), "Updated note");
+            final var updatedChannel = AlbumAcquisitionChannel.reconstruct(originalChannel.id(),
+                    ChannelType.ONLINE_SHOP, "Updated Name", Url.of("https://updated.example.com"), "Updated note");
 
             // Act
-            var updated = albumArticle.updateAcquisitionChannel(updatedChannel);
+            final var updated = albumArticle.updateAcquisitionChannel(updatedChannel);
 
             // Assert
-            var resultChannel = updated.getAcquisitionChannels().get(0);
+            final var resultChannel = updated.getAcquisitionChannels().get(0);
             assertThat(resultChannel.getName()).isEqualTo("Updated Name");
             assertThat(resultChannel.getChannelType()).isEqualTo(ChannelType.ONLINE_SHOP);
         }
@@ -390,7 +391,7 @@ class AlbumArticleTest {
         @DisplayName("nullの入手経路で更新しようとすると例外が発生すること")
         void updateAcquisitionChannelWithNullShouldThrowException() {
             // Arrange
-            var albumArticle = createTestAlbumArticle();
+            final var albumArticle = createTestAlbumArticle();
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -403,13 +404,13 @@ class AlbumArticleTest {
         void updateAcquisitionChannelWithNonExistentChannelShouldThrowException() {
             // Arrange
             var albumArticle = createTestAlbumArticle();
-            var channel1 = createTestChannel("Channel 1");
+            final var channel1 = createTestChannel("Channel 1");
             albumArticle = albumArticle.addAcquisitionChannel(channel1);
 
-            var nonExistentChannel = createTestChannel("Non Existent");
+            final var nonExistentChannel = createTestChannel("Non Existent");
 
             // Act & Assert
-            var finalAlbumArticle = albumArticle;
+            final var finalAlbumArticle = albumArticle;
             assertThatThrownBy(() -> {
                 finalAlbumArticle.updateAcquisitionChannel(nonExistentChannel);
             }).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("not found");
@@ -424,8 +425,8 @@ class AlbumArticleTest {
         @DisplayName("AlbumArticleのIDはAlbum.Idと同じであること")
         void idShouldMatchAlbumId() {
             // Arrange
-            var albumId = Album.Id.generate();
-            var albumArticle = AlbumArticle.create(albumId, "intro", "short", "space", null, null);
+            final var albumId = Album.Id.generate();
+            final var albumArticle = AlbumArticle.create(albumId, "intro", "short", "space", null, null);
 
             // Act & Assert
             assertThat(albumArticle.id()).isEqualTo(albumId);

@@ -28,12 +28,12 @@ class AlbumTest {
         @DisplayName("正常な値で生成できること")
         void createWithValidValuesShouldSucceed() {
             // Arrange
-            var title = AlbumTitle.of("Test Album");
-            var releaseDate = BusinessDate.of(2024, 1, 15);
-            var artistCredit = ArtistCredit.of("Test Artist");
+            final var title = AlbumTitle.of("Test Album");
+            final var releaseDate = BusinessDate.of(2024, 1, 15);
+            final var artistCredit = ArtistCredit.of("Test Artist");
 
             // Act
-            var album = Album.create(title, releaseDate, artistCredit, null, null, null);
+            final var album = Album.create(title, releaseDate, artistCredit, null, null, null);
 
             // Assert
             assertThat(album).isNotNull();
@@ -51,16 +51,16 @@ class AlbumTest {
         @DisplayName("すべてのフィールドを指定して生成できること")
         void createWithAllFieldsShouldSucceed() {
             // Arrange
-            var title = AlbumTitle.of("Complete Album");
-            var releaseDate = BusinessDate.of(2024, 5, 1);
-            var artistCredit = ArtistCredit.of("Full Artist");
-            var eventReleasedAt = EventReleasedAt.atEvent("Test Event", 2024, 5, 1);
-            var catalogNumber = CatalogNumber.of("CAT-001");
+            final var title = AlbumTitle.of("Complete Album");
+            final var releaseDate = BusinessDate.of(2024, 5, 1);
+            final var artistCredit = ArtistCredit.of("Full Artist");
+            final var eventReleasedAt = EventReleasedAt.atEvent("Test Event", 2024, 5, 1);
+            final var catalogNumber = CatalogNumber.of("CAT-001");
             // 278-4-000000-00-7: チェックデジット計算 sum=43 -> (10-(43%10))%10 = 7
-            var isdn = Isdn.of("2784000000007");
+            final var isdn = Isdn.of("2784000000007");
 
             // Act
-            var album = Album.create(title, releaseDate, artistCredit, eventReleasedAt, catalogNumber, isdn);
+            final var album = Album.create(title, releaseDate, artistCredit, eventReleasedAt, catalogNumber, isdn);
 
             // Assert
             assertThat(album).isNotNull();
@@ -73,8 +73,8 @@ class AlbumTest {
         @DisplayName("タイトルがnullの場合は例外が発生すること")
         void createWithNullTitleShouldThrowException() {
             // Arrange
-            var releaseDate = BusinessDate.of(2024, 1, 15);
-            var artistCredit = ArtistCredit.of("Artist");
+            final var releaseDate = BusinessDate.of(2024, 1, 15);
+            final var artistCredit = ArtistCredit.of("Artist");
 
             // Act & Assert
             assertThatThrownBy(() -> Album.create(null, releaseDate, artistCredit, null, null, null))
@@ -85,8 +85,8 @@ class AlbumTest {
         @DisplayName("アーティストクレジットがnullの場合は例外が発生すること")
         void createWithNullArtistCreditShouldThrowException() {
             // Arrange
-            var title = AlbumTitle.of("Test Album");
-            var releaseDate = BusinessDate.of(2024, 1, 15);
+            final var title = AlbumTitle.of("Test Album");
+            final var releaseDate = BusinessDate.of(2024, 1, 15);
 
             // Act & Assert
             assertThatThrownBy(() -> Album.create(title, releaseDate, null, null, null, null))
@@ -102,11 +102,11 @@ class AlbumTest {
         @DisplayName("タイトルを変更できること")
         void changeTitleWithValidTitleShouldSucceed() {
             // Arrange
-            var album = createTestAlbum();
-            var newTitle = AlbumTitle.of("Updated Album Title");
+            final var album = createTestAlbum();
+            final var newTitle = AlbumTitle.of("Updated Album Title");
 
             // Act
-            var updated = album.changeTitle(newTitle);
+            final var updated = album.changeTitle(newTitle);
 
             // Assert
             assertThat(updated.title()).isEqualTo(newTitle);
@@ -117,7 +117,7 @@ class AlbumTest {
         @DisplayName("nullのタイトルに変更しようとすると例外が発生すること")
         void changeTitleWithNullShouldThrowException() {
             // Arrange
-            var album = createTestAlbum();
+            final var album = createTestAlbum();
 
             // Act & Assert
             assertThatThrownBy(() -> album.changeTitle(null)).isInstanceOf(IllegalArgumentException.class)
@@ -133,11 +133,11 @@ class AlbumTest {
         @DisplayName("アーティストクレジットを変更できること")
         void changeArtistCreditWithValidCreditShouldSucceed() {
             // Arrange
-            var album = createTestAlbum();
-            var newCredit = ArtistCredit.of("New Artist");
+            final var album = createTestAlbum();
+            final var newCredit = ArtistCredit.of("New Artist");
 
             // Act
-            var updated = album.changeArtistCredit(newCredit);
+            final var updated = album.changeArtistCredit(newCredit);
 
             // Assert
             assertThat(updated.artistCredit()).isEqualTo(newCredit);
@@ -147,7 +147,7 @@ class AlbumTest {
         @DisplayName("nullのアーティストクレジットに変更しようとすると例外が発生すること")
         void changeArtistCreditWithNullShouldThrowException() {
             // Arrange
-            var album = createTestAlbum();
+            final var album = createTestAlbum();
 
             // Act & Assert
             assertThatThrownBy(() -> album.changeArtistCredit(null)).isInstanceOf(IllegalArgumentException.class)
@@ -163,11 +163,11 @@ class AlbumTest {
         @DisplayName("トラックを追加できること")
         void addTrackWithValidTrackShouldSucceed() {
             // Arrange
-            var album = createTestAlbum();
-            var track = createTestTrack(1, "First Track");
+            final var album = createTestAlbum();
+            final var track = createTestTrack(1, "First Track");
 
             // Act
-            var updated = album.addTrack(track);
+            final var updated = album.addTrack(track);
 
             // Assert
             assertThat(updated.getTrackCount()).isEqualTo(1);
@@ -178,13 +178,13 @@ class AlbumTest {
         @DisplayName("複数のトラックを追加できること")
         void addTrackWithMultipleTracksShouldSucceed() {
             // Arrange
-            var album = createTestAlbum();
-            var track1 = createTestTrack(1, "Track 1");
-            var track2 = createTestTrack(2, "Track 2");
-            var track3 = createTestTrack(3, "Track 3");
+            final var album = createTestAlbum();
+            final var track1 = createTestTrack(1, "Track 1");
+            final var track2 = createTestTrack(2, "Track 2");
+            final var track3 = createTestTrack(3, "Track 3");
 
             // Act
-            var updated = album.addTrack(track1).addTrack(track2).addTrack(track3);
+            final var updated = album.addTrack(track1).addTrack(track2).addTrack(track3);
 
             // Assert
             assertThat(updated.getTrackCount()).isEqualTo(3);
@@ -195,7 +195,7 @@ class AlbumTest {
         @DisplayName("nullのトラックを追加しようとすると例外が発生すること")
         void addTrackWithNullShouldThrowException() {
             // Arrange
-            var album = createTestAlbum();
+            final var album = createTestAlbum();
 
             // Act & Assert
             assertThatThrownBy(() -> album.addTrack(null)).isInstanceOf(IllegalArgumentException.class)
@@ -207,12 +207,12 @@ class AlbumTest {
         void addTrackWithDuplicateTrackNumberShouldThrowException() {
             // Arrange
             var album = createTestAlbum();
-            var track1 = createTestTrack(1, "Track 1");
-            var track2 = createTestTrack(1, "Track 2"); // 同じトラック番号
+            final var track1 = createTestTrack(1, "Track 1");
+            final var track2 = createTestTrack(1, "Track 2"); // 同じトラック番号
             album = album.addTrack(track1);
 
             // Act & Assert
-            var finalAlbum = album;
+            final var finalAlbum = album;
             assertThatThrownBy(() -> finalAlbum.addTrack(track2)).isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Track number 1 already exists");
         }
@@ -227,11 +227,11 @@ class AlbumTest {
         void removeTrackWithExistingTrackShouldSucceed() {
             // Arrange
             var album = createTestAlbum();
-            var track = createTestTrack(1, "Track to Remove");
+            final var track = createTestTrack(1, "Track to Remove");
             album = album.addTrack(track);
 
             // Act
-            var updated = album.removeTrack(track.id());
+            final var updated = album.removeTrack(track.id());
 
             // Assert
             assertThat(updated.getTrackCount()).isEqualTo(0);
@@ -243,13 +243,13 @@ class AlbumTest {
         void removeTrackFromMultipleTracksShouldSucceed() {
             // Arrange
             var album = createTestAlbum();
-            var track1 = createTestTrack(1, "Track 1");
-            var track2 = createTestTrack(2, "Track 2");
-            var track3 = createTestTrack(3, "Track 3");
+            final var track1 = createTestTrack(1, "Track 1");
+            final var track2 = createTestTrack(2, "Track 2");
+            final var track3 = createTestTrack(3, "Track 3");
             album = album.addTrack(track1).addTrack(track2).addTrack(track3);
 
             // Act
-            var updated = album.removeTrack(track2.id());
+            final var updated = album.removeTrack(track2.id());
 
             // Assert
             assertThat(updated.getTrackCount()).isEqualTo(2);
@@ -262,8 +262,8 @@ class AlbumTest {
         @DisplayName("存在しないトラックを削除しようとすると例外が発生すること")
         void removeTrackWithNonExistentTrackShouldThrowException() {
             // Arrange
-            var album = createTestAlbum();
-            var nonExistentId = Track.Id.generate();
+            final var album = createTestAlbum();
+            final var nonExistentId = Track.Id.generate();
 
             // Act & Assert
             assertThatThrownBy(() -> album.removeTrack(nonExistentId)).isInstanceOf(IllegalArgumentException.class)
@@ -274,7 +274,7 @@ class AlbumTest {
         @DisplayName("nullのIDでトラックを削除しようとすると例外が発生すること")
         void removeTrackWithNullIdShouldThrowException() {
             // Arrange
-            var album = createTestAlbum();
+            final var album = createTestAlbum();
 
             // Act & Assert
             assertThatThrownBy(() -> album.removeTrack(null)).isInstanceOf(IllegalArgumentException.class)
@@ -291,18 +291,18 @@ class AlbumTest {
         void updateTrackWithValidTrackShouldSucceed() {
             // Arrange
             var album = createTestAlbum();
-            var originalTrack = createTestTrack(1, "Original Title");
+            final var originalTrack = createTestTrack(1, "Original Title");
             album = album.addTrack(originalTrack);
 
-            var updatedTrack = Track.reconstruct(originalTrack.id(), 1, TrackTitle.of("Updated Title"),
+            final var updatedTrack = Track.reconstruct(originalTrack.id(), 1, TrackTitle.of("Updated Title"),
                     originalTrack.artistCredit(), originalTrack.recordingDate(), originalTrack.recordingPlace(),
                     originalTrack.isLive(), originalTrack.tunes());
 
             // Act
-            var updated = album.updateTrack(updatedTrack);
+            final var updated = album.updateTrack(updatedTrack);
 
             // Assert
-            var resultTrack = updated.getTrack(originalTrack.id());
+            final var resultTrack = updated.getTrack(originalTrack.id());
             assertThat(resultTrack.title().value()).isEqualTo("Updated Title");
         }
 
@@ -310,7 +310,7 @@ class AlbumTest {
         @DisplayName("nullのトラックで更新しようとすると例外が発生すること")
         void updateTrackWithNullShouldThrowException() {
             // Arrange
-            var album = createTestAlbum();
+            final var album = createTestAlbum();
 
             // Act & Assert
             assertThatThrownBy(() -> album.updateTrack(null)).isInstanceOf(IllegalArgumentException.class)
@@ -322,13 +322,13 @@ class AlbumTest {
         void updateTrackWithNonExistentTrackShouldThrowException() {
             // Arrange
             var album = createTestAlbum();
-            var track1 = createTestTrack(1, "Track 1");
+            final var track1 = createTestTrack(1, "Track 1");
             album = album.addTrack(track1);
 
-            var nonExistentTrack = createTestTrack(2, "Non Existent");
+            final var nonExistentTrack = createTestTrack(2, "Non Existent");
 
             // Act & Assert
-            var finalAlbum = album;
+            final var finalAlbum = album;
             assertThatThrownBy(() -> finalAlbum.updateTrack(nonExistentTrack))
                     .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("not found");
         }
@@ -338,17 +338,17 @@ class AlbumTest {
         void updateTrackWithDuplicateTrackNumberShouldThrowException() {
             // Arrange
             var album = createTestAlbum();
-            var track1 = createTestTrack(1, "Track 1");
-            var track2 = createTestTrack(2, "Track 2");
+            final var track1 = createTestTrack(1, "Track 1");
+            final var track2 = createTestTrack(2, "Track 2");
             album = album.addTrack(track1).addTrack(track2);
 
             // track2のトラック番号を1に変更しようとする（track1と重複）
-            var updatedTrack = Track.reconstruct(track2.id(), 1, // 重複するトラック番号
+            final var updatedTrack = Track.reconstruct(track2.id(), 1, // 重複するトラック番号
                     track2.title(), track2.artistCredit(), track2.recordingDate(), track2.recordingPlace(),
                     track2.isLive(), track2.tunes());
 
             // Act & Assert
-            var finalAlbum = album;
+            final var finalAlbum = album;
             assertThatThrownBy(() -> finalAlbum.updateTrack(updatedTrack)).isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Track number 1 already exists");
         }
@@ -363,19 +363,19 @@ class AlbumTest {
         void reorderTracksWithValidOrderShouldSucceed() {
             // Arrange
             var album = createTestAlbum();
-            var track1 = createTestTrack(1, "Track 1");
-            var track2 = createTestTrack(2, "Track 2");
-            var track3 = createTestTrack(3, "Track 3");
+            final var track1 = createTestTrack(1, "Track 1");
+            final var track2 = createTestTrack(2, "Track 2");
+            final var track3 = createTestTrack(3, "Track 3");
             album = album.addTrack(track1).addTrack(track2).addTrack(track3);
 
             // 順序を逆にする
-            var newOrder = List.of(track3.id(), track2.id(), track1.id());
+            final var newOrder = List.of(track3.id(), track2.id(), track1.id());
 
             // Act
-            var updated = album.reorderTracks(newOrder);
+            final var updated = album.reorderTracks(newOrder);
 
             // Assert
-            var sortedTracks = updated.getTracksSortedByTrackNo();
+            final var sortedTracks = updated.getTracksSortedByTrackNo();
             assertThat(sortedTracks.size()).isEqualTo(3);
             assertThat(sortedTracks.get(0).id()).isEqualTo(track3.id());
             assertThat(sortedTracks.get(0).trackNo()).isEqualTo(1);
@@ -390,13 +390,13 @@ class AlbumTest {
         void reorderTracksWithMismatchedCountShouldThrowException() {
             // Arrange
             var album = createTestAlbum();
-            var track1 = createTestTrack(1, "Track 1");
+            final var track1 = createTestTrack(1, "Track 1");
             album = album.addTrack(track1);
 
-            var invalidOrder = List.of(track1.id(), Track.Id.generate()); // 2つ指定
+            final var invalidOrder = List.of(track1.id(), Track.Id.generate()); // 2つ指定
 
             // Act & Assert
-            var finalAlbum = album;
+            final var finalAlbum = album;
             assertThatThrownBy(() -> finalAlbum.reorderTracks(invalidOrder))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Ordered track IDs must match the number of tracks");
@@ -407,13 +407,13 @@ class AlbumTest {
         void reorderTracksWithNonExistentIdShouldThrowException() {
             // Arrange
             var album = createTestAlbum();
-            var track1 = createTestTrack(1, "Track 1");
+            final var track1 = createTestTrack(1, "Track 1");
             album = album.addTrack(track1);
 
-            var invalidOrder = List.of(Track.Id.generate()); // 存在しないID
+            final var invalidOrder = List.of(Track.Id.generate()); // 存在しないID
 
             // Act & Assert
-            var finalAlbum = album;
+            final var finalAlbum = album;
             assertThatThrownBy(() -> finalAlbum.reorderTracks(invalidOrder))
                     .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("not found");
         }
@@ -428,11 +428,11 @@ class AlbumTest {
         void getTrackWithExistingIdShouldReturnTrack() {
             // Arrange
             var album = createTestAlbum();
-            var track = createTestTrack(1, "Target Track");
+            final var track = createTestTrack(1, "Target Track");
             album = album.addTrack(track);
 
             // Act
-            var result = album.getTrack(track.id());
+            final var result = album.getTrack(track.id());
 
             // Assert
             assertThat(result).isNotNull();
@@ -444,8 +444,8 @@ class AlbumTest {
         @DisplayName("存在しないトラックを取得しようとすると例外が発生すること")
         void getTrackWithNonExistentIdShouldThrowException() {
             // Arrange
-            var album = createTestAlbum();
-            var nonExistentId = Track.Id.generate();
+            final var album = createTestAlbum();
+            final var nonExistentId = Track.Id.generate();
 
             // Act & Assert
             assertThatThrownBy(() -> album.getTrack(nonExistentId)).isInstanceOf(IllegalArgumentException.class)
@@ -457,14 +457,14 @@ class AlbumTest {
         void getTracksSortedByTrackNoShouldReturnSortedList() {
             // Arrange
             var album = createTestAlbum();
-            var track3 = createTestTrack(3, "Track 3");
-            var track1 = createTestTrack(1, "Track 1");
-            var track2 = createTestTrack(2, "Track 2");
+            final var track3 = createTestTrack(3, "Track 3");
+            final var track1 = createTestTrack(1, "Track 1");
+            final var track2 = createTestTrack(2, "Track 2");
             // わざと順不同で追加
             album = album.addTrack(track3).addTrack(track1).addTrack(track2);
 
             // Act
-            var sorted = album.getTracksSortedByTrackNo();
+            final var sorted = album.getTracksSortedByTrackNo();
 
             // Assert
             assertThat(sorted.size()).isEqualTo(3);
@@ -482,7 +482,7 @@ class AlbumTest {
         @DisplayName("IDを生成できること")
         void generateShouldCreateValidId() {
             // Act
-            var id = Album.Id.generate();
+            final var id = Album.Id.generate();
 
             // Assert
             assertThat(id).isNotNull();
@@ -494,10 +494,10 @@ class AlbumTest {
         @DisplayName("文字列からIDを生成できること")
         void ofWithValidUuidShouldSucceed() {
             // Arrange
-            var validUuid = Album.Id.generate().value();
+            final var validUuid = Album.Id.generate().value();
 
             // Act
-            var id = Album.Id.of(validUuid);
+            final var id = Album.Id.of(validUuid);
 
             // Assert
             assertThat(id.value()).isEqualTo(validUuid);
@@ -521,9 +521,9 @@ class AlbumTest {
         @DisplayName("同じ値のIDは等しいこと")
         void equalsWithSameValueShouldBeEqual() {
             // Arrange
-            var value = Album.Id.generate().value();
-            var id1 = Album.Id.of(value);
-            var id2 = Album.Id.of(value);
+            final var value = Album.Id.generate().value();
+            final var id1 = Album.Id.of(value);
+            final var id2 = Album.Id.of(value);
 
             // Act & Assert
             assertThat(id2).isEqualTo(id1);

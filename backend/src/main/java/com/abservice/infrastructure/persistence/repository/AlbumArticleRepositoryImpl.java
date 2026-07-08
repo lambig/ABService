@@ -34,7 +34,7 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             return Uni.createFrom().failure(new IllegalArgumentException("AlbumArticle cannot be null"));
         }
 
-        var entity = AlbumArticleMapper.toEntity(aggregate);
+        final var entity = AlbumArticleMapper.toEntity(aggregate);
 
         return dataSource.existsByAlbumId(entity.getDomainId()).flatMap(exists -> {
             if (exists) {
@@ -57,7 +57,7 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             return Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null"));
         }
 
-        var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
+        final var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
                 .collect(Collectors.toList());
 
         return Uni.join().all(unis).andFailFast();
@@ -78,7 +78,7 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             return Uni.createFrom().item(List.of());
         }
 
-        var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false).map(this::findById)
+        final var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false).map(this::findById)
                 .collect(Collectors.toList());
 
         return Uni.join().all(unis).andFailFast()
@@ -105,7 +105,7 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             return Uni.createFrom().voidItem();
         }
 
-        var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
+        final var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
                 .collect(Collectors.toList());
 
         return Uni.join().all(unis).andFailFast().replaceWithVoid();
@@ -126,7 +126,7 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             return Uni.createFrom().voidItem();
         }
 
-        var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
+        final var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
                 .collect(Collectors.toList());
 
         return Uni.join().all(unis).andFailFast().replaceWithVoid();

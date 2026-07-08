@@ -18,35 +18,35 @@ class LabelTagTest {
     @DisplayName("valueOf(\"NEW\")はNEWを返す")
     @Test
     void testValueOfNEW() {
-        LabelTag tag = LabelTag.valueOf("NEW");
+        final LabelTag tag = LabelTag.valueOf("NEW");
         assertThat(tag).isEqualTo(LabelTag.NEW);
     }
 
     @DisplayName("valueOf(\"BEST_OF\")はBEST_OFを返す")
     @Test
     void testValueOfBestOf() {
-        LabelTag tag = LabelTag.valueOf("BEST_OF");
+        final LabelTag tag = LabelTag.valueOf("BEST_OF");
         assertThat(tag).isEqualTo(LabelTag.BEST_OF);
     }
 
     @DisplayName("valueOf(\"COMPILATION\")はCOMPILATIONを返す")
     @Test
     void testValueOfCOMPILATION() {
-        LabelTag tag = LabelTag.valueOf("COMPILATION");
+        final LabelTag tag = LabelTag.valueOf("COMPILATION");
         assertThat(tag).isEqualTo(LabelTag.COMPILATION);
     }
 
     @DisplayName("valueOf(\"COLLAB\")はCOLLABを返す")
     @Test
     void testValueOfCOLLAB() {
-        LabelTag tag = LabelTag.valueOf("COLLAB");
+        final LabelTag tag = LabelTag.valueOf("COLLAB");
         assertThat(tag).isEqualTo(LabelTag.COLLAB);
     }
 
     @DisplayName("valueOf(\"OTHER\")はOTHERを返す")
     @Test
     void testValueOfOTHER() {
-        LabelTag tag = LabelTag.valueOf("OTHER");
+        final LabelTag tag = LabelTag.valueOf("OTHER");
         assertThat(tag).isEqualTo(LabelTag.OTHER);
     }
 

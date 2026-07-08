@@ -94,13 +94,13 @@ public class EventMatchingService implements DomainService {
         if (tentative.tentativeDates().isEmpty()) {
             return true;
         }
-        var releasedDates = releasedAt.dateAndSpaces().stream().map(ds -> ds.date()).toList();
+        final var releasedDates = releasedAt.dateAndSpaces().stream().map(ds -> ds.date()).toList();
         return tentative.tentativeDates().stream().anyMatch(releasedDates::contains);
     }
 
     private boolean matchesConfirmedDates(ConfirmedEvent confirmed, EventReleasedAt releasedAt) {
-        var participateDates = confirmed.dateAndSpaces().stream().map(ds -> ds.date()).toList();
-        var releasedDates = releasedAt.dateAndSpaces().stream().map(ds -> ds.date()).toList();
+        final var participateDates = confirmed.dateAndSpaces().stream().map(ds -> ds.date()).toList();
+        final var releasedDates = releasedAt.dateAndSpaces().stream().map(ds -> ds.date()).toList();
         return participateDates.equals(releasedDates);
     }
 }
