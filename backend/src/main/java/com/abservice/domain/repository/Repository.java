@@ -3,6 +3,8 @@ package com.abservice.domain.repository;
 import com.abservice.domain.model.aggregate.Aggregate;
 import io.smallrye.mutiny.Uni;
 
+import java.util.List;
+
 /**
  * リポジトリの基底インターフェース
  *
@@ -56,7 +58,7 @@ public interface Repository<T extends Aggregate<T, ID>, ID> {
      *            永続化する集約のIterable
      * @return 永続化された集約のリスト
      */
-    Uni<java.util.List<T>> saveAll(Iterable<T> aggregates);
+    Uni<List<T>> saveAll(Iterable<T> aggregates);
 
     /**
      * IDで集約を取得
@@ -74,7 +76,7 @@ public interface Repository<T extends Aggregate<T, ID>, ID> {
      *            集約IDのIterable
      * @return 取得した集約のリスト
      */
-    Uni<java.util.List<T>> findAllById(Iterable<ID> ids);
+    Uni<List<T>> findAllById(Iterable<ID> ids);
 
     /**
      * すべての集約を取得
@@ -85,7 +87,7 @@ public interface Repository<T extends Aggregate<T, ID>, ID> {
      *
      * @return すべての集約のリスト
      */
-    Uni<java.util.List<T>> findAll();
+    Uni<List<T>> findAll();
 
     /**
      * 集約を削除

@@ -6,6 +6,8 @@ import com.abservice.domain.model.vo.album.LabelTag;
 import com.abservice.domain.repository.Repository;
 import io.smallrye.mutiny.Uni;
 
+import java.util.List;
+
 /**
  * アルバム記事リポジトリ
  *
@@ -34,7 +36,7 @@ public interface AlbumArticleRepository extends Repository<AlbumArticle, Album.I
      *            ラベルタグ
      * @return 該当するアルバム記事のリスト
      */
-    Uni<java.util.List<AlbumArticle>> findByLabelTag(LabelTag labelTag);
+    Uni<List<AlbumArticle>> findByLabelTag(LabelTag labelTag);
 
     /**
      * 初出イベントスペースでアルバム記事を検索（部分一致）
@@ -43,19 +45,19 @@ public interface AlbumArticleRepository extends Repository<AlbumArticle, Album.I
      *            イベントスペースキーワード
      * @return 該当するアルバム記事のリスト
      */
-    Uni<java.util.List<AlbumArticle>> findByFirstEventSpaceContaining(String spaceKeyword);
+    Uni<List<AlbumArticle>> findByFirstEventSpaceContaining(String spaceKeyword);
 
     /**
      * 頒布情報を持つアルバム記事を検索
      *
      * @return 頒布情報を持つアルバム記事のリスト
      */
-    Uni<java.util.List<AlbumArticle>> findWithDistribution();
+    Uni<List<AlbumArticle>> findWithDistribution();
 
     /**
      * 入手経路を持つアルバム記事を検索
      *
      * @return 入手経路を持つアルバム記事のリスト
      */
-    Uni<java.util.List<AlbumArticle>> findWithAcquisitionChannels();
+    Uni<List<AlbumArticle>> findWithAcquisitionChannels();
 }

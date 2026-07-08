@@ -6,6 +6,8 @@ import com.abservice.domain.model.vo.tune.TuneTitle;
 import com.abservice.domain.repository.Repository;
 import io.smallrye.mutiny.Uni;
 
+import java.util.List;
+
 /**
  * チューンリポジトリ
  *
@@ -22,7 +24,7 @@ public interface TuneRepository extends Repository<Tune, Tune.Id> {
      *            チューンタイトル
      * @return 該当するチューンのリスト
      */
-    Uni<java.util.List<Tune>> findByTitle(TuneTitle title);
+    Uni<List<Tune>> findByTitle(TuneTitle title);
 
     /**
      * チューン種別でチューンを検索
@@ -31,7 +33,7 @@ public interface TuneRepository extends Repository<Tune, Tune.Id> {
      *            チューン種別（トラッド、オリジナル、アレンジ）
      * @return 該当するチューンのリスト
      */
-    Uni<java.util.List<Tune>> findByTuneKind(TuneKind tuneKind);
+    Uni<List<Tune>> findByTuneKind(TuneKind tuneKind);
 
     /**
      * チューンタイプでチューンを検索
@@ -40,7 +42,7 @@ public interface TuneRepository extends Repository<Tune, Tune.Id> {
      *            チューンタイプ（リール、ジグなど）
      * @return 該当するチューンのリスト
      */
-    Uni<java.util.List<Tune>> findByTuneType(String tuneType);
+    Uni<List<Tune>> findByTuneType(String tuneType);
 
     /**
      * デフォルトキーでチューンを検索
@@ -49,5 +51,5 @@ public interface TuneRepository extends Repository<Tune, Tune.Id> {
      *            デフォルトキー
      * @return 該当するチューンのリスト
      */
-    Uni<java.util.List<Tune>> findByDefaultKey(String defaultKey);
+    Uni<List<Tune>> findByDefaultKey(String defaultKey);
 }

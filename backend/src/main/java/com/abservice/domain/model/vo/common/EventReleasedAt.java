@@ -2,6 +2,8 @@ package com.abservice.domain.model.vo.common;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 import com.abservice.domain.model.vo.ValueObject;
 import com.abservice.domain.model.vo.event.EventName;
@@ -28,10 +30,9 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
 
     @Override
     public boolean equivalentTo(EventReleasedAt other) {
-        return java.util.Optional.ofNullable(other)
-                .map(o -> this.name.equivalentTo(o.name)
-                        && java.util.Objects.equals(this.dateAndSpaces, o.dateAndSpaces)
-                        && java.util.Objects.equals(this.place, o.place) && java.util.Objects.equals(this.note, o.note))
+        return Optional.ofNullable(other)
+                .map(o -> this.name.equivalentTo(o.name) && Objects.equals(this.dateAndSpaces, o.dateAndSpaces)
+                        && Objects.equals(this.place, o.place) && Objects.equals(this.note, o.note))
                 .orElse(false);
     }
 

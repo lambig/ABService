@@ -2,6 +2,8 @@ package com.abservice.domain.model.vo.event;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 import com.abservice.domain.model.vo.common.BusinessDate;
 
@@ -166,10 +168,10 @@ public record DeclinedEvent(EventName name, List<BusinessDate> declinedDates, St
 
     @Override
     public boolean equivalentTo(EventToParticipate other) {
-        return java.util.Optional.ofNullable(other).filter(o -> o instanceof DeclinedEvent).map(o -> (DeclinedEvent) o)
+        return Optional.ofNullable(other).filter(o -> o instanceof DeclinedEvent).map(o -> (DeclinedEvent) o)
                 .map(declined -> this.name.equivalentTo(declined.name)
                         && this.declinedDates.equals(declined.declinedDates)
-                        && java.util.Objects.equals(this.place, declined.place) && this.reason == declined.reason)
+                        && Objects.equals(this.place, declined.place) && this.reason == declined.reason)
                 .orElse(false);
     }
 }

@@ -1,6 +1,7 @@
 package com.abservice.domain.model.vo.common;
 
 import com.abservice.domain.model.vo.ValueObject;
+import java.util.Objects;
 import java.util.Optional;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -26,8 +27,8 @@ public final class ArtistCredit implements ValueObject<ArtistCredit> {
 
     @Override
     public boolean equivalentTo(ArtistCredit other) {
-        return java.util.Optional.ofNullable(other).filter(
-                o -> this.displayName.equivalentTo(o.displayName) && java.util.Objects.equals(this.sortKey, o.sortKey))
+        return Optional.ofNullable(other)
+                .filter(o -> this.displayName.equivalentTo(o.displayName) && Objects.equals(this.sortKey, o.sortKey))
                 .isPresent();
     }
 

@@ -12,6 +12,7 @@ import com.abservice.domain.model.vo.common.BusinessDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -257,8 +258,7 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
     public @NonNull Article removeTag(ArticleTag.@NonNull Id tagId, @NonNull BusinessDateTime currentDateTime) {
         final var validatedTagId = Optional.ofNullable(tagId)
                 .orElseThrow(() -> new IllegalArgumentException("Tag ID cannot be null"));
-        final var newTags = tags.stream().filter(t -> !t.id().equals(validatedTagId))
-                .collect(java.util.stream.Collectors.toList());
+        final var newTags = tags.stream().filter(t -> !t.id().equals(validatedTagId)).collect(Collectors.toList());
         return withTags(Collections.unmodifiableList(newTags)).withUpdatedAtBusiness(currentDateTime);
     }
 

@@ -7,6 +7,8 @@ import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.repository.Repository;
 import io.smallrye.mutiny.Uni;
 
+import java.util.List;
+
 /**
  * 記事リポジトリ
  *
@@ -23,7 +25,7 @@ public interface ArticleRepository extends Repository<Article, Article.Id> {
      *            記事タイプ
      * @return 該当する記事のリスト
      */
-    Uni<java.util.List<Article>> findByArticleType(ArticleType articleType);
+    Uni<List<Article>> findByArticleType(ArticleType articleType);
 
     /**
      * アルバムIDで記事を検索
@@ -41,7 +43,7 @@ public interface ArticleRepository extends Repository<Article, Article.Id> {
      *            公開フラグ
      * @return 該当する記事のリスト
      */
-    Uni<java.util.List<Article>> findByPublicFlag(boolean publicFlag);
+    Uni<List<Article>> findByPublicFlag(boolean publicFlag);
 
     /**
      * 公開日の範囲で記事を検索
@@ -52,7 +54,7 @@ public interface ArticleRepository extends Repository<Article, Article.Id> {
      *            終了日時
      * @return 該当する記事のリスト
      */
-    Uni<java.util.List<Article>> findByPublishedAtBetween(BusinessDateTime startDate, BusinessDateTime endDate);
+    Uni<List<Article>> findByPublishedAtBetween(BusinessDateTime startDate, BusinessDateTime endDate);
 
     /**
      * タイトルで記事を検索（部分一致）
@@ -61,5 +63,5 @@ public interface ArticleRepository extends Repository<Article, Article.Id> {
      *            タイトルキーワード
      * @return 該当する記事のリスト
      */
-    Uni<java.util.List<Article>> findByTitleContaining(String titleKeyword);
+    Uni<List<Article>> findByTitleContaining(String titleKeyword);
 }

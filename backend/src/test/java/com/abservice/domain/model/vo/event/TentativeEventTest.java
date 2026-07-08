@@ -3,6 +3,7 @@ package com.abservice.domain.model.vo.event;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import com.abservice.domain.model.vo.common.BusinessDate;
 import org.junit.jupiter.api.DisplayName;
@@ -104,7 +105,7 @@ class TentativeEventTest {
         final BusinessDate day1 = BusinessDate.of(LocalDate.of(2024, 12, 30));
         final BusinessDate day2 = BusinessDate.of(LocalDate.of(2024, 12, 31));
 
-        final AppliedEvent applied = AppliedEvent.of("コミケ105", java.util.List.of(day1, day2));
+        final AppliedEvent applied = AppliedEvent.of("コミケ105", List.of(day1, day2));
 
         assertThat(applied.tentativeDates()).hasSize(2);
         assertThat(applied.tentativeDates()).containsExactly(day1, day2);

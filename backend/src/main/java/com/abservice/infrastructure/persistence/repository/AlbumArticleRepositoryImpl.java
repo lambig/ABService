@@ -11,6 +11,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 /**
  * AlbumArticleRepository実装
@@ -57,7 +58,7 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             return Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null"));
         }
 
-        final var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
+        final var unis = StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
                 .collect(Collectors.toList());
 
         return Uni.join().all(unis).andFailFast();
@@ -78,7 +79,7 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             return Uni.createFrom().item(List.of());
         }
 
-        final var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false).map(this::findById)
+        final var unis = StreamSupport.stream(ids.spliterator(), false).map(this::findById)
                 .collect(Collectors.toList());
 
         return Uni.join().all(unis).andFailFast()
@@ -105,7 +106,7 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             return Uni.createFrom().voidItem();
         }
 
-        final var unis = java.util.stream.StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
+        final var unis = StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
                 .collect(Collectors.toList());
 
         return Uni.join().all(unis).andFailFast().replaceWithVoid();
@@ -126,7 +127,7 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             return Uni.createFrom().voidItem();
         }
 
-        final var unis = java.util.stream.StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
+        final var unis = StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
                 .collect(Collectors.toList());
 
         return Uni.join().all(unis).andFailFast().replaceWithVoid();

@@ -6,6 +6,8 @@ import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.repository.Repository;
 import io.smallrye.mutiny.Uni;
 
+import java.util.List;
+
 /**
  * アルバムリポジトリ
  *
@@ -22,7 +24,7 @@ public interface AlbumRepository extends Repository<Album, Album.Id> {
      *            アルバムタイトル
      * @return 該当するアルバムのリスト
      */
-    Uni<java.util.List<Album>> findByTitle(AlbumTitle title);
+    Uni<List<Album>> findByTitle(AlbumTitle title);
 
     /**
      * アーティスト名でアルバムを検索
@@ -31,7 +33,7 @@ public interface AlbumRepository extends Repository<Album, Album.Id> {
      *            アーティスト名
      * @return 該当するアルバムのリスト
      */
-    Uni<java.util.List<Album>> findByArtistName(String artistName);
+    Uni<List<Album>> findByArtistName(String artistName);
 
     /**
      * イベント名でアルバムを検索
@@ -40,7 +42,7 @@ public interface AlbumRepository extends Repository<Album, Album.Id> {
      *            イベント名
      * @return 該当するアルバムのリスト
      */
-    Uni<java.util.List<Album>> findByEventName(String eventName);
+    Uni<List<Album>> findByEventName(String eventName);
 
     /**
      * カタログナンバーでアルバムを検索
@@ -58,5 +60,5 @@ public interface AlbumRepository extends Repository<Album, Album.Id> {
      *            リリース年
      * @return 該当するアルバムのリスト
      */
-    Uni<java.util.List<Album>> findByReleaseYear(int year);
+    Uni<List<Album>> findByReleaseYear(int year);
 }

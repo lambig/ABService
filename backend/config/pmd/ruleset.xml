@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="ABService Custom Rules"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+
+    <description>
+        ABService 独自の静的解析ルール。既定ルールセットは読み込まず、
+        カスタムルールのみを定義する。
+    </description>
+
+    <rule name="ForbiddenFullyQualifiedTypeReference"
+          language="java"
+          message="コード本文でパッケージ修飾された完全修飾型名（FQN）を使用しています。型を import して単純名で参照してください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            型参照位置に現れるパッケージ修飾された完全修飾型名（例:
+            new java.util.concurrent.atomic.AtomicInteger(...) や
+            java.util.List&lt;...&gt; のインライン記述）を禁止する。
+            import 文・package 文・アノテーション・文字列・ネスト型アクセス
+            （Outer.Inner）は対象外。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//ClassType[@FullyQualified = true()]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
+</ruleset>

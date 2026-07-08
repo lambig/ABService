@@ -4,6 +4,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import org.jspecify.annotations.NonNull;
@@ -233,7 +234,7 @@ public class Album implements Aggregate<Album, Album.Id> {
         final var validatedIds = Optional.ofNullable(orderedTrackIds).filter(ids -> ids.size() == tracks.size())
                 .orElseThrow(() -> new IllegalArgumentException("Ordered track IDs must match the number of tracks"));
 
-        final var trackNo = new java.util.concurrent.atomic.AtomicInteger(1);
+        final var trackNo = new AtomicInteger(1);
         final var newTracks = validatedIds.stream().map(trackId -> {
             final var track = tracks.stream().filter(t -> t.id().equals(trackId)).findFirst()
                     .orElseThrow(() -> new IllegalArgumentException("Track with ID " + trackId.value() + " not found"));
