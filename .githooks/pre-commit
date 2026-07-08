@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # pre-commit hook: IntegrationTest を除く全品質ゲートを実行する。
 #
-#   実行対象: spotlessCheck / checkstyleMain / checkstyleTest / test
-#            （test はユニットテスト。ArchUnit の LayeredArchitectureTest を含む）
+#   実行対象: spotlessCheck / checkstyleMain / checkstyleTest
+#            / pmdMain / pmdTest / pmdIntegrationTest / test
+#            （test はユニットテスト。ArchUnit の LayeredArchitectureTest を含む。
+#             pmd は静的解析。integrationTest ソースセットは pmd のみ対象）
 #   対象外  : integrationTest（実DBが必要なため pre-commit では実行しない）
 #
 # 有効化（クローン直後に一度だけ実行）:
@@ -11,5 +13,5 @@
 # 一時的にスキップしたい場合: git commit --no-verify
 set -euo pipefail
 
-echo "[pre-commit] 品質ゲートを実行中（spotless / checkstyle / unit+ArchUnit）..."
-backend/gradlew -p backend --console=plain spotlessCheck checkstyleMain checkstyleTest test
+echo "[pre-commit] 品質ゲートを実行中（spotless / checkstyle / pmd / unit+ArchUnit）..."
+backend/gradlew -p backend --console=plain spotlessCheck checkstyleMain checkstyleTest pmdMain pmdTest pmdIntegrationTest test

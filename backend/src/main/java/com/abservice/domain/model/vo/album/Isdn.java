@@ -1,6 +1,8 @@
 package com.abservice.domain.model.vo.album;
 
 import com.abservice.domain.model.vo.ValueObject;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Validate;
 
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -39,8 +41,7 @@ public record Isdn(String value) implements ValueObject<Isdn> {
      *             ISDNがnullまたは不正なフォーマットの場合
      */
     public Isdn {
-        org.apache.commons.lang3.Validate.isTrue(org.apache.commons.lang3.StringUtils.isNotBlank(value),
-                "ISDN cannot be blank");
+        Validate.isTrue(StringUtils.isNotBlank(value), "ISDN cannot be blank");
         value = normalizeAndValidate(value);
     }
 
@@ -63,13 +64,12 @@ public record Isdn(String value) implements ValueObject<Isdn> {
     }
 
     private static void validateFormat(String normalized, String original) {
-        org.apache.commons.lang3.Validate.isTrue(ISDN_SIMPLE_PATTERN.matcher(normalized).matches(),
+        Validate.isTrue(ISDN_SIMPLE_PATTERN.matcher(normalized).matches(),
                 "ISDN must be 13 digits starting with 278 or 279 (hyphens optional). Got: %s", original);
     }
 
     private static void validateCheckDigit(String normalized, String original) {
-        org.apache.commons.lang3.Validate.isTrue(isValidCheckDigit(normalized), "ISDN check digit is invalid: %s",
-                original);
+        Validate.isTrue(isValidCheckDigit(normalized), "ISDN check digit is invalid: %s", original);
     }
 
     /**

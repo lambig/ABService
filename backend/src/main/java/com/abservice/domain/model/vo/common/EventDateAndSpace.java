@@ -1,6 +1,8 @@
 package com.abservice.domain.model.vo.common;
 
 import com.abservice.domain.model.vo.ValueObject;
+import java.util.Objects;
+import java.util.Optional;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.experimental.Accessors;
@@ -22,8 +24,9 @@ public final class EventDateAndSpace implements ValueObject<EventDateAndSpace> {
 
     @Override
     public boolean equivalentTo(EventDateAndSpace other) {
-        return java.util.Optional.ofNullable(other).filter(o -> java.util.Objects.equals(this.date, o.date)
-                && java.util.Objects.equals(this.spaceNumber, o.spaceNumber)).isPresent();
+        return Optional.ofNullable(other)
+                .filter(o -> Objects.equals(this.date, o.date) && Objects.equals(this.spaceNumber, o.spaceNumber))
+                .isPresent();
     }
 
     /**

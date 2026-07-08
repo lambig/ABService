@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import org.jspecify.annotations.NonNull;
 
@@ -156,7 +157,7 @@ public sealed interface Result<T> {
      * @throws IllegalStateException
      *             失敗時（actionの実行後）
      */
-    default T orElseDo(java.util.function.Consumer<List<ErrorResult>> action) {
+    default T orElseDo(Consumer<List<ErrorResult>> action) {
         return switch (this) {
             case Success<T> success -> success.value();
             case Failure<T> failure -> {

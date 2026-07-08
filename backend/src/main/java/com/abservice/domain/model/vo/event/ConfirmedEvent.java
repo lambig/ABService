@@ -2,6 +2,8 @@ package com.abservice.domain.model.vo.event;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventDateAndSpace;
@@ -139,11 +141,10 @@ public record ConfirmedEvent(EventName name, List<EventDateAndSpace> dateAndSpac
 
     @Override
     public boolean equivalentTo(EventToParticipate other) {
-        return java.util.Optional.ofNullable(other).filter(o -> o instanceof ConfirmedEvent)
-                .map(o -> (ConfirmedEvent) o)
+        return Optional.ofNullable(other).filter(o -> o instanceof ConfirmedEvent).map(o -> (ConfirmedEvent) o)
                 .map(confirmed -> this.name.equivalentTo(confirmed.name)
                         && this.dateAndSpaces.equals(confirmed.dateAndSpaces)
-                        && java.util.Objects.equals(this.place, confirmed.place))
+                        && Objects.equals(this.place, confirmed.place))
                 .orElse(false);
     }
 }

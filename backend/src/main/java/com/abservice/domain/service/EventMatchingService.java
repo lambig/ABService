@@ -6,6 +6,8 @@ import com.abservice.domain.model.vo.event.EventToParticipate;
 import com.abservice.domain.model.vo.event.TentativeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 
+import java.util.Optional;
+
 /**
  * イベント照合ドメインサービス
  *
@@ -44,8 +46,8 @@ public class EventMatchingService implements DomainService {
      * @return 同一イベントと判定される場合true
      */
     public boolean isSameEvent(EventToParticipate toParticipate, EventReleasedAt releasedAt) {
-        return java.util.Optional
-                .ofNullable(toParticipate).flatMap(tp -> java.util.Optional.ofNullable(releasedAt)
+        return Optional
+                .ofNullable(toParticipate).flatMap(tp -> Optional.ofNullable(releasedAt)
                         .filter(ra -> tp.name().equivalentTo(ra.name())).map(ra -> matchesEventDetails(tp, ra)))
                 .orElse(false);
     }
@@ -74,8 +76,8 @@ public class EventMatchingService implements DomainService {
      * @return イベント名と日付が一致する場合true
      */
     public boolean matchesEventNameAndDate(EventToParticipate toParticipate, EventReleasedAt releasedAt) {
-        return java.util.Optional
-                .ofNullable(toParticipate).flatMap(tp -> java.util.Optional.ofNullable(releasedAt)
+        return Optional
+                .ofNullable(toParticipate).flatMap(tp -> Optional.ofNullable(releasedAt)
                         .filter(ra -> tp.name().equivalentTo(ra.name())).map(ra -> matchesDateDetails(tp, ra)))
                 .orElse(false);
     }
