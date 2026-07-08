@@ -95,15 +95,9 @@ DomainException (abstract, errorCode付き)
 
 ## 4. インフラ層の簡略化（未解消・実コードで確認済み）
 
-`REPOSITORY_SIMPLIFICATIONS.md` に記載の3件は**いずれも現在も未解消**です（コード確認済み）。
+`REPOSITORY_SIMPLIFICATIONS.md` 記載の3件はいずれも未解消。issue で管理する（優先度: 頒布情報・入手経路 > タグ）。
 
-| # | 箇所 | 現状 | ファイル:行 |
-|---|---|---|---|
-| 1 | Article タグ | `Collections.emptyList()` を返す（`ArticleTagLink` 連携なし） | `ArticleMapper.java:41` |
-| 2 | AlbumArticle 頒布情報 | 常に `null` | `AlbumArticleMapper.java:37` |
-| 3 | AlbumArticle 入手経路 | `Collections.emptyList()` を返す | `AlbumArticleMapper.java:38, 61` |
-
-詳細な実装要件は `REPOSITORY_SIMPLIFICATIONS.md` を参照。優先度は「頒布情報・入手経路（AlbumArticle）> タグ（Article）」。
+- #40 AlbumArticle 頒布情報 / #41 AlbumArticle 入手経路 / #39 Article タグ
 
 ---
 
@@ -111,22 +105,18 @@ DomainException (abstract, errorCode付き)
 
 ### 5.1 JSpecify nullability 移行（`JSPECIFY_MIGRATION_PLAN.md`）
 
-**検証結果**: jspecify を import している domain クラスは **11件**（`Album`, `Track`, `Article`, `Tune`, `ArticleTag`, `CatalogNumber`, `AlbumTitle`, `TuneTitle`, `Credit`, `ArtistCredit`, `MarkupContent`）。計画docの「10件完了」からほぼ進んでおらず、**残りは docの見積り以上に多い**。
-
-- 🔴 未対応: 集約 `AlbumArticle`、集約内エンティティ `TrackTune` / `AlbumAcquisitionChannel` / `AlbumDistribution`
-- 🔴 未対応: VO の大半（`Isdn`, `Price`, `EventReleasedAt`, `TrackTitle`, `Url`, `LabelTag`, `ChannelType`, `Duration`※削除済, `BusinessDate`, `BusinessDateTime`, `ArtistCreditName`, `TuneKind`, `ArticleType`, `ArticleType`, event系VO群 ほか）
-- 🔴 未対応: infrastructure層（Mapper / RepositoryImpl / Entity / DataSource）、application層
+import 済み 11 件から進んでおらず残多数（集約 `AlbumArticle`・集約内エンティティ・VO 大半・infra 層が未対応）。詳細と進め方は #44。
 
 ### 5.2 ユニット/統合テスト（`UNIT_TEST_PLAN.md`）
 
 - 🟢 完了: Phase 1–5（VO / Enum / 集約 / エンティティ のユニットテスト、計31クラス）
 - 🔴 未着手:
   - Phase 6: Application Service のテスト（※ユースケース実装後に発生）
-  - Phase 7: RepositoryImpl 統合テスト（現状 `AlbumRepositoryImplTest` のみ、残り3集約）
-  - Phase 8: Mapper 統合テスト
-  - Phase 9: DataSource 統合テスト
+  - Phase 7: RepositoryImpl 統合テスト → #45
+  - Phase 8: Mapper 統合テスト（§4 解消に依存）
+  - Phase 9: DataSource 統合テスト（DataSource 構築後）
   - Phase 10: REST API 統合テスト（※presentation実装後に発生）
-- ⚠️ `UNIT_TEST_PLAN.md` はパス記述が陳腐化（`application/service/QueryService` → 実際は `application/query/`、`interfaces/rest/` → 実際はルート直下、`SampleResource` → `GreetingResource`）
+- ⚠️ `UNIT_TEST_PLAN.md` のパス陳腐化の是正は #42
 
 ### 5.3 アプリケーション層 / プレゼンテーション層（新規・最重要）
 
@@ -137,7 +127,7 @@ DomainException (abstract, errorCode付き)
 
 ### 5.4 その他
 
-- `VO_REFACTORING.md` は完了済みの記録だが命名が陳腐化（`EventInfo` → 実際は `EventReleasedAt`、複数日程対応で構造も変化）
+- `VO_REFACTORING.md` の命名陳腐化の是正は #43
 
 ---
 
@@ -256,34 +246,10 @@ ABService は Java プロジェクトのため、Kotlin 向けの detekt カス�
 
 ### 7.4 機能的スタイル強制の残ルール・設計バックログ
 
-命令的な `if`・逐次検査・生ラムダを排し、**式・Optional・filter・Policy・多態**で表現する機能的スタイルを全面採用する。既に本文適用は完了しているが（src/main の実 `if` は 0）、以下は**ルール化（静的解析での強制）と支援 API がまだ**の項目。導入時は「導入前に違反を検出できること（no-op でない証跡）」と「フォーマッタ/PMD の整合（違反0）」を確認する。
+命令的な `if`・逐次検査・生ラムダを排し、**式・Optional・filter・Policy・多態**で表現する機能的スタイルを全面採用する。本文適用は完了済み（src/main の実 `if` は 0）。**ルール化（静的解析での強制）と支援 API の残項目**は GitHub issue で管理する。
 
-**ルール化（PMD / Checkstyle / ArchUnit）**
-
-| # | ルール | 意図 / 検出方針 |
-|---|---|---|
-| 1 | `if` 文全廃 | 検査・分岐は Optional/filter/switch式/Uni/Multi へ。PMD `//IfStatement` を禁止（Javadoc例は対象外） |
-| 2 | null 条件三項の禁止 | `x != null ? … : …` を `Optional` へ。null 判定の `ConditionalExpression` を検出 |
-| 3 | 逐次 null+空/blank チェックの禁止 | `x == null \|\| x.isBlank()` / `x != null && !x.isEmpty()` を `StringUtils.isBlank/isNotBlank`・`CollectionUtils.isEmpty/isNotEmpty` へ。`==null`/`!=null` と `.isEmpty()/.isBlank()` の論理結合を検出 |
-| 4 | VO 検証は `Policy` 経由 | コンパクトコンストラクタ/ファクトリの検証は `Policy` で表現（`RequireValidationInValueObject` を fromInput 以外にも拡張） |
-| 5 | `switch (this)` の禁止 | sealed 型の種別分岐は switch でなく多態（各バリアントで override） |
-| 6 | 否定ラムダの `not` メソッド参照化 | `x -> !x.foo()` を `Predicate.not(X::foo)` へ（本体が単一の `!メソッド呼び出し` のラムダを検出） |
-| 7 | 中置論理演算子の禁止 | `&&`/`\|\|`/`!` を述語合成 DSL（`and`/`or`/`not` 相当）へ。Checkstyle `IllegalToken`（`LAND`/`LOR`/`LNOT`） |
-| 8 | 不要変数の禁止 | `UnnecessaryLocalBeforeReturn` / `UnusedLocalVariable` / `UnusedAssignment`（PMD） |
-
-**支援 API / ライブラリ**
-
-| # | 項目 | 内容 |
-|---|---|---|
-| 9 | 述語合成 DSL | `&&`/`\|\|`/`!` を置換する `and`/`or`/`not` 相当（#7 の前提。Wave 4） |
-| 10 | `multiple`（多フィールド検証） | Tuple/Record で複数フィールドを受けてまとめて検証し `Result` を返すメソッド。`Policies.combine`（値構築＋throwaway が必要）に代わる、検証専用の合成 API。導入後に多フィールド VO（`DeclinedEvent` 等）の逐次検証を一括置換 |
-
-**その他**
-
-| # | 項目 | 内容 |
-|---|---|---|
-| 11 | 三項の書式 | 単純 `return` 以外の三項で第一項（条件）を行頭に。Eclipse フォーマッタでは文脈依存の強制が難しく方針未確定 |
-| 12 | Javadoc のコード例更新 | `DomainEntity` / `Factory` の例が旧 `if` スタイルのため新スタイルへ |
+- トラッキング: **#37**（`harness-backlog` ラベル）
+- 各項目の詳細・検出方針・受け入れ条件は個別 issue（#26–#36）を参照。導入時は「導入前に違反を検出できること」「フォーマッタ/PMD 整合（違反 0）」を確認する。
 
 ---
 
