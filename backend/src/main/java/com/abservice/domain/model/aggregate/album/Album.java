@@ -180,9 +180,9 @@ public class Album implements Aggregate<Album, Album.Id> {
         final var validatedTrack = Optional.ofNullable(track)
                 .orElseThrow(() -> new IllegalArgumentException("Track cannot be null"));
         // トラック番号の重複チェック
-        if (tracks.stream().anyMatch(t -> t.trackNo().equals(validatedTrack.trackNo()))) {
+        tracks.stream().filter(t -> t.trackNo().equals(validatedTrack.trackNo())).findFirst().ifPresent(dup -> {
             throw new IllegalArgumentException("Track number " + validatedTrack.trackNo() + " already exists");
-        }
+        });
         return withTracks(Stream.concat(tracks.stream(), Stream.of(validatedTrack)).toList());
     }
 
@@ -214,10 +214,10 @@ public class Album implements Aggregate<Album, Album.Id> {
         tracks.stream().filter(t -> t.equivalentTo(validatedTrack)).findFirst().orElseThrow(
                 () -> new IllegalArgumentException("Track with ID " + validatedTrack.id().value() + " not found"));
         // トラック番号の重複チェック（自分自身以外）
-        if (tracks.stream().filter(t -> !t.equivalentTo(validatedTrack))
-                .anyMatch(t -> t.trackNo().equals(validatedTrack.trackNo()))) {
-            throw new IllegalArgumentException("Track number " + validatedTrack.trackNo() + " already exists");
-        }
+        tracks.stream().filter(t -> !t.equivalentTo(validatedTrack))
+                .filter(t -> t.trackNo().equals(validatedTrack.trackNo())).findFirst().ifPresent(dup -> {
+                    throw new IllegalArgumentException("Track number " + validatedTrack.trackNo() + " already exists");
+                });
         return withTracks(tracks.stream().map(t -> t.equivalentTo(validatedTrack)
                 ? validatedTrack
                 : t).toList());

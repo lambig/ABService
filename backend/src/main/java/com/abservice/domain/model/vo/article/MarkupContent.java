@@ -64,9 +64,7 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
      * @return MarkupContentインスタンス
      */
     public static MarkupContent markdown(String content) {
-        return new MarkupContent(content != null
-                ? content
-                : "", MarkupFormat.MARKDOWN);
+        return new MarkupContent(Optional.ofNullable(content).orElse(""), MarkupFormat.MARKDOWN);
     }
 
     /**
@@ -77,9 +75,7 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
      * @return MarkupContentインスタンス
      */
     public static MarkupContent html(String content) {
-        return new MarkupContent(content != null
-                ? content
-                : "", MarkupFormat.HTML);
+        return new MarkupContent(Optional.ofNullable(content).orElse(""), MarkupFormat.HTML);
     }
 
     /**
@@ -99,9 +95,7 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
      * @return 成功時は {@code MarkupContent}、失敗時はエラー
      */
     public static Result<MarkupContent> fromInput(@Nullable String content, @Nullable String format) {
-        final String safeContent = content != null
-                ? content
-                : "";
+        final String safeContent = Optional.ofNullable(content).orElse("");
         return Policy
                 .of((String v) -> v != null && !v.isBlank(),
                         () -> new ErrorResult("format", "マークアップ形式は必須です", "MARKUP_FORMAT_REQUIRED"))

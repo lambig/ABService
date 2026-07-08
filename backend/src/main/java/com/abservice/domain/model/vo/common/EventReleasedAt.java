@@ -53,9 +53,8 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
             throw new IllegalArgumentException("Event name cannot be null");
         }
         this.name = name;
-        this.dateAndSpaces = dateAndSpaces != null
-                ? Collections.unmodifiableList(dateAndSpaces)
-                : Collections.emptyList();
+        this.dateAndSpaces = Optional.ofNullable(dateAndSpaces)
+                .<List<EventDateAndSpace>>map(Collections::unmodifiableList).orElse(Collections.emptyList());
         this.place = place;
         this.note = note;
     }
@@ -81,9 +80,8 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      * @return EventReleasedAt
      */
     public static EventReleasedAt of(String name, BusinessDate date) {
-        return new EventReleasedAt(new EventName(name), date != null
-                ? List.of(EventDateAndSpace.of(date))
-                : null, null, null);
+        return new EventReleasedAt(new EventName(name),
+                Optional.ofNullable(date).map(d -> List.of(EventDateAndSpace.of(d))).orElse(null), null, null);
     }
 
     /**
@@ -98,9 +96,9 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      * @return EventReleasedAt
      */
     public static EventReleasedAt of(String name, BusinessDate date, String spaceNumber) {
-        return new EventReleasedAt(new EventName(name), date != null
-                ? List.of(EventDateAndSpace.of(date, spaceNumber))
-                : null, null, null);
+        return new EventReleasedAt(new EventName(name),
+                Optional.ofNullable(date).map(d -> List.of(EventDateAndSpace.of(d, spaceNumber))).orElse(null), null,
+                null);
     }
 
     /**
@@ -153,8 +151,8 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      * @return EventReleasedAt
      */
     public static EventReleasedAt of(String name, BusinessDate date, String place, String spaceNumber, String note) {
-        return new EventReleasedAt(new EventName(name), date != null
-                ? List.of(EventDateAndSpace.of(date, spaceNumber))
-                : null, place, note);
+        return new EventReleasedAt(new EventName(name),
+                Optional.ofNullable(date).map(d -> List.of(EventDateAndSpace.of(d, spaceNumber))).orElse(null), place,
+                note);
     }
 }

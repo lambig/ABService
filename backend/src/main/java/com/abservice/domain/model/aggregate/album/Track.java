@@ -195,9 +195,9 @@ public class Track implements DomainEntity<Track, Track.Id> {
         final var validatedTune = Optional.ofNullable(tune)
                 .orElseThrow(() -> new IllegalArgumentException("Tune cannot be null"));
         // seqの重複チェック
-        if (tunes.stream().anyMatch(t -> t.seq().equals(validatedTune.seq()))) {
+        tunes.stream().filter(t -> t.seq().equals(validatedTune.seq())).findFirst().ifPresent(dup -> {
             throw new IllegalArgumentException("Tune seq " + validatedTune.seq() + " already exists in this track");
-        }
+        });
         return withTunes(Stream.concat(tunes.stream(), Stream.of(validatedTune)).toList());
     }
 
@@ -211,9 +211,8 @@ public class Track implements DomainEntity<Track, Track.Id> {
     public @NonNull Track removeTune(@NonNull Integer seq) {
         final var validatedSeq = Optional.ofNullable(seq)
                 .orElseThrow(() -> new IllegalArgumentException("Seq cannot be null"));
-        if (tunes.stream().noneMatch(t -> t.seq().equals(validatedSeq))) {
-            throw new IllegalArgumentException("Tune with seq " + validatedSeq + " not found");
-        }
+        tunes.stream().filter(t -> t.seq().equals(validatedSeq)).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Tune with seq " + validatedSeq + " not found"));
         return withTunes(tunes.stream().filter(t -> !t.seq().equals(validatedSeq)).toList());
     }
 
@@ -227,9 +226,8 @@ public class Track implements DomainEntity<Track, Track.Id> {
     public @NonNull Track updateTune(@NonNull TrackTune updatedTune) {
         final var validatedTune = Optional.ofNullable(updatedTune)
                 .orElseThrow(() -> new IllegalArgumentException("Updated tune cannot be null"));
-        if (tunes.stream().noneMatch(t -> t.seq().equals(validatedTune.seq()))) {
-            throw new IllegalArgumentException("Tune with seq " + validatedTune.seq() + " not found");
-        }
+        tunes.stream().filter(t -> t.seq().equals(validatedTune.seq())).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Tune with seq " + validatedTune.seq() + " not found"));
         return withTunes(tunes.stream().map(t -> t.seq().equals(validatedTune.seq())
                 ? validatedTune
                 : t).toList());

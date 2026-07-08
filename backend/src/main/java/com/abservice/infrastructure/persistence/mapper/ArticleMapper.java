@@ -50,9 +50,8 @@ public final class ArticleMapper {
         return switch (body) {
             case null -> null;
             default -> {
-                final MarkupFormat format = bodyFormat != null
-                        ? MarkupFormat.valueOf(bodyFormat)
-                        : MarkupFormat.PLAIN_TEXT;
+                final MarkupFormat format = Optional.ofNullable(bodyFormat).map(MarkupFormat::valueOf)
+                        .orElse(MarkupFormat.PLAIN_TEXT);
                 yield new MarkupContent(body, format);
             }
         };

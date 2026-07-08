@@ -239,9 +239,9 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
         final var validatedTag = Optional.ofNullable(tag)
                 .orElseThrow(() -> new IllegalArgumentException("Tag cannot be null"));
         // IDの重複チェック
-        if (tags.stream().anyMatch(t -> t.equivalentTo(validatedTag))) {
+        tags.stream().filter(t -> t.equivalentTo(validatedTag)).findFirst().ifPresent(dup -> {
             throw new IllegalArgumentException("Tag with ID " + validatedTag.id().value() + " already exists");
-        }
+        });
         return withTags(Stream.concat(tags.stream(), Stream.of(validatedTag)).toList())
                 .withUpdatedAtBusiness(currentDateTime);
     }
