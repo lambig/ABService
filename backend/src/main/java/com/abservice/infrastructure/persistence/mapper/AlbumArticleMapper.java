@@ -6,6 +6,7 @@ import com.abservice.domain.model.vo.album.LabelTag;
 import com.abservice.infrastructure.persistence.entity.AlbumArticleEntity;
 
 import java.util.Collections;
+import java.util.Optional;
 
 /**
  * AlbumArticle Mapper
@@ -33,7 +34,7 @@ public final class AlbumArticleMapper {
             // 頒布情報は簡略化のためnull、入手経路は簡略化のため空リスト
             default -> AlbumArticle.reconstruct(new Album.Id(entity.getDomainId()), entity.getIntroLong(),
                     entity.getIntroShort(), entity.getFirstEventSpace(),
-                    entity.getLabelTag() != null ? LabelTag.valueOf(entity.getLabelTag()) : null, null,
+                    Optional.ofNullable(entity.getLabelTag()).map(LabelTag::valueOf).orElse(null), null,
                     Collections.emptyList());
         };
     }
@@ -54,7 +55,8 @@ public final class AlbumArticleMapper {
                 albumArticleEntity.setIntroLong(albumArticle.introLong());
                 albumArticleEntity.setIntroShort(albumArticle.introShort());
                 albumArticleEntity.setFirstEventSpace(albumArticle.firstEventSpace());
-                albumArticleEntity.setLabelTag(albumArticle.labelTag() != null ? albumArticle.labelTag().name() : null);
+                albumArticleEntity
+                        .setLabelTag(Optional.ofNullable(albumArticle.labelTag()).map(LabelTag::name).orElse(null));
 
                 // 頒布情報と入手経路は簡略化のため省略
 

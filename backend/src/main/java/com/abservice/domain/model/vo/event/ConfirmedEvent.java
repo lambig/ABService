@@ -4,9 +4,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventDateAndSpace;
+import com.abservice.lib.ErrorResult;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
 /**
@@ -47,20 +51,21 @@ public record ConfirmedEvent(EventName name, List<EventDateAndSpace> dateAndSpac
      *             イベント名がnull、またはdateAndSpacesが空の場合
      */
     public ConfirmedEvent {
-        if (name == null) {
-            throw new IllegalArgumentException("Event name cannot be null");
-        }
-        if (dateAndSpaces == null || dateAndSpaces.isEmpty()) {
-            throw new IllegalArgumentException("Confirmed event must have at least one date and space");
-        }
-        validateAllSpaceNumbers(dateAndSpaces);
+        Policy.<EventName>of(Objects::nonNull,
+                () -> new ErrorResult("name", "Event name cannot be null", "EVENT_NAME_REQUIRED"))
+                .verify(name, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
+        Policy.<List<EventDateAndSpace>>of(CollectionUtils::isNotEmpty,
+                () -> new ErrorResult("dateAndSpaces", "Confirmed event must have at least one date and space",
+                        "DATE_AND_SPACES_REQUIRED"))
+                .verify(dateAndSpaces, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
+        Policy.of((List<EventDateAndSpace> d) -> d.stream().noneMatch(ds -> StringUtils.isBlank(ds.spaceNumber())),
+                () -> new ErrorResult("dateAndSpaces", "Confirmed event must have space number for all dates",
+                        "SPACE_NUMBER_REQUIRED"))
+                .verify(dateAndSpaces, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         dateAndSpaces = Collections.unmodifiableList(dateAndSpaces);
-    }
-
-    private static void validateAllSpaceNumbers(List<EventDateAndSpace> dateAndSpaces) {
-        if (dateAndSpaces.stream().anyMatch(ds -> StringUtils.isBlank(ds.spaceNumber()))) {
-            throw new IllegalArgumentException("Confirmed event must have space number for all dates");
-        }
     }
 
     /**

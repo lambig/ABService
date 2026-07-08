@@ -3,16 +3,20 @@ package com.abservice.domain.model.aggregate.album;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
+import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.entity.DomainEntity;
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.lib.ErrorResult;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -195,9 +199,9 @@ public class Track implements DomainEntity<Track, Track.Id> {
         final var validatedTune = Optional.ofNullable(tune)
                 .orElseThrow(() -> new IllegalArgumentException("Tune cannot be null"));
         // seqの重複チェック
-        if (tunes.stream().anyMatch(t -> t.seq().equals(validatedTune.seq()))) {
+        tunes.stream().filter(t -> t.seq().equals(validatedTune.seq())).findFirst().ifPresent(dup -> {
             throw new IllegalArgumentException("Tune seq " + validatedTune.seq() + " already exists in this track");
-        }
+        });
         return withTunes(Stream.concat(tunes.stream(), Stream.of(validatedTune)).toList());
     }
 
@@ -211,9 +215,8 @@ public class Track implements DomainEntity<Track, Track.Id> {
     public @NonNull Track removeTune(@NonNull Integer seq) {
         final var validatedSeq = Optional.ofNullable(seq)
                 .orElseThrow(() -> new IllegalArgumentException("Seq cannot be null"));
-        if (tunes.stream().noneMatch(t -> t.seq().equals(validatedSeq))) {
-            throw new IllegalArgumentException("Tune with seq " + validatedSeq + " not found");
-        }
+        tunes.stream().filter(t -> t.seq().equals(validatedSeq)).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Tune with seq " + validatedSeq + " not found"));
         return withTunes(tunes.stream().filter(t -> !t.seq().equals(validatedSeq)).toList());
     }
 
@@ -227,10 +230,11 @@ public class Track implements DomainEntity<Track, Track.Id> {
     public @NonNull Track updateTune(@NonNull TrackTune updatedTune) {
         final var validatedTune = Optional.ofNullable(updatedTune)
                 .orElseThrow(() -> new IllegalArgumentException("Updated tune cannot be null"));
-        if (tunes.stream().noneMatch(t -> t.seq().equals(validatedTune.seq()))) {
-            throw new IllegalArgumentException("Tune with seq " + validatedTune.seq() + " not found");
-        }
-        return withTunes(tunes.stream().map(t -> t.seq().equals(validatedTune.seq()) ? validatedTune : t).toList());
+        tunes.stream().filter(t -> t.seq().equals(validatedTune.seq())).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Tune with seq " + validatedTune.seq() + " not found"));
+        return withTunes(tunes.stream().map(t -> t.seq().equals(validatedTune.seq())
+                ? validatedTune
+                : t).toList());
     }
 
     /**
@@ -255,12 +259,14 @@ public class Track implements DomainEntity<Track, Track.Id> {
      */
     public record Id(@NonNull String value) implements EntityId<Track> {
         public Id {
-            if (value == null || value.isBlank()) {
-                throw new IllegalArgumentException("Track ID cannot be blank");
-            }
-            if (!EntityId.isValidUuid(value)) {
-                throw new IllegalArgumentException("Track ID must be a valid UUID: " + value);
-            }
+            Policy.<String>all(
+                    Policy.of(StringUtils::isNotBlank,
+                            () -> new ErrorResult("value", "Track ID cannot be blank", "ID_BLANK")),
+                    Policy.of(EntityId::isValidUuid,
+                            () -> new ErrorResult("value", "Track ID must be a valid UUID: " + value,
+                                    "ID_INVALID_UUID")))
+                    .verify(value, Function.identity())
+                    .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         }
 
         /**

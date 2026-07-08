@@ -1,9 +1,13 @@
 package com.abservice.domain.model.vo.common;
 
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
+import com.abservice.lib.ErrorResult;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * 価格の値オブジェクト
@@ -29,12 +33,13 @@ public record Price(Integer amount) implements ValueObject<Price> {
      *             金額がnullまたは負の値の場合
      */
     public Price {
-        if (amount == null) {
-            throw new IllegalArgumentException("Price amount cannot be null");
-        }
-        if (amount < 0) {
-            throw new IllegalArgumentException("Price amount cannot be negative");
-        }
+        Policy.<Integer>all(
+                Policy.of(Objects::nonNull,
+                        () -> new ErrorResult("amount", "Price amount cannot be null", "AMOUNT_REQUIRED")),
+                Policy.of((Integer a) -> a == null || a >= 0,
+                        () -> new ErrorResult("amount", "Price amount cannot be negative", "AMOUNT_NEGATIVE")))
+                .verify(amount, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
     }
 
     /**

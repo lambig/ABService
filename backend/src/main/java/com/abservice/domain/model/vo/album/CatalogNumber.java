@@ -1,9 +1,13 @@
 package com.abservice.domain.model.vo.album;
 
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
+import com.abservice.lib.ErrorResult;
+import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.NonNull;
 
 import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * カタログナンバーの値オブジェクト
@@ -29,12 +33,14 @@ public record CatalogNumber(@NonNull String value) implements ValueObject<Catalo
      *             カタログナンバーがnull、空白の場合、または最大長を超える場合
      */
     public CatalogNumber {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Catalog number cannot be blank");
-        }
-        if (value.length() > 100) {
-            throw new IllegalArgumentException("Catalog number must be 100 characters or less");
-        }
+        Policy.all(
+                Policy.of(StringUtils::isNotBlank,
+                        () -> new ErrorResult("value", "Catalog number cannot be blank", "CATALOG_NUMBER_REQUIRED")),
+                Policy.of((String v) -> StringUtils.length(v) <= 100,
+                        () -> new ErrorResult("value", "Catalog number must be 100 characters or less",
+                                "CATALOG_NUMBER_TOO_LONG")))
+                .verify(value, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
     }
 
     /**

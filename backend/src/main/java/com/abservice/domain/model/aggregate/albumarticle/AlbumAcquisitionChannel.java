@@ -2,13 +2,18 @@ package com.abservice.domain.model.aggregate.albumarticle;
 
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.entity.DomainEntity;
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.album.ChannelType;
 import com.abservice.domain.model.vo.common.Url;
+import com.abservice.lib.ErrorResult;
+import java.util.Objects;
+import java.util.function.Function;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.With;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * アルバム入手経路（集約内エンティティ）
@@ -43,12 +48,14 @@ public class AlbumAcquisitionChannel implements DomainEntity<AlbumAcquisitionCha
      * @return 新規AlbumAcquisitionChannel
      */
     public static AlbumAcquisitionChannel create(ChannelType channelType, String name, Url url, String note) {
-        if (channelType == null) {
-            throw new IllegalArgumentException("Channel type cannot be null");
-        }
-        if (name == null || name.isBlank()) {
-            throw new IllegalArgumentException("Name cannot be blank");
-        }
+        Policy.<ChannelType>of(Objects::nonNull,
+                () -> new ErrorResult("channelType", "Channel type cannot be null", "CHANNEL_TYPE_REQUIRED"))
+                .verify(channelType, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
+        Policy.<String>of(StringUtils::isNotBlank,
+                () -> new ErrorResult("name", "Name cannot be blank", "NAME_REQUIRED"))
+                .verify(name, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         return new AlbumAcquisitionChannel(Id.generate(), channelType, name, url, note);
     }
 
@@ -80,9 +87,10 @@ public class AlbumAcquisitionChannel implements DomainEntity<AlbumAcquisitionCha
      * @return 更新されたAlbumAcquisitionChannel
      */
     public AlbumAcquisitionChannel changeChannelType(ChannelType newChannelType) {
-        if (newChannelType == null) {
-            throw new IllegalArgumentException("Channel type cannot be null");
-        }
+        Policy.<ChannelType>of(Objects::nonNull,
+                () -> new ErrorResult("channelType", "Channel type cannot be null", "CHANNEL_TYPE_REQUIRED"))
+                .verify(newChannelType, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         return withChannelType(newChannelType);
     }
 
@@ -94,9 +102,10 @@ public class AlbumAcquisitionChannel implements DomainEntity<AlbumAcquisitionCha
      * @return 更新されたAlbumAcquisitionChannel
      */
     public AlbumAcquisitionChannel changeName(String newName) {
-        if (newName == null || newName.isBlank()) {
-            throw new IllegalArgumentException("Name cannot be blank");
-        }
+        Policy.<String>of(StringUtils::isNotBlank,
+                () -> new ErrorResult("name", "Name cannot be blank", "NAME_REQUIRED"))
+                .verify(newName, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         return withName(newName);
     }
 
@@ -135,12 +144,14 @@ public class AlbumAcquisitionChannel implements DomainEntity<AlbumAcquisitionCha
      */
     public record Id(String value) implements EntityId<AlbumAcquisitionChannel> {
         public Id {
-            if (value == null || value.isBlank()) {
-                throw new IllegalArgumentException("AlbumAcquisitionChannel ID cannot be blank");
-            }
-            if (!EntityId.isValidUuid(value)) {
-                throw new IllegalArgumentException("AlbumAcquisitionChannel ID must be a valid UUID: " + value);
-            }
+            Policy.<String>all(
+                    Policy.of(StringUtils::isNotBlank,
+                            () -> new ErrorResult("value", "AlbumAcquisitionChannel ID cannot be blank", "ID_BLANK")),
+                    Policy.of(EntityId::isValidUuid,
+                            () -> new ErrorResult("value", "AlbumAcquisitionChannel ID must be a valid UUID: " + value,
+                                    "ID_INVALID_UUID")))
+                    .verify(value, Function.identity())
+                    .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         }
 
         /**

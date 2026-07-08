@@ -29,6 +29,8 @@ final class SinglePolicy<T> implements Policy<T> {
 
     @Override
     public <R> Result<R> verify(T value, Function<? super T, ? extends R> constructor) {
-        return predicate.test(value) ? Result.success(constructor.apply(value)) : Result.failure(errorSupplier.get());
+        return predicate.test(value)
+                ? Result.success(constructor.apply(value))
+                : Result.failure(errorSupplier.get());
     }
 }

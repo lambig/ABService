@@ -1,23 +1,29 @@
 package com.abservice.domain.model.aggregate.album;
 
+import static java.util.function.Predicate.not;
+
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
+import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.aggregate.Aggregate;
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
+import com.abservice.lib.ErrorResult;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -180,9 +186,9 @@ public class Album implements Aggregate<Album, Album.Id> {
         final var validatedTrack = Optional.ofNullable(track)
                 .orElseThrow(() -> new IllegalArgumentException("Track cannot be null"));
         // トラック番号の重複チェック
-        if (tracks.stream().anyMatch(t -> t.trackNo().equals(validatedTrack.trackNo()))) {
+        tracks.stream().filter(t -> t.trackNo().equals(validatedTrack.trackNo())).findFirst().ifPresent(dup -> {
             throw new IllegalArgumentException("Track number " + validatedTrack.trackNo() + " already exists");
-        }
+        });
         return withTracks(Stream.concat(tracks.stream(), Stream.of(validatedTrack)).toList());
     }
 
@@ -196,10 +202,9 @@ public class Album implements Aggregate<Album, Album.Id> {
     public @NonNull Album removeTrack(Track.@NonNull Id trackId) {
         final var validatedTrackId = Optional.ofNullable(trackId)
                 .orElseThrow(() -> new IllegalArgumentException("Track ID cannot be null"));
-        if (tracks.stream().noneMatch(t -> t.id().equals(validatedTrackId))) {
-            throw new IllegalArgumentException("Track with ID " + validatedTrackId.value() + " not found");
-        }
-        return withTracks(tracks.stream().filter(t -> !t.id().equals(validatedTrackId)).toList());
+        tracks.stream().filter(t -> t.hasId(validatedTrackId)).findFirst().orElseThrow(
+                () -> new IllegalArgumentException("Track with ID " + validatedTrackId.value() + " not found"));
+        return withTracks(tracks.stream().filter(t -> !t.hasId(validatedTrackId)).toList());
     }
 
     /**
@@ -212,15 +217,16 @@ public class Album implements Aggregate<Album, Album.Id> {
     public @NonNull Album updateTrack(@NonNull Track updatedTrack) {
         final var validatedTrack = Optional.ofNullable(updatedTrack)
                 .orElseThrow(() -> new IllegalArgumentException("Updated track cannot be null"));
-        if (tracks.stream().noneMatch(t -> t.id().equals(validatedTrack.id()))) {
-            throw new IllegalArgumentException("Track with ID " + validatedTrack.id().value() + " not found");
-        }
+        tracks.stream().filter(validatedTrack::equivalentTo).findFirst().orElseThrow(
+                () -> new IllegalArgumentException("Track with ID " + validatedTrack.id().value() + " not found"));
         // トラック番号の重複チェック（自分自身以外）
-        if (tracks.stream().filter(t -> !t.id().equals(validatedTrack.id()))
-                .anyMatch(t -> t.trackNo().equals(validatedTrack.trackNo()))) {
-            throw new IllegalArgumentException("Track number " + validatedTrack.trackNo() + " already exists");
-        }
-        return withTracks(tracks.stream().map(t -> t.id().equals(validatedTrack.id()) ? validatedTrack : t).toList());
+        tracks.stream().filter(not(validatedTrack::equivalentTo))
+                .filter(t -> t.trackNo().equals(validatedTrack.trackNo())).findFirst().ifPresent(dup -> {
+                    throw new IllegalArgumentException("Track number " + validatedTrack.trackNo() + " already exists");
+                });
+        return withTracks(tracks.stream().map(t -> validatedTrack.equivalentTo(t)
+                ? validatedTrack
+                : t).toList());
     }
 
     /**
@@ -236,7 +242,7 @@ public class Album implements Aggregate<Album, Album.Id> {
 
         final var trackNo = new AtomicInteger(1);
         final var newTracks = validatedIds.stream().map(trackId -> {
-            final var track = tracks.stream().filter(t -> t.id().equals(trackId)).findFirst()
+            final var track = tracks.stream().filter(t -> t.hasId(trackId)).findFirst()
                     .orElseThrow(() -> new IllegalArgumentException("Track with ID " + trackId.value() + " not found"));
             return track.withTrackNo(trackNo.getAndIncrement());
         }).toList();
@@ -261,7 +267,7 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return トラック
      */
     public @NonNull Track getTrack(Track.@NonNull Id trackId) {
-        return tracks.stream().filter(t -> t.id().equals(trackId)).findFirst()
+        return tracks.stream().filter(t -> t.hasId(trackId)).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Track with ID " + trackId.value() + " not found"));
     }
 
@@ -296,12 +302,14 @@ public class Album implements Aggregate<Album, Album.Id> {
      */
     public record Id(@NonNull String value) implements EntityId<Album> {
         public Id {
-            if (value == null || value.isBlank()) {
-                throw new IllegalArgumentException("Album ID cannot be blank");
-            }
-            if (!EntityId.isValidUuid(value)) {
-                throw new IllegalArgumentException("Album ID must be a valid UUID: " + value);
-            }
+            Policy.<String>all(
+                    Policy.of(StringUtils::isNotBlank,
+                            () -> new ErrorResult("value", "Album ID cannot be blank", "ID_BLANK")),
+                    Policy.of(EntityId::isValidUuid,
+                            () -> new ErrorResult("value", "Album ID must be a valid UUID: " + value,
+                                    "ID_INVALID_UUID")))
+                    .verify(value, Function.identity())
+                    .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         }
 
         /**

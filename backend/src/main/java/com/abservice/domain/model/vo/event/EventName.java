@@ -1,8 +1,12 @@
 package com.abservice.domain.model.vo.event;
 
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
+import com.abservice.lib.ErrorResult;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * イベント名の値オブジェクト
@@ -28,12 +32,14 @@ public record EventName(String value) implements ValueObject<EventName> {
      *             名称がnullまたは空白の場合、または最大長を超える場合
      */
     public EventName {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Event name cannot be blank");
-        }
-        if (value.length() > 255) {
-            throw new IllegalArgumentException("Event name must be 255 characters or less");
-        }
+        Policy.all(
+                Policy.of(StringUtils::isNotBlank,
+                        () -> new ErrorResult("value", "Event name cannot be blank", "EVENT_NAME_REQUIRED")),
+                Policy.of((String v) -> StringUtils.length(v) <= 255,
+                        () -> new ErrorResult("value", "Event name must be 255 characters or less",
+                                "EVENT_NAME_TOO_LONG")))
+                .verify(value, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
     }
 
     @Override

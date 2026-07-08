@@ -1,8 +1,12 @@
 package com.abservice.domain.model.vo.album;
 
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
+import com.abservice.lib.ErrorResult;
 
+import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * 再生時間の値オブジェクト
@@ -28,12 +32,15 @@ public record Duration(Integer milliseconds) implements ValueObject<Duration> {
      *             ミリ秒がnullまたは負の値の場合
      */
     public Duration {
-        if (milliseconds == null) {
-            throw new IllegalArgumentException("Duration milliseconds cannot be null");
-        }
-        if (milliseconds < 0) {
-            throw new IllegalArgumentException("Duration milliseconds cannot be negative");
-        }
+        Policy.<Integer>all(
+                Policy.of(Objects::nonNull,
+                        () -> new ErrorResult("milliseconds", "Duration milliseconds cannot be null",
+                                "DURATION_REQUIRED")),
+                Policy.of((Integer v) -> v == null || v >= 0,
+                        () -> new ErrorResult("milliseconds", "Duration milliseconds cannot be negative",
+                                "DURATION_NEGATIVE")))
+                .verify(milliseconds, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
     }
 
     /**

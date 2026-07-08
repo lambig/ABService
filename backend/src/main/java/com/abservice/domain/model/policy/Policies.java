@@ -4,7 +4,6 @@ import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import java.util.List;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 
 /**
  * ポリシー／検証結果を組み合わせるためのユーティリティ。
@@ -30,10 +29,10 @@ public final class Policies {
      *            生成される値の型
      */
     public static <R> Result<R> combine(List<Result<?>> validations, Supplier<? extends R> constructor) {
-        final List<ErrorResult> errors = validations.stream()
-                .flatMap(r -> r instanceof Result.Failure<?> f ? f.errors().stream() : Stream.<ErrorResult>empty())
-                .toList();
-        return errors.isEmpty() ? Result.success(constructor.get()) : Result.failure(errors);
+        final List<ErrorResult> errors = validations.stream().flatMap(r -> r.errors().stream()).toList();
+        return errors.isEmpty()
+                ? Result.success(constructor.get())
+                : Result.failure(errors);
     }
 
     /**
@@ -52,10 +51,10 @@ public final class Policies {
      *            検証結果の値の型
      */
     public static <T> Result<T> nested(String parent, Result<T> result) {
-        return switch (result) {
-            case Result.Success<T> success -> success;
-            case Result.Failure<T> failure -> Result.failure(failure.errors().stream()
-                    .map(e -> new ErrorResult(parent + "." + e.field(), e.message(), e.code())).toList());
-        };
+        final List<ErrorResult> nestedErrors = result.errors().stream()
+                .map(e -> new ErrorResult(parent + "." + e.field(), e.message(), e.code())).toList();
+        return nestedErrors.isEmpty()
+                ? result
+                : Result.failure(nestedErrors);
     }
 }

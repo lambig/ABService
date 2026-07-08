@@ -43,7 +43,7 @@ public final class ArtistCredit implements ValueObject<ArtistCredit> {
     private ArtistCredit(@NonNull ArtistCreditName displayName, @Nullable String sortKey) {
         this.displayName = Optional.ofNullable(displayName)
                 .orElseThrow(() -> new IllegalArgumentException("Display name cannot be null"));
-        this.sortKey = sortKey != null ? sortKey : displayName.value();
+        this.sortKey = Optional.ofNullable(sortKey).orElse(displayName.value());
     }
 
     /**

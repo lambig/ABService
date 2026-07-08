@@ -6,6 +6,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Version;
 
 import java.time.Instant;
+import java.util.Optional;
 
 /**
  * 共通監査列を持つエンティティの基底クラス
@@ -168,10 +169,10 @@ public abstract class AuditableEntity {
      *            監査情報
      */
     public void setCreationAuditInfo(AuditInfo auditInfo) {
-        if (auditInfo != null) {
-            this.createdByService = auditInfo.serviceName();
-            this.createdByUser = auditInfo.userId();
-        }
+        Optional.ofNullable(auditInfo).ifPresent(info -> {
+            this.createdByService = info.serviceName();
+            this.createdByUser = info.userId();
+        });
     }
 
     /**
@@ -184,9 +185,9 @@ public abstract class AuditableEntity {
      *            監査情報
      */
     public void setUpdateAuditInfo(AuditInfo auditInfo) {
-        if (auditInfo != null) {
-            this.updatedByService = auditInfo.serviceName();
-            this.updatedByUser = auditInfo.userId();
-        }
+        Optional.ofNullable(auditInfo).ifPresent(info -> {
+            this.updatedByService = info.serviceName();
+            this.updatedByUser = info.userId();
+        });
     }
 }

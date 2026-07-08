@@ -6,12 +6,15 @@ import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.aggregate.Aggregate;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.entity.article.ArticleTag;
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.model.vo.article.MarkupContent;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.lib.ErrorResult;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.AccessLevel;
@@ -166,8 +169,9 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article publish(@NonNull BusinessDateTime currentDateTime) {
-        return withPublicFlag(true).withPublishedAt(publishedAt == null ? currentDateTime : publishedAt)
-                .withUpdatedAtBusiness(currentDateTime);
+        return withPublicFlag(true).withPublishedAt(publishedAt == null
+                ? currentDateTime
+                : publishedAt).withUpdatedAtBusiness(currentDateTime);
     }
 
     /**
@@ -200,9 +204,11 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article setAlbumId(Album.@NonNull Id newAlbumId, @NonNull BusinessDateTime currentDateTime) {
-        if (articleType != ArticleType.ALBUM) {
-            throw new IllegalStateException("Cannot set album ID for non-ALBUM article type");
-        }
+        Policy.<Article>of(a -> a.articleType() == ArticleType.ALBUM,
+                () -> new ErrorResult("articleType", "Cannot set album ID for non-ALBUM article type",
+                        "ARTICLE_TYPE_NOT_ALBUM"))
+                .verify(this, Function.identity())
+                .resolve(errors -> new IllegalStateException(errors.getFirst().message()));
         return withAlbumId(newAlbumId).withUpdatedAtBusiness(currentDateTime);
     }
 
@@ -238,9 +244,9 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
         final var validatedTag = Optional.ofNullable(tag)
                 .orElseThrow(() -> new IllegalArgumentException("Tag cannot be null"));
         // IDの重複チェック
-        if (tags.stream().anyMatch(t -> t.id().equals(validatedTag.id()))) {
+        tags.stream().filter(validatedTag::equivalentTo).findFirst().ifPresent(dup -> {
             throw new IllegalArgumentException("Tag with ID " + validatedTag.id().value() + " already exists");
-        }
+        });
         return withTags(Stream.concat(tags.stream(), Stream.of(validatedTag)).toList())
                 .withUpdatedAtBusiness(currentDateTime);
     }
@@ -257,7 +263,7 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
     public @NonNull Article removeTag(ArticleTag.@NonNull Id tagId, @NonNull BusinessDateTime currentDateTime) {
         final var validatedTagId = Optional.ofNullable(tagId)
                 .orElseThrow(() -> new IllegalArgumentException("Tag ID cannot be null"));
-        final var newTags = tags.stream().filter(t -> !t.id().equals(validatedTagId)).collect(Collectors.toList());
+        final var newTags = tags.stream().filter(t -> !t.hasId(validatedTagId)).collect(Collectors.toList());
         return withTags(Collections.unmodifiableList(newTags)).withUpdatedAtBusiness(currentDateTime);
     }
 
@@ -280,9 +286,10 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
         public Id {
             Optional.ofNullable(value).filter(not(String::isBlank))
                     .orElseThrow(() -> new IllegalArgumentException("Article ID cannot be blank"));
-            if (!EntityId.isValidUuid(value)) {
-                throw new IllegalArgumentException("Article ID must be a valid UUID: " + value);
-            }
+            Policy.<String>of(EntityId::isValidUuid,
+                    () -> new ErrorResult("value", "Article ID must be a valid UUID: " + value, "ID_INVALID_UUID"))
+                    .verify(value, Function.identity())
+                    .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         }
 
         /**

@@ -4,9 +4,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
 import com.abservice.domain.model.vo.event.EventName;
+import com.abservice.lib.ErrorResult;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.experimental.Accessors;
@@ -49,13 +52,13 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      *            補足情報（nullable）
      */
     private EventReleasedAt(EventName name, List<EventDateAndSpace> dateAndSpaces, String place, String note) {
-        if (name == null) {
-            throw new IllegalArgumentException("Event name cannot be null");
-        }
+        Policy.<EventName>of(Objects::nonNull,
+                () -> new ErrorResult("name", "Event name cannot be null", "NAME_REQUIRED"))
+                .verify(name, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         this.name = name;
-        this.dateAndSpaces = dateAndSpaces != null
-                ? Collections.unmodifiableList(dateAndSpaces)
-                : Collections.emptyList();
+        this.dateAndSpaces = Optional.ofNullable(dateAndSpaces)
+                .<List<EventDateAndSpace>>map(Collections::unmodifiableList).orElse(Collections.emptyList());
         this.place = place;
         this.note = note;
     }
@@ -81,8 +84,8 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      * @return EventReleasedAt
      */
     public static EventReleasedAt of(String name, BusinessDate date) {
-        return new EventReleasedAt(new EventName(name), date != null ? List.of(EventDateAndSpace.of(date)) : null, null,
-                null);
+        return new EventReleasedAt(new EventName(name),
+                Optional.ofNullable(date).map(d -> List.of(EventDateAndSpace.of(d))).orElse(null), null, null);
     }
 
     /**
@@ -98,7 +101,8 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      */
     public static EventReleasedAt of(String name, BusinessDate date, String spaceNumber) {
         return new EventReleasedAt(new EventName(name),
-                date != null ? List.of(EventDateAndSpace.of(date, spaceNumber)) : null, null, null);
+                Optional.ofNullable(date).map(d -> List.of(EventDateAndSpace.of(d, spaceNumber))).orElse(null), null,
+                null);
     }
 
     /**
@@ -152,6 +156,7 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      */
     public static EventReleasedAt of(String name, BusinessDate date, String place, String spaceNumber, String note) {
         return new EventReleasedAt(new EventName(name),
-                date != null ? List.of(EventDateAndSpace.of(date, spaceNumber)) : null, place, note);
+                Optional.ofNullable(date).map(d -> List.of(EventDateAndSpace.of(d, spaceNumber))).orElse(null), place,
+                note);
     }
 }

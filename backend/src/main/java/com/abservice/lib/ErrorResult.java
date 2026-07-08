@@ -34,6 +34,8 @@ public record ErrorResult(String field, String message, @Nullable String code) {
 
     @Override
     public String toString() {
-        return code != null ? field + ": " + message + " (code: " + code + ")" : field + ": " + message;
+        return code != null
+                ? field + ": " + message + " (code: " + code + ")"
+                : field + ": " + message;
     }
 }

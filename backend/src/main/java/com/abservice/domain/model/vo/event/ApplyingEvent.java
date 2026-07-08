@@ -2,8 +2,13 @@ package com.abservice.domain.model.vo.event;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.function.Function;
 
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.lib.ErrorResult;
+import org.apache.commons.collections4.ListUtils;
 
 /**
  * 申込中イベント Value Object
@@ -38,13 +43,11 @@ public record ApplyingEvent(EventName name, List<BusinessDate> tentativeDates) i
      *             イベント名がnullの場合
      */
     public ApplyingEvent {
-        if (name == null) {
-            throw new IllegalArgumentException("Event name cannot be null");
-        }
-        if (tentativeDates == null) {
-            tentativeDates = List.of();
-        }
-        tentativeDates = Collections.unmodifiableList(tentativeDates);
+        Policy.<EventName>of(Objects::nonNull,
+                () -> new ErrorResult("name", "Event name cannot be null", "EVENT_NAME_REQUIRED"))
+                .verify(name, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
+        tentativeDates = Collections.unmodifiableList(ListUtils.emptyIfNull(tentativeDates));
     }
 
     /**

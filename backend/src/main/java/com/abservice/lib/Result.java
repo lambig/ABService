@@ -1,11 +1,11 @@
 package com.abservice.lib;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.NonNull;
 
 /**
@@ -63,6 +63,10 @@ public sealed interface Result<T> {
      *            成功時の値の型
      */
     record Success<T>(@NonNull T value) implements Result<T> {
+        @Override
+        public List<ErrorResult> errors() {
+            return List.of();
+        }
     }
 
     /**
@@ -73,15 +77,24 @@ public sealed interface Result<T> {
      */
     record Failure<T>(@NonNull List<ErrorResult> errors) implements Result<T> {
         public Failure {
-            if (errors.isEmpty()) {
-                throw new IllegalArgumentException("errors must not be empty");
-            }
+            Validate.notEmpty(errors, "errors must not be empty");
         }
 
         public Failure(ErrorResult... errors) {
             this(Arrays.asList(errors));
         }
     }
+
+    /**
+     * このResultが保持するエラーのリストを返します。 成功時は空リスト、失敗時は保持するエラーのリストを返します。
+     *
+     * <p>
+     * Success/Failure がそれぞれ自身の値を返す多態メソッドです（型判別は不要）。
+     * </p>
+     *
+     * @return エラーのリスト（成功時は空）
+     */
+    List<ErrorResult> errors();
 
     /**
      * 結果を解決します。 成功時は値を返し、失敗時は例外をスローします。
@@ -305,20 +318,6 @@ public sealed interface Result<T> {
     }
 
     /**
-     * Result が失敗の場合、そのエラーを sink に追加します。 zip のエラー集約用の内部ヘルパです。
-     *
-     * @param result
-     *            検査対象のResult
-     * @param sink
-     *            エラーを追加するリスト
-     */
-    private static void collectErrors(Result<?> result, List<ErrorResult> sink) {
-        if (result instanceof Failure<?> failure) {
-            sink.addAll(failure.errors());
-        }
-    }
-
-    /**
      * 複数のResultから失敗エラーを引数順に集約してリストにまとめます。 zip のエラー集約用の内部ヘルパです。
      *
      * @param results
@@ -326,11 +325,7 @@ public sealed interface Result<T> {
      * @return 全失敗エラーを集約したリスト
      */
     private static List<ErrorResult> aggregateErrors(Result<?>... results) {
-        final List<ErrorResult> errors = new ArrayList<>();
-        for (final Result<?> result : results) {
-            collectErrors(result, errors);
-        }
-        return errors;
+        return Arrays.stream(results).flatMap(result -> result.errors().stream()).toList();
     }
 
     /**

@@ -1,8 +1,12 @@
 package com.abservice.domain.model.vo.album;
 
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
+import com.abservice.lib.ErrorResult;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * トラックタイトルの値オブジェクト
@@ -28,12 +32,14 @@ public record TrackTitle(String value) implements ValueObject<TrackTitle> {
      *             タイトルがnullまたは空白の場合、または最大長を超える場合
      */
     public TrackTitle {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Track title cannot be blank");
-        }
-        if (value.length() > 255) {
-            throw new IllegalArgumentException("Track title must be 255 characters or less");
-        }
+        Policy.all(
+                Policy.of(StringUtils::isNotBlank,
+                        () -> new ErrorResult("trackTitle", "Track title cannot be blank", "TRACK_TITLE_REQUIRED")),
+                Policy.of((String v) -> StringUtils.length(v) <= 255,
+                        () -> new ErrorResult("trackTitle", "Track title must be 255 characters or less",
+                                "TRACK_TITLE_TOO_LONG")))
+                .verify(value, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
     }
 
     /**

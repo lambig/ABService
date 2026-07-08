@@ -2,6 +2,7 @@ package com.abservice.domain.model.aggregate.albumarticle;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import com.abservice.domain.model.aggregate.Aggregate;
@@ -55,9 +56,7 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      */
     public static AlbumArticle create(Album.Id albumId, String introLong, String introShort, String firstEventSpace,
             LabelTag labelTag, AlbumDistribution distribution) {
-        if (albumId == null) {
-            throw new IllegalArgumentException("Album ID cannot be null");
-        }
+        Optional.ofNullable(albumId).orElseThrow(() -> new IllegalArgumentException("Album ID cannot be null"));
         return new AlbumArticle(albumId, introLong, introShort, firstEventSpace, labelTag, distribution,
                 Collections.emptyList());
     }
@@ -143,14 +142,13 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      * @return 更新されたAlbumArticle
      */
     public AlbumArticle addAcquisitionChannel(AlbumAcquisitionChannel channel) {
-        if (channel == null) {
-            throw new IllegalArgumentException("Acquisition channel cannot be null");
-        }
+        Optional.ofNullable(channel)
+                .orElseThrow(() -> new IllegalArgumentException("Acquisition channel cannot be null"));
         // IDの重複チェック
-        if (acquisitionChannels.stream().anyMatch(c -> c.id().equals(channel.id()))) {
+        acquisitionChannels.stream().filter(channel::equivalentTo).findFirst().ifPresent(dup -> {
             throw new IllegalArgumentException(
                     "Acquisition channel with ID " + channel.id().value() + " already exists");
-        }
+        });
         return withAcquisitionChannels(Stream.concat(acquisitionChannels.stream(), Stream.of(channel)).toList());
     }
 
@@ -162,13 +160,10 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      * @return 更新されたAlbumArticle
      */
     public AlbumArticle removeAcquisitionChannel(AlbumAcquisitionChannel.Id channelId) {
-        if (channelId == null) {
-            throw new IllegalArgumentException("Channel ID cannot be null");
-        }
-        if (acquisitionChannels.stream().noneMatch(c -> c.id().equals(channelId))) {
-            throw new IllegalArgumentException("Acquisition channel with ID " + channelId.value() + " not found");
-        }
-        return withAcquisitionChannels(acquisitionChannels.stream().filter(c -> !c.id().equals(channelId)).toList());
+        Optional.ofNullable(channelId).orElseThrow(() -> new IllegalArgumentException("Channel ID cannot be null"));
+        acquisitionChannels.stream().filter(c -> c.hasId(channelId)).findFirst().orElseThrow(
+                () -> new IllegalArgumentException("Acquisition channel with ID " + channelId.value() + " not found"));
+        return withAcquisitionChannels(acquisitionChannels.stream().filter(c -> !c.hasId(channelId)).toList());
     }
 
     /**
@@ -179,15 +174,14 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      * @return 更新されたAlbumArticle
      */
     public AlbumArticle updateAcquisitionChannel(AlbumAcquisitionChannel updatedChannel) {
-        if (updatedChannel == null) {
-            throw new IllegalArgumentException("Updated channel cannot be null");
-        }
-        if (acquisitionChannels.stream().noneMatch(c -> c.id().equals(updatedChannel.id()))) {
-            throw new IllegalArgumentException(
-                    "Acquisition channel with ID " + updatedChannel.id().value() + " not found");
-        }
-        return withAcquisitionChannels(acquisitionChannels.stream()
-                .map(c -> c.id().equals(updatedChannel.id()) ? updatedChannel : c).toList());
+        Optional.ofNullable(updatedChannel)
+                .orElseThrow(() -> new IllegalArgumentException("Updated channel cannot be null"));
+        acquisitionChannels.stream().filter(updatedChannel::equivalentTo).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Acquisition channel with ID " + updatedChannel.id().value() + " not found"));
+        return withAcquisitionChannels(acquisitionChannels.stream().map(c -> c.equivalentTo(updatedChannel)
+                ? updatedChannel
+                : c).toList());
     }
 
     /**

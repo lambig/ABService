@@ -1,8 +1,12 @@
 package com.abservice.domain.model.vo.album;
 
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
+import com.abservice.lib.ErrorResult;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 
 /**
@@ -37,13 +41,16 @@ public record Isrc(String value) implements ValueObject<Isrc> {
      *             ISRCがnullまたは不正なフォーマットの場合
      */
     public Isrc {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("ISRC cannot be blank");
-        }
+        Policy.<String>of(StringUtils::isNotBlank,
+                () -> new ErrorResult("value", "ISRC cannot be blank", "ISRC_REQUIRED"))
+                .verify(value, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         final var normalized = value.toUpperCase().trim();
-        if (!ISRC_PATTERN.matcher(normalized).matches()) {
-            throw new IllegalArgumentException("ISRC must match the format: CC-XXX-YY-NNNNN (hyphens optional)");
-        }
+        Policy.of((String v) -> ISRC_PATTERN.matcher(v).matches(),
+                () -> new ErrorResult("value", "ISRC must match the format: CC-XXX-YY-NNNNN (hyphens optional)",
+                        "ISRC_INVALID_FORMAT"))
+                .verify(normalized, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         value = normalized.replace("-", ""); // ハイフンを除去して統一フォーマットで保持
     }
 

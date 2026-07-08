@@ -1,9 +1,13 @@
 package com.abservice.domain.model.vo.common;
 
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
+import com.abservice.lib.ErrorResult;
+import org.apache.commons.lang3.StringUtils;
 
 import java.net.URI;
 import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * URLの値オブジェクト
@@ -32,12 +36,13 @@ public record Url(String value) implements ValueObject<Url> {
      *             URLがnullまたは空白の場合、最大長を超える場合、または不正なフォーマットの場合
      */
     public Url {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("URL cannot be blank");
-        }
-        if (value.length() > MAX_LENGTH) {
-            throw new IllegalArgumentException("URL must be " + MAX_LENGTH + " characters or less");
-        }
+        Policy.all(
+                Policy.of(StringUtils::isNotBlank, () -> new ErrorResult("url", "URL cannot be blank", "URL_REQUIRED")),
+                Policy.of((String v) -> StringUtils.length(v) <= MAX_LENGTH,
+                        () -> new ErrorResult("url", "URL must be " + MAX_LENGTH + " characters or less",
+                                "URL_TOO_LONG")))
+                .verify(value, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         validateUriFormat(value);
     }
 

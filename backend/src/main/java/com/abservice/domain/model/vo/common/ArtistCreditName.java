@@ -1,8 +1,12 @@
 package com.abservice.domain.model.vo.common;
 
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
+import com.abservice.lib.ErrorResult;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * アーティスト名義の値オブジェクト
@@ -28,12 +32,15 @@ public record ArtistCreditName(String value) implements ValueObject<ArtistCredit
      *             名義がnullまたは空白の場合、または最大長を超える場合
      */
     public ArtistCreditName {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Artist credit name cannot be blank");
-        }
-        if (value.length() > 255) {
-            throw new IllegalArgumentException("Artist credit name must be 255 characters or less");
-        }
+        Policy.all(
+                Policy.of(StringUtils::isNotBlank,
+                        () -> new ErrorResult("artistCreditName", "Artist credit name cannot be blank",
+                                "ARTIST_CREDIT_NAME_REQUIRED")),
+                Policy.of((String v) -> StringUtils.length(v) <= 255,
+                        () -> new ErrorResult("artistCreditName", "Artist credit name must be 255 characters or less",
+                                "ARTIST_CREDIT_NAME_TOO_LONG")))
+                .verify(value, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
     }
 
     /**
