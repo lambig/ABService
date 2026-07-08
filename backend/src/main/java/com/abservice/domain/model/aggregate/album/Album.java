@@ -5,19 +5,23 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
+import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.aggregate.Aggregate;
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
+import com.abservice.lib.ErrorResult;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -296,12 +300,14 @@ public class Album implements Aggregate<Album, Album.Id> {
      */
     public record Id(@NonNull String value) implements EntityId<Album> {
         public Id {
-            if (value == null || value.isBlank()) {
-                throw new IllegalArgumentException("Album ID cannot be blank");
-            }
-            if (!EntityId.isValidUuid(value)) {
-                throw new IllegalArgumentException("Album ID must be a valid UUID: " + value);
-            }
+            Policy.<String>all(
+                    Policy.of(StringUtils::isNotBlank,
+                            () -> new ErrorResult("value", "Album ID cannot be blank", "ID_BLANK")),
+                    Policy.of(EntityId::isValidUuid,
+                            () -> new ErrorResult("value", "Album ID must be a valid UUID: " + value,
+                                    "ID_INVALID_UUID")))
+                    .verify(value, Function.identity())
+                    .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         }
 
         /**

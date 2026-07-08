@@ -1,9 +1,11 @@
 package com.abservice.domain.model.vo.common;
 
-import static java.util.function.Predicate.not;
-
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
+import com.abservice.lib.ErrorResult;
 import java.util.Optional;
+import java.util.function.Function;
+import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.NonNull;
 
 /**
@@ -30,11 +32,13 @@ public record Credit(@NonNull String value) implements ValueObject<Credit> {
      *             クレジットがnullまたは空白の場合、または最大長を超える場合
      */
     public Credit {
-        Optional.ofNullable(value).filter(not(String::isBlank))
-                .orElseThrow(() -> new IllegalArgumentException("Credit cannot be blank"));
-        if (value.length() > 255) {
-            throw new IllegalArgumentException("Credit must be 255 characters or less");
-        }
+        Policy.all(
+                Policy.of(StringUtils::isNotBlank,
+                        () -> new ErrorResult("credit", "Credit cannot be blank", "CREDIT_REQUIRED")),
+                Policy.of((String v) -> StringUtils.length(v) <= 255,
+                        () -> new ErrorResult("credit", "Credit must be 255 characters or less", "CREDIT_TOO_LONG")))
+                .verify(value, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
     }
 
     /**

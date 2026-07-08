@@ -1,9 +1,11 @@
 package com.abservice.domain.model.vo.tune;
 
-import static java.util.function.Predicate.not;
-
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
+import com.abservice.lib.ErrorResult;
 import java.util.Optional;
+import java.util.function.Function;
+import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.NonNull;
 
 /**
@@ -30,11 +32,14 @@ public record TuneTitle(@NonNull String value) implements ValueObject<TuneTitle>
      *             タイトルがnullまたは空白の場合、または最大長を超える場合
      */
     public TuneTitle {
-        Optional.ofNullable(value).filter(not(String::isBlank))
-                .orElseThrow(() -> new IllegalArgumentException("Tune title cannot be blank"));
-        if (value.length() > 255) {
-            throw new IllegalArgumentException("Tune title must be 255 characters or less");
-        }
+        Policy.all(
+                Policy.of(StringUtils::isNotBlank,
+                        () -> new ErrorResult("tuneTitle", "Tune title cannot be blank", "TUNE_TITLE_REQUIRED")),
+                Policy.of((String v) -> StringUtils.length(v) <= 255,
+                        () -> new ErrorResult("tuneTitle", "Tune title must be 255 characters or less",
+                                "TUNE_TITLE_TOO_LONG")))
+                .verify(value, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
     }
 
     /**

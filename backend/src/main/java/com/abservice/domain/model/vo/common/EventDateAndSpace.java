@@ -1,8 +1,11 @@
 package com.abservice.domain.model.vo.common;
 
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
+import com.abservice.lib.ErrorResult;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.experimental.Accessors;
@@ -38,9 +41,10 @@ public final class EventDateAndSpace implements ValueObject<EventDateAndSpace> {
      *            スペース番号（nullable、例：東A-01）
      */
     private EventDateAndSpace(BusinessDate date, String spaceNumber) {
-        if (date == null) {
-            throw new IllegalArgumentException("Event date cannot be null");
-        }
+        Policy.<BusinessDate>of(Objects::nonNull,
+                () -> new ErrorResult("date", "Event date cannot be null", "DATE_REQUIRED"))
+                .verify(date, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         this.date = date;
         this.spaceNumber = spaceNumber;
     }

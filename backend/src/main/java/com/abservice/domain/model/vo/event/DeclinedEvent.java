@@ -4,8 +4,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.lib.ErrorResult;
+import org.apache.commons.collections4.CollectionUtils;
 
 /**
  * 不参加確定イベント Value Object
@@ -59,28 +63,20 @@ public record DeclinedEvent(EventName name, List<BusinessDate> declinedDates, St
      *             イベント名がnull、declinedDatesが空、またはreasonがnullの場合
      */
     public DeclinedEvent {
-        validateName(name);
-        validateDeclinedDates(declinedDates);
-        validateReason(reason);
+        Policy.<EventName>of(Objects::nonNull,
+                () -> new ErrorResult("name", "Event name cannot be null", "EVENT_NAME_REQUIRED"))
+                .verify(name, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
+        Policy.<List<BusinessDate>>of(CollectionUtils::isNotEmpty,
+                () -> new ErrorResult("declinedDates", "Declined event must have at least one declined date",
+                        "DECLINED_DATES_REQUIRED"))
+                .verify(declinedDates, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
+        Policy.<DeclineReason>of(Objects::nonNull,
+                () -> new ErrorResult("reason", "Decline reason cannot be null", "DECLINE_REASON_REQUIRED"))
+                .verify(reason, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         declinedDates = Collections.unmodifiableList(declinedDates);
-    }
-
-    private static void validateName(EventName name) {
-        if (name == null) {
-            throw new IllegalArgumentException("Event name cannot be null");
-        }
-    }
-
-    private static void validateDeclinedDates(List<BusinessDate> dates) {
-        if (dates == null || dates.isEmpty()) {
-            throw new IllegalArgumentException("Declined event must have at least one declined date");
-        }
-    }
-
-    private static void validateReason(DeclineReason reason) {
-        if (reason == null) {
-            throw new IllegalArgumentException("Decline reason cannot be null");
-        }
     }
 
     /**
@@ -143,9 +139,10 @@ public record DeclinedEvent(EventName name, List<BusinessDate> declinedDates, St
      */
     public static DeclinedEvent fromTentative(TentativeEvent tentative, DeclineReason reason) {
         final var dates = tentative.tentativeDates();
-        if (dates.isEmpty()) {
-            throw new IllegalArgumentException("Cannot decline event without dates");
-        }
+        Policy.<List<BusinessDate>>of(CollectionUtils::isNotEmpty,
+                () -> new ErrorResult("dates", "Cannot decline event without dates", "DECLINE_DATES_REQUIRED"))
+                .verify(dates, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         return new DeclinedEvent(tentative.name(), dates, null, reason);
     }
 
@@ -160,9 +157,10 @@ public record DeclinedEvent(EventName name, List<BusinessDate> declinedDates, St
      */
     public static DeclinedEvent fromApplied(AppliedEvent applied, DeclineReason reason) {
         final var dates = applied.tentativeDates();
-        if (dates.isEmpty()) {
-            throw new IllegalArgumentException("Cannot decline event without dates");
-        }
+        Policy.<List<BusinessDate>>of(CollectionUtils::isNotEmpty,
+                () -> new ErrorResult("dates", "Cannot decline event without dates", "DECLINE_DATES_REQUIRED"))
+                .verify(dates, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         return new DeclinedEvent(applied.name(), dates, null, reason);
     }
 

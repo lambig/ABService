@@ -3,16 +3,20 @@ package com.abservice.domain.model.aggregate.album;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
+import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.entity.DomainEntity;
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.lib.ErrorResult;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -255,12 +259,14 @@ public class Track implements DomainEntity<Track, Track.Id> {
      */
     public record Id(@NonNull String value) implements EntityId<Track> {
         public Id {
-            if (value == null || value.isBlank()) {
-                throw new IllegalArgumentException("Track ID cannot be blank");
-            }
-            if (!EntityId.isValidUuid(value)) {
-                throw new IllegalArgumentException("Track ID must be a valid UUID: " + value);
-            }
+            Policy.<String>all(
+                    Policy.of(StringUtils::isNotBlank,
+                            () -> new ErrorResult("value", "Track ID cannot be blank", "ID_BLANK")),
+                    Policy.of(EntityId::isValidUuid,
+                            () -> new ErrorResult("value", "Track ID must be a valid UUID: " + value,
+                                    "ID_INVALID_UUID")))
+                    .verify(value, Function.identity())
+                    .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         }
 
         /**

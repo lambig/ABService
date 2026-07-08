@@ -1,8 +1,12 @@
 package com.abservice.domain.model.aggregate.album;
 
 import com.abservice.domain.model.aggregate.tune.Tune;
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.Url;
+import com.abservice.lib.ErrorResult;
+import java.util.Objects;
+import java.util.function.Function;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -47,9 +51,9 @@ public class TrackTune {
      */
     public static TrackTune create(Integer seq, Tune.Id tuneId, Credit composerCreditOverride,
             Credit arrangerCreditOverride, Url linkUrl) {
-        if (seq == null) {
-            throw new IllegalArgumentException("Seq cannot be null");
-        }
+        Policy.<Integer>of(Objects::nonNull, () -> new ErrorResult("seq", "Seq cannot be null", "SEQ_REQUIRED"))
+                .verify(seq, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         return new TrackTune(seq, tuneId, composerCreditOverride, arrangerCreditOverride, linkUrl);
     }
 

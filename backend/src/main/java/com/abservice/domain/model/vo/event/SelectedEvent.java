@@ -4,8 +4,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.lib.ErrorResult;
+import org.apache.commons.collections4.CollectionUtils;
 
 /**
  * 当選イベント（スペース未確定） Value Object
@@ -59,23 +63,18 @@ public record SelectedEvent(EventName name, List<BusinessDate> selectedDates, Li
      *             イベント名がnull、またはselectedDatesが空の場合
      */
     public SelectedEvent {
-        validateName(name);
-        validateSelectedDates(selectedDates);
+        Policy.<EventName>of(Objects::nonNull,
+                () -> new ErrorResult("name", "Event name cannot be null", "EVENT_NAME_REQUIRED"))
+                .verify(name, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
+        Policy.<List<BusinessDate>>of(CollectionUtils::isNotEmpty,
+                () -> new ErrorResult("selectedDates", "Selected event must have at least one selected date",
+                        "SELECTED_DATES_REQUIRED"))
+                .verify(selectedDates, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         declinedDates = normalizeDeclinedDates(declinedDates);
         selectedDates = Collections.unmodifiableList(selectedDates);
         declinedDates = Collections.unmodifiableList(declinedDates);
-    }
-
-    private static void validateName(EventName name) {
-        if (name == null) {
-            throw new IllegalArgumentException("Event name cannot be null");
-        }
-    }
-
-    private static void validateSelectedDates(List<BusinessDate> dates) {
-        if (dates == null || dates.isEmpty()) {
-            throw new IllegalArgumentException("Selected event must have at least one selected date");
-        }
     }
 
     private static List<BusinessDate> normalizeDeclinedDates(List<BusinessDate> dates) {

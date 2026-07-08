@@ -4,7 +4,10 @@ import static java.util.function.Predicate.not;
 
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.entity.DomainEntity;
+import com.abservice.domain.model.policy.Policy;
+import com.abservice.lib.ErrorResult;
 import java.util.Optional;
+import java.util.function.Function;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -64,9 +67,10 @@ public class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@NonNull 
         public Id {
             Optional.ofNullable(value).filter(not(String::isBlank))
                     .orElseThrow(() -> new IllegalArgumentException("ArticleTag ID cannot be blank"));
-            if (!EntityId.isValidUuid(value)) {
-                throw new IllegalArgumentException("ArticleTag ID must be a valid UUID: " + value);
-            }
+            Policy.<String>of(EntityId::isValidUuid,
+                    () -> new ErrorResult("value", "ArticleTag ID must be a valid UUID: " + value, "ID_INVALID_UUID"))
+                    .verify(value, Function.identity())
+                    .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         }
 
         /**

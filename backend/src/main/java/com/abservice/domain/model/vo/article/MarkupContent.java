@@ -5,6 +5,7 @@ import com.abservice.domain.model.vo.ValueObject;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import org.jspecify.annotations.NonNull;
@@ -37,12 +38,14 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
      *             contentまたはformatがnullの場合
      */
     public MarkupContent {
-        if (content == null) {
-            throw new IllegalArgumentException("Content cannot be null");
-        }
-        if (format == null) {
-            throw new IllegalArgumentException("Markup format cannot be null");
-        }
+        Policy.<String>of(Objects::nonNull,
+                () -> new ErrorResult("content", "Content cannot be null", "CONTENT_REQUIRED"))
+                .verify(content, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
+        Policy.<MarkupFormat>of(Objects::nonNull,
+                () -> new ErrorResult("format", "Markup format cannot be null", "MARKUP_FORMAT_REQUIRED"))
+                .verify(format, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
     }
 
     /**
