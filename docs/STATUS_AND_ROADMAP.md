@@ -217,7 +217,7 @@ testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.2'
 
 ABService は Java プロジェクトのため、Kotlin 向けの detekt カスタムルール26件はそのまま使えない。同等の制約を **ArchUnit / Checkstyle / javac・言語文法**で担保するか、Java に構文的対応物がないものは対象外とする。移植可否は「**強制手段の構文**」ではなく「**制約の意図が Java に適用可能か**」で判定する。
 
-現状: **強制済み14件（ArchUnit 10・Checkstyle 4）／ 対象外4件 ／ 未強制の欠落8件**。Java 相当のある22件に対し 14件（約64%）を強制。
+現状: **強制済み14件（ArchUnit 10・Checkstyle 4）／ 対象外5件 ／ 未強制の欠落7件**。Java 相当のある21件に対し 14件（約67%）を強制。
 
 | detekt ルール | 制約の意図 | Java での担保手段 | 状態 |
 |---|---|---|---|
@@ -244,7 +244,7 @@ ABService は Java プロジェクトのため、Kotlin 向けの detekt カス�
 | ForbiddenLogicalOperators | 中置論理演算子 `&&`/`\|\|`/`!` を禁止し宣言的合成へ | Checkstyle `IllegalToken`（`LAND`/`LOR`/`LNOT`） | ❌未 |
 | ForbiddenVarInDomain | domain で可変変数禁止 | Checkstyle（domain の field/local に `final` 強制） | ❌未 |
 | RequireValueClassForEntityId | EntityId は値型 | ArchUnit（EntityId 実装は record であること） | ❌未 |
-| RequirePrivateConstructorForEntityId | EntityId のコンストラクタは private | ArchUnit（record では要工夫） | ❌未 |
+| RequirePrivateConstructorForEntityId | EntityId の生成を検証経由に限定 | public record は canonical constructor を private 化できない（言語制約）。全生成経路でコンパクトコンストラクタ検証が必ず走るため意図は充足 | ⛔対象外 |
 | ForbiddenFullyQualifiedTypeReference | インライン FQN 禁止（import + 単純名） | Checkstyle 正規表現 | ❌未 |
 | PreferWhenForValueBranches | 値の分岐を `if` で返さず式にする | PMD（**`if` 文の値 return 禁止＋`switch` 文禁止 → ternary / switch 式へ**） | ❌未 |
 
