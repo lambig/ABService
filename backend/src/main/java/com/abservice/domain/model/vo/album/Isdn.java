@@ -100,13 +100,13 @@ public record Isdn(String value) implements ValueObject<Isdn> {
      * @return ハイフン付きISDN（例: 278-4-702901-97-8）
      */
     public String formattedValue() {
-        // 日本の場合: 278-4-XXXXXX-XX-X (3-1-7-2-1の構成)、その他の地域は簡略表示
-        return value.startsWith("2784") || value.startsWith("2794")
-                ? TextEscape.escape("${flag}-${group}-${work}-${suffix}-${check}").where("flag", value.substring(0, 3))
-                        .where("group", value.substring(3, 4)).where("work", value.substring(4, 10))
-                        .where("suffix", value.substring(10, 12)).where("check", value.substring(12, 13)).compile()
-                : TextEscape.escape("${flag}-${body}-${check}").where("flag", value.substring(0, 3))
-                        .where("body", value.substring(3, 12)).where("check", value.substring(12, 13)).compile();
+        // 日本の場合: 278-4-XXXXXX-XX-X (3-1-6-2-1の構成)、その他の地域は簡略表示
+        return TextEscape.escape("${flag}-${body}-${check}").where("flag", value.substring(0, 3))
+                .where("body",
+                        value.startsWith("2784") || value.startsWith("2794")
+                                ? value.substring(3, 4) + "-" + value.substring(4, 10) + "-" + value.substring(10, 12)
+                                : value.substring(3, 12))
+                .where("check", value.substring(12, 13)).compile();
     }
 
     @Override
