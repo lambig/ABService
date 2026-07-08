@@ -8,10 +8,13 @@ import java.util.List;
 
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventDateAndSpace;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+@DisplayName("確定イベント(ConfirmedEvent)")
 class ConfirmedEventTest {
 
+    @DisplayName("単一日程で生成すると名前・日程・スペースが設定され確定状態になる")
     @Test
     void testCreateWithSingleDate() {
         BusinessDate date = BusinessDate.of(LocalDate.of(2024, 12, 30));
@@ -26,6 +29,7 @@ class ConfirmedEventTest {
         assertThat(event.isTentative()).isFalse();
     }
 
+    @DisplayName("会場指定付きの単一日程で生成すると会場が設定される")
     @Test
     void testCreateWithSingleDateAndPlace() {
         BusinessDate date = BusinessDate.of(LocalDate.of(2024, 10, 27));
@@ -36,6 +40,7 @@ class ConfirmedEventTest {
         assertThat(event.place()).isEqualTo("東京流通センター");
     }
 
+    @DisplayName("複数日程で生成すると全日程と会場が設定される")
     @Test
     void testCreateWithMultipleDates() {
         BusinessDate date1 = BusinessDate.of(LocalDate.of(2024, 12, 30));
@@ -50,6 +55,7 @@ class ConfirmedEventTest {
         assertThat(event.place()).isEqualTo("東京ビッグサイト");
     }
 
+    @DisplayName("申込イベントから確定イベントを生成すると名前を引き継ぎ日程と会場が設定される")
     @Test
     void testCreateFromTentative() {
         AppliedEvent applied = AppliedEvent.of("M3-2024春");
@@ -63,6 +69,7 @@ class ConfirmedEventTest {
         assertThat(confirmed.place()).isEqualTo("東京流通センター");
     }
 
+    @DisplayName("名前がnullの場合は例外を送出する")
     @Test
     void testCreateWithNullName() {
         BusinessDate date = BusinessDate.of(LocalDate.of(2024, 12, 30));
@@ -72,6 +79,7 @@ class ConfirmedEventTest {
                 .isInstanceOf(IllegalArgumentException.class).hasMessage("Event name cannot be null");
     }
 
+    @DisplayName("日程が空の場合は例外を送出する")
     @Test
     void testCreateWithEmptyDateAndSpaces() {
         assertThatThrownBy(() -> ConfirmedEvent.of("イベント", List.of(), null))
@@ -79,6 +87,7 @@ class ConfirmedEventTest {
                 .hasMessage("Confirmed event must have at least one date and space");
     }
 
+    @DisplayName("日程がnullの場合は例外を送出する")
     @Test
     void testCreateWithNullDateAndSpaces() {
         assertThatThrownBy(() -> new ConfirmedEvent(new EventName("イベント"), null, null))
@@ -86,6 +95,7 @@ class ConfirmedEventTest {
                 .hasMessage("Confirmed event must have at least one date and space");
     }
 
+    @DisplayName("スペース番号が欠落している場合は例外を送出する")
     @Test
     void testCreateWithMissingSpaceNumber() {
         BusinessDate date = BusinessDate.of(LocalDate.of(2024, 12, 30));
@@ -96,6 +106,7 @@ class ConfirmedEventTest {
                 .hasMessage("Confirmed event must have space number for all dates");
     }
 
+    @DisplayName("スペース番号が空白の場合は例外を送出する")
     @Test
     void testCreateWithBlankSpaceNumber() {
         BusinessDate date = BusinessDate.of(LocalDate.of(2024, 12, 30));
@@ -106,6 +117,7 @@ class ConfirmedEventTest {
                 .hasMessage("Confirmed event must have space number for all dates");
     }
 
+    @DisplayName("日程リストは変更不可で追加すると例外を送出する")
     @Test
     void testDateAndSpacesIsUnmodifiable() {
         BusinessDate date = BusinessDate.of(LocalDate.of(2024, 12, 30));
@@ -115,6 +127,7 @@ class ConfirmedEventTest {
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 
+    @DisplayName("同一内容のイベント同士は等価と判定される")
     @Test
     void testEquivalentToSame() {
         BusinessDate date = BusinessDate.of(LocalDate.of(2024, 12, 30));
@@ -124,6 +137,7 @@ class ConfirmedEventTest {
         assertThat(event1.equivalentTo(event2)).isTrue();
     }
 
+    @DisplayName("名前が異なるイベント同士は等価でないと判定される")
     @Test
     void testEquivalentToDifferentName() {
         BusinessDate date = BusinessDate.of(LocalDate.of(2024, 12, 30));
@@ -133,6 +147,7 @@ class ConfirmedEventTest {
         assertThat(event1.equivalentTo(event2)).isFalse();
     }
 
+    @DisplayName("スペースが異なるイベント同士は等価でないと判定される")
     @Test
     void testEquivalentToDifferentSpace() {
         BusinessDate date = BusinessDate.of(LocalDate.of(2024, 12, 30));
@@ -142,6 +157,7 @@ class ConfirmedEventTest {
         assertThat(event1.equivalentTo(event2)).isFalse();
     }
 
+    @DisplayName("nullとの比較は等価でないと判定される")
     @Test
     void testEquivalentToNull() {
         BusinessDate date = BusinessDate.of(LocalDate.of(2024, 12, 30));
@@ -150,6 +166,7 @@ class ConfirmedEventTest {
         assertThat(event.equivalentTo(null)).isFalse();
     }
 
+    @DisplayName("型が異なるイベントとの比較は等価でないと判定される")
     @Test
     void testEquivalentToDifferentType() {
         BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
