@@ -1,5 +1,7 @@
 package com.abservice.domain.model.aggregate.album;
 
+import static java.util.function.Predicate.not;
+
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -215,14 +217,14 @@ public class Album implements Aggregate<Album, Album.Id> {
     public @NonNull Album updateTrack(@NonNull Track updatedTrack) {
         final var validatedTrack = Optional.ofNullable(updatedTrack)
                 .orElseThrow(() -> new IllegalArgumentException("Updated track cannot be null"));
-        tracks.stream().filter(t -> t.equivalentTo(validatedTrack)).findFirst().orElseThrow(
+        tracks.stream().filter(validatedTrack::equivalentTo).findFirst().orElseThrow(
                 () -> new IllegalArgumentException("Track with ID " + validatedTrack.id().value() + " not found"));
         // トラック番号の重複チェック（自分自身以外）
-        tracks.stream().filter(t -> !t.equivalentTo(validatedTrack))
+        tracks.stream().filter(not(validatedTrack::equivalentTo))
                 .filter(t -> t.trackNo().equals(validatedTrack.trackNo())).findFirst().ifPresent(dup -> {
                     throw new IllegalArgumentException("Track number " + validatedTrack.trackNo() + " already exists");
                 });
-        return withTracks(tracks.stream().map(t -> t.equivalentTo(validatedTrack)
+        return withTracks(tracks.stream().map(t -> validatedTrack.equivalentTo(t)
                 ? validatedTrack
                 : t).toList());
     }

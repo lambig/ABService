@@ -145,7 +145,7 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
         Optional.ofNullable(channel)
                 .orElseThrow(() -> new IllegalArgumentException("Acquisition channel cannot be null"));
         // IDの重複チェック
-        acquisitionChannels.stream().filter(c -> c.equivalentTo(channel)).findFirst().ifPresent(dup -> {
+        acquisitionChannels.stream().filter(channel::equivalentTo).findFirst().ifPresent(dup -> {
             throw new IllegalArgumentException(
                     "Acquisition channel with ID " + channel.id().value() + " already exists");
         });
@@ -176,7 +176,7 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
     public AlbumArticle updateAcquisitionChannel(AlbumAcquisitionChannel updatedChannel) {
         Optional.ofNullable(updatedChannel)
                 .orElseThrow(() -> new IllegalArgumentException("Updated channel cannot be null"));
-        acquisitionChannels.stream().filter(c -> c.equivalentTo(updatedChannel)).findFirst()
+        acquisitionChannels.stream().filter(updatedChannel::equivalentTo).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Acquisition channel with ID " + updatedChannel.id().value() + " not found"));
         return withAcquisitionChannels(acquisitionChannels.stream().map(c -> c.equivalentTo(updatedChannel)
