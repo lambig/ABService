@@ -196,10 +196,10 @@ public class Album implements Aggregate<Album, Album.Id> {
     public @NonNull Album removeTrack(Track.@NonNull Id trackId) {
         final var validatedTrackId = Optional.ofNullable(trackId)
                 .orElseThrow(() -> new IllegalArgumentException("Track ID cannot be null"));
-        if (tracks.stream().noneMatch(t -> t.id().equals(validatedTrackId))) {
+        if (tracks.stream().noneMatch(t -> t.hasId(validatedTrackId))) {
             throw new IllegalArgumentException("Track with ID " + validatedTrackId.value() + " not found");
         }
-        return withTracks(tracks.stream().filter(t -> !t.id().equals(validatedTrackId)).toList());
+        return withTracks(tracks.stream().filter(t -> !t.hasId(validatedTrackId)).toList());
     }
 
     /**
@@ -212,15 +212,15 @@ public class Album implements Aggregate<Album, Album.Id> {
     public @NonNull Album updateTrack(@NonNull Track updatedTrack) {
         final var validatedTrack = Optional.ofNullable(updatedTrack)
                 .orElseThrow(() -> new IllegalArgumentException("Updated track cannot be null"));
-        if (tracks.stream().noneMatch(t -> t.id().equals(validatedTrack.id()))) {
+        if (tracks.stream().noneMatch(t -> t.equivalentTo(validatedTrack))) {
             throw new IllegalArgumentException("Track with ID " + validatedTrack.id().value() + " not found");
         }
         // トラック番号の重複チェック（自分自身以外）
-        if (tracks.stream().filter(t -> !t.id().equals(validatedTrack.id()))
+        if (tracks.stream().filter(t -> !t.equivalentTo(validatedTrack))
                 .anyMatch(t -> t.trackNo().equals(validatedTrack.trackNo()))) {
             throw new IllegalArgumentException("Track number " + validatedTrack.trackNo() + " already exists");
         }
-        return withTracks(tracks.stream().map(t -> t.id().equals(validatedTrack.id())
+        return withTracks(tracks.stream().map(t -> t.equivalentTo(validatedTrack)
                 ? validatedTrack
                 : t).toList());
     }
@@ -238,7 +238,7 @@ public class Album implements Aggregate<Album, Album.Id> {
 
         final var trackNo = new AtomicInteger(1);
         final var newTracks = validatedIds.stream().map(trackId -> {
-            final var track = tracks.stream().filter(t -> t.id().equals(trackId)).findFirst()
+            final var track = tracks.stream().filter(t -> t.hasId(trackId)).findFirst()
                     .orElseThrow(() -> new IllegalArgumentException("Track with ID " + trackId.value() + " not found"));
             return track.withTrackNo(trackNo.getAndIncrement());
         }).toList();
@@ -263,7 +263,7 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return トラック
      */
     public @NonNull Track getTrack(Track.@NonNull Id trackId) {
-        return tracks.stream().filter(t -> t.id().equals(trackId)).findFirst()
+        return tracks.stream().filter(t -> t.hasId(trackId)).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Track with ID " + trackId.value() + " not found"));
     }
 

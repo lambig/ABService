@@ -109,4 +109,19 @@ public interface DomainEntity<T extends DomainEntity<T, ID>, ID> extends DomainO
     default boolean equivalentTo(T other) {
         return other != null && this.getClass().equals(other.getClass()) && this.id().equals(other.id());
     }
+
+    /**
+     * 指定した識別子を持つエンティティかどうか（同一性比較）。
+     *
+     * <p>
+     * id を外部で取り出して比較させず、識別子との同一性判定をエンティティ自身の責務とする。
+     * </p>
+     *
+     * @param id
+     *            比較対象の識別子
+     * @return 同一の識別子なら true
+     */
+    default boolean hasId(ID id) {
+        return this.id().equals(id);
+    }
 }

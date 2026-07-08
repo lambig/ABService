@@ -147,7 +147,7 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
             throw new IllegalArgumentException("Acquisition channel cannot be null");
         }
         // IDの重複チェック
-        if (acquisitionChannels.stream().anyMatch(c -> c.id().equals(channel.id()))) {
+        if (acquisitionChannels.stream().anyMatch(c -> c.equivalentTo(channel))) {
             throw new IllegalArgumentException(
                     "Acquisition channel with ID " + channel.id().value() + " already exists");
         }
@@ -165,10 +165,10 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
         if (channelId == null) {
             throw new IllegalArgumentException("Channel ID cannot be null");
         }
-        if (acquisitionChannels.stream().noneMatch(c -> c.id().equals(channelId))) {
+        if (acquisitionChannels.stream().noneMatch(c -> c.hasId(channelId))) {
             throw new IllegalArgumentException("Acquisition channel with ID " + channelId.value() + " not found");
         }
-        return withAcquisitionChannels(acquisitionChannels.stream().filter(c -> !c.id().equals(channelId)).toList());
+        return withAcquisitionChannels(acquisitionChannels.stream().filter(c -> !c.hasId(channelId)).toList());
     }
 
     /**
@@ -182,11 +182,11 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
         if (updatedChannel == null) {
             throw new IllegalArgumentException("Updated channel cannot be null");
         }
-        if (acquisitionChannels.stream().noneMatch(c -> c.id().equals(updatedChannel.id()))) {
+        if (acquisitionChannels.stream().noneMatch(c -> c.equivalentTo(updatedChannel))) {
             throw new IllegalArgumentException(
                     "Acquisition channel with ID " + updatedChannel.id().value() + " not found");
         }
-        return withAcquisitionChannels(acquisitionChannels.stream().map(c -> c.id().equals(updatedChannel.id())
+        return withAcquisitionChannels(acquisitionChannels.stream().map(c -> c.equivalentTo(updatedChannel)
                 ? updatedChannel
                 : c).toList());
     }

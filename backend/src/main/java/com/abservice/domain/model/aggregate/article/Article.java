@@ -239,7 +239,7 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
         final var validatedTag = Optional.ofNullable(tag)
                 .orElseThrow(() -> new IllegalArgumentException("Tag cannot be null"));
         // IDの重複チェック
-        if (tags.stream().anyMatch(t -> t.id().equals(validatedTag.id()))) {
+        if (tags.stream().anyMatch(t -> t.equivalentTo(validatedTag))) {
             throw new IllegalArgumentException("Tag with ID " + validatedTag.id().value() + " already exists");
         }
         return withTags(Stream.concat(tags.stream(), Stream.of(validatedTag)).toList())
@@ -258,7 +258,7 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
     public @NonNull Article removeTag(ArticleTag.@NonNull Id tagId, @NonNull BusinessDateTime currentDateTime) {
         final var validatedTagId = Optional.ofNullable(tagId)
                 .orElseThrow(() -> new IllegalArgumentException("Tag ID cannot be null"));
-        final var newTags = tags.stream().filter(t -> !t.id().equals(validatedTagId)).collect(Collectors.toList());
+        final var newTags = tags.stream().filter(t -> !t.hasId(validatedTagId)).collect(Collectors.toList());
         return withTags(Collections.unmodifiableList(newTags)).withUpdatedAtBusiness(currentDateTime);
     }
 
