@@ -95,15 +95,9 @@ DomainException (abstract, errorCode付き)
 
 ## 4. インフラ層の簡略化（未解消・実コードで確認済み）
 
-`REPOSITORY_SIMPLIFICATIONS.md` に記載の3件は**いずれも現在も未解消**です（コード確認済み）。
+`REPOSITORY_SIMPLIFICATIONS.md` 記載の3件はいずれも未解消。issue で管理する（優先度: 頒布情報・入手経路 > タグ）。
 
-| # | 箇所 | 現状 | ファイル:行 |
-|---|---|---|---|
-| 1 | Article タグ | `Collections.emptyList()` を返す（`ArticleTagLink` 連携なし） | `ArticleMapper.java:41` |
-| 2 | AlbumArticle 頒布情報 | 常に `null` | `AlbumArticleMapper.java:37` |
-| 3 | AlbumArticle 入手経路 | `Collections.emptyList()` を返す | `AlbumArticleMapper.java:38, 61` |
-
-詳細な実装要件は `REPOSITORY_SIMPLIFICATIONS.md` を参照。優先度は「頒布情報・入手経路（AlbumArticle）> タグ（Article）」。
+- #40 AlbumArticle 頒布情報 / #41 AlbumArticle 入手経路 / #39 Article タグ
 
 ---
 
@@ -111,22 +105,18 @@ DomainException (abstract, errorCode付き)
 
 ### 5.1 JSpecify nullability 移行（`JSPECIFY_MIGRATION_PLAN.md`）
 
-**検証結果**: jspecify を import している domain クラスは **11件**（`Album`, `Track`, `Article`, `Tune`, `ArticleTag`, `CatalogNumber`, `AlbumTitle`, `TuneTitle`, `Credit`, `ArtistCredit`, `MarkupContent`）。計画docの「10件完了」からほぼ進んでおらず、**残りは docの見積り以上に多い**。
-
-- 🔴 未対応: 集約 `AlbumArticle`、集約内エンティティ `TrackTune` / `AlbumAcquisitionChannel` / `AlbumDistribution`
-- 🔴 未対応: VO の大半（`Isdn`, `Price`, `EventReleasedAt`, `TrackTitle`, `Url`, `LabelTag`, `ChannelType`, `Duration`※削除済, `BusinessDate`, `BusinessDateTime`, `ArtistCreditName`, `TuneKind`, `ArticleType`, `ArticleType`, event系VO群 ほか）
-- 🔴 未対応: infrastructure層（Mapper / RepositoryImpl / Entity / DataSource）、application層
+import 済み 11 件から進んでおらず残多数（集約 `AlbumArticle`・集約内エンティティ・VO 大半・infra 層が未対応）。詳細と進め方は #44。
 
 ### 5.2 ユニット/統合テスト（`UNIT_TEST_PLAN.md`）
 
 - 🟢 完了: Phase 1–5（VO / Enum / 集約 / エンティティ のユニットテスト、計31クラス）
 - 🔴 未着手:
   - Phase 6: Application Service のテスト（※ユースケース実装後に発生）
-  - Phase 7: RepositoryImpl 統合テスト（現状 `AlbumRepositoryImplTest` のみ、残り3集約）
-  - Phase 8: Mapper 統合テスト
-  - Phase 9: DataSource 統合テスト
+  - Phase 7: RepositoryImpl 統合テスト → #45
+  - Phase 8: Mapper 統合テスト（§4 解消に依存）
+  - Phase 9: DataSource 統合テスト（DataSource 構築後）
   - Phase 10: REST API 統合テスト（※presentation実装後に発生）
-- ⚠️ `UNIT_TEST_PLAN.md` はパス記述が陳腐化（`application/service/QueryService` → 実際は `application/query/`、`interfaces/rest/` → 実際はルート直下、`SampleResource` → `GreetingResource`）
+- ⚠️ `UNIT_TEST_PLAN.md` のパス陳腐化の是正は #42
 
 ### 5.3 アプリケーション層 / プレゼンテーション層（新規・最重要）
 
@@ -137,7 +127,7 @@ DomainException (abstract, errorCode付き)
 
 ### 5.4 その他
 
-- `VO_REFACTORING.md` は完了済みの記録だが命名が陳腐化（`EventInfo` → 実際は `EventReleasedAt`、複数日程対応で構造も変化）
+- `VO_REFACTORING.md` の命名陳腐化の是正は #43
 
 ---
 
