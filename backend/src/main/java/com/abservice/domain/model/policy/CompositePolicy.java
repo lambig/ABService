@@ -27,8 +27,12 @@ final class CompositePolicy<T> implements Policy<T> {
     @Override
     public <R> Result<R> verify(T value, Function<? super T, ? extends R> constructor) {
         final List<ErrorResult> errors = rules.stream().map(rule -> rule.verify(value, Function.identity()))
-                .flatMap(r -> r instanceof Result.Failure<T> f ? f.errors().stream() : Stream.<ErrorResult>empty())
+                .flatMap(r -> r instanceof Result.Failure<T> f
+                        ? f.errors().stream()
+                        : Stream.<ErrorResult>empty())
                 .toList();
-        return errors.isEmpty() ? Result.success(constructor.apply(value)) : Result.failure(errors);
+        return errors.isEmpty()
+                ? Result.success(constructor.apply(value))
+                : Result.failure(errors);
     }
 }

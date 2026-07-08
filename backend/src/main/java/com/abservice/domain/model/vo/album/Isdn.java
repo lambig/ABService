@@ -88,7 +88,9 @@ public record Isdn(String value) implements ValueObject<Isdn> {
     private static boolean checkDigitMatches(String isdn) {
         final int sum = IntStream.range(0, 12).map(i -> {
             final int digit = Character.getNumericValue(isdn.charAt(i));
-            return (i % 2 == 0) ? digit : digit * 3;
+            return (i % 2 == 0)
+                    ? digit
+                    : digit * 3;
         }).sum();
         final int checkDigit = (10 - (sum % 10)) % 10;
         return checkDigit == Character.getNumericValue(isdn.charAt(12));
@@ -102,10 +104,9 @@ public record Isdn(String value) implements ValueObject<Isdn> {
     public String formattedValue() {
         // 日本の場合: 278-4-XXXXXX-XX-X (3-1-6-2-1の構成)、その他の地域は簡略表示
         return TextEscape.escape("${flag}-${body}-${check}").where("flag", value.substring(0, 3))
-                .where("body",
-                        value.startsWith("2784") || value.startsWith("2794")
-                                ? value.substring(3, 4) + "-" + value.substring(4, 10) + "-" + value.substring(10, 12)
-                                : value.substring(3, 12))
+                .where("body", value.startsWith("2784") || value.startsWith("2794")
+                        ? value.substring(3, 4) + "-" + value.substring(4, 10) + "-" + value.substring(10, 12)
+                        : value.substring(3, 12))
                 .where("check", value.substring(12, 13)).compile();
     }
 

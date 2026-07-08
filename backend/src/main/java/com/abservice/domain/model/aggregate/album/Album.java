@@ -220,7 +220,9 @@ public class Album implements Aggregate<Album, Album.Id> {
                 .anyMatch(t -> t.trackNo().equals(validatedTrack.trackNo()))) {
             throw new IllegalArgumentException("Track number " + validatedTrack.trackNo() + " already exists");
         }
-        return withTracks(tracks.stream().map(t -> t.id().equals(validatedTrack.id()) ? validatedTrack : t).toList());
+        return withTracks(tracks.stream().map(t -> t.id().equals(validatedTrack.id())
+                ? validatedTrack
+                : t).toList());
     }
 
     /**

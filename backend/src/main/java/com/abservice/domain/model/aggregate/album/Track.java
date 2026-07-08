@@ -230,7 +230,9 @@ public class Track implements DomainEntity<Track, Track.Id> {
         if (tunes.stream().noneMatch(t -> t.seq().equals(validatedTune.seq()))) {
             throw new IllegalArgumentException("Tune with seq " + validatedTune.seq() + " not found");
         }
-        return withTunes(tunes.stream().map(t -> t.seq().equals(validatedTune.seq()) ? validatedTune : t).toList());
+        return withTunes(tunes.stream().map(t -> t.seq().equals(validatedTune.seq())
+                ? validatedTune
+                : t).toList());
     }
 
     /**

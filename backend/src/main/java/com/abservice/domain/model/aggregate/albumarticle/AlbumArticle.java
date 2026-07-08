@@ -186,8 +186,9 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
             throw new IllegalArgumentException(
                     "Acquisition channel with ID " + updatedChannel.id().value() + " not found");
         }
-        return withAcquisitionChannels(acquisitionChannels.stream()
-                .map(c -> c.id().equals(updatedChannel.id()) ? updatedChannel : c).toList());
+        return withAcquisitionChannels(acquisitionChannels.stream().map(c -> c.id().equals(updatedChannel.id())
+                ? updatedChannel
+                : c).toList());
     }
 
     /**

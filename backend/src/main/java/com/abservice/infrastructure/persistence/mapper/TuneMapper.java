@@ -30,9 +30,12 @@ public final class TuneMapper {
         return switch (entity) {
             case null -> null;
             default -> Tune.reconstruct(new Tune.Id(entity.getDomainId()), new TuneTitle(entity.getTitle()),
-                    TuneKind.valueOf(entity.getTuneKind()),
-                    entity.getDefaultComposerCredit() != null ? new Credit(entity.getDefaultComposerCredit()) : null,
-                    entity.getDefaultArrangerCredit() != null ? new Credit(entity.getDefaultArrangerCredit()) : null,
+                    TuneKind.valueOf(entity.getTuneKind()), entity.getDefaultComposerCredit() != null
+                            ? new Credit(entity.getDefaultComposerCredit())
+                            : null,
+                    entity.getDefaultArrangerCredit() != null
+                            ? new Credit(entity.getDefaultArrangerCredit())
+                            : null,
                     entity.getOriginalWorkTitle(), entity.getOriginalWorkCredit(), entity.getTuneType(),
                     entity.getDefaultKey(), entity.getDefaultTempo());
         };
@@ -53,10 +56,12 @@ public final class TuneMapper {
                 tuneEntity.setDomainId(tune.id().value());
                 tuneEntity.setTitle(tune.title().value());
                 tuneEntity.setTuneKind(tune.tuneKind().name());
-                tuneEntity.setDefaultComposerCredit(
-                        tune.defaultComposerCredit() != null ? tune.defaultComposerCredit().value() : null);
-                tuneEntity.setDefaultArrangerCredit(
-                        tune.defaultArrangerCredit() != null ? tune.defaultArrangerCredit().value() : null);
+                tuneEntity.setDefaultComposerCredit(tune.defaultComposerCredit() != null
+                        ? tune.defaultComposerCredit().value()
+                        : null);
+                tuneEntity.setDefaultArrangerCredit(tune.defaultArrangerCredit() != null
+                        ? tune.defaultArrangerCredit().value()
+                        : null);
                 tuneEntity.setOriginalWorkTitle(tune.originalWorkTitle());
                 tuneEntity.setOriginalWorkCredit(tune.originalWorkCredit());
                 tuneEntity.setTuneType(tune.tuneType());

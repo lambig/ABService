@@ -81,8 +81,9 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      * @return EventReleasedAt
      */
     public static EventReleasedAt of(String name, BusinessDate date) {
-        return new EventReleasedAt(new EventName(name), date != null ? List.of(EventDateAndSpace.of(date)) : null, null,
-                null);
+        return new EventReleasedAt(new EventName(name), date != null
+                ? List.of(EventDateAndSpace.of(date))
+                : null, null, null);
     }
 
     /**
@@ -97,8 +98,9 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      * @return EventReleasedAt
      */
     public static EventReleasedAt of(String name, BusinessDate date, String spaceNumber) {
-        return new EventReleasedAt(new EventName(name),
-                date != null ? List.of(EventDateAndSpace.of(date, spaceNumber)) : null, null, null);
+        return new EventReleasedAt(new EventName(name), date != null
+                ? List.of(EventDateAndSpace.of(date, spaceNumber))
+                : null, null, null);
     }
 
     /**
@@ -151,7 +153,8 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      * @return EventReleasedAt
      */
     public static EventReleasedAt of(String name, BusinessDate date, String place, String spaceNumber, String note) {
-        return new EventReleasedAt(new EventName(name),
-                date != null ? List.of(EventDateAndSpace.of(date, spaceNumber)) : null, place, note);
+        return new EventReleasedAt(new EventName(name), date != null
+                ? List.of(EventDateAndSpace.of(date, spaceNumber))
+                : null, place, note);
     }
 }

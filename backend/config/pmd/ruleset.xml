@@ -84,4 +84,23 @@
         </properties>
     </rule>
 
+    <rule name="ForbiddenSingleLineTernary"
+          language="java"
+          message="三項演算子は1行に書かず、条件・then・else を複数行に分けてください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            単一行の三項演算子（condition ? a : b を1行に記述）を禁止する。
+            条件・then・else を改行して可読性を保つ。フォーマッタ側でも
+            conditional_expression を強制改行に設定している。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//ConditionalExpression[@BeginLine = @EndLine]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
 </ruleset>

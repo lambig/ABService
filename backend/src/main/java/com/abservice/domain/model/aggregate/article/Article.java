@@ -166,8 +166,9 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article publish(@NonNull BusinessDateTime currentDateTime) {
-        return withPublicFlag(true).withPublishedAt(publishedAt == null ? currentDateTime : publishedAt)
-                .withUpdatedAtBusiness(currentDateTime);
+        return withPublicFlag(true).withPublishedAt(publishedAt == null
+                ? currentDateTime
+                : publishedAt).withUpdatedAtBusiness(currentDateTime);
     }
 
     /**

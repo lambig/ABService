@@ -30,10 +30,12 @@ public final class Policies {
      *            生成される値の型
      */
     public static <R> Result<R> combine(List<Result<?>> validations, Supplier<? extends R> constructor) {
-        final List<ErrorResult> errors = validations.stream()
-                .flatMap(r -> r instanceof Result.Failure<?> f ? f.errors().stream() : Stream.<ErrorResult>empty())
-                .toList();
-        return errors.isEmpty() ? Result.success(constructor.get()) : Result.failure(errors);
+        final List<ErrorResult> errors = validations.stream().flatMap(r -> r instanceof Result.Failure<?> f
+                ? f.errors().stream()
+                : Stream.<ErrorResult>empty()).toList();
+        return errors.isEmpty()
+                ? Result.success(constructor.get())
+                : Result.failure(errors);
     }
 
     /**

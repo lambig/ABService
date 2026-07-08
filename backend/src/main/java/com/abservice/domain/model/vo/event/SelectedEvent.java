@@ -79,7 +79,9 @@ public record SelectedEvent(EventName name, List<BusinessDate> selectedDates, Li
     }
 
     private static List<BusinessDate> normalizeDeclinedDates(List<BusinessDate> dates) {
-        return dates != null ? dates : List.of();
+        return dates != null
+                ? dates
+                : List.of();
     }
 
     /**
