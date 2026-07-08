@@ -196,9 +196,8 @@ public class Album implements Aggregate<Album, Album.Id> {
     public @NonNull Album removeTrack(Track.@NonNull Id trackId) {
         final var validatedTrackId = Optional.ofNullable(trackId)
                 .orElseThrow(() -> new IllegalArgumentException("Track ID cannot be null"));
-        if (tracks.stream().noneMatch(t -> t.hasId(validatedTrackId))) {
-            throw new IllegalArgumentException("Track with ID " + validatedTrackId.value() + " not found");
-        }
+        tracks.stream().filter(t -> t.hasId(validatedTrackId)).findFirst().orElseThrow(
+                () -> new IllegalArgumentException("Track with ID " + validatedTrackId.value() + " not found"));
         return withTracks(tracks.stream().filter(t -> !t.hasId(validatedTrackId)).toList());
     }
 
@@ -212,9 +211,8 @@ public class Album implements Aggregate<Album, Album.Id> {
     public @NonNull Album updateTrack(@NonNull Track updatedTrack) {
         final var validatedTrack = Optional.ofNullable(updatedTrack)
                 .orElseThrow(() -> new IllegalArgumentException("Updated track cannot be null"));
-        if (tracks.stream().noneMatch(t -> t.equivalentTo(validatedTrack))) {
-            throw new IllegalArgumentException("Track with ID " + validatedTrack.id().value() + " not found");
-        }
+        tracks.stream().filter(t -> t.equivalentTo(validatedTrack)).findFirst().orElseThrow(
+                () -> new IllegalArgumentException("Track with ID " + validatedTrack.id().value() + " not found"));
         // トラック番号の重複チェック（自分自身以外）
         if (tracks.stream().filter(t -> !t.equivalentTo(validatedTrack))
                 .anyMatch(t -> t.trackNo().equals(validatedTrack.trackNo()))) {
