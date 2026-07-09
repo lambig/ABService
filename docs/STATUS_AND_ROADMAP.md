@@ -20,7 +20,7 @@
 | **プレゼンテーション層** | 🔴 未着手 | サンプル `GreetingResource` / `HealthResource` / `CircleMemberResource` のみ。集約向けRESTエンドポイント・DTO・ExceptionMapperなし |
 | **共通基盤（lib）** | 🟢 完成 | `Result`（combinator `map`/`flatMap`/`zip` 含む）/ `ErrorResult` を実装。ドメイン例外階層（`DomainException` 抽象基底 + `ValidationException`/`EntityNotFoundException`/`BusinessRuleViolationException`）も整備済み |
 | **テスト** | 🟡 ユニット充実・統合が薄い | ユニット31クラス（VO/集約/エンティティ）。統合テストは `AlbumRepositoryImplTest` と `SystemBusinessDateTimeProviderTest` の2本のみ |
-| **静的解析** | 🟡 style層のみ | Checkstyle + Spotless 稼働。SpotBugs は Java25非対応で無効。**アーキテクチャ制約の強制（ArchUnit）は未導入**（§7） |
+| **静的解析** | 🟢 多層 | Checkstyle + Spotless + PMD + ArchUnit 稼働。レイヤ依存方向・配置・戻り値契約・機能的スタイルの一部を強制（§7.3: Java 相当21件中19件）。SpotBugs は Java25非対応で無効 |
 | **フロントエンド** | ⬜ 未調査 | `frontend-admin`（Svelte）/ `frontend-public`（Svelte+Astro）。本ドキュメントの対象外 |
 
 **一言でいうと**: ドメイン＋永続化基盤は固まっており、次に積むべきは **アプリケーション層（ユースケース）→ プレゼンテーション層（REST）** の縦の1本通しと、それを支える **エラー設計・統合テスト・アーキテクチャ制約** です。
@@ -132,7 +132,11 @@ import 済み 11 件から進んでおらず残多数（集約 `AlbumArticle`・
 
 ### フェーズ A: エラー設計とlib・静的解析の土台（縦通しの前提）
 1. **ArchUnit 導入 ＋ 規約ベースのルールを先行**（§7.1）: `archunit-junit5` を test依存に追加し、レイヤー依存方向（domain ← application ← presentation、domain ← infrastructure）・`@Entity` の配置/命名・`@Transactional` 禁止・Repository/ApplicationService の `Uni` 返却契約に加え、**app/presentation の命名・配置・戻り値型契約も前提として先行導入する**。これらは §2 で確定済みの規約と既存の基底型（`CommandService`/`QueryService`）だけで述語を書けるため、実装クラスが0件でも導入でき、クラスが無い間は不活性（該当ルールのみ `allowEmptyShould(true)`）、最初のユースケース実装と同時に強制が効く。**「機能実装を待ってからルール化」はしない**（原則は §7.1）
-2. **機能的スタイル強制ルールを先行導入**（§7.4 / #37）: `if` 全廃・null三項→`Optional`・逐次 null+空/blank 複合・`switch(this)` 禁止・否定ラムダの `Predicate.not` 化・中置論理演算子禁止・不要変数禁止・VO 検証の Policy 経由強制（#26–#33・#29）は構造非依存で、既存 domain/lib と新規コード双方に効くため前提として入れる。各ルールは「導入前に違反0」を受け入れ条件とする。※ #34（`multiple` 検証**支援API**）・#35（三項書式の方針確定）・#36（Javadoc 例更新）は契約ルールではなく単独作業
+2. **機能的スタイル強制ルールを先行導入**（§7.4 / #37）: 構造非依存で既存 domain/lib と新規コード双方に効くため前提として入れる。各ルールは「導入前に違反0」を受け入れ条件とする。
+   - **導入済み**（§7.3）: VO 検証の Policy 経由（#29）、`if` の値 return 禁止・`switch` 文禁止（#26 の一部）、三項の複数行強制（#35 の書式部）
+   - **残ギャップ**: null三項→`Optional`（#27）・逐次 null+空/blank 複合（#28）・否定ラムダの `Predicate.not` 化（#31）・中置論理演算子禁止＋述語合成DSL（#32）・不要変数禁止（#33）・`switch` 式 on `this` 禁止（#30 要確認）
+   - **方針確定要**: `if` の全廃可否（#26。現状は値 return のみ禁止で副作用/例外分岐は許容）、三項書式の残り（#35）
+   - **ルールでなく単独作業**: `multiple` 検証支援API（#34）・Javadoc 例更新（#36）
 3. 🟢 完了: `Result` に `map` / `flatMap` / `zip`（複数VO検証の合成。arity 2・3でエラー集約）を追加
 4. 🟢 完了: `DomainException` 階層を整備（abstract 基底 + `ValidationException` / `EntityNotFoundException` / `BusinessRuleViolationException`。HTTP変換は presentation 層へ委譲）
 5. 🟡 一部: VO に外部入力用 `fromInput()`（`Result`返却）を段階導入。Article集約のVO（`ArticleType`/`MarkupContent`）は導入済み、残VOはフェーズCで横展開
@@ -200,7 +204,9 @@ testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.2'
 | Repository の戻り値 | `Repository` 継承IFのメソッド戻り値は `Uni<...>` |
 | ApplicationService の戻り値 | `execute`/`query` の戻り値は `Uni<...>` |
 | domain の Uni 禁止 | ドメインモデルの戻り値に `Uni` を使わない（同期実装） |
-| コンストラクタ可視性 | `EntityId` 実装のコンストラクタは private、`domain.model` のコンストラクタは非public |
+| コンストラクタ可視性 | `domain.model`（非record）のコンストラクタは非 public（record は言語制約上不可のため、コンパクトコンストラクタ＋ファクトリで担保） |
+| EntityId は record | `EntityId` 実装は record（値型・不変） |
+| domain フィールド final | `..domain.model..` のフィールドは `final`（不変。状態変更は Wither で表現） |
 | レイヤー依存方向 | domain ← application ← presentation、domain ← infrastructure |
 
 メソッド本文やコメントの検査が必要な制約（try-catch 禁止、VO のバリデーション必須など）は ArchUnit では表現できないため対象外。必要なら Checkstyle/PMD で個別対応する。
@@ -209,7 +215,7 @@ testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.2'
 
 ABService は Java プロジェクトのため、Kotlin 向けの detekt カスタムルール26件はそのまま使えない。同等の制約を **ArchUnit / Checkstyle / javac・言語文法**で担保するか、Java に構文的対応物がないものは対象外とする。移植可否は「**強制手段の構文**」ではなく「**制約の意図が Java に適用可能か**」で判定する。
 
-現状: **強制済み14件（ArchUnit 10・Checkstyle 4）／ 対象外5件 ／ 未強制の欠落7件**。Java 相当のある21件に対し 14件（約67%）を強制。
+現状: **強制済み19件（ArchUnit 11・Checkstyle 5・PMD 3）／ 部分1件 ／ 対象外5件 ／ 未強制1件（`ForbiddenLogicalOperators` → #32）**。Java 相当のある21件に対し 19件（約90%）を強制。`ForbiddenVarInDomain` は Checkstyle と ArchUnit の併用（1件計上）。
 
 | detekt ルール | 制約の意図 | Java での担保手段 | 状態 |
 |---|---|---|---|
@@ -231,14 +237,14 @@ ABService は Java プロジェクトのため、Kotlin 向けの detekt カス�
 | ForbiddenBacktickTestMethodName | バッククォートのテストメソッド名禁止 | Java はメソッド名に空白不可。可読名は `@DisplayName` で充足 | ⛔対象外 |
 | ProhibitWhenForUnitBranches | 副作用分岐に `when` を使わず `if` を使う | Java は `if`=文で自動充足（副作用は `if`/`switch` 文） | ⛔対象外 |
 | ForbiddenInitInValueObject | VO で `init` ブロック禁止（検証を集約） | record に `init` なし。意図は VO 検証集約（下記 RequireValidationInValueObject）へ | ⛔対象外 |
-| RequireUniReturnTypeOnApplicationService | ApplicationService の `execute`/`query` は `Uni<...>` | 基底 `CommandService`/`QueryService` の署名で javac が既に強制。ArchUnit で命名/配置/基底IF実装を補完（§7.1 の原則で**前提として先行導入**、実装0件の間は `allowEmptyShould`） | ❌未（前提で先行） |
-| RequireValidationInValueObject | VO は検証を持つ | PMD（メソッド本文検査。ArchUnit では表現不可） | ❌未 |
-| ForbiddenLogicalOperators | 中置論理演算子 `&&`/`\|\|`/`!` を禁止し宣言的合成へ | Checkstyle `IllegalToken`（`LAND`/`LOR`/`LNOT`） | ❌未 |
-| ForbiddenVarInDomain | domain で可変変数禁止 | Checkstyle（domain の field/local に `final` 強制） | ❌未 |
-| RequireValueClassForEntityId | EntityId は値型 | ArchUnit（EntityId 実装は record であること） | ❌未 |
+| RequireUniReturnTypeOnApplicationService | ApplicationService の `execute`/`query` は `Uni<...>` | 基底 `CommandService`/`QueryService` の署名で javac が既に強制。ArchUnit `applicationServiceExecuteAndQueryShouldReturnUni` で命名/配置/基底IF実装を補完（§7.1 の原則で前倒し、実装0件の間は `allowEmptyShould(true)`） | ✅強制 |
+| RequireValidationInValueObject | VO は検証を持つ | PMD `RequireValidationInValueObject`（`fromInput` に `verify`/`zip`/`combine`/`nested`/`failure` か内部 `fromInput` 委譲を必須化） | ✅強制 |
+| ForbiddenLogicalOperators | 中置論理演算子 `&&`/`\|\|`/`!` を禁止し宣言的合成へ | Checkstyle `IllegalToken`（`LAND`/`LOR`/`LNOT`）＋述語合成DSL | ❌未 → #32 |
+| ForbiddenVarInDomain | domain で可変変数禁止 | Checkstyle `FinalLocalVariable`（全ローカル final）＋ ArchUnit `domainModelFieldsShouldBeFinal`（domain フィールド final） | ✅強制 |
+| RequireValueClassForEntityId | EntityId は値型 | ArchUnit `entityIdImplementationsShouldBeRecords`（EntityId 実装は record） | ✅強制 |
 | RequirePrivateConstructorForEntityId | EntityId の生成を検証経由に限定 | public record は canonical constructor を private 化できない（言語制約）。全生成経路でコンパクトコンストラクタ検証が必ず走るため意図は充足 | ⛔対象外 |
-| ForbiddenFullyQualifiedTypeReference | インライン FQN 禁止（import + 単純名） | Checkstyle 正規表現 | ❌未 |
-| PreferWhenForValueBranches | 値の分岐を `if` で返さず式にする | PMD（**`if` 文の値 return 禁止＋`switch` 文禁止 → ternary / switch 式へ**） | ❌未 |
+| ForbiddenFullyQualifiedTypeReference | インライン FQN 禁止（import + 単純名） | PMD `ForbiddenFullyQualifiedTypeReference`（XPath `ClassType[@FullyQualified]`） | ✅強制 |
+| PreferWhenForValueBranches | 値の分岐を `if` で返さず式にする | PMD `ForbiddenIfValueReturn`＋`ForbiddenSwitchStatement`（`if` の値 return 禁止＋`switch` 文禁止 → ternary / switch 式へ） | ✅強制 |
 
 **`if`/式の運用方針**（PreferWhenForValueBranches の Java 仕様）:
 
