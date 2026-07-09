@@ -184,9 +184,7 @@ class EventMatchingServiceTest {
     @DisplayName("申込済みから確定への遷移後、確定イベントと頒布実績が一致する")
     @Test
     void testBusinessScenarioTentativeThenConfirmed() {
-        // 申込済み → 確定への状態遷移シナリオ
-        final AppliedEvent applied = AppliedEvent.of("M3-2024春");
-
+        // 申込済み → 確定への状態遷移シナリオ（申込済み状態を経て確定へ）
         // その後、スペースが確定
         final BusinessDate confirmedDate = BusinessDate.of(LocalDate.of(2024, 4, 28));
         final ConfirmedEvent confirmed = ConfirmedEvent.of("M3-2024春", confirmedDate, "第1展示場A-01", "東京流通センター");
