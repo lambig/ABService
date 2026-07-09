@@ -89,6 +89,25 @@
         </properties>
     </rule>
 
+    <rule name="ForbiddenNegatedMethodCallLambda"
+          language="java"
+          message="否定単一メソッド呼び出しのラムダ（x -&gt; !x.foo()）は禁止です。Predicate.not(X::foo) を使ってください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            本体が無引数メソッド呼び出しの否定（!recv.method()）である単一式ラムダを
+            禁止し、Predicate.not(メソッド参照) への置換を促す。引数を伴う呼び出し
+            （x -&gt; !x.hasId(id) 等）はメソッド参照化できないため対象外。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//LambdaExpression/UnaryExpression[@Operator = "!"]/MethodCall[count(ArgumentList/*) = 0]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
     <rule name="ForbiddenSingleLineTernary"
           language="java"
           message="三項演算子は1行に書かず、条件・then・else を複数行に分けてください。"
