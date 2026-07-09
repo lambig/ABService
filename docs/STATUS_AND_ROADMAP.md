@@ -116,7 +116,6 @@ import 済み 11 件から進んでおらず残多数（集約 `AlbumArticle`・
   - Phase 8: Mapper 統合テスト（§4 解消に依存）
   - Phase 9: DataSource 統合テスト（DataSource 構築後）
   - Phase 10: REST API 統合テスト（※presentation実装後に発生）
-- ⚠️ `UNIT_TEST_PLAN.md` のパス陳腐化の是正は #42
 
 ### 5.3 アプリケーション層 / プレゼンテーション層（新規・最重要）
 
@@ -124,10 +123,6 @@ import 済み 11 件から進んでおらず残多数（集約 `AlbumArticle`・
 - 🔴 各集約の Query ユースケース（一覧/詳細）と Read Model DTO
 - 🔴 REST Resource（Command/Query）、Request/Response DTO
 - 🔴 `ExceptionMapper`（DomainException → HTTP）
-
-### 5.4 その他
-
-- `VO_REFACTORING.md` の命名陳腐化の是正は #43
 
 ---
 
