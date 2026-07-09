@@ -11,7 +11,9 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 /**
@@ -177,7 +179,7 @@ public class ArticleRepositoryImpl implements ArticleRepository {
 
     @Override
     public Uni<List<Article>> findByPublishedAtBetween(BusinessDateTime startDate, BusinessDateTime endDate) {
-        return startDate == null || endDate == null
+        return Stream.of(startDate, endDate).anyMatch(Objects::isNull)
                 ? Uni.createFrom().item(List.of())
                 : dataSource.findByPublishedAtBetween(startDate.value(), endDate.value())
                         .map(entities -> entities.stream().map(ArticleMapper::toDomain).collect(Collectors.toList()));

@@ -165,5 +165,13 @@
             <property name="id" value="DomainNoTryCatch"/>
             <property name="tokens" value="LITERAL_TRY"/>
         </module>
+
+        <!-- 中置論理演算子 &&/||/! を禁止し宣言的合成へ（production のみ。テストは suppressions.xml で抑制）（#32） -->
+        <module name="IllegalToken">
+            <property name="id" value="ForbiddenLogicalOperators"/>
+            <property name="tokens" value="LAND,LOR,LNOT"/>
+            <message key="illegal.token"
+                value="中置論理演算子（&amp;&amp; / || / !）は禁止です。Predicates.and/or・Predicate.not・Optional/Stream など宣言的合成を使ってください。"/>
+        </module>
     </module>
 </module>

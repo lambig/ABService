@@ -1,6 +1,7 @@
 package com.abservice.domain.model;
 
 import com.fasterxml.uuid.Generators;
+import java.util.Optional;
 
 /**
  * エンティティIDの基底インターフェース
@@ -42,7 +43,8 @@ public interface EntityId<T extends DomainObject<T>> extends Comparable<EntityId
      * 文字列がUUID形式（正準形）かどうかを検証する
      */
     static boolean isValidUuid(String value) {
-        return value != null
-                && value.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+        return Optional.ofNullable(value)
+                .filter(v -> v.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))
+                .isPresent();
     }
 }

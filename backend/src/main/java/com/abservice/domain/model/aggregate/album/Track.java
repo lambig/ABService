@@ -1,5 +1,7 @@
 package com.abservice.domain.model.aggregate.album;
 
+import static java.util.function.Predicate.not;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -217,7 +219,7 @@ public class Track implements DomainEntity<Track, Track.Id> {
                 .orElseThrow(() -> new IllegalArgumentException("Seq cannot be null"));
         tunes.stream().filter(t -> t.seq().equals(validatedSeq)).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Tune with seq " + validatedSeq + " not found"));
-        return withTunes(tunes.stream().filter(t -> !t.seq().equals(validatedSeq)).toList());
+        return withTunes(tunes.stream().filter(not(t -> t.seq().equals(validatedSeq))).toList());
     }
 
     /**

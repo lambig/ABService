@@ -1,5 +1,7 @@
 package com.abservice.domain.model.vo.album;
 
+import static io.github.lambig.funcifextension.predicate.Predicates.or;
+
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
 import com.abservice.lib.ErrorResult;
@@ -36,7 +38,7 @@ public record Duration(Integer milliseconds) implements ValueObject<Duration> {
                 Policy.of(Objects::nonNull,
                         () -> new ErrorResult("milliseconds", "Duration milliseconds cannot be null",
                                 "DURATION_REQUIRED")),
-                Policy.of((Integer v) -> v == null || v >= 0,
+                Policy.of(or(Objects::isNull, (Integer v) -> v >= 0),
                         () -> new ErrorResult("milliseconds", "Duration milliseconds cannot be negative",
                                 "DURATION_NEGATIVE")))
                 .verify(milliseconds, Function.identity())

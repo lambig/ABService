@@ -204,7 +204,7 @@ public class Album implements Aggregate<Album, Album.Id> {
                 .orElseThrow(() -> new IllegalArgumentException("Track ID cannot be null"));
         tracks.stream().filter(t -> t.hasId(validatedTrackId)).findFirst().orElseThrow(
                 () -> new IllegalArgumentException("Track with ID " + validatedTrackId.value() + " not found"));
-        return withTracks(tracks.stream().filter(t -> !t.hasId(validatedTrackId)).toList());
+        return withTracks(tracks.stream().filter(not(t -> t.hasId(validatedTrackId))).toList());
     }
 
     /**

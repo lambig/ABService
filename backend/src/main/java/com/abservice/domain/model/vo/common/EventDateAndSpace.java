@@ -1,5 +1,8 @@
 package com.abservice.domain.model.vo.common;
 
+import static io.github.lambig.funcifextension.predicate.By.having;
+import static io.github.lambig.funcifextension.predicate.Predicates.and;
+
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
 import com.abservice.lib.ErrorResult;
@@ -27,9 +30,8 @@ public final class EventDateAndSpace implements ValueObject<EventDateAndSpace> {
 
     @Override
     public boolean equivalentTo(EventDateAndSpace other) {
-        return Optional.ofNullable(other)
-                .filter(o -> Objects.equals(this.date, o.date) && Objects.equals(this.spaceNumber, o.spaceNumber))
-                .isPresent();
+        return Optional.ofNullable(other).filter(and(having(EventDateAndSpace::date).thatEqualsTo(this.date),
+                having(EventDateAndSpace::spaceNumber).thatEqualsTo(this.spaceNumber))).isPresent();
     }
 
     /**

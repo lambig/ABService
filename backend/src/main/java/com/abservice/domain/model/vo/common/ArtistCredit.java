@@ -1,7 +1,9 @@
 package com.abservice.domain.model.vo.common;
 
+import static io.github.lambig.funcifextension.predicate.By.having;
+import static io.github.lambig.funcifextension.predicate.Predicates.and;
+
 import com.abservice.domain.model.vo.ValueObject;
-import java.util.Objects;
 import java.util.Optional;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -28,7 +30,8 @@ public final class ArtistCredit implements ValueObject<ArtistCredit> {
     @Override
     public boolean equivalentTo(ArtistCredit other) {
         return Optional.ofNullable(other)
-                .filter(o -> this.displayName.equivalentTo(o.displayName) && Objects.equals(this.sortKey, o.sortKey))
+                .filter(and(having(ArtistCredit::displayName).that(this.displayName::equivalentTo),
+                        having(ArtistCredit::sortKey).thatEqualsTo(this.sortKey)))
                 .isPresent();
     }
 

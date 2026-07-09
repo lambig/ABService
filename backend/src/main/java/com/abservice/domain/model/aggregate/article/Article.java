@@ -226,9 +226,9 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
         final var validatedType = Optional.ofNullable(newArticleType)
                 .orElseThrow(() -> new IllegalArgumentException("Article type cannot be null"));
         // ALBUM以外の種別に変更する場合、albumIdをクリア
-        return (validatedType != ArticleType.ALBUM && albumId != null
-                ? withArticleType(validatedType).withAlbumId(null)
-                : withArticleType(validatedType)).withUpdatedAtBusiness(currentDateTime);
+        final var typed = withArticleType(validatedType);
+        return Optional.ofNullable(albumId).filter(ignored -> validatedType != ArticleType.ALBUM)
+                .map(ignored -> typed.withAlbumId(null)).orElse(typed).withUpdatedAtBusiness(currentDateTime);
     }
 
     /**
@@ -263,7 +263,7 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
     public @NonNull Article removeTag(ArticleTag.@NonNull Id tagId, @NonNull BusinessDateTime currentDateTime) {
         final var validatedTagId = Optional.ofNullable(tagId)
                 .orElseThrow(() -> new IllegalArgumentException("Tag ID cannot be null"));
-        final var newTags = tags.stream().filter(t -> !t.hasId(validatedTagId)).collect(Collectors.toList());
+        final var newTags = tags.stream().filter(not(t -> t.hasId(validatedTagId))).collect(Collectors.toList());
         return withTags(Collections.unmodifiableList(newTags)).withUpdatedAtBusiness(currentDateTime);
     }
 

@@ -1,5 +1,7 @@
 package com.abservice.domain.model.vo.article;
 
+import static io.github.lambig.funcifextension.predicate.Predicates.and;
+
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
 import com.abservice.lib.ErrorResult;
@@ -112,7 +114,8 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
     }
 
     private static boolean isKnownFormat(@Nullable String value) {
-        return value != null && Arrays.stream(MarkupFormat.values()).anyMatch(f -> f.name().equals(value.trim()));
+        return Optional.ofNullable(value)
+                .filter(v -> Arrays.stream(MarkupFormat.values()).anyMatch(f -> f.name().equals(v.trim()))).isPresent();
     }
 
     /**
@@ -135,7 +138,7 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
 
     @Override
     public boolean equivalentTo(MarkupContent other) {
-        return Optional.ofNullable(other).map(o -> this.content.equals(o.content) && this.format == o.format)
-                .orElse(false);
+        return Optional.ofNullable(other).filter(and(o -> this.content.equals(o.content), o -> this.format == o.format))
+                .isPresent();
     }
 }

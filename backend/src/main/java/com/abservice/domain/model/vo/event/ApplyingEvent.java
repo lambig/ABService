@@ -1,8 +1,13 @@
 package com.abservice.domain.model.vo.event;
 
+import static com.abservice.domain.model.DomainObject.asType;
+import static io.github.lambig.funcifextension.predicate.By.having;
+import static io.github.lambig.funcifextension.predicate.Predicates.and;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 
 import com.abservice.domain.model.policy.Policy;
@@ -109,7 +114,9 @@ public record ApplyingEvent(EventName name, List<BusinessDate> tentativeDates) i
 
     @Override
     public boolean equivalentTo(EventToParticipate other) {
-        return other instanceof ApplyingEvent applying && this.name.equivalentTo(applying.name)
-                && this.tentativeDates.equals(applying.tentativeDates);
+        return Optional.ofNullable(other).map(asType(ApplyingEvent.class))
+                .filter(and(having(ApplyingEvent::name).that(this.name::equivalentTo),
+                        having(ApplyingEvent::tentativeDates).thatEqualsTo(this.tentativeDates)))
+                .isPresent();
     }
 }

@@ -1,5 +1,9 @@
 package com.abservice.domain.model.vo.event;
 
+import static com.abservice.domain.model.DomainObject.asType;
+import static io.github.lambig.funcifextension.predicate.By.having;
+import static io.github.lambig.funcifextension.predicate.Predicates.and;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -146,10 +150,10 @@ public record ConfirmedEvent(EventName name, List<EventDateAndSpace> dateAndSpac
 
     @Override
     public boolean equivalentTo(EventToParticipate other) {
-        return Optional.ofNullable(other).filter(o -> o instanceof ConfirmedEvent).map(o -> (ConfirmedEvent) o)
-                .map(confirmed -> this.name.equivalentTo(confirmed.name)
-                        && this.dateAndSpaces.equals(confirmed.dateAndSpaces)
-                        && Objects.equals(this.place, confirmed.place))
-                .orElse(false);
+        return Optional.ofNullable(other).map(asType(ConfirmedEvent.class))
+                .filter(and(having(ConfirmedEvent::name).that(this.name::equivalentTo),
+                        having(ConfirmedEvent::dateAndSpaces).thatEqualsTo(this.dateAndSpaces),
+                        having(ConfirmedEvent::place).thatEqualsTo(this.place)))
+                .isPresent();
     }
 }

@@ -283,9 +283,7 @@ public sealed interface Result<T> {
      *            合成後の値の型
      */
     static <A, B, R> Result<R> zip(Result<A> a, Result<B> b, BiFunction<? super A, ? super B, ? extends R> combiner) {
-        return a instanceof Success<A> sa && b instanceof Success<B> sb
-                ? Result.success(combiner.apply(sa.value(), sb.value()))
-                : Result.failure(aggregateErrors(a, b));
+        return ap(a.map(av -> bv -> combiner.apply(av, bv)), b);
     }
 
     /**
@@ -312,9 +310,7 @@ public sealed interface Result<T> {
      */
     static <A, B, C, R> Result<R> zip(Result<A> a, Result<B> b, Result<C> c,
             TriFunction<? super A, ? super B, ? super C, ? extends R> combiner) {
-        return a instanceof Success<A> sa && b instanceof Success<B> sb && c instanceof Success<C> sc
-                ? Result.success(combiner.apply(sa.value(), sb.value(), sc.value()))
-                : Result.failure(aggregateErrors(a, b, c));
+        return ap(ap(a.map(av -> bv -> cv -> combiner.apply(av, bv, cv)), b), c);
     }
 
     /**
@@ -326,6 +322,32 @@ public sealed interface Result<T> {
      */
     private static List<ErrorResult> aggregateErrors(Result<?>... results) {
         return Arrays.stream(results).flatMap(result -> result.errors().stream()).toList();
+    }
+
+    /**
+     * applicative apply。 関数を保持する {@code Result} を値の {@code Result} に適用します。
+     * 関数側が成功なら値側に {@link #map} で適用し、失敗が絡む場合は<b>両者のエラーを引数順に集約</b>して失敗を返します。
+     *
+     * <p>
+     * 型判別（{@code instanceof}）や値の取り出し（{@code resolve}）を用いず、{@code zip}
+     * のエラー集約を多態で表現するための内部プリミティブです。
+     * </p>
+     *
+     * @param ff
+     *            関数を保持する Result
+     * @param fa
+     *            値を保持する Result
+     * @return 適用結果（成功、または両者のエラーを集約した失敗）
+     * @param <U>
+     *            入力値の型
+     * @param <R>
+     *            適用後の値の型
+     */
+    private static <U, R> Result<R> ap(Result<Function<U, R>> ff, Result<U> fa) {
+        return switch (ff) {
+            case Success<Function<U, R>> sf -> fa.map(sf.value());
+            case Failure<Function<U, R>> failure -> Result.failure(aggregateErrors(ff, fa));
+        };
     }
 
     /**

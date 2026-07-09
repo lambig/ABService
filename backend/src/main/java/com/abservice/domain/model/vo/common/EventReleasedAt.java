@@ -1,5 +1,8 @@
 package com.abservice.domain.model.vo.common;
 
+import static io.github.lambig.funcifextension.predicate.By.having;
+import static io.github.lambig.funcifextension.predicate.Predicates.and;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -34,9 +37,11 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
     @Override
     public boolean equivalentTo(EventReleasedAt other) {
         return Optional.ofNullable(other)
-                .map(o -> this.name.equivalentTo(o.name) && Objects.equals(this.dateAndSpaces, o.dateAndSpaces)
-                        && Objects.equals(this.place, o.place) && Objects.equals(this.note, o.note))
-                .orElse(false);
+                .filter(and(having(EventReleasedAt::name).that(this.name::equivalentTo),
+                        having(EventReleasedAt::dateAndSpaces).thatEqualsTo(this.dateAndSpaces),
+                        having(EventReleasedAt::place).thatEqualsTo(this.place),
+                        having(EventReleasedAt::note).thatEqualsTo(this.note)))
+                .isPresent();
     }
 
     /**
