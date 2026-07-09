@@ -6,8 +6,13 @@
 
     <description>
         ABService 独自の静的解析ルール。既定ルールセットは読み込まず、
-        カスタムルールのみを定義する。
+        カスタムルールと必要な組み込みルールのみを個別に定義する。
     </description>
+
+    <!-- 不要なローカル変数・代入を禁止する（#33）。値は直接 return / 式で表現する。 -->
+    <rule ref="category/java/codestyle.xml/UnnecessaryLocalBeforeReturn"/>
+    <rule ref="category/java/bestpractices.xml/UnusedLocalVariable"/>
+    <rule ref="category/java/bestpractices.xml/UnusedAssignment"/>
 
     <rule name="ForbiddenFullyQualifiedTypeReference"
           language="java"
