@@ -131,27 +131,28 @@ import 済み 11 件から進んでおらず残多数（集約 `AlbumArticle`・
 > 方針: 「動く縦の1本」を最優先で通し、そのうえで横展開・品質ゲートを固める。まず **Article 集約**（依存が少なく単純）で 1 ユースケースを domain→app→REST→統合テストまで貫通させ、パターンを確立してから他集約へ横展開する。
 
 ### フェーズ A: エラー設計とlib・静的解析の土台（縦通しの前提）
-1. **ArchUnit 導入 ＋ 基本ルール先行**（§7.1）: `archunit-junit5` を test依存に追加し、レイヤー依存方向（domain ← application ← presentation、domain ← infrastructure）・`@Entity` の配置・`@Transactional` 禁止・Repository/ApplicationService の `Uni` 返却契約など、**既存構造だけで検証できる基本ルール**を先に入れる。以降の新規コードが最初から制約に沿うようにする（詳細な命名/戻り値ルールはフェーズDに残す）
-2. 🟢 完了: `Result` に `map` / `flatMap` / `zip`（複数VO検証の合成。arity 2・3でエラー集約）を追加
-3. 🟢 完了: `DomainException` 階層を整備（abstract 基底 + `ValidationException` / `EntityNotFoundException` / `BusinessRuleViolationException`。HTTP変換は presentation 層へ委譲）
-4. 🟡 一部: VO に外部入力用 `fromInput()`（`Result`返却）を段階導入。Article集約のVO（`ArticleType`/`MarkupContent`）は導入済み、残VOはフェーズCで横展開
+1. **ArchUnit 導入 ＋ 規約ベースのルールを先行**（§7.1）: `archunit-junit5` を test依存に追加し、レイヤー依存方向（domain ← application ← presentation、domain ← infrastructure）・`@Entity` の配置/命名・`@Transactional` 禁止・Repository/ApplicationService の `Uni` 返却契約に加え、**app/presentation の命名・配置・戻り値型契約も前提として先行導入する**。これらは §2 で確定済みの規約と既存の基底型（`CommandService`/`QueryService`）だけで述語を書けるため、実装クラスが0件でも導入でき、クラスが無い間は不活性（該当ルールのみ `allowEmptyShould(true)`）、最初のユースケース実装と同時に強制が効く。**「機能実装を待ってからルール化」はしない**（原則は §7.1）
+2. **機能的スタイル強制ルールを先行導入**（§7.4 / #37）: `if` 全廃・null三項→`Optional`・逐次 null+空/blank 複合・`switch(this)` 禁止・否定ラムダの `Predicate.not` 化・中置論理演算子禁止・不要変数禁止・VO 検証の Policy 経由強制（#26–#33・#29）は構造非依存で、既存 domain/lib と新規コード双方に効くため前提として入れる。各ルールは「導入前に違反0」を受け入れ条件とする。※ #34（`multiple` 検証**支援API**）・#35（三項書式の方針確定）・#36（Javadoc 例更新）は契約ルールではなく単独作業
+3. 🟢 完了: `Result` に `map` / `flatMap` / `zip`（複数VO検証の合成。arity 2・3でエラー集約）を追加
+4. 🟢 完了: `DomainException` 階層を整備（abstract 基底 + `ValidationException` / `EntityNotFoundException` / `BusinessRuleViolationException`。HTTP変換は presentation 層へ委譲）
+5. 🟡 一部: VO に外部入力用 `fromInput()`（`Result`返却）を段階導入。Article集約のVO（`ArticleType`/`MarkupContent`）は導入済み、残VOはフェーズCで横展開
 
 ### フェーズ B: 縦の1本通し（Article集約でパターン確立）
-4. Command ユースケース1件（例: 記事作成）を `CommandService` で実装 + Input/Output DTO
-5. Query ユースケース1件（例: 記事一覧/詳細）を `QueryService` + `DataSource` + Read Model DTO で実装
-6. `presentation/rest/` に `ArticleCommandResource` / `ArticleQueryResource` + Request/Response DTO
-7. `ExceptionMapper`（DomainException → 400/404/409/5xx）
-8. REST 統合テスト（rest-assured）でE2E疎通確認 → **動作確認スキル/実機起動で観測**
+6. Command ユースケース1件（例: 記事作成）を `CommandService` で実装 + Input/Output DTO
+7. Query ユースケース1件（例: 記事一覧/詳細）を `QueryService` + `DataSource` + Read Model DTO で実装
+8. `presentation/rest/` に `ArticleCommandResource` / `ArticleQueryResource` + Request/Response DTO
+9. `ExceptionMapper`（DomainException → 400/404/409/5xx）
+10. REST 統合テスト（rest-assured）でE2E疎通確認 → **動作確認スキル/実機起動で観測**
 
 ### フェーズ C: 横展開
-9. B のパターンを Tune / Album / AlbumArticle に展開
-10. §4 の簡略化3件を解消（AlbumArticle 頒布情報・入手経路 → Article タグ）し、Mapper統合テスト（Phase 8）を追加
-11. RepositoryImpl 統合テスト（Phase 7）を残り3集約に追加
+11. B のパターンを Tune / Album / AlbumArticle に展開
+12. §4 の簡略化3件を解消（AlbumArticle 頒布情報・入手経路 → Article タグ）し、Mapper統合テスト（Phase 8）を追加
+13. RepositoryImpl 統合テスト（Phase 7）を残り3集約に追加
 
 ### フェーズ D: 品質ゲート
-12. **ArchUnit 詳細ルールの追加**（§7.2）: app/presentation の構造が揃ってから、命名規約・戻り値型契約（`ApplicationService` の `execute`/`query` は `Uni<...>` 返却 等）といった構造依存の残りルールを段階追加する。テスト規約のうち `@DisplayName` 必須は `TestConventionsArchTest` で、AssertJ 統一は Checkstyle で強制済み
-13. JSpecify 移行の続行（§5.1、集約→エンティティ→VO→infra の順）
-14. DataSource 統合テスト（Phase 9）、カバレッジ計測（JaCoCo導入検討）
+14. **ArchUnit 残ルールの点検**（§7.2）: 命名・配置・戻り値型契約はフェーズAで先行導入済み（§7.1 の原則により規約ベースで先行できるもの）。フェーズDで新たに追加するのは、§2 の規約だけでは述語を書けず**具体実装がないと表現できない**真に構造依存なルールに限る（原則として想定なし。必要が生じた時点で判断）。テスト規約のうち `@DisplayName` 必須は `TestConventionsArchTest`、AssertJ 統一は Checkstyle で強制済み
+15. JSpecify 移行の続行（§5.1、集約→エンティティ→VO→infra の順）
+16. DataSource 統合テスト（Phase 9）、カバレッジ計測（JaCoCo導入検討）
 
 ---
 
@@ -167,18 +168,24 @@ testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.2'
 ```
 アーキテクチャテストは `src/test/java/com/abservice/architecture/` に JUnit5 テストとして配置（DB不要なので unit 側でよい）。
 
-**フェーズAで先行して入れる基本ルール**（既存構造だけで検証でき、新規コードを最初から制約に沿わせるもの）:
+**原則: 規約ベースのルールは実装を待たず先行導入する。** ArchUnit の述語が §2 で確定した規約（パッケージ配置・命名・基底型実装）と既存の基底型だけで表現できるルールは、対象クラスが未実装でも先行導入する。対象0件の間はマッチせず不活性になる（その1ルールのみ `allowEmptyShould(true)` を付け、実装が入り次第 `false` へ戻す）。これにより最初の実装が書かれた瞬間から契約が強制され、新規コードは最初から準拠する。逆に「機能実装を待ってからルール化」すると初回実装が非準拠で書かれ後追い是正になるため採らない。
+
+**フェーズAで先行して入れる基本ルール**（既存構造だけで検証できるもの）:
 - レイヤー依存方向: `layeredArchitecture()` で domain ← application ← presentation、domain ← infrastructure
 - `@Entity` は `..infrastructure.persistence.entity..` 内のみ
 - `..domain..` から `java.time..` への依存禁止（`BusinessDate`/`BusinessDateTime` は除外）
 - `@Transactional` 禁止（Reactive は `@WithTransaction`）
 - `Repository` 継承IFのメソッド戻り値は `Uni<...>`
 
-テスト規約のうち `@DisplayName` 必須は `TestConventionsArchTest` で強制済み（§7.2）。app/presentation の構造に依存する命名・戻り値型契約ルール（§7.2 の表の残り）は、それらのレイヤー実装後（**フェーズD**）に追加する。
+**同じくフェーズAで先行して入れる契約ルール**（§2 の規約＋既存基底型だけで述語を書けるもの。上記原則により実装を待たない）:
+- ApplicationService の命名/配置: `application/service/<agg>/` の Command 実装・`application/query/` の Query 実装は `*Service` 命名で該当パッケージに置く
+- ApplicationService の戻り値型: `execute`/`query` は `Uni<...>` 返却（基底 `CommandService`/`QueryService` の署名で既に javac が強制。ArchUnit は命名/配置/基底IF実装の逸脱を補完する）
+
+テスト規約のうち `@DisplayName` 必須は `TestConventionsArchTest` で強制済み（§7.2）。フェーズDに残すのは、§2 の規約だけでは述語を書けず具体実装がないと表現できない真に構造依存なルールに限る（§6 フェーズD）。
 
 ### 7.2 ArchUnit で強制する制約（全体）
 
-下表のうち §7.1 に挙げた基本ルールはフェーズAで先行導入済み。テスト規約の `@DisplayName` 必須は `TestConventionsArchTest`（テストクラスを検査対象に含めるため `LayeredArchitectureTest` とは別クラス）で強制済み。残る命名・戻り値型契約など app/presentation の構造に依存するルールは、それらのレイヤー実装後（フェーズD）に追加する。なお「JUnit assertion 禁止」は ArchUnit ではなく Checkstyle で強制している。
+下表のうち §7.1 に挙げた基本ルールはフェーズAで先行導入済み。テスト規約の `@DisplayName` 必須は `TestConventionsArchTest`（テストクラスを検査対象に含めるため `LayeredArchitectureTest` とは別クラス）で強制済み。命名・配置・戻り値型契約（「Entity 命名」「ApplicationService の戻り値」等）は §7.1 の原則により**規約ベースで前提（フェーズA）に先行導入する**（実装0件の間は `allowEmptyShould` で不活性）。フェーズD に残すのは具体実装がないと述語を書けない真に構造依存なルールのみ。なお「JUnit assertion 禁止」は ArchUnit ではなく Checkstyle で強制している。
 
 | ルール | 内容 |
 |---|---|
@@ -224,7 +231,7 @@ ABService は Java プロジェクトのため、Kotlin 向けの detekt カス�
 | ForbiddenBacktickTestMethodName | バッククォートのテストメソッド名禁止 | Java はメソッド名に空白不可。可読名は `@DisplayName` で充足 | ⛔対象外 |
 | ProhibitWhenForUnitBranches | 副作用分岐に `when` を使わず `if` を使う | Java は `if`=文で自動充足（副作用は `if`/`switch` 文） | ⛔対象外 |
 | ForbiddenInitInValueObject | VO で `init` ブロック禁止（検証を集約） | record に `init` なし。意図は VO 検証集約（下記 RequireValidationInValueObject）へ | ⛔対象外 |
-| RequireUniReturnTypeOnApplicationService | ApplicationService の `execute`/`query` は `Uni<...>` | ArchUnit（**アプリ層の具象実装後**に追加） | ❌保留 |
+| RequireUniReturnTypeOnApplicationService | ApplicationService の `execute`/`query` は `Uni<...>` | 基底 `CommandService`/`QueryService` の署名で javac が既に強制。ArchUnit で命名/配置/基底IF実装を補完（§7.1 の原則で**前提として先行導入**、実装0件の間は `allowEmptyShould`） | ❌未（前提で先行） |
 | RequireValidationInValueObject | VO は検証を持つ | PMD（メソッド本文検査。ArchUnit では表現不可） | ❌未 |
 | ForbiddenLogicalOperators | 中置論理演算子 `&&`/`\|\|`/`!` を禁止し宣言的合成へ | Checkstyle `IllegalToken`（`LAND`/`LOR`/`LNOT`） | ❌未 |
 | ForbiddenVarInDomain | domain で可変変数禁止 | Checkstyle（domain の field/local に `final` 強制） | ❌未 |
@@ -241,7 +248,7 @@ ABService は Java プロジェクトのため、Kotlin 向けの detekt カス�
 
 ### 7.4 機能的スタイル強制の残ルール・設計バックログ
 
-命令的な `if`・逐次検査・生ラムダを排し、**式・Optional・filter・Policy・多態**で表現する機能的スタイルを全面採用する。本文適用は完了済み（src/main の実 `if` は 0）。**ルール化（静的解析での強制）と支援 API の残項目**は GitHub issue で管理する。
+命令的な `if`・逐次検査・生ラムダを排し、**式・Optional・filter・Policy・多態**で表現する機能的スタイルを全面採用する。本文適用は完了済み（src/main の実 `if` は 0）。**ルール化（静的解析での強制）と支援 API の残項目**は GitHub issue で管理する。ルール化のうち構造非依存の強制（#26–#33・#29）は §6 フェーズA の前提確保として**新規コード実装前に先行導入**する（フェーズD送りにしない）。#34（支援API）・#35（方針確定）・#36（ドキュメント）はルールではなく単独作業。
 
 - トラッキング: **#37**（`harness-backlog` ラベル）
 - 各項目の詳細・検出方針・受け入れ条件は個別 issue（#26–#36）を参照。導入時は「導入前に違反を検出できること」「フォーマッタ/PMD 整合（違反 0）」を確認する。
