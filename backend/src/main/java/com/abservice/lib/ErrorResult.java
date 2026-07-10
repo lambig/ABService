@@ -1,6 +1,7 @@
 package com.abservice.lib;
 
 import java.util.Objects;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -34,8 +35,7 @@ public record ErrorResult(String field, String message, @Nullable String code) {
 
     @Override
     public String toString() {
-        return code != null
-                ? field + ": " + message + " (code: " + code + ")"
-                : field + ": " + message;
+        return Optional.ofNullable(code).map(c -> field + ": " + message + " (code: " + c + ")")
+                .orElse(field + ": " + message);
     }
 }
