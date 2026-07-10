@@ -158,4 +158,42 @@ class PolicyTest {
             });
         }
     }
+
+    @Nested
+    @DisplayName("Policies.multiple（多フィールド一括検証）")
+    class MultipleTest {
+
+        @Test
+        @DisplayName("全フィールド成功なら成功を返す")
+        void allSuccessShouldSucceed() {
+            final Result<Boolean> result = Policies.multiple(
+                    nonBlank().verify("a", Function.identity()),
+                    maxLen(10).verify("abc", Function.identity()));
+
+            assertThat(result.resolve()).isTrue();
+        }
+
+        @Test
+        @DisplayName("複数フィールド失敗時は全エラーを引数順に集約する")
+        void multipleFailuresShouldBeAggregatedInOrder() {
+            final Result<Boolean> result = Policies.multiple(
+                    nonBlank().verify("  ", Function.identity()),
+                    maxLen(3).verify("toolong", Function.identity()));
+
+            assertThat(result).isInstanceOf(Result.Failure.class);
+            assertThat(((Result.Failure<Boolean>) result).errors()).extracting(ErrorResult::code)
+                    .containsExactly("REQUIRED", "TOO_LONG");
+        }
+
+        @Test
+        @DisplayName("一部フィールド失敗時はその失敗のみ集約する")
+        void partialFailureShouldAggregateOnlyFailed() {
+            final Result<Boolean> result = Policies.multiple(
+                    nonBlank().verify("ok", Function.identity()),
+                    maxLen(3).verify("toolong", Function.identity()));
+
+            assertThat(((Result.Failure<Boolean>) result).errors()).extracting(ErrorResult::code)
+                    .containsExactly("TOO_LONG");
+        }
+    }
 }

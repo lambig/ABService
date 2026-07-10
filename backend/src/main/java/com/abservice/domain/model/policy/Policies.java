@@ -2,6 +2,7 @@ package com.abservice.domain.model.policy;
 
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -32,6 +33,33 @@ public final class Policies {
         final List<ErrorResult> errors = validations.stream().flatMap(r -> r.errors().stream()).toList();
         return errors.isEmpty()
                 ? Result.success(constructor.get())
+                : Result.failure(errors);
+    }
+
+    /**
+     * 複数フィールドの検証結果をまとめ、失敗を引数順に集約する<b>検証専用</b>の合成。
+     *
+     * <p>
+     * 各フィールドの検証結果（{@code policy.verify(value, Function.identity())} 等）を受け取り、
+     * すべて成功なら成功を、いずれか失敗ならすべてのエラーを<b>引数順に集約</b>した失敗を返します。
+     * 値構築を伴わないため、{@link #combine(List, Supplier)} と異なり throwaway な生成関数を
+     * 必要としません。成功時は検証通過を表す {@code true} を保持します（値としては利用しません）。
+     * </p>
+     *
+     * <p>
+     * 多フィールド値オブジェクトのコンパクトコンストラクタで、逐次 {@code verify().resolve()}
+     * （先頭エラーで即時失敗）に代えて全フィールドのエラーを一度に集約する用途に使用します。
+     * </p>
+     *
+     * @param validations
+     *            各フィールドの検証結果（引数順にエラーを集約）
+     * @return 全成功なら {@code Result.success(true)}、失敗があれば全エラーを集約した
+     *         {@code Result.failure}
+     */
+    public static Result<Boolean> multiple(Result<?>... validations) {
+        final List<ErrorResult> errors = Arrays.stream(validations).flatMap(r -> r.errors().stream()).toList();
+        return errors.isEmpty()
+                ? Result.success(true)
                 : Result.failure(errors);
     }
 
