@@ -41,12 +41,14 @@ public record Isrc(String value) implements ValueObject<Isrc> {
      *             ISRCがnullまたは不正なフォーマットの場合
      */
     public Isrc {
-        Policy.<String>of(StringUtils::isNotBlank,
+        Policy.<String>of(
+                StringUtils::isNotBlank,
                 () -> new ErrorResult("value", "ISRC cannot be blank", "ISRC_REQUIRED"))
                 .verify(value, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         final var normalized = value.toUpperCase().trim();
-        Policy.of((String v) -> ISRC_PATTERN.matcher(v).matches(),
+        Policy.of(
+                (String v) -> ISRC_PATTERN.matcher(v).matches(),
                 () -> new ErrorResult("value", "ISRC must match the format: CC-XXX-YY-NNNNN (hyphens optional)",
                         "ISRC_INVALID_FORMAT"))
                 .verify(normalized, Function.identity())

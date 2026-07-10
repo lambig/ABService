@@ -1,5 +1,6 @@
 package com.abservice.domain.model.aggregate.tune;
 
+import static io.github.lambig.funcifextension.predicate.Predicates.or;
 import static java.util.function.Predicate.not;
 
 import com.abservice.domain.model.EntityId;
@@ -9,6 +10,7 @@ import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.tune.TuneKind;
 import com.abservice.domain.model.vo.tune.TuneTitle;
 import com.abservice.lib.ErrorResult;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import lombok.AccessLevel;
@@ -138,8 +140,9 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
      * @return 更新されたTune
      */
     public @NonNull Tune changeTitle(@NonNull TuneTitle newTitle) {
-        return withTitle(Optional.ofNullable(newTitle)
-                .orElseThrow(() -> new IllegalArgumentException("Tune title cannot be null")));
+        return withTitle(
+                Optional.ofNullable(newTitle)
+                        .orElseThrow(() -> new IllegalArgumentException("Tune title cannot be null")));
     }
 
     /**
@@ -175,7 +178,8 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
      */
     public @NonNull Tune changeOriginalWorkInfo(@Nullable String newOriginalWorkTitle,
             @Nullable String newOriginalWorkCredit) {
-        Policy.<String>of(owt -> tuneKind != TuneKind.ARRANGEMENT || StringUtils.isNotBlank(owt),
+        Policy.<String>of(
+                or(unused -> tuneKind != TuneKind.ARRANGEMENT, StringUtils::isNotBlank),
                 () -> new ErrorResult("originalWorkTitle", "Original work title is required for ARRANGEMENT tune kind",
                         "ORIGINAL_WORK_TITLE_REQUIRED"))
                 .verify(newOriginalWorkTitle, Function.identity())
@@ -213,7 +217,8 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
      * @return 更新されたTune
      */
     public @NonNull Tune changeDefaultTempo(@Nullable Integer newDefaultTempo) {
-        Policy.<Integer>of(tempo -> tempo == null || tempo > 0,
+        Policy.<Integer>of(
+                or(Objects::isNull, tempo -> tempo > 0),
                 () -> new ErrorResult("defaultTempo", "Tempo must be positive", "TEMPO_MUST_BE_POSITIVE"))
                 .verify(newDefaultTempo, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
@@ -235,7 +240,8 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
         public Id {
             Optional.ofNullable(value).filter(not(String::isBlank))
                     .orElseThrow(() -> new IllegalArgumentException("Tune ID cannot be blank"));
-            Policy.<String>of(EntityId::isValidUuid,
+            Policy.<String>of(
+                    EntityId::isValidUuid,
                     () -> new ErrorResult("value", "Tune ID must be a valid UUID: " + value, "ID_INVALID_UUID"))
                     .verify(value, Function.identity())
                     .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));

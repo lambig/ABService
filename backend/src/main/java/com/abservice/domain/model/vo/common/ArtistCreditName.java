@@ -33,10 +33,12 @@ public record ArtistCreditName(String value) implements ValueObject<ArtistCredit
      */
     public ArtistCreditName {
         Policy.all(
-                Policy.of(StringUtils::isNotBlank,
+                Policy.of(
+                        StringUtils::isNotBlank,
                         () -> new ErrorResult("artistCreditName", "Artist credit name cannot be blank",
                                 "ARTIST_CREDIT_NAME_REQUIRED")),
-                Policy.of((String v) -> StringUtils.length(v) <= 255,
+                Policy.of(
+                        (String v) -> StringUtils.length(v) <= 255,
                         () -> new ErrorResult("artistCreditName", "Artist credit name must be 255 characters or less",
                                 "ARTIST_CREDIT_NAME_TOO_LONG")))
                 .verify(value, Function.identity())

@@ -32,9 +32,13 @@ public final class AlbumArticleMapper {
         return switch (entity) {
             case null -> null;
             // 頒布情報は簡略化のためnull、入手経路は簡略化のため空リスト
-            default -> AlbumArticle.reconstruct(new Album.Id(entity.getDomainId()), entity.getIntroLong(),
-                    entity.getIntroShort(), entity.getFirstEventSpace(),
-                    Optional.ofNullable(entity.getLabelTag()).map(LabelTag::valueOf).orElse(null), null,
+            default -> AlbumArticle.reconstruct(
+                    new Album.Id(entity.getDomainId()),
+                    entity.getIntroLong(),
+                    entity.getIntroShort(),
+                    entity.getFirstEventSpace(),
+                    Optional.ofNullable(entity.getLabelTag()).map(LabelTag::valueOf).orElse(null),
+                    null,
                     Collections.emptyList());
         };
     }

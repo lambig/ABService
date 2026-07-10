@@ -18,8 +18,8 @@ class PolicyTest {
     }
 
     private static Policy<String> maxLen(int max) {
-        return Policy.of((String v) -> v == null || v.length() <= max,
-                () -> new ErrorResult("value", "長すぎます", "TOO_LONG"));
+        return Policy
+                .of((String v) -> v == null || v.length() <= max, () -> new ErrorResult("value", "長すぎます", "TOO_LONG"));
     }
 
     @Nested
@@ -70,8 +70,8 @@ class PolicyTest {
         @Test
         @DisplayName("リスト版allも同様に合成できる")
         void listOverloadShouldWork() {
-            final Result<String> result = Policy.all(List.of(nonBlank(), maxLen(3))).verify("toolong",
-                    Function.identity());
+            final Result<String> result = Policy.all(List.of(nonBlank(), maxLen(3)))
+                    .verify("toolong", Function.identity());
 
             assertThat(((Result.Failure<String>) result).errors()).singleElement()
                     .satisfies(e -> assertThat(e.code()).isEqualTo("TOO_LONG"));
@@ -85,8 +85,8 @@ class PolicyTest {
         @Test
         @DisplayName("全成功なら生成関数を適用した成功を返す")
         void allSuccessShouldSucceed() {
-            final Result<String> result = Policies.combine(List.of(Result.success("a"), Result.success(1)),
-                    () -> "built");
+            final Result<String> result = Policies
+                    .combine(List.of(Result.success("a"), Result.success(1)), () -> "built");
 
             assertThat(result.resolve()).isEqualTo("built");
         }
@@ -94,12 +94,16 @@ class PolicyTest {
         @Test
         @DisplayName("失敗が混在する場合は全エラーを集約する")
         void mixedFailuresShouldBeAggregated() {
-            final Result<String> result = Policies.combine(List.of(Result.failure(new ErrorResult("a", "msgA", "A")),
-                    Result.success(1), Result.failure(new ErrorResult("b", "msgB", "B"))), () -> "built");
+            final Result<String> result = Policies.combine(
+                    List.of(
+                            Result.failure(new ErrorResult("a", "msgA", "A")),
+                            Result.success(1),
+                            Result.failure(new ErrorResult("b", "msgB", "B"))),
+                    () -> "built");
 
             assertThat(result).isInstanceOf(Result.Failure.class);
-            assertThat(((Result.Failure<String>) result).errors()).extracting(ErrorResult::code).containsExactly("A",
-                    "B");
+            assertThat(((Result.Failure<String>) result).errors()).extracting(ErrorResult::code)
+                    .containsExactly("A", "B");
         }
     }
 
@@ -118,8 +122,8 @@ class PolicyTest {
         @Test
         @DisplayName("失敗は各エラーのfieldに親名を前置する")
         void failureShouldPrefixField() {
-            final Result<String> result = Policies.nested("parent",
-                    Result.failure(new ErrorResult("child", "msg", "CODE")));
+            final Result<String> result = Policies
+                    .nested("parent", Result.failure(new ErrorResult("child", "msg", "CODE")));
 
             assertThat(result).isInstanceOf(Result.Failure.class);
             assertThat(((Result.Failure<String>) result).errors()).singleElement().satisfies(e -> {

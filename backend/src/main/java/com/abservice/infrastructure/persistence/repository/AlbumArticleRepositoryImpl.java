@@ -36,15 +36,18 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             default -> {
                 final var entity = AlbumArticleMapper.toEntity(aggregate);
 
-                yield dataSource.existsByAlbumId(entity.getDomainId()).flatMap(exists -> exists
-                        ? dataSource.find("domainId", entity.getDomainId()).firstResult().flatMap(existingEntity -> {
-                            existingEntity.setIntroLong(entity.getIntroLong());
-                            existingEntity.setIntroShort(entity.getIntroShort());
-                            existingEntity.setFirstEventSpace(entity.getFirstEventSpace());
-                            existingEntity.setLabelTag(entity.getLabelTag());
-                            return dataSource.persistAndFlush(existingEntity);
-                        })
-                        : dataSource.persistAndFlush(entity)).map(AlbumArticleMapper::toDomain);
+                yield dataSource.existsByAlbumId(entity.getDomainId()).flatMap(
+                        exists -> exists
+                                ? dataSource.find("domainId", entity.getDomainId()).firstResult()
+                                        .flatMap(existingEntity -> {
+                                            existingEntity.setIntroLong(entity.getIntroLong());
+                                            existingEntity.setIntroShort(entity.getIntroShort());
+                                            existingEntity.setFirstEventSpace(entity.getFirstEventSpace());
+                                            existingEntity.setLabelTag(entity.getLabelTag());
+                                            return dataSource.persistAndFlush(existingEntity);
+                                        })
+                                : dataSource.persistAndFlush(entity))
+                        .map(AlbumArticleMapper::toDomain);
             }
         };
     }
@@ -78,8 +81,9 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
                 final var unis = StreamSupport.stream(ids.spliterator(), false).map(this::findById)
                         .collect(Collectors.toList());
 
-                yield Uni.join().all(unis).andFailFast().map(list -> list.stream()
-                        .filter(albumArticle -> albumArticle != null).collect(Collectors.toList()));
+                yield Uni.join().all(unis).andFailFast().map(
+                        list -> list.stream().filter(albumArticle -> albumArticle != null)
+                                .collect(Collectors.toList()));
             }
         };
     }

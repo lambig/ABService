@@ -1,5 +1,7 @@
 package com.abservice.domain.model.aggregate.albumarticle;
 
+import static java.util.function.Predicate.not;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -163,7 +165,7 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
         Optional.ofNullable(channelId).orElseThrow(() -> new IllegalArgumentException("Channel ID cannot be null"));
         acquisitionChannels.stream().filter(c -> c.hasId(channelId)).findFirst().orElseThrow(
                 () -> new IllegalArgumentException("Acquisition channel with ID " + channelId.value() + " not found"));
-        return withAcquisitionChannels(acquisitionChannels.stream().filter(c -> !c.hasId(channelId)).toList());
+        return withAcquisitionChannels(acquisitionChannels.stream().filter(not(c -> c.hasId(channelId))).toList());
     }
 
     /**
@@ -176,12 +178,15 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
     public AlbumArticle updateAcquisitionChannel(AlbumAcquisitionChannel updatedChannel) {
         Optional.ofNullable(updatedChannel)
                 .orElseThrow(() -> new IllegalArgumentException("Updated channel cannot be null"));
-        acquisitionChannels.stream().filter(updatedChannel::equivalentTo).findFirst()
-                .orElseThrow(() -> new IllegalArgumentException(
+        acquisitionChannels.stream().filter(updatedChannel::equivalentTo).findFirst().orElseThrow(
+                () -> new IllegalArgumentException(
                         "Acquisition channel with ID " + updatedChannel.id().value() + " not found"));
-        return withAcquisitionChannels(acquisitionChannels.stream().map(c -> c.equivalentTo(updatedChannel)
-                ? updatedChannel
-                : c).toList());
+        return withAcquisitionChannels(
+                acquisitionChannels.stream().map(
+                        c -> c.equivalentTo(updatedChannel)
+                                ? updatedChannel
+                                : c)
+                        .toList());
     }
 
     /**

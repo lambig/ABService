@@ -55,8 +55,8 @@ class EventReleasedAtTest {
         final BusinessDate date1 = BusinessDate.of(LocalDate.of(2023, 12, 30));
         final BusinessDate date2 = BusinessDate.of(LocalDate.of(2023, 12, 31));
 
-        final List<EventDateAndSpace> dateAndSpaces = List.of(EventDateAndSpace.of(date1, "東ホ-01a"),
-                EventDateAndSpace.of(date2, "東ホ-01b"));
+        final List<EventDateAndSpace> dateAndSpaces = List
+                .of(EventDateAndSpace.of(date1, "東ホ-01a"), EventDateAndSpace.of(date2, "東ホ-01b"));
 
         final EventReleasedAt event = EventReleasedAt.of("コミックマーケット101", dateAndSpaces, "東京ビッグサイト", null);
 

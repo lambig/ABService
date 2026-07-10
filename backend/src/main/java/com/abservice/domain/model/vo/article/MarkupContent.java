@@ -1,5 +1,7 @@
 package com.abservice.domain.model.vo.article;
 
+import static io.github.lambig.funcifextension.predicate.Predicates.and;
+
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
 import com.abservice.lib.ErrorResult;
@@ -39,11 +41,13 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
      *             contentまたはformatがnullの場合
      */
     public MarkupContent {
-        Policy.<String>of(Objects::nonNull,
+        Policy.<String>of(
+                Objects::nonNull,
                 () -> new ErrorResult("content", "Content cannot be null", "CONTENT_REQUIRED"))
                 .verify(content, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
-        Policy.<MarkupFormat>of(Objects::nonNull,
+        Policy.<MarkupFormat>of(
+                Objects::nonNull,
                 () -> new ErrorResult("format", "Markup format cannot be null", "MARKUP_FORMAT_REQUIRED"))
                 .verify(format, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
@@ -101,18 +105,22 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
     public static Result<MarkupContent> fromInput(@Nullable String content, @Nullable String format) {
         final String safeContent = Optional.ofNullable(content).orElse("");
         return Policy
-                .<String>of(StringUtils::isNotBlank,
+                .<String>of(
+                        StringUtils::isNotBlank,
                         () -> new ErrorResult("format", "マークアップ形式は必須です", "MARKUP_FORMAT_REQUIRED"))
-                .verify(format,
-                        Function.identity())
-                .flatMap(f -> Policy
-                        .of(MarkupContent::isKnownFormat,
-                                () -> new ErrorResult("format", "不正なマークアップ形式です: " + f, "MARKUP_FORMAT_INVALID"))
-                        .verify(f, valid -> new MarkupContent(safeContent, MarkupFormat.valueOf(valid.trim()))));
+                .verify(format, Function.identity()).flatMap(
+                        f -> Policy
+                                .of(
+                                        MarkupContent::isKnownFormat,
+                                        () -> new ErrorResult("format", "不正なマークアップ形式です: " + f, "MARKUP_FORMAT_INVALID"))
+                                .verify(
+                                        f,
+                                        valid -> new MarkupContent(safeContent, MarkupFormat.valueOf(valid.trim()))));
     }
 
     private static boolean isKnownFormat(@Nullable String value) {
-        return value != null && Arrays.stream(MarkupFormat.values()).anyMatch(f -> f.name().equals(value.trim()));
+        return Optional.ofNullable(value)
+                .filter(v -> Arrays.stream(MarkupFormat.values()).anyMatch(f -> f.name().equals(v.trim()))).isPresent();
     }
 
     /**
@@ -135,7 +143,7 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
 
     @Override
     public boolean equivalentTo(MarkupContent other) {
-        return Optional.ofNullable(other).map(o -> this.content.equals(o.content) && this.format == o.format)
-                .orElse(false);
+        return Optional.ofNullable(other).filter(and(o -> this.content.equals(o.content), o -> this.format == o.format))
+                .isPresent();
     }
 }

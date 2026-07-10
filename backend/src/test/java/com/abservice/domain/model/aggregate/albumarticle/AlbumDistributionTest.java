@@ -244,8 +244,8 @@ class AlbumDistributionTest {
             final var physicalPrice = Price.of(1000);
             final var downloadPrice = Price.of(500);
             final var note = "補足";
-            final var distribution = AlbumDistribution.create(physicalPrice, downloadPrice, Url.of("https://old.com"),
-                    note);
+            final var distribution = AlbumDistribution
+                    .create(physicalPrice, downloadPrice, Url.of("https://old.com"), note);
             final var newUrl = Url.of("https://new.com");
 
             // Act
@@ -352,8 +352,8 @@ class AlbumDistributionTest {
         @DisplayName("頒布終了時に価格情報をクリアできること")
         void clearPricesOnDistributionEndShouldSucceed() {
             // Arrange - 頒布中の状態
-            final var distribution = AlbumDistribution.create(Price.of(1000), Price.of(500),
-                    Url.of("https://demo.example.com"), "頒布中");
+            final var distribution = AlbumDistribution
+                    .create(Price.of(1000), Price.of(500), Url.of("https://demo.example.com"), "頒布中");
 
             // Act - 頒布終了
             final var ended = distribution.changePhysicalPrice(null).changeDownloadPrice(null).changeNote("頒布終了");

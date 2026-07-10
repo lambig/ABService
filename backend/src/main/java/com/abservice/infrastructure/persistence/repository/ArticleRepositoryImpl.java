@@ -11,7 +11,9 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 /**
@@ -37,19 +39,22 @@ public class ArticleRepositoryImpl implements ArticleRepository {
             default -> {
                 final var entity = ArticleMapper.toEntity(aggregate);
 
-                yield dataSource.existsByArticleId(entity.getDomainId()).flatMap(exists -> exists
-                        ? dataSource.find("domainId", entity.getDomainId()).firstResult().flatMap(existingEntity -> {
-                            existingEntity.setArticleType(entity.getArticleType());
-                            existingEntity.setAlbumId(entity.getAlbumId());
-                            existingEntity.setTitle(entity.getTitle());
-                            existingEntity.setBody(entity.getBody());
-                            existingEntity.setIntroShort(entity.getIntroShort());
-                            existingEntity.setPublishedAt(entity.getPublishedAt());
-                            existingEntity.setUpdatedAtBusiness(entity.getUpdatedAtBusiness());
-                            existingEntity.setIsPublic(entity.getIsPublic());
-                            return dataSource.persistAndFlush(existingEntity);
-                        })
-                        : dataSource.persistAndFlush(entity)).map(ArticleMapper::toDomain);
+                yield dataSource.existsByArticleId(entity.getDomainId()).flatMap(
+                        exists -> exists
+                                ? dataSource.find("domainId", entity.getDomainId()).firstResult()
+                                        .flatMap(existingEntity -> {
+                                            existingEntity.setArticleType(entity.getArticleType());
+                                            existingEntity.setAlbumId(entity.getAlbumId());
+                                            existingEntity.setTitle(entity.getTitle());
+                                            existingEntity.setBody(entity.getBody());
+                                            existingEntity.setIntroShort(entity.getIntroShort());
+                                            existingEntity.setPublishedAt(entity.getPublishedAt());
+                                            existingEntity.setUpdatedAtBusiness(entity.getUpdatedAtBusiness());
+                                            existingEntity.setIsPublic(entity.getIsPublic());
+                                            return dataSource.persistAndFlush(existingEntity);
+                                        })
+                                : dataSource.persistAndFlush(entity))
+                        .map(ArticleMapper::toDomain);
             }
         };
     }
@@ -177,7 +182,7 @@ public class ArticleRepositoryImpl implements ArticleRepository {
 
     @Override
     public Uni<List<Article>> findByPublishedAtBetween(BusinessDateTime startDate, BusinessDateTime endDate) {
-        return startDate == null || endDate == null
+        return Stream.of(startDate, endDate).anyMatch(Objects::isNull)
                 ? Uni.createFrom().item(List.of())
                 : dataSource.findByPublishedAtBetween(startDate.value(), endDate.value())
                         .map(entities -> entities.stream().map(ArticleMapper::toDomain).collect(Collectors.toList()));

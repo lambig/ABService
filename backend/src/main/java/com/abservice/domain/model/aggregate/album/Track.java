@@ -1,5 +1,7 @@
 package com.abservice.domain.model.aggregate.album;
 
+import static java.util.function.Predicate.not;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -140,8 +142,9 @@ public class Track implements DomainEntity<Track, Track.Id> {
      * @return 更新されたTrack
      */
     public @NonNull Track changeTitle(@NonNull TrackTitle newTitle) {
-        return withTitle(Optional.ofNullable(newTitle)
-                .orElseThrow(() -> new IllegalArgumentException("Track title cannot be null")));
+        return withTitle(
+                Optional.ofNullable(newTitle)
+                        .orElseThrow(() -> new IllegalArgumentException("Track title cannot be null")));
     }
 
     /**
@@ -217,7 +220,7 @@ public class Track implements DomainEntity<Track, Track.Id> {
                 .orElseThrow(() -> new IllegalArgumentException("Seq cannot be null"));
         tunes.stream().filter(t -> t.seq().equals(validatedSeq)).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Tune with seq " + validatedSeq + " not found"));
-        return withTunes(tunes.stream().filter(t -> !t.seq().equals(validatedSeq)).toList());
+        return withTunes(tunes.stream().filter(not(t -> t.seq().equals(validatedSeq))).toList());
     }
 
     /**
@@ -232,9 +235,12 @@ public class Track implements DomainEntity<Track, Track.Id> {
                 .orElseThrow(() -> new IllegalArgumentException("Updated tune cannot be null"));
         tunes.stream().filter(t -> t.seq().equals(validatedTune.seq())).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Tune with seq " + validatedTune.seq() + " not found"));
-        return withTunes(tunes.stream().map(t -> t.seq().equals(validatedTune.seq())
-                ? validatedTune
-                : t).toList());
+        return withTunes(
+                tunes.stream().map(
+                        t -> t.seq().equals(validatedTune.seq())
+                                ? validatedTune
+                                : t)
+                        .toList());
     }
 
     /**
@@ -260,9 +266,11 @@ public class Track implements DomainEntity<Track, Track.Id> {
     public record Id(@NonNull String value) implements EntityId<Track> {
         public Id {
             Policy.<String>all(
-                    Policy.of(StringUtils::isNotBlank,
+                    Policy.of(
+                            StringUtils::isNotBlank,
                             () -> new ErrorResult("value", "Track ID cannot be blank", "ID_BLANK")),
-                    Policy.of(EntityId::isValidUuid,
+                    Policy.of(
+                            EntityId::isValidUuid,
                             () -> new ErrorResult("value", "Track ID must be a valid UUID: " + value,
                                     "ID_INVALID_UUID")))
                     .verify(value, Function.identity())

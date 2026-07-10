@@ -15,4 +15,8 @@
     <!-- 可変コレクション生成禁止（DomainNoMutableCollection）も production の domain 層のみに適用 -->
     <suppress id="DomainNoMutableCollection"
         files="^(?!.*[\\/]src[\\/]main[\\/]java[\\/]com[\\/]abservice[\\/]domain[\\/]).*$"/>
+
+    <!-- 中置論理演算子禁止（ForbiddenLogicalOperators）は production コード（src/main/java）のみに適用。テスト等は抑制 -->
+    <suppress id="ForbiddenLogicalOperators"
+        files="^(?!.*[\\/]src[\\/]main[\\/]java[\\/]).*$"/>
 </suppressions>

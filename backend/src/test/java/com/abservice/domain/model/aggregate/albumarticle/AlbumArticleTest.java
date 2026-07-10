@@ -33,8 +33,8 @@ class AlbumArticleTest {
             final var labelTag = LabelTag.NEW;
 
             // Act
-            final var albumArticle = AlbumArticle.create(albumId, introLong, introShort, firstEventSpace, labelTag,
-                    null);
+            final var albumArticle = AlbumArticle
+                    .create(albumId, introLong, introShort, firstEventSpace, labelTag, null);
 
             // Assert
             assertThat(albumArticle).isNotNull();
@@ -57,12 +57,12 @@ class AlbumArticleTest {
             final var introShort = "Complete short";
             final var firstEventSpace = "西Y-99c";
             final var labelTag = LabelTag.OTHER;
-            final var distribution = AlbumDistribution.create(Price.of(1000), Price.of(500),
-                    Url.of("https://example.com/demo"), "Demo available");
+            final var distribution = AlbumDistribution
+                    .create(Price.of(1000), Price.of(500), Url.of("https://example.com/demo"), "Demo available");
 
             // Act
-            final var albumArticle = AlbumArticle.create(albumId, introLong, introShort, firstEventSpace, labelTag,
-                    distribution);
+            final var albumArticle = AlbumArticle
+                    .create(albumId, introLong, introShort, firstEventSpace, labelTag, distribution);
 
             // Assert
             assertThat(albumArticle).isNotNull();
@@ -205,8 +205,8 @@ class AlbumArticleTest {
         void setDistributionWithValidDistributionShouldSucceed() {
             // Arrange
             final var albumArticle = createTestAlbumArticle();
-            final var distribution = AlbumDistribution.create(Price.of(1500), Price.of(800),
-                    Url.of("https://example.com/demo"), "New distribution info");
+            final var distribution = AlbumDistribution
+                    .create(Price.of(1500), Price.of(800), Url.of("https://example.com/demo"), "New distribution info");
 
             // Act
             final var updated = albumArticle.setDistribution(distribution);
@@ -284,8 +284,8 @@ class AlbumArticleTest {
             // Arrange
             var albumArticle = createTestAlbumArticle();
             final var channel1 = createTestChannel("BOOTH");
-            final var channel2 = AlbumAcquisitionChannel.reconstruct(channel1.id(), ChannelType.ONLINE_SHOP,
-                    "Different Name", null, null);
+            final var channel2 = AlbumAcquisitionChannel
+                    .reconstruct(channel1.id(), ChannelType.ONLINE_SHOP, "Different Name", null, null);
             albumArticle = albumArticle.addAcquisitionChannel(channel1);
 
             // Act & Assert
@@ -375,8 +375,12 @@ class AlbumArticleTest {
             final var originalChannel = createTestChannel("Original Name");
             albumArticle = albumArticle.addAcquisitionChannel(originalChannel);
 
-            final var updatedChannel = AlbumAcquisitionChannel.reconstruct(originalChannel.id(),
-                    ChannelType.ONLINE_SHOP, "Updated Name", Url.of("https://updated.example.com"), "Updated note");
+            final var updatedChannel = AlbumAcquisitionChannel.reconstruct(
+                    originalChannel.id(),
+                    ChannelType.ONLINE_SHOP,
+                    "Updated Name",
+                    Url.of("https://updated.example.com"),
+                    "Updated note");
 
             // Act
             final var updated = albumArticle.updateAcquisitionChannel(updatedChannel);
@@ -437,12 +441,17 @@ class AlbumArticleTest {
     // テストヘルパーメソッド
 
     private AlbumArticle createTestAlbumArticle() {
-        return AlbumArticle.create(Album.Id.generate(), "Test long introduction", "Test short intro", "東X-00a",
-                LabelTag.NEW, null);
+        return AlbumArticle.create(
+                Album.Id.generate(),
+                "Test long introduction",
+                "Test short intro",
+                "東X-00a",
+                LabelTag.NEW,
+                null);
     }
 
     private AlbumAcquisitionChannel createTestChannel(String name) {
-        return AlbumAcquisitionChannel.create(ChannelType.ONLINE_SHOP, name, Url.of("https://example.com"),
-                "Test note");
+        return AlbumAcquisitionChannel
+                .create(ChannelType.ONLINE_SHOP, name, Url.of("https://example.com"), "Test note");
     }
 }

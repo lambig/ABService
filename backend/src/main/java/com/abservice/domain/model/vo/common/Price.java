@@ -1,5 +1,7 @@
 package com.abservice.domain.model.vo.common;
 
+import static io.github.lambig.funcifextension.predicate.Predicates.or;
+
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
 import com.abservice.lib.ErrorResult;
@@ -34,9 +36,11 @@ public record Price(Integer amount) implements ValueObject<Price> {
      */
     public Price {
         Policy.<Integer>all(
-                Policy.of(Objects::nonNull,
+                Policy.of(
+                        Objects::nonNull,
                         () -> new ErrorResult("amount", "Price amount cannot be null", "AMOUNT_REQUIRED")),
-                Policy.of((Integer a) -> a == null || a >= 0,
+                Policy.of(
+                        or(Objects::isNull, (Integer a) -> a >= 0),
                         () -> new ErrorResult("amount", "Price amount cannot be negative", "AMOUNT_NEGATIVE")))
                 .verify(amount, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));

@@ -38,7 +38,8 @@ public record Url(String value) implements ValueObject<Url> {
     public Url {
         Policy.all(
                 Policy.of(StringUtils::isNotBlank, () -> new ErrorResult("url", "URL cannot be blank", "URL_REQUIRED")),
-                Policy.of((String v) -> StringUtils.length(v) <= MAX_LENGTH,
+                Policy.of(
+                        (String v) -> StringUtils.length(v) <= MAX_LENGTH,
                         () -> new ErrorResult("url", "URL must be " + MAX_LENGTH + " characters or less",
                                 "URL_TOO_LONG")))
                 .verify(value, Function.identity())

@@ -13,8 +13,12 @@ class ArticleTypeTest {
     @DisplayName("全列挙子が定義順に並ぶ")
     @Test
     void testEnumValues() {
-        assertThat(ArticleType.values()).containsExactly(ArticleType.ALBUM, ArticleType.NOTE, ArticleType.NEWS,
-                ArticleType.EVENT, ArticleType.OTHER);
+        assertThat(ArticleType.values()).containsExactly(
+                ArticleType.ALBUM,
+                ArticleType.NOTE,
+                ArticleType.NEWS,
+                ArticleType.EVENT,
+                ArticleType.OTHER);
     }
 
     @DisplayName("valueOfでALBUMを取得できる")

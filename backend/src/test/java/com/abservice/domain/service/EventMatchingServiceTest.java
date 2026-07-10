@@ -70,10 +70,10 @@ class EventMatchingServiceTest {
     @DisplayName("確定イベントは日付が異なると非同一と判定される")
     @Test
     void testIsSameEventConfirmedEventDifferentDate() {
-        final ConfirmedEvent confirmed = ConfirmedEvent.of("コミケ", BusinessDate.of(LocalDate.of(2024, 12, 30)),
-                "東ホ-01a");
-        final EventReleasedAt released = EventReleasedAt.of("コミケ", BusinessDate.of(LocalDate.of(2024, 12, 31)),
-                "東ホ-01a");
+        final ConfirmedEvent confirmed = ConfirmedEvent
+                .of("コミケ", BusinessDate.of(LocalDate.of(2024, 12, 30)), "東ホ-01a");
+        final EventReleasedAt released = EventReleasedAt
+                .of("コミケ", BusinessDate.of(LocalDate.of(2024, 12, 31)), "東ホ-01a");
 
         assertThat(service.isSameEvent(confirmed, released)).isFalse();
     }
@@ -83,8 +83,8 @@ class EventMatchingServiceTest {
     void testIsSameEventConfirmedEventMultipleDates() {
         final BusinessDate date1 = BusinessDate.of(LocalDate.of(2024, 12, 30));
         final BusinessDate date2 = BusinessDate.of(LocalDate.of(2024, 12, 31));
-        final List<EventDateAndSpace> dateAndSpaces = List.of(EventDateAndSpace.of(date1, "東ホ-01a"),
-                EventDateAndSpace.of(date2, "東ホ-01b"));
+        final List<EventDateAndSpace> dateAndSpaces = List
+                .of(EventDateAndSpace.of(date1, "東ホ-01a"), EventDateAndSpace.of(date2, "東ホ-01b"));
 
         final ConfirmedEvent confirmed = ConfirmedEvent.of("コミケ", dateAndSpaces, "東京ビッグサイト");
         final EventReleasedAt released = EventReleasedAt.of("コミケ", dateAndSpaces, "東京ビッグサイト", null);
@@ -95,8 +95,8 @@ class EventMatchingServiceTest {
     @DisplayName("参加予定イベントがnullなら非同一と判定される")
     @Test
     void testIsSameEventNullToParticipate() {
-        final EventReleasedAt released = EventReleasedAt.of("コミケ", BusinessDate.of(LocalDate.of(2024, 12, 30)),
-                "東ホ-01a");
+        final EventReleasedAt released = EventReleasedAt
+                .of("コミケ", BusinessDate.of(LocalDate.of(2024, 12, 30)), "東ホ-01a");
 
         assertThat(service.isSameEvent(null, released)).isFalse();
     }
@@ -113,8 +113,8 @@ class EventMatchingServiceTest {
     @Test
     void testMatchesEventNameAndDateTentativeWithoutDate() {
         final ConsideringEvent considering = ConsideringEvent.of("M3-2024春");
-        final EventReleasedAt released = EventReleasedAt.of("M3-2024春", BusinessDate.of(LocalDate.of(2024, 4, 28)),
-                "A-01");
+        final EventReleasedAt released = EventReleasedAt
+                .of("M3-2024春", BusinessDate.of(LocalDate.of(2024, 4, 28)), "A-01");
 
         assertThat(service.matchesEventNameAndDate(considering, released)).isTrue();
     }
@@ -133,8 +133,8 @@ class EventMatchingServiceTest {
     @Test
     void testMatchesEventNameAndDateTentativeWithDifferentDate() {
         final ApplyingEvent applying = ApplyingEvent.of("M3-2024春", BusinessDate.of(LocalDate.of(2024, 4, 28)));
-        final EventReleasedAt released = EventReleasedAt.of("M3-2024春", BusinessDate.of(LocalDate.of(2024, 4, 29)),
-                "A-01");
+        final EventReleasedAt released = EventReleasedAt
+                .of("M3-2024春", BusinessDate.of(LocalDate.of(2024, 4, 29)), "A-01");
 
         assertThat(service.matchesEventNameAndDate(applying, released)).isFalse();
     }
@@ -152,10 +152,10 @@ class EventMatchingServiceTest {
     @DisplayName("確定イベントは日付が異なると非同一と判定される")
     @Test
     void testMatchesEventNameAndDateConfirmedWithDifferentDate() {
-        final ConfirmedEvent confirmed = ConfirmedEvent.of("コミケ", BusinessDate.of(LocalDate.of(2024, 12, 30)),
-                "東ホ-01a");
-        final EventReleasedAt released = EventReleasedAt.of("コミケ", BusinessDate.of(LocalDate.of(2024, 12, 31)),
-                "東ホ-01a");
+        final ConfirmedEvent confirmed = ConfirmedEvent
+                .of("コミケ", BusinessDate.of(LocalDate.of(2024, 12, 30)), "東ホ-01a");
+        final EventReleasedAt released = EventReleasedAt
+                .of("コミケ", BusinessDate.of(LocalDate.of(2024, 12, 31)), "東ホ-01a");
 
         assertThat(service.matchesEventNameAndDate(confirmed, released)).isFalse();
     }
@@ -164,8 +164,8 @@ class EventMatchingServiceTest {
     @Test
     void testMatchesEventNameAndDateDifferentEventName() {
         final ConsideringEvent considering = ConsideringEvent.of("コミケ103");
-        final EventReleasedAt released = EventReleasedAt.of("コミケ104", BusinessDate.of(LocalDate.of(2024, 12, 30)),
-                "東ホ-01a");
+        final EventReleasedAt released = EventReleasedAt
+                .of("コミケ104", BusinessDate.of(LocalDate.of(2024, 12, 30)), "東ホ-01a");
 
         assertThat(service.matchesEventNameAndDate(considering, released)).isFalse();
     }
@@ -174,8 +174,8 @@ class EventMatchingServiceTest {
     @Test
     void testBusinessScenarioConsignmentParticipation() {
         // 委託参加のケース：EventToParticipateがないが、EventReleasedAtは存在
-        final EventReleasedAt consignmentRelease = EventReleasedAt.of("コミケ104",
-                BusinessDate.of(LocalDate.of(2024, 12, 30)), "委託スペース");
+        final EventReleasedAt consignmentRelease = EventReleasedAt
+                .of("コミケ104", BusinessDate.of(LocalDate.of(2024, 12, 30)), "委託スペース");
 
         // EventToParticipateがないため、照合できない（nullを渡す）
         assertThat(service.isSameEvent(null, consignmentRelease)).isFalse();

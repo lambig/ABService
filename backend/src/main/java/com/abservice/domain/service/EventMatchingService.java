@@ -1,11 +1,15 @@
 package com.abservice.domain.service;
 
+import static io.github.lambig.funcifextension.predicate.Predicates.or;
+
+import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.domain.model.vo.event.ConfirmedEvent;
 import com.abservice.domain.model.vo.event.EventToParticipate;
 import com.abservice.domain.model.vo.event.TentativeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -46,15 +50,19 @@ public class EventMatchingService implements DomainService {
      * @return 同一イベントと判定される場合true
      */
     public boolean isSameEvent(EventToParticipate toParticipate, EventReleasedAt releasedAt) {
-        return Optional
-                .ofNullable(toParticipate).flatMap(tp -> Optional.ofNullable(releasedAt)
-                        .filter(ra -> tp.name().equivalentTo(ra.name())).map(ra -> matchesEventDetails(tp, ra)))
+        return Optional.ofNullable(toParticipate)
+                .flatMap(
+                        tp -> Optional.ofNullable(releasedAt).filter(ra -> tp.name().equivalentTo(ra.name()))
+                                .map(ra -> matchesEventDetails(tp, ra)))
                 .orElse(false);
     }
 
     private boolean matchesEventDetails(EventToParticipate toParticipate, EventReleasedAt releasedAt) {
-        return toParticipate instanceof TentativeEvent || (toParticipate instanceof ConfirmedEvent confirmed
-                && confirmed.dateAndSpaces().equals(releasedAt.dateAndSpaces()));
+        return switch (toParticipate) {
+            case TentativeEvent ignored -> true;
+            case ConfirmedEvent confirmed -> confirmed.dateAndSpaces().equals(releasedAt.dateAndSpaces());
+            default -> false;
+        };
     }
 
     /**
@@ -71,21 +79,26 @@ public class EventMatchingService implements DomainService {
      * @return イベント名と日付が一致する場合true
      */
     public boolean matchesEventNameAndDate(EventToParticipate toParticipate, EventReleasedAt releasedAt) {
-        return Optional
-                .ofNullable(toParticipate).flatMap(tp -> Optional.ofNullable(releasedAt)
-                        .filter(ra -> tp.name().equivalentTo(ra.name())).map(ra -> matchesDateDetails(tp, ra)))
+        return Optional.ofNullable(toParticipate)
+                .flatMap(
+                        tp -> Optional.ofNullable(releasedAt).filter(ra -> tp.name().equivalentTo(ra.name()))
+                                .map(ra -> matchesDateDetails(tp, ra)))
                 .orElse(false);
     }
 
     private boolean matchesDateDetails(EventToParticipate toParticipate, EventReleasedAt releasedAt) {
-        return toParticipate instanceof TentativeEvent tentative
-                ? matchesTentativeDates(tentative, releasedAt)
-                : toParticipate instanceof ConfirmedEvent confirmed && matchesConfirmedDates(confirmed, releasedAt);
+        return switch (toParticipate) {
+            case TentativeEvent tentative -> matchesTentativeDates(tentative, releasedAt);
+            case ConfirmedEvent confirmed -> matchesConfirmedDates(confirmed, releasedAt);
+            default -> false;
+        };
     }
 
     private boolean matchesTentativeDates(TentativeEvent tentative, EventReleasedAt releasedAt) {
-        return tentative.tentativeDates().isEmpty() || tentative.tentativeDates().stream()
-                .anyMatch(releasedAt.dateAndSpaces().stream().map(ds -> ds.date()).toList()::contains);
+        final var releasedDates = releasedAt.dateAndSpaces().stream().map(ds -> ds.date()).toList();
+        return or(
+                (List<BusinessDate> dates) -> dates.isEmpty(),
+                dates -> dates.stream().anyMatch(releasedDates::contains)).test(tentative.tentativeDates());
     }
 
     private boolean matchesConfirmedDates(ConfirmedEvent confirmed, EventReleasedAt releasedAt) {

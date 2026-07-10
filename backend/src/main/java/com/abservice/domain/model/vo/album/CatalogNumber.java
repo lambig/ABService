@@ -34,9 +34,11 @@ public record CatalogNumber(@NonNull String value) implements ValueObject<Catalo
      */
     public CatalogNumber {
         Policy.all(
-                Policy.of(StringUtils::isNotBlank,
+                Policy.of(
+                        StringUtils::isNotBlank,
                         () -> new ErrorResult("value", "Catalog number cannot be blank", "CATALOG_NUMBER_REQUIRED")),
-                Policy.of((String v) -> StringUtils.length(v) <= 100,
+                Policy.of(
+                        (String v) -> StringUtils.length(v) <= 100,
                         () -> new ErrorResult("value", "Catalog number must be 100 characters or less",
                                 "CATALOG_NUMBER_TOO_LONG")))
                 .verify(value, Function.identity())

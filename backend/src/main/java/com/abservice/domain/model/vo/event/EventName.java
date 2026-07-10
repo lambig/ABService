@@ -33,9 +33,11 @@ public record EventName(String value) implements ValueObject<EventName> {
      */
     public EventName {
         Policy.all(
-                Policy.of(StringUtils::isNotBlank,
+                Policy.of(
+                        StringUtils::isNotBlank,
                         () -> new ErrorResult("value", "Event name cannot be blank", "EVENT_NAME_REQUIRED")),
-                Policy.of((String v) -> StringUtils.length(v) <= 255,
+                Policy.of(
+                        (String v) -> StringUtils.length(v) <= 255,
                         () -> new ErrorResult("value", "Event name must be 255 characters or less",
                                 "EVENT_NAME_TOO_LONG")))
                 .verify(value, Function.identity())

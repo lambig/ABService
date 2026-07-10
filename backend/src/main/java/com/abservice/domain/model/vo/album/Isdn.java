@@ -10,6 +10,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 /**
  * ISDN（国際標準同人誌番号）の値オブジェクト
@@ -45,7 +46,8 @@ public record Isdn(String value) implements ValueObject<Isdn> {
      *             ISDNがnullまたは不正なフォーマットの場合
      */
     public Isdn {
-        Policy.<String>of(StringUtils::isNotBlank,
+        Policy.<String>of(
+                StringUtils::isNotBlank,
                 () -> new ErrorResult("value", "ISDN cannot be blank", "ISDN_REQUIRED"))
                 .verify(value, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
@@ -71,7 +73,8 @@ public record Isdn(String value) implements ValueObject<Isdn> {
     }
 
     private static void validateFormat(String normalized, String original) {
-        Policy.of((String v) -> ISDN_SIMPLE_PATTERN.matcher(v).matches(),
+        Policy.of(
+                (String v) -> ISDN_SIMPLE_PATTERN.matcher(v).matches(),
                 () -> new ErrorResult("value",
                         "ISDN must be 13 digits starting with 278 or 279 (hyphens optional). Got: " + original,
                         "ISDN_INVALID_FORMAT"))
@@ -80,7 +83,8 @@ public record Isdn(String value) implements ValueObject<Isdn> {
     }
 
     private static void validateCheckDigit(String normalized, String original) {
-        Policy.<String>of(Isdn::isValidCheckDigit,
+        Policy.<String>of(
+                Isdn::isValidCheckDigit,
                 () -> new ErrorResult("value", "ISDN check digit is invalid: " + original, "ISDN_INVALID_CHECK_DIGIT"))
                 .verify(normalized, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
@@ -94,7 +98,7 @@ public record Isdn(String value) implements ValueObject<Isdn> {
      * @return チェックデジットが正しければtrue
      */
     private static boolean isValidCheckDigit(String isdn) {
-        return isdn.length() == 13 && checkDigitMatches(isdn);
+        return Optional.ofNullable(isdn).filter(s -> s.length() == 13).filter(Isdn::checkDigitMatches).isPresent();
     }
 
     private static boolean checkDigitMatches(String isdn) {
@@ -116,9 +120,11 @@ public record Isdn(String value) implements ValueObject<Isdn> {
     public String formattedValue() {
         // 日本の場合: 278-4-XXXXXX-XX-X (3-1-6-2-1の構成)、その他の地域は簡略表示
         return TextEscape.escape("${flag}-${body}-${check}").where("flag", value.substring(0, 3))
-                .where("body", value.startsWith("2784") || value.startsWith("2794")
-                        ? value.substring(3, 4) + "-" + value.substring(4, 10) + "-" + value.substring(10, 12)
-                        : value.substring(3, 12))
+                .where(
+                        "body",
+                        Stream.of("2784", "2794").anyMatch(value::startsWith)
+                                ? value.substring(3, 4) + "-" + value.substring(4, 10) + "-" + value.substring(10, 12)
+                                : value.substring(3, 12))
                 .where("check", value.substring(12, 13)).compile();
     }
 

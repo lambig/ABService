@@ -41,30 +41,32 @@ public class AlbumRepositoryImpl implements AlbumRepository {
                 // 既存確認
                 yield dataSource.existsByAlbumId(entity.getDomainId())
                         // 更新の場合は既存のエンティティをマージ、そうでなければ新規作成
-                        .flatMap(exists -> exists
-                                ? dataSource.findByIdWithTracks(entity.getDomainId()).flatMap(existingEntity -> {
-                                    // エンティティの更新
-                                    existingEntity.setTitle(entity.getTitle());
-                                    existingEntity.setReleaseDate(entity.getReleaseDate());
-                                    existingEntity.setArtistDisplayName(entity.getArtistDisplayName());
-                                    existingEntity.setArtistSortKey(entity.getArtistSortKey());
-                                    existingEntity.setEventName(entity.getEventName());
-                                    existingEntity.setEventDate(entity.getEventDate());
-                                    existingEntity.setEventPlace(entity.getEventPlace());
-                                    existingEntity.setEventNote(entity.getEventNote());
-                                    existingEntity.setCatalogNumber(entity.getCatalogNumber());
+                        .flatMap(
+                                exists -> exists
+                                        ? dataSource.findByIdWithTracks(entity.getDomainId())
+                                                .flatMap(existingEntity -> {
+                                                    // エンティティの更新
+                                                    existingEntity.setTitle(entity.getTitle());
+                                                    existingEntity.setReleaseDate(entity.getReleaseDate());
+                                                    existingEntity.setArtistDisplayName(entity.getArtistDisplayName());
+                                                    existingEntity.setArtistSortKey(entity.getArtistSortKey());
+                                                    existingEntity.setEventName(entity.getEventName());
+                                                    existingEntity.setEventDate(entity.getEventDate());
+                                                    existingEntity.setEventPlace(entity.getEventPlace());
+                                                    existingEntity.setEventNote(entity.getEventNote());
+                                                    existingEntity.setCatalogNumber(entity.getCatalogNumber());
 
-                                    // トラックを更新
-                                    existingEntity.getTracks().clear();
-                                    Optional.ofNullable(entity.getTracks())
-                                            .ifPresent(tracks -> tracks.forEach(track -> {
-                                                track.setAlbum(existingEntity);
-                                                existingEntity.getTracks().add(track);
-                                            }));
+                                                    // トラックを更新
+                                                    existingEntity.getTracks().clear();
+                                                    Optional.ofNullable(entity.getTracks())
+                                                            .ifPresent(tracks -> tracks.forEach(track -> {
+                                                                track.setAlbum(existingEntity);
+                                                                existingEntity.getTracks().add(track);
+                                                            }));
 
-                                    return dataSource.persistAndFlush(existingEntity);
-                                })
-                                : dataSource.persistAlbumWithRelations(entity))
+                                                    return dataSource.persistAndFlush(existingEntity);
+                                                })
+                                        : dataSource.persistAlbumWithRelations(entity))
                         .map(AlbumMapper::toDomain);
             }
         };

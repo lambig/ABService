@@ -54,10 +54,11 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
      * @return アルバムエンティティ（トラックを含む）
      */
     public Uni<AlbumEntity> findByIdWithTracks(String domainId) {
-        return sessionFactory.withSession(session -> session
-                .createQuery("SELECT DISTINCT a FROM AlbumEntity a " + "LEFT JOIN FETCH a.tracks "
-                        + "WHERE a.domainId = :domainId", AlbumEntity.class)
-                .setParameter("domainId", domainId).getSingleResultOrNull());
+        return sessionFactory.withSession(
+                session -> session.createQuery(
+                        "SELECT DISTINCT a FROM AlbumEntity a " + "LEFT JOIN FETCH a.tracks "
+                                + "WHERE a.domainId = :domainId",
+                        AlbumEntity.class).setParameter("domainId", domainId).getSingleResultOrNull());
     }
 
     /**
@@ -115,8 +116,8 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
         final LocalDate startDate = LocalDate.of(year, 1, 1);
         final LocalDate endDate = LocalDate.of(year, 12, 31);
 
-        return sessionFactory
-                .withSession(session -> session
+        return sessionFactory.withSession(
+                session -> session
                         .createQuery(
                                 "SELECT a FROM AlbumEntity a "
                                         + "WHERE a.releaseDate >= :startDate AND a.releaseDate <= :endDate",

@@ -1,6 +1,7 @@
 package com.abservice.domain.model.entity;
 
 import com.abservice.domain.model.DomainObject;
+import java.util.Optional;
 
 /**
  * ドメインエンティティのインターフェース
@@ -107,7 +108,8 @@ public interface DomainEntity<T extends DomainEntity<T, ID>, ID> extends DomainO
      */
     @Override
     default boolean equivalentTo(T other) {
-        return other != null && this.getClass().equals(other.getClass()) && this.id().equals(other.id());
+        return Optional.ofNullable(other).filter(o -> this.getClass().equals(o.getClass()))
+                .filter(o -> this.id().equals(o.id())).isPresent();
     }
 
     /**

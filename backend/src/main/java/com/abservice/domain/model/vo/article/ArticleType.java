@@ -4,6 +4,7 @@ import com.abservice.domain.model.policy.Policy;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.function.Function;
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
@@ -45,17 +46,22 @@ public enum ArticleType {
      */
     public static Result<ArticleType> fromInput(@Nullable String value) {
         return Policy
-                .<String>of(StringUtils::isNotBlank,
+                .<String>of(
+                        StringUtils::isNotBlank,
                         () -> new ErrorResult("articleType", "記事種別は必須です", "ARTICLE_TYPE_REQUIRED"))
-                .verify(value,
+                .verify(
+                        value,
                         Function.identity())
-                .flatMap(v -> Policy
-                        .of(ArticleType::isKnownName,
-                                () -> new ErrorResult("articleType", "不正な記事種別です: " + v, "ARTICLE_TYPE_INVALID"))
-                        .verify(v, valid -> valueOf(valid.trim())));
+                .flatMap(
+                        v -> Policy
+                                .of(
+                                        ArticleType::isKnownName,
+                                        () -> new ErrorResult("articleType", "不正な記事種別です: " + v, "ARTICLE_TYPE_INVALID"))
+                                .verify(v, valid -> valueOf(valid.trim())));
     }
 
     private static boolean isKnownName(@Nullable String value) {
-        return value != null && Arrays.stream(values()).anyMatch(t -> t.name().equals(value.trim()));
+        return Optional.ofNullable(value).filter(v -> Arrays.stream(values()).anyMatch(t -> t.name().equals(v.trim())))
+                .isPresent();
     }
 }

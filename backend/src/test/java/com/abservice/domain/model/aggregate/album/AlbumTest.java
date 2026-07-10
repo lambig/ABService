@@ -294,9 +294,15 @@ class AlbumTest {
             final var originalTrack = createTestTrack(1, "Original Title");
             album = album.addTrack(originalTrack);
 
-            final var updatedTrack = Track.reconstruct(originalTrack.id(), 1, TrackTitle.of("Updated Title"),
-                    originalTrack.artistCredit(), originalTrack.recordingDate(), originalTrack.recordingPlace(),
-                    originalTrack.isLive(), originalTrack.tunes());
+            final var updatedTrack = Track.reconstruct(
+                    originalTrack.id(),
+                    1,
+                    TrackTitle.of("Updated Title"),
+                    originalTrack.artistCredit(),
+                    originalTrack.recordingDate(),
+                    originalTrack.recordingPlace(),
+                    originalTrack.isLive(),
+                    originalTrack.tunes());
 
             // Act
             final var updated = album.updateTrack(updatedTrack);
@@ -343,9 +349,15 @@ class AlbumTest {
             album = album.addTrack(track1).addTrack(track2);
 
             // track2のトラック番号を1に変更しようとする（track1と重複）
-            final var updatedTrack = Track.reconstruct(track2.id(), 1, // 重複するトラック番号
-                    track2.title(), track2.artistCredit(), track2.recordingDate(), track2.recordingPlace(),
-                    track2.isLive(), track2.tunes());
+            final var updatedTrack = Track.reconstruct(
+                    track2.id(),
+                    1, // 重複するトラック番号
+                    track2.title(),
+                    track2.artistCredit(),
+                    track2.recordingDate(),
+                    track2.recordingPlace(),
+                    track2.isLive(),
+                    track2.tunes());
 
             // Act & Assert
             final var finalAlbum = album;
@@ -534,8 +546,13 @@ class AlbumTest {
     // テストヘルパーメソッド
 
     private Album createTestAlbum() {
-        return Album.create(AlbumTitle.of("Test Album"), BusinessDate.of(2024, 1, 1), ArtistCredit.of("Test Artist"),
-                null, null, null);
+        return Album.create(
+                AlbumTitle.of("Test Album"),
+                BusinessDate.of(2024, 1, 1),
+                ArtistCredit.of("Test Artist"),
+                null,
+                null,
+                null);
     }
 
     private Track createTestTrack(int trackNo, String title) {

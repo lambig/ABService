@@ -49,10 +49,16 @@ public final class AlbumMapper {
      */
     public static Album toDomain(AlbumEntity entity) {
         return Optional.ofNullable(entity)
-                .map(e -> Album.reconstruct(new Album.Id(e.getDomainId()), new AlbumTitle(e.getTitle()),
-                        BusinessDate.of(e.getReleaseDate()), buildArtistCredit(e), buildEventReleasedAt(e),
-                        Optional.ofNullable(e.getCatalogNumber()).map(CatalogNumber::new).orElse(null),
-                        Optional.ofNullable(e.getIsdn()).map(Isdn::new).orElse(null), buildTracks(e)))
+                .map(
+                        e -> Album.reconstruct(
+                                new Album.Id(e.getDomainId()),
+                                new AlbumTitle(e.getTitle()),
+                                BusinessDate.of(e.getReleaseDate()),
+                                buildArtistCredit(e),
+                                buildEventReleasedAt(e),
+                                Optional.ofNullable(e.getCatalogNumber()).map(CatalogNumber::new).orElse(null),
+                                Optional.ofNullable(e.getIsdn()).map(Isdn::new).orElse(null),
+                                buildTracks(e)))
                 .orElse(null);
     }
 
@@ -75,9 +81,10 @@ public final class AlbumMapper {
 
     private static List<EventDateAndSpace> extractDateAndSpaces(AlbumEntity entity) {
         return Optional.ofNullable(entity.getEventDateSpaces()).filter(not(List::isEmpty))
-                .map(list -> list.stream()
-                        .map(e -> EventDateAndSpace.of(BusinessDate.of(e.getEventDate()), e.getSpaceNumber()))
-                        .collect(Collectors.toList()))
+                .map(
+                        list -> list.stream()
+                                .map(e -> EventDateAndSpace.of(BusinessDate.of(e.getEventDate()), e.getSpaceNumber()))
+                                .collect(Collectors.toList()))
                 .or(() -> buildLegacyDateAndSpaces(entity)).orElse(null);
     }
 
@@ -162,10 +169,16 @@ public final class AlbumMapper {
      */
     private static Track trackToDomain(TrackEntity entity) {
         return Optional.ofNullable(entity)
-                .map(e -> Track.reconstruct(new Track.Id(e.getDomainId()), e.getTrackNo(), new TrackTitle(e.getTitle()),
-                        buildTrackArtistCredit(e),
-                        Optional.ofNullable(e.getRecordingDate()).map(BusinessDate::of).orElse(null),
-                        e.getRecordingPlace(), e.getIsLive(), buildTrackTunes(e)))
+                .map(
+                        e -> Track.reconstruct(
+                                new Track.Id(e.getDomainId()),
+                                e.getTrackNo(),
+                                new TrackTitle(e.getTitle()),
+                                buildTrackArtistCredit(e),
+                                Optional.ofNullable(e.getRecordingDate()).map(BusinessDate::of).orElse(null),
+                                e.getRecordingPlace(),
+                                e.getIsLive(),
+                                buildTrackTunes(e)))
                 .orElse(null);
     }
 
@@ -212,8 +225,10 @@ public final class AlbumMapper {
     }
 
     private static void setTrackTunesField(TrackEntity entity, Track track) {
-        Optional.ofNullable(track.tunes()).filter(not(List::isEmpty)).map(tunes -> tunes.stream()
-                .map(trackTune -> trackTuneToEntity(trackTune, entity)).collect(Collectors.toList()))
+        Optional.ofNullable(track.tunes()).filter(not(List::isEmpty))
+                .map(
+                        tunes -> tunes.stream().map(trackTune -> trackTuneToEntity(trackTune, entity))
+                                .collect(Collectors.toList()))
                 .ifPresent(entity::setTrackTunes);
     }
 
@@ -226,11 +241,13 @@ public final class AlbumMapper {
      */
     private static TrackTune trackTuneToDomain(TrackTuneEntity entity) {
         return Optional.ofNullable(entity)
-                .map(e -> TrackTune.reconstruct(e.getId().getSeq(),
-                        Optional.ofNullable(e.getTuneId()).map(Tune.Id::new).orElse(null),
-                        Optional.ofNullable(e.getComposerCreditOverride()).map(Credit::new).orElse(null),
-                        Optional.ofNullable(e.getArrangerCreditOverride()).map(Credit::new).orElse(null),
-                        Optional.ofNullable(e.getLinkUrl()).map(Url::new).orElse(null)))
+                .map(
+                        e -> TrackTune.reconstruct(
+                                e.getId().getSeq(),
+                                Optional.ofNullable(e.getTuneId()).map(Tune.Id::new).orElse(null),
+                                Optional.ofNullable(e.getComposerCreditOverride()).map(Credit::new).orElse(null),
+                                Optional.ofNullable(e.getArrangerCreditOverride()).map(Credit::new).orElse(null),
+                                Optional.ofNullable(e.getLinkUrl()).map(Url::new).orElse(null)))
                 .orElse(null);
     }
 

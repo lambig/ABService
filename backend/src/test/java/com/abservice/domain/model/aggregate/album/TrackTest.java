@@ -108,8 +108,8 @@ class TrackTest {
         @DisplayName("タイトルを変更できること")
         void changeTitleShouldSucceed() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Original"), ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1));
+            final var track = Track
+                    .create(1, TrackTitle.of("Original"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
             final var newTitle = TrackTitle.of("Updated");
 
             // Act
@@ -125,8 +125,8 @@ class TrackTest {
         @DisplayName("nullのタイトルに変更しようとすると例外が発生すること")
         void changeTitleToNullShouldThrowException() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Original"), ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1));
+            final var track = Track
+                    .create(1, TrackTitle.of("Original"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -143,8 +143,8 @@ class TrackTest {
         @DisplayName("アーティストクレジットを変更できること")
         void changeArtistCreditShouldSucceed() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Original Artist"),
-                    BusinessDate.of(2024, 1, 1));
+            final var track = Track
+                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Original Artist"), BusinessDate.of(2024, 1, 1));
             final var newCredit = ArtistCredit.of("New Artist");
 
             // Act
@@ -158,8 +158,8 @@ class TrackTest {
         @DisplayName("アーティストクレジットをnullに変更できること")
         void changeArtistCreditToNullShouldSucceed() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Original Artist"),
-                    BusinessDate.of(2024, 1, 1));
+            final var track = Track
+                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Original Artist"), BusinessDate.of(2024, 1, 1));
 
             // Act
             final var updated = track.changeArtistCredit(null);
@@ -177,8 +177,8 @@ class TrackTest {
         @DisplayName("録音日を変更できること")
         void changeRecordingDateShouldSucceed() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1));
+            final var track = Track
+                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
             final var newDate = BusinessDate.of(2024, 12, 31);
 
             // Act
@@ -192,8 +192,8 @@ class TrackTest {
         @DisplayName("録音日をnullに変更できること")
         void changeRecordingDateToNullShouldSucceed() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1));
+            final var track = Track
+                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
 
             // Act
             final var updated = track.changeRecordingDate(null);
@@ -211,8 +211,13 @@ class TrackTest {
         @DisplayName("録音場所を変更できること")
         void changeRecordingPlaceShouldSucceed() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1), "Studio A", false);
+            final var track = Track.create(
+                    1,
+                    TrackTitle.of("Track"),
+                    ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1),
+                    "Studio A",
+                    false);
             final var newPlace = "Studio B";
 
             // Act
@@ -226,8 +231,13 @@ class TrackTest {
         @DisplayName("録音場所をnullに変更できること")
         void changeRecordingPlaceToNullShouldSucceed() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1), "Studio A", false);
+            final var track = Track.create(
+                    1,
+                    TrackTitle.of("Track"),
+                    ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1),
+                    "Studio A",
+                    false);
 
             // Act
             final var updated = track.changeRecordingPlace(null);
@@ -245,8 +255,13 @@ class TrackTest {
         @DisplayName("ライブフラグを変更できること")
         void changeIsLiveShouldSucceed() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1), "Studio", false);
+            final var track = Track.create(
+                    1,
+                    TrackTitle.of("Track"),
+                    ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1),
+                    "Studio",
+                    false);
 
             // Act
             final var updated = track.changeIsLive(true);
@@ -259,8 +274,13 @@ class TrackTest {
         @DisplayName("ライブフラグをnullに変更できること")
         void changeIsLiveToNullShouldSucceed() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1), "Studio", true);
+            final var track = Track.create(
+                    1,
+                    TrackTitle.of("Track"),
+                    ArtistCredit.of("Artist"),
+                    BusinessDate.of(2024, 1, 1),
+                    "Studio",
+                    true);
 
             // Act
             final var updated = track.changeIsLive(null);
@@ -278,8 +298,8 @@ class TrackTest {
         @DisplayName("チューンを追加できること")
         void addTuneShouldSucceed() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1));
+            final var track = Track
+                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
             final var tuneId = Tune.Id.generate();
             final var trackTune = TrackTune.create(1, tuneId, null, null, null);
 
@@ -295,8 +315,8 @@ class TrackTest {
         @DisplayName("複数のチューンを追加できること")
         void addMultipleTunesShouldSucceed() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1));
+            final var track = Track
+                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
             final var tune1 = TrackTune.create(1, Tune.Id.generate(), null, null, null);
             final var tune2 = TrackTune.create(2, Tune.Id.generate(), null, null, null);
 
@@ -313,8 +333,8 @@ class TrackTest {
         @DisplayName("nullのチューンを追加しようとすると例外が発生すること")
         void addNullTuneShouldThrowException() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1));
+            final var track = Track
+                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -326,8 +346,8 @@ class TrackTest {
         @DisplayName("重複したseqのチューンを追加しようとすると例外が発生すること")
         void addDuplicateSeqTuneShouldThrowException() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1));
+            final var track = Track
+                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
             final var tune1 = TrackTune.create(1, Tune.Id.generate(), null, null, null);
             final var tune2 = TrackTune.create(1, Tune.Id.generate(), null, null, null);
             final var trackWithTune = track.addTune(tune1);
@@ -347,8 +367,8 @@ class TrackTest {
         @DisplayName("チューンを削除できること")
         void removeTuneShouldSucceed() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1));
+            final var track = Track
+                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
             final var tune = TrackTune.create(1, Tune.Id.generate(), null, null, null);
             final var trackWithTune = track.addTune(tune);
 
@@ -363,8 +383,8 @@ class TrackTest {
         @DisplayName("複数のチューンから特定のチューンを削除できること")
         void removeSpecificTuneFromMultipleShouldSucceed() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1));
+            final var track = Track
+                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
             final var tune1 = TrackTune.create(1, Tune.Id.generate(), null, null, null);
             final var tune2 = TrackTune.create(2, Tune.Id.generate(), null, null, null);
             final var tune3 = TrackTune.create(3, Tune.Id.generate(), null, null, null);
@@ -384,8 +404,8 @@ class TrackTest {
         @DisplayName("nullのseqで削除しようとすると例外が発生すること")
         void removeWithNullSeqShouldThrowException() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1));
+            final var track = Track
+                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -397,8 +417,8 @@ class TrackTest {
         @DisplayName("存在しないseqで削除しようとすると例外が発生すること")
         void removeNonExistentSeqShouldThrowException() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1));
+            final var track = Track
+                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -415,8 +435,8 @@ class TrackTest {
         @DisplayName("チューンを更新できること")
         void updateTuneShouldSucceed() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1));
+            final var track = Track
+                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
             final var originalTune = TrackTune.create(1, Tune.Id.generate(), null, null, null);
             final var trackWithTune = track.addTune(originalTune);
 
@@ -435,8 +455,8 @@ class TrackTest {
         @DisplayName("複数のチューンの中から特定のチューンを更新できること")
         void updateSpecificTuneFromMultipleShouldSucceed() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1));
+            final var track = Track
+                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
             final var tune1 = TrackTune.create(1, Tune.Id.generate(), null, null, null);
             final var tune2 = TrackTune.create(2, Tune.Id.generate(), null, null, null);
             final var trackWithTunes = track.addTune(tune1).addTune(tune2);
@@ -457,8 +477,8 @@ class TrackTest {
         @DisplayName("nullのチューンで更新しようとすると例外が発生すること")
         void updateWithNullTuneShouldThrowException() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1));
+            final var track = Track
+                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -470,8 +490,8 @@ class TrackTest {
         @DisplayName("存在しないseqのチューンで更新しようとすると例外が発生すること")
         void updateNonExistentTuneShouldThrowException() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1));
+            final var track = Track
+                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
             final var nonExistentTune = TrackTune.create(999, Tune.Id.generate(), null, null, null);
 
             // Act & Assert
@@ -489,8 +509,8 @@ class TrackTest {
         @DisplayName("チューンリストが不変であること")
         void getTunesShouldReturnUnmodifiableList() {
             // Arrange
-            final var track = Track.create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1));
+            final var track = Track
+                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
             final var tune = TrackTune.create(1, Tune.Id.generate(), null, null, null);
             final var trackWithTune = track.addTune(tune);
 
