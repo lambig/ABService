@@ -108,6 +108,25 @@
         </properties>
     </rule>
 
+    <rule name="ForbiddenSwitchOnThis"
+          language="java"
+          message="switch (this) は禁止です。sealed 型の種別分岐は各バリアントでの override（多態）で表現してください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            selector が this である switch 式（switch (this) { ... }）を禁止し、
+            各バリアントでのメソッド override（多態）へ誘導する。switch 文（statement）は
+            ForbiddenSwitchStatement で既に全面禁止のため、本ルールは switch 式のみを対象とする。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//SwitchExpression[ThisExpression]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
     <rule name="ForbiddenSingleLineTernary"
           language="java"
           message="三項演算子は1行に書かず、条件・then・else を複数行に分けてください。"
