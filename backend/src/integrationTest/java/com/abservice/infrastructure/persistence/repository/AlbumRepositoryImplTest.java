@@ -42,7 +42,11 @@ class AlbumRepositoryImplTest {
 
     private void initTestData() {
         testArtistCredit = ArtistCredit.of("Test Artist", "test-artist");
-        testReleaseDate = BusinessDate.of(LocalDate.of(2024, 1, 1));
+        testReleaseDate = BusinessDate.of(
+                LocalDate.of(
+                        2024,
+                        1,
+                        1));
     }
 
     @Test
@@ -52,7 +56,13 @@ class AlbumRepositoryImplTest {
         initTestData();
 
         final var album = Album
-                .create(new AlbumTitle("Test Album"), testReleaseDate, testArtistCredit, null, null, null);
+                .create(
+                        new AlbumTitle("Test Album"),
+                        testReleaseDate,
+                        testArtistCredit,
+                        null,
+                        null,
+                        null);
 
         // Save the album
         asserter.assertThat(() -> repository.save(album), saved -> {
@@ -75,11 +85,29 @@ class AlbumRepositoryImplTest {
     void shouldSaveAlbumWithTracks(UniAsserter asserter) {
         initTestData();
 
-        final var track1 = Track.create(1, new TrackTitle("Track 1"), null, null, null, false);
-        final var track2 = Track.create(2, new TrackTitle("Track 2"), null, null, null, false);
+        final var track1 = Track.create(
+                1,
+                new TrackTitle("Track 1"),
+                null,
+                null,
+                null,
+                false);
+        final var track2 = Track.create(
+                2,
+                new TrackTitle("Track 2"),
+                null,
+                null,
+                null,
+                false);
 
         final var album = Album
-                .create(new AlbumTitle("Album with Tracks"), testReleaseDate, testArtistCredit, null, null, null)
+                .create(
+                        new AlbumTitle("Album with Tracks"),
+                        testReleaseDate,
+                        testArtistCredit,
+                        null,
+                        null,
+                        null)
                 .addTrack(track1).addTrack(track2);
 
         asserter.assertThat(() -> repository.save(album), saved -> {
@@ -136,7 +164,11 @@ class AlbumRepositoryImplTest {
         initTestData();
 
         final var eventReleasedAt = EventReleasedAt
-                .of("Test Event", List.of(EventDateAndSpace.of(testReleaseDate, "A-01")), "Test Venue", "Test Note");
+                .of(
+                        "Test Event",
+                        List.of(EventDateAndSpace.of(testReleaseDate, "A-01")),
+                        "Test Venue",
+                        "Test Note");
 
         final var album = Album.create(
                 new AlbumTitle("Album with Event"),
@@ -160,7 +192,13 @@ class AlbumRepositoryImplTest {
         initTestData();
 
         final var album = Album
-                .create(new AlbumTitle("Original Title"), testReleaseDate, testArtistCredit, null, null, null);
+                .create(
+                        new AlbumTitle("Original Title"),
+                        testReleaseDate,
+                        testArtistCredit,
+                        null,
+                        null,
+                        null);
 
         // Save original
         asserter.assertThat(
@@ -191,7 +229,13 @@ class AlbumRepositoryImplTest {
         initTestData();
 
         final var album = Album
-                .create(new AlbumTitle("Album to Delete"), testReleaseDate, testArtistCredit, null, null, null);
+                .create(
+                        new AlbumTitle("Album to Delete"),
+                        testReleaseDate,
+                        testArtistCredit,
+                        null,
+                        null,
+                        null);
 
         // Save
         asserter.assertThat(() -> repository.save(album), saved -> assertThat(saved).isNotNull());
@@ -210,7 +254,13 @@ class AlbumRepositoryImplTest {
         initTestData();
 
         final var album = Album
-                .create(new AlbumTitle("Existing Album"), testReleaseDate, testArtistCredit, null, null, null);
+                .create(
+                        new AlbumTitle("Existing Album"),
+                        testReleaseDate,
+                        testArtistCredit,
+                        null,
+                        null,
+                        null);
 
         // Save
         asserter.execute(() -> repository.save(album));
@@ -230,9 +280,21 @@ class AlbumRepositoryImplTest {
         initTestData();
 
         final var album1 = Album
-                .create(new AlbumTitle("Count Album 1"), testReleaseDate, testArtistCredit, null, null, null);
+                .create(
+                        new AlbumTitle("Count Album 1"),
+                        testReleaseDate,
+                        testArtistCredit,
+                        null,
+                        null,
+                        null);
         final var album2 = Album
-                .create(new AlbumTitle("Count Album 2"), testReleaseDate, testArtistCredit, null, null, null);
+                .create(
+                        new AlbumTitle("Count Album 2"),
+                        testReleaseDate,
+                        testArtistCredit,
+                        null,
+                        null,
+                        null);
 
         // Save albums
         asserter.execute(() -> repository.save(album1));
@@ -249,7 +311,13 @@ class AlbumRepositoryImplTest {
         initTestData();
 
         final var title = new AlbumTitle("Unique Title for Search");
-        final var album = Album.create(title, testReleaseDate, testArtistCredit, null, null, null);
+        final var album = Album.create(
+                title,
+                testReleaseDate,
+                testArtistCredit,
+                null,
+                null,
+                null);
 
         // Save
         asserter.execute(() -> repository.save(album));

@@ -38,8 +38,16 @@ public class AlbumDistribution {
      *            補足メモ（nullable）
      * @return 新規AlbumDistribution
      */
-    public static AlbumDistribution create(Price physicalPrice, Price downloadPrice, Url demoUrl, String note) {
-        return new AlbumDistribution(physicalPrice, downloadPrice, demoUrl, note);
+    public static AlbumDistribution create(
+            Price physicalPrice,
+            Price downloadPrice,
+            Url demoUrl,
+            String note) {
+        return new AlbumDistribution(
+                physicalPrice,
+                downloadPrice,
+                demoUrl,
+                note);
     }
 
     /**
@@ -55,8 +63,16 @@ public class AlbumDistribution {
      *            補足メモ（nullable）
      * @return 再構成されたAlbumDistribution
      */
-    public static AlbumDistribution reconstruct(Price physicalPrice, Price downloadPrice, Url demoUrl, String note) {
-        return new AlbumDistribution(physicalPrice, downloadPrice, demoUrl, note);
+    public static AlbumDistribution reconstruct(
+            Price physicalPrice,
+            Price downloadPrice,
+            Url demoUrl,
+            String note) {
+        return new AlbumDistribution(
+                physicalPrice,
+                downloadPrice,
+                demoUrl,
+                note);
     }
 
     /**

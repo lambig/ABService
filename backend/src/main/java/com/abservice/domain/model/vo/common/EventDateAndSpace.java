@@ -49,7 +49,10 @@ public final class EventDateAndSpace implements ValueObject<EventDateAndSpace> {
     private EventDateAndSpace(BusinessDate date, String spaceNumber) {
         Policy.<BusinessDate>of(
                 Objects::nonNull,
-                () -> new ErrorResult("date", "Event date cannot be null", "DATE_REQUIRED"))
+                () -> new ErrorResult(
+                        "date",
+                        "Event date cannot be null",
+                        "DATE_REQUIRED"))
                 .verify(date, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         this.date = date;

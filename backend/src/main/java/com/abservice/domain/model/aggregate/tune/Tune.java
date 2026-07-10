@@ -219,7 +219,10 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
     public @NonNull Tune changeDefaultTempo(@Nullable Integer newDefaultTempo) {
         Policy.<Integer>of(
                 or(Objects::isNull, tempo -> tempo > 0),
-                () -> new ErrorResult("defaultTempo", "Tempo must be positive", "TEMPO_MUST_BE_POSITIVE"))
+                () -> new ErrorResult(
+                        "defaultTempo",
+                        "Tempo must be positive",
+                        "TEMPO_MUST_BE_POSITIVE"))
                 .verify(newDefaultTempo, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         return withDefaultTempo(newDefaultTempo);
@@ -242,7 +245,10 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
                     .orElseThrow(() -> new IllegalArgumentException("Tune ID cannot be blank"));
             Policy.<String>of(
                     EntityId::isValidUuid,
-                    () -> new ErrorResult("value", "Tune ID must be a valid UUID: " + value, "ID_INVALID_UUID"))
+                    () -> new ErrorResult(
+                            "value",
+                            "Tune ID must be a valid UUID: " + value,
+                            "ID_INVALID_UUID"))
                     .verify(value, Function.identity())
                     .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         }

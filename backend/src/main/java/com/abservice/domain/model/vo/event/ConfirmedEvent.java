@@ -57,7 +57,10 @@ public record ConfirmedEvent(EventName name, List<EventDateAndSpace> dateAndSpac
     public ConfirmedEvent {
         Policy.<EventName>of(
                 Objects::nonNull,
-                () -> new ErrorResult("name", "Event name cannot be null", "EVENT_NAME_REQUIRED"))
+                () -> new ErrorResult(
+                        "name",
+                        "Event name cannot be null",
+                        "EVENT_NAME_REQUIRED"))
                 .verify(name, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         Policy.<List<EventDateAndSpace>>of(
@@ -86,8 +89,14 @@ public record ConfirmedEvent(EventName name, List<EventDateAndSpace> dateAndSpac
      *            スペース番号
      * @return ConfirmedEvent
      */
-    public static ConfirmedEvent of(String name, BusinessDate date, String spaceNumber) {
-        return new ConfirmedEvent(new EventName(name), List.of(EventDateAndSpace.of(date, spaceNumber)), null);
+    public static ConfirmedEvent of(
+            String name,
+            BusinessDate date,
+            String spaceNumber) {
+        return new ConfirmedEvent(
+                new EventName(name),
+                List.of(EventDateAndSpace.of(date, spaceNumber)),
+                null);
     }
 
     /**
@@ -103,8 +112,15 @@ public record ConfirmedEvent(EventName name, List<EventDateAndSpace> dateAndSpac
      *            会場
      * @return ConfirmedEvent
      */
-    public static ConfirmedEvent of(String name, BusinessDate date, String spaceNumber, String place) {
-        return new ConfirmedEvent(new EventName(name), List.of(EventDateAndSpace.of(date, spaceNumber)), place);
+    public static ConfirmedEvent of(
+            String name,
+            BusinessDate date,
+            String spaceNumber,
+            String place) {
+        return new ConfirmedEvent(
+                new EventName(name),
+                List.of(EventDateAndSpace.of(date, spaceNumber)),
+                place);
     }
 
     /**
@@ -118,8 +134,14 @@ public record ConfirmedEvent(EventName name, List<EventDateAndSpace> dateAndSpac
      *            会場
      * @return ConfirmedEvent
      */
-    public static ConfirmedEvent of(String name, List<EventDateAndSpace> dateAndSpaces, String place) {
-        return new ConfirmedEvent(new EventName(name), dateAndSpaces, place);
+    public static ConfirmedEvent of(
+            String name,
+            List<EventDateAndSpace> dateAndSpaces,
+            String place) {
+        return new ConfirmedEvent(
+                new EventName(name),
+                dateAndSpaces,
+                place);
     }
 
     /**
@@ -135,7 +157,10 @@ public record ConfirmedEvent(EventName name, List<EventDateAndSpace> dateAndSpac
      */
     public static ConfirmedEvent fromTentative(TentativeEvent tentative, List<EventDateAndSpace> dateAndSpaces,
             String place) {
-        return new ConfirmedEvent(tentative.name(), dateAndSpaces, place);
+        return new ConfirmedEvent(
+                tentative.name(),
+                dateAndSpaces,
+                place);
     }
 
     /**
@@ -148,7 +173,10 @@ public record ConfirmedEvent(EventName name, List<EventDateAndSpace> dateAndSpac
      * @return ConfirmedEvent
      */
     public static ConfirmedEvent fromSelected(SelectedEvent selected, List<EventDateAndSpace> dateAndSpaces) {
-        return new ConfirmedEvent(selected.name(), dateAndSpaces, selected.place());
+        return new ConfirmedEvent(
+                selected.name(),
+                dateAndSpaces,
+                selected.place());
     }
 
     @Override

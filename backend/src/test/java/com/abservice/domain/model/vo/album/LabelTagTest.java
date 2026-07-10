@@ -12,7 +12,12 @@ class LabelTagTest {
     @Test
     void testEnumValues() {
         assertThat(LabelTag.values())
-                .containsExactly(LabelTag.NEW, LabelTag.BEST_OF, LabelTag.COMPILATION, LabelTag.COLLAB, LabelTag.OTHER);
+                .containsExactly(
+                        LabelTag.NEW,
+                        LabelTag.BEST_OF,
+                        LabelTag.COMPILATION,
+                        LabelTag.COLLAB,
+                        LabelTag.OTHER);
     }
 
     @DisplayName("valueOf(\"NEW\")はNEWを返す")

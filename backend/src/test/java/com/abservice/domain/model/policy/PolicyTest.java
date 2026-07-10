@@ -15,12 +15,22 @@ import org.junit.jupiter.api.Test;
 class PolicyTest {
 
     private static Policy<String> nonBlank() {
-        return Policy.of((String v) -> StringUtils.isNotBlank(v), () -> new ErrorResult("value", "必須です", "REQUIRED"));
+        return Policy.of(
+                (String v) -> StringUtils.isNotBlank(v),
+                () -> new ErrorResult(
+                        "value",
+                        "必須です",
+                        "REQUIRED"));
     }
 
     private static Policy<String> maxLen(int max) {
         return Policy
-                .of((String v) -> v == null || v.length() <= max, () -> new ErrorResult("value", "長すぎます", "TOO_LONG"));
+                .of(
+                        (String v) -> v == null || v.length() <= max,
+                        () -> new ErrorResult(
+                                "value",
+                                "長すぎます",
+                                "TOO_LONG"));
     }
 
     @Nested
@@ -97,9 +107,17 @@ class PolicyTest {
         void mixedFailuresShouldBeAggregated() {
             final Result<String> result = Policies.combine(
                     List.of(
-                            Result.failure(new ErrorResult("a", "msgA", "A")),
+                            Result.failure(
+                                    new ErrorResult(
+                                            "a",
+                                            "msgA",
+                                            "A")),
                             Result.success(1),
-                            Result.failure(new ErrorResult("b", "msgB", "B"))),
+                            Result.failure(
+                                    new ErrorResult(
+                                            "b",
+                                            "msgB",
+                                            "B"))),
                     () -> "built");
 
             assertThat(result).isInstanceOf(Result.Failure.class);
@@ -124,7 +142,13 @@ class PolicyTest {
         @DisplayName("失敗は各エラーのfieldに親名を前置する")
         void failureShouldPrefixField() {
             final Result<String> result = Policies
-                    .nested("parent", Result.failure(new ErrorResult("child", "msg", "CODE")));
+                    .nested(
+                            "parent",
+                            Result.failure(
+                                    new ErrorResult(
+                                            "child",
+                                            "msg",
+                                            "CODE")));
 
             assertThat(result).isInstanceOf(Result.Failure.class);
             assertThat(((Result.Failure<String>) result).errors()).singleElement().satisfies(e -> {

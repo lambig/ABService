@@ -30,7 +30,10 @@ public record ErrorResult(String field, String message, @Nullable String code) {
      *            エラーメッセージ
      */
     public ErrorResult(String field, String message) {
-        this(field, message, null);
+        this(
+                field,
+                message,
+                null);
     }
 
     @Override

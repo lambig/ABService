@@ -28,7 +28,11 @@ class TentativeEventTest {
     @DisplayName("申込中イベントは名前と暫定日程を持ち申込中かつ暫定状態である")
     @Test
     void testApplyingEvent() {
-        final BusinessDate date = BusinessDate.of(LocalDate.of(2024, 12, 30));
+        final BusinessDate date = BusinessDate.of(
+                LocalDate.of(
+                        2024,
+                        12,
+                        30));
         final ApplyingEvent event = ApplyingEvent.of("コミックマーケット105", date);
 
         assertThat(event.name().value()).isEqualTo("コミックマーケット105");
@@ -42,7 +46,11 @@ class TentativeEventTest {
     @DisplayName("申込済みイベントは名前と暫定日程を持ち申込済みかつ暫定状態である")
     @Test
     void testAppliedEvent() {
-        final BusinessDate date = BusinessDate.of(LocalDate.of(2024, 12, 30));
+        final BusinessDate date = BusinessDate.of(
+                LocalDate.of(
+                        2024,
+                        12,
+                        30));
         final AppliedEvent event = AppliedEvent.of("コミックマーケット105", date);
 
         assertThat(event.name().value()).isEqualTo("コミックマーケット105");
@@ -66,7 +74,11 @@ class TentativeEventTest {
     @DisplayName("申込中から申込済みへ遷移しても名前と日程が引き継がれる")
     @Test
     void testStateTransitionApplyingToApplied() {
-        final BusinessDate date = BusinessDate.of(LocalDate.of(2025, 4, 27));
+        final BusinessDate date = BusinessDate.of(
+                LocalDate.of(
+                        2025,
+                        4,
+                        27));
         final ApplyingEvent applying = ApplyingEvent.of("M3-2025春", date);
         final AppliedEvent applied = applying.completeApplication();
 
@@ -102,8 +114,16 @@ class TentativeEventTest {
     @DisplayName("複数の暫定日程を持つ申込済みイベントを生成できる")
     @Test
     void testMultipleDates() {
-        final BusinessDate day1 = BusinessDate.of(LocalDate.of(2024, 12, 30));
-        final BusinessDate day2 = BusinessDate.of(LocalDate.of(2024, 12, 31));
+        final BusinessDate day1 = BusinessDate.of(
+                LocalDate.of(
+                        2024,
+                        12,
+                        30));
+        final BusinessDate day2 = BusinessDate.of(
+                LocalDate.of(
+                        2024,
+                        12,
+                        31));
 
         final AppliedEvent applied = AppliedEvent.of("コミケ105", List.of(day1, day2));
 

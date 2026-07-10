@@ -43,7 +43,10 @@ public record Isrc(String value) implements ValueObject<Isrc> {
     public Isrc {
         Policy.<String>of(
                 StringUtils::isNotBlank,
-                () -> new ErrorResult("value", "ISRC cannot be blank", "ISRC_REQUIRED"))
+                () -> new ErrorResult(
+                        "value",
+                        "ISRC cannot be blank",
+                        "ISRC_REQUIRED"))
                 .verify(value, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         final var normalized = value.toUpperCase().trim();

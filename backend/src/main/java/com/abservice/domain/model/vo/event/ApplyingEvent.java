@@ -50,7 +50,10 @@ public record ApplyingEvent(EventName name, List<BusinessDate> tentativeDates) i
     public ApplyingEvent {
         Policy.<EventName>of(
                 Objects::nonNull,
-                () -> new ErrorResult("name", "Event name cannot be null", "EVENT_NAME_REQUIRED"))
+                () -> new ErrorResult(
+                        "name",
+                        "Event name cannot be null",
+                        "EVENT_NAME_REQUIRED"))
                 .verify(name, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         tentativeDates = Collections.unmodifiableList(ListUtils.emptyIfNull(tentativeDates));

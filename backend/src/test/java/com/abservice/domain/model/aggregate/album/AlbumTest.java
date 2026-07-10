@@ -29,11 +29,20 @@ class AlbumTest {
         void createWithValidValuesShouldSucceed() {
             // Arrange
             final var title = AlbumTitle.of("Test Album");
-            final var releaseDate = BusinessDate.of(2024, 1, 15);
+            final var releaseDate = BusinessDate.of(
+                    2024,
+                    1,
+                    15);
             final var artistCredit = ArtistCredit.of("Test Artist");
 
             // Act
-            final var album = Album.create(title, releaseDate, artistCredit, null, null, null);
+            final var album = Album.create(
+                    title,
+                    releaseDate,
+                    artistCredit,
+                    null,
+                    null,
+                    null);
 
             // Assert
             assertThat(album).isNotNull();
@@ -52,15 +61,28 @@ class AlbumTest {
         void createWithAllFieldsShouldSucceed() {
             // Arrange
             final var title = AlbumTitle.of("Complete Album");
-            final var releaseDate = BusinessDate.of(2024, 5, 1);
+            final var releaseDate = BusinessDate.of(
+                    2024,
+                    5,
+                    1);
             final var artistCredit = ArtistCredit.of("Full Artist");
-            final var eventReleasedAt = EventReleasedAt.atEvent("Test Event", 2024, 5, 1);
+            final var eventReleasedAt = EventReleasedAt.atEvent(
+                    "Test Event",
+                    2024,
+                    5,
+                    1);
             final var catalogNumber = CatalogNumber.of("CAT-001");
             // 278-4-000000-00-7: チェックデジット計算 sum=43 -> (10-(43%10))%10 = 7
             final var isdn = Isdn.of("2784000000007");
 
             // Act
-            final var album = Album.create(title, releaseDate, artistCredit, eventReleasedAt, catalogNumber, isdn);
+            final var album = Album.create(
+                    title,
+                    releaseDate,
+                    artistCredit,
+                    eventReleasedAt,
+                    catalogNumber,
+                    isdn);
 
             // Assert
             assertThat(album).isNotNull();
@@ -73,11 +95,21 @@ class AlbumTest {
         @DisplayName("タイトルがnullの場合は例外が発生すること")
         void createWithNullTitleShouldThrowException() {
             // Arrange
-            final var releaseDate = BusinessDate.of(2024, 1, 15);
+            final var releaseDate = BusinessDate.of(
+                    2024,
+                    1,
+                    15);
             final var artistCredit = ArtistCredit.of("Artist");
 
             // Act & Assert
-            assertThatThrownBy(() -> Album.create(null, releaseDate, artistCredit, null, null, null))
+            assertThatThrownBy(
+                    () -> Album.create(
+                            null,
+                            releaseDate,
+                            artistCredit,
+                            null,
+                            null,
+                            null))
                     .isInstanceOf(IllegalArgumentException.class).hasMessage("Album title cannot be null");
         }
 
@@ -86,10 +118,20 @@ class AlbumTest {
         void createWithNullArtistCreditShouldThrowException() {
             // Arrange
             final var title = AlbumTitle.of("Test Album");
-            final var releaseDate = BusinessDate.of(2024, 1, 15);
+            final var releaseDate = BusinessDate.of(
+                    2024,
+                    1,
+                    15);
 
             // Act & Assert
-            assertThatThrownBy(() -> Album.create(title, releaseDate, null, null, null, null))
+            assertThatThrownBy(
+                    () -> Album.create(
+                            title,
+                            releaseDate,
+                            null,
+                            null,
+                            null,
+                            null))
                     .isInstanceOf(IllegalArgumentException.class).hasMessage("Artist credit cannot be null");
         }
     }
@@ -188,7 +230,11 @@ class AlbumTest {
 
             // Assert
             assertThat(updated.getTrackCount()).isEqualTo(3);
-            assertThat(updated.getTracks()).isEqualTo(List.of(track1, track2, track3));
+            assertThat(updated.getTracks()).isEqualTo(
+                    List.of(
+                            track1,
+                            track2,
+                            track3));
         }
 
         @Test
@@ -381,7 +427,10 @@ class AlbumTest {
             album = album.addTrack(track1).addTrack(track2).addTrack(track3);
 
             // 順序を逆にする
-            final var newOrder = List.of(track3.id(), track2.id(), track1.id());
+            final var newOrder = List.of(
+                    track3.id(),
+                    track2.id(),
+                    track1.id());
 
             // Act
             final var updated = album.reorderTracks(newOrder);
@@ -548,7 +597,10 @@ class AlbumTest {
     private Album createTestAlbum() {
         return Album.create(
                 AlbumTitle.of("Test Album"),
-                BusinessDate.of(2024, 1, 1),
+                BusinessDate.of(
+                        2024,
+                        1,
+                        1),
                 ArtistCredit.of("Test Artist"),
                 null,
                 null,
@@ -556,6 +608,10 @@ class AlbumTest {
     }
 
     private Track createTestTrack(int trackNo, String title) {
-        return Track.create(trackNo, TrackTitle.of(title), ArtistCredit.of("Test Artist"), null);
+        return Track.create(
+                trackNo,
+                TrackTitle.of(title),
+                ArtistCredit.of("Test Artist"),
+                null);
     }
 }

@@ -34,7 +34,13 @@ class AlbumArticleTest {
 
             // Act
             final var albumArticle = AlbumArticle
-                    .create(albumId, introLong, introShort, firstEventSpace, labelTag, null);
+                    .create(
+                            albumId,
+                            introLong,
+                            introShort,
+                            firstEventSpace,
+                            labelTag,
+                            null);
 
             // Assert
             assertThat(albumArticle).isNotNull();
@@ -58,11 +64,21 @@ class AlbumArticleTest {
             final var firstEventSpace = "西Y-99c";
             final var labelTag = LabelTag.OTHER;
             final var distribution = AlbumDistribution
-                    .create(Price.of(1000), Price.of(500), Url.of("https://example.com/demo"), "Demo available");
+                    .create(
+                            Price.of(1000),
+                            Price.of(500),
+                            Url.of("https://example.com/demo"),
+                            "Demo available");
 
             // Act
             final var albumArticle = AlbumArticle
-                    .create(albumId, introLong, introShort, firstEventSpace, labelTag, distribution);
+                    .create(
+                            albumId,
+                            introLong,
+                            introShort,
+                            firstEventSpace,
+                            labelTag,
+                            distribution);
 
             // Assert
             assertThat(albumArticle).isNotNull();
@@ -74,7 +90,13 @@ class AlbumArticleTest {
         void createWithNullAlbumIdShouldThrowException() {
             // Act & Assert
             assertThatThrownBy(() -> {
-                AlbumArticle.create(null, "intro", "short", "space", null, null);
+                AlbumArticle.create(
+                        null,
+                        "intro",
+                        "short",
+                        "space",
+                        null,
+                        null);
             }).isInstanceOf(IllegalArgumentException.class).hasMessage("Album ID cannot be null");
         }
 
@@ -85,7 +107,13 @@ class AlbumArticleTest {
             final var albumId = Album.Id.generate();
 
             // Act
-            final var albumArticle = AlbumArticle.create(albumId, null, null, null, null, null);
+            final var albumArticle = AlbumArticle.create(
+                    albumId,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null);
 
             // Assert
             assertThat(albumArticle).isNotNull();
@@ -206,7 +234,11 @@ class AlbumArticleTest {
             // Arrange
             final var albumArticle = createTestAlbumArticle();
             final var distribution = AlbumDistribution
-                    .create(Price.of(1500), Price.of(800), Url.of("https://example.com/demo"), "New distribution info");
+                    .create(
+                            Price.of(1500),
+                            Price.of(800),
+                            Url.of("https://example.com/demo"),
+                            "New distribution info");
 
             // Act
             final var updated = albumArticle.setDistribution(distribution);
@@ -263,7 +295,11 @@ class AlbumArticleTest {
 
             // Assert
             assertThat(updated.getAcquisitionChannels().size()).isEqualTo(3);
-            assertThat(updated.getAcquisitionChannels()).isEqualTo(List.of(channel1, channel2, channel3));
+            assertThat(updated.getAcquisitionChannels()).isEqualTo(
+                    List.of(
+                            channel1,
+                            channel2,
+                            channel3));
         }
 
         @Test
@@ -285,7 +321,12 @@ class AlbumArticleTest {
             var albumArticle = createTestAlbumArticle();
             final var channel1 = createTestChannel("BOOTH");
             final var channel2 = AlbumAcquisitionChannel
-                    .reconstruct(channel1.id(), ChannelType.ONLINE_SHOP, "Different Name", null, null);
+                    .reconstruct(
+                            channel1.id(),
+                            ChannelType.ONLINE_SHOP,
+                            "Different Name",
+                            null,
+                            null);
             albumArticle = albumArticle.addAcquisitionChannel(channel1);
 
             // Act & Assert
@@ -430,7 +471,13 @@ class AlbumArticleTest {
         void idShouldMatchAlbumId() {
             // Arrange
             final var albumId = Album.Id.generate();
-            final var albumArticle = AlbumArticle.create(albumId, "intro", "short", "space", null, null);
+            final var albumArticle = AlbumArticle.create(
+                    albumId,
+                    "intro",
+                    "short",
+                    "space",
+                    null,
+                    null);
 
             // Act & Assert
             assertThat(albumArticle.id()).isEqualTo(albumId);
@@ -452,6 +499,10 @@ class AlbumArticleTest {
 
     private AlbumAcquisitionChannel createTestChannel(String name) {
         return AlbumAcquisitionChannel
-                .create(ChannelType.ONLINE_SHOP, name, Url.of("https://example.com"), "Test note");
+                .create(
+                        ChannelType.ONLINE_SHOP,
+                        name,
+                        Url.of("https://example.com"),
+                        "Test note");
     }
 }

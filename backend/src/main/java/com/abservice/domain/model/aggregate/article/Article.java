@@ -288,7 +288,10 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
                     .orElseThrow(() -> new IllegalArgumentException("Article ID cannot be blank"));
             Policy.<String>of(
                     EntityId::isValidUuid,
-                    () -> new ErrorResult("value", "Article ID must be a valid UUID: " + value, "ID_INVALID_UUID"))
+                    () -> new ErrorResult(
+                            "value",
+                            "Article ID must be a valid UUID: " + value,
+                            "ID_INVALID_UUID"))
                     .verify(value, Function.identity())
                     .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         }

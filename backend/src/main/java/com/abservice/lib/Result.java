@@ -312,7 +312,10 @@ public sealed interface Result<T> {
      * @param <R>
      *            合成後の値の型
      */
-    static <A, B, R> Result<R> zip(Result<A> a, Result<B> b, BiFunction<? super A, ? super B, ? extends R> combiner) {
+    static <A, B, R> Result<R> zip(
+            Result<A> a,
+            Result<B> b,
+            BiFunction<? super A, ? super B, ? extends R> combiner) {
         return ap(a.map(av -> bv -> combiner.apply(av, bv)), b);
     }
 
@@ -340,7 +343,15 @@ public sealed interface Result<T> {
      */
     static <A, B, C, R> Result<R> zip(Result<A> a, Result<B> b, Result<C> c,
             TriFunction<? super A, ? super B, ? super C, ? extends R> combiner) {
-        return ap(ap(a.map(av -> bv -> cv -> combiner.apply(av, bv, cv)), b), c);
+        return ap(
+                ap(
+                        a.map(
+                                av -> bv -> cv -> combiner.apply(
+                                        av,
+                                        bv,
+                                        cv)),
+                        b),
+                c);
     }
 
     /**
@@ -405,6 +416,9 @@ public sealed interface Result<T> {
          *            3つ目の引数
          * @return 生成結果
          */
-        R apply(A a, B b, C c);
+        R apply(
+                A a,
+                B b,
+                C c);
     }
 }

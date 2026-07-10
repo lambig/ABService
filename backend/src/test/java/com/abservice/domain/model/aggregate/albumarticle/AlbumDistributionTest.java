@@ -20,7 +20,11 @@ class AlbumDistributionTest {
         @DisplayName("すべてnullで生成できること")
         void createWithAllNullShouldSucceed() {
             // Act
-            final var distribution = AlbumDistribution.create(null, null, null, null);
+            final var distribution = AlbumDistribution.create(
+                    null,
+                    null,
+                    null,
+                    null);
 
             // Assert
             assertThat(distribution).isNotNull();
@@ -40,7 +44,11 @@ class AlbumDistributionTest {
             final var note = "頒布情報";
 
             // Act
-            final var distribution = AlbumDistribution.create(physicalPrice, downloadPrice, demoUrl, note);
+            final var distribution = AlbumDistribution.create(
+                    physicalPrice,
+                    downloadPrice,
+                    demoUrl,
+                    note);
 
             // Assert
             assertThat(distribution).isNotNull();
@@ -57,7 +65,11 @@ class AlbumDistributionTest {
             final var physicalPrice = Price.of(1000);
 
             // Act
-            final var distribution = AlbumDistribution.create(physicalPrice, null, null, null);
+            final var distribution = AlbumDistribution.create(
+                    physicalPrice,
+                    null,
+                    null,
+                    null);
 
             // Assert
             assertThat(distribution.getPhysicalPrice()).isEqualTo(physicalPrice);
@@ -71,7 +83,11 @@ class AlbumDistributionTest {
             final var downloadPrice = Price.of(500);
 
             // Act
-            final var distribution = AlbumDistribution.create(null, downloadPrice, null, null);
+            final var distribution = AlbumDistribution.create(
+                    null,
+                    downloadPrice,
+                    null,
+                    null);
 
             // Assert
             assertThat(distribution.getPhysicalPrice()).isNull();
@@ -93,7 +109,11 @@ class AlbumDistributionTest {
             final var note = "頒布情報";
 
             // Act
-            final var distribution = AlbumDistribution.reconstruct(physicalPrice, downloadPrice, demoUrl, note);
+            final var distribution = AlbumDistribution.reconstruct(
+                    physicalPrice,
+                    downloadPrice,
+                    demoUrl,
+                    note);
 
             // Assert
             assertThat(distribution).isNotNull();
@@ -112,7 +132,11 @@ class AlbumDistributionTest {
         @DisplayName("物理頒価を変更できること")
         void changePhysicalPriceShouldSucceed() {
             // Arrange
-            final var distribution = AlbumDistribution.create(Price.of(1000), null, null, null);
+            final var distribution = AlbumDistribution.create(
+                    Price.of(1000),
+                    null,
+                    null,
+                    null);
             final var newPrice = Price.of(1500);
 
             // Act
@@ -126,7 +150,11 @@ class AlbumDistributionTest {
         @DisplayName("物理頒価をnullに変更できること")
         void changePhysicalPriceToNullShouldSucceed() {
             // Arrange
-            final var distribution = AlbumDistribution.create(Price.of(1000), null, null, null);
+            final var distribution = AlbumDistribution.create(
+                    Price.of(1000),
+                    null,
+                    null,
+                    null);
 
             // Act
             final var updated = distribution.changePhysicalPrice(null);
@@ -142,7 +170,11 @@ class AlbumDistributionTest {
             final var downloadPrice = Price.of(500);
             final var demoUrl = Url.of("https://example.com/demo");
             final var note = "補足";
-            final var distribution = AlbumDistribution.create(Price.of(1000), downloadPrice, demoUrl, note);
+            final var distribution = AlbumDistribution.create(
+                    Price.of(1000),
+                    downloadPrice,
+                    demoUrl,
+                    note);
             final var newPrice = Price.of(1500);
 
             // Act
@@ -163,7 +195,11 @@ class AlbumDistributionTest {
         @DisplayName("DL価格を変更できること")
         void changeDownloadPriceShouldSucceed() {
             // Arrange
-            final var distribution = AlbumDistribution.create(null, Price.of(500), null, null);
+            final var distribution = AlbumDistribution.create(
+                    null,
+                    Price.of(500),
+                    null,
+                    null);
             final var newPrice = Price.of(800);
 
             // Act
@@ -177,7 +213,11 @@ class AlbumDistributionTest {
         @DisplayName("DL価格をnullに変更できること")
         void changeDownloadPriceToNullShouldSucceed() {
             // Arrange
-            final var distribution = AlbumDistribution.create(null, Price.of(500), null, null);
+            final var distribution = AlbumDistribution.create(
+                    null,
+                    Price.of(500),
+                    null,
+                    null);
 
             // Act
             final var updated = distribution.changeDownloadPrice(null);
@@ -193,7 +233,11 @@ class AlbumDistributionTest {
             final var physicalPrice = Price.of(1000);
             final var demoUrl = Url.of("https://example.com/demo");
             final var note = "補足";
-            final var distribution = AlbumDistribution.create(physicalPrice, Price.of(500), demoUrl, note);
+            final var distribution = AlbumDistribution.create(
+                    physicalPrice,
+                    Price.of(500),
+                    demoUrl,
+                    note);
             final var newPrice = Price.of(800);
 
             // Act
@@ -214,7 +258,11 @@ class AlbumDistributionTest {
         @DisplayName("デモURLを変更できること")
         void changeDemoUrlShouldSucceed() {
             // Arrange
-            final var distribution = AlbumDistribution.create(null, null, Url.of("https://old.example.com"), null);
+            final var distribution = AlbumDistribution.create(
+                    null,
+                    null,
+                    Url.of("https://old.example.com"),
+                    null);
             final var newUrl = Url.of("https://new.example.com");
 
             // Act
@@ -228,7 +276,11 @@ class AlbumDistributionTest {
         @DisplayName("デモURLをnullに変更できること")
         void changeDemoUrlToNullShouldSucceed() {
             // Arrange
-            final var distribution = AlbumDistribution.create(null, null, Url.of("https://example.com"), null);
+            final var distribution = AlbumDistribution.create(
+                    null,
+                    null,
+                    Url.of("https://example.com"),
+                    null);
 
             // Act
             final var updated = distribution.changeDemoUrl(null);
@@ -245,7 +297,11 @@ class AlbumDistributionTest {
             final var downloadPrice = Price.of(500);
             final var note = "補足";
             final var distribution = AlbumDistribution
-                    .create(physicalPrice, downloadPrice, Url.of("https://old.com"), note);
+                    .create(
+                            physicalPrice,
+                            downloadPrice,
+                            Url.of("https://old.com"),
+                            note);
             final var newUrl = Url.of("https://new.com");
 
             // Act
@@ -266,7 +322,11 @@ class AlbumDistributionTest {
         @DisplayName("補足メモを変更できること")
         void changeNoteShouldSucceed() {
             // Arrange
-            final var distribution = AlbumDistribution.create(null, null, null, "旧補足");
+            final var distribution = AlbumDistribution.create(
+                    null,
+                    null,
+                    null,
+                    "旧補足");
             final var newNote = "新補足";
 
             // Act
@@ -280,7 +340,11 @@ class AlbumDistributionTest {
         @DisplayName("補足メモをnullに変更できること")
         void changeNoteToNullShouldSucceed() {
             // Arrange
-            final var distribution = AlbumDistribution.create(null, null, null, "旧補足");
+            final var distribution = AlbumDistribution.create(
+                    null,
+                    null,
+                    null,
+                    "旧補足");
 
             // Act
             final var updated = distribution.changeNote(null);
@@ -296,7 +360,11 @@ class AlbumDistributionTest {
             final var physicalPrice = Price.of(1000);
             final var downloadPrice = Price.of(500);
             final var demoUrl = Url.of("https://example.com");
-            final var distribution = AlbumDistribution.create(physicalPrice, downloadPrice, demoUrl, "旧補足");
+            final var distribution = AlbumDistribution.create(
+                    physicalPrice,
+                    downloadPrice,
+                    demoUrl,
+                    "旧補足");
             final var newNote = "新補足";
 
             // Act
@@ -317,7 +385,11 @@ class AlbumDistributionTest {
         @DisplayName("頒布情報の段階的な設定ができること")
         void gradualSetupShouldSucceed() {
             // Arrange - 最初は空の状態
-            final var distribution = AlbumDistribution.create(null, null, null, null);
+            final var distribution = AlbumDistribution.create(
+                    null,
+                    null,
+                    null,
+                    null);
 
             // Act - 段階的に情報を追加
             final var step1 = distribution.changePhysicalPrice(Price.of(1000));
@@ -336,7 +408,11 @@ class AlbumDistributionTest {
         @DisplayName("価格改定ができること")
         void priceRevisionShouldSucceed() {
             // Arrange - 初期価格設定
-            final var distribution = AlbumDistribution.create(Price.of(1000), Price.of(500), null, "初期価格");
+            final var distribution = AlbumDistribution.create(
+                    Price.of(1000),
+                    Price.of(500),
+                    null,
+                    "初期価格");
 
             // Act - 価格改定
             final var revised = distribution.changePhysicalPrice(Price.of(800)).changeDownloadPrice(Price.of(400))
@@ -353,7 +429,11 @@ class AlbumDistributionTest {
         void clearPricesOnDistributionEndShouldSucceed() {
             // Arrange - 頒布中の状態
             final var distribution = AlbumDistribution
-                    .create(Price.of(1000), Price.of(500), Url.of("https://demo.example.com"), "頒布中");
+                    .create(
+                            Price.of(1000),
+                            Price.of(500),
+                            Url.of("https://demo.example.com"),
+                            "頒布中");
 
             // Act - 頒布終了
             final var ended = distribution.changePhysicalPrice(null).changeDownloadPrice(null).changeNote("頒布終了");

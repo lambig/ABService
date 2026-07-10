@@ -47,18 +47,33 @@ public class AlbumAcquisitionChannel implements DomainEntity<AlbumAcquisitionCha
      *            補足（nullable）
      * @return 新規AlbumAcquisitionChannel
      */
-    public static AlbumAcquisitionChannel create(ChannelType channelType, String name, Url url, String note) {
+    public static AlbumAcquisitionChannel create(
+            ChannelType channelType,
+            String name,
+            Url url,
+            String note) {
         Policy.<ChannelType>of(
                 Objects::nonNull,
-                () -> new ErrorResult("channelType", "Channel type cannot be null", "CHANNEL_TYPE_REQUIRED"))
+                () -> new ErrorResult(
+                        "channelType",
+                        "Channel type cannot be null",
+                        "CHANNEL_TYPE_REQUIRED"))
                 .verify(channelType, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         Policy.<String>of(
                 StringUtils::isNotBlank,
-                () -> new ErrorResult("name", "Name cannot be blank", "NAME_REQUIRED"))
+                () -> new ErrorResult(
+                        "name",
+                        "Name cannot be blank",
+                        "NAME_REQUIRED"))
                 .verify(name, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
-        return new AlbumAcquisitionChannel(Id.generate(), channelType, name, url, note);
+        return new AlbumAcquisitionChannel(
+                Id.generate(),
+                channelType,
+                name,
+                url,
+                note);
     }
 
     /**
@@ -78,7 +93,12 @@ public class AlbumAcquisitionChannel implements DomainEntity<AlbumAcquisitionCha
      */
     public static AlbumAcquisitionChannel reconstruct(Id id, ChannelType channelType, String name, Url url,
             String note) {
-        return new AlbumAcquisitionChannel(id, channelType, name, url, note);
+        return new AlbumAcquisitionChannel(
+                id,
+                channelType,
+                name,
+                url,
+                note);
     }
 
     /**
@@ -91,7 +111,10 @@ public class AlbumAcquisitionChannel implements DomainEntity<AlbumAcquisitionCha
     public AlbumAcquisitionChannel changeChannelType(ChannelType newChannelType) {
         Policy.<ChannelType>of(
                 Objects::nonNull,
-                () -> new ErrorResult("channelType", "Channel type cannot be null", "CHANNEL_TYPE_REQUIRED"))
+                () -> new ErrorResult(
+                        "channelType",
+                        "Channel type cannot be null",
+                        "CHANNEL_TYPE_REQUIRED"))
                 .verify(newChannelType, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         return withChannelType(newChannelType);
@@ -107,7 +130,10 @@ public class AlbumAcquisitionChannel implements DomainEntity<AlbumAcquisitionCha
     public AlbumAcquisitionChannel changeName(String newName) {
         Policy.<String>of(
                 StringUtils::isNotBlank,
-                () -> new ErrorResult("name", "Name cannot be blank", "NAME_REQUIRED"))
+                () -> new ErrorResult(
+                        "name",
+                        "Name cannot be blank",
+                        "NAME_REQUIRED"))
                 .verify(newName, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         return withName(newName);
@@ -151,7 +177,10 @@ public class AlbumAcquisitionChannel implements DomainEntity<AlbumAcquisitionCha
             Policy.<String>all(
                     Policy.of(
                             StringUtils::isNotBlank,
-                            () -> new ErrorResult("value", "AlbumAcquisitionChannel ID cannot be blank", "ID_BLANK")),
+                            () -> new ErrorResult(
+                                    "value",
+                                    "AlbumAcquisitionChannel ID cannot be blank",
+                                    "ID_BLANK")),
                     Policy.of(
                             EntityId::isValidUuid,
                             () -> new ErrorResult("value", "AlbumAcquisitionChannel ID must be a valid UUID: " + value,

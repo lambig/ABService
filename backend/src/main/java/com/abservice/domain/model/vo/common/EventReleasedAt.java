@@ -58,10 +58,17 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      * @param note
      *            補足情報（nullable）
      */
-    private EventReleasedAt(EventName name, List<EventDateAndSpace> dateAndSpaces, String place, String note) {
+    private EventReleasedAt(
+            EventName name,
+            List<EventDateAndSpace> dateAndSpaces,
+            String place,
+            String note) {
         Policy.<EventName>of(
                 Objects::nonNull,
-                () -> new ErrorResult("name", "Event name cannot be null", "NAME_REQUIRED"))
+                () -> new ErrorResult(
+                        "name",
+                        "Event name cannot be null",
+                        "NAME_REQUIRED"))
                 .verify(name, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         this.name = name;
@@ -79,7 +86,11 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      * @return EventReleasedAt
      */
     public static EventReleasedAt of(String name) {
-        return new EventReleasedAt(new EventName(name), null, null, null);
+        return new EventReleasedAt(
+                new EventName(name),
+                null,
+                null,
+                null);
     }
 
     /**
@@ -107,7 +118,10 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      *            スペース番号
      * @return EventReleasedAt
      */
-    public static EventReleasedAt of(String name, BusinessDate date, String spaceNumber) {
+    public static EventReleasedAt of(
+            String name,
+            BusinessDate date,
+            String spaceNumber) {
         return new EventReleasedAt(new EventName(name),
                 Optional.ofNullable(date).map(d -> List.of(EventDateAndSpace.of(d, spaceNumber))).orElse(null), null,
                 null);
@@ -126,8 +140,17 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      *            日
      * @return EventReleasedAt
      */
-    public static EventReleasedAt atEvent(String name, int year, int month, int dayOfMonth) {
-        return of(name, BusinessDate.of(year, month, dayOfMonth));
+    public static EventReleasedAt atEvent(
+            String name,
+            int year,
+            int month,
+            int dayOfMonth) {
+        return of(
+                name,
+                BusinessDate.of(
+                        year,
+                        month,
+                        dayOfMonth));
     }
 
     /**
@@ -143,8 +166,16 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      *            補足情報
      * @return EventReleasedAt
      */
-    public static EventReleasedAt of(String name, List<EventDateAndSpace> dateAndSpaces, String place, String note) {
-        return new EventReleasedAt(new EventName(name), dateAndSpaces, place, note);
+    public static EventReleasedAt of(
+            String name,
+            List<EventDateAndSpace> dateAndSpaces,
+            String place,
+            String note) {
+        return new EventReleasedAt(
+                new EventName(name),
+                dateAndSpaces,
+                place,
+                note);
     }
 
     /**
@@ -162,7 +193,12 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      *            補足情報
      * @return EventReleasedAt
      */
-    public static EventReleasedAt of(String name, BusinessDate date, String place, String spaceNumber, String note) {
+    public static EventReleasedAt of(
+            String name,
+            BusinessDate date,
+            String place,
+            String spaceNumber,
+            String note) {
         return new EventReleasedAt(new EventName(name),
                 Optional.ofNullable(date).map(d -> List.of(EventDateAndSpace.of(d, spaceNumber))).orElse(null), place,
                 note);

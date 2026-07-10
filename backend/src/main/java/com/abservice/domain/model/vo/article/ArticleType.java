@@ -48,7 +48,10 @@ public enum ArticleType {
         return Policy
                 .<String>of(
                         StringUtils::isNotBlank,
-                        () -> new ErrorResult("articleType", "記事種別は必須です", "ARTICLE_TYPE_REQUIRED"))
+                        () -> new ErrorResult(
+                                "articleType",
+                                "記事種別は必須です",
+                                "ARTICLE_TYPE_REQUIRED"))
                 .verify(
                         value,
                         Function.identity())
@@ -56,7 +59,10 @@ public enum ArticleType {
                         v -> Policy
                                 .of(
                                         ArticleType::isKnownName,
-                                        () -> new ErrorResult("articleType", "不正な記事種別です: " + v, "ARTICLE_TYPE_INVALID"))
+                                        () -> new ErrorResult(
+                                                "articleType",
+                                                "不正な記事種別です: " + v,
+                                                "ARTICLE_TYPE_INVALID"))
                                 .verify(v, valid -> valueOf(valid.trim())));
     }
 

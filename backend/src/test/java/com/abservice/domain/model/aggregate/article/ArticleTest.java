@@ -32,7 +32,12 @@ class ArticleTest {
             final var body = MarkupContent.markdown("This is a test article body.");
 
             // Act
-            final var article = Article.create(articleType, null, title, body, null);
+            final var article = Article.create(
+                    articleType,
+                    null,
+                    title,
+                    body,
+                    null);
 
             // Assert
             assertThat(article).isNotNull();
@@ -59,7 +64,12 @@ class ArticleTest {
             final var introShort = "Short intro";
 
             // Act
-            final var article = Article.create(articleType, albumId, title, body, introShort);
+            final var article = Article.create(
+                    articleType,
+                    albumId,
+                    title,
+                    body,
+                    introShort);
 
             // Assert
             assertThat(article.articleType()).isEqualTo(ArticleType.ALBUM);
@@ -72,7 +82,12 @@ class ArticleTest {
         void createWithNullArticleTypeShouldThrowException() {
             // Act & Assert
             assertThatThrownBy(() -> {
-                Article.create(null, null, "Title", MarkupContent.plainText("Body"), null);
+                Article.create(
+                        null,
+                        null,
+                        "Title",
+                        MarkupContent.plainText("Body"),
+                        null);
             }).isInstanceOf(IllegalArgumentException.class).hasMessage("Article type cannot be null");
         }
 
@@ -81,7 +96,12 @@ class ArticleTest {
         void createWithNullTitleShouldThrowException() {
             // Act & Assert
             assertThatThrownBy(() -> {
-                Article.create(ArticleType.NOTE, null, null, MarkupContent.plainText("Body"), null);
+                Article.create(
+                        ArticleType.NOTE,
+                        null,
+                        null,
+                        MarkupContent.plainText("Body"),
+                        null);
             }).isInstanceOf(IllegalArgumentException.class).hasMessage("Article title cannot be null or blank");
         }
 
@@ -90,7 +110,12 @@ class ArticleTest {
         void createWithBlankTitleShouldThrowException() {
             // Act & Assert
             assertThatThrownBy(() -> {
-                Article.create(ArticleType.NOTE, null, "   ", MarkupContent.plainText("Body"), null);
+                Article.create(
+                        ArticleType.NOTE,
+                        null,
+                        "   ",
+                        MarkupContent.plainText("Body"),
+                        null);
             }).isInstanceOf(IllegalArgumentException.class).hasMessage("Article title cannot be null or blank");
         }
     }
@@ -242,7 +267,12 @@ class ArticleTest {
         void setAlbumIdForAlbumArticleShouldSucceed() {
             // Arrange
             final var article = Article
-                    .create(ArticleType.ALBUM, null, "Album Article", MarkupContent.plainText("Body"), null);
+                    .create(
+                            ArticleType.ALBUM,
+                            null,
+                            "Album Article",
+                            MarkupContent.plainText("Body"),
+                            null);
             final var albumId = Album.Id.generate();
             final var currentDateTime = BusinessDateTime.of(Instant.now());
 
@@ -259,7 +289,12 @@ class ArticleTest {
         void setAlbumIdForNonAlbumArticleShouldThrowException() {
             // Arrange
             final var article = Article
-                    .create(ArticleType.NOTE, null, "Blog Post", MarkupContent.plainText("Body"), null);
+                    .create(
+                            ArticleType.NOTE,
+                            null,
+                            "Blog Post",
+                            MarkupContent.plainText("Body"),
+                            null);
             final var albumId = Album.Id.generate();
             final var currentDateTime = BusinessDateTime.of(Instant.now());
 
@@ -278,7 +313,12 @@ class ArticleTest {
         @DisplayName("記事種別を変更できること")
         void changeArticleTypeWithValidTypeShouldSucceed() {
             // Arrange
-            final var article = Article.create(ArticleType.NOTE, null, "Title", MarkupContent.plainText("Body"), null);
+            final var article = Article.create(
+                    ArticleType.NOTE,
+                    null,
+                    "Title",
+                    MarkupContent.plainText("Body"),
+                    null);
             final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
@@ -295,7 +335,12 @@ class ArticleTest {
             // Arrange
             final var albumId = Album.Id.generate();
             final var article = Article
-                    .create(ArticleType.ALBUM, albumId, "Album Article", MarkupContent.plainText("Body"), null);
+                    .create(
+                            ArticleType.ALBUM,
+                            albumId,
+                            "Album Article",
+                            MarkupContent.plainText("Body"),
+                            null);
             final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
@@ -357,7 +402,11 @@ class ArticleTest {
 
             // Assert
             assertThat(updated.getTags().size()).isEqualTo(3);
-            assertThat(updated.getTags()).isEqualTo(List.of(tag1, tag2, tag3));
+            assertThat(updated.getTags()).isEqualTo(
+                    List.of(
+                            tag1,
+                            tag2,
+                            tag3));
         }
 
         @Test

@@ -55,7 +55,10 @@ class DomainExceptionTest {
         void buildsMessageFromErrors() {
             // Arrange
             final ErrorResult error1 = new ErrorResult("title", "必須です");
-            final ErrorResult error2 = new ErrorResult("catalogNumber", "形式が不正です", "E002");
+            final ErrorResult error2 = new ErrorResult(
+                    "catalogNumber",
+                    "形式が不正です",
+                    "E002");
 
             // Act
             final ValidationException ex = new ValidationException(List.of(error1, error2));

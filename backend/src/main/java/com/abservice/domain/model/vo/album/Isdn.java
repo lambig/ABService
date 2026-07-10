@@ -48,7 +48,10 @@ public record Isdn(String value) implements ValueObject<Isdn> {
     public Isdn {
         Policy.<String>of(
                 StringUtils::isNotBlank,
-                () -> new ErrorResult("value", "ISDN cannot be blank", "ISDN_REQUIRED"))
+                () -> new ErrorResult(
+                        "value",
+                        "ISDN cannot be blank",
+                        "ISDN_REQUIRED"))
                 .verify(value, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         value = normalizeAndValidate(value);
@@ -85,7 +88,10 @@ public record Isdn(String value) implements ValueObject<Isdn> {
     private static void validateCheckDigit(String normalized, String original) {
         Policy.<String>of(
                 Isdn::isValidCheckDigit,
-                () -> new ErrorResult("value", "ISDN check digit is invalid: " + original, "ISDN_INVALID_CHECK_DIGIT"))
+                () -> new ErrorResult(
+                        "value",
+                        "ISDN check digit is invalid: " + original,
+                        "ISDN_INVALID_CHECK_DIGIT"))
                 .verify(normalized, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
     }

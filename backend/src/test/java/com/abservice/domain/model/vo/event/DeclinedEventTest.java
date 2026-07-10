@@ -16,8 +16,15 @@ class DeclinedEventTest {
     @DisplayName("単一日付で生成すると各属性が設定され辞退状態になる")
     @Test
     void testCreateWithSingleDate() {
-        final BusinessDate date = BusinessDate.of(LocalDate.of(2024, 12, 30));
-        final DeclinedEvent event = DeclinedEvent.of("コミックマーケット104", date, DeclineReason.NOT_SELECTED);
+        final BusinessDate date = BusinessDate.of(
+                LocalDate.of(
+                        2024,
+                        12,
+                        30));
+        final DeclinedEvent event = DeclinedEvent.of(
+                "コミックマーケット104",
+                date,
+                DeclineReason.NOT_SELECTED);
 
         assertThat(event.name().value()).isEqualTo("コミックマーケット104");
         assertThat(event.declinedDates()).hasSize(1);
@@ -33,8 +40,16 @@ class DeclinedEventTest {
     @DisplayName("単一日付と会場を指定して生成できる")
     @Test
     void testCreateWithSingleDateAndPlace() {
-        final BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
-        final DeclinedEvent event = DeclinedEvent.of("地元フェス", date, "市民会館", DeclineReason.CANCELLED_BY_USER);
+        final BusinessDate date = BusinessDate.of(
+                LocalDate.of(
+                        2024,
+                        5,
+                        5));
+        final DeclinedEvent event = DeclinedEvent.of(
+                "地元フェス",
+                date,
+                "市民会館",
+                DeclineReason.CANCELLED_BY_USER);
 
         assertThat(event.name().value()).isEqualTo("地元フェス");
         assertThat(event.declinedDates()).hasSize(1);
@@ -45,11 +60,23 @@ class DeclinedEventTest {
     @DisplayName("複数日付で生成すると全ての辞退日が保持される")
     @Test
     void testCreateWithMultipleDates() {
-        final BusinessDate date1 = BusinessDate.of(LocalDate.of(2024, 12, 29));
-        final BusinessDate date2 = BusinessDate.of(LocalDate.of(2024, 12, 30));
+        final BusinessDate date1 = BusinessDate.of(
+                LocalDate.of(
+                        2024,
+                        12,
+                        29));
+        final BusinessDate date2 = BusinessDate.of(
+                LocalDate.of(
+                        2024,
+                        12,
+                        30));
         final List<BusinessDate> dates = List.of(date1, date2);
 
-        final DeclinedEvent event = DeclinedEvent.of("コミケ", dates, "東京ビッグサイト", DeclineReason.NOT_SELECTED);
+        final DeclinedEvent event = DeclinedEvent.of(
+                "コミケ",
+                dates,
+                "東京ビッグサイト",
+                DeclineReason.NOT_SELECTED);
 
         assertThat(event.name().value()).isEqualTo("コミケ");
         assertThat(event.declinedDates()).hasSize(2);
@@ -60,7 +87,11 @@ class DeclinedEventTest {
     @DisplayName("応募済みイベントから辞退イベントを生成できる")
     @Test
     void testCreateFromTentative() {
-        final BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
+        final BusinessDate date = BusinessDate.of(
+                LocalDate.of(
+                        2024,
+                        5,
+                        5));
         final AppliedEvent applied = AppliedEvent.of("M3-2024春", date);
 
         final DeclinedEvent declined = DeclinedEvent.fromApplied(applied, DeclineReason.NOT_SELECTED);
@@ -83,17 +114,31 @@ class DeclinedEventTest {
     @DisplayName("名前がnullの場合は例外になる")
     @Test
     void testCreateWithNullName() {
-        final BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
+        final BusinessDate date = BusinessDate.of(
+                LocalDate.of(
+                        2024,
+                        5,
+                        5));
         final List<BusinessDate> dates = List.of(date);
 
-        assertThatThrownBy(() -> new DeclinedEvent(null, dates, null, DeclineReason.NOT_SELECTED))
+        assertThatThrownBy(
+                () -> new DeclinedEvent(
+                        null,
+                        dates,
+                        null,
+                        DeclineReason.NOT_SELECTED))
                 .isInstanceOf(IllegalArgumentException.class).hasMessage("Event name cannot be null");
     }
 
     @DisplayName("辞退日が空の場合は例外になる")
     @Test
     void testCreateWithEmptyDates() {
-        assertThatThrownBy(() -> DeclinedEvent.of("イベント", List.of(), null, DeclineReason.NOT_SELECTED))
+        assertThatThrownBy(
+                () -> DeclinedEvent.of(
+                        "イベント",
+                        List.of(),
+                        null,
+                        DeclineReason.NOT_SELECTED))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Declined event must have at least one declined date");
     }
@@ -101,7 +146,12 @@ class DeclinedEventTest {
     @DisplayName("辞退日がnullの場合は例外になる")
     @Test
     void testCreateWithNullDates() {
-        assertThatThrownBy(() -> new DeclinedEvent(new EventName("イベント"), null, null, DeclineReason.NOT_SELECTED))
+        assertThatThrownBy(
+                () -> new DeclinedEvent(
+                        new EventName("イベント"),
+                        null,
+                        null,
+                        DeclineReason.NOT_SELECTED))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Declined event must have at least one declined date");
     }
@@ -109,29 +159,63 @@ class DeclinedEventTest {
     @DisplayName("辞退理由がnullの場合は例外になる")
     @Test
     void testCreateWithNullReason() {
-        final BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
+        final BusinessDate date = BusinessDate.of(
+                LocalDate.of(
+                        2024,
+                        5,
+                        5));
         final List<BusinessDate> dates = List.of(date);
 
-        assertThatThrownBy(() -> new DeclinedEvent(new EventName("イベント"), dates, null, null))
+        assertThatThrownBy(
+                () -> new DeclinedEvent(
+                        new EventName("イベント"),
+                        dates,
+                        null,
+                        null))
                 .isInstanceOf(IllegalArgumentException.class).hasMessage("Decline reason cannot be null");
     }
 
     @DisplayName("辞退日リストは変更不可である")
     @Test
     void testDeclinedDatesIsUnmodifiable() {
-        final BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
-        final DeclinedEvent event = DeclinedEvent.of("イベント", date, DeclineReason.NOT_SELECTED);
+        final BusinessDate date = BusinessDate.of(
+                LocalDate.of(
+                        2024,
+                        5,
+                        5));
+        final DeclinedEvent event = DeclinedEvent.of(
+                "イベント",
+                date,
+                DeclineReason.NOT_SELECTED);
 
-        assertThatThrownBy(() -> event.declinedDates().add(BusinessDate.of(LocalDate.of(2024, 5, 6))))
+        assertThatThrownBy(
+                () -> event.declinedDates().add(
+                        BusinessDate.of(
+                                LocalDate.of(
+                                        2024,
+                                        5,
+                                        6))))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 
     @DisplayName("同一内容の辞退イベント同士は等価と判定される")
     @Test
     void testEquivalentToSame() {
-        final BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
-        final DeclinedEvent event1 = DeclinedEvent.of("イベント", date, "会場", DeclineReason.NOT_SELECTED);
-        final DeclinedEvent event2 = DeclinedEvent.of("イベント", date, "会場", DeclineReason.NOT_SELECTED);
+        final BusinessDate date = BusinessDate.of(
+                LocalDate.of(
+                        2024,
+                        5,
+                        5));
+        final DeclinedEvent event1 = DeclinedEvent.of(
+                "イベント",
+                date,
+                "会場",
+                DeclineReason.NOT_SELECTED);
+        final DeclinedEvent event2 = DeclinedEvent.of(
+                "イベント",
+                date,
+                "会場",
+                DeclineReason.NOT_SELECTED);
 
         assertThat(event1.equivalentTo(event2)).isTrue();
     }
@@ -139,9 +223,19 @@ class DeclinedEventTest {
     @DisplayName("辞退理由が異なる場合は等価でないと判定される")
     @Test
     void testEquivalentToDifferentReason() {
-        final BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
-        final DeclinedEvent event1 = DeclinedEvent.of("イベント", date, DeclineReason.NOT_SELECTED);
-        final DeclinedEvent event2 = DeclinedEvent.of("イベント", date, DeclineReason.CANCELLED_BY_USER);
+        final BusinessDate date = BusinessDate.of(
+                LocalDate.of(
+                        2024,
+                        5,
+                        5));
+        final DeclinedEvent event1 = DeclinedEvent.of(
+                "イベント",
+                date,
+                DeclineReason.NOT_SELECTED);
+        final DeclinedEvent event2 = DeclinedEvent.of(
+                "イベント",
+                date,
+                DeclineReason.CANCELLED_BY_USER);
 
         assertThat(event1.equivalentTo(event2)).isFalse();
     }
@@ -149,8 +243,15 @@ class DeclinedEventTest {
     @DisplayName("nullとの比較では等価でないと判定される")
     @Test
     void testEquivalentToNull() {
-        final BusinessDate date = BusinessDate.of(LocalDate.of(2024, 5, 5));
-        final DeclinedEvent event = DeclinedEvent.of("イベント", date, DeclineReason.NOT_SELECTED);
+        final BusinessDate date = BusinessDate.of(
+                LocalDate.of(
+                        2024,
+                        5,
+                        5));
+        final DeclinedEvent event = DeclinedEvent.of(
+                "イベント",
+                date,
+                DeclineReason.NOT_SELECTED);
 
         assertThat(event.equivalentTo(null)).isFalse();
     }

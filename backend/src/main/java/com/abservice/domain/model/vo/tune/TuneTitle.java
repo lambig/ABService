@@ -35,7 +35,10 @@ public record TuneTitle(@NonNull String value) implements ValueObject<TuneTitle>
         Policy.all(
                 Policy.of(
                         StringUtils::isNotBlank,
-                        () -> new ErrorResult("tuneTitle", "Tune title cannot be blank", "TUNE_TITLE_REQUIRED")),
+                        () -> new ErrorResult(
+                                "tuneTitle",
+                                "Tune title cannot be blank",
+                                "TUNE_TITLE_REQUIRED")),
                 Policy.of(
                         (String v) -> StringUtils.length(v) <= 255,
                         () -> new ErrorResult("tuneTitle", "Tune title must be 255 characters or less",

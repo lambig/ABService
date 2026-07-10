@@ -11,7 +11,10 @@ class TuneKindTest {
     @DisplayName("values()はTRAD・ORIGINAL・ARRANGEMENTをこの順で返す")
     @Test
     void testEnumValues() {
-        assertThat(TuneKind.values()).containsExactly(TuneKind.TRAD, TuneKind.ORIGINAL, TuneKind.ARRANGEMENT);
+        assertThat(TuneKind.values()).containsExactly(
+                TuneKind.TRAD,
+                TuneKind.ORIGINAL,
+                TuneKind.ARRANGEMENT);
     }
 
     @DisplayName("valueOf(\"TRAD\")はTRADを返す")
