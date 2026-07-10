@@ -1,9 +1,11 @@
 package com.abservice.lib.example;
 
+import static java.util.function.Predicate.not;
+
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
 
@@ -56,23 +58,8 @@ public final class ResultExample {
          * @return 生成結果
          */
         public static Result<Album> create(@Nullable String title, @Nullable String catalogNumber) {
-            final Result<AlbumTitle> titleResult = AlbumTitle.create(title);
-            final Result<CatalogNumber> catalogResult = CatalogNumber.create(catalogNumber);
-
-            // 両方のバリデーションを実行し、エラーを集約
-            final List<ErrorResult> errors = new ArrayList<>();
-            if (titleResult instanceof Result.Failure<AlbumTitle> failure) {
-                errors.addAll(failure.errors());
-            }
-            if (catalogResult instanceof Result.Failure<CatalogNumber> failure) {
-                errors.addAll(failure.errors());
-            }
-
-            return errors.isEmpty()
-                    ? Result.success(
-                            new Album(((Result.Success<AlbumTitle>) titleResult).value(),
-                                    ((Result.Success<CatalogNumber>) catalogResult).value()))
-                    : Result.failure(errors);
+            // 両方のバリデーションを実行し、エラーを集約（Result.zip がエラーを引数順に集約する）
+            return Result.zip(AlbumTitle.create(title), CatalogNumber.create(catalogNumber), Album::new);
         }
     }
 
@@ -165,12 +152,11 @@ public final class ResultExample {
         System.out.println("【例6: 複数のエラー】");
         final Result<Album> result = Album.create("", "invalid");
 
-        if (result instanceof Result.Failure<Album> failure) {
+        // errors() は多態（成功は空リスト・失敗はエラー）。非空のときだけ表示する
+        Optional.of(result.errors()).filter(not(List::isEmpty)).ifPresent(errors -> {
             System.out.println("バリデーションエラーが発生しました:");
-            for (final ErrorResult error : failure.errors()) {
-                System.out.println("  - " + error);
-            }
-        }
+            errors.forEach(error -> System.out.println("  - " + error));
+        });
         System.out.println();
     }
 
