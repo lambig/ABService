@@ -33,9 +33,11 @@ public record Credit(@NonNull String value) implements ValueObject<Credit> {
      */
     public Credit {
         Policy.all(
-                Policy.of(StringUtils::isNotBlank,
+                Policy.of(
+                        StringUtils::isNotBlank,
                         () -> new ErrorResult("credit", "Credit cannot be blank", "CREDIT_REQUIRED")),
-                Policy.of((String v) -> StringUtils.length(v) <= 255,
+                Policy.of(
+                        (String v) -> StringUtils.length(v) <= 255,
                         () -> new ErrorResult("credit", "Credit must be 255 characters or less", "CREDIT_TOO_LONG")))
                 .verify(value, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));

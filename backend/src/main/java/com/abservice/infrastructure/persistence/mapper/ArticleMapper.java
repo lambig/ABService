@@ -34,11 +34,18 @@ public final class ArticleMapper {
      */
     public static Article toDomain(ArticleEntity entity) {
         return Optional.ofNullable(entity)
-                .map(e -> Article.reconstruct(new Article.Id(e.getDomainId()), ArticleType.valueOf(e.getArticleType()),
-                        Optional.ofNullable(e.getAlbumId()).map(Album.Id::new).orElse(null), e.getTitle(),
-                        createMarkupContent(e.getBody(), e.getBodyFormat()), e.getIntroShort(),
-                        toBusinessDateTime(e.getPublishedAt()), toBusinessDateTime(e.getUpdatedAtBusiness()),
-                        Optional.ofNullable(e.getIsPublic()).orElse(false), Collections.emptyList()))
+                .map(
+                        e -> Article.reconstruct(
+                                new Article.Id(e.getDomainId()),
+                                ArticleType.valueOf(e.getArticleType()),
+                                Optional.ofNullable(e.getAlbumId()).map(Album.Id::new).orElse(null),
+                                e.getTitle(),
+                                createMarkupContent(e.getBody(), e.getBodyFormat()),
+                                e.getIntroShort(),
+                                toBusinessDateTime(e.getPublishedAt()),
+                                toBusinessDateTime(e.getUpdatedAtBusiness()),
+                                Optional.ofNullable(e.getIsPublic()).orElse(false),
+                                Collections.emptyList()))
                 .orElse(null);
     }
 

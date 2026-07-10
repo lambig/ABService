@@ -48,7 +48,8 @@ public record ConsideringEvent(EventName name, List<BusinessDate> tentativeDates
      *             イベント名がnullの場合
      */
     public ConsideringEvent {
-        Policy.<EventName>of(Objects::nonNull,
+        Policy.<EventName>of(
+                Objects::nonNull,
                 () -> new ErrorResult("name", "Event name cannot be null", "EVENT_NAME_REQUIRED"))
                 .verify(name, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
@@ -104,8 +105,10 @@ public record ConsideringEvent(EventName name, List<BusinessDate> tentativeDates
     @Override
     public boolean equivalentTo(EventToParticipate other) {
         return Optional.ofNullable(other).map(asType(ConsideringEvent.class))
-                .filter(and(having(ConsideringEvent::name).that(this.name::equivalentTo),
-                        having(ConsideringEvent::tentativeDates).thatEqualsTo(this.tentativeDates)))
+                .filter(
+                        and(
+                                having(ConsideringEvent::name).that(this.name::equivalentTo),
+                                having(ConsideringEvent::tentativeDates).thatEqualsTo(this.tentativeDates)))
                 .isPresent();
     }
 }

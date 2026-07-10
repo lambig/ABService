@@ -169,9 +169,11 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article publish(@NonNull BusinessDateTime currentDateTime) {
-        return withPublicFlag(true).withPublishedAt(publishedAt == null
-                ? currentDateTime
-                : publishedAt).withUpdatedAtBusiness(currentDateTime);
+        return withPublicFlag(true).withPublishedAt(
+                publishedAt == null
+                        ? currentDateTime
+                        : publishedAt)
+                .withUpdatedAtBusiness(currentDateTime);
     }
 
     /**
@@ -204,7 +206,8 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article setAlbumId(Album.@NonNull Id newAlbumId, @NonNull BusinessDateTime currentDateTime) {
-        Policy.<Article>of(a -> a.articleType() == ArticleType.ALBUM,
+        Policy.<Article>of(
+                a -> a.articleType() == ArticleType.ALBUM,
                 () -> new ErrorResult("articleType", "Cannot set album ID for non-ALBUM article type",
                         "ARTICLE_TYPE_NOT_ALBUM"))
                 .verify(this, Function.identity())
@@ -286,7 +289,8 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
         public Id {
             Optional.ofNullable(value).filter(not(String::isBlank))
                     .orElseThrow(() -> new IllegalArgumentException("Article ID cannot be blank"));
-            Policy.<String>of(EntityId::isValidUuid,
+            Policy.<String>of(
+                    EntityId::isValidUuid,
                     () -> new ErrorResult("value", "Article ID must be a valid UUID: " + value, "ID_INVALID_UUID"))
                     .verify(value, Function.identity())
                     .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));

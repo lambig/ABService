@@ -39,19 +39,22 @@ public class ArticleRepositoryImpl implements ArticleRepository {
             default -> {
                 final var entity = ArticleMapper.toEntity(aggregate);
 
-                yield dataSource.existsByArticleId(entity.getDomainId()).flatMap(exists -> exists
-                        ? dataSource.find("domainId", entity.getDomainId()).firstResult().flatMap(existingEntity -> {
-                            existingEntity.setArticleType(entity.getArticleType());
-                            existingEntity.setAlbumId(entity.getAlbumId());
-                            existingEntity.setTitle(entity.getTitle());
-                            existingEntity.setBody(entity.getBody());
-                            existingEntity.setIntroShort(entity.getIntroShort());
-                            existingEntity.setPublishedAt(entity.getPublishedAt());
-                            existingEntity.setUpdatedAtBusiness(entity.getUpdatedAtBusiness());
-                            existingEntity.setIsPublic(entity.getIsPublic());
-                            return dataSource.persistAndFlush(existingEntity);
-                        })
-                        : dataSource.persistAndFlush(entity)).map(ArticleMapper::toDomain);
+                yield dataSource.existsByArticleId(entity.getDomainId()).flatMap(
+                        exists -> exists
+                                ? dataSource.find("domainId", entity.getDomainId()).firstResult()
+                                        .flatMap(existingEntity -> {
+                                            existingEntity.setArticleType(entity.getArticleType());
+                                            existingEntity.setAlbumId(entity.getAlbumId());
+                                            existingEntity.setTitle(entity.getTitle());
+                                            existingEntity.setBody(entity.getBody());
+                                            existingEntity.setIntroShort(entity.getIntroShort());
+                                            existingEntity.setPublishedAt(entity.getPublishedAt());
+                                            existingEntity.setUpdatedAtBusiness(entity.getUpdatedAtBusiness());
+                                            existingEntity.setIsPublic(entity.getIsPublic());
+                                            return dataSource.persistAndFlush(existingEntity);
+                                        })
+                                : dataSource.persistAndFlush(entity))
+                        .map(ArticleMapper::toDomain);
             }
         };
     }

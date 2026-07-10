@@ -58,8 +58,16 @@ class TuneTest {
             final var defaultTempo = 120;
 
             // Act
-            final var tune = Tune.create(title, tuneKind, composerCredit, arrangerCredit, originalWorkTitle,
-                    originalWorkCredit, tuneType, defaultKey, defaultTempo);
+            final var tune = Tune.create(
+                    title,
+                    tuneKind,
+                    composerCredit,
+                    arrangerCredit,
+                    originalWorkTitle,
+                    originalWorkCredit,
+                    tuneType,
+                    defaultKey,
+                    defaultTempo);
 
             // Assert
             assertThat(tune).isNotNull();
@@ -429,12 +437,28 @@ class TuneTest {
     // テストヘルパーメソッド
 
     private Tune createTestTune() {
-        return Tune.create(TuneTitle.of("Test Tune"), TuneKind.ORIGINAL, Credit.of("Test Composer"), null, null, null,
-                null, null, null);
+        return Tune.create(
+                TuneTitle.of("Test Tune"),
+                TuneKind.ORIGINAL,
+                Credit.of("Test Composer"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
     }
 
     private Tune createArrangementTune() {
-        return Tune.create(TuneTitle.of("Arranged Tune"), TuneKind.ARRANGEMENT, Credit.of("Original Composer"),
-                Credit.of("Arranger"), "Original Work Title", "Original Artist", "Reel", "D Major", 120);
+        return Tune.create(
+                TuneTitle.of("Arranged Tune"),
+                TuneKind.ARRANGEMENT,
+                Credit.of("Original Composer"),
+                Credit.of("Arranger"),
+                "Original Work Title",
+                "Original Artist",
+                "Reel",
+                "D Major",
+                120);
     }
 }

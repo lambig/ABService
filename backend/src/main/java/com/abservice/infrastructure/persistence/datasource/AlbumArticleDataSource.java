@@ -54,9 +54,10 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
      * @return 該当するアルバム記事のリスト
      */
     public Uni<List<AlbumArticleEntity>> findByFirstEventSpaceContaining(String spaceKeyword) {
-        return sessionFactory
-                .withSession(session -> session
-                        .createQuery("SELECT aa FROM AlbumArticleEntity aa WHERE aa.firstEventSpace LIKE :keyword",
+        return sessionFactory.withSession(
+                session -> session
+                        .createQuery(
+                                "SELECT aa FROM AlbumArticleEntity aa WHERE aa.firstEventSpace LIKE :keyword",
                                 AlbumArticleEntity.class)
                         .setParameter("keyword", "%" + spaceKeyword + "%").getResultList());
     }
@@ -67,10 +68,11 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
      * @return 頒布情報を持つアルバム記事のリスト
      */
     public Uni<List<AlbumArticleEntity>> findWithDistribution() {
-        return sessionFactory.withSession(session -> session.createQuery(
-                "SELECT DISTINCT aa FROM AlbumArticleEntity aa " + "LEFT JOIN FETCH aa.album a "
-                        + "LEFT JOIN FETCH a.albumDistribution " + "WHERE a.albumDistribution IS NOT NULL",
-                AlbumArticleEntity.class).getResultList());
+        return sessionFactory.withSession(
+                session -> session.createQuery(
+                        "SELECT DISTINCT aa FROM AlbumArticleEntity aa " + "LEFT JOIN FETCH aa.album a "
+                                + "LEFT JOIN FETCH a.albumDistribution " + "WHERE a.albumDistribution IS NOT NULL",
+                        AlbumArticleEntity.class).getResultList());
     }
 
     /**
@@ -79,10 +81,11 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
      * @return 入手経路を持つアルバム記事のリスト
      */
     public Uni<List<AlbumArticleEntity>> findWithAcquisitionChannels() {
-        return sessionFactory.withSession(session -> session.createQuery(
-                "SELECT DISTINCT aa FROM AlbumArticleEntity aa " + "LEFT JOIN FETCH aa.album a "
-                        + "LEFT JOIN FETCH a.acquisitionChannels " + "WHERE SIZE(a.acquisitionChannels) > 0",
-                AlbumArticleEntity.class).getResultList());
+        return sessionFactory.withSession(
+                session -> session.createQuery(
+                        "SELECT DISTINCT aa FROM AlbumArticleEntity aa " + "LEFT JOIN FETCH aa.album a "
+                                + "LEFT JOIN FETCH a.acquisitionChannels " + "WHERE SIZE(a.acquisitionChannels) > 0",
+                        AlbumArticleEntity.class).getResultList());
     }
 
     /**

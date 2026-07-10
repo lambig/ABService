@@ -264,7 +264,9 @@ public sealed interface Result<T> {
      * 複数のValue Object検証を独立に実行し、エラーをまとめて1つのResultにする用途に使用します。
      *
      * <pre>{@code
-     * Result<Album> album = Result.zip(AlbumTitle.fromInput(title), CatalogNumber.fromInput(catalogNumber),
+     * Result<Album> album = Result.zip(
+     *         AlbumTitle.fromInput(title),
+     *         CatalogNumber.fromInput(catalogNumber),
      *         (t, c) -> Album.reconstruct(Album.Id.generate(), t, c));
      * }</pre>
      *

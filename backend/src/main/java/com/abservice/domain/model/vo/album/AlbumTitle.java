@@ -33,9 +33,11 @@ public record AlbumTitle(@NonNull String value) implements ValueObject<AlbumTitl
      */
     public AlbumTitle {
         Policy.all(
-                Policy.of(StringUtils::isNotBlank,
+                Policy.of(
+                        StringUtils::isNotBlank,
                         () -> new ErrorResult("value", "Album title cannot be blank", "ALBUM_TITLE_REQUIRED")),
-                Policy.of((String v) -> StringUtils.length(v) <= 255,
+                Policy.of(
+                        (String v) -> StringUtils.length(v) <= 255,
                         () -> new ErrorResult("value", "Album title must be 255 characters or less",
                                 "ALBUM_TITLE_TOO_LONG")))
                 .verify(value, Function.identity())

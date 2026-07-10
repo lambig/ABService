@@ -11,8 +11,8 @@ class LabelTagTest {
     @DisplayName("values()は全ての要素を定義順に返す")
     @Test
     void testEnumValues() {
-        assertThat(LabelTag.values()).containsExactly(LabelTag.NEW, LabelTag.BEST_OF, LabelTag.COMPILATION,
-                LabelTag.COLLAB, LabelTag.OTHER);
+        assertThat(LabelTag.values())
+                .containsExactly(LabelTag.NEW, LabelTag.BEST_OF, LabelTag.COMPILATION, LabelTag.COLLAB, LabelTag.OTHER);
     }
 
     @DisplayName("valueOf(\"NEW\")はNEWを返す")

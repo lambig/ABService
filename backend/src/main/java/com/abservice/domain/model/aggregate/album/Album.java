@@ -126,8 +126,9 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album changeTitle(@NonNull AlbumTitle newTitle) {
-        return withTitle(Optional.ofNullable(newTitle)
-                .orElseThrow(() -> new IllegalArgumentException("Album title cannot be null")));
+        return withTitle(
+                Optional.ofNullable(newTitle)
+                        .orElseThrow(() -> new IllegalArgumentException("Album title cannot be null")));
     }
 
     /**
@@ -149,8 +150,9 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album changeArtistCredit(@NonNull ArtistCredit newArtistCredit) {
-        return withArtistCredit(Optional.ofNullable(newArtistCredit)
-                .orElseThrow(() -> new IllegalArgumentException("Artist credit cannot be null")));
+        return withArtistCredit(
+                Optional.ofNullable(newArtistCredit)
+                        .orElseThrow(() -> new IllegalArgumentException("Artist credit cannot be null")));
     }
 
     /**
@@ -224,9 +226,12 @@ public class Album implements Aggregate<Album, Album.Id> {
                 .filter(t -> t.trackNo().equals(validatedTrack.trackNo())).findFirst().ifPresent(dup -> {
                     throw new IllegalArgumentException("Track number " + validatedTrack.trackNo() + " already exists");
                 });
-        return withTracks(tracks.stream().map(t -> validatedTrack.equivalentTo(t)
-                ? validatedTrack
-                : t).toList());
+        return withTracks(
+                tracks.stream().map(
+                        t -> validatedTrack.equivalentTo(t)
+                                ? validatedTrack
+                                : t)
+                        .toList());
     }
 
     /**
@@ -303,9 +308,11 @@ public class Album implements Aggregate<Album, Album.Id> {
     public record Id(@NonNull String value) implements EntityId<Album> {
         public Id {
             Policy.<String>all(
-                    Policy.of(StringUtils::isNotBlank,
+                    Policy.of(
+                            StringUtils::isNotBlank,
                             () -> new ErrorResult("value", "Album ID cannot be blank", "ID_BLANK")),
-                    Policy.of(EntityId::isValidUuid,
+                    Policy.of(
+                            EntityId::isValidUuid,
                             () -> new ErrorResult("value", "Album ID must be a valid UUID: " + value,
                                     "ID_INVALID_UUID")))
                     .verify(value, Function.identity())

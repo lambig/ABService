@@ -41,11 +41,13 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
      *             contentまたはformatがnullの場合
      */
     public MarkupContent {
-        Policy.<String>of(Objects::nonNull,
+        Policy.<String>of(
+                Objects::nonNull,
                 () -> new ErrorResult("content", "Content cannot be null", "CONTENT_REQUIRED"))
                 .verify(content, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
-        Policy.<MarkupFormat>of(Objects::nonNull,
+        Policy.<MarkupFormat>of(
+                Objects::nonNull,
                 () -> new ErrorResult("format", "Markup format cannot be null", "MARKUP_FORMAT_REQUIRED"))
                 .verify(format, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
@@ -103,14 +105,17 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
     public static Result<MarkupContent> fromInput(@Nullable String content, @Nullable String format) {
         final String safeContent = Optional.ofNullable(content).orElse("");
         return Policy
-                .<String>of(StringUtils::isNotBlank,
+                .<String>of(
+                        StringUtils::isNotBlank,
                         () -> new ErrorResult("format", "マークアップ形式は必須です", "MARKUP_FORMAT_REQUIRED"))
-                .verify(format,
-                        Function.identity())
-                .flatMap(f -> Policy
-                        .of(MarkupContent::isKnownFormat,
-                                () -> new ErrorResult("format", "不正なマークアップ形式です: " + f, "MARKUP_FORMAT_INVALID"))
-                        .verify(f, valid -> new MarkupContent(safeContent, MarkupFormat.valueOf(valid.trim()))));
+                .verify(format, Function.identity()).flatMap(
+                        f -> Policy
+                                .of(
+                                        MarkupContent::isKnownFormat,
+                                        () -> new ErrorResult("format", "不正なマークアップ形式です: " + f, "MARKUP_FORMAT_INVALID"))
+                                .verify(
+                                        f,
+                                        valid -> new MarkupContent(safeContent, MarkupFormat.valueOf(valid.trim()))));
     }
 
     private static boolean isKnownFormat(@Nullable String value) {

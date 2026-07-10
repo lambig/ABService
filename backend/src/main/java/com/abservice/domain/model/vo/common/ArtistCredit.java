@@ -30,8 +30,10 @@ public final class ArtistCredit implements ValueObject<ArtistCredit> {
     @Override
     public boolean equivalentTo(ArtistCredit other) {
         return Optional.ofNullable(other)
-                .filter(and(having(ArtistCredit::displayName).that(this.displayName::equivalentTo),
-                        having(ArtistCredit::sortKey).thatEqualsTo(this.sortKey)))
+                .filter(
+                        and(
+                                having(ArtistCredit::displayName).that(this.displayName::equivalentTo),
+                                having(ArtistCredit::sortKey).thatEqualsTo(this.sortKey)))
                 .isPresent();
     }
 

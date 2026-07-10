@@ -403,8 +403,8 @@ class ResultTest {
         @DisplayName("failure()でリストから失敗を生成できる")
         void failureWithList() {
             // Arrange
-            final List<ErrorResult> errors = List.of(new ErrorResult("field1", "message1"),
-                    new ErrorResult("field2", "message2"));
+            final List<ErrorResult> errors = List
+                    .of(new ErrorResult("field1", "message1"), new ErrorResult("field2", "message2"));
 
             // Act
             final Result<String> result = Result.failure(errors);

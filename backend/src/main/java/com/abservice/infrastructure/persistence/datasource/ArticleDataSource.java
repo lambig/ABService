@@ -68,11 +68,11 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleEntity, L
      * @return 該当する記事のリスト
      */
     public Uni<List<ArticleEntity>> findByPublishedAtBetween(Instant startDate, Instant endDate) {
-        return sessionFactory.withSession(session -> session
-                .createQuery(
+        return sessionFactory.withSession(
+                session -> session.createQuery(
                         "SELECT a FROM ArticleEntity a WHERE a.publishedAt >= :startDate AND a.publishedAt <= :endDate",
-                        ArticleEntity.class)
-                .setParameter("startDate", startDate).setParameter("endDate", endDate).getResultList());
+                        ArticleEntity.class).setParameter("startDate", startDate).setParameter("endDate", endDate)
+                        .getResultList());
     }
 
     /**
@@ -83,9 +83,10 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleEntity, L
      * @return 該当する記事のリスト
      */
     public Uni<List<ArticleEntity>> findByTitleContaining(String titleKeyword) {
-        return sessionFactory.withSession(session -> session
-                .createQuery("SELECT a FROM ArticleEntity a WHERE a.title LIKE :keyword", ArticleEntity.class)
-                .setParameter("keyword", "%" + titleKeyword + "%").getResultList());
+        return sessionFactory.withSession(
+                session -> session
+                        .createQuery("SELECT a FROM ArticleEntity a WHERE a.title LIKE :keyword", ArticleEntity.class)
+                        .setParameter("keyword", "%" + titleKeyword + "%").getResultList());
     }
 
     /**

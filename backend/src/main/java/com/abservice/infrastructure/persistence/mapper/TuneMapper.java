@@ -31,12 +31,17 @@ public final class TuneMapper {
     public static Tune toDomain(TuneEntity entity) {
         return switch (entity) {
             case null -> null;
-            default -> Tune.reconstruct(new Tune.Id(entity.getDomainId()), new TuneTitle(entity.getTitle()),
+            default -> Tune.reconstruct(
+                    new Tune.Id(entity.getDomainId()),
+                    new TuneTitle(entity.getTitle()),
                     TuneKind.valueOf(entity.getTuneKind()),
                     Optional.ofNullable(entity.getDefaultComposerCredit()).map(Credit::new).orElse(null),
                     Optional.ofNullable(entity.getDefaultArrangerCredit()).map(Credit::new).orElse(null),
-                    entity.getOriginalWorkTitle(), entity.getOriginalWorkCredit(), entity.getTuneType(),
-                    entity.getDefaultKey(), entity.getDefaultTempo());
+                    entity.getOriginalWorkTitle(),
+                    entity.getOriginalWorkCredit(),
+                    entity.getTuneType(),
+                    entity.getDefaultKey(),
+                    entity.getDefaultTempo());
         };
     }
 

@@ -67,11 +67,13 @@ public record SelectedEvent(EventName name, List<BusinessDate> selectedDates, Li
      *             イベント名がnull、またはselectedDatesが空の場合
      */
     public SelectedEvent {
-        Policy.<EventName>of(Objects::nonNull,
+        Policy.<EventName>of(
+                Objects::nonNull,
                 () -> new ErrorResult("name", "Event name cannot be null", "EVENT_NAME_REQUIRED"))
                 .verify(name, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
-        Policy.<List<BusinessDate>>of(CollectionUtils::isNotEmpty,
+        Policy.<List<BusinessDate>>of(
+                CollectionUtils::isNotEmpty,
                 () -> new ErrorResult("selectedDates", "Selected event must have at least one selected date",
                         "SELECTED_DATES_REQUIRED"))
                 .verify(selectedDates, Function.identity())
@@ -218,9 +220,11 @@ public record SelectedEvent(EventName name, List<BusinessDate> selectedDates, Li
     @Override
     public boolean equivalentTo(EventToParticipate other) {
         return Optional.ofNullable(other).map(asType(SelectedEvent.class))
-                .filter(and(having(SelectedEvent::name).that(this.name::equivalentTo),
-                        having(SelectedEvent::selectedDates).thatEqualsTo(this.selectedDates),
-                        having(SelectedEvent::place).thatEqualsTo(this.place)))
+                .filter(
+                        and(
+                                having(SelectedEvent::name).that(this.name::equivalentTo),
+                                having(SelectedEvent::selectedDates).thatEqualsTo(this.selectedDates),
+                                having(SelectedEvent::place).thatEqualsTo(this.place)))
                 .isPresent();
     }
 }

@@ -11,8 +11,12 @@ class ChannelTypeTest {
     @DisplayName("values() が全チャネル種別を定義順に返す")
     @Test
     void testEnumValues() {
-        assertThat(ChannelType.values()).containsExactly(ChannelType.EVENT, ChannelType.ONLINE_SHOP,
-                ChannelType.DL_SITE, ChannelType.STREAMING, ChannelType.OTHER);
+        assertThat(ChannelType.values()).containsExactly(
+                ChannelType.EVENT,
+                ChannelType.ONLINE_SHOP,
+                ChannelType.DL_SITE,
+                ChannelType.STREAMING,
+                ChannelType.OTHER);
     }
 
     @DisplayName("valueOf(\"EVENT\") が EVENT を返す")

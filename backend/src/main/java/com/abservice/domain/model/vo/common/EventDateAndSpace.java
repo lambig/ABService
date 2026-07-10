@@ -30,8 +30,12 @@ public final class EventDateAndSpace implements ValueObject<EventDateAndSpace> {
 
     @Override
     public boolean equivalentTo(EventDateAndSpace other) {
-        return Optional.ofNullable(other).filter(and(having(EventDateAndSpace::date).thatEqualsTo(this.date),
-                having(EventDateAndSpace::spaceNumber).thatEqualsTo(this.spaceNumber))).isPresent();
+        return Optional.ofNullable(other)
+                .filter(
+                        and(
+                                having(EventDateAndSpace::date).thatEqualsTo(this.date),
+                                having(EventDateAndSpace::spaceNumber).thatEqualsTo(this.spaceNumber)))
+                .isPresent();
     }
 
     /**
@@ -43,7 +47,8 @@ public final class EventDateAndSpace implements ValueObject<EventDateAndSpace> {
      *            スペース番号（nullable、例：東A-01）
      */
     private EventDateAndSpace(BusinessDate date, String spaceNumber) {
-        Policy.<BusinessDate>of(Objects::nonNull,
+        Policy.<BusinessDate>of(
+                Objects::nonNull,
                 () -> new ErrorResult("date", "Event date cannot be null", "DATE_REQUIRED"))
                 .verify(date, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));

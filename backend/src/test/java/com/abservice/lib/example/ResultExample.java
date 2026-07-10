@@ -68,8 +68,9 @@ public final class ResultExample {
             }
 
             return errors.isEmpty()
-                    ? Result.success(new Album(((Result.Success<AlbumTitle>) titleResult).value(),
-                            ((Result.Success<CatalogNumber>) catalogResult).value()))
+                    ? Result.success(
+                            new Album(((Result.Success<AlbumTitle>) titleResult).value(),
+                                    ((Result.Success<CatalogNumber>) catalogResult).value()))
                     : Result.failure(errors);
         }
     }

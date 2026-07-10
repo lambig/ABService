@@ -36,20 +36,23 @@ public class TuneRepositoryImpl implements TuneRepository {
             default -> {
                 final var entity = TuneMapper.toEntity(aggregate);
 
-                yield dataSource.existsByTuneId(entity.getDomainId()).flatMap(exists -> exists
-                        ? dataSource.find("domainId", entity.getDomainId()).firstResult().flatMap(existingEntity -> {
-                            existingEntity.setTitle(entity.getTitle());
-                            existingEntity.setTuneKind(entity.getTuneKind());
-                            existingEntity.setDefaultComposerCredit(entity.getDefaultComposerCredit());
-                            existingEntity.setDefaultArrangerCredit(entity.getDefaultArrangerCredit());
-                            existingEntity.setOriginalWorkTitle(entity.getOriginalWorkTitle());
-                            existingEntity.setOriginalWorkCredit(entity.getOriginalWorkCredit());
-                            existingEntity.setTuneType(entity.getTuneType());
-                            existingEntity.setDefaultKey(entity.getDefaultKey());
-                            existingEntity.setDefaultTempo(entity.getDefaultTempo());
-                            return dataSource.persistAndFlush(existingEntity);
-                        })
-                        : dataSource.persistAndFlush(entity)).map(TuneMapper::toDomain);
+                yield dataSource.existsByTuneId(entity.getDomainId()).flatMap(
+                        exists -> exists
+                                ? dataSource.find("domainId", entity.getDomainId()).firstResult()
+                                        .flatMap(existingEntity -> {
+                                            existingEntity.setTitle(entity.getTitle());
+                                            existingEntity.setTuneKind(entity.getTuneKind());
+                                            existingEntity.setDefaultComposerCredit(entity.getDefaultComposerCredit());
+                                            existingEntity.setDefaultArrangerCredit(entity.getDefaultArrangerCredit());
+                                            existingEntity.setOriginalWorkTitle(entity.getOriginalWorkTitle());
+                                            existingEntity.setOriginalWorkCredit(entity.getOriginalWorkCredit());
+                                            existingEntity.setTuneType(entity.getTuneType());
+                                            existingEntity.setDefaultKey(entity.getDefaultKey());
+                                            existingEntity.setDefaultTempo(entity.getDefaultTempo());
+                                            return dataSource.persistAndFlush(existingEntity);
+                                        })
+                                : dataSource.persistAndFlush(entity))
+                        .map(TuneMapper::toDomain);
             }
         };
     }

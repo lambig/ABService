@@ -37,10 +37,12 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
     @Override
     public boolean equivalentTo(EventReleasedAt other) {
         return Optional.ofNullable(other)
-                .filter(and(having(EventReleasedAt::name).that(this.name::equivalentTo),
-                        having(EventReleasedAt::dateAndSpaces).thatEqualsTo(this.dateAndSpaces),
-                        having(EventReleasedAt::place).thatEqualsTo(this.place),
-                        having(EventReleasedAt::note).thatEqualsTo(this.note)))
+                .filter(
+                        and(
+                                having(EventReleasedAt::name).that(this.name::equivalentTo),
+                                having(EventReleasedAt::dateAndSpaces).thatEqualsTo(this.dateAndSpaces),
+                                having(EventReleasedAt::place).thatEqualsTo(this.place),
+                                having(EventReleasedAt::note).thatEqualsTo(this.note)))
                 .isPresent();
     }
 
@@ -57,7 +59,8 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      *            補足情報（nullable）
      */
     private EventReleasedAt(EventName name, List<EventDateAndSpace> dateAndSpaces, String place, String note) {
-        Policy.<EventName>of(Objects::nonNull,
+        Policy.<EventName>of(
+                Objects::nonNull,
                 () -> new ErrorResult("name", "Event name cannot be null", "NAME_REQUIRED"))
                 .verify(name, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));

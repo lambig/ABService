@@ -35,10 +35,12 @@ public record Duration(Integer milliseconds) implements ValueObject<Duration> {
      */
     public Duration {
         Policy.<Integer>all(
-                Policy.of(Objects::nonNull,
+                Policy.of(
+                        Objects::nonNull,
                         () -> new ErrorResult("milliseconds", "Duration milliseconds cannot be null",
                                 "DURATION_REQUIRED")),
-                Policy.of(or(Objects::isNull, (Integer v) -> v >= 0),
+                Policy.of(
+                        or(Objects::isNull, (Integer v) -> v >= 0),
                         () -> new ErrorResult("milliseconds", "Duration milliseconds cannot be negative",
                                 "DURATION_NEGATIVE")))
                 .verify(milliseconds, Function.identity())

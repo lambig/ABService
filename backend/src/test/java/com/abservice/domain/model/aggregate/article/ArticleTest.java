@@ -241,8 +241,8 @@ class ArticleTest {
         @DisplayName("アルバム記事にアルバムIDを設定できること")
         void setAlbumIdForAlbumArticleShouldSucceed() {
             // Arrange
-            final var article = Article.create(ArticleType.ALBUM, null, "Album Article",
-                    MarkupContent.plainText("Body"), null);
+            final var article = Article
+                    .create(ArticleType.ALBUM, null, "Album Article", MarkupContent.plainText("Body"), null);
             final var albumId = Album.Id.generate();
             final var currentDateTime = BusinessDateTime.of(Instant.now());
 
@@ -258,8 +258,8 @@ class ArticleTest {
         @DisplayName("アルバム記事以外にアルバムIDを設定しようとすると例外が発生すること")
         void setAlbumIdForNonAlbumArticleShouldThrowException() {
             // Arrange
-            final var article = Article.create(ArticleType.NOTE, null, "Blog Post", MarkupContent.plainText("Body"),
-                    null);
+            final var article = Article
+                    .create(ArticleType.NOTE, null, "Blog Post", MarkupContent.plainText("Body"), null);
             final var albumId = Album.Id.generate();
             final var currentDateTime = BusinessDateTime.of(Instant.now());
 
@@ -294,8 +294,8 @@ class ArticleTest {
         void changeArticleTypeFromAlbumToOtherShouldClearAlbumId() {
             // Arrange
             final var albumId = Album.Id.generate();
-            final var article = Article.create(ArticleType.ALBUM, albumId, "Album Article",
-                    MarkupContent.plainText("Body"), null);
+            final var article = Article
+                    .create(ArticleType.ALBUM, albumId, "Album Article", MarkupContent.plainText("Body"), null);
             final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
@@ -352,8 +352,8 @@ class ArticleTest {
             final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
-            final var updated = article.addTag(tag1, currentDateTime).addTag(tag2, currentDateTime).addTag(tag3,
-                    currentDateTime);
+            final var updated = article.addTag(tag1, currentDateTime).addTag(tag2, currentDateTime)
+                    .addTag(tag3, currentDateTime);
 
             // Assert
             assertThat(updated.getTags().size()).isEqualTo(3);
@@ -529,8 +529,12 @@ class ArticleTest {
     // テストヘルパーメソッド
 
     private Article createTestArticle() {
-        return Article.create(ArticleType.NOTE, null, "Test Article",
-                MarkupContent.markdown("Test article body content"), null);
+        return Article.create(
+                ArticleType.NOTE,
+                null,
+                "Test Article",
+                MarkupContent.markdown("Test article body content"),
+                null);
     }
 
     private ArticleTag createTestTag(String name) {

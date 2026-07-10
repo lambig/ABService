@@ -154,8 +154,8 @@ class SelectedEventTest {
     void testPartialSelection() {
         final BusinessDate selectedDate = BusinessDate.of(LocalDate.of(2024, 4, 28));
         final BusinessDate declinedDate = BusinessDate.of(LocalDate.of(2024, 4, 29));
-        final SelectedEvent partialSelected = SelectedEvent.ofPartial("M3-2024春", List.of(selectedDate),
-                List.of(declinedDate), "東京流通センター");
+        final SelectedEvent partialSelected = SelectedEvent
+                .ofPartial("M3-2024春", List.of(selectedDate), List.of(declinedDate), "東京流通センター");
 
         assertThat(partialSelected.isPartialSelection()).isTrue();
         assertThat(partialSelected.isFullSelection()).isFalse();
@@ -181,8 +181,8 @@ class SelectedEventTest {
         final BusinessDate selectedDate = BusinessDate.of(LocalDate.of(2024, 4, 28));
         final BusinessDate declinedDate = BusinessDate.of(LocalDate.of(2024, 4, 29));
 
-        final SelectedEvent partialSelected = SelectedEvent.fromAppliedPartial(applied, List.of(selectedDate),
-                List.of(declinedDate), "東京流通センター");
+        final SelectedEvent partialSelected = SelectedEvent
+                .fromAppliedPartial(applied, List.of(selectedDate), List.of(declinedDate), "東京流通センター");
 
         assertThat(partialSelected.name()).isEqualTo(applied.name());
         assertThat(partialSelected.isPartialSelection()).isTrue();

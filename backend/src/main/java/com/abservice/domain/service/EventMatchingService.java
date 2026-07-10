@@ -50,9 +50,10 @@ public class EventMatchingService implements DomainService {
      * @return 同一イベントと判定される場合true
      */
     public boolean isSameEvent(EventToParticipate toParticipate, EventReleasedAt releasedAt) {
-        return Optional
-                .ofNullable(toParticipate).flatMap(tp -> Optional.ofNullable(releasedAt)
-                        .filter(ra -> tp.name().equivalentTo(ra.name())).map(ra -> matchesEventDetails(tp, ra)))
+        return Optional.ofNullable(toParticipate)
+                .flatMap(
+                        tp -> Optional.ofNullable(releasedAt).filter(ra -> tp.name().equivalentTo(ra.name()))
+                                .map(ra -> matchesEventDetails(tp, ra)))
                 .orElse(false);
     }
 
@@ -78,9 +79,10 @@ public class EventMatchingService implements DomainService {
      * @return イベント名と日付が一致する場合true
      */
     public boolean matchesEventNameAndDate(EventToParticipate toParticipate, EventReleasedAt releasedAt) {
-        return Optional
-                .ofNullable(toParticipate).flatMap(tp -> Optional.ofNullable(releasedAt)
-                        .filter(ra -> tp.name().equivalentTo(ra.name())).map(ra -> matchesDateDetails(tp, ra)))
+        return Optional.ofNullable(toParticipate)
+                .flatMap(
+                        tp -> Optional.ofNullable(releasedAt).filter(ra -> tp.name().equivalentTo(ra.name()))
+                                .map(ra -> matchesDateDetails(tp, ra)))
                 .orElse(false);
     }
 
@@ -94,7 +96,8 @@ public class EventMatchingService implements DomainService {
 
     private boolean matchesTentativeDates(TentativeEvent tentative, EventReleasedAt releasedAt) {
         final var releasedDates = releasedAt.dateAndSpaces().stream().map(ds -> ds.date()).toList();
-        return or((List<BusinessDate> dates) -> dates.isEmpty(),
+        return or(
+                (List<BusinessDate> dates) -> dates.isEmpty(),
                 dates -> dates.stream().anyMatch(releasedDates::contains)).test(tentative.tentativeDates());
     }
 

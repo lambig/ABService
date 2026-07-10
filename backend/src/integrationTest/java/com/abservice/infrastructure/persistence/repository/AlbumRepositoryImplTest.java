@@ -51,8 +51,8 @@ class AlbumRepositoryImplTest {
     void shouldSaveAndFindAlbum(UniAsserter asserter) {
         initTestData();
 
-        final var album = Album.create(new AlbumTitle("Test Album"), testReleaseDate, testArtistCredit, null, null,
-                null);
+        final var album = Album
+                .create(new AlbumTitle("Test Album"), testReleaseDate, testArtistCredit, null, null, null);
 
         // Save the album
         asserter.assertThat(() -> repository.save(album), saved -> {
@@ -95,8 +95,13 @@ class AlbumRepositoryImplTest {
     void shouldSaveAlbumWithCatalogNumber(UniAsserter asserter) {
         initTestData();
 
-        final var album = Album.create(new AlbumTitle("Album with Catalog"), testReleaseDate, testArtistCredit, null,
-                new CatalogNumber("TEST-001"), null);
+        final var album = Album.create(
+                new AlbumTitle("Album with Catalog"),
+                testReleaseDate,
+                testArtistCredit,
+                null,
+                new CatalogNumber("TEST-001"),
+                null);
 
         asserter.assertThat(() -> repository.save(album), saved -> {
             assertThat(saved.catalogNumber()).isNotNull();
@@ -110,7 +115,12 @@ class AlbumRepositoryImplTest {
     void shouldSaveAlbumWithIsdn(UniAsserter asserter) {
         initTestData();
 
-        final var album = Album.create(new AlbumTitle("Album with ISDN"), testReleaseDate, testArtistCredit, null, null,
+        final var album = Album.create(
+                new AlbumTitle("Album with ISDN"),
+                testReleaseDate,
+                testArtistCredit,
+                null,
+                null,
                 new Isdn("2784702901978"));
 
         asserter.assertThat(() -> repository.save(album), saved -> {
@@ -125,11 +135,16 @@ class AlbumRepositoryImplTest {
     void shouldSaveAlbumWithEvent(UniAsserter asserter) {
         initTestData();
 
-        final var eventReleasedAt = EventReleasedAt.of("Test Event",
-                List.of(EventDateAndSpace.of(testReleaseDate, "A-01")), "Test Venue", "Test Note");
+        final var eventReleasedAt = EventReleasedAt
+                .of("Test Event", List.of(EventDateAndSpace.of(testReleaseDate, "A-01")), "Test Venue", "Test Note");
 
-        final var album = Album.create(new AlbumTitle("Album with Event"), testReleaseDate, testArtistCredit,
-                eventReleasedAt, null, null);
+        final var album = Album.create(
+                new AlbumTitle("Album with Event"),
+                testReleaseDate,
+                testArtistCredit,
+                eventReleasedAt,
+                null,
+                null);
 
         asserter.assertThat(() -> repository.save(album), saved -> {
             assertThat(saved.eventReleasedAt()).isNotNull();
@@ -144,16 +159,24 @@ class AlbumRepositoryImplTest {
     void shouldUpdateExistingAlbum(UniAsserter asserter) {
         initTestData();
 
-        final var album = Album.create(new AlbumTitle("Original Title"), testReleaseDate, testArtistCredit, null, null,
-                null);
+        final var album = Album
+                .create(new AlbumTitle("Original Title"), testReleaseDate, testArtistCredit, null, null, null);
 
         // Save original
-        asserter.assertThat(() -> repository.save(album),
+        asserter.assertThat(
+                () -> repository.save(album),
                 saved -> assertThat(saved.title().value()).isEqualTo("Original Title"));
 
         // Update
-        final var updated = Album.reconstruct(album.id(), new AlbumTitle("Updated Title"), testReleaseDate,
-                testArtistCredit, null, null, null, List.of());
+        final var updated = Album.reconstruct(
+                album.id(),
+                new AlbumTitle("Updated Title"),
+                testReleaseDate,
+                testArtistCredit,
+                null,
+                null,
+                null,
+                List.of());
 
         asserter.assertThat(() -> repository.save(updated), result -> {
             assertThat(result.id()).isEqualTo(album.id());
@@ -167,8 +190,8 @@ class AlbumRepositoryImplTest {
     void shouldDeleteAlbum(UniAsserter asserter) {
         initTestData();
 
-        final var album = Album.create(new AlbumTitle("Album to Delete"), testReleaseDate, testArtistCredit, null, null,
-                null);
+        final var album = Album
+                .create(new AlbumTitle("Album to Delete"), testReleaseDate, testArtistCredit, null, null, null);
 
         // Save
         asserter.assertThat(() -> repository.save(album), saved -> assertThat(saved).isNotNull());
@@ -186,8 +209,8 @@ class AlbumRepositoryImplTest {
     void shouldCheckExistence(UniAsserter asserter) {
         initTestData();
 
-        final var album = Album.create(new AlbumTitle("Existing Album"), testReleaseDate, testArtistCredit, null, null,
-                null);
+        final var album = Album
+                .create(new AlbumTitle("Existing Album"), testReleaseDate, testArtistCredit, null, null, null);
 
         // Save
         asserter.execute(() -> repository.save(album));
@@ -206,10 +229,10 @@ class AlbumRepositoryImplTest {
     void shouldCountAlbums(UniAsserter asserter) {
         initTestData();
 
-        final var album1 = Album.create(new AlbumTitle("Count Album 1"), testReleaseDate, testArtistCredit, null, null,
-                null);
-        final var album2 = Album.create(new AlbumTitle("Count Album 2"), testReleaseDate, testArtistCredit, null, null,
-                null);
+        final var album1 = Album
+                .create(new AlbumTitle("Count Album 1"), testReleaseDate, testArtistCredit, null, null, null);
+        final var album2 = Album
+                .create(new AlbumTitle("Count Album 2"), testReleaseDate, testArtistCredit, null, null, null);
 
         // Save albums
         asserter.execute(() -> repository.save(album1));
@@ -245,8 +268,13 @@ class AlbumRepositoryImplTest {
         initTestData();
 
         final var catalogNumber = new CatalogNumber("UNIQUE-CAT-999");
-        final var album = Album.create(new AlbumTitle("Album with Unique Catalog"), testReleaseDate, testArtistCredit,
-                null, catalogNumber, null);
+        final var album = Album.create(
+                new AlbumTitle("Album with Unique Catalog"),
+                testReleaseDate,
+                testArtistCredit,
+                null,
+                catalogNumber,
+                null);
 
         // Save
         asserter.execute(() -> repository.save(album));
