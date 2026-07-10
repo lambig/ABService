@@ -119,6 +119,26 @@
         </properties>
     </rule>
 
+    <rule name="ForbiddenIfStatement"
+          language="java"
+          message="if 文は禁止です。検査・分岐は Optional / filter / switch 式 / Uni / Multi など宣言的表現で書いてください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            命令的な if 文を全廃する。検査・分岐は Optional / filter / switch 式 /
+            Uni / Multi 等で表現する。Javadoc のコード例はコメントであり AST 化されない
+            ため対象外。値を返す if は ForbiddenIfValueReturn でも捕捉されるが、本ルールは
+            副作用・例外分岐を含む全ての if 文を禁止する。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//IfStatement
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
     <rule name="ForbiddenIfValueReturn"
           language="java"
           message="if 文で値を返しています。値分岐は三項演算子か switch 式で表現してください（if は副作用・例外分岐のみ）。"
