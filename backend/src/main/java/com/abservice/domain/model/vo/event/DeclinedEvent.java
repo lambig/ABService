@@ -10,6 +10,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 
+import com.abservice.domain.model.policy.Policies;
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.lib.ErrorResult;
@@ -67,27 +68,28 @@ public record DeclinedEvent(EventName name, List<BusinessDate> declinedDates, St
      *             イベント名がnull、declinedDatesが空、またはreasonがnullの場合
      */
     public DeclinedEvent {
-        Policy.<EventName>of(
-                Objects::nonNull,
-                () -> new ErrorResult(
-                        "name",
-                        "Event name cannot be null",
-                        "EVENT_NAME_REQUIRED"))
-                .verify(name, Function.identity())
-                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
-        Policy.<List<BusinessDate>>of(
-                CollectionUtils::isNotEmpty,
-                () -> new ErrorResult("declinedDates", "Declined event must have at least one declined date",
-                        "DECLINED_DATES_REQUIRED"))
-                .verify(declinedDates, Function.identity())
-                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
-        Policy.<DeclineReason>of(
-                Objects::nonNull,
-                () -> new ErrorResult(
-                        "reason",
-                        "Decline reason cannot be null",
-                        "DECLINE_REASON_REQUIRED"))
-                .verify(reason, Function.identity())
+        Policies.multiple(
+                Policy.<EventName>of(
+                        Objects::nonNull,
+                        () -> new ErrorResult(
+                                "name",
+                                "Event name cannot be null",
+                                "EVENT_NAME_REQUIRED"))
+                        .verify(name, Function.identity()),
+                Policy.<List<BusinessDate>>of(
+                        CollectionUtils::isNotEmpty,
+                        () -> new ErrorResult(
+                                "declinedDates",
+                                "Declined event must have at least one declined date",
+                                "DECLINED_DATES_REQUIRED"))
+                        .verify(declinedDates, Function.identity()),
+                Policy.<DeclineReason>of(
+                        Objects::nonNull,
+                        () -> new ErrorResult(
+                                "reason",
+                                "Decline reason cannot be null",
+                                "DECLINE_REASON_REQUIRED"))
+                        .verify(reason, Function.identity()))
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         declinedDates = Collections.unmodifiableList(declinedDates);
     }

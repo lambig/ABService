@@ -10,6 +10,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 
+import com.abservice.domain.model.policy.Policies;
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.lib.ErrorResult;
@@ -67,19 +68,21 @@ public record SelectedEvent(EventName name, List<BusinessDate> selectedDates, Li
      *             イベント名がnull、またはselectedDatesが空の場合
      */
     public SelectedEvent {
-        Policy.<EventName>of(
-                Objects::nonNull,
-                () -> new ErrorResult(
-                        "name",
-                        "Event name cannot be null",
-                        "EVENT_NAME_REQUIRED"))
-                .verify(name, Function.identity())
-                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
-        Policy.<List<BusinessDate>>of(
-                CollectionUtils::isNotEmpty,
-                () -> new ErrorResult("selectedDates", "Selected event must have at least one selected date",
-                        "SELECTED_DATES_REQUIRED"))
-                .verify(selectedDates, Function.identity())
+        Policies.multiple(
+                Policy.<EventName>of(
+                        Objects::nonNull,
+                        () -> new ErrorResult(
+                                "name",
+                                "Event name cannot be null",
+                                "EVENT_NAME_REQUIRED"))
+                        .verify(name, Function.identity()),
+                Policy.<List<BusinessDate>>of(
+                        CollectionUtils::isNotEmpty,
+                        () -> new ErrorResult(
+                                "selectedDates",
+                                "Selected event must have at least one selected date",
+                                "SELECTED_DATES_REQUIRED"))
+                        .verify(selectedDates, Function.identity()))
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         declinedDates = normalizeDeclinedDates(declinedDates);
         selectedDates = Collections.unmodifiableList(selectedDates);
