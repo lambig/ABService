@@ -3,8 +3,12 @@ package com.abservice.domain.model.vo.common;
 import static io.github.lambig.funcifextension.predicate.By.having;
 import static io.github.lambig.funcifextension.predicate.Predicates.and;
 
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
+import com.abservice.lib.ErrorResult;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.experimental.Accessors;
@@ -46,8 +50,12 @@ public final class ArtistCredit implements ValueObject<ArtistCredit> {
      *            ソートキー（nullの場合はdisplayNameの値を使用）
      */
     private ArtistCredit(@NonNull ArtistCreditName displayName, @Nullable String sortKey) {
-        this.displayName = Optional.ofNullable(displayName)
-                .orElseThrow(() -> new IllegalArgumentException("Display name cannot be null"));
+        this.displayName = Policy
+                .<ArtistCreditName>of(
+                        Objects::nonNull,
+                        () -> new ErrorResult("displayName", "Display name cannot be null", "DISPLAY_NAME_REQUIRED"))
+                .verify(displayName, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         this.sortKey = Optional.ofNullable(sortKey).orElse(displayName.value());
     }
 

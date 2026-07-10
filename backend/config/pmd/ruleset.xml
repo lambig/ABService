@@ -56,6 +56,54 @@
         </properties>
     </rule>
 
+    <rule name="ForbiddenRawValidationThrowInValueObject"
+          language="java"
+          message="値オブジェクトで生の throw（new IllegalArgumentException / IllegalStateException）による検証は禁止です。Policy.of/all(...).verify(...).resolve(...) 経由で表現してください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            値オブジェクト（com.abservice.domain.model.vo 配下）で
+            throw new IllegalArgumentException / IllegalStateException を直書きする
+            検証を禁止する。例外生成は Policy の resolve(mapper) 経由で行う
+            （Policy パターンは throw 文ではなく resolve 内で生成するため対象外）。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//ThrowStatement[ConstructorCall/ClassType[@SimpleName = ("IllegalArgumentException", "IllegalStateException")]]
+    [/CompilationUnit/PackageDeclaration[starts-with(@Name, "com.abservice.domain.model.vo")]]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
+    <rule name="RequirePolicyValidationInValueObjectConstructor"
+          language="java"
+          message="値オブジェクトのコンストラクタ/コンパクトコンストラクタは Policy 経由で検証してください（verify / zip / combine / nested / failure のいずれかを含める。他コンストラクタへ委譲する場合は this(...)）。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            値オブジェクト（com.abservice.domain.model.vo 配下）のコンストラクタおよび
+            コンパクトコンストラクタが、検証インジケータ（verify / zip / combine / nested /
+            failure）を 1 つも含まない場合に違反とする。RequireValidationInValueObject の
+            コンストラクタ版。他コンストラクタへ委譲する（this(...) を含む）ものは対象外。
+            enum のコンストラクタ（固定インスタンスで外部入力を伴わない）は対象外。
+            不変条件を持たない VO はコンストラクタを宣言しなければよい（暗黙の正準
+            コンストラクタは AST ノードを持たず対象外）。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+(//ConstructorDeclaration | //CompactConstructorDeclaration)
+    [/CompilationUnit/PackageDeclaration[starts-with(@Name, "com.abservice.domain.model.vo")]]
+    [not(ancestor::EnumDeclaration)]
+    [not(.//ExplicitConstructorInvocation)]
+    [not(.//MethodCall[@MethodName = ("verify", "zip", "combine", "nested", "failure", "fromInput")])]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
     <rule name="ForbiddenSwitchStatement"
           language="java"
           message="switch 文は禁止です。値を返す分岐は switch 式（return switch(...)）にしてください。"
