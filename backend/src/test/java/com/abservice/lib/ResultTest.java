@@ -179,7 +179,10 @@ class ResultTest {
         @DisplayName("コードありで生成できる")
         void constructorWithCode() {
             // Act
-            final ErrorResult error = new ErrorResult("field", "message", "ERR001");
+            final ErrorResult error = new ErrorResult(
+                    "field",
+                    "message",
+                    "ERR001");
 
             // Assert
             assertThat(error.field()).isEqualTo("field");
@@ -201,7 +204,10 @@ class ResultTest {
         @DisplayName("toString()でコードありのフォーマット")
         void toStringWithCode() {
             // Arrange
-            final ErrorResult error = new ErrorResult("field", "message", "ERR001");
+            final ErrorResult error = new ErrorResult(
+                    "field",
+                    "message",
+                    "ERR001");
 
             // Act & Assert
             assertThat(error.toString()).isEqualTo("field: message (code: ERR001)");
@@ -311,7 +317,10 @@ class ResultTest {
             final Result<Integer> b = Result.success(3);
 
             // Act
-            final Result<String> combined = Result.zip(a, b, (s, n) -> s.repeat(n));
+            final Result<String> combined = Result.zip(
+                    a,
+                    b,
+                    (s, n) -> s.repeat(n));
 
             // Assert
             assertThat(combined.resolve()).isEqualTo("foofoofoo");
@@ -326,7 +335,10 @@ class ResultTest {
             final Result<Integer> b = Result.failure(error);
 
             // Act
-            final Result<String> combined = Result.zip(a, b, (s, n) -> s.repeat(n));
+            final Result<String> combined = Result.zip(
+                    a,
+                    b,
+                    (s, n) -> s.repeat(n));
 
             // Assert
             assertThat(combined).isInstanceOf(Result.Failure.class);
@@ -343,7 +355,10 @@ class ResultTest {
             final Result<Integer> b = Result.failure(errorB);
 
             // Act
-            final Result<String> combined = Result.zip(a, b, (s, n) -> s.repeat(n));
+            final Result<String> combined = Result.zip(
+                    a,
+                    b,
+                    (s, n) -> s.repeat(n));
 
             // Assert
             assertThat(combined).isInstanceOf(Result.Failure.class);
@@ -359,7 +374,11 @@ class ResultTest {
             final Result<String> c = Result.success("c");
 
             // Act
-            final Result<String> combined = Result.zip(a, b, c, (x, y, z) -> x + y + z);
+            final Result<String> combined = Result.zip(
+                    a,
+                    b,
+                    c,
+                    (x, y, z) -> x + y + z);
 
             // Assert
             assertThat(combined.resolve()).isEqualTo("abc");
@@ -376,7 +395,11 @@ class ResultTest {
             final Result<String> c = Result.failure(errorC);
 
             // Act
-            final Result<String> combined = Result.zip(a, b, c, (x, y, z) -> x + y + z);
+            final Result<String> combined = Result.zip(
+                    a,
+                    b,
+                    c,
+                    (x, y, z) -> x + y + z);
 
             // Assert
             assertThat(combined).isInstanceOf(Result.Failure.class);

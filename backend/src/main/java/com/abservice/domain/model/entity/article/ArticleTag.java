@@ -69,7 +69,10 @@ public class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@NonNull 
                     .orElseThrow(() -> new IllegalArgumentException("ArticleTag ID cannot be blank"));
             Policy.<String>of(
                     EntityId::isValidUuid,
-                    () -> new ErrorResult("value", "ArticleTag ID must be a valid UUID: " + value, "ID_INVALID_UUID"))
+                    () -> new ErrorResult(
+                            "value",
+                            "ArticleTag ID must be a valid UUID: " + value,
+                            "ID_INVALID_UUID"))
                     .verify(value, Function.identity())
                     .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         }

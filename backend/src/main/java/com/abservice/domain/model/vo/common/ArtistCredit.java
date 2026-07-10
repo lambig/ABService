@@ -53,7 +53,10 @@ public final class ArtistCredit implements ValueObject<ArtistCredit> {
         this.displayName = Policy
                 .<ArtistCreditName>of(
                         Objects::nonNull,
-                        () -> new ErrorResult("displayName", "Display name cannot be null", "DISPLAY_NAME_REQUIRED"))
+                        () -> new ErrorResult(
+                                "displayName",
+                                "Display name cannot be null",
+                                "DISPLAY_NAME_REQUIRED"))
                 .verify(displayName, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         this.sortKey = Optional.ofNullable(sortKey).orElse(displayName.value());

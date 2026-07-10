@@ -36,7 +36,10 @@ public record CatalogNumber(@NonNull String value) implements ValueObject<Catalo
         Policy.all(
                 Policy.of(
                         StringUtils::isNotBlank,
-                        () -> new ErrorResult("value", "Catalog number cannot be blank", "CATALOG_NUMBER_REQUIRED")),
+                        () -> new ErrorResult(
+                                "value",
+                                "Catalog number cannot be blank",
+                                "CATALOG_NUMBER_REQUIRED")),
                 Policy.of(
                         (String v) -> StringUtils.length(v) <= 100,
                         () -> new ErrorResult("value", "Catalog number must be 100 characters or less",

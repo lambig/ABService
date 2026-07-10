@@ -35,7 +35,10 @@ public record TrackTitle(String value) implements ValueObject<TrackTitle> {
         Policy.all(
                 Policy.of(
                         StringUtils::isNotBlank,
-                        () -> new ErrorResult("trackTitle", "Track title cannot be blank", "TRACK_TITLE_REQUIRED")),
+                        () -> new ErrorResult(
+                                "trackTitle",
+                                "Track title cannot be blank",
+                                "TRACK_TITLE_REQUIRED")),
                 Policy.of(
                         (String v) -> StringUtils.length(v) <= 255,
                         () -> new ErrorResult("trackTitle", "Track title must be 255 characters or less",

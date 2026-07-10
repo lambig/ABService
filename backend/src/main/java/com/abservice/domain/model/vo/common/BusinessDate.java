@@ -116,8 +116,14 @@ public record BusinessDate(LocalDate value) implements ValueObject<BusinessDate>
      *            日
      * @return ビジネス日付
      */
-    public static BusinessDate of(int year, int month, int dayOfMonth) {
-        return new BusinessDate(LocalDate.of(year, month, dayOfMonth));
+    public static BusinessDate of(
+            int year,
+            int month,
+            int dayOfMonth) {
+        return new BusinessDate(LocalDate.of(
+                year,
+                month,
+                dayOfMonth));
     }
 
     /**

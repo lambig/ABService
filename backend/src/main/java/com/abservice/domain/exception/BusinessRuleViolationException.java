@@ -33,6 +33,9 @@ public final class BusinessRuleViolationException extends DomainException {
      *            起因例外
      */
     public BusinessRuleViolationException(@NonNull String message, @NonNull Throwable cause) {
-        super(ERROR_CODE, message, cause);
+        super(
+                ERROR_CODE,
+                message,
+                cause);
     }
 }

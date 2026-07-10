@@ -43,12 +43,18 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
     public MarkupContent {
         Policy.<String>of(
                 Objects::nonNull,
-                () -> new ErrorResult("content", "Content cannot be null", "CONTENT_REQUIRED"))
+                () -> new ErrorResult(
+                        "content",
+                        "Content cannot be null",
+                        "CONTENT_REQUIRED"))
                 .verify(content, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         Policy.<MarkupFormat>of(
                 Objects::nonNull,
-                () -> new ErrorResult("format", "Markup format cannot be null", "MARKUP_FORMAT_REQUIRED"))
+                () -> new ErrorResult(
+                        "format",
+                        "Markup format cannot be null",
+                        "MARKUP_FORMAT_REQUIRED"))
                 .verify(format, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
     }
@@ -107,12 +113,18 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
         return Policy
                 .<String>of(
                         StringUtils::isNotBlank,
-                        () -> new ErrorResult("format", "マークアップ形式は必須です", "MARKUP_FORMAT_REQUIRED"))
+                        () -> new ErrorResult(
+                                "format",
+                                "マークアップ形式は必須です",
+                                "MARKUP_FORMAT_REQUIRED"))
                 .verify(format, Function.identity()).flatMap(
                         f -> Policy
                                 .of(
                                         MarkupContent::isKnownFormat,
-                                        () -> new ErrorResult("format", "不正なマークアップ形式です: " + f, "MARKUP_FORMAT_INVALID"))
+                                        () -> new ErrorResult(
+                                                "format",
+                                                "不正なマークアップ形式です: " + f,
+                                                "MARKUP_FORMAT_INVALID"))
                                 .verify(
                                         f,
                                         valid -> new MarkupContent(safeContent, MarkupFormat.valueOf(valid.trim()))));

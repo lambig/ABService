@@ -35,7 +35,10 @@ public record AlbumTitle(@NonNull String value) implements ValueObject<AlbumTitl
         Policy.all(
                 Policy.of(
                         StringUtils::isNotBlank,
-                        () -> new ErrorResult("value", "Album title cannot be blank", "ALBUM_TITLE_REQUIRED")),
+                        () -> new ErrorResult(
+                                "value",
+                                "Album title cannot be blank",
+                                "ALBUM_TITLE_REQUIRED")),
                 Policy.of(
                         (String v) -> StringUtils.length(v) <= 255,
                         () -> new ErrorResult("value", "Album title must be 255 characters or less",

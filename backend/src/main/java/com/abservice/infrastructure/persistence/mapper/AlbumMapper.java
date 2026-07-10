@@ -75,7 +75,11 @@ public final class AlbumMapper {
     private static EventReleasedAt buildEventReleasedAt(AlbumEntity entity) {
         return Optional.ofNullable(entity.getEventName()).map(eventName -> {
             final var dateAndSpaces = extractDateAndSpaces(entity);
-            return EventReleasedAt.of(eventName, dateAndSpaces, entity.getEventPlace(), entity.getEventNote());
+            return EventReleasedAt.of(
+                    eventName,
+                    dateAndSpaces,
+                    entity.getEventPlace(),
+                    entity.getEventNote());
         }).orElse(null);
     }
 

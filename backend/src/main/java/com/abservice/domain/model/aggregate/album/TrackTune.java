@@ -51,10 +51,20 @@ public class TrackTune {
      */
     public static TrackTune create(Integer seq, Tune.Id tuneId, Credit composerCreditOverride,
             Credit arrangerCreditOverride, Url linkUrl) {
-        Policy.<Integer>of(Objects::nonNull, () -> new ErrorResult("seq", "Seq cannot be null", "SEQ_REQUIRED"))
+        Policy.<Integer>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "seq",
+                        "Seq cannot be null",
+                        "SEQ_REQUIRED"))
                 .verify(seq, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
-        return new TrackTune(seq, tuneId, composerCreditOverride, arrangerCreditOverride, linkUrl);
+        return new TrackTune(
+                seq,
+                tuneId,
+                composerCreditOverride,
+                arrangerCreditOverride,
+                linkUrl);
     }
 
     /**
@@ -74,7 +84,12 @@ public class TrackTune {
      */
     public static TrackTune reconstruct(Integer seq, Tune.Id tuneId, Credit composerCreditOverride,
             Credit arrangerCreditOverride, Url linkUrl) {
-        return new TrackTune(seq, tuneId, composerCreditOverride, arrangerCreditOverride, linkUrl);
+        return new TrackTune(
+                seq,
+                tuneId,
+                composerCreditOverride,
+                arrangerCreditOverride,
+                linkUrl);
     }
 
     /**

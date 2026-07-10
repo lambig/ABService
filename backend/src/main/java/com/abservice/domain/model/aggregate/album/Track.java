@@ -103,7 +103,13 @@ public class Track implements DomainEntity<Track, Track.Id> {
      */
     public static @NonNull Track create(@NonNull Integer trackNo, @NonNull TrackTitle title,
             @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate) {
-        return create(trackNo, title, artistCredit, recordingDate, null, null);
+        return create(
+                trackNo,
+                title,
+                artistCredit,
+                recordingDate,
+                null,
+                null);
     }
 
     /**
@@ -131,7 +137,15 @@ public class Track implements DomainEntity<Track, Track.Id> {
     public static @NonNull Track reconstruct(@NonNull Id id, @NonNull Integer trackNo, @NonNull TrackTitle title,
             @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate, @Nullable String recordingPlace,
             @Nullable Boolean isLive, @NonNull List<TrackTune> tunes) {
-        return new Track(id, trackNo, title, artistCredit, recordingDate, recordingPlace, isLive, tunes);
+        return new Track(
+                id,
+                trackNo,
+                title,
+                artistCredit,
+                recordingDate,
+                recordingPlace,
+                isLive,
+                tunes);
     }
 
     /**
@@ -268,7 +282,10 @@ public class Track implements DomainEntity<Track, Track.Id> {
             Policy.<String>all(
                     Policy.of(
                             StringUtils::isNotBlank,
-                            () -> new ErrorResult("value", "Track ID cannot be blank", "ID_BLANK")),
+                            () -> new ErrorResult(
+                                    "value",
+                                    "Track ID cannot be blank",
+                                    "ID_BLANK")),
                     Policy.of(
                             EntityId::isValidUuid,
                             () -> new ErrorResult("value", "Track ID must be a valid UUID: " + value,

@@ -15,7 +15,10 @@ class BusinessDateTest {
     @DisplayName("LocalDateから生成できる")
     @Test
     void testCreateFromLocalDate() {
-        final LocalDate localDate = LocalDate.of(2025, 1, 1);
+        final LocalDate localDate = LocalDate.of(
+                2025,
+                1,
+                1);
         final BusinessDate businessDate = BusinessDate.of(localDate);
 
         assertThat(businessDate.value()).isEqualTo(localDate);
@@ -24,7 +27,10 @@ class BusinessDateTest {
     @DisplayName("BusinessDateTimeへ変換できる")
     @Test
     void testAsBusinessDateTime() {
-        final LocalDate localDate = LocalDate.of(2025, 1, 1);
+        final LocalDate localDate = LocalDate.of(
+                2025,
+                1,
+                1);
         final BusinessDate businessDate = BusinessDate.of(localDate);
 
         final BusinessDateTime businessDateTime = businessDate.asBusinessDateTime();
@@ -34,7 +40,10 @@ class BusinessDateTest {
     @DisplayName("同じ日付同士はequivalentToがtrueを返す")
     @Test
     void testEquivalentTo() {
-        final LocalDate localDate = LocalDate.of(2025, 1, 1);
+        final LocalDate localDate = LocalDate.of(
+                2025,
+                1,
+                1);
         final BusinessDate bd1 = BusinessDate.of(localDate);
         final BusinessDate bd2 = BusinessDate.of(localDate);
 
@@ -44,8 +53,16 @@ class BusinessDateTest {
     @DisplayName("日付の前後でcompareToが順序を返す")
     @Test
     void testComparable() {
-        final BusinessDate bd1 = BusinessDate.of(LocalDate.of(2025, 1, 1));
-        final BusinessDate bd2 = BusinessDate.of(LocalDate.of(2025, 1, 2));
+        final BusinessDate bd1 = BusinessDate.of(
+                LocalDate.of(
+                        2025,
+                        1,
+                        1));
+        final BusinessDate bd2 = BusinessDate.of(
+                LocalDate.of(
+                        2025,
+                        1,
+                        2));
 
         assertThat(bd1.compareTo(bd2)).isLessThan(0);
         assertThat(bd2.compareTo(bd1)).isGreaterThan(0);

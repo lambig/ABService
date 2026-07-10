@@ -65,7 +65,10 @@ public record Duration(Integer milliseconds) implements ValueObject<Duration> {
         final var totalSeconds = toSeconds();
         final var minutes = totalSeconds / 60;
         final var seconds = totalSeconds % 60;
-        return String.format("%d:%02d", minutes, seconds);
+        return String.format(
+                "%d:%02d",
+                minutes,
+                seconds);
     }
 
     /**
@@ -78,7 +81,11 @@ public record Duration(Integer milliseconds) implements ValueObject<Duration> {
         final var hours = totalSeconds / 3600;
         final var minutes = (totalSeconds % 3600) / 60;
         final var seconds = totalSeconds % 60;
-        return String.format("%d:%02d:%02d", hours, minutes, seconds);
+        return String.format(
+                "%d:%02d:%02d",
+                hours,
+                minutes,
+                seconds);
     }
 
     @Override

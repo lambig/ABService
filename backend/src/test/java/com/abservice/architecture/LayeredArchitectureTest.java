@@ -47,7 +47,10 @@ class LayeredArchitectureTest {
     @ArchTest
     void domainShouldNotDependOnOuterLayers(JavaClasses classes) {
         noClasses().that().resideInAPackage(DOMAIN).should().dependOnClassesThat()
-                .resideInAnyPackage(APPLICATION, INFRASTRUCTURE, PRESENTATION)
+                .resideInAnyPackage(
+                        APPLICATION,
+                        INFRASTRUCTURE,
+                        PRESENTATION)
                 .as("ドメイン層は application / infrastructure / presentation に依存してはならない").check(classes);
     }
 

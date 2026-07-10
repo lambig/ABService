@@ -115,7 +115,15 @@ public class Album implements Aggregate<Album, Album.Id> {
             @NonNull BusinessDate releaseDate, @NonNull ArtistCredit artistCredit,
             @Nullable EventReleasedAt eventReleasedAt, @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn,
             @NonNull List<Track> tracks) {
-        return new Album(id, title, releaseDate, artistCredit, eventReleasedAt, catalogNumber, isdn, tracks);
+        return new Album(
+                id,
+                title,
+                releaseDate,
+                artistCredit,
+                eventReleasedAt,
+                catalogNumber,
+                isdn,
+                tracks);
     }
 
     /**
@@ -310,7 +318,10 @@ public class Album implements Aggregate<Album, Album.Id> {
             Policy.<String>all(
                     Policy.of(
                             StringUtils::isNotBlank,
-                            () -> new ErrorResult("value", "Album ID cannot be blank", "ID_BLANK")),
+                            () -> new ErrorResult(
+                                    "value",
+                                    "Album ID cannot be blank",
+                                    "ID_BLANK")),
                     Policy.of(
                             EntityId::isValidUuid,
                             () -> new ErrorResult("value", "Album ID must be a valid UUID: " + value,

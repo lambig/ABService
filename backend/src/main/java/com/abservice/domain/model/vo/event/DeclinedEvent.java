@@ -69,7 +69,10 @@ public record DeclinedEvent(EventName name, List<BusinessDate> declinedDates, St
     public DeclinedEvent {
         Policy.<EventName>of(
                 Objects::nonNull,
-                () -> new ErrorResult("name", "Event name cannot be null", "EVENT_NAME_REQUIRED"))
+                () -> new ErrorResult(
+                        "name",
+                        "Event name cannot be null",
+                        "EVENT_NAME_REQUIRED"))
                 .verify(name, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         Policy.<List<BusinessDate>>of(
@@ -80,7 +83,10 @@ public record DeclinedEvent(EventName name, List<BusinessDate> declinedDates, St
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         Policy.<DeclineReason>of(
                 Objects::nonNull,
-                () -> new ErrorResult("reason", "Decline reason cannot be null", "DECLINE_REASON_REQUIRED"))
+                () -> new ErrorResult(
+                        "reason",
+                        "Decline reason cannot be null",
+                        "DECLINE_REASON_REQUIRED"))
                 .verify(reason, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         declinedDates = Collections.unmodifiableList(declinedDates);
@@ -97,8 +103,15 @@ public record DeclinedEvent(EventName name, List<BusinessDate> declinedDates, St
      *            不参加理由
      * @return DeclinedEvent
      */
-    public static DeclinedEvent of(String name, BusinessDate date, DeclineReason reason) {
-        return new DeclinedEvent(new EventName(name), List.of(date), null, reason);
+    public static DeclinedEvent of(
+            String name,
+            BusinessDate date,
+            DeclineReason reason) {
+        return new DeclinedEvent(
+                new EventName(name),
+                List.of(date),
+                null,
+                reason);
     }
 
     /**
@@ -114,8 +127,16 @@ public record DeclinedEvent(EventName name, List<BusinessDate> declinedDates, St
      *            不参加理由
      * @return DeclinedEvent
      */
-    public static DeclinedEvent of(String name, BusinessDate date, String place, DeclineReason reason) {
-        return new DeclinedEvent(new EventName(name), List.of(date), place, reason);
+    public static DeclinedEvent of(
+            String name,
+            BusinessDate date,
+            String place,
+            DeclineReason reason) {
+        return new DeclinedEvent(
+                new EventName(name),
+                List.of(date),
+                place,
+                reason);
     }
 
     /**
@@ -131,8 +152,16 @@ public record DeclinedEvent(EventName name, List<BusinessDate> declinedDates, St
      *            不参加理由
      * @return DeclinedEvent
      */
-    public static DeclinedEvent of(String name, List<BusinessDate> declinedDates, String place, DeclineReason reason) {
-        return new DeclinedEvent(new EventName(name), declinedDates, place, reason);
+    public static DeclinedEvent of(
+            String name,
+            List<BusinessDate> declinedDates,
+            String place,
+            DeclineReason reason) {
+        return new DeclinedEvent(
+                new EventName(name),
+                declinedDates,
+                place,
+                reason);
     }
 
     /**
@@ -148,10 +177,17 @@ public record DeclinedEvent(EventName name, List<BusinessDate> declinedDates, St
         final var dates = tentative.tentativeDates();
         Policy.<List<BusinessDate>>of(
                 CollectionUtils::isNotEmpty,
-                () -> new ErrorResult("dates", "Cannot decline event without dates", "DECLINE_DATES_REQUIRED"))
+                () -> new ErrorResult(
+                        "dates",
+                        "Cannot decline event without dates",
+                        "DECLINE_DATES_REQUIRED"))
                 .verify(dates, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
-        return new DeclinedEvent(tentative.name(), dates, null, reason);
+        return new DeclinedEvent(
+                tentative.name(),
+                dates,
+                null,
+                reason);
     }
 
     /**
@@ -167,10 +203,17 @@ public record DeclinedEvent(EventName name, List<BusinessDate> declinedDates, St
         final var dates = applied.tentativeDates();
         Policy.<List<BusinessDate>>of(
                 CollectionUtils::isNotEmpty,
-                () -> new ErrorResult("dates", "Cannot decline event without dates", "DECLINE_DATES_REQUIRED"))
+                () -> new ErrorResult(
+                        "dates",
+                        "Cannot decline event without dates",
+                        "DECLINE_DATES_REQUIRED"))
                 .verify(dates, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
-        return new DeclinedEvent(applied.name(), dates, null, reason);
+        return new DeclinedEvent(
+                applied.name(),
+                dates,
+                null,
+                reason);
     }
 
     @Override

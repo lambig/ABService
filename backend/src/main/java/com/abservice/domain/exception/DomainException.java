@@ -39,7 +39,10 @@ public abstract class DomainException extends RuntimeException {
      * @param cause
      *            起因例外
      */
-    protected DomainException(@NonNull String errorCode, @NonNull String message, @NonNull Throwable cause) {
+    protected DomainException(
+            @NonNull String errorCode,
+            @NonNull String message,
+            @NonNull Throwable cause) {
         super(message, cause);
         this.errorCode = errorCode;
     }

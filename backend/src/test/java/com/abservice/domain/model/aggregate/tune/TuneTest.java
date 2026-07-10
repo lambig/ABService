@@ -27,7 +27,16 @@ class TuneTest {
             final var composerCredit = Credit.of("Test Composer");
 
             // Act
-            final var tune = Tune.create(title, tuneKind, composerCredit, null, null, null, null, null, null);
+            final var tune = Tune.create(
+                    title,
+                    tuneKind,
+                    composerCredit,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null);
 
             // Assert
             assertThat(tune).isNotNull();
@@ -88,7 +97,16 @@ class TuneTest {
 
             // Act & Assert
             assertThatThrownBy(() -> {
-                Tune.create(null, tuneKind, composerCredit, null, null, null, null, null, null);
+                Tune.create(
+                        null,
+                        tuneKind,
+                        composerCredit,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null);
             }).isInstanceOf(IllegalArgumentException.class).hasMessage("Tune title cannot be null");
         }
 
@@ -101,7 +119,16 @@ class TuneTest {
 
             // Act & Assert
             assertThatThrownBy(() -> {
-                Tune.create(title, null, composerCredit, null, null, null, null, null, null);
+                Tune.create(
+                        title,
+                        null,
+                        composerCredit,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null);
             }).isInstanceOf(IllegalArgumentException.class).hasMessage("Tune kind cannot be null");
         }
     }

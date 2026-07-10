@@ -69,7 +69,10 @@ public record SelectedEvent(EventName name, List<BusinessDate> selectedDates, Li
     public SelectedEvent {
         Policy.<EventName>of(
                 Objects::nonNull,
-                () -> new ErrorResult("name", "Event name cannot be null", "EVENT_NAME_REQUIRED"))
+                () -> new ErrorResult(
+                        "name",
+                        "Event name cannot be null",
+                        "EVENT_NAME_REQUIRED"))
                 .verify(name, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         Policy.<List<BusinessDate>>of(
@@ -97,7 +100,11 @@ public record SelectedEvent(EventName name, List<BusinessDate> selectedDates, Li
      * @return SelectedEvent
      */
     public static SelectedEvent of(String name, BusinessDate date) {
-        return new SelectedEvent(new EventName(name), List.of(date), List.of(), null);
+        return new SelectedEvent(
+                new EventName(name),
+                List.of(date),
+                List.of(),
+                null);
     }
 
     /**
@@ -111,8 +118,15 @@ public record SelectedEvent(EventName name, List<BusinessDate> selectedDates, Li
      *            会場
      * @return SelectedEvent
      */
-    public static SelectedEvent of(String name, BusinessDate date, String place) {
-        return new SelectedEvent(new EventName(name), List.of(date), List.of(), place);
+    public static SelectedEvent of(
+            String name,
+            BusinessDate date,
+            String place) {
+        return new SelectedEvent(
+                new EventName(name),
+                List.of(date),
+                List.of(),
+                place);
     }
 
     /**
@@ -126,8 +140,15 @@ public record SelectedEvent(EventName name, List<BusinessDate> selectedDates, Li
      *            会場
      * @return SelectedEvent
      */
-    public static SelectedEvent of(String name, List<BusinessDate> selectedDates, String place) {
-        return new SelectedEvent(new EventName(name), selectedDates, List.of(), place);
+    public static SelectedEvent of(
+            String name,
+            List<BusinessDate> selectedDates,
+            String place) {
+        return new SelectedEvent(
+                new EventName(name),
+                selectedDates,
+                List.of(),
+                place);
     }
 
     /**
@@ -145,7 +166,11 @@ public record SelectedEvent(EventName name, List<BusinessDate> selectedDates, Li
      */
     public static SelectedEvent ofPartial(String name, List<BusinessDate> selectedDates,
             List<BusinessDate> declinedDates, String place) {
-        return new SelectedEvent(new EventName(name), selectedDates, declinedDates, place);
+        return new SelectedEvent(
+                new EventName(name),
+                selectedDates,
+                declinedDates,
+                place);
     }
 
     /**
@@ -163,7 +188,10 @@ public record SelectedEvent(EventName name, List<BusinessDate> selectedDates, Li
     @Deprecated
     public static SelectedEvent fromTentative(TentativeEvent tentative, List<BusinessDate> selectedDates,
             String place) {
-        return fromApplied(tentative, selectedDates, place);
+        return fromApplied(
+                tentative,
+                selectedDates,
+                place);
     }
 
     /**
@@ -195,8 +223,15 @@ public record SelectedEvent(EventName name, List<BusinessDate> selectedDates, Li
      *            会場
      * @return SelectedEvent
      */
-    public static SelectedEvent fromApplied(TentativeEvent applied, List<BusinessDate> selectedDates, String place) {
-        return new SelectedEvent(applied.name(), selectedDates, List.of(), place);
+    public static SelectedEvent fromApplied(
+            TentativeEvent applied,
+            List<BusinessDate> selectedDates,
+            String place) {
+        return new SelectedEvent(
+                applied.name(),
+                selectedDates,
+                List.of(),
+                place);
     }
 
     /**
@@ -214,7 +249,11 @@ public record SelectedEvent(EventName name, List<BusinessDate> selectedDates, Li
      */
     public static SelectedEvent fromAppliedPartial(TentativeEvent applied, List<BusinessDate> selectedDates,
             List<BusinessDate> declinedDates, String place) {
-        return new SelectedEvent(applied.name(), selectedDates, declinedDates, place);
+        return new SelectedEvent(
+                applied.name(),
+                selectedDates,
+                declinedDates,
+                place);
     }
 
     @Override

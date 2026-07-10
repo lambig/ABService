@@ -28,10 +28,17 @@ class TrackTest {
             final var trackNo = 1;
             final var title = TrackTitle.of("Track 1");
             final var artistCredit = ArtistCredit.of("Test Artist");
-            final var recordingDate = BusinessDate.of(2024, 1, 15);
+            final var recordingDate = BusinessDate.of(
+                    2024,
+                    1,
+                    15);
 
             // Act
-            final var track = Track.create(trackNo, title, artistCredit, recordingDate);
+            final var track = Track.create(
+                    trackNo,
+                    title,
+                    artistCredit,
+                    recordingDate);
 
             // Assert
             assertThat(track).isNotNull();
@@ -52,12 +59,21 @@ class TrackTest {
             final var trackNo = 2;
             final var title = TrackTitle.of("Track 2");
             final var artistCredit = ArtistCredit.of("Full Artist");
-            final var recordingDate = BusinessDate.of(2024, 5, 1);
+            final var recordingDate = BusinessDate.of(
+                    2024,
+                    5,
+                    1);
             final var recordingPlace = "Studio ABC";
             final var isLive = false;
 
             // Act
-            final var track = Track.create(trackNo, title, artistCredit, recordingDate, recordingPlace, isLive);
+            final var track = Track.create(
+                    trackNo,
+                    title,
+                    artistCredit,
+                    recordingDate,
+                    recordingPlace,
+                    isLive);
 
             // Assert
             assertThat(track).isNotNull();
@@ -75,11 +91,18 @@ class TrackTest {
             // Arrange
             final var trackNo = 1;
             final var artistCredit = ArtistCredit.of("Artist");
-            final var recordingDate = BusinessDate.of(2024, 1, 15);
+            final var recordingDate = BusinessDate.of(
+                    2024,
+                    1,
+                    15);
 
             // Act & Assert
             assertThatThrownBy(() -> {
-                Track.create(trackNo, null, artistCredit, recordingDate);
+                Track.create(
+                        trackNo,
+                        null,
+                        artistCredit,
+                        recordingDate);
             }).isInstanceOf(IllegalArgumentException.class).hasMessage("Track title cannot be null");
         }
 
@@ -89,10 +112,17 @@ class TrackTest {
             // Arrange
             final var trackNo = 1;
             final var title = TrackTitle.of("Track 1");
-            final var recordingDate = BusinessDate.of(2024, 1, 15);
+            final var recordingDate = BusinessDate.of(
+                    2024,
+                    1,
+                    15);
 
             // Act
-            final var track = Track.create(trackNo, title, null, recordingDate);
+            final var track = Track.create(
+                    trackNo,
+                    title,
+                    null,
+                    recordingDate);
 
             // Assert
             assertThat(track).isNotNull();
@@ -109,7 +139,14 @@ class TrackTest {
         void changeTitleShouldSucceed() {
             // Arrange
             final var track = Track
-                    .create(1, TrackTitle.of("Original"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
+                    .create(
+                            1,
+                            TrackTitle.of("Original"),
+                            ArtistCredit.of("Artist"),
+                            BusinessDate.of(
+                                    2024,
+                                    1,
+                                    1));
             final var newTitle = TrackTitle.of("Updated");
 
             // Act
@@ -126,7 +163,14 @@ class TrackTest {
         void changeTitleToNullShouldThrowException() {
             // Arrange
             final var track = Track
-                    .create(1, TrackTitle.of("Original"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
+                    .create(
+                            1,
+                            TrackTitle.of("Original"),
+                            ArtistCredit.of("Artist"),
+                            BusinessDate.of(
+                                    2024,
+                                    1,
+                                    1));
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -144,7 +188,14 @@ class TrackTest {
         void changeArtistCreditShouldSucceed() {
             // Arrange
             final var track = Track
-                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Original Artist"), BusinessDate.of(2024, 1, 1));
+                    .create(
+                            1,
+                            TrackTitle.of("Track"),
+                            ArtistCredit.of("Original Artist"),
+                            BusinessDate.of(
+                                    2024,
+                                    1,
+                                    1));
             final var newCredit = ArtistCredit.of("New Artist");
 
             // Act
@@ -159,7 +210,14 @@ class TrackTest {
         void changeArtistCreditToNullShouldSucceed() {
             // Arrange
             final var track = Track
-                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Original Artist"), BusinessDate.of(2024, 1, 1));
+                    .create(
+                            1,
+                            TrackTitle.of("Track"),
+                            ArtistCredit.of("Original Artist"),
+                            BusinessDate.of(
+                                    2024,
+                                    1,
+                                    1));
 
             // Act
             final var updated = track.changeArtistCredit(null);
@@ -178,8 +236,18 @@ class TrackTest {
         void changeRecordingDateShouldSucceed() {
             // Arrange
             final var track = Track
-                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
-            final var newDate = BusinessDate.of(2024, 12, 31);
+                    .create(
+                            1,
+                            TrackTitle.of("Track"),
+                            ArtistCredit.of("Artist"),
+                            BusinessDate.of(
+                                    2024,
+                                    1,
+                                    1));
+            final var newDate = BusinessDate.of(
+                    2024,
+                    12,
+                    31);
 
             // Act
             final var updated = track.changeRecordingDate(newDate);
@@ -193,7 +261,14 @@ class TrackTest {
         void changeRecordingDateToNullShouldSucceed() {
             // Arrange
             final var track = Track
-                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
+                    .create(
+                            1,
+                            TrackTitle.of("Track"),
+                            ArtistCredit.of("Artist"),
+                            BusinessDate.of(
+                                    2024,
+                                    1,
+                                    1));
 
             // Act
             final var updated = track.changeRecordingDate(null);
@@ -215,7 +290,10 @@ class TrackTest {
                     1,
                     TrackTitle.of("Track"),
                     ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1),
+                    BusinessDate.of(
+                            2024,
+                            1,
+                            1),
                     "Studio A",
                     false);
             final var newPlace = "Studio B";
@@ -235,7 +313,10 @@ class TrackTest {
                     1,
                     TrackTitle.of("Track"),
                     ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1),
+                    BusinessDate.of(
+                            2024,
+                            1,
+                            1),
                     "Studio A",
                     false);
 
@@ -259,7 +340,10 @@ class TrackTest {
                     1,
                     TrackTitle.of("Track"),
                     ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1),
+                    BusinessDate.of(
+                            2024,
+                            1,
+                            1),
                     "Studio",
                     false);
 
@@ -278,7 +362,10 @@ class TrackTest {
                     1,
                     TrackTitle.of("Track"),
                     ArtistCredit.of("Artist"),
-                    BusinessDate.of(2024, 1, 1),
+                    BusinessDate.of(
+                            2024,
+                            1,
+                            1),
                     "Studio",
                     true);
 
@@ -299,9 +386,21 @@ class TrackTest {
         void addTuneShouldSucceed() {
             // Arrange
             final var track = Track
-                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
+                    .create(
+                            1,
+                            TrackTitle.of("Track"),
+                            ArtistCredit.of("Artist"),
+                            BusinessDate.of(
+                                    2024,
+                                    1,
+                                    1));
             final var tuneId = Tune.Id.generate();
-            final var trackTune = TrackTune.create(1, tuneId, null, null, null);
+            final var trackTune = TrackTune.create(
+                    1,
+                    tuneId,
+                    null,
+                    null,
+                    null);
 
             // Act
             final var updated = track.addTune(trackTune);
@@ -316,9 +415,26 @@ class TrackTest {
         void addMultipleTunesShouldSucceed() {
             // Arrange
             final var track = Track
-                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
-            final var tune1 = TrackTune.create(1, Tune.Id.generate(), null, null, null);
-            final var tune2 = TrackTune.create(2, Tune.Id.generate(), null, null, null);
+                    .create(
+                            1,
+                            TrackTitle.of("Track"),
+                            ArtistCredit.of("Artist"),
+                            BusinessDate.of(
+                                    2024,
+                                    1,
+                                    1));
+            final var tune1 = TrackTune.create(
+                    1,
+                    Tune.Id.generate(),
+                    null,
+                    null,
+                    null);
+            final var tune2 = TrackTune.create(
+                    2,
+                    Tune.Id.generate(),
+                    null,
+                    null,
+                    null);
 
             // Act
             final var updated = track.addTune(tune1).addTune(tune2);
@@ -334,7 +450,14 @@ class TrackTest {
         void addNullTuneShouldThrowException() {
             // Arrange
             final var track = Track
-                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
+                    .create(
+                            1,
+                            TrackTitle.of("Track"),
+                            ArtistCredit.of("Artist"),
+                            BusinessDate.of(
+                                    2024,
+                                    1,
+                                    1));
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -347,9 +470,26 @@ class TrackTest {
         void addDuplicateSeqTuneShouldThrowException() {
             // Arrange
             final var track = Track
-                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
-            final var tune1 = TrackTune.create(1, Tune.Id.generate(), null, null, null);
-            final var tune2 = TrackTune.create(1, Tune.Id.generate(), null, null, null);
+                    .create(
+                            1,
+                            TrackTitle.of("Track"),
+                            ArtistCredit.of("Artist"),
+                            BusinessDate.of(
+                                    2024,
+                                    1,
+                                    1));
+            final var tune1 = TrackTune.create(
+                    1,
+                    Tune.Id.generate(),
+                    null,
+                    null,
+                    null);
+            final var tune2 = TrackTune.create(
+                    1,
+                    Tune.Id.generate(),
+                    null,
+                    null,
+                    null);
             final var trackWithTune = track.addTune(tune1);
 
             // Act & Assert
@@ -368,8 +508,20 @@ class TrackTest {
         void removeTuneShouldSucceed() {
             // Arrange
             final var track = Track
-                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
-            final var tune = TrackTune.create(1, Tune.Id.generate(), null, null, null);
+                    .create(
+                            1,
+                            TrackTitle.of("Track"),
+                            ArtistCredit.of("Artist"),
+                            BusinessDate.of(
+                                    2024,
+                                    1,
+                                    1));
+            final var tune = TrackTune.create(
+                    1,
+                    Tune.Id.generate(),
+                    null,
+                    null,
+                    null);
             final var trackWithTune = track.addTune(tune);
 
             // Act
@@ -384,10 +536,32 @@ class TrackTest {
         void removeSpecificTuneFromMultipleShouldSucceed() {
             // Arrange
             final var track = Track
-                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
-            final var tune1 = TrackTune.create(1, Tune.Id.generate(), null, null, null);
-            final var tune2 = TrackTune.create(2, Tune.Id.generate(), null, null, null);
-            final var tune3 = TrackTune.create(3, Tune.Id.generate(), null, null, null);
+                    .create(
+                            1,
+                            TrackTitle.of("Track"),
+                            ArtistCredit.of("Artist"),
+                            BusinessDate.of(
+                                    2024,
+                                    1,
+                                    1));
+            final var tune1 = TrackTune.create(
+                    1,
+                    Tune.Id.generate(),
+                    null,
+                    null,
+                    null);
+            final var tune2 = TrackTune.create(
+                    2,
+                    Tune.Id.generate(),
+                    null,
+                    null,
+                    null);
+            final var tune3 = TrackTune.create(
+                    3,
+                    Tune.Id.generate(),
+                    null,
+                    null,
+                    null);
             final var trackWithTunes = track.addTune(tune1).addTune(tune2).addTune(tune3);
 
             // Act
@@ -405,7 +579,14 @@ class TrackTest {
         void removeWithNullSeqShouldThrowException() {
             // Arrange
             final var track = Track
-                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
+                    .create(
+                            1,
+                            TrackTitle.of("Track"),
+                            ArtistCredit.of("Artist"),
+                            BusinessDate.of(
+                                    2024,
+                                    1,
+                                    1));
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -418,7 +599,14 @@ class TrackTest {
         void removeNonExistentSeqShouldThrowException() {
             // Arrange
             final var track = Track
-                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
+                    .create(
+                            1,
+                            TrackTitle.of("Track"),
+                            ArtistCredit.of("Artist"),
+                            BusinessDate.of(
+                                    2024,
+                                    1,
+                                    1));
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -436,8 +624,20 @@ class TrackTest {
         void updateTuneShouldSucceed() {
             // Arrange
             final var track = Track
-                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
-            final var originalTune = TrackTune.create(1, Tune.Id.generate(), null, null, null);
+                    .create(
+                            1,
+                            TrackTitle.of("Track"),
+                            ArtistCredit.of("Artist"),
+                            BusinessDate.of(
+                                    2024,
+                                    1,
+                                    1));
+            final var originalTune = TrackTune.create(
+                    1,
+                    Tune.Id.generate(),
+                    null,
+                    null,
+                    null);
             final var trackWithTune = track.addTune(originalTune);
 
             final var composerCredit = Credit.of("New Composer");
@@ -456,9 +656,26 @@ class TrackTest {
         void updateSpecificTuneFromMultipleShouldSucceed() {
             // Arrange
             final var track = Track
-                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
-            final var tune1 = TrackTune.create(1, Tune.Id.generate(), null, null, null);
-            final var tune2 = TrackTune.create(2, Tune.Id.generate(), null, null, null);
+                    .create(
+                            1,
+                            TrackTitle.of("Track"),
+                            ArtistCredit.of("Artist"),
+                            BusinessDate.of(
+                                    2024,
+                                    1,
+                                    1));
+            final var tune1 = TrackTune.create(
+                    1,
+                    Tune.Id.generate(),
+                    null,
+                    null,
+                    null);
+            final var tune2 = TrackTune.create(
+                    2,
+                    Tune.Id.generate(),
+                    null,
+                    null,
+                    null);
             final var trackWithTunes = track.addTune(tune1).addTune(tune2);
 
             final var url = Url.of("https://example.com");
@@ -478,7 +695,14 @@ class TrackTest {
         void updateWithNullTuneShouldThrowException() {
             // Arrange
             final var track = Track
-                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
+                    .create(
+                            1,
+                            TrackTitle.of("Track"),
+                            ArtistCredit.of("Artist"),
+                            BusinessDate.of(
+                                    2024,
+                                    1,
+                                    1));
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -491,8 +715,20 @@ class TrackTest {
         void updateNonExistentTuneShouldThrowException() {
             // Arrange
             final var track = Track
-                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
-            final var nonExistentTune = TrackTune.create(999, Tune.Id.generate(), null, null, null);
+                    .create(
+                            1,
+                            TrackTitle.of("Track"),
+                            ArtistCredit.of("Artist"),
+                            BusinessDate.of(
+                                    2024,
+                                    1,
+                                    1));
+            final var nonExistentTune = TrackTune.create(
+                    999,
+                    Tune.Id.generate(),
+                    null,
+                    null,
+                    null);
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -510,8 +746,20 @@ class TrackTest {
         void getTunesShouldReturnUnmodifiableList() {
             // Arrange
             final var track = Track
-                    .create(1, TrackTitle.of("Track"), ArtistCredit.of("Artist"), BusinessDate.of(2024, 1, 1));
-            final var tune = TrackTune.create(1, Tune.Id.generate(), null, null, null);
+                    .create(
+                            1,
+                            TrackTitle.of("Track"),
+                            ArtistCredit.of("Artist"),
+                            BusinessDate.of(
+                                    2024,
+                                    1,
+                                    1));
+            final var tune = TrackTune.create(
+                    1,
+                    Tune.Id.generate(),
+                    null,
+                    null,
+                    null);
             final var trackWithTune = track.addTune(tune);
 
             // Act
@@ -519,7 +767,13 @@ class TrackTest {
 
             // Assert
             assertThatThrownBy(() -> {
-                tunes.add(TrackTune.create(2, Tune.Id.generate(), null, null, null));
+                tunes.add(
+                        TrackTune.create(
+                                2,
+                                Tune.Id.generate(),
+                                null,
+                                null,
+                                null));
             }).isInstanceOf(UnsupportedOperationException.class);
         }
     }

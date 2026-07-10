@@ -52,7 +52,12 @@ public final class Policies {
      */
     public static <T> Result<T> nested(String parent, Result<T> result) {
         final List<ErrorResult> nestedErrors = result.errors().stream()
-                .map(e -> new ErrorResult(parent + "." + e.field(), e.message(), e.code())).toList();
+                .map(
+                        e -> new ErrorResult(
+                                parent + "." + e.field(),
+                                e.message(),
+                                e.code()))
+                .toList();
         return nestedErrors.isEmpty()
                 ? result
                 : Result.failure(nestedErrors);

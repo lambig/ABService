@@ -256,4 +256,26 @@
         </properties>
     </rule>
 
+    <rule name="ForbiddenManyArgumentsSingleLine"
+          language="java"
+          message="引数（パラメータ）が3個以上の呼び出し・宣言は1行に書かず、1引数1行で縦に並べてください（多引数=スコープ制御のスメルをレビューで可視化するため）。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            引数が3個以上のメソッド呼び出し・コンストラクタ呼び出し（ArgumentList）、
+            および仮引数が3個以上のメソッド/コンストラクタ宣言（FormalParameters）を
+            1行で記述することを禁止し、1引数1行の縦並べを強制する。多引数は変数スコープ
+            制御のスメルであり、縦に並べることでレビュー時に可視化する。フォーマッタは
+            join_wrapped_lines=false で手動改行を保持する（本ルールと整合）。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//ArgumentList[count(*) >= 3][@BeginLine = @EndLine]
+| //FormalParameters[count(FormalParameter) >= 3][@BeginLine = @EndLine]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
 </ruleset>

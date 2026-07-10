@@ -26,9 +26,17 @@ public final class ResultExample {
 
         public static Result<CatalogNumber> create(@Nullable String value) {
             return StringUtils.isBlank(value)
-                    ? Result.failure(new ErrorResult("catalogNumber", "カタログ番号は必須です", "C001"))
+                    ? Result.failure(
+                            new ErrorResult(
+                                    "catalogNumber",
+                                    "カタログ番号は必須です",
+                                    "C001"))
                     : !value.matches("^[A-Z]{2,4}-[0-9]{3,5}$")
-                            ? Result.failure(new ErrorResult("catalogNumber", "カタログ番号の形式が不正です", "C002"))
+                            ? Result.failure(
+                                    new ErrorResult(
+                                            "catalogNumber",
+                                            "カタログ番号の形式が不正です",
+                                            "C002"))
                             : Result.success(new CatalogNumber(value));
         }
     }
@@ -38,9 +46,17 @@ public final class ResultExample {
 
         public static Result<AlbumTitle> create(@Nullable String value) {
             return StringUtils.isBlank(value)
-                    ? Result.failure(new ErrorResult("title", "タイトルは必須です", "T001"))
+                    ? Result.failure(
+                            new ErrorResult(
+                                    "title",
+                                    "タイトルは必須です",
+                                    "T001"))
                     : value.length() > 100
-                            ? Result.failure(new ErrorResult("title", "タイトルは100文字以内で入力してください", "T002"))
+                            ? Result.failure(
+                                    new ErrorResult(
+                                            "title",
+                                            "タイトルは100文字以内で入力してください",
+                                            "T002"))
                             : Result.success(new AlbumTitle(value));
         }
     }
@@ -59,7 +75,10 @@ public final class ResultExample {
          */
         public static Result<Album> create(@Nullable String title, @Nullable String catalogNumber) {
             // 両方のバリデーションを実行し、エラーを集約（Result.zip がエラーを引数順に集約する）
-            return Result.zip(AlbumTitle.create(title), CatalogNumber.create(catalogNumber), Album::new);
+            return Result.zip(
+                    AlbumTitle.create(title),
+                    CatalogNumber.create(catalogNumber),
+                    Album::new);
         }
     }
 
