@@ -146,6 +146,29 @@
         </properties>
     </rule>
 
+    <rule name="ForbiddenSequentialNullBlankCheck"
+          language="java"
+          message="null チェックと空/blank チェックの逐次結合は禁止です。StringUtils.isBlank/isNotBlank・CollectionUtils.isEmpty/isNotEmpty を使ってください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            論理結合（&amp;&amp; / ||）の中で null 比較（== null / != null）と
+            空/blank 判定（.isBlank() / .isEmpty()）を逐次結合するパターン
+            （x == null || x.isBlank() / x != null &amp;&amp; !x.isEmpty() 等）を禁止し、
+            null 安全な StringUtils.isBlank/isNotBlank・CollectionUtils.isEmpty/isNotEmpty
+            への置換を促す。production は中置論理演算子自体が禁止のため、主にテストコードが対象。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//InfixExpression[@Operator = ("&&", "||")]
+    [.//InfixExpression[@Operator = ("==", "!=")][NullLiteral]]
+    [.//MethodCall[@MethodName = ("isBlank", "isEmpty")]]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
     <rule name="ForbiddenSingleLineTernary"
           language="java"
           message="三項演算子は1行に書かず、条件・then・else を複数行に分けてください。"

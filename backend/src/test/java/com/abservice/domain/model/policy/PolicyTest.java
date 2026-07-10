@@ -6,6 +6,7 @@ import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import java.util.List;
 import java.util.function.Function;
+import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -14,7 +15,7 @@ import org.junit.jupiter.api.Test;
 class PolicyTest {
 
     private static Policy<String> nonBlank() {
-        return Policy.of((String v) -> v != null && !v.isBlank(), () -> new ErrorResult("value", "必須です", "REQUIRED"));
+        return Policy.of((String v) -> StringUtils.isNotBlank(v), () -> new ErrorResult("value", "必須です", "REQUIRED"));
     }
 
     private static Policy<String> maxLen(int max) {
