@@ -4,6 +4,7 @@ import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -22,7 +23,7 @@ public final class ResultExample {
     public record CatalogNumber(String value) {
 
         public static Result<CatalogNumber> create(@Nullable String value) {
-            return value == null || value.isBlank()
+            return StringUtils.isBlank(value)
                     ? Result.failure(new ErrorResult("catalogNumber", "カタログ番号は必須です", "C001"))
                     : !value.matches("^[A-Z]{2,4}-[0-9]{3,5}$")
                             ? Result.failure(new ErrorResult("catalogNumber", "カタログ番号の形式が不正です", "C002"))
@@ -34,7 +35,7 @@ public final class ResultExample {
     public record AlbumTitle(String value) {
 
         public static Result<AlbumTitle> create(@Nullable String value) {
-            return value == null || value.isBlank()
+            return StringUtils.isBlank(value)
                     ? Result.failure(new ErrorResult("title", "タイトルは必須です", "T001"))
                     : value.length() > 100
                             ? Result.failure(new ErrorResult("title", "タイトルは100文字以内で入力してください", "T002"))

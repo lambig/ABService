@@ -127,6 +127,25 @@
         </properties>
     </rule>
 
+    <rule name="ForbiddenNullConditionalTernary"
+          language="java"
+          message="null 判定を条件とする三項演算子（x != null ? … : …）は禁止です。Optional.ofNullable(x).map(...).orElse(...) を使ってください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            条件部が null との等価比較（== null / != null）である三項演算子を禁止し、
+            Optional への置換を促す。条件位置のみを対象とし、then/else 内の null 比較は
+            対象外とする。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//ConditionalExpression[*[1]/descendant-or-self::InfixExpression[@Operator = ("!=", "==")][NullLiteral]]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
     <rule name="ForbiddenSingleLineTernary"
           language="java"
           message="三項演算子は1行に書かず、条件・then・else を複数行に分けてください。"
