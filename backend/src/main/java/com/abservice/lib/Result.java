@@ -67,6 +67,36 @@ public sealed interface Result<T> {
         public List<ErrorResult> errors() {
             return List.of();
         }
+
+        @Override
+        public T resolve(Function<List<ErrorResult>, ? extends RuntimeException> exceptionMapper) {
+            return value();
+        }
+
+        @Override
+        public T orElse(T defaultValue) {
+            return value();
+        }
+
+        @Override
+        public T orElseGet(Function<List<ErrorResult>, T> supplier) {
+            return value();
+        }
+
+        @Override
+        public T orElseDo(Consumer<List<ErrorResult>> action) {
+            return value();
+        }
+
+        @Override
+        public <U> Result<U> map(Function<? super T, ? extends U> mapper) {
+            return Result.success(mapper.apply(value()));
+        }
+
+        @Override
+        public <U> Result<U> flatMap(Function<? super T, ? extends Result<U>> mapper) {
+            return mapper.apply(value());
+        }
     }
 
     /**
@@ -82,6 +112,39 @@ public sealed interface Result<T> {
 
         public Failure(ErrorResult... errors) {
             this(Arrays.asList(errors));
+        }
+
+        @Override
+        public T resolve(Function<List<ErrorResult>, ? extends RuntimeException> exceptionMapper) {
+            throw exceptionMapper.apply(errors());
+        }
+
+        @Override
+        public T orElse(T defaultValue) {
+            return defaultValue;
+        }
+
+        @Override
+        public T orElseGet(Function<List<ErrorResult>, T> supplier) {
+            return supplier.apply(errors());
+        }
+
+        @Override
+        public T orElseDo(Consumer<List<ErrorResult>> action) {
+            action.accept(errors());
+            final String errorMessage = errors().stream().map(e -> e.field() + ": " + e.message())
+                    .reduce((a, b) -> a + ", " + b).orElse("Unknown error");
+            throw new IllegalStateException("エラー: " + errorMessage);
+        }
+
+        @Override
+        public <U> Result<U> map(Function<? super T, ? extends U> mapper) {
+            return Result.failure(errors());
+        }
+
+        @Override
+        public <U> Result<U> flatMap(Function<? super T, ? extends Result<U>> mapper) {
+            return Result.failure(errors());
         }
     }
 
@@ -120,12 +183,7 @@ public sealed interface Result<T> {
      * @throws Exception
      *             失敗時にexceptionMapperが生成した例外
      */
-    default T resolve(Function<List<ErrorResult>, ? extends RuntimeException> exceptionMapper) {
-        return switch (this) {
-            case Success<T> success -> success.value();
-            case Failure<T> failure -> throw exceptionMapper.apply(failure.errors());
-        };
-    }
+    T resolve(Function<List<ErrorResult>, ? extends RuntimeException> exceptionMapper);
 
     /**
      * 結果を解決します。 成功時は値を返し、失敗時はデフォルト値を返します。
@@ -134,12 +192,7 @@ public sealed interface Result<T> {
      *            失敗時に返すデフォルト値
      * @return 成功時の値、または失敗時のデフォルト値
      */
-    default T orElse(T defaultValue) {
-        return switch (this) {
-            case Success<T> success -> success.value();
-            case Failure<T> failure -> defaultValue;
-        };
-    }
+    T orElse(T defaultValue);
 
     /**
      * 結果を解決します。 成功時は値を返し、失敗時は関数を実行してデフォルト値を取得します。
@@ -151,12 +204,7 @@ public sealed interface Result<T> {
      *            失敗時に実行してデフォルト値を生成する関数
      * @return 成功時の値、または失敗時の関数実行結果
      */
-    default T orElseGet(Function<List<ErrorResult>, T> supplier) {
-        return switch (this) {
-            case Success<T> success -> success.value();
-            case Failure<T> failure -> supplier.apply(failure.errors());
-        };
-    }
+    T orElseGet(Function<List<ErrorResult>, T> supplier);
 
     /**
      * 失敗時に副作用のある処理を実行します。 成功時は値を返し、失敗時は処理を実行した後に例外をスローします。
@@ -170,17 +218,7 @@ public sealed interface Result<T> {
      * @throws IllegalStateException
      *             失敗時（actionの実行後）
      */
-    default T orElseDo(Consumer<List<ErrorResult>> action) {
-        return switch (this) {
-            case Success<T> success -> success.value();
-            case Failure<T> failure -> {
-                action.accept(failure.errors());
-                final String errorMessage = failure.errors().stream().map(e -> e.field() + ": " + e.message())
-                        .reduce((a, b) -> a + ", " + b).orElse("Unknown error");
-                throw new IllegalStateException("エラー: " + errorMessage);
-            }
-        };
-    }
+    T orElseDo(Consumer<List<ErrorResult>> action);
 
     /**
      * 成功時の値を変換します。 失敗時はエラーをそのまま引き継ぎ、変換関数は実行されません。
@@ -191,12 +229,7 @@ public sealed interface Result<T> {
      * @param <U>
      *            変換後の値の型
      */
-    default <U> Result<U> map(Function<? super T, ? extends U> mapper) {
-        return switch (this) {
-            case Success<T> success -> Result.success(mapper.apply(success.value()));
-            case Failure<T> failure -> Result.failure(failure.errors());
-        };
-    }
+    <U> Result<U> map(Function<? super T, ? extends U> mapper);
 
     /**
      * 成功時に {@code Result} を返す関数を適用し、結果を平坦化します。 失敗時はエラーをそのまま引き継ぎ、変換関数は実行されません。
@@ -210,12 +243,7 @@ public sealed interface Result<T> {
      * @param <U>
      *            変換後の値の型
      */
-    default <U> Result<U> flatMap(Function<? super T, ? extends Result<U>> mapper) {
-        return switch (this) {
-            case Success<T> success -> mapper.apply(success.value());
-            case Failure<T> failure -> Result.failure(failure.errors());
-        };
-    }
+    <U> Result<U> flatMap(Function<? super T, ? extends Result<U>> mapper);
 
     /**
      * 成功のResultを生成します
