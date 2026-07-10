@@ -791,6 +791,20 @@ Java標準スタイルガイドに準拠：
 ./gradlew spotlessApply
 ```
 
+### 三項演算子の書式
+
+三項演算子は**条件（第一項）を先頭に置き、`?`／`:` を継続行の行頭に置く複数行形式**に統一する。
+
+```java
+return condition
+        ? whenTrue
+        : whenFalse;
+```
+
+- Spotless（Eclipse formatter）の `alignment_for_conditional_expression=49`（one-per-line・強制）が、単一行に収まる三項を含めて常に上記の形へ整形する。`return`/代入/引数のいずれの文脈でも条件が先頭に来る。
+- PMD `ForbiddenSingleLineTernary`（`//ConditionalExpression[@BeginLine = @EndLine]`）が単一行の三項を禁止する backstop。formatter が常に複数行化するため通常は発火しないが、整形を経ないコードでも単一行三項を検出する。
+- 両者は整合する（formatter の出力が PMD ルールを満たすため衝突しない）。ネスト三項も同様に条件を先頭・`?`／`:` を行頭にして段階的にインデントする。
+
 ### 統合チェック
 
 すべてのコード品質チェックとテストを実行:
