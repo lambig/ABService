@@ -16,6 +16,7 @@ import com.abservice.lib.ErrorResult;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.experimental.Accessors;
+import org.jspecify.annotations.Nullable;
 
 /**
  * イベント頒布情報 Value Object
@@ -31,7 +32,9 @@ import lombok.experimental.Accessors;
 public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
     private final EventName name;
     private final List<EventDateAndSpace> dateAndSpaces;
+    @Nullable
     private final String place;
+    @Nullable
     private final String note;
 
     @Override
@@ -60,9 +63,9 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      */
     private EventReleasedAt(
             EventName name,
-            List<EventDateAndSpace> dateAndSpaces,
-            String place,
-            String note) {
+            @Nullable List<EventDateAndSpace> dateAndSpaces,
+            @Nullable String place,
+            @Nullable String note) {
         Policy.<EventName>of(
                 Objects::nonNull,
                 () -> new ErrorResult(

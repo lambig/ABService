@@ -1,6 +1,7 @@
 package com.abservice.domain.model;
 
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 /**
  * すべてのドメインオブジェクトの基底インターフェース
@@ -41,7 +42,7 @@ public interface DomainObject<T extends DomainObject<T>> {
      * @param <R>
      *            絞り込む型
      */
-    static <R> Function<Object, R> asType(Class<R> type) {
+    static <R> Function<Object, @Nullable R> asType(Class<R> type) {
         return value -> type.isInstance(value)
                 ? type.cast(value)
                 : null;

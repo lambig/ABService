@@ -12,6 +12,7 @@ import java.util.function.Function;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.experimental.Accessors;
+import org.jspecify.annotations.Nullable;
 
 /**
  * イベント日付・スペース番号 Value Object
@@ -26,6 +27,7 @@ import lombok.experimental.Accessors;
 @EqualsAndHashCode
 public final class EventDateAndSpace implements ValueObject<EventDateAndSpace> {
     private final BusinessDate date;
+    @Nullable
     private final String spaceNumber;
 
     @Override
@@ -46,7 +48,7 @@ public final class EventDateAndSpace implements ValueObject<EventDateAndSpace> {
      * @param spaceNumber
      *            スペース番号（nullable、例：東A-01）
      */
-    private EventDateAndSpace(BusinessDate date, String spaceNumber) {
+    private EventDateAndSpace(BusinessDate date, @Nullable String spaceNumber) {
         Policy.<BusinessDate>of(
                 Objects::nonNull,
                 () -> new ErrorResult(
@@ -79,7 +81,7 @@ public final class EventDateAndSpace implements ValueObject<EventDateAndSpace> {
      *            スペース番号
      * @return EventDateAndSpace
      */
-    public static EventDateAndSpace of(BusinessDate date, String spaceNumber) {
+    public static EventDateAndSpace of(BusinessDate date, @Nullable String spaceNumber) {
         return new EventDateAndSpace(date, spaceNumber);
     }
 }

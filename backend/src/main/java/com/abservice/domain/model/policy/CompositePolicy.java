@@ -4,6 +4,7 @@ import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import java.util.List;
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 複数のポリシーを合成し、エラーを集約するポリシー。
@@ -24,7 +25,8 @@ final class CompositePolicy<T> implements Policy<T> {
     }
 
     @Override
-    public <R> Result<R> verify(T value, Function<? super T, ? extends R> constructor) {
+    @SuppressWarnings("NullAway") // 全ルール合格後に constructor を適用するため value は検証済み（述語→非null を NullAway は追跡不可）
+    public <R> Result<R> verify(@Nullable T value, Function<? super T, ? extends R> constructor) {
         final List<ErrorResult> errors = rules.stream().map(rule -> rule.verify(value, Function.identity()))
                 .flatMap(r -> r.errors().stream()).toList();
         return errors.isEmpty()

@@ -15,6 +15,7 @@ import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.lib.ErrorResult;
 import org.apache.commons.collections4.CollectionUtils;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 不参加確定イベント Value Object
@@ -50,7 +51,7 @@ import org.apache.commons.collections4.CollectionUtils;
  * @param reason
  *            不参加理由（必須）
  */
-public record DeclinedEvent(EventName name, List<BusinessDate> declinedDates, String place,
+public record DeclinedEvent(EventName name, List<BusinessDate> declinedDates, @Nullable String place,
         DeclineReason reason) implements EventToParticipate {
 
     /**

@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 値オブジェクトなどの生成前検証を表現するポリシー抽象。
@@ -37,7 +38,7 @@ public interface Policy<T> {
      * @param <R>
      *            生成される値の型
      */
-    <R> Result<R> verify(T value, Function<? super T, ? extends R> constructor);
+    <R> Result<R> verify(@Nullable T value, Function<? super T, ? extends R> constructor);
 
     /**
      * 単一の述語からポリシーを生成します。
