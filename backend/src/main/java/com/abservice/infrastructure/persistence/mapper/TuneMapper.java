@@ -2,6 +2,8 @@ package com.abservice.infrastructure.persistence.mapper;
 
 import java.util.Optional;
 
+import org.jspecify.annotations.Nullable;
+
 import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.tune.TuneKind;
@@ -28,7 +30,7 @@ public final class TuneMapper {
      *            TuneEntity
      * @return Tune
      */
-    public static Tune toDomain(TuneEntity entity) {
+    public static @Nullable Tune toDomain(@Nullable TuneEntity entity) {
         return switch (entity) {
             case null -> null;
             default -> Tune.reconstruct(
@@ -53,25 +55,19 @@ public final class TuneMapper {
      * @return TuneEntity
      */
     public static TuneEntity toEntity(Tune tune) {
-        return switch (tune) {
-            case null -> null;
-            default -> {
-                final var tuneEntity = new TuneEntity();
-                tuneEntity.setDomainId(tune.id().value());
-                tuneEntity.setTitle(tune.title().value());
-                tuneEntity.setTuneKind(tune.tuneKind().name());
-                tuneEntity.setDefaultComposerCredit(
-                        Optional.ofNullable(tune.defaultComposerCredit()).map(Credit::value).orElse(null));
-                tuneEntity.setDefaultArrangerCredit(
-                        Optional.ofNullable(tune.defaultArrangerCredit()).map(Credit::value).orElse(null));
-                tuneEntity.setOriginalWorkTitle(tune.originalWorkTitle());
-                tuneEntity.setOriginalWorkCredit(tune.originalWorkCredit());
-                tuneEntity.setTuneType(tune.tuneType());
-                tuneEntity.setDefaultKey(tune.defaultKey());
-                tuneEntity.setDefaultTempo(tune.defaultTempo());
-
-                yield tuneEntity;
-            }
-        };
+        final var tuneEntity = new TuneEntity();
+        tuneEntity.setDomainId(tune.id().value());
+        tuneEntity.setTitle(tune.title().value());
+        tuneEntity.setTuneKind(tune.tuneKind().name());
+        tuneEntity.setDefaultComposerCredit(
+                Optional.ofNullable(tune.defaultComposerCredit()).map(Credit::value).orElse(null));
+        tuneEntity.setDefaultArrangerCredit(
+                Optional.ofNullable(tune.defaultArrangerCredit()).map(Credit::value).orElse(null));
+        tuneEntity.setOriginalWorkTitle(tune.originalWorkTitle());
+        tuneEntity.setOriginalWorkCredit(tune.originalWorkCredit());
+        tuneEntity.setTuneType(tune.tuneType());
+        tuneEntity.setDefaultKey(tune.defaultKey());
+        tuneEntity.setDefaultTempo(tune.defaultTempo());
+        return tuneEntity;
     }
 }

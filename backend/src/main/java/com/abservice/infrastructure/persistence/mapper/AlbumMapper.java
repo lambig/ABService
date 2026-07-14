@@ -26,6 +26,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Album Mapper
@@ -47,7 +48,7 @@ public final class AlbumMapper {
      *            AlbumEntity
      * @return Album
      */
-    public static Album toDomain(AlbumEntity entity) {
+    public static @Nullable Album toDomain(@Nullable AlbumEntity entity) {
         return Optional.ofNullable(entity)
                 .map(
                         e -> Album.reconstruct(
@@ -72,7 +73,7 @@ public final class AlbumMapper {
                 .orElseGet(Collections::emptyList);
     }
 
-    private static EventReleasedAt buildEventReleasedAt(AlbumEntity entity) {
+    private static @Nullable EventReleasedAt buildEventReleasedAt(AlbumEntity entity) {
         return Optional.ofNullable(entity.getEventName()).map(eventName -> {
             final var dateAndSpaces = extractDateAndSpaces(entity);
             return EventReleasedAt.of(
@@ -83,7 +84,7 @@ public final class AlbumMapper {
         }).orElse(null);
     }
 
-    private static List<EventDateAndSpace> extractDateAndSpaces(AlbumEntity entity) {
+    private static @Nullable List<EventDateAndSpace> extractDateAndSpaces(AlbumEntity entity) {
         return Optional.ofNullable(entity.getEventDateSpaces()).filter(not(List::isEmpty))
                 .map(
                         list -> list.stream()
@@ -105,17 +106,15 @@ public final class AlbumMapper {
      * @return AlbumEntity
      */
     public static AlbumEntity toEntity(Album album) {
-        return Optional.ofNullable(album).map(a -> {
-            final var albumEntity = new AlbumEntity();
-            albumEntity.setDomainId(a.id().value());
-            albumEntity.setTitle(a.title().value());
-            albumEntity.setReleaseDate(a.releaseDate().asLocalDate());
-            setArtistCreditFields(albumEntity, a.artistCredit());
-            Optional.ofNullable(a.eventReleasedAt()).ifPresent(event -> populateEventFields(albumEntity, event));
-            setCatalogFields(albumEntity, a);
-            setTracksField(albumEntity, a);
-            return albumEntity;
-        }).orElse(null);
+        final var albumEntity = new AlbumEntity();
+        albumEntity.setDomainId(album.id().value());
+        albumEntity.setTitle(album.title().value());
+        albumEntity.setReleaseDate(album.releaseDate().asLocalDate());
+        setArtistCreditFields(albumEntity, album.artistCredit());
+        Optional.ofNullable(album.eventReleasedAt()).ifPresent(event -> populateEventFields(albumEntity, event));
+        setCatalogFields(albumEntity, album);
+        setTracksField(albumEntity, album);
+        return albumEntity;
     }
 
     private static void setArtistCreditFields(AlbumEntity entity, ArtistCredit credit) {
@@ -171,7 +170,7 @@ public final class AlbumMapper {
      *            TrackEntity
      * @return Track
      */
-    private static Track trackToDomain(TrackEntity entity) {
+    private static @Nullable Track trackToDomain(TrackEntity entity) {
         return Optional.ofNullable(entity)
                 .map(
                         e -> Track.reconstruct(
@@ -186,7 +185,7 @@ public final class AlbumMapper {
                 .orElse(null);
     }
 
-    private static ArtistCredit buildTrackArtistCredit(TrackEntity entity) {
+    private static @Nullable ArtistCredit buildTrackArtistCredit(TrackEntity entity) {
         return Optional.ofNullable(entity.getArtistDisplayName())
                 .map(name -> ArtistCredit.of(name, entity.getArtistSortKey())).orElse(null);
     }
@@ -206,7 +205,7 @@ public final class AlbumMapper {
      *            親のAlbumEntity
      * @return TrackEntity
      */
-    private static TrackEntity trackToEntity(Track track, AlbumEntity albumEntity) {
+    private static @Nullable TrackEntity trackToEntity(@Nullable Track track, AlbumEntity albumEntity) {
         return Optional.ofNullable(track).map(t -> {
             final var trackEntity = new TrackEntity();
             trackEntity.setDomainId(t.id().value());
@@ -243,7 +242,7 @@ public final class AlbumMapper {
      *            TrackTuneEntity
      * @return TrackTune
      */
-    private static TrackTune trackTuneToDomain(TrackTuneEntity entity) {
+    private static @Nullable TrackTune trackTuneToDomain(TrackTuneEntity entity) {
         return Optional.ofNullable(entity)
                 .map(
                         e -> TrackTune.reconstruct(
@@ -264,7 +263,7 @@ public final class AlbumMapper {
      *            親のTrackEntity
      * @return TrackTuneEntity
      */
-    private static TrackTuneEntity trackTuneToEntity(TrackTune trackTune, TrackEntity trackEntity) {
+    private static @Nullable TrackTuneEntity trackTuneToEntity(@Nullable TrackTune trackTune, TrackEntity trackEntity) {
         return Optional.ofNullable(trackTune).map(tt -> {
             final var trackTuneEntity = new TrackTuneEntity();
             trackTuneEntity.setId(new TrackTuneId(trackEntity.getTrackId(), tt.seq()));

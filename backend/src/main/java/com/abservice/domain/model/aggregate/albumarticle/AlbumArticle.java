@@ -16,6 +16,7 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.With;
 import lombok.experimental.Accessors;
+import org.jspecify.annotations.Nullable;
 
 /**
  * アルバム記事集約ルート
@@ -32,10 +33,15 @@ import lombok.experimental.Accessors;
 public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
     @EqualsAndHashCode.Include
     private final Album.Id albumId; // Album集約への参照（IDのみ）
+    @Nullable
     private final String introLong; // nullable: 記事本文としての紹介コメント
+    @Nullable
     private final String introShort; // nullable: お品書き用のショートコメント
+    @Nullable
     private final String firstEventSpace; // nullable: 初出イベントのスペース（例: "東X-00b"）
+    @Nullable
     private final LabelTag labelTag; // nullable: お品書き用ラベル
+    @Nullable
     private final AlbumDistribution distribution; // nullable: 頒布情報
     private final List<AlbumAcquisitionChannel> acquisitionChannels; // 入手経路
 
@@ -56,8 +62,8 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      *            頒布情報（nullable）
      * @return 新規AlbumArticle
      */
-    public static AlbumArticle create(Album.Id albumId, String introLong, String introShort, String firstEventSpace,
-            LabelTag labelTag, AlbumDistribution distribution) {
+    public static AlbumArticle create(Album.Id albumId, @Nullable String introLong, @Nullable String introShort,
+            @Nullable String firstEventSpace, @Nullable LabelTag labelTag, @Nullable AlbumDistribution distribution) {
         Optional.ofNullable(albumId).orElseThrow(() -> new IllegalArgumentException("Album ID cannot be null"));
         return new AlbumArticle(albumId, introLong, introShort, firstEventSpace, labelTag, distribution,
                 Collections.emptyList());
@@ -83,8 +89,8 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      * @return 再構成されたAlbumArticle
      */
     @SuppressWarnings("checkstyle:ParameterNumber") // 永続化からの再構成で全項目を受け取るため引数が多い
-    public static AlbumArticle reconstruct(Album.Id albumId, String introLong, String introShort,
-            String firstEventSpace, LabelTag labelTag, AlbumDistribution distribution,
+    public static AlbumArticle reconstruct(Album.Id albumId, @Nullable String introLong, @Nullable String introShort,
+            @Nullable String firstEventSpace, @Nullable LabelTag labelTag, @Nullable AlbumDistribution distribution,
             List<AlbumAcquisitionChannel> acquisitionChannels) {
         return new AlbumArticle(albumId, introLong, introShort, firstEventSpace, labelTag, distribution,
                 acquisitionChannels);
@@ -99,7 +105,7 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      *            新しいショートコメント
      * @return 更新されたAlbumArticle
      */
-    public AlbumArticle updateIntro(String newIntroLong, String newIntroShort) {
+    public AlbumArticle updateIntro(@Nullable String newIntroLong, @Nullable String newIntroShort) {
         return withIntroLong(newIntroLong).withIntroShort(newIntroShort);
     }
 
@@ -110,7 +116,7 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      *            新しいイベントスペース
      * @return 更新されたAlbumArticle
      */
-    public AlbumArticle changeFirstEventSpace(String newFirstEventSpace) {
+    public AlbumArticle changeFirstEventSpace(@Nullable String newFirstEventSpace) {
         return withFirstEventSpace(newFirstEventSpace);
     }
 
@@ -121,7 +127,7 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      *            新しいラベルタグ
      * @return 更新されたAlbumArticle
      */
-    public AlbumArticle updateLabelTag(LabelTag newLabelTag) {
+    public AlbumArticle updateLabelTag(@Nullable LabelTag newLabelTag) {
         return withLabelTag(newLabelTag);
     }
 
@@ -132,7 +138,7 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      *            新しい頒布情報
      * @return 更新されたAlbumArticle
      */
-    public AlbumArticle setDistribution(AlbumDistribution newDistribution) {
+    public AlbumArticle setDistribution(@Nullable AlbumDistribution newDistribution) {
         return withDistribution(newDistribution);
     }
 

@@ -1,5 +1,7 @@
 package com.abservice.infrastructure.persistence;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * 監査情報を保持するデータクラス
  * <p>
@@ -11,7 +13,7 @@ package com.abservice.infrastructure.persistence;
  * @param userId
  *            操作を実行したユーザーID（外部サービスのユーザーID、例: Cognito User ID）
  */
-public record AuditInfo(String serviceName, String userId) {
+public record AuditInfo(@Nullable String serviceName, @Nullable String userId) {
     /**
      * サービス名のみを指定してAuditInfoを作成するファクトリメソッド
      *
