@@ -29,27 +29,28 @@ import io.smallrye.mutiny.Uni;
  *     private final CatalogNumberUniquenessService catalogNumberUniquenessService;
  *
  *     public record CreateParams(
- *         String title,
- *         String catalogNumber,
- *         String artistName
- *     ) implements Factory.Params {}
+ *             String title,
+ *             String catalogNumber,
+ *             String artistName) implements Factory.Params {
+ *     }
  *
  *     &#64;Override
  *     public Uni<Album> create(CreateParams params) {
  *         CatalogNumber catalogNumber = CatalogNumber.of(params.catalogNumber());
+ *         Album album = Album.create(
+ *                 AlbumTitle.of(params.title()),
+ *                 catalogNumber,
+ *                 ArtistCredit.of(params.artistName()));
  *
+ *         // 一意なら生成結果、重複なら失敗Uniへ分岐（if文・命令的分岐を使わない）
  *         return catalogNumberUniquenessService.isCatalogNumberUnique(catalogNumber, null)
- *             .onItem().transform(isUnique -> {
- *                 if (!isUnique) {
- *                     throw new CatalogNumberAlreadyExistsException(catalogNumber);
- *                 }
- *
- *                 return Album.create(
- *                     title: AlbumTitle.of(params.title()),
- *                     catalogNumber: catalogNumber,
- *                     artistCredit: ArtistCredit.of(params.artistName())
- *                 );
- *             });
+ *                 .onItem().transformToUni(
+ *                         isUnique -> Optional.of(isUnique)
+ *                                 .filter(Boolean::booleanValue)
+ *                                 .map(unique -> Uni.createFrom().item(album))
+ *                                 .orElseGet(
+ *                                         () -> Uni.createFrom()
+ *                                                 .failure(new CatalogNumberAlreadyExistsException(catalogNumber))));
  *     }
  * }
  * }
