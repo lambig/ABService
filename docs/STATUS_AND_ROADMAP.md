@@ -20,7 +20,7 @@
 | **プレゼンテーション層** | 🔴 未着手 | サンプル `GreetingResource` / `HealthResource` / `CircleMemberResource` のみ。集約向けRESTエンドポイント・DTO・ExceptionMapperなし |
 | **共通基盤（lib）** | 🟢 完成 | `Result`（combinator `map`/`flatMap`/`zip` 含む）/ `ErrorResult` を実装。ドメイン例外階層（`DomainException` 抽象基底 + `ValidationException`/`EntityNotFoundException`/`BusinessRuleViolationException`）も整備済み |
 | **テスト** | 🟡 ユニット充実・統合が薄い | ユニット31クラス（VO/集約/エンティティ）。統合テストは `AlbumRepositoryImplTest` と `SystemBusinessDateTimeProviderTest` の2本のみ |
-| **静的解析** | 🟢 多層 | Checkstyle + Spotless + PMD + ArchUnit 稼働。レイヤ依存方向・配置・戻り値契約・機能的スタイルを強制（§7.3: Java 相当21件を全件強制）。SpotBugs は 4.10.2 で Java25 対応済みだが未導入（PMD 組込ルールセットと共に再導入はフェーズD で検討＝§6-17） |
+| **静的解析** | 🟢 多層 | Checkstyle + Spotless + PMD + ArchUnit + NullAway 稼働。レイヤ依存方向・配置・戻り値契約・機能的スタイルを強制（§7.3: Java 相当21件を全件強制）。NullAway は `@NullMarked` パッケージのコンパイル時 null 安全を強制（§5.1。現状 `album` から段階導入）。SpotBugs は 4.10.2 で Java25 対応済みだが未導入（PMD 組込ルールセットと共に再導入はフェーズD で検討＝§6-17） |
 | **フロントエンド** | ⬜ 未調査 | `frontend-admin`（Svelte）/ `frontend-public`（Svelte+Astro）。本ドキュメントの対象外 |
 
 **一言でいうと**: ドメイン＋永続化基盤は固まっており、次に積むべきは **アプリケーション層（ユースケース）→ プレゼンテーション層（REST）** の縦の1本通しと、それを支える **エラー設計・統合テスト・アーキテクチャ制約** です。
@@ -103,9 +103,13 @@ DomainException (abstract, errorCode付き)
 
 ## 5. 残タスク棚卸し（全体）
 
-### 5.1 JSpecify nullability 移行（`JSPECIFY_MIGRATION_PLAN.md`）
+### 5.1 JSpecify nullability 移行（NullAway で enforce）
 
-import 済み 11 件から進んでおらず残多数（集約 `AlbumArticle`・集約内エンティティ・VO 大半・infra 層が未対応）。詳細と進め方は #44。
+**方針**: パッケージ既定を null-hostile にする `@NullMarked`（package-info.java）＋例外への `@Nullable` を、**NullAway でコンパイル時強制**する。`@NullMarked` スコープ駆動（`NullAway:OnlyNullMarked`）でパッケージ単位に段階 enforce する。詳細と進め方は #44。
+
+- **強制エンジン**: NullAway（ErrorProne プラグイン）。`main` のみ対象、test/integrationTest は対象外。JPA エンティティ（`@Entity`/`@MappedSuperclass`/`@Embeddable`）は初期化検査から除外。Lombok 生成コードは `@lombok.Generated`（`lombok.config` で明示）で NullAway がスキップするため誤検知なし。
+- **バージョン固定（管理下の一時的負債）**: `error_prone_core 2.39.0` + `nullaway 0.12.7`（`net.ltgt.errorprone 5.1.0`）。NullAway は ErrorProne 内部 API に密結合するため両者を揃える。最新 `error_prone_core 2.50.0` は API 変更で NullAway 0.12.7 と非互換。**昇格トリガ**: NullAway が 2.50 系対応版を出したら両者 bump。**JDK 追随ラグの保険**: 将来 JDK 更新で 2.39.0 が壊れ NullAway 未対応の期間は NullAway を一時 WARN（非ゲート）へ。**退避路**: JSpecify アノテーションはツール非依存のため、必要なら Checker Framework へアノテーション変更なしで差し替え可能。
+- **進捗**: ハーネス導入済み（PR0）。`@NullMarked` 済み = `domain.model.aggregate.album`（違反0で ERROR 強制）。残: domain 他パッケージ→infra を package-info で順次マークし、各パッケージの実 nullness 違反を `@Nullable` で修正しながら拡大。既存の明示 `@NonNull`（11ファイル）は `@NullMarked` 既定に寄せて順次除去。
 
 ### 5.2 ユニット/統合テスト（`UNIT_TEST_PLAN.md`）
 
