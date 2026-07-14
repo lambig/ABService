@@ -110,7 +110,7 @@ DomainException (abstract, errorCode付き)
 - **強制エンジン**: NullAway（ErrorProne プラグイン）。`main` のみ対象、test/integrationTest は対象外。Lombok 生成コードは `@lombok.Generated`（`lombok.config` で明示）で NullAway がスキップし、`lombok.copyableAnnotations` で `@Nullable` を生成物（getter/wither/コンストラクタ引数）へ伝播させる。
 - **JPA エンティティは `@NullMarked` の対象外**: `..persistence.entity..` は Hibernate がリフレクションで populate するフレームワークデータ保持体で、nullable 列が多く nullness 強制の価値が低くノイズが高いため package-info を置かない（標準的判断）。`@Entity`/`@MappedSuperclass`/`@Embeddable` は NullAway 設定でも初期化検査から除外。
 - **バージョン固定（管理下の一時的負債）**: `error_prone_core 2.39.0` + `nullaway 0.12.7`（`net.ltgt.errorprone 5.1.0`）。NullAway は ErrorProne 内部 API に密結合するため両者を揃える。最新 `error_prone_core 2.50.0` は API 変更で NullAway 0.12.7 と非互換。**昇格トリガ**: NullAway が 2.50 系対応版を出したら両者 bump。**JDK 追随ラグの保険**: 将来 JDK 更新で 2.39.0 が壊れ NullAway 未対応の期間は NullAway を一時 WARN（非ゲート）へ。**退避路**: JSpecify アノテーションはツール非依存のため、必要なら Checker Framework へアノテーション変更なしで差し替え可能。
-- **進捗**: ハーネス導入済み（PR0）。**domain 層（PR1）・infrastructure 層（PR2）を `@NullMarked` 済み**（NullAway ERROR で強制、違反0）。infrastructure は datetime・persistence・datasource・mapper・repository をマーク（`..persistence.entity..` は上記理由で対象外）。Mapper の実 nullable データフロー（nullable 列 ⇔ nullable ドメインフィールド）を `@Nullable` で表現、`toEntity` は非 null 集約→非 null エンティティに整理。残: lib/application/root の統一（任意、PR3）。既存の明示 `@NonNull`（旧11ファイル）は `@NullMarked` 既定に寄せて順次除去（現状は残置＝無害）。
+- **進捗**: 🟢 **移行完了**。ハーネス導入（PR0）→ domain 層（PR1）→ infrastructure 層（PR2）→ lib/application/ルート（PR3）と `@NullMarked` を全層へ展開し、**`main` 全体（`..persistence.entity..` を除く）を NullAway ERROR で強制**（違反0）。Mapper の実 nullable データフロー（nullable 列 ⇔ nullable ドメインフィールド）を `@Nullable` で表現、`toEntity` は非 null 集約→非 null エンティティに整理。残作業: 既存の明示 `@NonNull`（旧11ファイル）は `@NullMarked` 既定に対し冗長のため任意で順次除去（現状は残置＝無害）。
 
 ### 5.2 ユニット/統合テスト（`UNIT_TEST_PLAN.md`）
 
@@ -158,7 +158,7 @@ DomainException (abstract, errorCode付き)
 
 ### フェーズ D: 品質ゲート
 14. **ArchUnit 残ルールの点検**（§7.2）: 命名・配置・戻り値型契約はフェーズAで先行導入済み（§7.1 の原則により規約ベースで先行できるもの）。フェーズDで新たに追加するのは、§2 の規約だけでは述語を書けず**具体実装がないと表現できない**真に構造依存なルールに限る（原則として想定なし。必要が生じた時点で判断）。テスト規約のうち `@DisplayName` 必須は `TestConventionsArchTest`、AssertJ 統一は Checkstyle で強制済み
-15. JSpecify 移行の続行（§5.1、集約→エンティティ→VO→infra の順）
+15. 🟢 完了: JSpecify 移行（§5.1）。`@NullMarked` を全層へ展開し NullAway ERROR で強制（`..persistence.entity..` を除く）
 16. DataSource 統合テスト（Phase 9）、カバレッジ計測（JaCoCo導入検討）
 17. **SpotBugs / PMD 組込ルールセットの再導入検討**: SpotBugs 4.10.2（Gradle plugin 6.5.8）は Java25 対応済み。errorprone/バグパターン系を SpotBugs で、errorprone/collection/security 系を PMD 組込ルールセットで補う。本プロジェクト固有の規約26ルール（§7.3）とは別系統で、導入時に新規顕在化する違反の段階是正・除外スコープ設計が要る。品質ゲート＝ポリシー変更のため都度承認のうえ実施
 
