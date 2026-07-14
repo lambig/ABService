@@ -111,10 +111,12 @@ cd backend
 
 ABServiceでは以下のLinting/フォーマットツールを使用しています：
 
-- **Checkstyle**: Google Java Style Guideに基づくコードスタイルチェック
+- **Checkstyle**: Google Java Style Guideに基づくコードスタイルチェック＋独自ルール
 - **Spotless**: 自動コードフォーマッタ（Eclipse JDT）
+- **PMD**: 独自XPathルール（機能的スタイル強制）＋組込の不要変数検出
+- **ArchUnit**: アーキテクチャ制約（レイヤー依存方向・配置・戻り値契約など）をテストで強制
 
-> **注意**: SpotBugsはJava 25との互換性問題により現在無効化されています。Java 25対応版がリリースされ次第、再度有効化する予定です。
+> **注意**: SpotBugs は現在未導入です（4.10.2 で Java25 対応済み。再導入はロードマップのフェーズD で検討）。
 
 #### コード品質チェック
 
@@ -149,7 +151,7 @@ ABServiceでは以下のLinting/フォーマットツールを使用していま
 ```
 
 **導入されるhooks:**
-- `pre-commit`: コード整形とCheckstyleを実行
+- `pre-commit`: 品質ゲート（Spotless / Checkstyle / PMD / ユニット+ArchUnit テスト）を実行
 - `pre-push`: ビルドとテストを実行
 
 **Hooksをスキップする場合（非推奨）:**
@@ -163,10 +165,11 @@ git push --no-verify
 コード品質チェックのレポートは以下に生成されます：
 
 - Checkstyle: `backend/build/reports/checkstyle/`
+- PMD: `backend/build/reports/pmd/`
 - Spotless: コンソール出力
 
 #### SpotBugsについて
 
-⚠️ SpotBugsは現在Java 25のバイトコード(major version 69)に対応していないため、このプロジェクトでは使用していません。
-- 最新版: 4.9.8 (2024年10月)
-- Java 25でのビルドはサポートされていますが、実行時の解析は未対応です
+SpotBugs は現在このプロジェクトでは未導入です。
+- 最新版 4.10.2（2026-06）は Java 25 に対応済み（ASM 9.8 / BCEL 6.11）。Gradle plugin は 6.5.8。
+- 再導入（PMD 組込ルールセットと併せた errorprone/バグパターン検出）はロードマップのフェーズD で検討する。
