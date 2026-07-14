@@ -17,6 +17,7 @@ import com.abservice.domain.model.vo.common.EventDateAndSpace;
 import com.abservice.lib.ErrorResult;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 確定イベント Value Object
@@ -41,7 +42,7 @@ import org.apache.commons.lang3.StringUtils;
  *            会場（nullable、例：東京ビッグサイト）
  */
 public record ConfirmedEvent(EventName name, List<EventDateAndSpace> dateAndSpaces,
-        String place) implements EventToParticipate {
+        @Nullable String place) implements EventToParticipate {
 
     /**
      * コンストラクタ

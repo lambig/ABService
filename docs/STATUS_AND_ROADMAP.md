@@ -109,7 +109,7 @@ DomainException (abstract, errorCode付き)
 
 - **強制エンジン**: NullAway（ErrorProne プラグイン）。`main` のみ対象、test/integrationTest は対象外。JPA エンティティ（`@Entity`/`@MappedSuperclass`/`@Embeddable`）は初期化検査から除外。Lombok 生成コードは `@lombok.Generated`（`lombok.config` で明示）で NullAway がスキップするため誤検知なし。
 - **バージョン固定（管理下の一時的負債）**: `error_prone_core 2.39.0` + `nullaway 0.12.7`（`net.ltgt.errorprone 5.1.0`）。NullAway は ErrorProne 内部 API に密結合するため両者を揃える。最新 `error_prone_core 2.50.0` は API 変更で NullAway 0.12.7 と非互換。**昇格トリガ**: NullAway が 2.50 系対応版を出したら両者 bump。**JDK 追随ラグの保険**: 将来 JDK 更新で 2.39.0 が壊れ NullAway 未対応の期間は NullAway を一時 WARN（非ゲート）へ。**退避路**: JSpecify アノテーションはツール非依存のため、必要なら Checker Framework へアノテーション変更なしで差し替え可能。
-- **進捗**: ハーネス導入済み（PR0）。`@NullMarked` 済み = `domain.model.aggregate.album`（違反0で ERROR 強制）。残: domain 他パッケージ→infra を package-info で順次マークし、各パッケージの実 nullness 違反を `@Nullable` で修正しながら拡大。既存の明示 `@NonNull`（11ファイル）は `@NullMarked` 既定に寄せて順次除去。
+- **進捗**: ハーネス導入済み（PR0）。**domain 層全体を `@NullMarked` 済み**（model/aggregate/entity/vo/policy・repository・service・factory・exception。NullAway ERROR で強制、違反0）。残: infrastructure 層（Mapper/RepositoryImpl/Entity/DataSource）を package-info で順次マークし、実 nullness 違反を `@Nullable` で修正しながら拡大。既存の明示 `@NonNull`（旧11ファイル）は `@NullMarked` 既定に寄せて順次除去（現状は残置＝無害）。
 
 ### 5.2 ユニット/統合テスト（`UNIT_TEST_PLAN.md`）
 

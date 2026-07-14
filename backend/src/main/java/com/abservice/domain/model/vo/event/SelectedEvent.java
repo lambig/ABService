@@ -15,6 +15,7 @@ import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.lib.ErrorResult;
 import org.apache.commons.collections4.CollectionUtils;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 当選イベント（スペース未確定） Value Object
@@ -51,7 +52,7 @@ import org.apache.commons.collections4.CollectionUtils;
  *            会場（nullable）
  */
 public record SelectedEvent(EventName name, List<BusinessDate> selectedDates, List<BusinessDate> declinedDates,
-        String place) implements EventToParticipate {
+        @Nullable String place) implements EventToParticipate {
 
     /**
      * コンストラクタ

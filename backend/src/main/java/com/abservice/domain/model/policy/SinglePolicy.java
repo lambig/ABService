@@ -5,6 +5,7 @@ import com.abservice.lib.Result;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 単一の述語を評価するポリシー。
@@ -28,7 +29,8 @@ final class SinglePolicy<T> implements Policy<T> {
     }
 
     @Override
-    public <R> Result<R> verify(T value, Function<? super T, ? extends R> constructor) {
+    @SuppressWarnings("NullAway") // predicate 合格後に constructor を適用するため value は検証済み（述語→非null を NullAway は追跡不可）
+    public <R> Result<R> verify(@Nullable T value, Function<? super T, ? extends R> constructor) {
         return predicate.test(value)
                 ? Result.success(constructor.apply(value))
                 : Result.failure(errorSupplier.get());
