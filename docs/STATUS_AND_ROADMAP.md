@@ -20,7 +20,7 @@
 | **プレゼンテーション層** | 🔴 未着手 | サンプル `GreetingResource` / `HealthResource` / `CircleMemberResource` のみ。集約向けRESTエンドポイント・DTO・ExceptionMapperなし |
 | **共通基盤（lib）** | 🟢 完成 | `Result`（combinator `map`/`flatMap`/`zip` 含む）/ `ErrorResult` を実装。ドメイン例外階層（`DomainException` 抽象基底 + `ValidationException`/`EntityNotFoundException`/`BusinessRuleViolationException`）も整備済み |
 | **テスト** | 🟡 ユニット充実・統合が薄い | ユニット31クラス（VO/集約/エンティティ）。統合テストは `AlbumRepositoryImplTest` と `SystemBusinessDateTimeProviderTest` の2本のみ |
-| **静的解析** | 🟢 多層 | Checkstyle + Spotless + PMD + ArchUnit 稼働。レイヤ依存方向・配置・戻り値契約・機能的スタイルを強制（§7.3: Java 相当21件を全件強制）。SpotBugs は Java25非対応で無効 |
+| **静的解析** | 🟢 多層 | Checkstyle + Spotless + PMD + ArchUnit 稼働。レイヤ依存方向・配置・戻り値契約・機能的スタイルを強制（§7.3: Java 相当21件を全件強制）。SpotBugs は 4.10.2 で Java25 対応済みだが未導入（PMD 組込ルールセットと共に再導入はフェーズD で検討＝§6-17） |
 | **フロントエンド** | ⬜ 未調査 | `frontend-admin`（Svelte）/ `frontend-public`（Svelte+Astro）。本ドキュメントの対象外 |
 
 **一言でいうと**: ドメイン＋永続化基盤は固まっており、次に積むべきは **アプリケーション層（ユースケース）→ プレゼンテーション層（REST）** の縦の1本通しと、それを支える **エラー設計・統合テスト・アーキテクチャ制約** です。
@@ -155,6 +155,7 @@ import 済み 11 件から進んでおらず残多数（集約 `AlbumArticle`・
 14. **ArchUnit 残ルールの点検**（§7.2）: 命名・配置・戻り値型契約はフェーズAで先行導入済み（§7.1 の原則により規約ベースで先行できるもの）。フェーズDで新たに追加するのは、§2 の規約だけでは述語を書けず**具体実装がないと表現できない**真に構造依存なルールに限る（原則として想定なし。必要が生じた時点で判断）。テスト規約のうち `@DisplayName` 必須は `TestConventionsArchTest`、AssertJ 統一は Checkstyle で強制済み
 15. JSpecify 移行の続行（§5.1、集約→エンティティ→VO→infra の順）
 16. DataSource 統合テスト（Phase 9）、カバレッジ計測（JaCoCo導入検討）
+17. **SpotBugs / PMD 組込ルールセットの再導入検討**: SpotBugs 4.10.2（Gradle plugin 6.5.8）は Java25 対応済み。errorprone/バグパターン系を SpotBugs で、errorprone/collection/security 系を PMD 組込ルールセットで補う。本プロジェクト固有の規約26ルール（§7.3）とは別系統で、導入時に新規顕在化する違反の段階是正・除外スコープ設計が要る。品質ゲート＝ポリシー変更のため都度承認のうえ実施
 
 ---
 
