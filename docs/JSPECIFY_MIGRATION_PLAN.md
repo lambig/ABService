@@ -1,8 +1,8 @@
 # JSpecify Nullability Annotations Migration Plan
 
-> ⚠️ **進捗の正は [STATUS_AND_ROADMAP.md](STATUS_AND_ROADMAP.md) §5.1 を参照。**
-> このドキュメントは方針・改修パターンのリファレンスです。以下「進捗状況」節の記載は当時のものです。
-> 2026-07-06 の実コード検証では、jspecify を import している domain クラスは **11件**（`Album`, `Track`, `Article`, `Tune`, `ArticleTag`, `CatalogNumber`, `AlbumTitle`, `TuneTitle`, `Credit`, `ArtistCredit`, `MarkupContent`）で、当時からほぼ進んでいません。`AlbumArticle` 集約・集約内エンティティ・大半のVO・infrastructure/application層は未対応です。
+> ⚠️ **方針・進捗の正は [STATUS_AND_ROADMAP.md](STATUS_AND_ROADMAP.md) §5.1 を参照。**
+> **本ドキュメントの方針記述は旧版で、現行方針に置き換わっている**（下記「方針」「技術的背景」「進捗状況」節は当時のもの）。
+> 現行方針: 要素ごとの明示 `@NonNull` ではなく **`@NullMarked`（package-info）＋例外への `@Nullable`** を採用し、**NullAway でコンパイル時強制**する（`@NullMarked` スコープ駆動で段階導入）。旧版が「LombokとNullAwayの互換性問題のため NullAway は使わない」としていた前提は、Lombok 1.18.34+ が `@lombok.Generated` を既定付与し NullAway が生成コードをスキップするため**解消済み**。改修時の実行時 null チェックは Policy/Optional スタイル（旧版の `if`+throw 例はハーネス（`ForbiddenIfStatement`）で禁止のため踏襲しない）。
 
 ## 概要
 

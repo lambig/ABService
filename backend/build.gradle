@@ -4,6 +4,7 @@ plugins {
     id 'checkstyle'
     id 'pmd'
     id 'com.diffplug.spotless' version '7.0.2'
+    id 'net.ltgt.errorprone' version '5.1.0'
 }
 
 repositories {
@@ -54,6 +55,13 @@ dependencies {
 
     // ArchUnit（アーキテクチャ制約の強制。レイヤー/依存/命名ルールをテストで検証）
     testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.2'
+
+    // NullAway（コンパイル時 null 安全チェッカ。ErrorProne プラグインとして動作）。
+    // バージョン固定の理由: NullAway は ErrorProne 内部 API に密結合するため両者を揃える。
+    // nullaway 0.12.7（最新）は error_prone_core 2.39.0 に対応。最新の 2.50.0 は API 変更で非互換。
+    // 昇格トリガ: NullAway が error_prone_core 2.50 系対応版を出したら両者を bump する。
+    errorprone 'com.google.errorprone:error_prone_core:2.39.0'
+    errorprone 'com.uber.nullaway:nullaway:0.12.7'
 }
 
 group = 'com.abservice'
@@ -76,6 +84,38 @@ test {
 compileJava {
     options.encoding = 'UTF-8'
     options.compilerArgs << '-parameters'
+
+    // NullAway: @NullMarked なコードのみを対象にコンパイル時 null 安全を強制する。
+    // OnlyNullMarked=true により未マークのパッケージは対象外＝package-info を追加した
+    // パッケージから段階的に enforce できる。他の ErrorProne チェックは無効化。
+    // JPA エンティティ（Hibernate がリフレクションで設定）は初期化検査から除外。
+    options.errorprone {
+        disableAllChecks = true
+        check('NullAway', net.ltgt.gradle.errorprone.CheckSeverity.ERROR)
+        option('NullAway:OnlyNullMarked', 'true')
+        option('NullAway:JSpecifyMode', 'true')
+        option('NullAway:ExcludedClassAnnotations',
+                'jakarta.persistence.Entity,jakarta.persistence.MappedSuperclass,jakarta.persistence.Embeddable')
+    }
+    // ErrorProne は JDK 16+ で javac 内部 API へのアクセスに exports/opens が要る（JEP 396）。
+    options.forkOptions.jvmArgs += [
+        '--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED',
+        '--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED',
+        '--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED',
+        '--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED',
+        '--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED',
+        '--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED',
+        '--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED',
+        '--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED',
+        '--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED',
+        '--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED'
+    ]
+}
+
+// NullAway は本番コード（main）にのみ適用する。test/integrationTest では無効化。
+tasks.named('compileTestJava') { options.errorprone.enabled = false }
+tasks.matching { it.name == 'compileIntegrationTestJava' }.configureEach {
+    options.errorprone.enabled = false
 }
 
 compileTestJava {
