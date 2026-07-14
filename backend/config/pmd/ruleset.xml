@@ -104,6 +104,44 @@
         </properties>
     </rule>
 
+    <rule name="RequireValidationInDomainValueRecordConstructor"
+          language="java"
+          message="ドメインモデルの値型 record（ValueObject / EntityId 実装）のコンストラクタ/コンパクトコンストラクタは Policy 経由で検証してください（verify / zip / combine / nested / failure のいずれかを含める。他コンストラクタへ委譲する場合は this(...)）。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            ドメインモデル（com.abservice.domain.model 配下）の値型を表す record、
+            すなわち ValueObject または EntityId を実装する record のコンストラクタ/
+            コンパクトコンストラクタが、検証インジケータ（verify / zip / combine / nested /
+            failure）を 1 つも含まない場合に違反とする。record は言語制約上 canonical
+            constructor を private 化できず ArchUnit の可視性ルール
+            （domainModelConstructorsShouldNotBePublic）が record を除外するため、その
+            補集合（＝ドメインモデルの値型 record）を検証必須で機械的に覆い、「検証を
+            経ないインスタンス生成」を型階層で禁止する。RequirePolicyValidationIn
+            ValueObjectConstructor（..vo.. パッケージscope）を型階層scopeで補完し、
+            EntityId record（集約/エンティティ配下のネスト record）も同一条件で覆う。
+            他コンストラクタへ委譲する（this(...) を含む）ものは対象外。不変条件を持た
+            ない値型 record はコンパクトコンストラクタを宣言しなければよい（暗黙の正準
+            コンストラクタは AST ノードを持たず対象外）。検証ロジックの意味的正しさは
+            静的解析では担保できずユニットテストの責務（private ctor + ファクトリ方式でも
+            同一の残差）。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+(//ConstructorDeclaration | //CompactConstructorDeclaration)
+    [/CompilationUnit/PackageDeclaration[starts-with(@Name, "com.abservice.domain.model")]]
+    [ancestor::RecordDeclaration[1][.//ClassType[@SimpleName = ("ValueObject", "EntityId")]
+        [not(ancestor::CompactConstructorDeclaration)]
+        [not(ancestor::ConstructorDeclaration)]
+        [not(ancestor::MethodDeclaration)]]]
+    [not(.//ExplicitConstructorInvocation)]
+    [not(.//MethodCall[@MethodName = ("verify", "zip", "combine", "nested", "failure", "fromInput")])]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
     <rule name="ForbiddenSwitchStatement"
           language="java"
           message="switch 文は禁止です。値を返す分岐は switch 式（return switch(...)）にしてください。"

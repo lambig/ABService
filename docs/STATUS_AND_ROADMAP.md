@@ -20,7 +20,7 @@
 | **プレゼンテーション層** | 🔴 未着手 | サンプル `GreetingResource` / `HealthResource` / `CircleMemberResource` のみ。集約向けRESTエンドポイント・DTO・ExceptionMapperなし |
 | **共通基盤（lib）** | 🟢 完成 | `Result`（combinator `map`/`flatMap`/`zip` 含む）/ `ErrorResult` を実装。ドメイン例外階層（`DomainException` 抽象基底 + `ValidationException`/`EntityNotFoundException`/`BusinessRuleViolationException`）も整備済み |
 | **テスト** | 🟡 ユニット充実・統合が薄い | ユニット31クラス（VO/集約/エンティティ）。統合テストは `AlbumRepositoryImplTest` と `SystemBusinessDateTimeProviderTest` の2本のみ |
-| **静的解析** | 🟢 多層 | Checkstyle + Spotless + PMD + ArchUnit 稼働。レイヤ依存方向・配置・戻り値契約・機能的スタイルの一部を強制（§7.3: Java 相当21件中19件）。SpotBugs は Java25非対応で無効 |
+| **静的解析** | 🟢 多層 | Checkstyle + Spotless + PMD + ArchUnit 稼働。レイヤ依存方向・配置・戻り値契約・機能的スタイルを強制（§7.3: Java 相当21件を全件強制）。SpotBugs は Java25非対応で無効 |
 | **フロントエンド** | ⬜ 未調査 | `frontend-admin`（Svelte）/ `frontend-public`（Svelte+Astro）。本ドキュメントの対象外 |
 
 **一言でいうと**: ドメイン＋永続化基盤は固まっており、次に積むべきは **アプリケーション層（ユースケース）→ プレゼンテーション層（REST）** の縦の1本通しと、それを支える **エラー設計・統合テスト・アーキテクチャ制約** です。
@@ -133,10 +133,8 @@ import 済み 11 件から進んでおらず残多数（集約 `AlbumArticle`・
 ### フェーズ A: エラー設計とlib・静的解析の土台（縦通しの前提）
 1. **ArchUnit 導入 ＋ 規約ベースのルールを先行**（§7.1）: `archunit-junit5` を test依存に追加し、レイヤー依存方向（domain ← application ← presentation、domain ← infrastructure）・`@Entity` の配置/命名・`@Transactional` 禁止・Repository/ApplicationService の `Uni` 返却契約に加え、**app/presentation の命名・配置・戻り値型契約も前提として先行導入する**。これらは §2 で確定済みの規約と既存の基底型（`CommandService`/`QueryService`）だけで述語を書けるため、実装クラスが0件でも導入でき、クラスが無い間は不活性（該当ルールのみ `allowEmptyShould(true)`）、最初のユースケース実装と同時に強制が効く。**「機能実装を待ってからルール化」はしない**（原則は §7.1）
 2. **機能的スタイル強制ルールを先行導入**（§7.4 / #37）: 構造非依存で既存 domain/lib と新規コード双方に効くため前提として入れる。各ルールは「導入前に違反0」を受け入れ条件とする。
-   - **導入済み**（§7.3）: VO 検証の Policy 経由（#29）、`if` の値 return 禁止・`switch` 文禁止（#26 の一部）、三項の複数行強制（#35 の書式部）
-   - **残ギャップ**: null三項→`Optional`（#27）・逐次 null+空/blank 複合（#28）・否定ラムダの `Predicate.not` 化（#31）・中置論理演算子禁止＋述語合成DSL（#32）・不要変数禁止（#33）・`switch` 式 on `this` 禁止（#30 要確認）
-   - **方針確定要**: `if` の全廃可否（#26。現状は値 return のみ禁止で副作用/例外分岐は許容）、三項書式の残り（#35）
-   - **ルールでなく単独作業**: `multiple` 検証支援API（#34）・Javadoc 例更新（#36）
+   - **導入済み（#26–#33・#35 完了）**: `if` 文全廃（#26）・null三項→`Optional`（#27）・逐次 null+空/blank 複合の禁止（#28）・VO 検証の Policy 経由（#29）・`switch (this)` 禁止（#30）・否定ラムダの `Predicate.not` 化（#31）・中置論理演算子禁止＋述語合成DSL（#32）・不要変数禁止（#33）・三項の書式（条件を行頭）確定（#35）。各ルールは実違反スニペットで検出を確認済み（§7.3）
+   - **単独作業（ルールでない）**: `multiple` 検証支援API（#34 完了）・Javadoc 例更新（#36）
 3. 🟢 完了: `Result` に `map` / `flatMap` / `zip`（複数VO検証の合成。arity 2・3でエラー集約）を追加
 4. 🟢 完了: `DomainException` 階層を整備（abstract 基底 + `ValidationException` / `EntityNotFoundException` / `BusinessRuleViolationException`。HTTP変換は presentation 層へ委譲）
 5. 🟡 一部: VO に外部入力用 `fromInput()`（`Result`返却）を段階導入。Article集約のVO（`ArticleType`/`MarkupContent`）は導入済み、残VOはフェーズCで横展開
@@ -215,7 +213,7 @@ testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.2'
 
 ABService は Java プロジェクトのため、Kotlin 向けの detekt カスタムルール26件はそのまま使えない。同等の制約を **ArchUnit / Checkstyle / javac・言語文法**で担保するか、Java に構文的対応物がないものは対象外とする。移植可否は「**強制手段の構文**」ではなく「**制約の意図が Java に適用可能か**」で判定する。
 
-現状: **強制済み19件（ArchUnit 11・Checkstyle 5・PMD 3）／ 部分1件 ／ 対象外5件 ／ 未強制1件（`ForbiddenLogicalOperators` → #32）**。Java 相当のある21件に対し 19件（約90%）を強制。`ForbiddenVarInDomain` は Checkstyle と ArchUnit の併用（1件計上）。
+現状: **強制済み21件（ArchUnit 11・Checkstyle 6・PMD 3・ArchUnit+PMD 併用 1）／ 部分0 ／ 対象外5件 ／ 未強制0**。Java 相当のある21件を全件（100%）強制。`ForbiddenVarInDomain` は Checkstyle と ArchUnit の併用、`ForbiddenInternalConstructorInDomainModel` は ArchUnit（非 record の可視性）と PMD（record の検証必須）の併用（各1件計上）。全ルールは実違反スニペットを一時投入して検出を確認済み（no-op でないこと・実効性を検証済み）。
 
 | detekt ルール | 制約の意図 | Java での担保手段 | 状態 |
 |---|---|---|---|
@@ -228,7 +226,7 @@ ABService は Java プロジェクトのため、Kotlin 向けの detekt カス�
 | ForbiddenProviderInDomainModel | domain モデルは `BusinessDateTimeProvider` を保持しない | ArchUnit | ✅強制 |
 | ForbiddenPrintlnOutsideLogging | `System.out`/`System.err` をロギング以外で禁止 | ArchUnit | ✅強制 |
 | RequireDisplayNameOnTestMethods | `@Test`/`@ParameterizedTest` に `@DisplayName` 必須 | ArchUnit（`TestConventionsArchTest`） | ✅強制 |
-| ForbiddenInternalConstructorInDomainModel | domain モデルのコンストラクタ可視性を絞る | ArchUnit（**非 record のみ**。record はコンパクトコンストラクタ＋ファクトリ規約で担保） | 🟡部分 |
+| ForbiddenInternalConstructorInDomainModel | domain モデルの生成を検証経由に限定（可視性の絞り） | ArchUnit `domainModelConstructorsShouldNotBePublic`（非 record は public ctor 禁止）＋ PMD `RequireValidationInDomainValueRecordConstructor`（record=`ValueObject`/`EntityId` 実装はコンパクトコンストラクタでの検証必須）。両ルールの和集合が domain モデルの値/エンティティ型全体を機械的に被覆 | ✅強制 |
 | ForbiddenTryCatchInDomain | domain で try/catch 禁止 | Checkstyle（`DomainNoTryCatch`） | ✅強制 |
 | RequireSuppressJustification | 抑制に理由必須 | Checkstyle（`@SuppressWarnings` 理由コメント必須） | ✅強制 |
 | ForbiddenJUnitAssertions | テストは AssertJ に統一 | Checkstyle（JUnit `Assertions` import 禁止） | ✅強制 |
@@ -239,10 +237,10 @@ ABService は Java プロジェクトのため、Kotlin 向けの detekt カス�
 | ForbiddenInitInValueObject | VO で `init` ブロック禁止（検証を集約） | record に `init` なし。意図は VO 検証集約（下記 RequireValidationInValueObject）へ | ⛔対象外 |
 | RequireUniReturnTypeOnApplicationService | ApplicationService の `execute`/`query` は `Uni<...>` | 基底 `CommandService`/`QueryService` の署名で javac が既に強制。ArchUnit `applicationServiceExecuteAndQueryShouldReturnUni` で命名/配置/基底IF実装を補完（§7.1 の原則で前倒し、実装0件の間は `allowEmptyShould(true)`） | ✅強制 |
 | RequireValidationInValueObject | VO は検証を持つ | PMD `RequireValidationInValueObject`（`fromInput` に `verify`/`zip`/`combine`/`nested`/`failure` か内部 `fromInput` 委譲を必須化） | ✅強制 |
-| ForbiddenLogicalOperators | 中置論理演算子 `&&`/`\|\|`/`!` を禁止し宣言的合成へ | Checkstyle `IllegalToken`（`LAND`/`LOR`/`LNOT`）＋述語合成DSL | ❌未 → #32 |
+| ForbiddenLogicalOperators | 中置論理演算子 `&&`/`\|\|`/`!` を禁止し宣言的合成へ | Checkstyle `IllegalToken`（`LAND`/`LOR`/`LNOT`。production のみ、テストは suppressions で除外）＋述語合成DSL | ✅強制 |
 | ForbiddenVarInDomain | domain で可変変数禁止 | Checkstyle `FinalLocalVariable`（全ローカル final）＋ ArchUnit `domainModelFieldsShouldBeFinal`（domain フィールド final） | ✅強制 |
 | RequireValueClassForEntityId | EntityId は値型 | ArchUnit `entityIdImplementationsShouldBeRecords`（EntityId 実装は record） | ✅強制 |
-| RequirePrivateConstructorForEntityId | EntityId の生成を検証経由に限定 | public record は canonical constructor を private 化できない（言語制約）。全生成経路でコンパクトコンストラクタ検証が必ず走るため意図は充足 | ⛔対象外 |
+| RequirePrivateConstructorForEntityId | EntityId の生成を検証経由に限定（可視性の絞り） | public record は canonical constructor を private 化できない（言語制約のため可視性の絞り自体は対象外）。代替統制として全 EntityId/VO record のコンパクトコンストラクタ検証を PMD `RequireValidationInDomainValueRecordConstructor` で必須化し、「未検証インスタンスの生成不可」を機械的に担保（意図は #10 として強制済み） | ⛔対象外 |
 | ForbiddenFullyQualifiedTypeReference | インライン FQN 禁止（import + 単純名） | PMD `ForbiddenFullyQualifiedTypeReference`（XPath `ClassType[@FullyQualified]`） | ✅強制 |
 | PreferWhenForValueBranches | 値の分岐を `if` で返さず式にする | PMD `ForbiddenIfValueReturn`＋`ForbiddenSwitchStatement`（`if` の値 return 禁止＋`switch` 文禁止 → ternary / switch 式へ） | ✅強制 |
 
@@ -252,12 +250,12 @@ ABService は Java プロジェクトのため、Kotlin 向けの detekt カス�
 - `if` が許されるのは **副作用への分岐**と**例外（`throw`）への分岐**のみ。`if (c) throw ...;`・`if (c) { sideEffect(); }`・値を伴わない `return;` は許容し、`if (c) return <値>;` は禁止する。
 - sealed 型に switch 式を用いれば、網羅性は **javac がコンパイル時に担保**する（lint 不要）。例外分岐の `if` を許す方針は §3 のエラー設計（ビジネス違反=`DomainException` 階層への分岐）と整合する。
 
-### 7.4 機能的スタイル強制の残ルール・設計バックログ
+### 7.4 機能的スタイル強制ハーネスの状態
 
-命令的な `if`・逐次検査・生ラムダを排し、**式・Optional・filter・Policy・多態**で表現する機能的スタイルを全面採用する。本文適用は完了済み（src/main の実 `if` は 0）。**ルール化（静的解析での強制）と支援 API の残項目**は GitHub issue で管理する。ルール化のうち構造非依存の強制（#26–#33・#29）は §6 フェーズA の前提確保として**新規コード実装前に先行導入**する（フェーズD送りにしない）。#34（支援API）・#35（方針確定）・#36（ドキュメント）はルールではなく単独作業。
+命令的な `if`・逐次検査・生ラムダを排し、**式・Optional・filter・Policy・多態**で表現する機能的スタイルを全面採用する。本文適用・ルール化（静的解析での強制）はいずれも完了済み（src/main の実 `if` は 0、`#26`–`#33`・`#35` のルールは全て導入し、各ルールを実違反スニペットで検出確認済み）。支援 API `multiple`（`#34`）も提供済み。残るは Javadoc コード例の更新（`#36`）のみ。
 
 - トラッキング: **#37**（`harness-backlog` ラベル）
-- 各項目の詳細・検出方針・受け入れ条件は個別 issue（#26–#36）を参照。導入時は「導入前に違反を検出できること」「フォーマッタ/PMD 整合（違反 0）」を確認する。
+- 各ルールは導入時に「導入前に違反を検出できること」「フォーマッタ/PMD 整合（違反 0）」を確認済み。詳細・検出方針は個別 issue（#26–#36）を参照。
 
 ---
 
