@@ -13,6 +13,7 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.With;
 import lombok.experimental.Accessors;
+import org.jspecify.annotations.Nullable;
 
 /**
  * トラック内チューン構成（集約内エンティティ）
@@ -29,9 +30,12 @@ import lombok.experimental.Accessors;
 public class TrackTune {
     @EqualsAndHashCode.Include
     private final Integer seq; // トラック内での登場順（1, 2, 3, ...）
-    private final Tune.Id tuneId; // nullable: MC、環境音などの場合はnull
+    private final Tune.@Nullable Id tuneId; // nullable: MC、環境音などの場合はnull
+    @Nullable
     private final Credit composerCreditOverride; // nullable: nullの場合はTune側のデフォルトを使用
+    @Nullable
     private final Credit arrangerCreditOverride; // nullable: nullの場合はTune側のデフォルトを使用
+    @Nullable
     private final Url linkUrl; // nullable: 外部リンク（the session, 自サイト等）
 
     /**
@@ -49,8 +53,8 @@ public class TrackTune {
      *            リンクURL（nullable）
      * @return 新規TrackTune
      */
-    public static TrackTune create(Integer seq, Tune.Id tuneId, Credit composerCreditOverride,
-            Credit arrangerCreditOverride, Url linkUrl) {
+    public static TrackTune create(Integer seq, Tune.@Nullable Id tuneId, @Nullable Credit composerCreditOverride,
+            @Nullable Credit arrangerCreditOverride, @Nullable Url linkUrl) {
         Policy.<Integer>of(
                 Objects::nonNull,
                 () -> new ErrorResult(
@@ -82,8 +86,8 @@ public class TrackTune {
      *            リンクURL（nullable）
      * @return 再構成されたTrackTune
      */
-    public static TrackTune reconstruct(Integer seq, Tune.Id tuneId, Credit composerCreditOverride,
-            Credit arrangerCreditOverride, Url linkUrl) {
+    public static TrackTune reconstruct(Integer seq, Tune.@Nullable Id tuneId, @Nullable Credit composerCreditOverride,
+            @Nullable Credit arrangerCreditOverride, @Nullable Url linkUrl) {
         return new TrackTune(
                 seq,
                 tuneId,
@@ -99,7 +103,7 @@ public class TrackTune {
      *            新しいチューンID
      * @return 更新されたTrackTune
      */
-    public TrackTune changeTuneId(Tune.Id newTuneId) {
+    public TrackTune changeTuneId(Tune.@Nullable Id newTuneId) {
         return withTuneId(newTuneId);
     }
 
@@ -110,7 +114,7 @@ public class TrackTune {
      *            新しい作曲者クレジット上書き
      * @return 更新されたTrackTune
      */
-    public TrackTune changeComposerCreditOverride(Credit newComposerCreditOverride) {
+    public TrackTune changeComposerCreditOverride(@Nullable Credit newComposerCreditOverride) {
         return withComposerCreditOverride(newComposerCreditOverride);
     }
 
@@ -121,7 +125,7 @@ public class TrackTune {
      *            新しいアレンジャークレジット上書き
      * @return 更新されたTrackTune
      */
-    public TrackTune changeArrangerCreditOverride(Credit newArrangerCreditOverride) {
+    public TrackTune changeArrangerCreditOverride(@Nullable Credit newArrangerCreditOverride) {
         return withArrangerCreditOverride(newArrangerCreditOverride);
     }
 
@@ -132,7 +136,7 @@ public class TrackTune {
      *            新しいリンクURL
      * @return 更新されたTrackTune
      */
-    public TrackTune changeLinkUrl(Url newLinkUrl) {
+    public TrackTune changeLinkUrl(@Nullable Url newLinkUrl) {
         return withLinkUrl(newLinkUrl);
     }
 }

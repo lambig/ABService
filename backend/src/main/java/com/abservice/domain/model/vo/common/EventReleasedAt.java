@@ -171,9 +171,9 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      */
     public static EventReleasedAt of(
             String name,
-            List<EventDateAndSpace> dateAndSpaces,
-            String place,
-            String note) {
+            @Nullable List<EventDateAndSpace> dateAndSpaces,
+            @Nullable String place,
+            @Nullable String note) {
         return new EventReleasedAt(
                 new EventName(name),
                 dateAndSpaces,

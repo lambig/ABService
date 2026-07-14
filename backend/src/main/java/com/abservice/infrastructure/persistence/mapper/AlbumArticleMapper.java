@@ -7,6 +7,7 @@ import com.abservice.infrastructure.persistence.entity.AlbumArticleEntity;
 
 import java.util.Collections;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * AlbumArticle Mapper
@@ -28,7 +29,7 @@ public final class AlbumArticleMapper {
      *            AlbumArticleEntity
      * @return AlbumArticle
      */
-    public static AlbumArticle toDomain(AlbumArticleEntity entity) {
+    public static @Nullable AlbumArticle toDomain(@Nullable AlbumArticleEntity entity) {
         return switch (entity) {
             case null -> null;
             // 頒布情報は簡略化のためnull、入手経路は簡略化のため空リスト
@@ -51,21 +52,15 @@ public final class AlbumArticleMapper {
      * @return AlbumArticleEntity
      */
     public static AlbumArticleEntity toEntity(AlbumArticle albumArticle) {
-        return switch (albumArticle) {
-            case null -> null;
-            default -> {
-                final var albumArticleEntity = new AlbumArticleEntity();
-                albumArticleEntity.setDomainId(albumArticle.albumId().value());
-                albumArticleEntity.setIntroLong(albumArticle.introLong());
-                albumArticleEntity.setIntroShort(albumArticle.introShort());
-                albumArticleEntity.setFirstEventSpace(albumArticle.firstEventSpace());
-                albumArticleEntity
-                        .setLabelTag(Optional.ofNullable(albumArticle.labelTag()).map(LabelTag::name).orElse(null));
+        final var albumArticleEntity = new AlbumArticleEntity();
+        albumArticleEntity.setDomainId(albumArticle.albumId().value());
+        albumArticleEntity.setIntroLong(albumArticle.introLong());
+        albumArticleEntity.setIntroShort(albumArticle.introShort());
+        albumArticleEntity.setFirstEventSpace(albumArticle.firstEventSpace());
+        albumArticleEntity.setLabelTag(Optional.ofNullable(albumArticle.labelTag()).map(LabelTag::name).orElse(null));
 
-                // 頒布情報と入手経路は簡略化のため省略
+        // 頒布情報と入手経路は簡略化のため省略
 
-                yield albumArticleEntity;
-            }
-        };
+        return albumArticleEntity;
     }
 }

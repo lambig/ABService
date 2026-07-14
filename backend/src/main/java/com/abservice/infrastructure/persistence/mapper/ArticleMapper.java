@@ -11,6 +11,7 @@ import com.abservice.infrastructure.persistence.entity.ArticleEntity;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Article Mapper
@@ -32,7 +33,7 @@ public final class ArticleMapper {
      *            ArticleEntity
      * @return Article
      */
-    public static Article toDomain(ArticleEntity entity) {
+    public static @Nullable Article toDomain(@Nullable ArticleEntity entity) {
         return Optional.ofNullable(entity)
                 .map(
                         e -> Article.reconstruct(
@@ -49,11 +50,11 @@ public final class ArticleMapper {
                 .orElse(null);
     }
 
-    private static BusinessDateTime toBusinessDateTime(Instant instant) {
+    private static @Nullable BusinessDateTime toBusinessDateTime(@Nullable Instant instant) {
         return Optional.ofNullable(instant).map(BusinessDateTime::of).orElse(null);
     }
 
-    private static MarkupContent createMarkupContent(String body, String bodyFormat) {
+    private static @Nullable MarkupContent createMarkupContent(@Nullable String body, @Nullable String bodyFormat) {
         return switch (body) {
             case null -> null;
             default -> {
@@ -72,28 +73,26 @@ public final class ArticleMapper {
      * @return ArticleEntity
      */
     public static ArticleEntity toEntity(Article article) {
-        return Optional.ofNullable(article).map(a -> {
-            final var articleEntity = new ArticleEntity();
-            articleEntity.setDomainId(a.id().value());
-            articleEntity.setArticleType(a.articleType().name());
-            articleEntity.setAlbumId(Optional.ofNullable(a.albumId()).map(Album.Id::value).orElse(null));
-            articleEntity.setTitle(a.title());
-            Optional.ofNullable(a.body()).ifPresentOrElse(body -> {
-                articleEntity.setBody(body.content());
-                articleEntity.setBodyFormat(body.format().name());
-            }, () -> {
-                articleEntity.setBody(null);
-                articleEntity.setBodyFormat(MarkupFormat.PLAIN_TEXT.name());
-            });
-            articleEntity.setIntroShort(a.introShort());
-            articleEntity.setPublishedAt(toInstant(a.publishedAt()));
-            articleEntity.setUpdatedAtBusiness(toInstant(a.updatedAtBusiness()));
-            articleEntity.setIsPublic(a.publicFlag());
-            return articleEntity;
-        }).orElse(null);
+        final var articleEntity = new ArticleEntity();
+        articleEntity.setDomainId(article.id().value());
+        articleEntity.setArticleType(article.articleType().name());
+        articleEntity.setAlbumId(Optional.ofNullable(article.albumId()).map(Album.Id::value).orElse(null));
+        articleEntity.setTitle(article.title());
+        Optional.ofNullable(article.body()).ifPresentOrElse(body -> {
+            articleEntity.setBody(body.content());
+            articleEntity.setBodyFormat(body.format().name());
+        }, () -> {
+            articleEntity.setBody(null);
+            articleEntity.setBodyFormat(MarkupFormat.PLAIN_TEXT.name());
+        });
+        articleEntity.setIntroShort(article.introShort());
+        articleEntity.setPublishedAt(toInstant(article.publishedAt()));
+        articleEntity.setUpdatedAtBusiness(toInstant(article.updatedAtBusiness()));
+        articleEntity.setIsPublic(article.publicFlag());
+        return articleEntity;
     }
 
-    private static Instant toInstant(BusinessDateTime businessDateTime) {
+    private static @Nullable Instant toInstant(@Nullable BusinessDateTime businessDateTime) {
         return Optional.ofNullable(businessDateTime).map(BusinessDateTime::value).orElse(null);
     }
 }

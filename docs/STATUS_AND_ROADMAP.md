@@ -107,9 +107,10 @@ DomainException (abstract, errorCode付き)
 
 **方針**: パッケージ既定を null-hostile にする `@NullMarked`（package-info.java）＋例外への `@Nullable` を、**NullAway でコンパイル時強制**する。`@NullMarked` スコープ駆動（`NullAway:OnlyNullMarked`）でパッケージ単位に段階 enforce する。詳細と進め方は #44。
 
-- **強制エンジン**: NullAway（ErrorProne プラグイン）。`main` のみ対象、test/integrationTest は対象外。JPA エンティティ（`@Entity`/`@MappedSuperclass`/`@Embeddable`）は初期化検査から除外。Lombok 生成コードは `@lombok.Generated`（`lombok.config` で明示）で NullAway がスキップするため誤検知なし。
+- **強制エンジン**: NullAway（ErrorProne プラグイン）。`main` のみ対象、test/integrationTest は対象外。Lombok 生成コードは `@lombok.Generated`（`lombok.config` で明示）で NullAway がスキップし、`lombok.copyableAnnotations` で `@Nullable` を生成物（getter/wither/コンストラクタ引数）へ伝播させる。
+- **JPA エンティティは `@NullMarked` の対象外**: `..persistence.entity..` は Hibernate がリフレクションで populate するフレームワークデータ保持体で、nullable 列が多く nullness 強制の価値が低くノイズが高いため package-info を置かない（標準的判断）。`@Entity`/`@MappedSuperclass`/`@Embeddable` は NullAway 設定でも初期化検査から除外。
 - **バージョン固定（管理下の一時的負債）**: `error_prone_core 2.39.0` + `nullaway 0.12.7`（`net.ltgt.errorprone 5.1.0`）。NullAway は ErrorProne 内部 API に密結合するため両者を揃える。最新 `error_prone_core 2.50.0` は API 変更で NullAway 0.12.7 と非互換。**昇格トリガ**: NullAway が 2.50 系対応版を出したら両者 bump。**JDK 追随ラグの保険**: 将来 JDK 更新で 2.39.0 が壊れ NullAway 未対応の期間は NullAway を一時 WARN（非ゲート）へ。**退避路**: JSpecify アノテーションはツール非依存のため、必要なら Checker Framework へアノテーション変更なしで差し替え可能。
-- **進捗**: ハーネス導入済み（PR0）。**domain 層全体を `@NullMarked` 済み**（model/aggregate/entity/vo/policy・repository・service・factory・exception。NullAway ERROR で強制、違反0）。残: infrastructure 層（Mapper/RepositoryImpl/Entity/DataSource）を package-info で順次マークし、実 nullness 違反を `@Nullable` で修正しながら拡大。既存の明示 `@NonNull`（旧11ファイル）は `@NullMarked` 既定に寄せて順次除去（現状は残置＝無害）。
+- **進捗**: ハーネス導入済み（PR0）。**domain 層（PR1）・infrastructure 層（PR2）を `@NullMarked` 済み**（NullAway ERROR で強制、違反0）。infrastructure は datetime・persistence・datasource・mapper・repository をマーク（`..persistence.entity..` は上記理由で対象外）。Mapper の実 nullable データフロー（nullable 列 ⇔ nullable ドメインフィールド）を `@Nullable` で表現、`toEntity` は非 null 集約→非 null エンティティに整理。残: lib/application/root の統一（任意、PR3）。既存の明示 `@NonNull`（旧11ファイル）は `@NullMarked` 既定に寄せて順次除去（現状は残置＝無害）。
 
 ### 5.2 ユニット/統合テスト（`UNIT_TEST_PLAN.md`）
 
