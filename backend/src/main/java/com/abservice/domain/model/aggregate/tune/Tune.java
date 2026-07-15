@@ -1,7 +1,6 @@
 package com.abservice.domain.model.aggregate.tune;
 
 import static io.github.lambig.funcifextension.predicate.Predicates.or;
-import static java.util.function.Predicate.not;
 
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.aggregate.Aggregate;
@@ -11,7 +10,6 @@ import com.abservice.domain.model.vo.tune.TuneKind;
 import com.abservice.domain.model.vo.tune.TuneTitle;
 import com.abservice.lib.ErrorResult;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Function;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -90,12 +88,8 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
             @Nullable Credit defaultComposerCredit, @Nullable Credit defaultArrangerCredit,
             @Nullable String originalWorkTitle, @Nullable String originalWorkCredit, @Nullable String tuneType,
             @Nullable String defaultKey, @Nullable Integer defaultTempo) {
-        final var validatedTitle = Optional.ofNullable(title)
-                .orElseThrow(() -> new IllegalArgumentException("Tune title cannot be null"));
-        final var validatedKind = Optional.ofNullable(tuneKind)
-                .orElseThrow(() -> new IllegalArgumentException("Tune kind cannot be null"));
-        return new Tune(Id.generate(), validatedTitle, validatedKind, defaultComposerCredit, defaultArrangerCredit,
-                originalWorkTitle, originalWorkCredit, tuneType, defaultKey, defaultTempo);
+        return new Tune(Id.generate(), requireTitle(title), requireKind(tuneKind), defaultComposerCredit,
+                defaultArrangerCredit, originalWorkTitle, originalWorkCredit, tuneType, defaultKey, defaultTempo);
     }
 
     /**
@@ -140,9 +134,7 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
      * @return 更新されたTune
      */
     public @NonNull Tune changeTitle(@NonNull TuneTitle newTitle) {
-        return withTitle(
-                Optional.ofNullable(newTitle)
-                        .orElseThrow(() -> new IllegalArgumentException("Tune title cannot be null")));
+        return withTitle(requireTitle(newTitle));
     }
 
     /**
@@ -183,7 +175,7 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
                 () -> new ErrorResult("originalWorkTitle", "Original work title is required for ARRANGEMENT tune kind",
                         "ORIGINAL_WORK_TITLE_REQUIRED"))
                 .verify(newOriginalWorkTitle, Function.identity())
-                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
+                .resolve(Policy::illegalArgument);
         return withOriginalWorkTitle(newOriginalWorkTitle).withOriginalWorkCredit(newOriginalWorkCredit);
     }
 
@@ -224,8 +216,30 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
                         "Tempo must be positive",
                         "TEMPO_MUST_BE_POSITIVE"))
                 .verify(newDefaultTempo, Function.identity())
-                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
+                .resolve(Policy::illegalArgument);
         return withDefaultTempo(newDefaultTempo);
+    }
+
+    private static @NonNull TuneTitle requireTitle(@Nullable TuneTitle title) {
+        return Policy.<TuneTitle>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "title",
+                        "Tune title cannot be null",
+                        "TUNE_TITLE_REQUIRED"))
+                .verify(title, Function.identity())
+                .resolve(Policy::illegalArgument);
+    }
+
+    private static @NonNull TuneKind requireKind(@Nullable TuneKind tuneKind) {
+        return Policy.<TuneKind>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "tuneKind",
+                        "Tune kind cannot be null",
+                        "TUNE_KIND_REQUIRED"))
+                .verify(tuneKind, Function.identity())
+                .resolve(Policy::illegalArgument);
     }
 
     @Override
@@ -241,16 +255,21 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
      */
     public record Id(@NonNull String value) implements EntityId<Tune> {
         public Id {
-            Optional.ofNullable(value).filter(not(String::isBlank))
-                    .orElseThrow(() -> new IllegalArgumentException("Tune ID cannot be blank"));
-            Policy.<String>of(
-                    EntityId::isValidUuid,
-                    () -> new ErrorResult(
-                            "value",
-                            "Tune ID must be a valid UUID: " + value,
-                            "ID_INVALID_UUID"))
+            Policy.<String>all(
+                    Policy.of(
+                            StringUtils::isNotBlank,
+                            () -> new ErrorResult(
+                                    "value",
+                                    "Tune ID cannot be blank",
+                                    "ID_BLANK")),
+                    Policy.of(
+                            EntityId::isValidUuid,
+                            () -> new ErrorResult(
+                                    "value",
+                                    "Tune ID must be a valid UUID: " + value,
+                                    "ID_INVALID_UUID")))
                     .verify(value, Function.identity())
-                    .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
+                    .resolve(Policy::illegalArgument);
         }
 
         /**

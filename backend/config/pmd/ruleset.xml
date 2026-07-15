@@ -80,8 +80,7 @@
     [/CompilationUnit/PackageDeclaration[starts-with(@Name, "com.abservice.domain.model")]]
     [not(/CompilationUnit/PackageDeclaration[
         @Name = "com.abservice.domain.model.aggregate.album"
-        or @Name = "com.abservice.domain.model.aggregate.albumarticle"
-        or @Name = "com.abservice.domain.model.aggregate.tune"])]
+        or @Name = "com.abservice.domain.model.aggregate.albumarticle"])]
                 ]]></value>
             </property>
         </properties>
