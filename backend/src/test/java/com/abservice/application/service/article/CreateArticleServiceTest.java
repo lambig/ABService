@@ -2,6 +2,7 @@ package com.abservice.application.service.article;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.abservice.domain.model.vo.article.MarkupContent;
 import com.abservice.lib.Result;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -58,7 +59,7 @@ class CreateArticleServiceTest {
     }
 
     @Test
-    @DisplayName("本文が空白なら形式未指定でも成功し本文はnull")
+    @DisplayName("本文が空白なら形式未指定でも成功し本文はEMPTY")
     void blankBodySucceedsWithoutFormat() {
         final var result = CreateArticleService.validate(
                 new CreateArticleInput(
@@ -69,6 +70,6 @@ class CreateArticleServiceTest {
                         null));
 
         assertThat(result).isInstanceOf(Result.Success.class);
-        assertThat(result.resolve().body()).isNull();
+        assertThat(result.resolve().body()).isEqualTo(MarkupContent.EMPTY);
     }
 }

@@ -11,7 +11,6 @@ import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
 
@@ -58,14 +57,14 @@ public class CreateArticleService implements CommandService<CreateArticleInput, 
                         type,
                         null,
                         title,
-                        body.orElse(null),
+                        body,
                         input.introShort()));
     }
 
-    private static Result<Optional<MarkupContent>> resolveBody(@Nullable String content, @Nullable String format) {
+    private static Result<MarkupContent> resolveBody(@Nullable String content, @Nullable String format) {
         return StringUtils.isBlank(content)
-                ? Result.success(Optional.<MarkupContent>empty())
-                : MarkupContent.fromInput(content, format).map(Optional::of);
+                ? Result.success(MarkupContent.EMPTY)
+                : MarkupContent.fromInput(content, format);
     }
 
     private static CreateArticleOutput toOutput(Article article) {
