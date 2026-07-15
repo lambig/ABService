@@ -37,7 +37,7 @@ public class GetArticleService implements QueryService<GetArticleQuery, GetArtic
         return dataSource.findByDomainId(query.articleId()).map(GetArticleService::toResult);
     }
 
-    private static GetArticleResult toResult(@Nullable ArticleEntity entity) {
+    static GetArticleResult toResult(@Nullable ArticleEntity entity) {
         return Optional.ofNullable(entity).<GetArticleResult>map(
                 e -> new GetArticleResult.Found(
                         ArticleViewMapper.toView(e)))

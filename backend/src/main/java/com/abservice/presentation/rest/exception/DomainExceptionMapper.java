@@ -30,7 +30,19 @@ public class DomainExceptionMapper implements ExceptionMapper<DomainException> {
 
     @Override
     public Response toResponse(DomainException exception) {
-        final ProblemDetail body = switch (exception) {
+        final ProblemDetail problem = toProblem(exception);
+        return Response.status(problem.status()).type(MediaType.valueOf(PROBLEM_JSON)).entity(problem).build();
+    }
+
+    /**
+     * 例外を RFC 9457 Problem Details へマッピングします（HTTP 非依存の純粋関数）。
+     *
+     * @param exception
+     *            ドメイン例外
+     * @return Problem Details（status を含む）
+     */
+    static ProblemDetail toProblem(DomainException exception) {
+        return switch (exception) {
             case ValidationException validation -> ProblemDetail.of(
                     validation.errorCode(),
                     "Validation failed",
@@ -56,7 +68,6 @@ public class DomainExceptionMapper implements ExceptionMapper<DomainException> {
                     exception.getMessage(),
                     List.of());
         };
-        return Response.status(body.status()).type(MediaType.valueOf(PROBLEM_JSON)).entity(body).build();
     }
 
     private static List<FieldError> toFieldErrors(List<ErrorResult> errors) {

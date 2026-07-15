@@ -49,7 +49,7 @@ public class CreateArticleService implements CommandService<CreateArticleInput, 
                 .flatMap(articleRepository::save).map(CreateArticleService::toOutput);
     }
 
-    private static Result<Article> validate(CreateArticleInput input) {
+    static Result<Article> validate(CreateArticleInput input) {
         return Result.zip(
                 ArticleTitle.fromInput(input.title()),
                 ArticleType.fromInput(input.articleType()),
