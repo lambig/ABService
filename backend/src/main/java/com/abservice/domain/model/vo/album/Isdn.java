@@ -112,12 +112,12 @@ public record Isdn(String value) implements ValueObject<Isdn> {
     }
 
     private static int computeCheckDigit(String isdn) {
-        return (10 - (IntStream.range(0, 12).map(i -> {
-            final int digit = Character.getNumericValue(isdn.charAt(i));
-            return (i % 2 == 0)
-                    ? digit
-                    : digit * 3;
-        }).sum() % 10)) % 10;
+        return (10 - (IntStream.range(0, 12)
+                .map(
+                        i -> Character.getNumericValue(isdn.charAt(i)) * ((i % 2 == 0)
+                                ? 1
+                                : 3))
+                .sum() % 10)) % 10;
     }
 
     /**

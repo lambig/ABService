@@ -265,24 +265,25 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album reorderTracks(@NonNull List<Track.@NonNull Id> orderedTrackIds) {
-        final var trackNo = new AtomicInteger(1);
         return withTracks(
                 Collections.unmodifiableList(
-                        Policy.<List<Track.Id>>of(
-                                ids -> Optional.ofNullable(ids).filter(i -> i.size() == tracks.size()).isPresent(),
-                                () -> new ErrorResult(
-                                        "orderedTrackIds",
-                                        "Ordered track IDs must match the number of tracks",
-                                        "TRACK_ORDER_SIZE_MISMATCH"))
-                                .verify(orderedTrackIds, Function.identity())
-                                .resolve(Policy::illegalArgument)
-                                .stream().map(trackId -> {
-                                    final var track = tracks.stream().filter(t -> t.hasId(trackId)).findFirst()
-                                            .orElseThrow(
-                                                    () -> new BusinessRuleViolationException(
-                                                            "Track with ID " + trackId.value() + " not found"));
-                                    return track.withTrackNo(trackNo.getAndIncrement());
-                                }).toList()));
+                        renumberByOrder(
+                                Policy.<List<Track.Id>>of(
+                                        ids -> Optional.ofNullable(ids).filter(i -> i.size() == tracks.size())
+                                                .isPresent(),
+                                        () -> new ErrorResult(
+                                                "orderedTrackIds",
+                                                "Ordered track IDs must match the number of tracks",
+                                                "TRACK_ORDER_SIZE_MISMATCH"))
+                                        .verify(orderedTrackIds, Function.identity())
+                                        .resolve(Policy::illegalArgument))));
+    }
+
+    private @NonNull List<Track> renumberByOrder(@NonNull List<Track.Id> orderedTrackIds) {
+        final var trackNo = new AtomicInteger(1);
+        return orderedTrackIds.stream()
+                .map(trackId -> getTrack(trackId).withTrackNo(trackNo.getAndIncrement()))
+                .toList();
     }
 
     /**

@@ -370,8 +370,10 @@
             宣言後に読み取りが1回のみのローカル変数を禁止し、インライン化を強制する。
             UnnecessaryLocalBeforeReturn は「T x = e; return x;」（直接 return）のみを捕捉するが、
             本ルールは new/メソッド引数での1回使用など全ての単一使用ローカルを覆う（上位集合）。
-            誤検知回避のため、唯一の使用がラムダ/ループ（for / foreach / while / do）本体に
-            現れる変数は対象外とする（インライン化すると評価回数・キャプチャ意味が変わるため）。
+            誤検知回避のため、宣言と使用の間にラムダ/ループ（for / foreach / while / do）の
+            境界がある場合のみ対象外とする。すなわち「宣言の外側にあるラムダ/ループの本体内で
+            使う」変数は、インライン化すると評価回数・キャプチャ意味が変わるため除外する。
+            宣言と使用が同一ラムダ/ループ本体内で完結する単一使用は境界をまたがないため検出する。
             スコープは production（src/main）に限定する。テスト（src/test）では Arrange の
             名前付き中間値を文書として許容するため、pmdTest 用 ruleset（ruleset-test.xml）で
             本ルールを除外する。
@@ -382,14 +384,17 @@
                 <value><![CDATA[
 //LocalVariableDeclaration/VariableDeclarator/VariableId[
   let $n := @Name,
+      $vid := .,
       $scope := ancestor::*[self::MethodDeclaration or self::ConstructorDeclaration
-                            or self::CompactConstructorDeclaration or self::Initializer][1]
+                            or self::CompactConstructorDeclaration or self::Initializer][1],
+      $uses := $scope//VariableAccess[@Name = $n]
   return $scope
-     and count($scope//VariableAccess[@Name = $n]) = 1
-     and not($scope//VariableAccess[@Name = $n][
-               ancestor::LambdaExpression or ancestor::ForStatement
-               or ancestor::ForeachStatement or ancestor::WhileStatement
-               or ancestor::DoStatement])
+     and count($uses) = 1
+     and not($uses[
+               ancestor::*[self::LambdaExpression or self::ForStatement or self::ForeachStatement
+                           or self::WhileStatement or self::DoStatement]
+                   [not(descendant::VariableId[. is $vid])]
+             ])
 ]
                 ]]></value>
             </property>
