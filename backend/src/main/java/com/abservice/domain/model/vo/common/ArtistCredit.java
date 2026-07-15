@@ -59,7 +59,8 @@ public final class ArtistCredit implements ValueObject<ArtistCredit> {
                                 "DISPLAY_NAME_REQUIRED"))
                 .verify(displayName, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
-        this.sortKey = Optional.ofNullable(sortKey).orElse(displayName.value());
+        this.sortKey = Optional.ofNullable(sortKey)
+                .orElse(displayName.value());
     }
 
     /**

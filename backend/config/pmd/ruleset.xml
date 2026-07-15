@@ -401,4 +401,30 @@
         </properties>
     </rule>
 
+    <rule name="ForbiddenArgChainOnSingleLine"
+          language="java"
+          message="引数付きメソッド呼び出しが2つ以上連なるチェーンは1行に書かず、1呼び出しずつ改行して縦に並べてください（可読性・差分局所化）。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            引数を伴うメソッド呼び出しが隣接して2つ以上連なるメソッドチェーンを1行で記述する
+            ことを禁止し、1呼び出し1行の縦並べを強制する。引数付き呼び出しは実質的な処理ステップ
+            であり、複数連なる場合は縦に並べることで可読性とレビュー時の差分局所化を高める。
+            引数なし呼び出しのみの連鎖（getter 連鎖・stream().toList() 等）は対象外。
+            toolbox の述語合成 DSL（having(...).that(...) / thatEqualsTo(...)）は設計された
+            コンパクトな2部イディオムのため対象外とする。スコープは production（src/main）限定
+            （テストの短い assertion 連鎖は文書性を優先し pmdTest 用 ruleset で除外）。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//MethodCall[@BeginLine = @EndLine][ArgumentList[count(*) > 0]]
+  [child::*[1][self::MethodCall][ArgumentList[count(*) > 0]]]
+  [not(@MethodName = ("that", "thatEqualsTo"))]
+  [not(child::*[1][self::MethodCall][@MethodName = "having"])]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
 </ruleset>

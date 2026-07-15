@@ -60,6 +60,8 @@ public record AlbumTitle(@NonNull String value) implements ValueObject<AlbumTitl
 
     @Override
     public boolean equivalentTo(AlbumTitle other) {
-        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
+        return Optional.ofNullable(other)
+                .filter(o -> this.value.equals(o.value))
+                .isPresent();
     }
 }

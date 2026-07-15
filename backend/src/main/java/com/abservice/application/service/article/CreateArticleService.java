@@ -45,8 +45,12 @@ public class CreateArticleService implements CommandService<CreateArticleInput, 
     @WithTransaction
     @Override
     public Uni<CreateArticleOutput> execute(CreateArticleInput input) {
-        return Uni.createFrom().item(() -> validate(input).resolve(ValidationException::new))
-                .flatMap(articleRepository::save).map(CreateArticleService::toOutput);
+        return Uni.createFrom()
+                .item(
+                        () -> validate(input)
+                                .resolve(ValidationException::new))
+                .flatMap(articleRepository::save)
+                .map(CreateArticleService::toOutput);
     }
 
     static Result<Article> validate(CreateArticleInput input) {

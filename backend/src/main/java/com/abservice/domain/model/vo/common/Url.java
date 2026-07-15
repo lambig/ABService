@@ -70,6 +70,8 @@ public record Url(String value) implements ValueObject<Url> {
 
     @Override
     public boolean equivalentTo(Url other) {
-        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
+        return Optional.ofNullable(other)
+                .filter(o -> this.value.equals(o.value))
+                .isPresent();
     }
 }

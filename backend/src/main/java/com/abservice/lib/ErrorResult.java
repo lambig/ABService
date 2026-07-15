@@ -38,7 +38,8 @@ public record ErrorResult(String field, String message, @Nullable String code) {
 
     @Override
     public String toString() {
-        return Optional.ofNullable(code).map(c -> field + ": " + message + " (code: " + c + ")")
+        return Optional.ofNullable(code)
+                .map(c -> field + ": " + message + " (code: " + c + ")")
                 .orElse(field + ": " + message);
     }
 }

@@ -85,6 +85,8 @@ public record Duration(Integer milliseconds) implements ValueObject<Duration> {
 
     @Override
     public boolean equivalentTo(Duration other) {
-        return Optional.ofNullable(other).filter(o -> this.milliseconds.equals(o.milliseconds)).isPresent();
+        return Optional.ofNullable(other)
+                .filter(o -> this.milliseconds.equals(o.milliseconds))
+                .isPresent();
     }
 }

@@ -62,7 +62,8 @@ public class TuneRepositoryImpl implements TuneRepository {
             case null -> Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null"));
             default -> Uni.join()
                     .all(
-                            StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
+                            StreamSupport.stream(aggregates.spliterator(), false)
+                                    .map(this::save)
                                     .toList())
                     .andFailFast();
         };
@@ -82,7 +83,8 @@ public class TuneRepositoryImpl implements TuneRepository {
             case null -> Uni.createFrom().item(List.of());
             default -> Uni.join()
                     .all(
-                            StreamSupport.stream(ids.spliterator(), false).map(this::findById)
+                            StreamSupport.stream(ids.spliterator(), false)
+                                    .map(this::findById)
                                     .toList())
                     .andFailFast()
                     .map(list -> list.stream().filter(tune -> tune != null).toList());
@@ -109,7 +111,8 @@ public class TuneRepositoryImpl implements TuneRepository {
             case null -> Uni.createFrom().voidItem();
             default -> Uni.join()
                     .all(
-                            StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
+                            StreamSupport.stream(aggregates.spliterator(), false)
+                                    .map(this::delete)
                                     .toList())
                     .andFailFast().replaceWithVoid();
         };
@@ -129,7 +132,8 @@ public class TuneRepositoryImpl implements TuneRepository {
             case null -> Uni.createFrom().voidItem();
             default -> Uni.join()
                     .all(
-                            StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
+                            StreamSupport.stream(ids.spliterator(), false)
+                                    .map(this::deleteById)
                                     .toList())
                     .andFailFast().replaceWithVoid();
         };

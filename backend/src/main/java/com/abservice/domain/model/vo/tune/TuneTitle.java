@@ -60,6 +60,8 @@ public record TuneTitle(@NonNull String value) implements ValueObject<TuneTitle>
 
     @Override
     public boolean equivalentTo(TuneTitle other) {
-        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
+        return Optional.ofNullable(other)
+                .filter(o -> this.value.equals(o.value))
+                .isPresent();
     }
 }

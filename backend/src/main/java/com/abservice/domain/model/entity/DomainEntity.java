@@ -114,8 +114,10 @@ public interface DomainEntity<T extends DomainEntity<T, ID>, ID> extends DomainO
      */
     @Override
     default boolean equivalentTo(T other) {
-        return Optional.ofNullable(other).filter(o -> this.getClass().equals(o.getClass()))
-                .filter(o -> this.id().equals(o.id())).isPresent();
+        return Optional.ofNullable(other)
+                .filter(o -> this.getClass().equals(o.getClass()))
+                .filter(o -> this.id().equals(o.id()))
+                .isPresent();
     }
 
     /**

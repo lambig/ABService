@@ -52,7 +52,8 @@ public class EventMatchingService implements DomainService {
     public boolean isSameEvent(EventToParticipate toParticipate, EventReleasedAt releasedAt) {
         return Optional.ofNullable(toParticipate)
                 .flatMap(
-                        tp -> Optional.ofNullable(releasedAt).filter(ra -> tp.name().equivalentTo(ra.name()))
+                        tp -> Optional.ofNullable(releasedAt)
+                                .filter(ra -> tp.name().equivalentTo(ra.name()))
                                 .map(ra -> matchesEventDetails(tp, ra)))
                 .orElse(false);
     }
@@ -81,7 +82,8 @@ public class EventMatchingService implements DomainService {
     public boolean matchesEventNameAndDate(EventToParticipate toParticipate, EventReleasedAt releasedAt) {
         return Optional.ofNullable(toParticipate)
                 .flatMap(
-                        tp -> Optional.ofNullable(releasedAt).filter(ra -> tp.name().equivalentTo(ra.name()))
+                        tp -> Optional.ofNullable(releasedAt)
+                                .filter(ra -> tp.name().equivalentTo(ra.name()))
                                 .map(ra -> matchesDateDetails(tp, ra)))
                 .orElse(false);
     }

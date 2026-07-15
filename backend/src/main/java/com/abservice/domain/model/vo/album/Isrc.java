@@ -71,6 +71,8 @@ public record Isrc(String value) implements ValueObject<Isrc> {
 
     @Override
     public boolean equivalentTo(Isrc other) {
-        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
+        return Optional.ofNullable(other)
+                .filter(o -> this.value.equals(o.value))
+                .isPresent();
     }
 }

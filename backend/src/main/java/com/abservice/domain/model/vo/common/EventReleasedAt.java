@@ -107,7 +107,10 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      */
     public static EventReleasedAt of(String name, BusinessDate date) {
         return new EventReleasedAt(new EventName(name),
-                Optional.ofNullable(date).map(d -> List.of(EventDateAndSpace.of(d))).orElse(null), null, null);
+                Optional.ofNullable(date)
+                        .map(d -> List.of(EventDateAndSpace.of(d)))
+                        .orElse(null),
+                null, null);
     }
 
     /**
@@ -126,7 +129,10 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
             BusinessDate date,
             String spaceNumber) {
         return new EventReleasedAt(new EventName(name),
-                Optional.ofNullable(date).map(d -> List.of(EventDateAndSpace.of(d, spaceNumber))).orElse(null), null,
+                Optional.ofNullable(date)
+                        .map(d -> List.of(EventDateAndSpace.of(d, spaceNumber)))
+                        .orElse(null),
+                null,
                 null);
     }
 
@@ -203,7 +209,10 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
             String spaceNumber,
             String note) {
         return new EventReleasedAt(new EventName(name),
-                Optional.ofNullable(date).map(d -> List.of(EventDateAndSpace.of(d, spaceNumber))).orElse(null), place,
+                Optional.ofNullable(date)
+                        .map(d -> List.of(EventDateAndSpace.of(d, spaceNumber)))
+                        .orElse(null),
+                place,
                 note);
     }
 }

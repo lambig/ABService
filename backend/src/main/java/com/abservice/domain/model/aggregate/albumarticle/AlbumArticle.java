@@ -117,7 +117,8 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      * @return 更新されたAlbumArticle
      */
     public AlbumArticle updateIntro(@Nullable String newIntroLong, @Nullable String newIntroShort) {
-        return withIntroLong(newIntroLong).withIntroShort(newIntroShort);
+        return withIntroLong(newIntroLong)
+                .withIntroShort(newIntroShort);
     }
 
     /**

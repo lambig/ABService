@@ -221,7 +221,8 @@ public record DeclinedEvent(EventName name, List<BusinessDate> declinedDates, @N
 
     @Override
     public boolean equivalentTo(EventToParticipate other) {
-        return Optional.ofNullable(other).map(asType(DeclinedEvent.class))
+        return Optional.ofNullable(other)
+                .map(asType(DeclinedEvent.class))
                 .filter(
                         and(
                                 having(DeclinedEvent::name).that(this.name::equivalentTo),

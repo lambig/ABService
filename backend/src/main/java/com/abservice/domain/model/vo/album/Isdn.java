@@ -104,7 +104,10 @@ public record Isdn(String value) implements ValueObject<Isdn> {
      * @return チェックデジットが正しければtrue
      */
     private static boolean isValidCheckDigit(String isdn) {
-        return Optional.ofNullable(isdn).filter(s -> s.length() == 13).filter(Isdn::checkDigitMatches).isPresent();
+        return Optional.ofNullable(isdn)
+                .filter(s -> s.length() == 13)
+                .filter(Isdn::checkDigitMatches)
+                .isPresent();
     }
 
     private static boolean checkDigitMatches(String isdn) {
@@ -127,17 +130,22 @@ public record Isdn(String value) implements ValueObject<Isdn> {
      */
     public String formattedValue() {
         // 日本の場合: 278-4-XXXXXX-XX-X (3-1-6-2-1の構成)、その他の地域は簡略表示
-        return TextEscape.escape("${flag}-${body}-${check}").where("flag", value.substring(0, 3))
+        return TextEscape.escape("${flag}-${body}-${check}")
+                .where("flag", value.substring(0, 3))
                 .where(
                         "body",
-                        Stream.of("2784", "2794").anyMatch(value::startsWith)
-                                ? value.substring(3, 4) + "-" + value.substring(4, 10) + "-" + value.substring(10, 12)
-                                : value.substring(3, 12))
+                        Stream.of("2784", "2794")
+                                .anyMatch(value::startsWith)
+                                        ? value.substring(3, 4) + "-" + value.substring(4, 10) + "-"
+                                                + value.substring(10, 12)
+                                        : value.substring(3, 12))
                 .where("check", value.substring(12, 13)).compile();
     }
 
     @Override
     public boolean equivalentTo(Isdn other) {
-        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
+        return Optional.ofNullable(other)
+                .filter(o -> this.value.equals(o.value))
+                .isPresent();
     }
 }

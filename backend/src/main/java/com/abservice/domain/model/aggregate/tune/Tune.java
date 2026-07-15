@@ -176,7 +176,8 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
                         "ORIGINAL_WORK_TITLE_REQUIRED"))
                 .verify(newOriginalWorkTitle, Function.identity())
                 .resolve(Policy::illegalArgument);
-        return withOriginalWorkTitle(newOriginalWorkTitle).withOriginalWorkCredit(newOriginalWorkCredit);
+        return withOriginalWorkTitle(newOriginalWorkTitle)
+                .withOriginalWorkCredit(newOriginalWorkCredit);
     }
 
     /**

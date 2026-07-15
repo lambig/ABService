@@ -56,8 +56,12 @@ public final class AlbumMapper {
                                 BusinessDate.of(e.getReleaseDate()),
                                 buildArtistCredit(e),
                                 buildEventReleasedAt(e),
-                                Optional.ofNullable(e.getCatalogNumber()).map(CatalogNumber::new).orElse(null),
-                                Optional.ofNullable(e.getIsdn()).map(Isdn::new).orElse(null),
+                                Optional.ofNullable(e.getCatalogNumber())
+                                        .map(CatalogNumber::new)
+                                        .orElse(null),
+                                Optional.ofNullable(e.getIsdn())
+                                        .map(Isdn::new)
+                                        .orElse(null),
                                 buildTracks(e)))
                 .orElse(null);
     }
@@ -83,7 +87,8 @@ public final class AlbumMapper {
     }
 
     private static @Nullable List<EventDateAndSpace> extractDateAndSpaces(AlbumEntity entity) {
-        return Optional.ofNullable(entity.getEventDateSpaces()).filter(not(List::isEmpty))
+        return Optional.ofNullable(entity.getEventDateSpaces())
+                .filter(not(List::isEmpty))
                 .map(
                         list -> list.stream()
                                 .map(e -> EventDateAndSpace.of(BusinessDate.of(e.getEventDate()), e.getSpaceNumber()))
@@ -109,7 +114,8 @@ public final class AlbumMapper {
         albumEntity.setTitle(album.title().value());
         albumEntity.setReleaseDate(album.releaseDate().asLocalDate());
         setArtistCreditFields(albumEntity, album.artistCredit());
-        Optional.ofNullable(album.eventReleasedAt()).ifPresent(event -> populateEventFields(albumEntity, event));
+        Optional.ofNullable(album.eventReleasedAt())
+                .ifPresent(event -> populateEventFields(albumEntity, event));
         setCatalogFields(albumEntity, album);
         setTracksField(albumEntity, album);
         return albumEntity;
@@ -121,12 +127,19 @@ public final class AlbumMapper {
     }
 
     private static void setCatalogFields(AlbumEntity entity, Album album) {
-        entity.setCatalogNumber(Optional.ofNullable(album.catalogNumber()).map(CatalogNumber::value).orElse(null));
-        entity.setIsdn(Optional.ofNullable(album.isdn()).map(Isdn::value).orElse(null));
+        entity.setCatalogNumber(
+                Optional.ofNullable(album.catalogNumber())
+                        .map(CatalogNumber::value)
+                        .orElse(null));
+        entity.setIsdn(
+                Optional.ofNullable(album.isdn())
+                        .map(Isdn::value)
+                        .orElse(null));
     }
 
     private static void setTracksField(AlbumEntity entity, Album album) {
-        Optional.ofNullable(album.tracks()).filter(not(List::isEmpty))
+        Optional.ofNullable(album.tracks())
+                .filter(not(List::isEmpty))
                 .map(tracks -> tracks.stream().map(track -> trackToEntity(track, entity)).toList())
                 .ifPresent(entity::setTracks);
     }
@@ -136,10 +149,12 @@ public final class AlbumMapper {
         albumEntity.setEventPlace(event.place());
         albumEntity.setEventNote(event.note());
 
-        Optional.ofNullable(event.dateAndSpaces()).filter(not(List::isEmpty)).ifPresent(dateAndSpaces -> {
-            populateDateAndSpaceEntities(albumEntity, dateAndSpaces);
-            populateLegacyDateAndSpace(albumEntity, dateAndSpaces.get(0));
-        });
+        Optional.ofNullable(event.dateAndSpaces())
+                .filter(not(List::isEmpty))
+                .ifPresent(dateAndSpaces -> {
+                    populateDateAndSpaceEntities(albumEntity, dateAndSpaces);
+                    populateLegacyDateAndSpace(albumEntity, dateAndSpaces.get(0));
+                });
     }
 
     private static void populateDateAndSpaceEntities(AlbumEntity albumEntity, List<EventDateAndSpace> dateAndSpaces) {
@@ -175,7 +190,9 @@ public final class AlbumMapper {
                                 e.getTrackNo(),
                                 new TrackTitle(e.getTitle()),
                                 buildTrackArtistCredit(e),
-                                Optional.ofNullable(e.getRecordingDate()).map(BusinessDate::of).orElse(null),
+                                Optional.ofNullable(e.getRecordingDate())
+                                        .map(BusinessDate::of)
+                                        .orElse(null),
                                 e.getRecordingPlace(),
                                 e.getIsLive(),
                                 buildTrackTunes(e)))
@@ -184,7 +201,8 @@ public final class AlbumMapper {
 
     private static @Nullable ArtistCredit buildTrackArtistCredit(TrackEntity entity) {
         return Optional.ofNullable(entity.getArtistDisplayName())
-                .map(name -> ArtistCredit.of(name, entity.getArtistSortKey())).orElse(null);
+                .map(name -> ArtistCredit.of(name, entity.getArtistSortKey()))
+                .orElse(null);
     }
 
     private static List<TrackTune> buildTrackTunes(TrackEntity entity) {
@@ -203,20 +221,24 @@ public final class AlbumMapper {
      * @return TrackEntity
      */
     private static @Nullable TrackEntity trackToEntity(@Nullable Track track, AlbumEntity albumEntity) {
-        return Optional.ofNullable(track).map(t -> {
-            final var trackEntity = new TrackEntity();
-            trackEntity.setDomainId(t.id().value());
-            trackEntity.setAlbum(albumEntity);
-            trackEntity.setTrackNo(t.trackNo());
-            trackEntity.setTitle(t.title().value());
-            Optional.ofNullable(t.artistCredit()).ifPresent(ac -> setTrackArtistCredit(trackEntity, ac));
-            trackEntity.setRecordingDate(
-                    Optional.ofNullable(t.recordingDate()).map(BusinessDate::asLocalDate).orElse(null));
-            trackEntity.setRecordingPlace(t.recordingPlace());
-            trackEntity.setIsLive(t.isLive());
-            setTrackTunesField(trackEntity, t);
-            return trackEntity;
-        }).orElse(null);
+        return Optional.ofNullable(track)
+                .map(t -> {
+                    final var trackEntity = new TrackEntity();
+                    trackEntity.setDomainId(t.id().value());
+                    trackEntity.setAlbum(albumEntity);
+                    trackEntity.setTrackNo(t.trackNo());
+                    trackEntity.setTitle(t.title().value());
+                    Optional.ofNullable(t.artistCredit())
+                            .ifPresent(ac -> setTrackArtistCredit(trackEntity, ac));
+                    trackEntity.setRecordingDate(
+                            Optional.ofNullable(t.recordingDate())
+                                    .map(BusinessDate::asLocalDate)
+                                    .orElse(null));
+                    trackEntity.setRecordingPlace(t.recordingPlace());
+                    trackEntity.setIsLive(t.isLive());
+                    setTrackTunesField(trackEntity, t);
+                    return trackEntity;
+                }).orElse(null);
     }
 
     private static void setTrackArtistCredit(TrackEntity entity, ArtistCredit credit) {
@@ -225,7 +247,8 @@ public final class AlbumMapper {
     }
 
     private static void setTrackTunesField(TrackEntity entity, Track track) {
-        Optional.ofNullable(track.tunes()).filter(not(List::isEmpty))
+        Optional.ofNullable(track.tunes())
+                .filter(not(List::isEmpty))
                 .map(
                         tunes -> tunes.stream().map(trackTune -> trackTuneToEntity(trackTune, entity))
                                 .toList())
@@ -244,10 +267,18 @@ public final class AlbumMapper {
                 .map(
                         e -> TrackTune.reconstruct(
                                 e.getId().getSeq(),
-                                Optional.ofNullable(e.getTuneId()).map(Tune.Id::new).orElse(null),
-                                Optional.ofNullable(e.getComposerCreditOverride()).map(Credit::new).orElse(null),
-                                Optional.ofNullable(e.getArrangerCreditOverride()).map(Credit::new).orElse(null),
-                                Optional.ofNullable(e.getLinkUrl()).map(Url::new).orElse(null)))
+                                Optional.ofNullable(e.getTuneId())
+                                        .map(Tune.Id::new)
+                                        .orElse(null),
+                                Optional.ofNullable(e.getComposerCreditOverride())
+                                        .map(Credit::new)
+                                        .orElse(null),
+                                Optional.ofNullable(e.getArrangerCreditOverride())
+                                        .map(Credit::new)
+                                        .orElse(null),
+                                Optional.ofNullable(e.getLinkUrl())
+                                        .map(Url::new)
+                                        .orElse(null)))
                 .orElse(null);
     }
 
@@ -261,17 +292,28 @@ public final class AlbumMapper {
      * @return TrackTuneEntity
      */
     private static @Nullable TrackTuneEntity trackTuneToEntity(@Nullable TrackTune trackTune, TrackEntity trackEntity) {
-        return Optional.ofNullable(trackTune).map(tt -> {
-            final var trackTuneEntity = new TrackTuneEntity();
-            trackTuneEntity.setId(new TrackTuneId(trackEntity.getTrackId(), tt.seq()));
-            trackTuneEntity.setTrack(trackEntity);
-            trackTuneEntity.setTuneId(Optional.ofNullable(tt.tuneId()).map(Tune.Id::value).orElse(null));
-            trackTuneEntity.setComposerCreditOverride(
-                    Optional.ofNullable(tt.composerCreditOverride()).map(Credit::value).orElse(null));
-            trackTuneEntity.setArrangerCreditOverride(
-                    Optional.ofNullable(tt.arrangerCreditOverride()).map(Credit::value).orElse(null));
-            trackTuneEntity.setLinkUrl(Optional.ofNullable(tt.linkUrl()).map(Url::value).orElse(null));
-            return trackTuneEntity;
-        }).orElse(null);
+        return Optional.ofNullable(trackTune)
+                .map(tt -> {
+                    final var trackTuneEntity = new TrackTuneEntity();
+                    trackTuneEntity.setId(new TrackTuneId(trackEntity.getTrackId(), tt.seq()));
+                    trackTuneEntity.setTrack(trackEntity);
+                    trackTuneEntity.setTuneId(
+                            Optional.ofNullable(tt.tuneId())
+                                    .map(Tune.Id::value)
+                                    .orElse(null));
+                    trackTuneEntity.setComposerCreditOverride(
+                            Optional.ofNullable(tt.composerCreditOverride())
+                                    .map(Credit::value)
+                                    .orElse(null));
+                    trackTuneEntity.setArrangerCreditOverride(
+                            Optional.ofNullable(tt.arrangerCreditOverride())
+                                    .map(Credit::value)
+                                    .orElse(null));
+                    trackTuneEntity.setLinkUrl(
+                            Optional.ofNullable(tt.linkUrl())
+                                    .map(Url::value)
+                                    .orElse(null));
+                    return trackTuneEntity;
+                }).orElse(null);
     }
 }

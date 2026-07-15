@@ -36,6 +36,7 @@ final class ArticleViewMapper {
                 entity.getIntroShort(),
                 entity.getPublishedAt(),
                 entity.getUpdatedAtBusiness(),
-                Optional.ofNullable(entity.getIsPublic()).orElse(false));
+                Optional.ofNullable(entity.getIsPublic())
+                        .orElse(false));
     }
 }

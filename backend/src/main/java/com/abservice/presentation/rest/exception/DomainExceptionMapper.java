@@ -31,7 +31,10 @@ public class DomainExceptionMapper implements ExceptionMapper<DomainException> {
     @Override
     public Response toResponse(DomainException exception) {
         final ProblemDetail problem = toProblem(exception);
-        return Response.status(problem.status()).type(MediaType.valueOf(PROBLEM_JSON)).entity(problem).build();
+        return Response.status(problem.status())
+                .type(MediaType.valueOf(PROBLEM_JSON))
+                .entity(problem)
+                .build();
     }
 
     /**

@@ -61,6 +61,8 @@ public record CatalogNumber(@NonNull String value) implements ValueObject<Catalo
 
     @Override
     public boolean equivalentTo(CatalogNumber other) {
-        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
+        return Optional.ofNullable(other)
+                .filter(o -> this.value.equals(o.value))
+                .isPresent();
     }
 }

@@ -173,6 +173,7 @@ final def generatePmdTestRuleset = tasks.register('generatePmdTestRuleset') {
     <description>テスト向け。ruleset.xml を全参照し production 限定ルールのみ除外する。</description>
     <rule ref="${pmdBaseRuleset.absolutePath}">
         <exclude name="SingleUseLocalVariable"/>
+        <exclude name="ForbiddenArgChainOnSingleLine"/>
     </rule>
 </ruleset>
 """

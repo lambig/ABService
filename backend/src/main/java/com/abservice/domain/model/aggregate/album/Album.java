@@ -269,7 +269,8 @@ public class Album implements Aggregate<Album, Album.Id> {
                 Collections.unmodifiableList(
                         renumberByOrder(
                                 Policy.<List<Track.Id>>of(
-                                        ids -> Optional.ofNullable(ids).filter(i -> i.size() == tracks.size())
+                                        ids -> Optional.ofNullable(ids)
+                                                .filter(i -> i.size() == tracks.size())
                                                 .isPresent(),
                                         () -> new ErrorResult(
                                                 "orderedTrackIds",
@@ -282,7 +283,9 @@ public class Album implements Aggregate<Album, Album.Id> {
     private @NonNull List<Track> renumberByOrder(@NonNull List<Track.Id> orderedTrackIds) {
         final var trackNo = new AtomicInteger(1);
         return orderedTrackIds.stream()
-                .map(trackId -> getTrack(trackId).withTrackNo(trackNo.getAndIncrement()))
+                .map(
+                        trackId -> getTrack(trackId)
+                                .withTrackNo(trackNo.getAndIncrement()))
                 .toList();
     }
 

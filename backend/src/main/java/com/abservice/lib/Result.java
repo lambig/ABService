@@ -360,7 +360,9 @@ public sealed interface Result<T> {
      * @return 全失敗エラーを集約したリスト
      */
     private static List<ErrorResult> aggregateErrors(Result<?>... results) {
-        return Arrays.stream(results).flatMap(result -> result.errors().stream()).toList();
+        return Arrays.stream(results)
+                .flatMap(result -> result.errors().stream())
+                .toList();
     }
 
     /**

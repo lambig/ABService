@@ -91,7 +91,8 @@ public record SelectedEvent(EventName name, List<BusinessDate> selectedDates, Li
     }
 
     private static List<BusinessDate> normalizeDeclinedDates(List<BusinessDate> dates) {
-        return Optional.ofNullable(dates).orElse(List.of());
+        return Optional.ofNullable(dates)
+                .orElse(List.of());
     }
 
     /**
@@ -262,7 +263,8 @@ public record SelectedEvent(EventName name, List<BusinessDate> selectedDates, Li
 
     @Override
     public boolean equivalentTo(EventToParticipate other) {
-        return Optional.ofNullable(other).map(asType(SelectedEvent.class))
+        return Optional.ofNullable(other)
+                .map(asType(SelectedEvent.class))
                 .filter(
                         and(
                                 having(SelectedEvent::name).that(this.name::equivalentTo),

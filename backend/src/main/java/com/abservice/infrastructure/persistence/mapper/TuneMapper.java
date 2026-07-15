@@ -37,8 +37,12 @@ public final class TuneMapper {
                     new Tune.Id(entity.getDomainId()),
                     new TuneTitle(entity.getTitle()),
                     TuneKind.valueOf(entity.getTuneKind()),
-                    Optional.ofNullable(entity.getDefaultComposerCredit()).map(Credit::new).orElse(null),
-                    Optional.ofNullable(entity.getDefaultArrangerCredit()).map(Credit::new).orElse(null),
+                    Optional.ofNullable(entity.getDefaultComposerCredit())
+                            .map(Credit::new)
+                            .orElse(null),
+                    Optional.ofNullable(entity.getDefaultArrangerCredit())
+                            .map(Credit::new)
+                            .orElse(null),
                     entity.getOriginalWorkTitle(),
                     entity.getOriginalWorkCredit(),
                     entity.getTuneType(),
@@ -60,9 +64,13 @@ public final class TuneMapper {
         tuneEntity.setTitle(tune.title().value());
         tuneEntity.setTuneKind(tune.tuneKind().name());
         tuneEntity.setDefaultComposerCredit(
-                Optional.ofNullable(tune.defaultComposerCredit()).map(Credit::value).orElse(null));
+                Optional.ofNullable(tune.defaultComposerCredit())
+                        .map(Credit::value)
+                        .orElse(null));
         tuneEntity.setDefaultArrangerCredit(
-                Optional.ofNullable(tune.defaultArrangerCredit()).map(Credit::value).orElse(null));
+                Optional.ofNullable(tune.defaultArrangerCredit())
+                        .map(Credit::value)
+                        .orElse(null));
         tuneEntity.setOriginalWorkTitle(tune.originalWorkTitle());
         tuneEntity.setOriginalWorkCredit(tune.originalWorkCredit());
         tuneEntity.setTuneType(tune.tuneType());
