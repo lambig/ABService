@@ -181,18 +181,26 @@ public class AlbumRepositoryImpl implements AlbumRepository {
 
     @Override
     public Uni<List<Album>> findByArtistName(String artistName) {
-        return StringUtils.isBlank(artistName)
-                ? Uni.createFrom().item(List.of())
-                : dataSource.findByArtistDisplayName(artistName)
-                        .map(entities -> entities.stream().map(AlbumMapper::toDomain).collect(Collectors.toList()));
+        return Optional.ofNullable(artistName)
+                .filter(StringUtils::isNotBlank)
+                .map(
+                        name -> dataSource.findByArtistDisplayName(name)
+                                .map(
+                                        entities -> entities.stream().map(AlbumMapper::toDomain)
+                                                .collect(Collectors.toList())))
+                .orElseGet(() -> Uni.createFrom().item(List.of()));
     }
 
     @Override
     public Uni<List<Album>> findByEventName(String eventName) {
-        return StringUtils.isBlank(eventName)
-                ? Uni.createFrom().item(List.of())
-                : dataSource.findByEventName(eventName)
-                        .map(entities -> entities.stream().map(AlbumMapper::toDomain).collect(Collectors.toList()));
+        return Optional.ofNullable(eventName)
+                .filter(StringUtils::isNotBlank)
+                .map(
+                        name -> dataSource.findByEventName(name)
+                                .map(
+                                        entities -> entities.stream().map(AlbumMapper::toDomain)
+                                                .collect(Collectors.toList())))
+                .orElseGet(() -> Uni.createFrom().item(List.of()));
     }
 
     @Override

@@ -11,6 +11,7 @@ import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
 
@@ -61,10 +62,14 @@ public class CreateArticleService implements CommandService<CreateArticleInput, 
                         input.introShort()));
     }
 
+    /** 本文なし（blank 入力）を表す検証結果。完全に使い回せる定数。 */
+    private static final Result<MarkupContent> EMPTY_BODY = Result.success(MarkupContent.EMPTY);
+
     private static Result<MarkupContent> resolveBody(@Nullable String content, @Nullable String format) {
-        return StringUtils.isBlank(content)
-                ? Result.success(MarkupContent.EMPTY)
-                : MarkupContent.fromInput(content, format);
+        return Optional.ofNullable(content)
+                .filter(StringUtils::isNotBlank)
+                .map(c -> MarkupContent.fromInput(c, format))
+                .orElse(EMPTY_BODY);
     }
 
     private static CreateArticleOutput toOutput(Article article) {
