@@ -269,8 +269,10 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
                 Objects::nonNull,
                 TAG_ID_REQUIRED_ERROR)
                 .verify(tagId, Function.identity()).resolve(Policy::illegalArgument);
-        final var newTags = tags.stream().filter(not(t -> t.hasId(validatedTagId))).collect(Collectors.toList());
-        return withTags(Collections.unmodifiableList(newTags)).withUpdatedAtBusiness(currentDateTime);
+        return withTags(
+                Collections.unmodifiableList(
+                        tags.stream().filter(not(t -> t.hasId(validatedTagId))).collect(Collectors.toList())))
+                .withUpdatedAtBusiness(currentDateTime);
     }
 
     /**

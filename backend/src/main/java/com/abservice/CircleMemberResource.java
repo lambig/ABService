@@ -32,8 +32,6 @@ public class CircleMemberResource {
         member2.put("bio", "Software developer");
         member2.put("isActive", true);
 
-        final List<Map<String, Object>> members = List.of(member1, member2);
-
-        return Response.ok(members).build();
+        return Response.ok(List.of(member1, member2)).build();
     }
 }

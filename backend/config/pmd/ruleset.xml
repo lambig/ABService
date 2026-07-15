@@ -362,4 +362,38 @@
         </properties>
     </rule>
 
+    <rule name="SingleUseLocalVariable"
+          language="java"
+          message="単一使用ローカル変数（宣言後に1回しか読まれない）は禁止です。インライン化するか、分解が必要なら private メソッドへ抽出してください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            宣言後に読み取りが1回のみのローカル変数を禁止し、インライン化を強制する。
+            UnnecessaryLocalBeforeReturn は「T x = e; return x;」（直接 return）のみを捕捉するが、
+            本ルールは new/メソッド引数での1回使用など全ての単一使用ローカルを覆う（上位集合）。
+            誤検知回避のため、唯一の使用がラムダ/ループ（for / foreach / while / do）本体に
+            現れる変数は対象外とする（インライン化すると評価回数・キャプチャ意味が変わるため）。
+            スコープは production（src/main）に限定する。テスト（src/test）では Arrange の
+            名前付き中間値を文書として許容するため、pmdTest 用 ruleset（ruleset-test.xml）で
+            本ルールを除外する。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//LocalVariableDeclaration/VariableDeclarator/VariableId[
+  let $n := @Name,
+      $scope := ancestor::*[self::MethodDeclaration or self::ConstructorDeclaration
+                            or self::CompactConstructorDeclaration or self::Initializer][1]
+  return $scope
+     and count($scope//VariableAccess[@Name = $n]) = 1
+     and not($scope//VariableAccess[@Name = $n][
+               ancestor::LambdaExpression or ancestor::ForStatement
+               or ancestor::ForeachStatement or ancestor::WhileStatement
+               or ancestor::DoStatement])
+]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
 </ruleset>

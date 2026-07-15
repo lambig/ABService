@@ -132,9 +132,8 @@ public sealed interface Result<T> {
         @Override
         public T orElseDo(Consumer<List<ErrorResult>> action) {
             action.accept(errors());
-            final String errorMessage = errors().stream().map(e -> e.field() + ": " + e.message())
-                    .reduce((a, b) -> a + ", " + b).orElse("Unknown error");
-            throw new IllegalStateException("エラー: " + errorMessage);
+            throw new IllegalStateException("エラー: " + errors().stream().map(e -> e.field() + ": " + e.message())
+                    .reduce((a, b) -> a + ", " + b).orElse("Unknown error"));
         }
 
         @Override

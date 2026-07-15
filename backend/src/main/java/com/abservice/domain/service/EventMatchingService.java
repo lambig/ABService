@@ -102,8 +102,7 @@ public class EventMatchingService implements DomainService {
     }
 
     private boolean matchesConfirmedDates(ConfirmedEvent confirmed, EventReleasedAt releasedAt) {
-        final var participateDates = confirmed.dateAndSpaces().stream().map(ds -> ds.date()).toList();
-        final var releasedDates = releasedAt.dateAndSpaces().stream().map(ds -> ds.date()).toList();
-        return participateDates.equals(releasedDates);
+        return confirmed.dateAndSpaces().stream().map(ds -> ds.date()).toList()
+                .equals(releasedAt.dateAndSpaces().stream().map(ds -> ds.date()).toList());
     }
 }

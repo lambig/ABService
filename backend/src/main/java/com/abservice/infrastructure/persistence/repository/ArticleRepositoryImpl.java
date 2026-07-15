@@ -63,12 +63,11 @@ public class ArticleRepositoryImpl implements ArticleRepository {
     public Uni<List<Article>> saveAll(Iterable<Article> aggregates) {
         return switch (aggregates) {
             case null -> Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null"));
-            default -> {
-                final var unis = StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
-                        .collect(Collectors.toList());
-
-                yield Uni.join().all(unis).andFailFast();
-            }
+            default -> Uni.join()
+                    .all(
+                            StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
+                                    .collect(Collectors.toList()))
+                    .andFailFast();
         };
     }
 
@@ -84,13 +83,12 @@ public class ArticleRepositoryImpl implements ArticleRepository {
     public Uni<List<Article>> findAllById(Iterable<Article.Id> ids) {
         return switch (ids) {
             case null -> Uni.createFrom().item(List.of());
-            default -> {
-                final var unis = StreamSupport.stream(ids.spliterator(), false).map(this::findById)
-                        .collect(Collectors.toList());
-
-                yield Uni.join().all(unis).andFailFast()
-                        .map(list -> list.stream().filter(article -> article != null).collect(Collectors.toList()));
-            }
+            default -> Uni.join()
+                    .all(
+                            StreamSupport.stream(ids.spliterator(), false).map(this::findById)
+                                    .collect(Collectors.toList()))
+                    .andFailFast()
+                    .map(list -> list.stream().filter(article -> article != null).collect(Collectors.toList()));
         };
     }
 
@@ -112,12 +110,11 @@ public class ArticleRepositoryImpl implements ArticleRepository {
     public Uni<Void> deleteAll(Iterable<Article> aggregates) {
         return switch (aggregates) {
             case null -> Uni.createFrom().voidItem();
-            default -> {
-                final var unis = StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
-                        .collect(Collectors.toList());
-
-                yield Uni.join().all(unis).andFailFast().replaceWithVoid();
-            }
+            default -> Uni.join()
+                    .all(
+                            StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
+                                    .collect(Collectors.toList()))
+                    .andFailFast().replaceWithVoid();
         };
     }
 
@@ -133,12 +130,11 @@ public class ArticleRepositoryImpl implements ArticleRepository {
     public Uni<Void> deleteAllById(Iterable<Article.Id> ids) {
         return switch (ids) {
             case null -> Uni.createFrom().voidItem();
-            default -> {
-                final var unis = StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
-                        .collect(Collectors.toList());
-
-                yield Uni.join().all(unis).andFailFast().replaceWithVoid();
-            }
+            default -> Uni.join()
+                    .all(
+                            StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
+                                    .collect(Collectors.toList()))
+                    .andFailFast().replaceWithVoid();
         };
     }
 

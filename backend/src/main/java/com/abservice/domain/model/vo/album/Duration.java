@@ -63,12 +63,10 @@ public record Duration(Integer milliseconds) implements ValueObject<Duration> {
      */
     public String toMinutesSeconds() {
         final var totalSeconds = toSeconds();
-        final var minutes = totalSeconds / 60;
-        final var seconds = totalSeconds % 60;
         return String.format(
                 "%d:%02d",
-                minutes,
-                seconds);
+                totalSeconds / 60,
+                totalSeconds % 60);
     }
 
     /**
@@ -78,14 +76,11 @@ public record Duration(Integer milliseconds) implements ValueObject<Duration> {
      */
     public String toHoursMinutesSeconds() {
         final var totalSeconds = toSeconds();
-        final var hours = totalSeconds / 3600;
-        final var minutes = (totalSeconds % 3600) / 60;
-        final var seconds = totalSeconds % 60;
         return String.format(
                 "%d:%02d:%02d",
-                hours,
-                minutes,
-                seconds);
+                totalSeconds / 3600,
+                (totalSeconds % 3600) / 60,
+                totalSeconds % 60);
     }
 
     @Override

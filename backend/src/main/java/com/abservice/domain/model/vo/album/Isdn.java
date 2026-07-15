@@ -108,14 +108,16 @@ public record Isdn(String value) implements ValueObject<Isdn> {
     }
 
     private static boolean checkDigitMatches(String isdn) {
-        final int sum = IntStream.range(0, 12).map(i -> {
+        return computeCheckDigit(isdn) == Character.getNumericValue(isdn.charAt(12));
+    }
+
+    private static int computeCheckDigit(String isdn) {
+        return (10 - (IntStream.range(0, 12).map(i -> {
             final int digit = Character.getNumericValue(isdn.charAt(i));
             return (i % 2 == 0)
                     ? digit
                     : digit * 3;
-        }).sum();
-        final int checkDigit = (10 - (sum % 10)) % 10;
-        return checkDigit == Character.getNumericValue(isdn.charAt(12));
+        }).sum() % 10)) % 10;
     }
 
     /**

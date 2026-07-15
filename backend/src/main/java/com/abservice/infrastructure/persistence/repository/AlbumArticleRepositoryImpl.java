@@ -56,12 +56,11 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
     public Uni<List<AlbumArticle>> saveAll(Iterable<AlbumArticle> aggregates) {
         return switch (aggregates) {
             case null -> Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null"));
-            default -> {
-                final var unis = StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
-                        .collect(Collectors.toList());
-
-                yield Uni.join().all(unis).andFailFast();
-            }
+            default -> Uni.join()
+                    .all(
+                            StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
+                                    .collect(Collectors.toList()))
+                    .andFailFast();
         };
     }
 
@@ -77,14 +76,14 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
     public Uni<List<AlbumArticle>> findAllById(Iterable<Album.Id> ids) {
         return switch (ids) {
             case null -> Uni.createFrom().item(List.of());
-            default -> {
-                final var unis = StreamSupport.stream(ids.spliterator(), false).map(this::findById)
-                        .collect(Collectors.toList());
-
-                yield Uni.join().all(unis).andFailFast().map(
-                        list -> list.stream().filter(albumArticle -> albumArticle != null)
-                                .collect(Collectors.toList()));
-            }
+            default -> Uni.join()
+                    .all(
+                            StreamSupport.stream(ids.spliterator(), false).map(this::findById)
+                                    .collect(Collectors.toList()))
+                    .andFailFast()
+                    .map(
+                            list -> list.stream().filter(albumArticle -> albumArticle != null)
+                                    .collect(Collectors.toList()));
         };
     }
 
@@ -106,12 +105,11 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
     public Uni<Void> deleteAll(Iterable<AlbumArticle> aggregates) {
         return switch (aggregates) {
             case null -> Uni.createFrom().voidItem();
-            default -> {
-                final var unis = StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
-                        .collect(Collectors.toList());
-
-                yield Uni.join().all(unis).andFailFast().replaceWithVoid();
-            }
+            default -> Uni.join()
+                    .all(
+                            StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
+                                    .collect(Collectors.toList()))
+                    .andFailFast().replaceWithVoid();
         };
     }
 
@@ -127,12 +125,11 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
     public Uni<Void> deleteAllById(Iterable<Album.Id> ids) {
         return switch (ids) {
             case null -> Uni.createFrom().voidItem();
-            default -> {
-                final var unis = StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
-                        .collect(Collectors.toList());
-
-                yield Uni.join().all(unis).andFailFast().replaceWithVoid();
-            }
+            default -> Uni.join()
+                    .all(
+                            StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
+                                    .collect(Collectors.toList()))
+                    .andFailFast().replaceWithVoid();
         };
     }
 

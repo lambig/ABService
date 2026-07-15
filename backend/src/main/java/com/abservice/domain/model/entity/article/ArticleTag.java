@@ -37,15 +37,16 @@ public class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@NonNull 
      * @return 新規ArticleTag
      */
     public static @NonNull ArticleTag create(@NonNull String name) {
-        final var validatedName = Policy.<String>of(
-                StringUtils::isNotBlank,
-                () -> new ErrorResult(
-                        "name",
-                        "Tag name cannot be blank",
-                        "TAG_NAME_REQUIRED"))
-                .verify(name, Function.identity())
-                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
-        return new ArticleTag(Id.generate(), validatedName);
+        return new ArticleTag(
+                Id.generate(),
+                Policy.<String>of(
+                        StringUtils::isNotBlank,
+                        () -> new ErrorResult(
+                                "name",
+                                "Tag name cannot be blank",
+                                "TAG_NAME_REQUIRED"))
+                        .verify(name, Function.identity())
+                        .resolve(Policy::illegalArgument));
     }
 
     /**

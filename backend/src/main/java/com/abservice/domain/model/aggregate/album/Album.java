@@ -265,25 +265,24 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album reorderTracks(@NonNull List<Track.@NonNull Id> orderedTrackIds) {
-        final var validatedIds = Policy.<List<Track.Id>>of(
-                ids -> Optional.ofNullable(ids).filter(i -> i.size() == tracks.size()).isPresent(),
-                () -> new ErrorResult(
-                        "orderedTrackIds",
-                        "Ordered track IDs must match the number of tracks",
-                        "TRACK_ORDER_SIZE_MISMATCH"))
-                .verify(orderedTrackIds, Function.identity())
-                .resolve(Policy::illegalArgument);
-
         final var trackNo = new AtomicInteger(1);
-        final var newTracks = validatedIds.stream().map(trackId -> {
-            final var track = tracks.stream().filter(t -> t.hasId(trackId)).findFirst()
-                    .orElseThrow(
-                            () -> new BusinessRuleViolationException(
-                                    "Track with ID " + trackId.value() + " not found"));
-            return track.withTrackNo(trackNo.getAndIncrement());
-        }).toList();
-
-        return withTracks(Collections.unmodifiableList(newTracks));
+        return withTracks(
+                Collections.unmodifiableList(
+                        Policy.<List<Track.Id>>of(
+                                ids -> Optional.ofNullable(ids).filter(i -> i.size() == tracks.size()).isPresent(),
+                                () -> new ErrorResult(
+                                        "orderedTrackIds",
+                                        "Ordered track IDs must match the number of tracks",
+                                        "TRACK_ORDER_SIZE_MISMATCH"))
+                                .verify(orderedTrackIds, Function.identity())
+                                .resolve(Policy::illegalArgument)
+                                .stream().map(trackId -> {
+                                    final var track = tracks.stream().filter(t -> t.hasId(trackId)).findFirst()
+                                            .orElseThrow(
+                                                    () -> new BusinessRuleViolationException(
+                                                            "Track with ID " + trackId.value() + " not found"));
+                                    return track.withTrackNo(trackNo.getAndIncrement());
+                                }).toList()));
     }
 
     /**

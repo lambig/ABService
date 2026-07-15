@@ -151,6 +151,26 @@ pmd {
     ignoreFailures = false
 }
 
+// production 限定ルール（SingleUseLocalVariable 等）はテスト系ソースセットでは除外する。
+// ruleset.xml を単一ソースとして参照し、テスト向けに当該ルールのみ除外した ruleset を
+// インライン生成する（絶対パス ref を gradle 側で補間。ref 解決失敗時に PMD が無警告で
+// 空解析に落ちるのを避けるため、相対 ref ではなく絶対パスを用いる）。
+tasks.matching { it.name in ['pmdTest', 'pmdIntegrationTest'] }.configureEach {
+    final def baseRuleset = file("${projectDir}/config/pmd/ruleset.xml").absolutePath
+    ruleSetFiles = files()
+    ruleSetConfig = resources.text.fromString("""<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="ABService Test Rules"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+    <description>テスト向け。ruleset.xml を全参照し production 限定ルールのみ除外する。</description>
+    <rule ref="${baseRuleset}">
+        <exclude name="SingleUseLocalVariable"/>
+    </rule>
+</ruleset>
+""")
+}
+
 // Spotless: Code formatter
 spotless {
     java {
