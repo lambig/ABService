@@ -8,6 +8,8 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noConstructors
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 
+import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
@@ -38,8 +40,11 @@ class LayeredArchitectureTest {
 
     private static final String DOMAIN = "..domain..";
     private static final String APPLICATION = "..application..";
+    private static final String APPLICATION_QUERY = "..application.query..";
     private static final String INFRASTRUCTURE = "..infrastructure..";
     private static final String PRESENTATION = "..presentation..";
+    private static final String READ_DATASOURCE = "..infrastructure.persistence.datasource..";
+    private static final String READ_ENTITY = "..infrastructure.persistence.entity..";
 
     /**
      * レイヤー依存方向: ドメイン層は他のどのレイヤーにも依存してはならない。
@@ -55,13 +60,44 @@ class LayeredArchitectureTest {
     }
 
     /**
-     * レイヤー依存方向: アプリケーション層は infrastructure / presentation に依存してはならない。
+     * レイヤー依存方向（Command 側）: アプリケーション層の Command 側（{@code application.query} を除く）は
+     * infrastructure / presentation に依存してはならない（domain・Repository 経由を強制）。
+     *
+     * <p>
+     * CQRS の非対称性を反映する。Command は Repository（Write Model）経由でドメインを通す。Query 側
+     * （{@code application.query}）は読み取り専用の別スタックのため本ルールの対象外とし、
+     * {@link #applicationQueryMayDependOnlyOnReadModelInfra} で別途規定する。
+     * </p>
      */
     @ArchTest
-    void applicationShouldNotDependOnInfraOrPresentation(JavaClasses classes) {
-        noClasses().that().resideInAPackage(APPLICATION).should().dependOnClassesThat()
-                .resideInAnyPackage(INFRASTRUCTURE, PRESENTATION)
-                .as("アプリケーション層は infrastructure / presentation に依存してはならない").check(classes);
+    void applicationCommandShouldNotDependOnInfraOrPresentation(JavaClasses classes) {
+        noClasses().that().resideInAPackage(APPLICATION).and().resideOutsideOfPackage(APPLICATION_QUERY).should()
+                .dependOnClassesThat().resideInAnyPackage(INFRASTRUCTURE, PRESENTATION)
+                .as("アプリケーション層の Command 側（application.query を除く）は infrastructure / presentation に依存してはならない")
+                .check(classes);
+    }
+
+    /**
+     * レイヤー依存方向（Query 側）: {@code application.query} は読み取り側として
+     * {@code infrastructure.persistence.datasource} と
+     * {@code infrastructure.persistence.entity} にのみ依存してよい。書き込み側 Repository・その他
+     * infrastructure・presentation への依存は禁止。
+     *
+     * <p>
+     * CQRS の Read/Write 分離: Query は DataSource 直アクセスで Read Model DTO
+     * を返す（{@code docs/STATUS_AND_ROADMAP.md} §2.2）。この読み取り経路のみを許可するため、infrastructure
+     * のうち datasource / entity 以外への依存を禁止する。
+     * </p>
+     */
+    @ArchTest
+    void applicationQueryMayDependOnlyOnReadModelInfra(JavaClasses classes) {
+        final DescribedPredicate<JavaClass> forbidden = JavaClass.Predicates.resideInAnyPackage(PRESENTATION)
+                .or(
+                        JavaClass.Predicates.resideInAnyPackage(INFRASTRUCTURE)
+                                .and(JavaClass.Predicates.resideOutsideOfPackages(READ_DATASOURCE, READ_ENTITY)));
+        noClasses().that().resideInAPackage(APPLICATION_QUERY).should().dependOnClassesThat(forbidden)
+                .as("application.query は datasource/entity 以外の infrastructure と presentation に依存してはならない")
+                .check(classes);
     }
 
     /**
