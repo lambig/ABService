@@ -4,7 +4,7 @@ import static java.util.function.Predicate.not;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -12,6 +12,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
+import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.entity.DomainEntity;
 import com.abservice.domain.model.policy.Policy;
@@ -80,12 +81,8 @@ public class Track implements DomainEntity<Track, Track.Id> {
     public static @NonNull Track create(@NonNull Integer trackNo, @NonNull TrackTitle title,
             @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate, @Nullable String recordingPlace,
             @Nullable Boolean isLive) {
-        return new Track(Id.generate(),
-                Optional.ofNullable(trackNo)
-                        .orElseThrow(() -> new IllegalArgumentException("Track number cannot be null")),
-                Optional.ofNullable(title)
-                        .orElseThrow(() -> new IllegalArgumentException("Track title cannot be null")),
-                artistCredit, recordingDate, recordingPlace, isLive, Collections.emptyList());
+        return new Track(Id.generate(), requireTrackNo(trackNo), requireTitle(title), artistCredit, recordingDate,
+                recordingPlace, isLive, Collections.emptyList());
     }
 
     /**
@@ -156,9 +153,7 @@ public class Track implements DomainEntity<Track, Track.Id> {
      * @return 更新されたTrack
      */
     public @NonNull Track changeTitle(@NonNull TrackTitle newTitle) {
-        return withTitle(
-                Optional.ofNullable(newTitle)
-                        .orElseThrow(() -> new IllegalArgumentException("Track title cannot be null")));
+        return withTitle(requireTitle(newTitle));
     }
 
     /**
@@ -213,11 +208,18 @@ public class Track implements DomainEntity<Track, Track.Id> {
      * @return 更新されたTrack
      */
     public @NonNull Track addTune(@NonNull TrackTune tune) {
-        final var validatedTune = Optional.ofNullable(tune)
-                .orElseThrow(() -> new IllegalArgumentException("Tune cannot be null"));
-        // seqの重複チェック
+        final var validatedTune = Policy.<TrackTune>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "tune",
+                        "Tune cannot be null",
+                        "TUNE_REQUIRED"))
+                .verify(tune, Function.identity())
+                .resolve(Policy::illegalArgument);
+        // seqの重複チェック（ビジネスルール違反 → 409）
         tunes.stream().filter(t -> t.seq().equals(validatedTune.seq())).findFirst().ifPresent(dup -> {
-            throw new IllegalArgumentException("Tune seq " + validatedTune.seq() + " already exists in this track");
+            throw new BusinessRuleViolationException(
+                    "Tune seq " + validatedTune.seq() + " already exists in this track");
         });
         return withTunes(Stream.concat(tunes.stream(), Stream.of(validatedTune)).toList());
     }
@@ -230,10 +232,16 @@ public class Track implements DomainEntity<Track, Track.Id> {
      * @return 更新されたTrack
      */
     public @NonNull Track removeTune(@NonNull Integer seq) {
-        final var validatedSeq = Optional.ofNullable(seq)
-                .orElseThrow(() -> new IllegalArgumentException("Seq cannot be null"));
+        final var validatedSeq = Policy.<Integer>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "seq",
+                        "Seq cannot be null",
+                        "SEQ_REQUIRED"))
+                .verify(seq, Function.identity())
+                .resolve(Policy::illegalArgument);
         tunes.stream().filter(t -> t.seq().equals(validatedSeq)).findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Tune with seq " + validatedSeq + " not found"));
+                .orElseThrow(() -> new BusinessRuleViolationException("Tune with seq " + validatedSeq + " not found"));
         return withTunes(tunes.stream().filter(not(t -> t.seq().equals(validatedSeq))).toList());
     }
 
@@ -245,10 +253,16 @@ public class Track implements DomainEntity<Track, Track.Id> {
      * @return 更新されたTrack
      */
     public @NonNull Track updateTune(@NonNull TrackTune updatedTune) {
-        final var validatedTune = Optional.ofNullable(updatedTune)
-                .orElseThrow(() -> new IllegalArgumentException("Updated tune cannot be null"));
-        tunes.stream().filter(t -> t.seq().equals(validatedTune.seq())).findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Tune with seq " + validatedTune.seq() + " not found"));
+        final var validatedTune = Policy.<TrackTune>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "updatedTune",
+                        "Updated tune cannot be null",
+                        "TUNE_REQUIRED"))
+                .verify(updatedTune, Function.identity())
+                .resolve(Policy::illegalArgument);
+        tunes.stream().filter(t -> t.seq().equals(validatedTune.seq())).findFirst().orElseThrow(
+                () -> new BusinessRuleViolationException("Tune with seq " + validatedTune.seq() + " not found"));
         return withTunes(
                 tunes.stream().map(
                         t -> t.seq().equals(validatedTune.seq())
@@ -264,6 +278,28 @@ public class Track implements DomainEntity<Track, Track.Id> {
      */
     public @NonNull List<TrackTune> getTunes() {
         return Collections.unmodifiableList(tunes);
+    }
+
+    private static @NonNull Integer requireTrackNo(@Nullable Integer trackNo) {
+        return Policy.<Integer>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "trackNo",
+                        "Track number cannot be null",
+                        "TRACK_NO_REQUIRED"))
+                .verify(trackNo, Function.identity())
+                .resolve(Policy::illegalArgument);
+    }
+
+    private static @NonNull TrackTitle requireTitle(@Nullable TrackTitle title) {
+        return Policy.<TrackTitle>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "title",
+                        "Track title cannot be null",
+                        "TRACK_TITLE_REQUIRED"))
+                .verify(title, Function.identity())
+                .resolve(Policy::illegalArgument);
     }
 
     @Override
@@ -291,7 +327,7 @@ public class Track implements DomainEntity<Track, Track.Id> {
                             () -> new ErrorResult("value", "Track ID must be a valid UUID: " + value,
                                     "ID_INVALID_UUID")))
                     .verify(value, Function.identity())
-                    .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
+                    .resolve(Policy::illegalArgument);
         }
 
         /**

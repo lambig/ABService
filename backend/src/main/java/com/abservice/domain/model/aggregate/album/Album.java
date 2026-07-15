@@ -5,6 +5,7 @@ import static java.util.function.Predicate.not;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -14,6 +15,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
+import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.aggregate.Aggregate;
 import com.abservice.domain.model.policy.Policy;
@@ -82,11 +84,8 @@ public class Album implements Aggregate<Album, Album.Id> {
     public static @NonNull Album create(@NonNull AlbumTitle title, @NonNull BusinessDate releaseDate,
             @NonNull ArtistCredit artistCredit, @Nullable EventReleasedAt eventReleasedAt,
             @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn) {
-        Optional.ofNullable(title).orElseThrow(() -> new IllegalArgumentException("Album title cannot be null"));
-        Optional.ofNullable(artistCredit)
-                .orElseThrow(() -> new IllegalArgumentException("Artist credit cannot be null"));
-        return new Album(Id.generate(), title, releaseDate, artistCredit, eventReleasedAt, catalogNumber, isdn,
-                Collections.emptyList());
+        return new Album(Id.generate(), requireTitle(title), releaseDate, requireArtistCredit(artistCredit),
+                eventReleasedAt, catalogNumber, isdn, Collections.emptyList());
     }
 
     /**
@@ -134,9 +133,7 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album changeTitle(@NonNull AlbumTitle newTitle) {
-        return withTitle(
-                Optional.ofNullable(newTitle)
-                        .orElseThrow(() -> new IllegalArgumentException("Album title cannot be null")));
+        return withTitle(requireTitle(newTitle));
     }
 
     /**
@@ -158,9 +155,7 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album changeArtistCredit(@NonNull ArtistCredit newArtistCredit) {
-        return withArtistCredit(
-                Optional.ofNullable(newArtistCredit)
-                        .orElseThrow(() -> new IllegalArgumentException("Artist credit cannot be null")));
+        return withArtistCredit(requireArtistCredit(newArtistCredit));
     }
 
     /**
@@ -193,11 +188,17 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album addTrack(@NonNull Track track) {
-        final var validatedTrack = Optional.ofNullable(track)
-                .orElseThrow(() -> new IllegalArgumentException("Track cannot be null"));
-        // トラック番号の重複チェック
+        final var validatedTrack = Policy.<Track>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "track",
+                        "Track cannot be null",
+                        "TRACK_REQUIRED"))
+                .verify(track, Function.identity())
+                .resolve(Policy::illegalArgument);
+        // トラック番号の重複チェック（ビジネスルール違反 → 409）
         tracks.stream().filter(t -> t.trackNo().equals(validatedTrack.trackNo())).findFirst().ifPresent(dup -> {
-            throw new IllegalArgumentException("Track number " + validatedTrack.trackNo() + " already exists");
+            throw new BusinessRuleViolationException("Track number " + validatedTrack.trackNo() + " already exists");
         });
         return withTracks(Stream.concat(tracks.stream(), Stream.of(validatedTrack)).toList());
     }
@@ -210,10 +211,16 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album removeTrack(Track.@NonNull Id trackId) {
-        final var validatedTrackId = Optional.ofNullable(trackId)
-                .orElseThrow(() -> new IllegalArgumentException("Track ID cannot be null"));
+        final var validatedTrackId = Policy.<Track.Id>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "trackId",
+                        "Track ID cannot be null",
+                        "TRACK_ID_REQUIRED"))
+                .verify(trackId, Function.identity())
+                .resolve(Policy::illegalArgument);
         tracks.stream().filter(t -> t.hasId(validatedTrackId)).findFirst().orElseThrow(
-                () -> new IllegalArgumentException("Track with ID " + validatedTrackId.value() + " not found"));
+                () -> new BusinessRuleViolationException("Track with ID " + validatedTrackId.value() + " not found"));
         return withTracks(tracks.stream().filter(not(t -> t.hasId(validatedTrackId))).toList());
     }
 
@@ -225,14 +232,22 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album updateTrack(@NonNull Track updatedTrack) {
-        final var validatedTrack = Optional.ofNullable(updatedTrack)
-                .orElseThrow(() -> new IllegalArgumentException("Updated track cannot be null"));
+        final var validatedTrack = Policy.<Track>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "updatedTrack",
+                        "Updated track cannot be null",
+                        "TRACK_REQUIRED"))
+                .verify(updatedTrack, Function.identity())
+                .resolve(Policy::illegalArgument);
         tracks.stream().filter(validatedTrack::equivalentTo).findFirst().orElseThrow(
-                () -> new IllegalArgumentException("Track with ID " + validatedTrack.id().value() + " not found"));
-        // トラック番号の重複チェック（自分自身以外）
+                () -> new BusinessRuleViolationException(
+                        "Track with ID " + validatedTrack.id().value() + " not found"));
+        // トラック番号の重複チェック（自分自身以外。ビジネスルール違反 → 409）
         tracks.stream().filter(not(validatedTrack::equivalentTo))
                 .filter(t -> t.trackNo().equals(validatedTrack.trackNo())).findFirst().ifPresent(dup -> {
-                    throw new IllegalArgumentException("Track number " + validatedTrack.trackNo() + " already exists");
+                    throw new BusinessRuleViolationException(
+                            "Track number " + validatedTrack.trackNo() + " already exists");
                 });
         return withTracks(
                 tracks.stream().map(
@@ -250,13 +265,21 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album reorderTracks(@NonNull List<Track.@NonNull Id> orderedTrackIds) {
-        final var validatedIds = Optional.ofNullable(orderedTrackIds).filter(ids -> ids.size() == tracks.size())
-                .orElseThrow(() -> new IllegalArgumentException("Ordered track IDs must match the number of tracks"));
+        final var validatedIds = Policy.<List<Track.Id>>of(
+                ids -> Optional.ofNullable(ids).filter(i -> i.size() == tracks.size()).isPresent(),
+                () -> new ErrorResult(
+                        "orderedTrackIds",
+                        "Ordered track IDs must match the number of tracks",
+                        "TRACK_ORDER_SIZE_MISMATCH"))
+                .verify(orderedTrackIds, Function.identity())
+                .resolve(Policy::illegalArgument);
 
         final var trackNo = new AtomicInteger(1);
         final var newTracks = validatedIds.stream().map(trackId -> {
             final var track = tracks.stream().filter(t -> t.hasId(trackId)).findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException("Track with ID " + trackId.value() + " not found"));
+                    .orElseThrow(
+                            () -> new BusinessRuleViolationException(
+                                    "Track with ID " + trackId.value() + " not found"));
             return track.withTrackNo(trackNo.getAndIncrement());
         }).toList();
 
@@ -281,7 +304,8 @@ public class Album implements Aggregate<Album, Album.Id> {
      */
     public @NonNull Track getTrack(Track.@NonNull Id trackId) {
         return tracks.stream().filter(t -> t.hasId(trackId)).findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Track with ID " + trackId.value() + " not found"));
+                .orElseThrow(
+                        () -> new BusinessRuleViolationException("Track with ID " + trackId.value() + " not found"));
     }
 
     /**
@@ -300,6 +324,28 @@ public class Album implements Aggregate<Album, Album.Id> {
      */
     public @NonNull List<Track> getTracks() {
         return Collections.unmodifiableList(tracks);
+    }
+
+    private static @NonNull AlbumTitle requireTitle(@Nullable AlbumTitle title) {
+        return Policy.<AlbumTitle>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "title",
+                        "Album title cannot be null",
+                        "ALBUM_TITLE_REQUIRED"))
+                .verify(title, Function.identity())
+                .resolve(Policy::illegalArgument);
+    }
+
+    private static @NonNull ArtistCredit requireArtistCredit(@Nullable ArtistCredit artistCredit) {
+        return Policy.<ArtistCredit>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "artistCredit",
+                        "Artist credit cannot be null",
+                        "ARTIST_CREDIT_REQUIRED"))
+                .verify(artistCredit, Function.identity())
+                .resolve(Policy::illegalArgument);
     }
 
     @Override
@@ -327,7 +373,7 @@ public class Album implements Aggregate<Album, Album.Id> {
                             () -> new ErrorResult("value", "Album ID must be a valid UUID: " + value,
                                     "ID_INVALID_UUID")))
                     .verify(value, Function.identity())
-                    .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
+                    .resolve(Policy::illegalArgument);
         }
 
         /**

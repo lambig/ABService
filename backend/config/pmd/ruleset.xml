@@ -67,8 +67,6 @@
             (2) orElseThrow(() -&gt; new IllegalArgumentException / IllegalStateException(...)) 呼び出し。
             Policy の resolve(mapper) 内での例外生成はサンクションされた経路のため対象外
             （resolve は orElseThrow ではなく throw 文でもないため XPath に合致しない）。
-            未移行の集約（aggregate.album / aggregate.albumarticle / aggregate.tune）は
-            段階移行のため一時除外し、順次 Policy 化して除外を解除する（issue 管理）。
         </description>
         <priority>3</priority>
         <properties>
@@ -78,10 +76,6 @@
  | //MethodCall[@MethodName = "orElseThrow"]
      [.//ConstructorCall/ClassType[@SimpleName = ("IllegalArgumentException", "IllegalStateException")]])
     [/CompilationUnit/PackageDeclaration[starts-with(@Name, "com.abservice.domain.model")]]
-    [not(/CompilationUnit/PackageDeclaration[
-        @Name = "com.abservice.domain.model.aggregate.album"
-        or @Name = "com.abservice.domain.model.aggregate.albumarticle"
-        or @Name = "com.abservice.domain.model.aggregate.tune"])]
                 ]]></value>
             </property>
         </properties>
