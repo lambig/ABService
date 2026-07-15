@@ -10,8 +10,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.entity.article.ArticleTag;
+import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.model.vo.article.MarkupContent;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
@@ -28,7 +30,7 @@ class ArticleTest {
         void createWithValidValuesShouldSucceed() {
             // Arrange
             final var articleType = ArticleType.NOTE;
-            final var title = "Test Article";
+            final var title = ArticleTitle.of("Test Article");
             final var body = MarkupContent.markdown("This is a test article body.");
 
             // Act
@@ -59,7 +61,7 @@ class ArticleTest {
             // Arrange
             final var articleType = ArticleType.ALBUM;
             final var albumId = Album.Id.generate();
-            final var title = "Album Review";
+            final var title = ArticleTitle.of("Album Review");
             final var body = MarkupContent.markdown("This is an album review.");
             final var introShort = "Short intro";
 
@@ -85,7 +87,7 @@ class ArticleTest {
                 Article.create(
                         null,
                         null,
-                        "Title",
+                        ArticleTitle.of("Title"),
                         MarkupContent.plainText("Body"),
                         null);
             }).isInstanceOf(IllegalArgumentException.class).hasMessage("Article type cannot be null");
@@ -102,21 +104,7 @@ class ArticleTest {
                         null,
                         MarkupContent.plainText("Body"),
                         null);
-            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Article title cannot be null or blank");
-        }
-
-        @Test
-        @DisplayName("タイトルが空文字の場合は例外が発生すること")
-        void createWithBlankTitleShouldThrowException() {
-            // Act & Assert
-            assertThatThrownBy(() -> {
-                Article.create(
-                        ArticleType.NOTE,
-                        null,
-                        "   ",
-                        MarkupContent.plainText("Body"),
-                        null);
-            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Article title cannot be null or blank");
+            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Article title cannot be null");
         }
     }
 
@@ -129,7 +117,7 @@ class ArticleTest {
         void changeTitleWithValidTitleShouldSucceed() {
             // Arrange
             final var article = createTestArticle();
-            final var newTitle = "Updated Title";
+            final var newTitle = ArticleTitle.of("Updated Title");
             final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
@@ -150,20 +138,7 @@ class ArticleTest {
             // Act & Assert
             assertThatThrownBy(() -> {
                 article.changeTitle(null, currentDateTime);
-            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Article title cannot be null or blank");
-        }
-
-        @Test
-        @DisplayName("空文字のタイトルに変更しようとすると例外が発生すること")
-        void changeTitleWithBlankShouldThrowException() {
-            // Arrange
-            final var article = createTestArticle();
-            final var currentDateTime = BusinessDateTime.of(Instant.now());
-
-            // Act & Assert
-            assertThatThrownBy(() -> {
-                article.changeTitle("  ", currentDateTime);
-            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Article title cannot be null or blank");
+            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Article title cannot be null");
         }
     }
 
@@ -270,7 +245,7 @@ class ArticleTest {
                     .create(
                             ArticleType.ALBUM,
                             null,
-                            "Album Article",
+                            ArticleTitle.of("Album Article"),
                             MarkupContent.plainText("Body"),
                             null);
             final var albumId = Album.Id.generate();
@@ -292,7 +267,7 @@ class ArticleTest {
                     .create(
                             ArticleType.NOTE,
                             null,
-                            "Blog Post",
+                            ArticleTitle.of("Blog Post"),
                             MarkupContent.plainText("Body"),
                             null);
             final var albumId = Album.Id.generate();
@@ -316,7 +291,7 @@ class ArticleTest {
             final var article = Article.create(
                     ArticleType.NOTE,
                     null,
-                    "Title",
+                    ArticleTitle.of("Title"),
                     MarkupContent.plainText("Body"),
                     null);
             final var currentDateTime = BusinessDateTime.of(Instant.now());
@@ -338,7 +313,7 @@ class ArticleTest {
                     .create(
                             ArticleType.ALBUM,
                             albumId,
-                            "Album Article",
+                            ArticleTitle.of("Album Article"),
                             MarkupContent.plainText("Body"),
                             null);
             final var currentDateTime = BusinessDateTime.of(Instant.now());
@@ -436,7 +411,7 @@ class ArticleTest {
             final var finalArticle = article;
             assertThatThrownBy(() -> {
                 finalArticle.addTag(tag2, currentDateTime);
-            }).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("already exists");
+            }).isInstanceOf(BusinessRuleViolationException.class).hasMessageContaining("already exists");
         }
     }
 
@@ -581,7 +556,7 @@ class ArticleTest {
         return Article.create(
                 ArticleType.NOTE,
                 null,
-                "Test Article",
+                ArticleTitle.of("Test Article"),
                 MarkupContent.markdown("Test article body content"),
                 null);
     }

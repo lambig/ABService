@@ -56,22 +56,32 @@
         </properties>
     </rule>
 
-    <rule name="ForbiddenRawValidationThrowInValueObject"
+    <rule name="ForbiddenImperativeValidationThrowInDomainModel"
           language="java"
-          message="値オブジェクトで生の throw（new IllegalArgumentException / IllegalStateException）による検証は禁止です。Policy.of/all(...).verify(...).resolve(...) 経由で表現してください。"
+          message="ドメインモデルで生の検証 throw（throw new IllegalArgumentException / IllegalStateException、または orElseThrow(() -&gt; new ...)）は禁止です。Policy.of/all(...).verify(...).resolve(...) 経由で表現してください。"
           class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
         <description>
-            値オブジェクト（com.abservice.domain.model.vo 配下）で
-            throw new IllegalArgumentException / IllegalStateException を直書きする
-            検証を禁止する。例外生成は Policy の resolve(mapper) 経由で行う
-            （Policy パターンは throw 文ではなく resolve 内で生成するため対象外）。
+            ドメインモデル（com.abservice.domain.model 配下）で、値検証・不変条件チェックを
+            生の throw / orElseThrow で表現することを禁止し、Policy 経由（verify → resolve）を
+            強制する。対象は (1) throw new IllegalArgumentException / IllegalStateException 文、
+            (2) orElseThrow(() -&gt; new IllegalArgumentException / IllegalStateException(...)) 呼び出し。
+            Policy の resolve(mapper) 内での例外生成はサンクションされた経路のため対象外
+            （resolve は orElseThrow ではなく throw 文でもないため XPath に合致しない）。
+            未移行の集約（aggregate.album / aggregate.albumarticle / aggregate.tune）は
+            段階移行のため一時除外し、順次 Policy 化して除外を解除する（issue 管理）。
         </description>
         <priority>3</priority>
         <properties>
             <property name="xpath">
                 <value><![CDATA[
-//ThrowStatement[ConstructorCall/ClassType[@SimpleName = ("IllegalArgumentException", "IllegalStateException")]]
-    [/CompilationUnit/PackageDeclaration[starts-with(@Name, "com.abservice.domain.model.vo")]]
+(//ThrowStatement[ConstructorCall/ClassType[@SimpleName = ("IllegalArgumentException", "IllegalStateException")]]
+ | //MethodCall[@MethodName = "orElseThrow"]
+     [.//ConstructorCall/ClassType[@SimpleName = ("IllegalArgumentException", "IllegalStateException")]])
+    [/CompilationUnit/PackageDeclaration[starts-with(@Name, "com.abservice.domain.model")]]
+    [not(/CompilationUnit/PackageDeclaration[
+        @Name = "com.abservice.domain.model.aggregate.album"
+        or @Name = "com.abservice.domain.model.aggregate.albumarticle"
+        or @Name = "com.abservice.domain.model.aggregate.tune"])]
                 ]]></value>
             </property>
         </properties>
