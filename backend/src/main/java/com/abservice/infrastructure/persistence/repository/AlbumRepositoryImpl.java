@@ -11,7 +11,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.commons.lang3.StringUtils;
 
@@ -79,7 +78,7 @@ public class AlbumRepositoryImpl implements AlbumRepository {
             default -> Uni.join()
                     .all(
                             StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
-                                    .collect(Collectors.toList()))
+                                    .toList())
                     .andFailFast();
         };
     }
@@ -99,16 +98,16 @@ public class AlbumRepositoryImpl implements AlbumRepository {
             default -> Uni.join()
                     .all(
                             StreamSupport.stream(ids.spliterator(), false).map(this::findById)
-                                    .collect(Collectors.toList()))
+                                    .toList())
                     .andFailFast()
-                    .map(list -> list.stream().filter(album -> album != null).collect(Collectors.toList()));
+                    .map(list -> list.stream().filter(album -> album != null).toList());
         };
     }
 
     @Override
     public Uni<List<Album>> findAll() {
         return dataSource.listAll()
-                .map(entities -> entities.stream().map(AlbumMapper::toDomain).collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(AlbumMapper::toDomain).toList());
     }
 
     @Override
@@ -126,7 +125,7 @@ public class AlbumRepositoryImpl implements AlbumRepository {
             default -> Uni.join()
                     .all(
                             StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
-                                    .collect(Collectors.toList()))
+                                    .toList())
                     .andFailFast().replaceWithVoid();
         };
     }
@@ -146,7 +145,7 @@ public class AlbumRepositoryImpl implements AlbumRepository {
             default -> Uni.join()
                     .all(
                             StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
-                                    .collect(Collectors.toList()))
+                                    .toList())
                     .andFailFast().replaceWithVoid();
         };
     }
@@ -171,7 +170,7 @@ public class AlbumRepositoryImpl implements AlbumRepository {
         return switch (title) {
             case null -> Uni.createFrom().item(List.of());
             default -> dataSource.findByTitle(title.value())
-                    .map(entities -> entities.stream().map(AlbumMapper::toDomain).collect(Collectors.toList()));
+                    .map(entities -> entities.stream().map(AlbumMapper::toDomain).toList());
         };
     }
 
@@ -181,7 +180,7 @@ public class AlbumRepositoryImpl implements AlbumRepository {
                 .filter(StringUtils::isNotBlank)
                 .map(dataSource::findByArtistDisplayName)
                 .orElseGet(() -> Uni.createFrom().item(List.of()))
-                .map(entities -> entities.stream().map(AlbumMapper::toDomain).collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(AlbumMapper::toDomain).toList());
     }
 
     @Override
@@ -190,7 +189,7 @@ public class AlbumRepositoryImpl implements AlbumRepository {
                 .filter(StringUtils::isNotBlank)
                 .map(dataSource::findByEventName)
                 .orElseGet(() -> Uni.createFrom().item(List.of()))
-                .map(entities -> entities.stream().map(AlbumMapper::toDomain).collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(AlbumMapper::toDomain).toList());
     }
 
     @Override
@@ -204,6 +203,6 @@ public class AlbumRepositoryImpl implements AlbumRepository {
     @Override
     public Uni<List<Album>> findByReleaseYear(int year) {
         return dataSource.findByReleaseYear(year)
-                .map(entities -> entities.stream().map(AlbumMapper::toDomain).collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(AlbumMapper::toDomain).toList());
     }
 }

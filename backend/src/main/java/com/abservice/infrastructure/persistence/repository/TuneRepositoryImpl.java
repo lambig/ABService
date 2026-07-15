@@ -10,7 +10,6 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /**
@@ -64,7 +63,7 @@ public class TuneRepositoryImpl implements TuneRepository {
             default -> Uni.join()
                     .all(
                             StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
-                                    .collect(Collectors.toList()))
+                                    .toList())
                     .andFailFast();
         };
     }
@@ -84,16 +83,16 @@ public class TuneRepositoryImpl implements TuneRepository {
             default -> Uni.join()
                     .all(
                             StreamSupport.stream(ids.spliterator(), false).map(this::findById)
-                                    .collect(Collectors.toList()))
+                                    .toList())
                     .andFailFast()
-                    .map(list -> list.stream().filter(tune -> tune != null).collect(Collectors.toList()));
+                    .map(list -> list.stream().filter(tune -> tune != null).toList());
         };
     }
 
     @Override
     public Uni<List<Tune>> findAll() {
         return dataSource.listAll()
-                .map(entities -> entities.stream().map(TuneMapper::toDomain).collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(TuneMapper::toDomain).toList());
     }
 
     @Override
@@ -111,7 +110,7 @@ public class TuneRepositoryImpl implements TuneRepository {
             default -> Uni.join()
                     .all(
                             StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
-                                    .collect(Collectors.toList()))
+                                    .toList())
                     .andFailFast().replaceWithVoid();
         };
     }
@@ -131,7 +130,7 @@ public class TuneRepositoryImpl implements TuneRepository {
             default -> Uni.join()
                     .all(
                             StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
-                                    .collect(Collectors.toList()))
+                                    .toList())
                     .andFailFast().replaceWithVoid();
         };
     }
@@ -156,7 +155,7 @@ public class TuneRepositoryImpl implements TuneRepository {
         return switch (title) {
             case null -> Uni.createFrom().item(List.of());
             default -> dataSource.findByTitle(title.value())
-                    .map(entities -> entities.stream().map(TuneMapper::toDomain).collect(Collectors.toList()));
+                    .map(entities -> entities.stream().map(TuneMapper::toDomain).toList());
         };
     }
 
@@ -165,7 +164,7 @@ public class TuneRepositoryImpl implements TuneRepository {
         return switch (tuneKind) {
             case null -> Uni.createFrom().item(List.of());
             default -> dataSource.findByTuneKind(tuneKind.name())
-                    .map(entities -> entities.stream().map(TuneMapper::toDomain).collect(Collectors.toList()));
+                    .map(entities -> entities.stream().map(TuneMapper::toDomain).toList());
         };
     }
 
@@ -174,7 +173,7 @@ public class TuneRepositoryImpl implements TuneRepository {
         return switch (tuneType) {
             case null -> Uni.createFrom().item(List.of());
             default -> dataSource.findByTuneType(tuneType)
-                    .map(entities -> entities.stream().map(TuneMapper::toDomain).collect(Collectors.toList()));
+                    .map(entities -> entities.stream().map(TuneMapper::toDomain).toList());
         };
     }
 
@@ -183,7 +182,7 @@ public class TuneRepositoryImpl implements TuneRepository {
         return switch (defaultKey) {
             case null -> Uni.createFrom().item(List.of());
             default -> dataSource.findByDefaultKey(defaultKey)
-                    .map(entities -> entities.stream().map(TuneMapper::toDomain).collect(Collectors.toList()));
+                    .map(entities -> entities.stream().map(TuneMapper::toDomain).toList());
         };
     }
 }

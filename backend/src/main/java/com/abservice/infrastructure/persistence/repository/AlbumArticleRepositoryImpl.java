@@ -10,7 +10,6 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /**
@@ -59,7 +58,7 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             default -> Uni.join()
                     .all(
                             StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
-                                    .collect(Collectors.toList()))
+                                    .toList())
                     .andFailFast();
         };
     }
@@ -79,18 +78,18 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             default -> Uni.join()
                     .all(
                             StreamSupport.stream(ids.spliterator(), false).map(this::findById)
-                                    .collect(Collectors.toList()))
+                                    .toList())
                     .andFailFast()
                     .map(
                             list -> list.stream().filter(albumArticle -> albumArticle != null)
-                                    .collect(Collectors.toList()));
+                                    .toList());
         };
     }
 
     @Override
     public Uni<List<AlbumArticle>> findAll() {
         return dataSource.listAll()
-                .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).toList());
     }
 
     @Override
@@ -108,7 +107,7 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             default -> Uni.join()
                     .all(
                             StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
-                                    .collect(Collectors.toList()))
+                                    .toList())
                     .andFailFast().replaceWithVoid();
         };
     }
@@ -128,7 +127,7 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             default -> Uni.join()
                     .all(
                             StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
-                                    .collect(Collectors.toList()))
+                                    .toList())
                     .andFailFast().replaceWithVoid();
         };
     }
@@ -161,7 +160,7 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
         return switch (labelTag) {
             case null -> Uni.createFrom().item(List.of());
             default -> dataSource.findByLabelTag(labelTag.name())
-                    .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).collect(Collectors.toList()));
+                    .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).toList());
         };
     }
 
@@ -170,19 +169,19 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
         return switch (spaceKeyword) {
             case null -> Uni.createFrom().item(List.of());
             default -> dataSource.findByFirstEventSpaceContaining(spaceKeyword)
-                    .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).collect(Collectors.toList()));
+                    .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).toList());
         };
     }
 
     @Override
     public Uni<List<AlbumArticle>> findWithDistribution() {
         return dataSource.findWithDistribution()
-                .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).toList());
     }
 
     @Override
     public Uni<List<AlbumArticle>> findWithAcquisitionChannels() {
         return dataSource.findWithAcquisitionChannels()
-                .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).toList());
     }
 }

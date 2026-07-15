@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import lombok.AccessLevel;
@@ -269,9 +268,7 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
                 Objects::nonNull,
                 TAG_ID_REQUIRED_ERROR)
                 .verify(tagId, Function.identity()).resolve(Policy::illegalArgument);
-        return withTags(
-                Collections.unmodifiableList(
-                        tags.stream().filter(not(t -> t.hasId(validatedTagId))).collect(Collectors.toList())))
+        return withTags(tags.stream().filter(not(t -> t.hasId(validatedTagId))).toList())
                 .withUpdatedAtBusiness(currentDateTime);
     }
 
