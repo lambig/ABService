@@ -152,23 +152,39 @@ pmd {
 }
 
 // production 限定ルール（SingleUseLocalVariable 等）はテスト系ソースセットでは除外する。
-// ruleset.xml を単一ソースとして参照し、テスト向けに当該ルールのみ除外した ruleset を
-// インライン生成する（絶対パス ref を gradle 側で補間。ref 解決失敗時に PMD が無警告で
-// 空解析に落ちるのを避けるため、相対 ref ではなく絶対パスを用いる）。
-tasks.matching { it.name in ['pmdTest', 'pmdIntegrationTest'] }.configureEach {
-    final def baseRuleset = file("${projectDir}/config/pmd/ruleset.xml").absolutePath
-    ruleSetFiles = files()
-    ruleSetConfig = resources.text.fromString("""<?xml version="1.0" encoding="UTF-8"?>
+// ruleset.xml を単一ソースとし、テスト向けに当該ルールのみ除外した ruleset を build/ に
+// 実ファイルとして生成し ruleSetFiles で渡す。PMD の rule ref は絶対パス/クラスパスでしか
+// 解決できず、TextResource(ruleSetConfig) 経由では ref が解決されずカスタムルールが一切
+// 適用されない（テストゲートが無効化される）ため、実ファイル生成方式を用いる。base ruleset
+// を入力宣言してキャッシュ整合を取る（base 変更時にテスト系 PMD を再実行させる）。
+final def pmdBaseRuleset = file("${projectDir}/config/pmd/ruleset.xml")
+final def generatePmdTestRuleset = tasks.register('generatePmdTestRuleset') {
+    final def out = layout.buildDirectory.file("pmd/test-ruleset.xml")
+    inputs.file(pmdBaseRuleset)
+    outputs.file(out)
+    doLast {
+        final def f = out.get().asFile
+        f.parentFile.mkdirs()
+        f.text = """<?xml version="1.0" encoding="UTF-8"?>
 <ruleset name="ABService Test Rules"
          xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
     <description>テスト向け。ruleset.xml を全参照し production 限定ルールのみ除外する。</description>
-    <rule ref="${baseRuleset}">
+    <rule ref="${pmdBaseRuleset.absolutePath}">
         <exclude name="SingleUseLocalVariable"/>
     </rule>
 </ruleset>
-""")
+"""
+    }
+}
+tasks.matching { it.name in ['pmdTest', 'pmdIntegrationTest'] }.configureEach {
+    dependsOn generatePmdTestRuleset
+    // 生成 ruleset は base を絶対パスで参照するだけで内容が不変（PMD は実行時に base を読む）。
+    // そのため base の内容変更が生成ファイル＝ruleSetFiles に伝播せず再実行されない。
+    // base を直接入力宣言し、ルール変更時にテスト系 PMD を確実に再実行させる。
+    inputs.file(pmdBaseRuleset)
+    ruleSetFiles = files(generatePmdTestRuleset.map { it.outputs.files.singleFile })
 }
 
 // Spotless: Code formatter
