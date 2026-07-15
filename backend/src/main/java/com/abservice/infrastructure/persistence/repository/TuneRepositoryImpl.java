@@ -10,7 +10,6 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /**
@@ -61,12 +60,11 @@ public class TuneRepositoryImpl implements TuneRepository {
     public Uni<List<Tune>> saveAll(Iterable<Tune> aggregates) {
         return switch (aggregates) {
             case null -> Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null"));
-            default -> {
-                final var unis = StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
-                        .collect(Collectors.toList());
-
-                yield Uni.join().all(unis).andFailFast();
-            }
+            default -> Uni.join()
+                    .all(
+                            StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
+                                    .toList())
+                    .andFailFast();
         };
     }
 
@@ -82,20 +80,19 @@ public class TuneRepositoryImpl implements TuneRepository {
     public Uni<List<Tune>> findAllById(Iterable<Tune.Id> ids) {
         return switch (ids) {
             case null -> Uni.createFrom().item(List.of());
-            default -> {
-                final var unis = StreamSupport.stream(ids.spliterator(), false).map(this::findById)
-                        .collect(Collectors.toList());
-
-                yield Uni.join().all(unis).andFailFast()
-                        .map(list -> list.stream().filter(tune -> tune != null).collect(Collectors.toList()));
-            }
+            default -> Uni.join()
+                    .all(
+                            StreamSupport.stream(ids.spliterator(), false).map(this::findById)
+                                    .toList())
+                    .andFailFast()
+                    .map(list -> list.stream().filter(tune -> tune != null).toList());
         };
     }
 
     @Override
     public Uni<List<Tune>> findAll() {
         return dataSource.listAll()
-                .map(entities -> entities.stream().map(TuneMapper::toDomain).collect(Collectors.toList()));
+                .map(entities -> entities.stream().map(TuneMapper::toDomain).toList());
     }
 
     @Override
@@ -110,12 +107,11 @@ public class TuneRepositoryImpl implements TuneRepository {
     public Uni<Void> deleteAll(Iterable<Tune> aggregates) {
         return switch (aggregates) {
             case null -> Uni.createFrom().voidItem();
-            default -> {
-                final var unis = StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
-                        .collect(Collectors.toList());
-
-                yield Uni.join().all(unis).andFailFast().replaceWithVoid();
-            }
+            default -> Uni.join()
+                    .all(
+                            StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
+                                    .toList())
+                    .andFailFast().replaceWithVoid();
         };
     }
 
@@ -131,12 +127,11 @@ public class TuneRepositoryImpl implements TuneRepository {
     public Uni<Void> deleteAllById(Iterable<Tune.Id> ids) {
         return switch (ids) {
             case null -> Uni.createFrom().voidItem();
-            default -> {
-                final var unis = StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
-                        .collect(Collectors.toList());
-
-                yield Uni.join().all(unis).andFailFast().replaceWithVoid();
-            }
+            default -> Uni.join()
+                    .all(
+                            StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
+                                    .toList())
+                    .andFailFast().replaceWithVoid();
         };
     }
 
@@ -160,7 +155,7 @@ public class TuneRepositoryImpl implements TuneRepository {
         return switch (title) {
             case null -> Uni.createFrom().item(List.of());
             default -> dataSource.findByTitle(title.value())
-                    .map(entities -> entities.stream().map(TuneMapper::toDomain).collect(Collectors.toList()));
+                    .map(entities -> entities.stream().map(TuneMapper::toDomain).toList());
         };
     }
 
@@ -169,7 +164,7 @@ public class TuneRepositoryImpl implements TuneRepository {
         return switch (tuneKind) {
             case null -> Uni.createFrom().item(List.of());
             default -> dataSource.findByTuneKind(tuneKind.name())
-                    .map(entities -> entities.stream().map(TuneMapper::toDomain).collect(Collectors.toList()));
+                    .map(entities -> entities.stream().map(TuneMapper::toDomain).toList());
         };
     }
 
@@ -178,7 +173,7 @@ public class TuneRepositoryImpl implements TuneRepository {
         return switch (tuneType) {
             case null -> Uni.createFrom().item(List.of());
             default -> dataSource.findByTuneType(tuneType)
-                    .map(entities -> entities.stream().map(TuneMapper::toDomain).collect(Collectors.toList()));
+                    .map(entities -> entities.stream().map(TuneMapper::toDomain).toList());
         };
     }
 
@@ -187,7 +182,7 @@ public class TuneRepositoryImpl implements TuneRepository {
         return switch (defaultKey) {
             case null -> Uni.createFrom().item(List.of());
             default -> dataSource.findByDefaultKey(defaultKey)
-                    .map(entities -> entities.stream().map(TuneMapper::toDomain).collect(Collectors.toList()));
+                    .map(entities -> entities.stream().map(TuneMapper::toDomain).toList());
         };
     }
 }

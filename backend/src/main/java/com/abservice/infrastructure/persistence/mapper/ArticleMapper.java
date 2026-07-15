@@ -58,11 +58,9 @@ public final class ArticleMapper {
     private static @Nullable MarkupContent createMarkupContent(@Nullable String body, @Nullable String bodyFormat) {
         return switch (body) {
             case null -> null;
-            default -> {
-                final MarkupFormat format = Optional.ofNullable(bodyFormat).map(MarkupFormat::valueOf)
-                        .orElse(MarkupFormat.PLAIN_TEXT);
-                yield new MarkupContent(body, format);
-            }
+            default -> new MarkupContent(
+                    body,
+                    Optional.ofNullable(bodyFormat).map(MarkupFormat::valueOf).orElse(MarkupFormat.PLAIN_TEXT));
         };
     }
 

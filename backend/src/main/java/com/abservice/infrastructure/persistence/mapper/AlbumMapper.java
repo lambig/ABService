@@ -25,7 +25,6 @@ import com.abservice.infrastructure.persistence.entity.TrackTuneId;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -69,19 +68,18 @@ public final class AlbumMapper {
 
     private static List<Track> buildTracks(AlbumEntity entity) {
         return Optional.ofNullable(entity.getTracks())
-                .map(list -> list.stream().map(AlbumMapper::trackToDomain).collect(Collectors.toList()))
+                .map(list -> list.stream().map(AlbumMapper::trackToDomain).toList())
                 .orElseGet(Collections::emptyList);
     }
 
     private static @Nullable EventReleasedAt buildEventReleasedAt(AlbumEntity entity) {
-        return Optional.ofNullable(entity.getEventName()).map(eventName -> {
-            final var dateAndSpaces = extractDateAndSpaces(entity);
-            return EventReleasedAt.of(
-                    eventName,
-                    dateAndSpaces,
-                    entity.getEventPlace(),
-                    entity.getEventNote());
-        }).orElse(null);
+        return Optional.ofNullable(entity.getEventName()).map(
+                eventName -> EventReleasedAt.of(
+                        eventName,
+                        extractDateAndSpaces(entity),
+                        entity.getEventPlace(),
+                        entity.getEventNote()))
+                .orElse(null);
     }
 
     private static @Nullable List<EventDateAndSpace> extractDateAndSpaces(AlbumEntity entity) {
@@ -89,7 +87,7 @@ public final class AlbumMapper {
                 .map(
                         list -> list.stream()
                                 .map(e -> EventDateAndSpace.of(BusinessDate.of(e.getEventDate()), e.getSpaceNumber()))
-                                .collect(Collectors.toList()))
+                                .toList())
                 .or(() -> buildLegacyDateAndSpaces(entity)).orElse(null);
     }
 
@@ -129,7 +127,7 @@ public final class AlbumMapper {
 
     private static void setTracksField(AlbumEntity entity, Album album) {
         Optional.ofNullable(album.tracks()).filter(not(List::isEmpty))
-                .map(tracks -> tracks.stream().map(track -> trackToEntity(track, entity)).collect(Collectors.toList()))
+                .map(tracks -> tracks.stream().map(track -> trackToEntity(track, entity)).toList())
                 .ifPresent(entity::setTracks);
     }
 
@@ -145,7 +143,7 @@ public final class AlbumMapper {
     }
 
     private static void populateDateAndSpaceEntities(AlbumEntity albumEntity, List<EventDateAndSpace> dateAndSpaces) {
-        final var entities = dateAndSpaces.stream().map(ds -> {
+        albumEntity.setEventDateSpaces(dateAndSpaces.stream().map(ds -> {
             final var entity = new AlbumEventDateSpaceEntity();
             entity.setAlbum(albumEntity);
             entity.setEventDate(ds.date().asLocalDate());
@@ -154,8 +152,7 @@ public final class AlbumMapper {
             entity.setCreatedByService("abservice");
             entity.setUpdatedByService("abservice");
             return entity;
-        }).collect(Collectors.toList());
-        albumEntity.setEventDateSpaces(entities);
+        }).toList());
     }
 
     private static void populateLegacyDateAndSpace(AlbumEntity albumEntity, EventDateAndSpace firstDateSpace) {
@@ -192,7 +189,7 @@ public final class AlbumMapper {
 
     private static List<TrackTune> buildTrackTunes(TrackEntity entity) {
         return Optional.ofNullable(entity.getTrackTunes())
-                .map(list -> list.stream().map(AlbumMapper::trackTuneToDomain).collect(Collectors.toList()))
+                .map(list -> list.stream().map(AlbumMapper::trackTuneToDomain).toList())
                 .orElseGet(Collections::emptyList);
     }
 
@@ -231,7 +228,7 @@ public final class AlbumMapper {
         Optional.ofNullable(track.tunes()).filter(not(List::isEmpty))
                 .map(
                         tunes -> tunes.stream().map(trackTune -> trackTuneToEntity(trackTune, entity))
-                                .collect(Collectors.toList()))
+                                .toList())
                 .ifPresent(entity::setTrackTunes);
     }
 
