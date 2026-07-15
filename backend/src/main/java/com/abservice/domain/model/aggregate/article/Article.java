@@ -238,7 +238,9 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article addTag(@NonNull ArticleTag tag, @NonNull BusinessDateTime currentDateTime) {
-        final var validatedTag = Policy.<ArticleTag>of(Objects::nonNull, TAG_REQUIRED_ERROR)
+        final var validatedTag = Policy.<ArticleTag>of(
+                Objects::nonNull,
+                TAG_REQUIRED_ERROR)
                 .verify(tag, Function.identity()).resolve(Policy::illegalArgument);
         // IDの重複チェック（ビジネスルール違反 → 409。メッセージが動的なため遅延生成）
         Policy.<ArticleTag>of(
@@ -263,7 +265,9 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article removeTag(ArticleTag.@NonNull Id tagId, @NonNull BusinessDateTime currentDateTime) {
-        final var validatedTagId = Policy.<ArticleTag.Id>of(Objects::nonNull, TAG_ID_REQUIRED_ERROR)
+        final var validatedTagId = Policy.<ArticleTag.Id>of(
+                Objects::nonNull,
+                TAG_ID_REQUIRED_ERROR)
                 .verify(tagId, Function.identity()).resolve(Policy::illegalArgument);
         final var newTags = tags.stream().filter(not(t -> t.hasId(validatedTagId))).collect(Collectors.toList());
         return withTags(Collections.unmodifiableList(newTags)).withUpdatedAtBusiness(currentDateTime);
@@ -299,12 +303,16 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
             "ARTICLE_TAG_ID_REQUIRED");
 
     private static @NonNull ArticleType requireType(@Nullable ArticleType articleType) {
-        return Policy.<ArticleType>of(Objects::nonNull, TYPE_REQUIRED_ERROR)
+        return Policy.<ArticleType>of(
+                Objects::nonNull,
+                TYPE_REQUIRED_ERROR)
                 .verify(articleType, Function.identity()).resolve(Policy::illegalArgument);
     }
 
     private static @NonNull ArticleTitle requireTitle(@Nullable ArticleTitle title) {
-        return Policy.<ArticleTitle>of(Objects::nonNull, TITLE_REQUIRED_ERROR)
+        return Policy.<ArticleTitle>of(
+                Objects::nonNull,
+                TITLE_REQUIRED_ERROR)
                 .verify(title, Function.identity()).resolve(Policy::illegalArgument);
     }
 
@@ -322,7 +330,9 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
 
         public Id {
             Policy.<String>all(
-                    Policy.of(StringUtils::isNotBlank, ID_BLANK_ERROR),
+                    Policy.of(
+                            StringUtils::isNotBlank,
+                            ID_BLANK_ERROR),
                     Policy.of(
                             EntityId::isValidUuid,
                             () -> new ErrorResult(
