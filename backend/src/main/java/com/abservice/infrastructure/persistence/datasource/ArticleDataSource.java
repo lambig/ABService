@@ -26,6 +26,17 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleEntity, L
     }
 
     /**
+     * ドメインIDで記事を検索
+     *
+     * @param domainId
+     *            ドメインID
+     * @return 該当する記事（存在しない場合はnull）
+     */
+    public Uni<ArticleEntity> findByDomainId(String domainId) {
+        return find("domainId", domainId).firstResult();
+    }
+
+    /**
      * 記事タイプで記事を検索
      *
      * @param articleType
