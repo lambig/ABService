@@ -79,8 +79,7 @@
      [.//ConstructorCall/ClassType[@SimpleName = ("IllegalArgumentException", "IllegalStateException")]])
     [/CompilationUnit/PackageDeclaration[starts-with(@Name, "com.abservice.domain.model")]]
     [not(/CompilationUnit/PackageDeclaration[
-        @Name = "com.abservice.domain.model.aggregate.album"
-        or @Name = "com.abservice.domain.model.aggregate.albumarticle"])]
+        @Name = "com.abservice.domain.model.aggregate.album"])]
                 ]]></value>
             </property>
         </properties>

@@ -4,12 +4,16 @@ import static java.util.function.Predicate.not;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
+import java.util.Objects;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
+import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.aggregate.Aggregate;
 import com.abservice.domain.model.aggregate.album.Album;
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.album.LabelTag;
+import com.abservice.lib.ErrorResult;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -64,7 +68,14 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      */
     public static AlbumArticle create(Album.Id albumId, @Nullable String introLong, @Nullable String introShort,
             @Nullable String firstEventSpace, @Nullable LabelTag labelTag, @Nullable AlbumDistribution distribution) {
-        Optional.ofNullable(albumId).orElseThrow(() -> new IllegalArgumentException("Album ID cannot be null"));
+        Policy.<Album.Id>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "albumId",
+                        "Album ID cannot be null",
+                        "ALBUM_ID_REQUIRED"))
+                .verify(albumId, Function.identity())
+                .resolve(Policy::illegalArgument);
         return new AlbumArticle(albumId, introLong, introShort, firstEventSpace, labelTag, distribution,
                 Collections.emptyList());
     }
@@ -150,11 +161,17 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      * @return 更新されたAlbumArticle
      */
     public AlbumArticle addAcquisitionChannel(AlbumAcquisitionChannel channel) {
-        Optional.ofNullable(channel)
-                .orElseThrow(() -> new IllegalArgumentException("Acquisition channel cannot be null"));
-        // IDの重複チェック
+        Policy.<AlbumAcquisitionChannel>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "channel",
+                        "Acquisition channel cannot be null",
+                        "ACQUISITION_CHANNEL_REQUIRED"))
+                .verify(channel, Function.identity())
+                .resolve(Policy::illegalArgument);
+        // IDの重複チェック（ビジネスルール違反 → 409）
         acquisitionChannels.stream().filter(channel::equivalentTo).findFirst().ifPresent(dup -> {
-            throw new IllegalArgumentException(
+            throw new BusinessRuleViolationException(
                     "Acquisition channel with ID " + channel.id().value() + " already exists");
         });
         return withAcquisitionChannels(Stream.concat(acquisitionChannels.stream(), Stream.of(channel)).toList());
@@ -168,9 +185,17 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      * @return 更新されたAlbumArticle
      */
     public AlbumArticle removeAcquisitionChannel(AlbumAcquisitionChannel.Id channelId) {
-        Optional.ofNullable(channelId).orElseThrow(() -> new IllegalArgumentException("Channel ID cannot be null"));
+        Policy.<AlbumAcquisitionChannel.Id>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "channelId",
+                        "Channel ID cannot be null",
+                        "CHANNEL_ID_REQUIRED"))
+                .verify(channelId, Function.identity())
+                .resolve(Policy::illegalArgument);
         acquisitionChannels.stream().filter(c -> c.hasId(channelId)).findFirst().orElseThrow(
-                () -> new IllegalArgumentException("Acquisition channel with ID " + channelId.value() + " not found"));
+                () -> new BusinessRuleViolationException(
+                        "Acquisition channel with ID " + channelId.value() + " not found"));
         return withAcquisitionChannels(acquisitionChannels.stream().filter(not(c -> c.hasId(channelId))).toList());
     }
 
@@ -182,10 +207,16 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      * @return 更新されたAlbumArticle
      */
     public AlbumArticle updateAcquisitionChannel(AlbumAcquisitionChannel updatedChannel) {
-        Optional.ofNullable(updatedChannel)
-                .orElseThrow(() -> new IllegalArgumentException("Updated channel cannot be null"));
+        Policy.<AlbumAcquisitionChannel>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "updatedChannel",
+                        "Updated channel cannot be null",
+                        "ACQUISITION_CHANNEL_REQUIRED"))
+                .verify(updatedChannel, Function.identity())
+                .resolve(Policy::illegalArgument);
         acquisitionChannels.stream().filter(updatedChannel::equivalentTo).findFirst().orElseThrow(
-                () -> new IllegalArgumentException(
+                () -> new BusinessRuleViolationException(
                         "Acquisition channel with ID " + updatedChannel.id().value() + " not found"));
         return withAcquisitionChannels(
                 acquisitionChannels.stream().map(

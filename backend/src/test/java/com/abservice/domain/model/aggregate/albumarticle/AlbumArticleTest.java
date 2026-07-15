@@ -9,6 +9,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.vo.album.ChannelType;
 import com.abservice.domain.model.vo.album.LabelTag;
@@ -333,7 +334,7 @@ class AlbumArticleTest {
             final var finalAlbumArticle = albumArticle;
             assertThatThrownBy(() -> {
                 finalAlbumArticle.addAcquisitionChannel(channel2);
-            }).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("already exists");
+            }).isInstanceOf(BusinessRuleViolationException.class).hasMessageContaining("already exists");
         }
     }
 
@@ -388,7 +389,7 @@ class AlbumArticleTest {
             // Act & Assert
             assertThatThrownBy(() -> {
                 albumArticle.removeAcquisitionChannel(nonExistentId);
-            }).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("not found");
+            }).isInstanceOf(BusinessRuleViolationException.class).hasMessageContaining("not found");
         }
 
         @Test
@@ -458,7 +459,7 @@ class AlbumArticleTest {
             final var finalAlbumArticle = albumArticle;
             assertThatThrownBy(() -> {
                 finalAlbumArticle.updateAcquisitionChannel(nonExistentChannel);
-            }).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("not found");
+            }).isInstanceOf(BusinessRuleViolationException.class).hasMessageContaining("not found");
         }
     }
 
