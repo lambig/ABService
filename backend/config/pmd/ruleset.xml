@@ -326,4 +326,25 @@
         </properties>
     </rule>
 
+    <rule name="RequirePolicyOfArgumentsPerLine"
+          language="java"
+          message="Policy.of(...) の引数は1引数1行で縦に並べてください（2引数でも。述語とエラーの対応をレビューで可視化するため）。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            Policy.of(...)（戻り値型が Policy のメソッド呼び出し）の ArgumentList を単一行で記述することを
+            禁止し、1引数1行の縦並べを強制する。ForbiddenManyArgumentsSingleLine は3引数以上のみを対象と
+            するため、2引数の Policy.of がすり抜ける。その特例として2引数でも縦並べを課す。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//MethodCall[@MethodName = "of"]
+    [pmd-java:typeIs("com.abservice.domain.model.policy.Policy")]
+    [ArgumentList[@BeginLine = @EndLine]]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
 </ruleset>
