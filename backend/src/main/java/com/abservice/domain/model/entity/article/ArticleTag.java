@@ -1,17 +1,15 @@
 package com.abservice.domain.model.entity.article;
 
-import static java.util.function.Predicate.not;
-
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.entity.DomainEntity;
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.lib.ErrorResult;
-import java.util.Optional;
 import java.util.function.Function;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.NonNull;
 
 /**
@@ -39,8 +37,14 @@ public class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@NonNull 
      * @return 新規ArticleTag
      */
     public static @NonNull ArticleTag create(@NonNull String name) {
-        final var validatedName = Optional.ofNullable(name).filter(not(String::isBlank))
-                .orElseThrow(() -> new IllegalArgumentException("Tag name cannot be blank"));
+        final var validatedName = Policy.<String>of(
+                StringUtils::isNotBlank,
+                () -> new ErrorResult(
+                        "name",
+                        "Tag name cannot be blank",
+                        "TAG_NAME_REQUIRED"))
+                .verify(name, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         return new ArticleTag(Id.generate(), validatedName);
     }
 
@@ -65,14 +69,19 @@ public class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@NonNull 
      */
     public record Id(@NonNull String value) implements EntityId<ArticleTag> {
         public Id {
-            Optional.ofNullable(value).filter(not(String::isBlank))
-                    .orElseThrow(() -> new IllegalArgumentException("ArticleTag ID cannot be blank"));
-            Policy.<String>of(
-                    EntityId::isValidUuid,
-                    () -> new ErrorResult(
-                            "value",
-                            "ArticleTag ID must be a valid UUID: " + value,
-                            "ID_INVALID_UUID"))
+            Policy.<String>all(
+                    Policy.of(
+                            StringUtils::isNotBlank,
+                            () -> new ErrorResult(
+                                    "value",
+                                    "ArticleTag ID cannot be blank",
+                                    "ID_BLANK")),
+                    Policy.of(
+                            EntityId::isValidUuid,
+                            () -> new ErrorResult(
+                                    "value",
+                                    "ArticleTag ID must be a valid UUID: " + value,
+                                    "ID_INVALID_UUID")))
                     .verify(value, Function.identity())
                     .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         }

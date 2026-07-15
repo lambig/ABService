@@ -1,5 +1,7 @@
 package com.abservice.domain.exception;
 
+import com.abservice.lib.ErrorResult;
+import java.util.List;
 import org.jspecify.annotations.NonNull;
 
 /**
@@ -37,5 +39,17 @@ public final class BusinessRuleViolationException extends DomainException {
                 ERROR_CODE,
                 message,
                 cause);
+    }
+
+    /**
+     * 検証エラーを最初のエラーメッセージの {@link BusinessRuleViolationException} に変換する標準リゾルバ。
+     * {@code resolve(BusinessRuleViolationException::fromErrors)} のようにメソッド参照で使います。
+     *
+     * @param errors
+     *            検証エラー（非空）
+     * @return 最初のエラーメッセージを持つ例外
+     */
+    public static @NonNull BusinessRuleViolationException fromErrors(@NonNull List<ErrorResult> errors) {
+        return new BusinessRuleViolationException(errors.getFirst().message());
     }
 }

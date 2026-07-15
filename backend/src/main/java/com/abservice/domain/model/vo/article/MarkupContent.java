@@ -30,6 +30,10 @@ import org.jspecify.annotations.Nullable;
  *            マークアップ形式
  */
 public record MarkupContent(@NonNull String content, MarkupFormat format) implements ValueObject<MarkupContent> {
+
+    /** 本文なしを表す空のマークアップコンテンツ（プレーンテキストの空文字列）。完全に使い回せる定数。 */
+    public static final MarkupContent EMPTY = new MarkupContent("", MarkupFormat.PLAIN_TEXT);
+
     /**
      * コンストラクタ
      *

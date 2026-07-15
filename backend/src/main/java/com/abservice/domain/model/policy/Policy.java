@@ -56,6 +56,44 @@ public interface Policy<T> {
     }
 
     /**
+     * 単一の述語と<strong>事前生成済み</strong>エラーからポリシーを生成します。
+     *
+     * <p>
+     * 動的な値を含まず完全に使い回せる（{@code static final} で保持できる）定数エラー向け。呼び出し側の
+     * {@code () -> new ErrorResult(...)} という遅延 Supplier のインライン実装を不要にします。動的メッセージを
+     * 伴う場合は生成を失敗時まで遅延させるため {@link #of(Predicate, Supplier)} を使ってください。
+     * </p>
+     *
+     * @param predicate
+     *            検証述語（true で合格）
+     * @param error
+     *            不合格時に用いる事前生成済みエラー
+     * @return 単一述語ポリシー
+     * @param <T>
+     *            検証対象の値の型
+     */
+    static <T> Policy<T> of(Predicate<? super T> predicate, ErrorResult error) {
+        return new SinglePolicy<>(predicate, () -> error);
+    }
+
+    /**
+     * 検証エラーを最初のエラーメッセージの {@link IllegalArgumentException} に変換する標準リゾルバ。
+     *
+     * <p>
+     * ドメイン全域で頻出するインラインの
+     * {@code resolve(errors -> new IllegalArgumentException(...))} を、
+     * {@code resolve(Policy::illegalArgument)} のメソッド参照へ置き換えます。
+     * </p>
+     *
+     * @param errors
+     *            検証エラー（非空）
+     * @return 最初のエラーメッセージを持つ {@link IllegalArgumentException}
+     */
+    static IllegalArgumentException illegalArgument(List<ErrorResult> errors) {
+        return new IllegalArgumentException(errors.getFirst().message());
+    }
+
+    /**
      * 複数のポリシーを合成し、全ルールのエラーを集約するポリシーを生成します。
      *
      * @param rules

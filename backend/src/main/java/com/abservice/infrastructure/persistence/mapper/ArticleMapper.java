@@ -2,6 +2,7 @@ package com.abservice.infrastructure.persistence.mapper;
 
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
+import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.model.vo.article.MarkupContent;
 import com.abservice.domain.model.vo.article.MarkupFormat;
@@ -40,7 +41,7 @@ public final class ArticleMapper {
                                 new Article.Id(e.getDomainId()),
                                 ArticleType.valueOf(e.getArticleType()),
                                 Optional.ofNullable(e.getAlbumId()).map(Album.Id::new).orElse(null),
-                                e.getTitle(),
+                                ArticleTitle.of(e.getTitle()),
                                 createMarkupContent(e.getBody(), e.getBodyFormat()),
                                 e.getIntroShort(),
                                 toBusinessDateTime(e.getPublishedAt()),
@@ -77,7 +78,7 @@ public final class ArticleMapper {
         articleEntity.setDomainId(article.id().value());
         articleEntity.setArticleType(article.articleType().name());
         articleEntity.setAlbumId(Optional.ofNullable(article.albumId()).map(Album.Id::value).orElse(null));
-        articleEntity.setTitle(article.title());
+        articleEntity.setTitle(article.title().value());
         Optional.ofNullable(article.body()).ifPresentOrElse(body -> {
             articleEntity.setBody(body.content());
             articleEntity.setBodyFormat(body.format().name());

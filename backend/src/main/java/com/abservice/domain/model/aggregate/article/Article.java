@@ -2,21 +2,25 @@ package com.abservice.domain.model.aggregate.article;
 
 import static java.util.function.Predicate.not;
 
+import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.aggregate.Aggregate;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.entity.article.ArticleTag;
 import com.abservice.domain.model.policy.Policy;
+import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.model.vo.article.MarkupContent;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.lib.ErrorResult;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.commons.lang3.StringUtils;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -47,7 +51,7 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
     private final ArticleType articleType;
     private final Album.@Nullable Id albumId; // nullable: アルバム記事の場合のみ参照
     @NonNull
-    private final String title;
+    private final ArticleTitle title;
     @Nullable
     private final MarkupContent body; // nullable: 記事本文（マークアップ可能）
     @Nullable
@@ -76,13 +80,9 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 新規Article
      */
     public static @NonNull Article create(@NonNull ArticleType articleType, Album.@Nullable Id albumId,
-            @NonNull String title, @Nullable MarkupContent body, @Nullable String introShort) {
-        final var validatedType = Optional.ofNullable(articleType)
-                .orElseThrow(() -> new IllegalArgumentException("Article type cannot be null"));
-        final var validatedTitle = Optional.ofNullable(title).filter(not(String::isBlank))
-                .orElseThrow(() -> new IllegalArgumentException("Article title cannot be null or blank"));
-        return new Article(Id.generate(), validatedType, albumId, validatedTitle, body, introShort, null, null, false,
-                Collections.emptyList());
+            @NonNull ArticleTitle title, @Nullable MarkupContent body, @Nullable String introShort) {
+        return new Article(Id.generate(), requireType(articleType), albumId, requireTitle(title), body, introShort,
+                null, null, false, Collections.emptyList());
     }
 
     /**
@@ -112,7 +112,7 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      */
     @SuppressWarnings("checkstyle:ParameterNumber") // 永続化からの再構成で全項目を受け取るため引数が多い
     public static @NonNull Article reconstruct(@NonNull Id id, @NonNull ArticleType articleType,
-            Album.@Nullable Id albumId, @NonNull String title, @Nullable MarkupContent body,
+            Album.@Nullable Id albumId, @NonNull ArticleTitle title, @Nullable MarkupContent body,
             @Nullable String introShort, @Nullable BusinessDateTime publishedAt,
             @Nullable BusinessDateTime updatedAtBusiness, boolean publicFlag, @NonNull List<ArticleTag> tags) {
         return new Article(id, articleType, albumId, title, body, introShort, publishedAt, updatedAtBusiness,
@@ -128,10 +128,8 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      *            現在日時
      * @return 更新されたArticle
      */
-    public @NonNull Article changeTitle(@NonNull String newTitle, @NonNull BusinessDateTime currentDateTime) {
-        final var validatedTitle = Optional.ofNullable(newTitle).filter(not(String::isBlank))
-                .orElseThrow(() -> new IllegalArgumentException("Article title cannot be null or blank"));
-        return withTitle(validatedTitle).withUpdatedAtBusiness(currentDateTime);
+    public @NonNull Article changeTitle(@NonNull ArticleTitle newTitle, @NonNull BusinessDateTime currentDateTime) {
+        return withTitle(requireTitle(newTitle)).withUpdatedAtBusiness(currentDateTime);
     }
 
     /**
@@ -223,12 +221,11 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      */
     public @NonNull Article changeArticleType(@NonNull ArticleType newArticleType,
             @NonNull BusinessDateTime currentDateTime) {
-        final var validatedType = Optional.ofNullable(newArticleType)
-                .orElseThrow(() -> new IllegalArgumentException("Article type cannot be null"));
         // ALBUM以外の種別に変更する場合、albumIdをクリア
-        final var typed = withArticleType(validatedType);
-        return Optional.ofNullable(albumId).filter(ignored -> validatedType != ArticleType.ALBUM)
-                .map(ignored -> typed.withAlbumId(null)).orElse(typed).withUpdatedAtBusiness(currentDateTime);
+        final var typed = withArticleType(requireType(newArticleType));
+        return (newArticleType == ArticleType.ALBUM
+                ? typed
+                : typed.withAlbumId(null)).withUpdatedAtBusiness(currentDateTime);
     }
 
     /**
@@ -241,12 +238,17 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article addTag(@NonNull ArticleTag tag, @NonNull BusinessDateTime currentDateTime) {
-        final var validatedTag = Optional.ofNullable(tag)
-                .orElseThrow(() -> new IllegalArgumentException("Tag cannot be null"));
-        // IDの重複チェック
-        tags.stream().filter(validatedTag::equivalentTo).findFirst().ifPresent(dup -> {
-            throw new IllegalArgumentException("Tag with ID " + validatedTag.id().value() + " already exists");
-        });
+        final var validatedTag = Policy.<ArticleTag>of(Objects::nonNull, TAG_REQUIRED_ERROR)
+                .verify(tag, Function.identity()).resolve(Policy::illegalArgument);
+        // IDの重複チェック（ビジネスルール違反 → 409。メッセージが動的なため遅延生成）
+        Policy.<ArticleTag>of(
+                t -> tags.stream().noneMatch(t::equivalentTo),
+                () -> new ErrorResult(
+                        "tag",
+                        "Tag with ID " + validatedTag.id().value() + " already exists",
+                        "ARTICLE_TAG_DUPLICATE"))
+                .verify(validatedTag, Function.identity())
+                .resolve(BusinessRuleViolationException::fromErrors);
         return withTags(Stream.concat(tags.stream(), Stream.of(validatedTag)).toList())
                 .withUpdatedAtBusiness(currentDateTime);
     }
@@ -261,8 +263,8 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article removeTag(ArticleTag.@NonNull Id tagId, @NonNull BusinessDateTime currentDateTime) {
-        final var validatedTagId = Optional.ofNullable(tagId)
-                .orElseThrow(() -> new IllegalArgumentException("Tag ID cannot be null"));
+        final var validatedTagId = Policy.<ArticleTag.Id>of(Objects::nonNull, TAG_ID_REQUIRED_ERROR)
+                .verify(tagId, Function.identity()).resolve(Policy::illegalArgument);
         final var newTags = tags.stream().filter(not(t -> t.hasId(validatedTagId))).collect(Collectors.toList());
         return withTags(Collections.unmodifiableList(newTags)).withUpdatedAtBusiness(currentDateTime);
     }
@@ -276,6 +278,36 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
         return Collections.unmodifiableList(tags);
     }
 
+    private static final ErrorResult TYPE_REQUIRED_ERROR = new ErrorResult(
+            "articleType",
+            "Article type cannot be null",
+            "ARTICLE_TYPE_REQUIRED");
+
+    private static final ErrorResult TITLE_REQUIRED_ERROR = new ErrorResult(
+            "title",
+            "Article title cannot be null",
+            "ARTICLE_TITLE_REQUIRED");
+
+    private static final ErrorResult TAG_REQUIRED_ERROR = new ErrorResult(
+            "tag",
+            "Tag cannot be null",
+            "ARTICLE_TAG_REQUIRED");
+
+    private static final ErrorResult TAG_ID_REQUIRED_ERROR = new ErrorResult(
+            "tagId",
+            "Tag ID cannot be null",
+            "ARTICLE_TAG_ID_REQUIRED");
+
+    private static @NonNull ArticleType requireType(@Nullable ArticleType articleType) {
+        return Policy.<ArticleType>of(Objects::nonNull, TYPE_REQUIRED_ERROR)
+                .verify(articleType, Function.identity()).resolve(Policy::illegalArgument);
+    }
+
+    private static @NonNull ArticleTitle requireTitle(@Nullable ArticleTitle title) {
+        return Policy.<ArticleTitle>of(Objects::nonNull, TITLE_REQUIRED_ERROR)
+                .verify(title, Function.identity()).resolve(Policy::illegalArgument);
+    }
+
     /**
      * 記事ID
      *
@@ -283,17 +315,22 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      *            ID値（UUIDv7形式の文字列）
      */
     public record Id(@NonNull String value) implements EntityId<Article> {
+        private static final ErrorResult ID_BLANK_ERROR = new ErrorResult(
+                "value",
+                "Article ID cannot be blank",
+                "ID_BLANK");
+
         public Id {
-            Optional.ofNullable(value).filter(not(String::isBlank))
-                    .orElseThrow(() -> new IllegalArgumentException("Article ID cannot be blank"));
-            Policy.<String>of(
-                    EntityId::isValidUuid,
-                    () -> new ErrorResult(
-                            "value",
-                            "Article ID must be a valid UUID: " + value,
-                            "ID_INVALID_UUID"))
+            Policy.<String>all(
+                    Policy.of(StringUtils::isNotBlank, ID_BLANK_ERROR),
+                    Policy.of(
+                            EntityId::isValidUuid,
+                            () -> new ErrorResult(
+                                    "value",
+                                    "Article ID must be a valid UUID: " + value,
+                                    "ID_INVALID_UUID")))
                     .verify(value, Function.identity())
-                    .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
+                    .resolve(Policy::illegalArgument);
         }
 
         /**
