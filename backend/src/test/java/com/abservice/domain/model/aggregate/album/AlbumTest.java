@@ -9,6 +9,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
@@ -259,7 +260,7 @@ class AlbumTest {
 
             // Act & Assert
             final var finalAlbum = album;
-            assertThatThrownBy(() -> finalAlbum.addTrack(track2)).isInstanceOf(IllegalArgumentException.class)
+            assertThatThrownBy(() -> finalAlbum.addTrack(track2)).isInstanceOf(BusinessRuleViolationException.class)
                     .hasMessage("Track number 1 already exists");
         }
     }
@@ -312,7 +313,8 @@ class AlbumTest {
             final var nonExistentId = Track.Id.generate();
 
             // Act & Assert
-            assertThatThrownBy(() -> album.removeTrack(nonExistentId)).isInstanceOf(IllegalArgumentException.class)
+            assertThatThrownBy(() -> album.removeTrack(nonExistentId))
+                    .isInstanceOf(BusinessRuleViolationException.class)
                     .hasMessageContaining("not found");
         }
 
@@ -382,7 +384,7 @@ class AlbumTest {
             // Act & Assert
             final var finalAlbum = album;
             assertThatThrownBy(() -> finalAlbum.updateTrack(nonExistentTrack))
-                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("not found");
+                    .isInstanceOf(BusinessRuleViolationException.class).hasMessageContaining("not found");
         }
 
         @Test
@@ -407,7 +409,8 @@ class AlbumTest {
 
             // Act & Assert
             final var finalAlbum = album;
-            assertThatThrownBy(() -> finalAlbum.updateTrack(updatedTrack)).isInstanceOf(IllegalArgumentException.class)
+            assertThatThrownBy(() -> finalAlbum.updateTrack(updatedTrack))
+                    .isInstanceOf(BusinessRuleViolationException.class)
                     .hasMessage("Track number 1 already exists");
         }
     }
@@ -476,7 +479,7 @@ class AlbumTest {
             // Act & Assert
             final var finalAlbum = album;
             assertThatThrownBy(() -> finalAlbum.reorderTracks(invalidOrder))
-                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("not found");
+                    .isInstanceOf(BusinessRuleViolationException.class).hasMessageContaining("not found");
         }
     }
 
@@ -509,7 +512,7 @@ class AlbumTest {
             final var nonExistentId = Track.Id.generate();
 
             // Act & Assert
-            assertThatThrownBy(() -> album.getTrack(nonExistentId)).isInstanceOf(IllegalArgumentException.class)
+            assertThatThrownBy(() -> album.getTrack(nonExistentId)).isInstanceOf(BusinessRuleViolationException.class)
                     .hasMessageContaining("not found");
         }
 

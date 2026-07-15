@@ -7,6 +7,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
@@ -495,7 +496,8 @@ class TrackTest {
             // Act & Assert
             assertThatThrownBy(() -> {
                 trackWithTune.addTune(tune2);
-            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Tune seq 1 already exists in this track");
+            }).isInstanceOf(BusinessRuleViolationException.class)
+                    .hasMessage("Tune seq 1 already exists in this track");
         }
     }
 
@@ -611,7 +613,7 @@ class TrackTest {
             // Act & Assert
             assertThatThrownBy(() -> {
                 track.removeTune(999);
-            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Tune with seq 999 not found");
+            }).isInstanceOf(BusinessRuleViolationException.class).hasMessage("Tune with seq 999 not found");
         }
     }
 
@@ -733,7 +735,7 @@ class TrackTest {
             // Act & Assert
             assertThatThrownBy(() -> {
                 track.updateTune(nonExistentTune);
-            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Tune with seq 999 not found");
+            }).isInstanceOf(BusinessRuleViolationException.class).hasMessage("Tune with seq 999 not found");
         }
     }
 
