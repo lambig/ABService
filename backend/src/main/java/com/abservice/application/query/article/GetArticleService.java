@@ -38,9 +38,7 @@ public class GetArticleService implements QueryService<GetArticleQuery, GetArtic
     }
 
     static GetArticleResult toResult(@Nullable ArticleEntity entity) {
-        return Optional.ofNullable(entity).<GetArticleResult>map(
-                e -> new GetArticleResult.Found(
-                        ArticleViewMapper.toView(e)))
-                .orElseGet(GetArticleResult.NotFound::new);
+        return Optional.ofNullable(entity).map(ArticleViewMapper::toView)
+                .<GetArticleResult>map(GetArticleResult.Found::new).orElseGet(GetArticleResult.NotFound::new);
     }
 }
