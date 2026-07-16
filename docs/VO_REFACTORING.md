@@ -7,30 +7,14 @@
 
 `ArtistCredit` とイベント頒布情報（`EventReleasedAt`）は独立した集約ルートではなく、`Album` / `Track` に埋め込む Value Object として扱う。
 
-## 現行の構造
+> VO の構成・永続化スキーマの正は `DOMAIN_MODEL_DESIGN.md` / `DATABASE_DESIGN.md`。本書は「集約ルートにせず VO 埋め込みとする」判断とその根拠に絞る。
 
-### ArtistCredit VO — `com.abservice.domain.model.vo.common.ArtistCredit`
+## 対象
 
-- 表示名（display name）とソートキー（sort key）のみを持つ単純な VO。
-- `Album` では必須（アルバム全体の名義）。`Track` では nullable（null の場合は `Album` の名義を継承）。
+- **ArtistCredit**（`vo.common`）: 表示名とソートキーのみの単純な名義 VO。`Album` では必須、`Track` では nullable（null なら `Album` の名義を継承）。
+- **EventReleasedAt**（`vo.common`）: アルバムがイベント頒布された情報を表す VO。`Album` に nullable で埋め込む。
 
-### EventReleasedAt VO — `com.abservice.domain.model.vo.common.EventReleasedAt`
-
-- コミケ / M3 / ライブなどのイベントでアルバムが頒布された情報を表す VO。
-- 構成: イベント名 `EventName` ＋ 開催日・スペース番号の組み合わせリスト `List<EventDateAndSpace>`（複数日程参加に対応）＋ 会場 `place` ＋ 補足 `note`。
-- `Album` では nullable（`eventReleasedAt` フィールド。頒布情報が不明な場合は空）。
-- `EventDateAndSpace`（`vo.common`）は開催日 `date` とスペース番号 `spaceNumber` の組。
-
-### 永続化
-
-- `album` テーブルに ArtistCredit（`artist_display_name` 必須 / `artist_sort_key`）と、イベントの `event_name` / `event_place` / `event_note` を埋め込む。
-- 複数日程の開催日・スペース番号は `album_event_date_space` テーブル（`album` に対する 1:N）で保持する。
-- `track` テーブルは ArtistCredit カラム（nullable）を持つ。
-- スキーマの詳細は `DATABASE_DESIGN.md` と Flyway マイグレーション（V15–V19 系）を参照。
-
-### 検索
-
-- `AlbumRepository` はアーティスト名・イベント名での検索を `findByArtistName(String)` / `findByEventName(String)` として提供する（`album` テーブルへの直接検索）。
+いずれも `Album` / `Track` に埋め込む Value Object とし、独立集約ルートにはしない。
 
 ## 根拠
 

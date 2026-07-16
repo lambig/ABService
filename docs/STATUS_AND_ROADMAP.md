@@ -1,8 +1,8 @@
 # 開発状況と再開ロードマップ
 
 > **このドキュメントの位置づけ**
-> 開発が一時停止していた ABService を再開するにあたり、散在していた計画ドキュメント（`JSPECIFY_MIGRATION_PLAN.md` / `VO_REFACTORING.md` / `REPOSITORY_SIMPLIFICATIONS.md` / `UNIT_TEST_PLAN.md` 等）の内容を、**実コードと突き合わせて検証した現状**として1本に集約し、優先度付きの再開計画を示すマスタードキュメントです。
-> 個別の計画docは背景・詳細手順のリファレンスとして残していますが、進捗の正はこのドキュメントを参照してください。
+> ABService の**実コードと突き合わせて検証した現状**と、優先度付きの再開計画を示すマスタードキュメントです。進捗の正はこのドキュメントを参照してください。
+> 個別の設計doc（`VO_REFACTORING.md` / `UNIT_TEST_PLAN.md` 等）は背景・詳細手順のリファレンスとして残しています。
 
 ---
 
@@ -12,16 +12,16 @@
 
 | レイヤー | 状態 | 補足 |
 |---|---|---|
-| **ドメイン層** | 🟢 ほぼ完成 | 集約 `Album` / `AlbumArticle` / `Article` / `Tune`、VO 約20、`EventMatchingService`。ビジネスロジックのユニットテスト充実 |
-| **インフラ層** | 🟢 完成（一部簡略化残） | JPAエンティティ・Mapper・RepositoryImpl（4集約）、Flyway V1〜V24、Reactive Panache。§4 の簡略化3件が未解消 |
-| **アプリケーション層** | 🟡 基底のみ | `CommandService` / `QueryService` インターフェース（使用例つき）は完備。**具象ユースケースは0件** |
-| **プレゼンテーション層** | 🔴 未着手 | サンプル `GreetingResource` / `HealthResource` / `CircleMemberResource` のみ。集約向けRESTエンドポイント・DTO・ExceptionMapperなし |
+| **ドメイン層** | 🟢 ほぼ完成 | 集約 `Album` / `AlbumArticle` / `Article` / `Tune`、VO 約20、`EventMatchingService`。検証は `Policy` へ移行済み。ビジネスロジックのユニットテスト充実 |
+| **インフラ層** | 🟢 完成（一部簡略化残） | JPAエンティティ・Mapper・RepositoryImpl（4集約）、Flyway、Reactive Panache。§4 の簡略化3件が未解消 |
+| **アプリケーション層** | 🟡 Article のみ縦通し済み | `CommandService` / `QueryService` 基底に加え、Article 集約の Command（`CreateArticleService`）/ Query（`GetArticleService` + `ArticleView`）を実装。**Tune / Album / AlbumArticle は未着手** |
+| **プレゼンテーション層** | 🟡 Article のみ縦通し済み | Article REST（`ArticleCommandResource` / `ArticleQueryResource` + Request/Response DTO）、RFC9457 `ProblemDetail` + `DomainExceptionMapper` を実装。サンプル `GreetingResource` / `HealthResource` / `CircleMemberResource` は残置。**他集約の Resource は未着手** |
 | **共通基盤（lib）** | 🟢 完成 | `Result`（combinator `map`/`flatMap`/`zip` 含む）/ `ErrorResult` を実装。ドメイン例外階層（`DomainException` 抽象基底 + `ValidationException`/`EntityNotFoundException`/`BusinessRuleViolationException`）も整備済み |
-| **テスト** | 🟡 ユニット充実・統合が薄い | ユニット31クラス（VO/集約/エンティティ）。統合テストは `AlbumRepositoryImplTest` と `SystemBusinessDateTimeProviderTest` の2本のみ |
+| **テスト** | 🟡 ユニット充実・統合は選択的 | VO/集約/エンティティのユニット、Article のアプリ層/例外マッパーのユニット、Article REST の E2E 統合テスト、`AlbumRepositoryImplTest`。残る統合テストは §5.2 |
 | **静的解析** | 🟢 完了 | Checkstyle + Spotless + PMD + ArchUnit + NullAway で多層強制（レイヤ依存方向・配置・戻り値契約・機能的スタイル・コンパイル時 null 安全）。強制設計・対象ルールは §7。SpotBugs / PMD 組込ルールセットの再導入のみフェーズD で検討（§6 フェーズD） |
 | **フロントエンド** | ⬜ 未調査 | `frontend-admin`（Svelte）/ `frontend-public`（Svelte+Astro）。本ドキュメントの対象外 |
 
-**一言でいうと**: ドメイン＋永続化基盤は固まっており、次に積むべきは **アプリケーション層（ユースケース）→ プレゼンテーション層（REST）** の縦の1本通しと、それを支える **エラー設計・統合テスト・アーキテクチャ制約** です。
+**一言でいうと**: **Article 集約で domain→app→REST→統合テストの縦1本が通り、パターンが確立済み**。次に積むべきは **同パターンの Tune / Album / AlbumArticle への横展開** と、§4 の簡略化解消・残る統合テストです。
 
 ---
 
@@ -54,7 +54,7 @@ com.abservice/
     └── exception/             JAX-RS ExceptionMapper
 ```
 
-現行パッケージ（`com.abservice.domain / application / infrastructure`）はこの構成にほぼ沿っています。**未整備なのは `application` の具象と `presentation`（丸ごと）**の2点です。
+現行パッケージ（`com.abservice.domain / application / infrastructure / presentation`）はこの構成に沿っています。`application` / `presentation` は **Article 集約分のみ実装済み**で、残り3集約への横展開が未整備です。
 
 ### 2.2 採用する設計パターン
 
@@ -77,9 +77,9 @@ com.abservice/
 | 種別 | 目標 | ABService 現状 | 対応 |
 |---|---|---|---|
 | 値検証（複数エラー収集） | `Result<T>` + `resolve/zip/map/flatMap` | `resolve`/`orElse*`/`map`/`flatMap`/`zip`（arity 2・3、エラー集約）を実装済み | 対応不要 |
-| リソース未存在 | empty `Uni` → `.onItem().ifNull().failWith { EntityNotFoundException }` | Repository は実装済みだが、未存在→例外化の共通パターン未確立 | ユースケース実装時に規約化 |
+| リソース未存在 | empty `Uni` → `.onItem().ifNull().failWith { EntityNotFoundException }` | Article Query（`GetArticleService`）で確立済み。他集約は横展開時に踏襲 | 横展開時に踏襲 |
 | ビジネスルール違反 | `DomainException` 階層（`ValidationException` / `EntityNotFoundException` / `BusinessRuleViolationException` + 具象） | `DomainException`（abstract・`errorCode`付き）+ 3サブクラスを整備済み（下記）。HTTP変換は presentation 層に委譲 | 対応不要 |
-| HTTP変換 | `@Provider ExceptionMapper<DomainException>` で 400/404/409/5xx に変換 | 未実装 | presentation層で `ExceptionMapper` を実装 |
+| HTTP変換 | `@Provider ExceptionMapper<DomainException>` で 400/404/409/5xx に変換 | RFC9457 `ProblemDetail` + `DomainExceptionMapper` を実装済み（`presentation/rest/exception/`） | 対応不要 |
 
 **整備すべき例外階層:**
 ```
@@ -93,9 +93,9 @@ DomainException (abstract, errorCode付き)
 
 ## 4. インフラ層の簡略化（未解消・実コードで確認済み）
 
-`REPOSITORY_SIMPLIFICATIONS.md` 記載の3件はいずれも未解消。issue で管理する（優先度: 頒布情報・入手経路 > タグ）。
+Mapper で暫定的に空/`null` を返している3件はいずれも未解消。実装要件は各 issue で管理する（優先度: 頒布情報・入手経路 > タグ）。
 
-- #40 AlbumArticle 頒布情報 / #41 AlbumArticle 入手経路 / #39 Article タグ
+- #40 AlbumArticle 頒布情報（`AlbumArticleMapper`） / #41 AlbumArticle 入手経路（`AlbumArticleMapper`） / #39 Article タグ（`ArticleMapper`）
 
 ---
 
@@ -103,48 +103,43 @@ DomainException (abstract, errorCode付き)
 
 ### 5.1 JSpecify nullability 移行（NullAway で enforce）— 🟢 完了
 
-`@NullMarked`（package-info）＋ `@Nullable` を NullAway でコンパイル時強制。`main` 全体（`..persistence.entity..` は Hibernate populate 体のため対象外）を ERROR で強制済み（違反0）。設計・除外方針・進め方は #44 / `JSPECIFY_MIGRATION_PLAN.md`、強制設定は `backend/build.gradle`。
+`@NullMarked`（package-info）＋ `@Nullable` を NullAway でコンパイル時強制。`main` 全体（`..persistence.entity..` は Hibernate populate 体のため対象外）を ERROR で強制済み（違反0）。設計・除外方針は #44、強制設定は `backend/build.gradle`。
 
 - **バージョン固定（管理下の一時的負債・要追随）**: `error_prone_core 2.39.0` + `nullaway 0.12.7`（`net.ltgt.errorprone 5.1.0`）。ErrorProne 内部 API 密結合のため両者を揃える（最新 `error_prone_core 2.50.0` は非互換）。**昇格トリガ**: NullAway が 2.50 系対応版を出したら両者 bump。**退避路**: JSpecify アノテーションはツール非依存のため Checker Framework へ差し替え可能。
 
 ### 5.2 ユニット/統合テスト（`UNIT_TEST_PLAN.md`）
 
-- 🟢 完了: Phase 1–5（VO / Enum / 集約 / エンティティ のユニットテスト、計31クラス）
-- 🔴 未着手:
-  - Phase 6: Application Service のテスト（※ユースケース実装後に発生）
-  - Phase 7: RepositoryImpl 統合テスト → #45
-  - Phase 8: Mapper 統合テスト（§4 解消に依存）
-  - Phase 9: DataSource 統合テスト（DataSource 構築後）
-  - Phase 10: REST API 統合テスト（※presentation実装後に発生）
+- 🟢 完了: Phase 1–5（VO / Enum / 集約 / エンティティ のユニットテスト）、Phase 6（Article のアプリ層/例外マッパーのユニットテスト）、Phase 10（Article REST の E2E 統合テスト）
+- 🔴 未着手（横展開・§4 依存）:
+  - Phase 6/10 の Tune / Album / AlbumArticle 分（横展開時に追加）
+  - Phase 7: RepositoryImpl 統合テスト（`AlbumRepositoryImpl` 済み・残り3集約） → #45
+  - Phase 8: Mapper 統合テスト（§4 の #39/#40/#41 解消に依存）
+  - Phase 9: DataSource 統合テスト（Read Model 用 DataSource 構築後）
 
-### 5.3 アプリケーション層 / プレゼンテーション層（新規・最重要）
+### 5.3 アプリケーション層 / プレゼンテーション層
 
-- 🔴 各集約の Command ユースケース（作成/更新/削除）と Input/Output DTO
-- 🔴 各集約の Query ユースケース（一覧/詳細）と Read Model DTO
-- 🔴 REST Resource（Command/Query）、Request/Response DTO
-- 🔴 `ExceptionMapper`（DomainException → HTTP）
+- 🟢 Article 集約: Command（作成）/ Query（詳細）ユースケース、REST Resource、`DomainExceptionMapper`（RFC9457）を実装済み。**縦1本通しのパターン確立済み**
+- 🔴 Tune / Album / AlbumArticle 集約への横展開（Command/Query ユースケース + Input/Output/Result DTO、REST Resource、Request/Response DTO）
+- 🔴 Article 集約の残ユースケース（更新/削除、一覧 Query）
 
 ---
 
 ## 6. 推奨再開ロードマップ（優先度順）
 
-> 方針: 「動く縦の1本」を最優先で通し、そのうえで横展開・品質ゲートを固める。まず **Article 集約**（依存が少なく単純）で 1 ユースケースを domain→app→REST→統合テストまで貫通させ、パターンを確立してから他集約へ横展開する。
+> 方針: 「動く縦の1本」を最優先で通し、そのうえで横展開・品質ゲートを固める。Article 集約（依存が少なく単純）で domain→app→REST→統合テストの縦通しを終えてパターンを確立済み。**次はこのパターンの横展開**。
 
-### フェーズ A: エラー設計とlib・静的解析の土台（縦通しの前提）— 🟢 ほぼ完了
+### フェーズ A: エラー設計とlib・静的解析の土台（縦通しの前提）— 🟢 完了
 
-土台は完了済み: 静的解析ガバナンス（ArchUnit・機能的スタイル強制ハーネス・NullAway。§7 / #37 / #44）、`Result` の合成 combinator（`map`/`flatMap`/`zip`）、`DomainException` 階層（§3）。残るは VO の外部入力用 `fromInput()`（`Result`返却）の横展開のみ — Article集約のVO（`ArticleType`/`MarkupContent`）で導入済み、残VOはフェーズC で対応。
+静的解析ガバナンス（ArchUnit・機能的スタイル強制ハーネス・NullAway。§7 / #37 / #44）、`Result` の合成 combinator（`map`/`flatMap`/`zip`）、`DomainException` 階層（§3）を整備済み。VO の外部入力用 `fromInput()`（`Result`返却）は Article集約のVO（`ArticleType`/`MarkupContent`）で導入済み、残VOはフェーズC で横展開。
 
-### フェーズ B: 縦の1本通し（Article集約でパターン確立）
-1. Command ユースケース1件（例: 記事作成）を `CommandService` で実装 + Input/Output DTO
-2. Query ユースケース1件（例: 記事一覧/詳細）を `QueryService` + `DataSource` + Read Model DTO で実装
-3. `presentation/rest/` に `ArticleCommandResource` / `ArticleQueryResource` + Request/Response DTO
-4. `ExceptionMapper`（DomainException → 400/404/409/5xx）
-5. REST 統合テスト（rest-assured）でE2E疎通確認 → **動作確認スキル/実機起動で観測**
+### フェーズ B: 縦の1本通し（Article集約でパターン確立）— 🟢 完了
 
-### フェーズ C: 横展開
-6. B のパターンを Tune / Album / AlbumArticle に展開
-7. §4 の簡略化3件を解消（AlbumArticle 頒布情報・入手経路 → Article タグ。#39/#40/#41）し、Mapper統合テスト（Phase 8）を追加
-8. RepositoryImpl 統合テスト（Phase 7）を残り3集約に追加（#45）
+Article 集約で Command（記事作成）/ Query（記事詳細）ユースケース、`ArticleCommandResource` / `ArticleQueryResource` + Request/Response DTO、RFC9457 `ProblemDetail` + `DomainExceptionMapper`、REST の E2E 統合テストを実装済み。以降の横展開はこのパターンを踏襲する。
+
+### フェーズ C: 横展開（現在地）
+1. B のパターンを Tune / Album / AlbumArticle に展開（+ 残VOの `fromInput()` 横展開）
+2. §4 の簡略化3件を解消（AlbumArticle 頒布情報・入手経路 → Article タグ。#39/#40/#41）し、Mapper統合テスト（Phase 8）を追加
+3. RepositoryImpl 統合テスト（Phase 7）を残り3集約に追加（#45）
 
 ### フェーズ D: 品質ゲート
 9. **ArchUnit 残ルールの点検**（§7）: 命名・配置・戻り値型契約は先行導入済み。追加するのは §2 の規約だけでは述語を書けず**具体実装がないと表現できない**真に構造依存なルールに限る（原則として想定なし。必要が生じた時点で判断）
@@ -176,7 +171,7 @@ detekt（Kotlin）カスタムルール26件相当は、Java に構文的対応�
 
 ## 8. 参照ドキュメント
 
-- 個別計画（背景・詳細手順）: `JSPECIFY_MIGRATION_PLAN.md` / `REPOSITORY_SIMPLIFICATIONS.md` / `UNIT_TEST_PLAN.md`（`backend/`）/ `VO_REFACTORING.md`
+- 個別計画・設計判断（背景・詳細手順）: `UNIT_TEST_PLAN.md`（`backend/`）/ `VO_REFACTORING.md`。§4 の簡略化3件は issue #39/#40/#41、JSpecify 移行は #44 が正
 - 設計: `ARCHITECTURE.md` / `DOMAIN_MODEL_DESIGN.md` / `DATABASE_DESIGN.md` / `ID_DESIGN_POLICY.md` / `AUDIT_COLUMNS.md`
 - 規約: `CODING_GUIDELINES.md` / `RESULT_TYPE_GUIDE.md` / `REPOSITORY_IMPLEMENTATION.md`
 </content>

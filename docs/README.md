@@ -27,27 +27,25 @@ ABServiceは、モノリポジトリ構成で構築されたWebサービスで�
 
 ### 実装ガイド
 
-- **[CODING_GUIDELINES.md](CODING_GUIDELINES.md)** - コーディングガイドライン
+- **[CODING_GUIDELINES.md](CODING_GUIDELINES.md)** - コーディングガイドライン（強制ルールは STATUS_AND_ROADMAP.md §7 と各設定が正）
 - **[REPOSITORY_IMPLEMENTATION.md](REPOSITORY_IMPLEMENTATION.md)** - リポジトリ実装ガイド
 - **[ID_DESIGN_POLICY.md](ID_DESIGN_POLICY.md)** - ID設計ポリシー
 - **[AUDIT_COLUMNS.md](AUDIT_COLUMNS.md)** - 監査カラム設計
 
-### その他
+### 設計判断の記録
 
-- **[VO_REFACTORING.md](VO_REFACTORING.md)** - Value Objectリファクタリング計画
-- **[JSPECIFY_MIGRATION_PLAN.md](JSPECIFY_MIGRATION_PLAN.md)** - JSpecify移行計画
-- **[REPOSITORY_SIMPLIFICATIONS.md](REPOSITORY_SIMPLIFICATIONS.md)** - リポジトリ簡素化計画
+- **[VO_REFACTORING.md](VO_REFACTORING.md)** - ArtistCredit / Event を集約ルートにせず VO 埋め込みとした判断と根拠
 
 ## アーキテクチャ
 
 ### 技術スタック
 
-- **バックエンド**: Quarkus (Java 25+)
+- **バックエンド**: Quarkus (Java 25+) / Gradle
 - **フロントエンド管理画面**: Svelte
 - **フロントエンド公開画面**: Svelte + Astro
 - **データベース**: PostgreSQL
 - **マイグレーション**: Flyway
-- **データアクセス**: Blaze-Persistence
+- **データアクセス**: Hibernate Reactive Panache（Mutiny）
 - **認証・認可**: OIDC + Keycloak + JWT
 - **コンテナ**: Docker & Docker Compose
 
@@ -99,8 +97,7 @@ ABServiceは、モノリポジトリ構成で構築されたWebサービスで�
    
    # バックエンドのセットアップ
    cd backend
-   chmod +x mvnw
-   ./mvnw clean install -DskipTests
+   ./gradlew build -x test
    cd ..
    
    # フロントエンド管理画面のセットアップ
@@ -204,8 +201,8 @@ npm run clean:public
 ABService/
 ├── backend/                 # Quarkusバックエンド
 │   ├── src/
-│   ├── pom.xml
-│   └── mvnw
+│   ├── build.gradle
+│   └── gradlew
 ├── frontend-admin/          # Svelte管理画面
 │   ├── src/
 │   ├── package.json
