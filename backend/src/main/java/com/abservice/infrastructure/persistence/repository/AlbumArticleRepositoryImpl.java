@@ -10,6 +10,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.StreamSupport;
 
 /**
@@ -30,62 +31,60 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
 
     @Override
     public Uni<AlbumArticle> save(AlbumArticle aggregate) {
-        return switch (aggregate) {
-            case null -> Uni.createFrom().failure(new IllegalArgumentException("AlbumArticle cannot be null"));
-            default -> {
-                final var entity = AlbumArticleMapper.toEntity(aggregate);
+        return Optional.ofNullable(aggregate)
+                .map(a -> {
+                    final var entity = AlbumArticleMapper.toEntity(a);
 
-                yield dataSource.existsByAlbumId(entity.getDomainId()).flatMap(
-                        exists -> exists
-                                ? dataSource.find("domainId", entity.getDomainId()).firstResult()
-                                        .flatMap(existingEntity -> {
-                                            existingEntity.setIntroLong(entity.getIntroLong());
-                                            existingEntity.setIntroShort(entity.getIntroShort());
-                                            existingEntity.setFirstEventSpace(entity.getFirstEventSpace());
-                                            existingEntity.setLabelTag(entity.getLabelTag());
-                                            return dataSource.persistAndFlush(existingEntity);
-                                        })
-                                : dataSource.persistAndFlush(entity))
-                        .map(AlbumArticleMapper::toDomain);
-            }
-        };
+                    return dataSource.existsByAlbumId(entity.getDomainId()).flatMap(
+                            exists -> exists
+                                    ? dataSource.find("domainId", entity.getDomainId()).firstResult()
+                                            .flatMap(existingEntity -> {
+                                                existingEntity.setIntroLong(entity.getIntroLong());
+                                                existingEntity.setIntroShort(entity.getIntroShort());
+                                                existingEntity.setFirstEventSpace(entity.getFirstEventSpace());
+                                                existingEntity.setLabelTag(entity.getLabelTag());
+                                                return dataSource.persistAndFlush(existingEntity);
+                                            })
+                                    : dataSource.persistAndFlush(entity))
+                            .map(AlbumArticleMapper::toDomain);
+                })
+                .orElseGet(() -> Uni.createFrom().failure(new IllegalArgumentException("AlbumArticle cannot be null")));
     }
 
     @Override
     public Uni<List<AlbumArticle>> saveAll(Iterable<AlbumArticle> aggregates) {
-        return switch (aggregates) {
-            case null -> Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null"));
-            default -> Uni.join()
-                    .all(
-                            StreamSupport.stream(aggregates.spliterator(), false)
-                                    .map(this::save)
-                                    .toList())
-                    .andFailFast();
-        };
+        return Optional.ofNullable(aggregates)
+                .map(
+                        a -> Uni.join()
+                                .all(
+                                        StreamSupport.stream(a.spliterator(), false)
+                                                .map(this::save)
+                                                .toList())
+                                .andFailFast())
+                .orElseGet(() -> Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null")));
     }
 
     @Override
     public Uni<AlbumArticle> findById(Album.Id id) {
-        return switch (id) {
-            case null -> Uni.createFrom().nullItem();
-            default -> dataSource.find("domainId", id.value()).firstResult().map(AlbumArticleMapper::toDomain);
-        };
+        return Optional.ofNullable(id)
+                .map(i -> dataSource.find("domainId", i.value()).firstResult().map(AlbumArticleMapper::toDomain))
+                .orElseGet(() -> Uni.createFrom().nullItem());
     }
 
     @Override
     public Uni<List<AlbumArticle>> findAllById(Iterable<Album.Id> ids) {
-        return switch (ids) {
-            case null -> Uni.createFrom().item(List.of());
-            default -> Uni.join()
-                    .all(
-                            StreamSupport.stream(ids.spliterator(), false)
-                                    .map(this::findById)
-                                    .toList())
-                    .andFailFast()
-                    .map(
-                            list -> list.stream().filter(albumArticle -> albumArticle != null)
-                                    .toList());
-        };
+        return Optional.ofNullable(ids)
+                .map(
+                        i -> Uni.join()
+                                .all(
+                                        StreamSupport.stream(i.spliterator(), false)
+                                                .map(this::findById)
+                                                .toList())
+                                .andFailFast()
+                                .map(
+                                        list -> list.stream().filter(albumArticle -> albumArticle != null)
+                                                .toList()))
+                .orElseGet(() -> Uni.createFrom().item(List.of()));
     }
 
     @Override
@@ -96,52 +95,49 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
 
     @Override
     public Uni<Void> delete(AlbumArticle aggregate) {
-        return switch (aggregate) {
-            case null -> Uni.createFrom().voidItem();
-            default -> deleteById(aggregate.albumId());
-        };
+        return Optional.ofNullable(aggregate)
+                .map(a -> deleteById(a.albumId()))
+                .orElseGet(() -> Uni.createFrom().voidItem());
     }
 
     @Override
     public Uni<Void> deleteAll(Iterable<AlbumArticle> aggregates) {
-        return switch (aggregates) {
-            case null -> Uni.createFrom().voidItem();
-            default -> Uni.join()
-                    .all(
-                            StreamSupport.stream(aggregates.spliterator(), false)
-                                    .map(this::delete)
-                                    .toList())
-                    .andFailFast().replaceWithVoid();
-        };
+        return Optional.ofNullable(aggregates)
+                .map(
+                        a -> Uni.join()
+                                .all(
+                                        StreamSupport.stream(a.spliterator(), false)
+                                                .map(this::delete)
+                                                .toList())
+                                .andFailFast().replaceWithVoid())
+                .orElseGet(() -> Uni.createFrom().voidItem());
     }
 
     @Override
     public Uni<Void> deleteById(Album.Id id) {
-        return switch (id) {
-            case null -> Uni.createFrom().voidItem();
-            default -> dataSource.deleteByAlbumId(id.value()).replaceWithVoid();
-        };
+        return Optional.ofNullable(id)
+                .map(i -> dataSource.deleteByAlbumId(i.value()).replaceWithVoid())
+                .orElseGet(() -> Uni.createFrom().voidItem());
     }
 
     @Override
     public Uni<Void> deleteAllById(Iterable<Album.Id> ids) {
-        return switch (ids) {
-            case null -> Uni.createFrom().voidItem();
-            default -> Uni.join()
-                    .all(
-                            StreamSupport.stream(ids.spliterator(), false)
-                                    .map(this::deleteById)
-                                    .toList())
-                    .andFailFast().replaceWithVoid();
-        };
+        return Optional.ofNullable(ids)
+                .map(
+                        i -> Uni.join()
+                                .all(
+                                        StreamSupport.stream(i.spliterator(), false)
+                                                .map(this::deleteById)
+                                                .toList())
+                                .andFailFast().replaceWithVoid())
+                .orElseGet(() -> Uni.createFrom().voidItem());
     }
 
     @Override
     public Uni<Boolean> existsById(Album.Id id) {
-        return switch (id) {
-            case null -> Uni.createFrom().item(false);
-            default -> dataSource.existsByAlbumId(id.value());
-        };
+        return Optional.ofNullable(id)
+                .map(i -> dataSource.existsByAlbumId(i.value()))
+                .orElseGet(() -> Uni.createFrom().item(false));
     }
 
     @Override
@@ -153,29 +149,29 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
 
     @Override
     public Uni<AlbumArticle> findByAlbumId(Album.Id albumId) {
-        return switch (albumId) {
-            case null -> Uni.createFrom().nullItem();
-            default -> dataSource.findByAlbumId(albumId.value())
-                    .map(AlbumArticleMapper::toDomain);
-        };
+        return Optional.ofNullable(albumId)
+                .map(
+                        a -> dataSource.findByAlbumId(a.value())
+                                .map(AlbumArticleMapper::toDomain))
+                .orElseGet(() -> Uni.createFrom().nullItem());
     }
 
     @Override
     public Uni<List<AlbumArticle>> findByLabelTag(LabelTag labelTag) {
-        return switch (labelTag) {
-            case null -> Uni.createFrom().item(List.of());
-            default -> dataSource.findByLabelTag(labelTag.name())
-                    .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).toList());
-        };
+        return Optional.ofNullable(labelTag)
+                .map(
+                        t -> dataSource.findByLabelTag(t.name())
+                                .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).toList()))
+                .orElseGet(() -> Uni.createFrom().item(List.of()));
     }
 
     @Override
     public Uni<List<AlbumArticle>> findByFirstEventSpaceContaining(String spaceKeyword) {
-        return switch (spaceKeyword) {
-            case null -> Uni.createFrom().item(List.of());
-            default -> dataSource.findByFirstEventSpaceContaining(spaceKeyword)
-                    .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).toList());
-        };
+        return Optional.ofNullable(spaceKeyword)
+                .map(
+                        k -> dataSource.findByFirstEventSpaceContaining(k)
+                                .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).toList()))
+                .orElseGet(() -> Uni.createFrom().item(List.of()));
     }
 
     @Override

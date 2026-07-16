@@ -1,7 +1,6 @@
 package com.abservice.infrastructure.persistence.datasource;
 
 import com.abservice.infrastructure.persistence.entity.AlbumEntity;
-import com.abservice.infrastructure.persistence.entity.TrackEntity;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -9,6 +8,8 @@ import org.hibernate.reactive.mutiny.Mutiny;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Predicate;
 
 /**
  * Album DataSource (DAO)
@@ -35,16 +36,18 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
      */
     public Uni<AlbumEntity> persistAlbumWithRelations(AlbumEntity albumEntity) {
         return persist(albumEntity).onItem()
-                .transformToUni(savedAlbum -> sessionFactory.withSession(session -> switch (albumEntity.getTracks()) {
-                    // トラックをpersist
-                    case null -> Uni.createFrom().item(savedAlbum);
-                    case List<TrackEntity> tracks when tracks.isEmpty() -> Uni.createFrom().item(savedAlbum);
-                    default -> {
-                        albumEntity.getTracks().forEach(track -> track.setAlbum(savedAlbum));
-                        yield session.persistAll(albumEntity.getTracks().toArray())
-                                .replaceWith(savedAlbum);
-                    }
-                }));
+                .transformToUni(
+                        savedAlbum -> sessionFactory.withSession(
+                                session -> Optional
+                                        .ofNullable(albumEntity.getTracks())
+                                        .filter(Predicate.not(List::isEmpty))
+                                        .map(tracks -> {
+                                            // トラックをpersist
+                                            tracks.forEach(track -> track.setAlbum(savedAlbum));
+                                            return session.persistAll(tracks.toArray())
+                                                    .replaceWith(savedAlbum);
+                                        })
+                                        .orElseGet(() -> Uni.createFrom().item(savedAlbum))));
     }
 
     /**

@@ -30,20 +30,20 @@ public final class AlbumArticleMapper {
      * @return AlbumArticle
      */
     public static @Nullable AlbumArticle toDomain(@Nullable AlbumArticleEntity entity) {
-        return switch (entity) {
-            case null -> null;
-            // 頒布情報は簡略化のためnull、入手経路は簡略化のため空リスト
-            default -> AlbumArticle.reconstruct(
-                    new Album.Id(entity.getDomainId()),
-                    entity.getIntroLong(),
-                    entity.getIntroShort(),
-                    entity.getFirstEventSpace(),
-                    Optional.ofNullable(entity.getLabelTag())
-                            .map(LabelTag::valueOf)
-                            .orElse(null),
-                    null,
-                    Collections.emptyList());
-        };
+        // 頒布情報は簡略化のためnull、入手経路は簡略化のため空リスト
+        return Optional.ofNullable(entity)
+                .map(
+                        e -> AlbumArticle.reconstruct(
+                                new Album.Id(e.getDomainId()),
+                                e.getIntroLong(),
+                                e.getIntroShort(),
+                                e.getFirstEventSpace(),
+                                Optional.ofNullable(e.getLabelTag())
+                                        .map(LabelTag::valueOf)
+                                        .orElse(null),
+                                null,
+                                Collections.emptyList()))
+                .orElse(null);
     }
 
     /**

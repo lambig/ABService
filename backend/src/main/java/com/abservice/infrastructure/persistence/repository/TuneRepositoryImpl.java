@@ -10,6 +10,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.StreamSupport;
 
 /**
@@ -30,65 +31,65 @@ public class TuneRepositoryImpl implements TuneRepository {
 
     @Override
     public Uni<Tune> save(Tune aggregate) {
-        return switch (aggregate) {
-            case null -> Uni.createFrom().failure(new IllegalArgumentException("Tune cannot be null"));
-            default -> {
-                final var entity = TuneMapper.toEntity(aggregate);
+        return Optional.ofNullable(aggregate)
+                .map(a -> {
+                    final var entity = TuneMapper.toEntity(a);
 
-                yield dataSource.existsByTuneId(entity.getDomainId()).flatMap(
-                        exists -> exists
-                                ? dataSource.find("domainId", entity.getDomainId()).firstResult()
-                                        .flatMap(existingEntity -> {
-                                            existingEntity.setTitle(entity.getTitle());
-                                            existingEntity.setTuneKind(entity.getTuneKind());
-                                            existingEntity.setDefaultComposerCredit(entity.getDefaultComposerCredit());
-                                            existingEntity.setDefaultArrangerCredit(entity.getDefaultArrangerCredit());
-                                            existingEntity.setOriginalWorkTitle(entity.getOriginalWorkTitle());
-                                            existingEntity.setOriginalWorkCredit(entity.getOriginalWorkCredit());
-                                            existingEntity.setTuneType(entity.getTuneType());
-                                            existingEntity.setDefaultKey(entity.getDefaultKey());
-                                            existingEntity.setDefaultTempo(entity.getDefaultTempo());
-                                            return dataSource.persistAndFlush(existingEntity);
-                                        })
-                                : dataSource.persistAndFlush(entity))
-                        .map(TuneMapper::toDomain);
-            }
-        };
+                    return dataSource.existsByTuneId(entity.getDomainId()).flatMap(
+                            exists -> exists
+                                    ? dataSource.find("domainId", entity.getDomainId()).firstResult()
+                                            .flatMap(existingEntity -> {
+                                                existingEntity.setTitle(entity.getTitle());
+                                                existingEntity.setTuneKind(entity.getTuneKind());
+                                                existingEntity
+                                                        .setDefaultComposerCredit(entity.getDefaultComposerCredit());
+                                                existingEntity
+                                                        .setDefaultArrangerCredit(entity.getDefaultArrangerCredit());
+                                                existingEntity.setOriginalWorkTitle(entity.getOriginalWorkTitle());
+                                                existingEntity.setOriginalWorkCredit(entity.getOriginalWorkCredit());
+                                                existingEntity.setTuneType(entity.getTuneType());
+                                                existingEntity.setDefaultKey(entity.getDefaultKey());
+                                                existingEntity.setDefaultTempo(entity.getDefaultTempo());
+                                                return dataSource.persistAndFlush(existingEntity);
+                                            })
+                                    : dataSource.persistAndFlush(entity))
+                            .map(TuneMapper::toDomain);
+                })
+                .orElseGet(() -> Uni.createFrom().failure(new IllegalArgumentException("Tune cannot be null")));
     }
 
     @Override
     public Uni<List<Tune>> saveAll(Iterable<Tune> aggregates) {
-        return switch (aggregates) {
-            case null -> Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null"));
-            default -> Uni.join()
-                    .all(
-                            StreamSupport.stream(aggregates.spliterator(), false)
-                                    .map(this::save)
-                                    .toList())
-                    .andFailFast();
-        };
+        return Optional.ofNullable(aggregates)
+                .map(
+                        a -> Uni.join()
+                                .all(
+                                        StreamSupport.stream(a.spliterator(), false)
+                                                .map(this::save)
+                                                .toList())
+                                .andFailFast())
+                .orElseGet(() -> Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null")));
     }
 
     @Override
     public Uni<Tune> findById(Tune.Id id) {
-        return switch (id) {
-            case null -> Uni.createFrom().nullItem();
-            default -> dataSource.find("domainId", id.value()).firstResult().map(TuneMapper::toDomain);
-        };
+        return Optional.ofNullable(id)
+                .map(i -> dataSource.find("domainId", i.value()).firstResult().map(TuneMapper::toDomain))
+                .orElseGet(() -> Uni.createFrom().nullItem());
     }
 
     @Override
     public Uni<List<Tune>> findAllById(Iterable<Tune.Id> ids) {
-        return switch (ids) {
-            case null -> Uni.createFrom().item(List.of());
-            default -> Uni.join()
-                    .all(
-                            StreamSupport.stream(ids.spliterator(), false)
-                                    .map(this::findById)
-                                    .toList())
-                    .andFailFast()
-                    .map(list -> list.stream().filter(tune -> tune != null).toList());
-        };
+        return Optional.ofNullable(ids)
+                .map(
+                        i -> Uni.join()
+                                .all(
+                                        StreamSupport.stream(i.spliterator(), false)
+                                                .map(this::findById)
+                                                .toList())
+                                .andFailFast()
+                                .map(list -> list.stream().filter(tune -> tune != null).toList()))
+                .orElseGet(() -> Uni.createFrom().item(List.of()));
     }
 
     @Override
@@ -99,52 +100,49 @@ public class TuneRepositoryImpl implements TuneRepository {
 
     @Override
     public Uni<Void> delete(Tune aggregate) {
-        return switch (aggregate) {
-            case null -> Uni.createFrom().voidItem();
-            default -> deleteById(aggregate.id());
-        };
+        return Optional.ofNullable(aggregate)
+                .map(a -> deleteById(a.id()))
+                .orElseGet(() -> Uni.createFrom().voidItem());
     }
 
     @Override
     public Uni<Void> deleteAll(Iterable<Tune> aggregates) {
-        return switch (aggregates) {
-            case null -> Uni.createFrom().voidItem();
-            default -> Uni.join()
-                    .all(
-                            StreamSupport.stream(aggregates.spliterator(), false)
-                                    .map(this::delete)
-                                    .toList())
-                    .andFailFast().replaceWithVoid();
-        };
+        return Optional.ofNullable(aggregates)
+                .map(
+                        a -> Uni.join()
+                                .all(
+                                        StreamSupport.stream(a.spliterator(), false)
+                                                .map(this::delete)
+                                                .toList())
+                                .andFailFast().replaceWithVoid())
+                .orElseGet(() -> Uni.createFrom().voidItem());
     }
 
     @Override
     public Uni<Void> deleteById(Tune.Id id) {
-        return switch (id) {
-            case null -> Uni.createFrom().voidItem();
-            default -> dataSource.deleteByTuneId(id.value()).replaceWithVoid();
-        };
+        return Optional.ofNullable(id)
+                .map(i -> dataSource.deleteByTuneId(i.value()).replaceWithVoid())
+                .orElseGet(() -> Uni.createFrom().voidItem());
     }
 
     @Override
     public Uni<Void> deleteAllById(Iterable<Tune.Id> ids) {
-        return switch (ids) {
-            case null -> Uni.createFrom().voidItem();
-            default -> Uni.join()
-                    .all(
-                            StreamSupport.stream(ids.spliterator(), false)
-                                    .map(this::deleteById)
-                                    .toList())
-                    .andFailFast().replaceWithVoid();
-        };
+        return Optional.ofNullable(ids)
+                .map(
+                        i -> Uni.join()
+                                .all(
+                                        StreamSupport.stream(i.spliterator(), false)
+                                                .map(this::deleteById)
+                                                .toList())
+                                .andFailFast().replaceWithVoid())
+                .orElseGet(() -> Uni.createFrom().voidItem());
     }
 
     @Override
     public Uni<Boolean> existsById(Tune.Id id) {
-        return switch (id) {
-            case null -> Uni.createFrom().item(false);
-            default -> dataSource.existsByTuneId(id.value());
-        };
+        return Optional.ofNullable(id)
+                .map(i -> dataSource.existsByTuneId(i.value()))
+                .orElseGet(() -> Uni.createFrom().item(false));
     }
 
     @Override
@@ -156,37 +154,37 @@ public class TuneRepositoryImpl implements TuneRepository {
 
     @Override
     public Uni<List<Tune>> findByTitle(TuneTitle title) {
-        return switch (title) {
-            case null -> Uni.createFrom().item(List.of());
-            default -> dataSource.findByTitle(title.value())
-                    .map(entities -> entities.stream().map(TuneMapper::toDomain).toList());
-        };
+        return Optional.ofNullable(title)
+                .map(
+                        t -> dataSource.findByTitle(t.value())
+                                .map(entities -> entities.stream().map(TuneMapper::toDomain).toList()))
+                .orElseGet(() -> Uni.createFrom().item(List.of()));
     }
 
     @Override
     public Uni<List<Tune>> findByTuneKind(TuneKind tuneKind) {
-        return switch (tuneKind) {
-            case null -> Uni.createFrom().item(List.of());
-            default -> dataSource.findByTuneKind(tuneKind.name())
-                    .map(entities -> entities.stream().map(TuneMapper::toDomain).toList());
-        };
+        return Optional.ofNullable(tuneKind)
+                .map(
+                        k -> dataSource.findByTuneKind(k.name())
+                                .map(entities -> entities.stream().map(TuneMapper::toDomain).toList()))
+                .orElseGet(() -> Uni.createFrom().item(List.of()));
     }
 
     @Override
     public Uni<List<Tune>> findByTuneType(String tuneType) {
-        return switch (tuneType) {
-            case null -> Uni.createFrom().item(List.of());
-            default -> dataSource.findByTuneType(tuneType)
-                    .map(entities -> entities.stream().map(TuneMapper::toDomain).toList());
-        };
+        return Optional.ofNullable(tuneType)
+                .map(
+                        t -> dataSource.findByTuneType(t)
+                                .map(entities -> entities.stream().map(TuneMapper::toDomain).toList()))
+                .orElseGet(() -> Uni.createFrom().item(List.of()));
     }
 
     @Override
     public Uni<List<Tune>> findByDefaultKey(String defaultKey) {
-        return switch (defaultKey) {
-            case null -> Uni.createFrom().item(List.of());
-            default -> dataSource.findByDefaultKey(defaultKey)
-                    .map(entities -> entities.stream().map(TuneMapper::toDomain).toList());
-        };
+        return Optional.ofNullable(defaultKey)
+                .map(
+                        k -> dataSource.findByDefaultKey(k)
+                                .map(entities -> entities.stream().map(TuneMapper::toDomain).toList()))
+                .orElseGet(() -> Uni.createFrom().item(List.of()));
     }
 }

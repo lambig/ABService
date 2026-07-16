@@ -256,6 +256,32 @@
         </properties>
     </rule>
 
+    <rule name="ForbiddenNullSwitchBranch"
+          language="java"
+          message="null 分岐を持つ switch 式（case null -&gt; … ; default -&gt; …）は禁止です。Optional.ofNullable(x).map(...).orElseGet(...) を使ってください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            「case null と default の2分岐のみ」で構成される switch 式を禁止し、Optional への
+            置換を促す。null 分岐は型の種別分岐ではなく「値の有無」であり、switch よりも
+            Optional#map/orElse(Get) が意図に合う。ForbiddenNullConditionalTernary
+            （x != null ? … : …）の switch 版に相当する。sealed 型の網羅分岐など、null を
+            1ケースとして含む多系統の switch（case null 以外に型パターン/定数ラベルを持つ
+            もの＝3分岐以上）は正当なため対象外とする。case null と default を1アームに
+            まとめた形（case null, default -&gt;）は null を既定と同一視するもので分割では
+            ないため対象外。switch 文（statement）は ForbiddenSwitchStatement で既に全面禁止。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//SwitchExpression[count(SwitchArrowBranch) = 2]
+    [SwitchArrowBranch/SwitchLabel/NullLiteral]
+    [SwitchArrowBranch/SwitchLabel[@Default = true()]]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
     <rule name="ForbiddenSequentialNullBlankCheck"
           language="java"
           message="null チェックと空/blank チェックの逐次結合は禁止です。StringUtils.isBlank/isNotBlank・CollectionUtils.isEmpty/isNotEmpty を使ってください。"
