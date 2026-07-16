@@ -37,24 +37,21 @@ public final class ArticleMapper {
      *            ArticleEntity
      * @return Article
      */
-    public static @Nullable Article toDomain(@Nullable ArticleEntity entity) {
-        return Optional.ofNullable(entity)
-                .map(
-                        e -> Article.reconstruct(
-                                new Article.Id(e.getDomainId()),
-                                ArticleType.valueOf(e.getArticleType()),
-                                Optional.ofNullable(e.getAlbumId())
-                                        .map(Album.Id::new)
-                                        .orElse(null),
-                                ArticleTitle.of(e.getTitle()),
-                                createMarkupContent(e.getBody(), e.getBodyFormat()),
-                                e.getIntroShort(),
-                                toBusinessDateTime(e.getPublishedAt()),
-                                toBusinessDateTime(e.getUpdatedAtBusiness()),
-                                Optional.ofNullable(e.getIsPublic())
-                                        .orElse(false),
-                                toTags(e.getArticleTagLinks())))
-                .orElse(null);
+    public static Article toDomain(ArticleEntity entity) {
+        return Article.reconstruct(
+                new Article.Id(entity.getDomainId()),
+                ArticleType.valueOf(entity.getArticleType()),
+                Optional.ofNullable(entity.getAlbumId())
+                        .map(Album.Id::new)
+                        .orElse(null),
+                ArticleTitle.of(entity.getTitle()),
+                createMarkupContent(entity.getBody(), entity.getBodyFormat()),
+                entity.getIntroShort(),
+                toBusinessDateTime(entity.getPublishedAt()),
+                toBusinessDateTime(entity.getUpdatedAtBusiness()),
+                Optional.ofNullable(entity.getIsPublic())
+                        .orElse(false),
+                toTags(entity.getArticleTagLinks()));
     }
 
     /**

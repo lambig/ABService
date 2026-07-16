@@ -7,6 +7,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import org.hibernate.reactive.mutiny.Mutiny;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -63,6 +64,21 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
                         "SELECT DISTINCT a FROM AlbumEntity a " + "LEFT JOIN FETCH a.tracks "
                                 + "WHERE a.domainId = :domainId",
                         AlbumEntity.class).setParameter("domainId", domainId).getSingleResultOrNull());
+    }
+
+    /**
+     * 複数のドメインIDでアルバムを一括検索（トラック含む）
+     *
+     * @param domainIds
+     *            アルバムのドメインID群
+     * @return 該当するアルバムエンティティのリスト（トラックを含む）
+     */
+    public Uni<List<AlbumEntity>> findByIdsWithTracks(Collection<String> domainIds) {
+        return sessionFactory.withSession(
+                session -> session.createQuery(
+                        "SELECT DISTINCT a FROM AlbumEntity a " + "LEFT JOIN FETCH a.tracks "
+                                + "WHERE a.domainId IN (:domainIds)",
+                        AlbumEntity.class).setParameter("domainIds", domainIds).getResultList());
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.abservice.domain.model.aggregate.albumarticle;
 
+import static com.abservice.lib.Iterables.toList;
 import static java.util.function.Predicate.not;
 
 import java.util.Collections;
@@ -220,11 +221,11 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
                 () -> new BusinessRuleViolationException(
                         "Acquisition channel with ID " + updatedChannel.id().value() + " not found"));
         return withAcquisitionChannels(
-                acquisitionChannels.stream().map(
+                toList(
+                        acquisitionChannels,
                         c -> c.equivalentTo(updatedChannel)
                                 ? updatedChannel
-                                : c)
-                        .toList());
+                                : c));
     }
 
     /**

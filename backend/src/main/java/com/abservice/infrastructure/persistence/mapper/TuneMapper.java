@@ -2,8 +2,6 @@ package com.abservice.infrastructure.persistence.mapper;
 
 import java.util.Optional;
 
-import org.jspecify.annotations.Nullable;
-
 import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.tune.TuneKind;
@@ -30,25 +28,22 @@ public final class TuneMapper {
      *            TuneEntity
      * @return Tune
      */
-    public static @Nullable Tune toDomain(@Nullable TuneEntity entity) {
-        return Optional.ofNullable(entity)
-                .map(
-                        e -> Tune.reconstruct(
-                                new Tune.Id(e.getDomainId()),
-                                new TuneTitle(e.getTitle()),
-                                TuneKind.valueOf(e.getTuneKind()),
-                                Optional.ofNullable(e.getDefaultComposerCredit())
-                                        .map(Credit::new)
-                                        .orElse(null),
-                                Optional.ofNullable(e.getDefaultArrangerCredit())
-                                        .map(Credit::new)
-                                        .orElse(null),
-                                e.getOriginalWorkTitle(),
-                                e.getOriginalWorkCredit(),
-                                e.getTuneType(),
-                                e.getDefaultKey(),
-                                e.getDefaultTempo()))
-                .orElse(null);
+    public static Tune toDomain(TuneEntity entity) {
+        return Tune.reconstruct(
+                new Tune.Id(entity.getDomainId()),
+                new TuneTitle(entity.getTitle()),
+                TuneKind.valueOf(entity.getTuneKind()),
+                Optional.ofNullable(entity.getDefaultComposerCredit())
+                        .map(Credit::new)
+                        .orElse(null),
+                Optional.ofNullable(entity.getDefaultArrangerCredit())
+                        .map(Credit::new)
+                        .orElse(null),
+                entity.getOriginalWorkTitle(),
+                entity.getOriginalWorkCredit(),
+                entity.getTuneType(),
+                entity.getDefaultKey(),
+                entity.getDefaultTempo());
     }
 
     /**

@@ -6,6 +6,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.hibernate.reactive.mutiny.Mutiny;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -22,6 +23,17 @@ public class TuneDataSource implements PanacheRepositoryBase<TuneEntity, Long> {
 
     public TuneDataSource(Mutiny.SessionFactory sessionFactory) {
         this.sessionFactory = sessionFactory;
+    }
+
+    /**
+     * 複数のドメインIDでチューンを一括検索
+     *
+     * @param domainIds
+     *            チューンのドメインID群
+     * @return 該当するチューンのリスト
+     */
+    public Uni<List<TuneEntity>> findByIds(Collection<String> domainIds) {
+        return list("domainId in ?1", domainIds);
     }
 
     /**

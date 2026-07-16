@@ -7,6 +7,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import org.hibernate.reactive.mutiny.Mutiny;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -51,6 +52,19 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleEntity, L
         return sessionFactory.withSession(
                 session -> session.createQuery(EAGER_SELECT, ArticleEntity.class)
                         .getResultList());
+    }
+
+    /**
+     * 複数のドメインIDで記事を一括検索（タグを含む）
+     *
+     * @param domainIds
+     *            記事のドメインID群
+     * @return 該当する記事のリスト
+     */
+    public Uni<List<ArticleEntity>> findByIds(Collection<String> domainIds) {
+        return sessionFactory.withSession(
+                session -> session.createQuery(EAGER_SELECT + "WHERE a.domainId IN :domainIds", ArticleEntity.class)
+                        .setParameter("domainIds", domainIds).getResultList());
     }
 
     /**

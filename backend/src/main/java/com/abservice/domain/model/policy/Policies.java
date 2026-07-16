@@ -1,5 +1,7 @@
 package com.abservice.domain.model.policy;
 
+import static com.abservice.lib.Iterables.toList;
+
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import java.util.Arrays;
@@ -81,13 +83,12 @@ public final class Policies {
      *            検証結果の値の型
      */
     public static <T> Result<T> nested(String parent, Result<T> result) {
-        final List<ErrorResult> nestedErrors = result.errors().stream()
-                .map(
-                        e -> new ErrorResult(
-                                parent + "." + e.field(),
-                                e.message(),
-                                e.code()))
-                .toList();
+        final List<ErrorResult> nestedErrors = toList(
+                result.errors(),
+                e -> new ErrorResult(
+                        parent + "." + e.field(),
+                        e.message(),
+                        e.code()));
         return nestedErrors.isEmpty()
                 ? result
                 : Result.failure(nestedErrors);

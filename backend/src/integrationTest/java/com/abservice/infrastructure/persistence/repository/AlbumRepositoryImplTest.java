@@ -18,6 +18,7 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -358,8 +359,8 @@ class AlbumRepositoryImplTest {
     @TestReactiveTransaction
     @RunOnVertxContext
     void shouldHandleNullInputs(UniAsserter asserter) {
-        // Save null should fail
-        asserter.assertFailedWith(() -> repository.save(null), IllegalArgumentException.class);
+        // Save null は @NullMarked 契約違反のためシステムエラー（同期スロー）
+        assertThatThrownBy(() -> repository.save(null)).isInstanceOf(NullPointerException.class);
 
         // Find by null ID should return null
         asserter.assertThat(() -> repository.findById(null), found -> assertThat(found).isNull());

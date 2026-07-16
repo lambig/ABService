@@ -1,5 +1,7 @@
 package com.abservice.presentation.rest.exception;
 
+import static com.abservice.lib.Iterables.toList;
+
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.exception.DomainException;
 import com.abservice.domain.exception.EntityNotFoundException;
@@ -74,11 +76,11 @@ public class DomainExceptionMapper implements ExceptionMapper<DomainException> {
     }
 
     private static List<FieldError> toFieldErrors(List<ErrorResult> errors) {
-        return errors.stream().map(
+        return toList(
+                errors,
                 e -> new FieldError(
                         e.field(),
                         e.message(),
-                        e.code()))
-                .toList();
+                        e.code()));
     }
 }

@@ -216,9 +216,10 @@ public class AlbumResource {
         yield Response.ok(AlbumDto.from(album)).build();
       }
       case Result.Failure<Album> failure -> {
-        var errors = failure.errors().stream()
-            .map(e -> new ErrorDto(e.field(), e.message(), e.code()))
-            .toList();
+        // stream().map().toList() 直書きは禁止（ForbiddenStreamMapToList）。共通ヘルパを使う
+        var errors = toList(
+            failure.errors(),
+            e -> new ErrorDto(e.field(), e.message(), e.code()));
         yield Response.status(Response.Status.BAD_REQUEST)
             .entity(new ErrorResponse(errors))
             .build();

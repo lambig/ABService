@@ -453,4 +453,56 @@
         </properties>
     </rule>
 
+    <rule name="ForbiddenStreamMapToList"
+          language="java"
+          message="stream().map(...).toList() の直書きは禁止です。Iterables.toList(iterable, mapper)（または .map(toList(mapper)) のカリー化版）を使ってください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            コレクション/Iterable の写像＋不変List化（x.stream().map(f).toList() および
+            StreamSupport.stream(x.spliterator(), false).map(f).toList()）の直書きを禁止し、
+            共通ヘルパ Iterables.toList への置換を促す。ヘルパ本体（com.abservice.lib）は
+            サンクションされた実装のため対象外。filter 等を挟む鎖・toList 以外の終端は対象外。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//MethodCall[@MethodName = "toList"]
+    [*[1][self::MethodCall][@MethodName = "map"]
+        [*[1][self::MethodCall][@MethodName = "stream"]]]
+    [not(/CompilationUnit/PackageDeclaration[@Name = "com.abservice.lib"])]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
+    <rule name="ForbiddenNestedMonadicChain"
+          language="java"
+          message="Mutiny 変換オペレータ（transformToUni/flatMap/chain/transform 等）のラムダ内で反応系チェーン（onItem/onFailure/onNull）を入れ子にしないでください。transformToUni 等で平坦連結してください。性能上ネストが不可避な場合のみ @SuppressWarnings(&quot;PMD.ForbiddenNestedMonadicChain&quot;) を付し、直上に「// PERFORMANCE: 理由」を明記してください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            Mutiny の変換オペレータのラムダ引数の内部に、別の反応系チェーンの入口
+            （onItem / onFailure / onNull）が現れる「モナディックチェーンの入れ子」を禁止する。
+            入れ子は逐次待ちや隠れた合流を可読性の裏に隠し、性能・追跡性を損なうため、
+            transformToUni 等による平坦連結へ展開する。onItem/onFailure/onNull は Mutiny 固有の
+            ナビゲータであり、Stream/Optional の map/flatMap とは名前が重複しないため誤検出を避ける。
+            性能上ネストが不可避な箇所は @SuppressWarnings("PMD.ForbiddenNestedMonadicChain") と
+            「// PERFORMANCE: 理由」コメントの併記で明示的に許容する（NullAway 抑制と同じ運用）。
+            スコープは production（src/main）限定。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//MethodCall[@MethodName = (
+        "transform", "transformToUni", "transformToMulti",
+        "transformToUniAndConcatenate", "transformToMultiAndConcatenate", "transformToUniAndMerge",
+        "flatMap", "chain", "call")]
+  [ArgumentList/LambdaExpression
+      //MethodCall[@MethodName = ("onItem", "onFailure", "onNull")]]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
 </ruleset>

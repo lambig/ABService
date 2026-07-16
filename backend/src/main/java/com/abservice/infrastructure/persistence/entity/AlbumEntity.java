@@ -15,6 +15,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -30,6 +31,7 @@ import java.util.List;
 @Table(name = "album")
 @Getter
 @Setter
+@Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class AlbumEntity extends AuditableEntity {
@@ -92,4 +94,25 @@ public class AlbumEntity extends AuditableEntity {
 
     @OneToMany(mappedBy = "album", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<AlbumAcquisitionChannelEntity> acquisitionChannels = new ArrayList<>();
+
+    /**
+     * トラックを差し替える（managed collection を in-place で置換し、親参照を張り直す）。
+     *
+     * <p>
+     * orphanRemoval 下では同一コレクションインスタンスの変異が必須のため、リスト参照の 再代入ではなく clear + 再追加で行う。呼び出し側が
+     * {@code getTracks().clear()/add()} を直接触らずに済むよう、エンティティ自身がこの不変条件を担う。
+     * </p>
+     *
+     * @param newTracks
+     *            新しいトラック
+     * @return このエンティティ（chainable）
+     */
+    public AlbumEntity replaceTracks(List<TrackEntity> newTracks) {
+        this.tracks.clear();
+        newTracks.forEach(track -> {
+            track.setAlbum(this);
+            this.tracks.add(track);
+        });
+        return this;
+    }
 }

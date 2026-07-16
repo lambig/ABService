@@ -1,5 +1,6 @@
 package com.abservice.domain.service;
 
+import static com.abservice.lib.Iterables.toList;
 import static io.github.lambig.funcifextension.predicate.Predicates.or;
 
 import com.abservice.domain.model.vo.common.BusinessDate;
@@ -97,14 +98,14 @@ public class EventMatchingService implements DomainService {
     }
 
     private boolean matchesTentativeDates(TentativeEvent tentative, EventReleasedAt releasedAt) {
-        final var releasedDates = releasedAt.dateAndSpaces().stream().map(ds -> ds.date()).toList();
+        final var releasedDates = toList(releasedAt.dateAndSpaces(), ds -> ds.date());
         return or(
                 (List<BusinessDate> dates) -> dates.isEmpty(),
                 dates -> dates.stream().anyMatch(releasedDates::contains)).test(tentative.tentativeDates());
     }
 
     private boolean matchesConfirmedDates(ConfirmedEvent confirmed, EventReleasedAt releasedAt) {
-        return confirmed.dateAndSpaces().stream().map(ds -> ds.date()).toList()
-                .equals(releasedAt.dateAndSpaces().stream().map(ds -> ds.date()).toList());
+        return toList(confirmed.dateAndSpaces(), ds -> ds.date())
+                .equals(toList(releasedAt.dateAndSpaces(), ds -> ds.date()));
     }
 }
