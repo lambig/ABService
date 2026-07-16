@@ -1,15 +1,14 @@
-# テスト追加計画（残: Phase 6–10）
+# テスト追加計画（残: Phase 6–10 の横展開分）
 
 > **進捗の正は [docs/STATUS_AND_ROADMAP.md](../docs/STATUS_AND_ROADMAP.md) §5.2。**
-> ユニットテスト（VO / Enum / 集約 / エンティティ）は整備済みのため、本書は未着手の統合テスト系フェーズ（6–10）を計画として扱う。完了済みフェーズの対象クラスは §5.2 と git 履歴を参照。
+> ユニットテスト（VO / Enum / 集約 / エンティティ）と Article 集約分の Phase 6 / Phase 10 は整備済み。本書は残る統合テスト系フェーズと横展開分を計画として扱う。完了済みフェーズの対象クラスは §5.2 と git 履歴を参照。
 
 各フェーズは依存する実装が満たされた時点で着手する。
 
 ## Phase 6: Application Service のテスト
 
-- 対象: 今後実装する具象ユースケース（`CommandService` / `QueryService` 実装）。基底インターフェースは `application/service/CommandService.java`・`application/query/QueryService.java`。
+- 対象: 各集約の具象ユースケース（`CommandService` / `QueryService` 実装）。Article 集約（`CreateArticleService` / `GetArticleService`）は整備済み。残りは Tune / Album / AlbumArticle のユースケース実装時に追加。
 - 種別: ユニットテスト（`src/test/java/`）。リポジトリを Fake / モック化してロジックを検証。
-- 前提: アプリケーション層のユースケース実装。
 
 ## Phase 7: Repository 実装の統合テスト 🔴
 
@@ -31,9 +30,8 @@
 
 ## Phase 10: REST API の統合テスト
 
-- 対象: 集約向けの Command / Query Resource（`presentation/rest/` に新設予定）。現状の `com/abservice/` 直下の `GreetingResource` / `HealthResource` / `CircleMemberResource` はサンプル。
+- 対象: 集約向けの Command / Query Resource（`presentation/rest/`）。Article REST（`ArticleCommandResource` / `ArticleQueryResource`）の E2E は整備済み。残りは Tune / Album / AlbumArticle の Resource 実装時に追加。`com/abservice/` 直下の `GreetingResource` / `HealthResource` / `CircleMemberResource` はサンプル。
 - 種別: 統合テスト（REST Assured・E2E）。
-- 前提: プレゼンテーション層の実装。
 
 ---
 
