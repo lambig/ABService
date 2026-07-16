@@ -77,7 +77,8 @@ public class AlbumRepositoryImpl implements AlbumRepository {
             case null -> Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null"));
             default -> Uni.join()
                     .all(
-                            StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
+                            StreamSupport.stream(aggregates.spliterator(), false)
+                                    .map(this::save)
                                     .toList())
                     .andFailFast();
         };
@@ -87,7 +88,8 @@ public class AlbumRepositoryImpl implements AlbumRepository {
     public Uni<Album> findById(Album.Id id) {
         return switch (id) {
             case null -> Uni.createFrom().nullItem();
-            default -> dataSource.findByIdWithTracks(id.value()).map(AlbumMapper::toDomain);
+            default -> dataSource.findByIdWithTracks(id.value())
+                    .map(AlbumMapper::toDomain);
         };
     }
 
@@ -97,7 +99,8 @@ public class AlbumRepositoryImpl implements AlbumRepository {
             case null -> Uni.createFrom().item(List.of());
             default -> Uni.join()
                     .all(
-                            StreamSupport.stream(ids.spliterator(), false).map(this::findById)
+                            StreamSupport.stream(ids.spliterator(), false)
+                                    .map(this::findById)
                                     .toList())
                     .andFailFast()
                     .map(list -> list.stream().filter(album -> album != null).toList());
@@ -124,7 +127,8 @@ public class AlbumRepositoryImpl implements AlbumRepository {
             case null -> Uni.createFrom().voidItem();
             default -> Uni.join()
                     .all(
-                            StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
+                            StreamSupport.stream(aggregates.spliterator(), false)
+                                    .map(this::delete)
                                     .toList())
                     .andFailFast().replaceWithVoid();
         };
@@ -144,7 +148,8 @@ public class AlbumRepositoryImpl implements AlbumRepository {
             case null -> Uni.createFrom().voidItem();
             default -> Uni.join()
                     .all(
-                            StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
+                            StreamSupport.stream(ids.spliterator(), false)
+                                    .map(this::deleteById)
                                     .toList())
                     .andFailFast().replaceWithVoid();
         };
@@ -196,7 +201,8 @@ public class AlbumRepositoryImpl implements AlbumRepository {
     public Uni<Album> findByCatalogNumber(CatalogNumber catalogNumber) {
         return switch (catalogNumber) {
             case null -> Uni.createFrom().nullItem();
-            default -> dataSource.findByCatalogNumber(catalogNumber.value()).map(AlbumMapper::toDomain);
+            default -> dataSource.findByCatalogNumber(catalogNumber.value())
+                    .map(AlbumMapper::toDomain);
         };
     }
 

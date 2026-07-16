@@ -45,7 +45,9 @@ public final class ValidationException extends DomainException {
     }
 
     private static @NonNull String buildMessage(@NonNull List<ErrorResult> errors) {
-        return errors.stream().map(ErrorResult::toString).collect(Collectors.joining(", "));
+        return errors.stream()
+                .map(ErrorResult::toString)
+                .collect(Collectors.joining(", "));
     }
 
     /**

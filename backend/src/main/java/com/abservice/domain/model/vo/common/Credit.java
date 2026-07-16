@@ -62,6 +62,8 @@ public record Credit(@NonNull String value) implements ValueObject<Credit> {
 
     @Override
     public boolean equivalentTo(Credit other) {
-        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
+        return Optional.ofNullable(other)
+                .filter(o -> this.value.equals(o.value))
+                .isPresent();
     }
 }

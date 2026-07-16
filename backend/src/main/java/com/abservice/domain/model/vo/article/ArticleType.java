@@ -67,7 +67,10 @@ public enum ArticleType {
     }
 
     private static boolean isKnownName(@Nullable String value) {
-        return Optional.ofNullable(value).filter(v -> Arrays.stream(values()).anyMatch(t -> t.name().equals(v.trim())))
+        return Optional.ofNullable(value)
+                .filter(
+                        v -> Arrays.stream(values())
+                                .anyMatch(t -> t.name().equals(v.trim())))
                 .isPresent();
     }
 }

@@ -34,11 +34,14 @@ public class GetArticleService implements QueryService<GetArticleQuery, GetArtic
     @WithSession
     @Override
     public Uni<GetArticleResult> query(GetArticleQuery query) {
-        return dataSource.findByDomainId(query.articleId()).map(GetArticleService::toResult);
+        return dataSource.findByDomainId(query.articleId())
+                .map(GetArticleService::toResult);
     }
 
     static GetArticleResult toResult(@Nullable ArticleEntity entity) {
-        return Optional.ofNullable(entity).map(ArticleViewMapper::toView)
-                .<GetArticleResult>map(GetArticleResult.Found::new).orElseGet(GetArticleResult.NotFound::new);
+        return Optional.ofNullable(entity)
+                .map(ArticleViewMapper::toView)
+                .<GetArticleResult>map(GetArticleResult.Found::new)
+                .orElseGet(GetArticleResult.NotFound::new);
     }
 }

@@ -78,7 +78,9 @@ public record BusinessDate(LocalDate value) implements ValueObject<BusinessDate>
 
     @Override
     public boolean equivalentTo(BusinessDate other) {
-        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
+        return Optional.ofNullable(other)
+                .filter(o -> this.value.equals(o.value))
+                .isPresent();
     }
 
     @Override

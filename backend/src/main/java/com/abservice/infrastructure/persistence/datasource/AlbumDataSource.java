@@ -41,7 +41,8 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
                     case List<TrackEntity> tracks when tracks.isEmpty() -> Uni.createFrom().item(savedAlbum);
                     default -> {
                         albumEntity.getTracks().forEach(track -> track.setAlbum(savedAlbum));
-                        yield session.persistAll(albumEntity.getTracks().toArray()).replaceWith(savedAlbum);
+                        yield session.persistAll(albumEntity.getTracks().toArray())
+                                .replaceWith(savedAlbum);
                     }
                 }));
     }

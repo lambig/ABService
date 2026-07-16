@@ -60,6 +60,8 @@ public record TrackTitle(String value) implements ValueObject<TrackTitle> {
 
     @Override
     public boolean equivalentTo(TrackTitle other) {
-        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
+        return Optional.ofNullable(other)
+                .filter(o -> this.value.equals(o.value))
+                .isPresent();
     }
 }

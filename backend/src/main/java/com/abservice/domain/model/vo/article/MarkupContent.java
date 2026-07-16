@@ -82,7 +82,10 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
      * @return MarkupContentインスタンス
      */
     public static MarkupContent markdown(String content) {
-        return new MarkupContent(Optional.ofNullable(content).orElse(""), MarkupFormat.MARKDOWN);
+        return new MarkupContent(
+                Optional.ofNullable(content)
+                        .orElse(""),
+                MarkupFormat.MARKDOWN);
     }
 
     /**
@@ -93,7 +96,10 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
      * @return MarkupContentインスタンス
      */
     public static MarkupContent html(String content) {
-        return new MarkupContent(Optional.ofNullable(content).orElse(""), MarkupFormat.HTML);
+        return new MarkupContent(
+                Optional.ofNullable(content)
+                        .orElse(""),
+                MarkupFormat.HTML);
     }
 
     /**
@@ -113,7 +119,8 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
      * @return 成功時は {@code MarkupContent}、失敗時はエラー
      */
     public static Result<MarkupContent> fromInput(@Nullable String content, @Nullable String format) {
-        final String safeContent = Optional.ofNullable(content).orElse("");
+        final String safeContent = Optional.ofNullable(content)
+                .orElse("");
         return Policy
                 .<String>of(
                         StringUtils::isNotBlank,
@@ -136,7 +143,10 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
 
     private static boolean isKnownFormat(@Nullable String value) {
         return Optional.ofNullable(value)
-                .filter(v -> Arrays.stream(MarkupFormat.values()).anyMatch(f -> f.name().equals(v.trim()))).isPresent();
+                .filter(
+                        v -> Arrays.stream(MarkupFormat.values())
+                                .anyMatch(f -> f.name().equals(v.trim())))
+                .isPresent();
     }
 
     /**
@@ -159,7 +169,8 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
 
     @Override
     public boolean equivalentTo(MarkupContent other) {
-        return Optional.ofNullable(other).filter(and(o -> this.content.equals(o.content), o -> this.format == o.format))
+        return Optional.ofNullable(other)
+                .filter(and(o -> this.content.equals(o.content), o -> this.format == o.format))
                 .isPresent();
     }
 }

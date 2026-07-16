@@ -187,7 +187,8 @@ public record ConfirmedEvent(EventName name, List<EventDateAndSpace> dateAndSpac
 
     @Override
     public boolean equivalentTo(EventToParticipate other) {
-        return Optional.ofNullable(other).map(asType(ConfirmedEvent.class))
+        return Optional.ofNullable(other)
+                .map(asType(ConfirmedEvent.class))
                 .filter(
                         and(
                                 having(ConfirmedEvent::name).that(this.name::equivalentTo),

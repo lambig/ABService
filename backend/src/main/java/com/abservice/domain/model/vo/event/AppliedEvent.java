@@ -120,7 +120,8 @@ public record AppliedEvent(EventName name, List<BusinessDate> tentativeDates) im
 
     @Override
     public boolean equivalentTo(EventToParticipate other) {
-        return Optional.ofNullable(other).map(asType(AppliedEvent.class))
+        return Optional.ofNullable(other)
+                .map(asType(AppliedEvent.class))
                 .filter(
                         and(
                                 having(AppliedEvent::name).that(this.name::equivalentTo),

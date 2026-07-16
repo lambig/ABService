@@ -91,6 +91,8 @@ public record ArticleTitle(@NonNull String value) implements ValueObject<Article
 
     @Override
     public boolean equivalentTo(ArticleTitle other) {
-        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
+        return Optional.ofNullable(other)
+                .filter(o -> this.value.equals(o.value))
+                .isPresent();
     }
 }

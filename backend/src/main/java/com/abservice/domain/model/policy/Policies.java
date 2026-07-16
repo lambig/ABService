@@ -57,7 +57,9 @@ public final class Policies {
      *         {@code Result.failure}
      */
     public static Result<Boolean> multiple(Result<?>... validations) {
-        final List<ErrorResult> errors = Arrays.stream(validations).flatMap(r -> r.errors().stream()).toList();
+        final List<ErrorResult> errors = Arrays.stream(validations)
+                .flatMap(r -> r.errors().stream())
+                .toList();
         return errors.isEmpty()
                 ? Result.success(true)
                 : Result.failure(errors);

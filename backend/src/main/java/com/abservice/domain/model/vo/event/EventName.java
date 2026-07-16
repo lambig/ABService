@@ -49,6 +49,8 @@ public record EventName(String value) implements ValueObject<EventName> {
 
     @Override
     public boolean equivalentTo(EventName other) {
-        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
+        return Optional.ofNullable(other)
+                .filter(o -> this.value.equals(o.value))
+                .isPresent();
     }
 }

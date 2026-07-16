@@ -128,7 +128,8 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article changeTitle(@NonNull ArticleTitle newTitle, @NonNull BusinessDateTime currentDateTime) {
-        return withTitle(requireTitle(newTitle)).withUpdatedAtBusiness(currentDateTime);
+        return withTitle(requireTitle(newTitle))
+                .withUpdatedAtBusiness(currentDateTime);
     }
 
     /**
@@ -141,7 +142,8 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article changeBody(@Nullable MarkupContent newBody, @NonNull BusinessDateTime currentDateTime) {
-        return withBody(newBody).withUpdatedAtBusiness(currentDateTime);
+        return withBody(newBody)
+                .withUpdatedAtBusiness(currentDateTime);
     }
 
     /**
@@ -155,7 +157,8 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      */
     public @NonNull Article changeIntroShort(@Nullable String newIntroShort,
             @NonNull BusinessDateTime currentDateTime) {
-        return withIntroShort(newIntroShort).withUpdatedAtBusiness(currentDateTime);
+        return withIntroShort(newIntroShort)
+                .withUpdatedAtBusiness(currentDateTime);
     }
 
     /**
@@ -166,7 +169,10 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article publish(@NonNull BusinessDateTime currentDateTime) {
-        return withPublicFlag(true).withPublishedAt(Optional.ofNullable(publishedAt).orElse(currentDateTime))
+        return withPublicFlag(true)
+                .withPublishedAt(
+                        Optional.ofNullable(publishedAt)
+                                .orElse(currentDateTime))
                 .withUpdatedAtBusiness(currentDateTime);
     }
 
@@ -178,7 +184,8 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article unpublish(@NonNull BusinessDateTime currentDateTime) {
-        return withPublicFlag(false).withUpdatedAtBusiness(currentDateTime);
+        return withPublicFlag(false)
+                .withUpdatedAtBusiness(currentDateTime);
     }
 
     /**
@@ -206,7 +213,8 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
                         "ARTICLE_TYPE_NOT_ALBUM"))
                 .verify(this, Function.identity())
                 .resolve(errors -> new IllegalStateException(errors.getFirst().message()));
-        return withAlbumId(newAlbumId).withUpdatedAtBusiness(currentDateTime);
+        return withAlbumId(newAlbumId)
+                .withUpdatedAtBusiness(currentDateTime);
     }
 
     /**

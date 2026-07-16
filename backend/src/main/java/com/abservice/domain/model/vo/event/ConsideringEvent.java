@@ -107,7 +107,8 @@ public record ConsideringEvent(EventName name, List<BusinessDate> tentativeDates
 
     @Override
     public boolean equivalentTo(EventToParticipate other) {
-        return Optional.ofNullable(other).map(asType(ConsideringEvent.class))
+        return Optional.ofNullable(other)
+                .map(asType(ConsideringEvent.class))
                 .filter(
                         and(
                                 having(ConsideringEvent::name).that(this.name::equivalentTo),

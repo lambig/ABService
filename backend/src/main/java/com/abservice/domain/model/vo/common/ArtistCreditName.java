@@ -58,6 +58,8 @@ public record ArtistCreditName(String value) implements ValueObject<ArtistCredit
 
     @Override
     public boolean equivalentTo(ArtistCreditName other) {
-        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
+        return Optional.ofNullable(other)
+                .filter(o -> this.value.equals(o.value))
+                .isPresent();
     }
 }

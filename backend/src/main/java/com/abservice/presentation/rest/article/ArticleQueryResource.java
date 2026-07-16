@@ -49,7 +49,8 @@ public class ArticleQueryResource {
     @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
     public Uni<Response> get(@PathParam("id") String id) {
-        return getArticleService.query(new GetArticleQuery(id)).map(result -> toResponse(result, id));
+        return getArticleService.query(new GetArticleQuery(id))
+                .map(result -> toResponse(result, id));
     }
 
     private static Response toResponse(GetArticleResult result, String id) {

@@ -84,7 +84,9 @@ public record BusinessDateTime(Instant value) implements ValueObject<BusinessDat
 
     @Override
     public boolean equivalentTo(BusinessDateTime other) {
-        return Optional.ofNullable(other).filter(o -> this.value.equals(o.value)).isPresent();
+        return Optional.ofNullable(other)
+                .filter(o -> this.value.equals(o.value))
+                .isPresent();
     }
 
     @Override

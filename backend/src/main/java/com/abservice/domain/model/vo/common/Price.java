@@ -92,6 +92,8 @@ public record Price(Integer amount) implements ValueObject<Price> {
 
     @Override
     public boolean equivalentTo(Price other) {
-        return Optional.ofNullable(other).filter(o -> this.amount.equals(o.amount)).isPresent();
+        return Optional.ofNullable(other)
+                .filter(o -> this.amount.equals(o.amount))
+                .isPresent();
     }
 }

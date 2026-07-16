@@ -45,7 +45,8 @@ public class ArticleCommandResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Uni<Response> create(CreateArticleRequest request) {
-        return createArticleService.execute(toInput(request)).map(ArticleCommandResource::toCreated);
+        return createArticleService.execute(toInput(request))
+                .map(ArticleCommandResource::toCreated);
     }
 
     private static CreateArticleInput toInput(CreateArticleRequest request) {
@@ -58,7 +59,9 @@ public class ArticleCommandResource {
     }
 
     private static Response toCreated(CreateArticleOutput output) {
-        return Response.status(Response.Status.CREATED).entity(toResponse(output)).build();
+        return Response.status(Response.Status.CREATED)
+                .entity(toResponse(output))
+                .build();
     }
 
     private static CreateArticleResponse toResponse(CreateArticleOutput output) {

@@ -38,7 +38,9 @@ public final class AlbumArticleMapper {
                     entity.getIntroLong(),
                     entity.getIntroShort(),
                     entity.getFirstEventSpace(),
-                    Optional.ofNullable(entity.getLabelTag()).map(LabelTag::valueOf).orElse(null),
+                    Optional.ofNullable(entity.getLabelTag())
+                            .map(LabelTag::valueOf)
+                            .orElse(null),
                     null,
                     Collections.emptyList());
         };
@@ -57,7 +59,10 @@ public final class AlbumArticleMapper {
         albumArticleEntity.setIntroLong(albumArticle.introLong());
         albumArticleEntity.setIntroShort(albumArticle.introShort());
         albumArticleEntity.setFirstEventSpace(albumArticle.firstEventSpace());
-        albumArticleEntity.setLabelTag(Optional.ofNullable(albumArticle.labelTag()).map(LabelTag::name).orElse(null));
+        albumArticleEntity.setLabelTag(
+                Optional.ofNullable(albumArticle.labelTag())
+                        .map(LabelTag::name)
+                        .orElse(null));
 
         // 頒布情報と入手経路は簡略化のため省略
 

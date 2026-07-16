@@ -57,7 +57,8 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             case null -> Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null"));
             default -> Uni.join()
                     .all(
-                            StreamSupport.stream(aggregates.spliterator(), false).map(this::save)
+                            StreamSupport.stream(aggregates.spliterator(), false)
+                                    .map(this::save)
                                     .toList())
                     .andFailFast();
         };
@@ -77,7 +78,8 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             case null -> Uni.createFrom().item(List.of());
             default -> Uni.join()
                     .all(
-                            StreamSupport.stream(ids.spliterator(), false).map(this::findById)
+                            StreamSupport.stream(ids.spliterator(), false)
+                                    .map(this::findById)
                                     .toList())
                     .andFailFast()
                     .map(
@@ -106,7 +108,8 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             case null -> Uni.createFrom().voidItem();
             default -> Uni.join()
                     .all(
-                            StreamSupport.stream(aggregates.spliterator(), false).map(this::delete)
+                            StreamSupport.stream(aggregates.spliterator(), false)
+                                    .map(this::delete)
                                     .toList())
                     .andFailFast().replaceWithVoid();
         };
@@ -126,7 +129,8 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
             case null -> Uni.createFrom().voidItem();
             default -> Uni.join()
                     .all(
-                            StreamSupport.stream(ids.spliterator(), false).map(this::deleteById)
+                            StreamSupport.stream(ids.spliterator(), false)
+                                    .map(this::deleteById)
                                     .toList())
                     .andFailFast().replaceWithVoid();
         };
@@ -151,7 +155,8 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
     public Uni<AlbumArticle> findByAlbumId(Album.Id albumId) {
         return switch (albumId) {
             case null -> Uni.createFrom().nullItem();
-            default -> dataSource.findByAlbumId(albumId.value()).map(AlbumArticleMapper::toDomain);
+            default -> dataSource.findByAlbumId(albumId.value())
+                    .map(AlbumArticleMapper::toDomain);
         };
     }
 
