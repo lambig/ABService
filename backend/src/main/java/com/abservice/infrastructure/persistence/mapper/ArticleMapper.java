@@ -1,5 +1,7 @@
 package com.abservice.infrastructure.persistence.mapper;
 
+import static com.abservice.lib.Iterables.toList;
+
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.entity.article.ArticleTag;
@@ -63,7 +65,7 @@ public final class ArticleMapper {
      */
     public static List<ArticleTag> toTags(@Nullable List<ArticleTagLinkEntity> links) {
         return Optional.ofNullable(links)
-                .map(list -> list.stream().map(link -> toTag(link.getArticleTag())).toList())
+                .map(toList(link -> toTag(link.getArticleTag())))
                 .orElseGet(List::of);
     }
 

@@ -1,5 +1,7 @@
 package com.abservice.infrastructure.persistence.mapper;
 
+import static com.abservice.lib.Iterables.toList;
+
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.albumarticle.AlbumAcquisitionChannel;
 import com.abservice.domain.model.aggregate.albumarticle.AlbumArticle;
@@ -113,7 +115,7 @@ public final class AlbumArticleMapper {
     public static List<AlbumAcquisitionChannel> toAcquisitionChannels(
             @Nullable List<AlbumAcquisitionChannelEntity> entities) {
         return Optional.ofNullable(entities)
-                .map(list -> list.stream().map(AlbumArticleMapper::toAcquisitionChannel).toList())
+                .map(toList(AlbumArticleMapper::toAcquisitionChannel))
                 .orElseGet(List::of);
     }
 

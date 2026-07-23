@@ -65,7 +65,8 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
      */
     public Uni<List<AlbumArticleEntity>> findByIds(Collection<String> domainIds) {
         return sessionFactory.withSession(
-                session -> session.createQuery(EAGER_SELECT + "WHERE aa.domainId IN :domainIds",
+                session -> session.createQuery(
+                        EAGER_SELECT + "WHERE aa.domainId IN :domainIds",
                         AlbumArticleEntity.class).setParameter("domainIds", domainIds).getResultList());
     }
 
