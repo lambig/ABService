@@ -1,6 +1,7 @@
 package com.abservice.domain.service;
 
 import static com.abservice.lib.Iterables.toList;
+import static com.abservice.lib.Optionals.both;
 import static io.github.lambig.funcifextension.predicate.Predicates.or;
 
 import com.abservice.domain.model.vo.common.BusinessDate;
@@ -11,7 +12,6 @@ import com.abservice.domain.model.vo.event.TentativeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.List;
-import java.util.Optional;
 
 /**
  * イベント照合ドメインサービス
@@ -51,11 +51,9 @@ public class EventMatchingService implements DomainService {
      * @return 同一イベントと判定される場合true
      */
     public boolean isSameEvent(EventToParticipate toParticipate, EventReleasedAt releasedAt) {
-        return Optional.ofNullable(toParticipate)
-                .flatMap(
-                        tp -> Optional.ofNullable(releasedAt)
-                                .filter(ra -> tp.name().equivalentTo(ra.name()))
-                                .map(ra -> matchesEventDetails(tp, ra)))
+        return both(toParticipate, releasedAt)
+                .filter(pair -> pair.a().name().equivalentTo(pair.b().name()))
+                .map(pair -> matchesEventDetails(pair.a(), pair.b()))
                 .orElse(false);
     }
 
@@ -81,11 +79,9 @@ public class EventMatchingService implements DomainService {
      * @return イベント名と日付が一致する場合true
      */
     public boolean matchesEventNameAndDate(EventToParticipate toParticipate, EventReleasedAt releasedAt) {
-        return Optional.ofNullable(toParticipate)
-                .flatMap(
-                        tp -> Optional.ofNullable(releasedAt)
-                                .filter(ra -> tp.name().equivalentTo(ra.name()))
-                                .map(ra -> matchesDateDetails(tp, ra)))
+        return both(toParticipate, releasedAt)
+                .filter(pair -> pair.a().name().equivalentTo(pair.b().name()))
+                .map(pair -> matchesDateDetails(pair.a(), pair.b()))
                 .orElse(false);
     }
 

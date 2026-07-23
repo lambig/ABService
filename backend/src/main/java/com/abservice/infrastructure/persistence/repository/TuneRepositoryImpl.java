@@ -93,10 +93,8 @@ public class TuneRepositoryImpl implements TuneRepository {
     @Override
     public Uni<Void> deleteAll(Iterable<Tune> aggregates) {
         return Optional.ofNullable(aggregates)
-                .map(
-                        a -> Multi.createFrom().iterable(a)
-                                .onItem().call(this::delete)
-                                .collect().asList().replaceWithVoid())
+                .map(toList(Tune::id))
+                .map(this::deleteAllById)
                 .orElseGet(() -> Uni.createFrom().voidItem());
     }
 
@@ -110,10 +108,8 @@ public class TuneRepositoryImpl implements TuneRepository {
     @Override
     public Uni<Void> deleteAllById(Iterable<Tune.Id> ids) {
         return Optional.ofNullable(ids)
-                .map(
-                        i -> Multi.createFrom().iterable(i)
-                                .onItem().call(this::deleteById)
-                                .collect().asList().replaceWithVoid())
+                .map(toList(Tune.Id::value))
+                .map(dataSource::deleteByTuneIds)
                 .orElseGet(() -> Uni.createFrom().voidItem());
     }
 

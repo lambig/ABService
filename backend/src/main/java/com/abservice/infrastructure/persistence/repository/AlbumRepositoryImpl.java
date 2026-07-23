@@ -95,10 +95,8 @@ public class AlbumRepositoryImpl implements AlbumRepository {
     @Override
     public Uni<Void> deleteAll(Iterable<Album> aggregates) {
         return Optional.ofNullable(aggregates)
-                .map(
-                        a -> Multi.createFrom().iterable(a)
-                                .onItem().call(this::delete)
-                                .collect().asList().replaceWithVoid())
+                .map(toList(Album::id))
+                .map(this::deleteAllById)
                 .orElseGet(() -> Uni.createFrom().voidItem());
     }
 
@@ -112,10 +110,8 @@ public class AlbumRepositoryImpl implements AlbumRepository {
     @Override
     public Uni<Void> deleteAllById(Iterable<Album.Id> ids) {
         return Optional.ofNullable(ids)
-                .map(
-                        i -> Multi.createFrom().iterable(i)
-                                .onItem().call(this::deleteById)
-                                .collect().asList().replaceWithVoid())
+                .map(toList(Album.Id::value))
+                .map(dataSource::deleteByAlbumIds)
                 .orElseGet(() -> Uni.createFrom().voidItem());
     }
 

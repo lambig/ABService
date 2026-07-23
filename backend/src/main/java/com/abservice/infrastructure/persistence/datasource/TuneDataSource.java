@@ -92,6 +92,17 @@ public class TuneDataSource implements PanacheRepositoryBase<TuneEntity, Long> {
     }
 
     /**
+     * 複数のドメインIDでチューンを一括削除
+     *
+     * @param domainIds
+     *            チューンのドメインID群
+     * @return 完了シグナル
+     */
+    public Uni<Void> deleteByTuneIds(Collection<String> domainIds) {
+        return delete("domainId in ?1", domainIds).replaceWithVoid();
+    }
+
+    /**
      * チューンIDでチューンが存在するか確認
      *
      * @param id

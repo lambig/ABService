@@ -150,6 +150,17 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleEntity, L
     }
 
     /**
+     * 複数のドメインIDで記事を一括削除
+     *
+     * @param domainIds
+     *            記事のドメインID群
+     * @return 完了シグナル
+     */
+    public Uni<Void> deleteByArticleIds(Collection<String> domainIds) {
+        return delete("domainId in ?1", domainIds).replaceWithVoid();
+    }
+
+    /**
      * 記事IDで記事が存在するか確認
      *
      * @param id

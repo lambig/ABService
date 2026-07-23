@@ -488,7 +488,8 @@
             ナビゲータであり、Stream/Optional の map/flatMap とは名前が重複しないため誤検出を避ける。
             性能上ネストが不可避な箇所は @SuppressWarnings("PMD.ForbiddenNestedMonadicChain") と
             「// PERFORMANCE: 理由」コメントの併記で明示的に許容する（NullAway 抑制と同じ運用）。
-            スコープは production（src/main）限定。
+            スコープは production（src/main）限定。com.abservice.lib（サンクションされた
+            共通ヘルパの実装本体、例: Optionals#both）は ForbiddenStreamMapToList と同様に対象外。
         </description>
         <priority>3</priority>
         <properties>
@@ -499,7 +500,8 @@
         "transformToUniAndConcatenate", "transformToMultiAndConcatenate", "transformToUniAndMerge",
         "flatMap", "chain", "call")]
   [ArgumentList/LambdaExpression
-      //MethodCall[@MethodName = ("onItem", "onFailure", "onNull")]]
+      //MethodCall[@MethodName = ("onItem", "onFailure", "onNull", "ofNullable", "success", "failure")]]
+  [not(/CompilationUnit/PackageDeclaration[@Name = "com.abservice.lib"])]
                 ]]></value>
             </property>
         </properties>

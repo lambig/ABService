@@ -153,6 +153,17 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
     }
 
     /**
+     * 複数のアルバムIDでアルバム記事を一括削除
+     *
+     * @param domainIds
+     *            アルバムID群
+     * @return 完了シグナル
+     */
+    public Uni<Void> deleteByAlbumIds(Collection<String> domainIds) {
+        return delete("domainId in ?1", domainIds).replaceWithVoid();
+    }
+
+    /**
      * アルバムIDでアルバム記事が存在するか確認
      *
      * @param albumId

@@ -44,20 +44,14 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
 
     @Override
     public Uni<AlbumArticle> save(AlbumArticle aggregate) {
-        return Optional.ofNullable(aggregate)
-                .map(
-                        a -> dataSource
-                                .findAlbumWithArticleRelationsByDomainId(AlbumArticleMapper.toEntity(a).getDomainId())
-                                .flatMap(
-                                        album -> Optional.ofNullable(album)
-                                                .map(alb -> upsertArticle(alb, a))
-                                                .orElseGet(
-                                                        () -> Uni.createFrom().failure(
-                                                                new IllegalStateException(
-                                                                        "Album not found for id: " + a.albumId()
-                                                                                .value()))))
-                                .map(AlbumArticleMapper::toDomain))
-                .orElseGet(() -> Uni.createFrom().failure(new IllegalArgumentException("AlbumArticle cannot be null")));
+        return dataSource
+                .findAlbumWithArticleRelationsByDomainId(AlbumArticleMapper.toEntity(aggregate).getDomainId())
+                .onItem().ifNotNull().transformToUni(album -> upsertArticle(album, aggregate))
+                .onItem().ifNull().switchTo(
+                        () -> Uni.createFrom().failure(
+                                new IllegalStateException(
+                                        "Album not found for id: " + aggregate.albumId().value())))
+                .map(AlbumArticleMapper::toDomain);
     }
 
     private Uni<AlbumArticleEntity> upsertArticle(AlbumEntity album, AlbumArticle aggregate) {
@@ -180,10 +174,8 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
     @Override
     public Uni<Void> deleteAll(Iterable<AlbumArticle> aggregates) {
         return Optional.ofNullable(aggregates)
-                .map(
-                        a -> Multi.createFrom().iterable(a)
-                                .onItem().call(this::delete)
-                                .collect().asList().replaceWithVoid())
+                .map(toList(AlbumArticle::albumId))
+                .map(this::deleteAllById)
                 .orElseGet(() -> Uni.createFrom().voidItem());
     }
 
@@ -197,10 +189,8 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
     @Override
     public Uni<Void> deleteAllById(Iterable<Album.Id> ids) {
         return Optional.ofNullable(ids)
-                .map(
-                        i -> Multi.createFrom().iterable(i)
-                                .onItem().call(this::deleteById)
-                                .collect().asList().replaceWithVoid())
+                .map(toList(Album.Id::value))
+                .map(dataSource::deleteByAlbumIds)
                 .orElseGet(() -> Uni.createFrom().voidItem());
     }
 
