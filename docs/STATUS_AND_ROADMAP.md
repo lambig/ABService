@@ -13,15 +13,15 @@
 | レイヤー | 状態 | 補足 |
 |---|---|---|
 | **ドメイン層** | 🟢 ほぼ完成 | 集約 `Album` / `AlbumArticle` / `Article` / `Tune`、VO 約20、`EventMatchingService`。検証は `Policy` へ移行済み。ビジネスロジックのユニットテスト充実 |
-| **インフラ層** | 🟢 完成（一部簡略化残） | JPAエンティティ・Mapper・RepositoryImpl（4集約）、Flyway、Reactive Panache。§4 の簡略化3件が未解消 |
+| **インフラ層** | 🟢 完成 | JPAエンティティ・Mapper・RepositoryImpl（4集約）、Flyway、Reactive Panache。§4 の簡略化3件は解消済み |
 | **アプリケーション層** | 🟡 Article のみ縦通し済み | `CommandService` / `QueryService` 基底に加え、Article 集約の Command（`CreateArticleService`）/ Query（`GetArticleService` + `ArticleView`）を実装。**Tune / Album / AlbumArticle は未着手** |
 | **プレゼンテーション層** | 🟡 Article のみ縦通し済み | Article REST（`ArticleCommandResource` / `ArticleQueryResource` + Request/Response DTO）、RFC9457 `ProblemDetail` + `DomainExceptionMapper` を実装。サンプル `GreetingResource` / `HealthResource` / `CircleMemberResource` は残置。**他集約の Resource は未着手** |
 | **共通基盤（lib）** | 🟢 完成 | `Result`（combinator `map`/`flatMap`/`zip` 含む）/ `ErrorResult` を実装。ドメイン例外階層（`DomainException` 抽象基底 + `ValidationException`/`EntityNotFoundException`/`BusinessRuleViolationException`）も整備済み |
-| **テスト** | 🟡 ユニット充実・統合は選択的 | VO/集約/エンティティのユニット、Article のアプリ層/例外マッパーのユニット、Article REST の E2E 統合テスト、`AlbumRepositoryImplTest`。残る統合テストは §5.2 |
+| **テスト** | 🟡 ユニット充実・統合は選択的 | VO/集約/エンティティのユニット、Article のアプリ層/例外マッパーのユニット、Article REST の E2E 統合テスト、`AlbumRepositoryImplTest` / `AlbumArticleRepositoryImplTest` / `ArticleRepositoryImplTest`。残る統合テストは §5.2 |
 | **静的解析** | 🟢 完了 | Checkstyle + Spotless + PMD + ArchUnit + NullAway で多層強制（レイヤ依存方向・配置・戻り値契約・機能的スタイル・コンパイル時 null 安全）。強制設計・対象ルールは §7。SpotBugs / PMD 組込ルールセットの再導入のみフェーズD で検討（§6 フェーズD） |
 | **フロントエンド** | ⬜ 未調査 | `frontend-admin`（Svelte）/ `frontend-public`（Svelte+Astro）。本ドキュメントの対象外 |
 
-**一言でいうと**: **Article 集約で domain→app→REST→統合テストの縦1本が通り、パターンが確立済み**。次に積むべきは **同パターンの Tune / Album / AlbumArticle への横展開** と、§4 の簡略化解消・残る統合テストです。
+**一言でいうと**: **Article 集約で domain→app→REST→統合テストの縦1本が通り、パターンが確立済み**。次に積むべきは **同パターンの Tune / Album / AlbumArticle への横展開** と、残る統合テスト（§5.2）です。
 
 ---
 
@@ -91,11 +91,9 @@ DomainException (abstract, errorCode付き)
 
 ---
 
-## 4. インフラ層の簡略化（未解消・実コードで確認済み）
+## 4. インフラ層の簡略化 — 🟢 解消済み
 
-Mapper で暫定的に空/`null` を返している3件はいずれも未解消。実装要件は各 issue で管理する（優先度: 頒布情報・入手経路 > タグ）。
-
-- #40 AlbumArticle 頒布情報（`AlbumArticleMapper`） / #41 AlbumArticle 入手経路（`AlbumArticleMapper`） / #39 Article タグ（`ArticleMapper`）
+Mapper で暫定的に空/`null` を返していた3件（#40 AlbumArticle 頒布情報 / #41 AlbumArticle 入手経路 / #39 Article タグ）はいずれも解消済み。`AlbumArticleDataSource` / `ArticleDataSource` の読み取りクエリを eager fetch 化し、`AlbumArticleRepositoryImpl` / `ArticleRepositoryImpl` の save で Entity⇄Domain 双方向の反映（頒布情報・入手経路は `AlbumEntity` の `cascade = ALL` 経由、タグは共有語彙 `ArticleTagEntity` の引当/新規作成 + `ArticleTagLinkEntity` の反映）を実装。ラウンドトリップ統合テストは `AlbumArticleRepositoryImplTest` / `ArticleRepositoryImplTest`。
 
 ---
 
@@ -109,11 +107,10 @@ Mapper で暫定的に空/`null` を返している3件はいずれも未解消�
 
 ### 5.2 ユニット/統合テスト（`UNIT_TEST_PLAN.md`）
 
-- 🟢 完了: Phase 1–5（VO / Enum / 集約 / エンティティ のユニットテスト）、Phase 6（Article のアプリ層/例外マッパーのユニットテスト）、Phase 10（Article REST の E2E 統合テスト）
-- 🔴 未着手（横展開・§4 依存）:
+- 🟢 完了: Phase 1–5（VO / Enum / 集約 / エンティティ のユニットテスト）、Phase 6（Article のアプリ層/例外マッパーのユニットテスト）、Phase 10（Article REST の E2E 統合テスト）、Phase 8: Mapper 統合テスト（§4 の #39/#40/#41 解消分。`AlbumArticleRepositoryImplTest` / `ArticleRepositoryImplTest` のラウンドトリップテストとして実装）
+- 🔴 未着手（横展開）:
   - Phase 6/10 の Tune / Album / AlbumArticle 分（横展開時に追加）
-  - Phase 7: RepositoryImpl 統合テスト（`AlbumRepositoryImpl` 済み・残り3集約） → #45
-  - Phase 8: Mapper 統合テスト（§4 の #39/#40/#41 解消に依存）
+  - Phase 7: RepositoryImpl 統合テスト（`AlbumRepositoryImpl` 済み。`AlbumArticleRepositoryImpl` / `ArticleRepositoryImpl` は #39/#40/#41 観点のみ部分実装・全CRUD網羅は未着手。残り `TuneRepositoryImpl` は未着手） → #45
   - Phase 9: DataSource 統合テスト（Read Model 用 DataSource 構築後）
 
 ### 5.3 アプリケーション層 / プレゼンテーション層
@@ -138,8 +135,7 @@ Article 集約で Command（記事作成）/ Query（記事詳細）ユースケ
 
 ### フェーズ C: 横展開（現在地）
 1. B のパターンを Tune / Album / AlbumArticle に展開（+ 残VOの `fromInput()` 横展開）
-2. §4 の簡略化3件を解消（AlbumArticle 頒布情報・入手経路 → Article タグ。#39/#40/#41）し、Mapper統合テスト（Phase 8）を追加
-3. RepositoryImpl 統合テスト（Phase 7）を残り3集約に追加（#45）
+2. RepositoryImpl 統合テスト（Phase 7）を残り集約に追加（#45）
 
 ### フェーズ D: 品質ゲート
 9. **ArchUnit 残ルールの点検**（§7）: 命名・配置・戻り値型契約は先行導入済み。追加するのは §2 の規約だけでは述語を書けず**具体実装がないと表現できない**真に構造依存なルールに限る（原則として想定なし。必要が生じた時点で判断）
@@ -174,5 +170,3 @@ detekt（Kotlin）カスタムルール26件相当は、Java に構文的対応�
 - 個別計画・設計判断（背景・詳細手順）: `UNIT_TEST_PLAN.md`（`backend/`）/ `VO_REFACTORING.md`。§4 の簡略化3件は issue #39/#40/#41、JSpecify 移行は #44 が正
 - 設計: `ARCHITECTURE.md` / `DOMAIN_MODEL_DESIGN.md` / `DATABASE_DESIGN.md` / `ID_DESIGN_POLICY.md` / `AUDIT_COLUMNS.md`
 - 規約: `CODING_GUIDELINES.md` / `RESULT_TYPE_GUIDE.md` / `REPOSITORY_IMPLEMENTATION.md`
-</content>
-</invoke>
