@@ -7,6 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.With;
+import org.jspecify.annotations.Nullable;
 
 /**
  * アルバム頒布情報（集約内エンティティ）
@@ -20,9 +21,13 @@ import lombok.With;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class AlbumDistribution {
+    @Nullable
     private final Price physicalPrice; // nullable: CD等の物理頒価
+    @Nullable
     private final Price downloadPrice; // nullable: DL版価格
+    @Nullable
     private final Url demoUrl; // nullable: デモ音源へのリンク
+    @Nullable
     private final String note; // nullable: 補足メモ
 
     /**
@@ -39,10 +44,10 @@ public class AlbumDistribution {
      * @return 新規AlbumDistribution
      */
     public static AlbumDistribution create(
-            Price physicalPrice,
-            Price downloadPrice,
-            Url demoUrl,
-            String note) {
+            @Nullable Price physicalPrice,
+            @Nullable Price downloadPrice,
+            @Nullable Url demoUrl,
+            @Nullable String note) {
         return new AlbumDistribution(
                 physicalPrice,
                 downloadPrice,
@@ -64,10 +69,10 @@ public class AlbumDistribution {
      * @return 再構成されたAlbumDistribution
      */
     public static AlbumDistribution reconstruct(
-            Price physicalPrice,
-            Price downloadPrice,
-            Url demoUrl,
-            String note) {
+            @Nullable Price physicalPrice,
+            @Nullable Price downloadPrice,
+            @Nullable Url demoUrl,
+            @Nullable String note) {
         return new AlbumDistribution(
                 physicalPrice,
                 downloadPrice,

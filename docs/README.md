@@ -27,7 +27,7 @@ ABServiceは、モノリポジトリ構成で構築されたWebサービスで�
 
 ### 実装ガイド
 
-- **[CODING_GUIDELINES.md](CODING_GUIDELINES.md)** - コーディングガイドライン（強制ルールは STATUS_AND_ROADMAP.md §7 と各設定が正）
+- **[CODING_GUIDELINES.md](CODING_GUIDELINES.md)** - コーディングガイドライン（強制ルールは STATUS_AND_ROADMAP.md §6 と各設定が正）
 - **[REPOSITORY_IMPLEMENTATION.md](REPOSITORY_IMPLEMENTATION.md)** - リポジトリ実装ガイド
 - **[ID_DESIGN_POLICY.md](ID_DESIGN_POLICY.md)** - ID設計ポリシー
 - **[AUDIT_COLUMNS.md](AUDIT_COLUMNS.md)** - 監査カラム設計

@@ -1,7 +1,7 @@
 # テスト追加計画（残: Phase 6–10 の横展開分）
 
-> **進捗の正は [docs/STATUS_AND_ROADMAP.md](../docs/STATUS_AND_ROADMAP.md) §5.2。**
-> ユニットテスト（VO / Enum / 集約 / エンティティ）と Article 集約分の Phase 6 / Phase 10 は整備済み。本書は残る統合テスト系フェーズと横展開分を計画として扱う。完了済みフェーズの対象クラスは §5.2 と git 履歴を参照。
+> **進捗の正は [docs/STATUS_AND_ROADMAP.md](../docs/STATUS_AND_ROADMAP.md) §4.1。**
+> ユニットテスト（VO / Enum / 集約 / エンティティ）と Article 集約分の Phase 6 / Phase 10 は整備済み。本書は残る統合テスト系フェーズと横展開分を計画として扱う。完了済みフェーズの対象クラスは §4.1 と git 履歴を参照。
 
 各フェーズは依存する実装が満たされた時点で着手する。
 
@@ -20,7 +20,7 @@
 
 - 対象: `infrastructure/persistence/mapper/` の `AlbumMapper` / `ArticleMapper` / `TuneMapper` / `AlbumArticleMapper`（ドメインモデル ⇔ エンティティ変換）。
 - 種別: 統合テスト（関連エンティティの読み込みに実DBが必要）。
-- 前提: §4 の簡略化（#39 / #40 / #41）の解消。
+- 状態: `ArticleMapper` / `AlbumArticleMapper` は `ArticleRepositoryImplTest` / `AlbumArticleRepositoryImplTest`（#39/#40/#41のラウンドトリップ）で担保済み。`AlbumMapper` / `TuneMapper` は未着手。
 
 ## Phase 9: DataSource の統合テスト
 

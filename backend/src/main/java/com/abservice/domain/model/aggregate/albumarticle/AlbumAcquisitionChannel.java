@@ -14,6 +14,7 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.With;
 import org.apache.commons.lang3.StringUtils;
+import org.jspecify.annotations.Nullable;
 
 /**
  * アルバム入手経路（集約内エンティティ）
@@ -31,7 +32,9 @@ public class AlbumAcquisitionChannel implements DomainEntity<AlbumAcquisitionCha
     private final Id id;
     private final ChannelType channelType;
     private final String name; // 表示用の名前
+    @Nullable
     private final Url url; // nullable: 詳細ページへのURL
+    @Nullable
     private final String note; // nullable: 補足
 
     /**
@@ -50,8 +53,8 @@ public class AlbumAcquisitionChannel implements DomainEntity<AlbumAcquisitionCha
     public static AlbumAcquisitionChannel create(
             ChannelType channelType,
             String name,
-            Url url,
-            String note) {
+            @Nullable Url url,
+            @Nullable String note) {
         Policy.<ChannelType>of(
                 Objects::nonNull,
                 () -> new ErrorResult(
@@ -91,8 +94,8 @@ public class AlbumAcquisitionChannel implements DomainEntity<AlbumAcquisitionCha
      *            補足（nullable）
      * @return 再構成されたAlbumAcquisitionChannel
      */
-    public static AlbumAcquisitionChannel reconstruct(Id id, ChannelType channelType, String name, Url url,
-            String note) {
+    public static AlbumAcquisitionChannel reconstruct(Id id, ChannelType channelType, String name,
+            @Nullable Url url, @Nullable String note) {
         return new AlbumAcquisitionChannel(
                 id,
                 channelType,

@@ -7,7 +7,7 @@ import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 
 /**
- * テスト規約のアーキテクチャ制約テスト（フェーズD）
+ * テスト規約のアーキテクチャ制約テスト
  *
  * <p>
  * テストコードの規約を ArchUnit で強制する。テストクラス自体を検査対象にするため、 テストを除外する
@@ -16,7 +16,7 @@ import com.tngtech.archunit.junit.ArchTest;
  * </p>
  *
  * <p>
- * 対応ドキュメント: {@code docs/STATUS_AND_ROADMAP.md} §7.2。
+ * 対応ドキュメント: {@code docs/STATUS_AND_ROADMAP.md} §6。
  * </p>
  */
 @AnalyzeClasses(packages = "com.abservice")

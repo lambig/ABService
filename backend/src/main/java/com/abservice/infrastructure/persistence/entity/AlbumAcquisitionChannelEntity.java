@@ -34,6 +34,9 @@ public class AlbumAcquisitionChannelEntity extends AuditableEntity {
     @Column(name = "album_acquisition_id")
     private Long albumAcquisitionId;
 
+    @Column(name = "domain_id", nullable = false, unique = true)
+    private String domainId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "album_id", nullable = false)
     private AlbumEntity album;

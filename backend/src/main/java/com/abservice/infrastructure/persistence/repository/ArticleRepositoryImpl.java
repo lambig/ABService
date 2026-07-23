@@ -1,11 +1,19 @@
 package com.abservice.infrastructure.persistence.repository;
 
+import static java.util.function.Predicate.not;
+
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
+import com.abservice.domain.model.entity.article.ArticleTag;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.repository.article.ArticleRepository;
 import com.abservice.infrastructure.persistence.datasource.ArticleDataSource;
+import com.abservice.infrastructure.persistence.datasource.ArticleTagDataSource;
+import com.abservice.infrastructure.persistence.entity.ArticleEntity;
+import com.abservice.infrastructure.persistence.entity.ArticleTagEntity;
+import com.abservice.infrastructure.persistence.entity.ArticleTagLinkEntity;
+import com.abservice.infrastructure.persistence.entity.ArticleTagLinkId;
 import com.abservice.infrastructure.persistence.mapper.ArticleMapper;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -13,8 +21,11 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import org.jspecify.annotations.Nullable;
 
 /**
  * ArticleRepository実装
@@ -27,35 +38,107 @@ import java.util.stream.StreamSupport;
 public class ArticleRepositoryImpl implements ArticleRepository {
 
     private final ArticleDataSource dataSource;
+    private final ArticleTagDataSource tagDataSource;
 
-    public ArticleRepositoryImpl(ArticleDataSource dataSource) {
+    public ArticleRepositoryImpl(ArticleDataSource dataSource, ArticleTagDataSource tagDataSource) {
         this.dataSource = dataSource;
+        this.tagDataSource = tagDataSource;
     }
 
     @Override
     public Uni<Article> save(Article aggregate) {
         return Optional.ofNullable(aggregate)
-                .map(a -> {
-                    final var entity = ArticleMapper.toEntity(a);
-
-                    return dataSource.existsByArticleId(entity.getDomainId()).flatMap(
-                            exists -> exists
-                                    ? dataSource.find("domainId", entity.getDomainId()).firstResult()
-                                            .flatMap(existingEntity -> {
-                                                existingEntity.setArticleType(entity.getArticleType());
-                                                existingEntity.setAlbumId(entity.getAlbumId());
-                                                existingEntity.setTitle(entity.getTitle());
-                                                existingEntity.setBody(entity.getBody());
-                                                existingEntity.setIntroShort(entity.getIntroShort());
-                                                existingEntity.setPublishedAt(entity.getPublishedAt());
-                                                existingEntity.setUpdatedAtBusiness(entity.getUpdatedAtBusiness());
-                                                existingEntity.setIsPublic(entity.getIsPublic());
-                                                return dataSource.persistAndFlush(existingEntity);
-                                            })
-                                    : dataSource.persistAndFlush(entity))
-                            .map(ArticleMapper::toDomain);
-                })
+                .map(
+                        a -> dataSource.findByDomainId(ArticleMapper.toEntity(a).getDomainId())
+                                .flatMap(existingEntity -> upsertArticle(existingEntity, a))
+                                .map(ArticleMapper::toDomain))
                 .orElseGet(() -> Uni.createFrom().failure(new IllegalArgumentException("Article cannot be null")));
+    }
+
+    private Uni<ArticleEntity> upsertArticle(@Nullable ArticleEntity existingEntity, Article aggregate) {
+        final var newValues = ArticleMapper.toEntity(aggregate);
+        // 記事自体を先に確定（新規時はIDENTITY採番を解決）してからタグリンクを付与する。
+        // 同一flush内で行うと、複合@MapsId（ArticleTagLinkEntity）の親IDが未解決のまま
+        // カスケードされ IdentifierGenerationException となるため2段階に分ける。
+        return dataSource.persistAndFlush(
+                Optional.ofNullable(existingEntity)
+                        .map(existing -> copyArticleScalarFields(existing, newValues))
+                        .orElse(newValues))
+                .flatMap(
+                        saved -> ensureTagEntities(aggregate.getTags())
+                                .map(tagEntities -> {
+                                    reconcileTagLinks(
+                                            saved,
+                                            tagEntities,
+                                            aggregate.getTags());
+                                    return saved;
+                                })
+                                .flatMap(dataSource::persistAndFlush));
+    }
+
+    private static ArticleEntity copyArticleScalarFields(ArticleEntity target, ArticleEntity source) {
+        target.setArticleType(source.getArticleType());
+        target.setAlbumId(source.getAlbumId());
+        target.setTitle(source.getTitle());
+        target.setBody(source.getBody());
+        target.setBodyFormat(source.getBodyFormat());
+        target.setIntroShort(source.getIntroShort());
+        target.setPublishedAt(source.getPublishedAt());
+        target.setUpdatedAtBusiness(source.getUpdatedAtBusiness());
+        target.setIsPublic(source.getIsPublic());
+        return target;
+    }
+
+    private Uni<List<ArticleTagEntity>> ensureTagEntities(List<ArticleTag> tags) {
+        return tagDataSource.findByDomainIds(
+                tags.stream()
+                        .map(t -> t.id().value())
+                        .collect(Collectors.toSet()))
+                .flatMap(existingTagEntities -> persistMissingTags(tags, existingTagEntities));
+    }
+
+    private Uni<List<ArticleTagEntity>> persistMissingTags(
+            List<ArticleTag> tags,
+            List<ArticleTagEntity> existingTagEntities) {
+        final var existingByDomainId = existingTagEntities.stream()
+                .collect(Collectors.toMap(ArticleTagEntity::getDomainId, Function.identity()));
+        tags.forEach(
+                t -> Optional.ofNullable(existingByDomainId.get(t.id().value()))
+                        .ifPresent(entity -> entity.setName(t.getName())));
+        final var newTagEntities = tags.stream()
+                .filter(not(t -> existingByDomainId.containsKey(t.id().value())))
+                .map(ArticleMapper::toTagEntity)
+                .toList();
+        return tagDataSource.persistAll(newTagEntities)
+                .replaceWith(Stream.concat(existingTagEntities.stream(), newTagEntities.stream()).toList());
+    }
+
+    private static void reconcileTagLinks(
+            ArticleEntity article,
+            List<ArticleTagEntity> allTagEntities,
+            List<ArticleTag> desiredTags) {
+        final var desiredIds = desiredTags.stream()
+                .map(t -> t.id().value())
+                .collect(Collectors.toSet());
+
+        article.getArticleTagLinks().removeIf(not(link -> desiredIds.contains(link.getArticleTag().getDomainId())));
+
+        final var linkedIds = article.getArticleTagLinks().stream()
+                .map(link -> link.getArticleTag().getDomainId())
+                .collect(Collectors.toSet());
+        final var tagEntityByDomainId = allTagEntities.stream()
+                .collect(Collectors.toMap(ArticleTagEntity::getDomainId, Function.identity()));
+
+        desiredTags.stream()
+                .filter(not(t -> linkedIds.contains(t.id().value())))
+                .forEach(t -> {
+                    final var tagEntity = Objects.requireNonNull(tagEntityByDomainId.get(t.id().value()));
+                    final var link = new ArticleTagLinkEntity();
+                    link.setId(new ArticleTagLinkId(article.getArticleId(), tagEntity.getArticleTagId()));
+                    link.setArticle(article);
+                    link.setArticleTag(tagEntity);
+                    article.getArticleTagLinks().add(link);
+                });
     }
 
     @Override
@@ -74,7 +157,9 @@ public class ArticleRepositoryImpl implements ArticleRepository {
     @Override
     public Uni<Article> findById(Article.Id id) {
         return Optional.ofNullable(id)
-                .map(i -> dataSource.find("domainId", i.value()).firstResult().map(ArticleMapper::toDomain))
+                .map(
+                        i -> dataSource.findByDomainId(i.value())
+                                .map(ArticleMapper::toDomain))
                 .orElseGet(() -> Uni.createFrom().nullItem());
     }
 
@@ -94,7 +179,7 @@ public class ArticleRepositoryImpl implements ArticleRepository {
 
     @Override
     public Uni<List<Article>> findAll() {
-        return dataSource.listAll()
+        return dataSource.findAllEager()
                 .map(entities -> entities.stream().map(ArticleMapper::toDomain).toList());
     }
 
