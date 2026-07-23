@@ -2,7 +2,7 @@
 
 本書は ABService の**設計上の意図・判断基準**（なぜその書き方を選ぶか）を記述する。
 
-**機械的に検証できる規約は静的解析で強制済みであり、本書では繰り返さない。** 強制ルールの一覧と実体は [STATUS_AND_ROADMAP.md](STATUS_AND_ROADMAP.md) §7、および各設定（`backend/config/`・`backend/build.gradle`）が正。以下はその代表例で、いずれも本書の記述ではなくルール／設定が拘束する:
+**機械的に検証できる規約は静的解析で強制済みであり、本書では繰り返さない。** 強制ルールの一覧と実体は [STATUS_AND_ROADMAP.md](STATUS_AND_ROADMAP.md) §6、および各設定（`backend/config/`・`backend/build.gradle`）が正。以下はその代表例で、いずれも本書の記述ではなくルール／設定が拘束する:
 
 - 命名・配置（`@Entity` 命名/配置、`RepositoryImpl`、レイヤ依存方向）、Repository/ApplicationService の `Uni` 返却契約 → **ArchUnit**
 - ローカル変数の `final var`、中置論理演算子禁止、domain の try-catch/可変コレクション禁止、AssertJ 統一 → **Checkstyle**
@@ -73,7 +73,7 @@ VO の外部入力用の生成は、例外 throw の `of()`（内部生成）と
 
 ## 参考資料
 
-- [STATUS_AND_ROADMAP.md](STATUS_AND_ROADMAP.md) §7 - 強制済み静的解析ルールの一覧（正は各設定・テスト）
+- [STATUS_AND_ROADMAP.md](STATUS_AND_ROADMAP.md) §6 - 強制済み静的解析ルールの一覧（正は各設定・テスト）
 - [ARCHITECTURE.md](ARCHITECTURE.md) / [DOMAIN_MODEL_DESIGN.md](DOMAIN_MODEL_DESIGN.md) - アーキテクチャ・ドメインモデル設計
 - [REPOSITORY_IMPLEMENTATION.md](REPOSITORY_IMPLEMENTATION.md) - リポジトリ実装ガイド
 - [RESULT_TYPE_GUIDE.md](RESULT_TYPE_GUIDE.md) - Result 型の使用ガイド

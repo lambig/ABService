@@ -32,7 +32,7 @@ import com.tngtech.archunit.library.GeneralCodingRules;
  * </p>
  *
  * <p>
- * 対応ドキュメント: {@code docs/STATUS_AND_ROADMAP.md} §7。
+ * 対応ドキュメント: {@code docs/STATUS_AND_ROADMAP.md} §6。
  * </p>
  */
 @AnalyzeClasses(packages = "com.abservice", importOptions = ImportOption.DoNotIncludeTests.class)
