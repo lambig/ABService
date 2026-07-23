@@ -1,17 +1,29 @@
 package com.abservice.infrastructure.persistence.repository;
 
+import static java.util.function.Predicate.not;
+
 import com.abservice.domain.model.aggregate.album.Album;
+import com.abservice.domain.model.aggregate.albumarticle.AlbumAcquisitionChannel;
 import com.abservice.domain.model.aggregate.albumarticle.AlbumArticle;
+import com.abservice.domain.model.aggregate.albumarticle.AlbumDistribution;
 import com.abservice.domain.model.vo.album.LabelTag;
+import com.abservice.domain.model.vo.common.Url;
 import com.abservice.domain.repository.albumarticle.AlbumArticleRepository;
 import com.abservice.infrastructure.persistence.datasource.AlbumArticleDataSource;
+import com.abservice.infrastructure.persistence.entity.AlbumAcquisitionChannelEntity;
+import com.abservice.infrastructure.persistence.entity.AlbumArticleEntity;
+import com.abservice.infrastructure.persistence.entity.AlbumDistributionEntity;
+import com.abservice.infrastructure.persistence.entity.AlbumEntity;
 import com.abservice.infrastructure.persistence.mapper.AlbumArticleMapper;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import org.jspecify.annotations.Nullable;
 
 /**
  * AlbumArticleRepository実装
@@ -32,23 +44,98 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
     @Override
     public Uni<AlbumArticle> save(AlbumArticle aggregate) {
         return Optional.ofNullable(aggregate)
-                .map(a -> {
-                    final var entity = AlbumArticleMapper.toEntity(a);
-
-                    return dataSource.existsByAlbumId(entity.getDomainId()).flatMap(
-                            exists -> exists
-                                    ? dataSource.find("domainId", entity.getDomainId()).firstResult()
-                                            .flatMap(existingEntity -> {
-                                                existingEntity.setIntroLong(entity.getIntroLong());
-                                                existingEntity.setIntroShort(entity.getIntroShort());
-                                                existingEntity.setFirstEventSpace(entity.getFirstEventSpace());
-                                                existingEntity.setLabelTag(entity.getLabelTag());
-                                                return dataSource.persistAndFlush(existingEntity);
-                                            })
-                                    : dataSource.persistAndFlush(entity))
-                            .map(AlbumArticleMapper::toDomain);
-                })
+                .map(
+                        a -> dataSource
+                                .findAlbumWithArticleRelationsByDomainId(AlbumArticleMapper.toEntity(a).getDomainId())
+                                .flatMap(
+                                        album -> Optional.ofNullable(album)
+                                                .map(alb -> upsertArticle(alb, a))
+                                                .orElseGet(
+                                                        () -> Uni.createFrom().failure(
+                                                                new IllegalStateException(
+                                                                        "Album not found for id: " + a.albumId()
+                                                                                .value()))))
+                                .map(AlbumArticleMapper::toDomain))
                 .orElseGet(() -> Uni.createFrom().failure(new IllegalArgumentException("AlbumArticle cannot be null")));
+    }
+
+    private Uni<AlbumArticleEntity> upsertArticle(AlbumEntity album, AlbumArticle aggregate) {
+        final var newValues = AlbumArticleMapper.toEntity(aggregate);
+        reconcileDistribution(album, aggregate.distribution());
+        reconcileAcquisitionChannels(album, aggregate.getAcquisitionChannels());
+        return dataSource.persistAndFlush(
+                Optional.ofNullable(album.getAlbumArticle())
+                        .map(existing -> copyArticleScalarFields(existing, newValues))
+                        .orElseGet(() -> linkNewArticle(album, newValues)));
+    }
+
+    private static AlbumArticleEntity copyArticleScalarFields(AlbumArticleEntity target, AlbumArticleEntity source) {
+        target.setIntroLong(source.getIntroLong());
+        target.setIntroShort(source.getIntroShort());
+        target.setFirstEventSpace(source.getFirstEventSpace());
+        target.setLabelTag(source.getLabelTag());
+        return target;
+    }
+
+    private static AlbumArticleEntity linkNewArticle(AlbumEntity album, AlbumArticleEntity newValues) {
+        newValues.setAlbum(album);
+        album.setAlbumArticle(newValues);
+        return newValues;
+    }
+
+    private static void reconcileDistribution(AlbumEntity album, @Nullable AlbumDistribution desired) {
+        Optional.ofNullable(desired)
+                .map(AlbumArticleMapper::toDistributionEntity)
+                .ifPresentOrElse(
+                        newEntity -> applyDistribution(album, newEntity),
+                        () -> album.setAlbumDistribution(null));
+    }
+
+    private static void applyDistribution(AlbumEntity album, AlbumDistributionEntity newEntity) {
+        Optional.ofNullable(album.getAlbumDistribution())
+                .ifPresentOrElse(
+                        existing -> copyDistributionFields(existing, newEntity),
+                        () -> {
+                            newEntity.setAlbum(album);
+                            album.setAlbumDistribution(newEntity);
+                        });
+    }
+
+    private static void copyDistributionFields(AlbumDistributionEntity target, AlbumDistributionEntity source) {
+        target.setPhysicalPrice(source.getPhysicalPrice());
+        target.setDownloadPrice(source.getDownloadPrice());
+        target.setDemoUrl(source.getDemoUrl());
+        target.setNote(source.getNote());
+    }
+
+    private static void reconcileAcquisitionChannels(AlbumEntity album, List<AlbumAcquisitionChannel> desired) {
+        final var existingByDomainId = album.getAcquisitionChannels().stream()
+                .collect(Collectors.toMap(AlbumAcquisitionChannelEntity::getDomainId, Function.identity()));
+        final var desiredIds = desired.stream()
+                .map(c -> c.id().value())
+                .collect(Collectors.toSet());
+
+        album.getAcquisitionChannels().removeIf(not(e -> desiredIds.contains(e.getDomainId())));
+
+        desired.forEach(
+                channel -> Optional.ofNullable(existingByDomainId.get(channel.id().value()))
+                        .ifPresentOrElse(
+                                existing -> copyChannelFields(existing, channel),
+                                () -> {
+                                    final var newEntity = AlbumArticleMapper.toAcquisitionChannelEntity(channel);
+                                    newEntity.setAlbum(album);
+                                    album.getAcquisitionChannels().add(newEntity);
+                                }));
+    }
+
+    private static void copyChannelFields(AlbumAcquisitionChannelEntity target, AlbumAcquisitionChannel source) {
+        target.setChannelType(source.getChannelType().name());
+        target.setName(source.getName());
+        target.setUrl(
+                Optional.ofNullable(source.getUrl())
+                        .map(Url::value)
+                        .orElse(null));
+        target.setNote(source.getNote());
     }
 
     @Override
@@ -67,7 +154,9 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
     @Override
     public Uni<AlbumArticle> findById(Album.Id id) {
         return Optional.ofNullable(id)
-                .map(i -> dataSource.find("domainId", i.value()).firstResult().map(AlbumArticleMapper::toDomain))
+                .map(
+                        i -> dataSource.findByAlbumId(i.value())
+                                .map(AlbumArticleMapper::toDomain))
                 .orElseGet(() -> Uni.createFrom().nullItem());
     }
 
@@ -89,7 +178,7 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
 
     @Override
     public Uni<List<AlbumArticle>> findAll() {
-        return dataSource.listAll()
+        return dataSource.findAllEager()
                 .map(entities -> entities.stream().map(AlbumArticleMapper::toDomain).toList());
     }
 

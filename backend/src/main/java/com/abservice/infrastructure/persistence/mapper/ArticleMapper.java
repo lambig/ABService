@@ -2,15 +2,18 @@ package com.abservice.infrastructure.persistence.mapper;
 
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
+import com.abservice.domain.model.entity.article.ArticleTag;
 import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.model.vo.article.MarkupContent;
 import com.abservice.domain.model.vo.article.MarkupFormat;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.infrastructure.persistence.entity.ArticleEntity;
+import com.abservice.infrastructure.persistence.entity.ArticleTagEntity;
+import com.abservice.infrastructure.persistence.entity.ArticleTagLinkEntity;
 
 import java.time.Instant;
-import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -50,8 +53,48 @@ public final class ArticleMapper {
                                 toBusinessDateTime(e.getUpdatedAtBusiness()),
                                 Optional.ofNullable(e.getIsPublic())
                                         .orElse(false),
-                                Collections.emptyList()))
+                                toTags(e.getArticleTagLinks())))
                 .orElse(null);
+    }
+
+    /**
+     * ArticleTagLinkEntityのリストからArticleTagのリストへ変換
+     *
+     * @param links
+     *            ArticleTagLinkEntityのリスト
+     * @return ArticleTagのリスト（linksがnullの場合は空リスト）
+     */
+    public static List<ArticleTag> toTags(@Nullable List<ArticleTagLinkEntity> links) {
+        return Optional.ofNullable(links)
+                .map(list -> list.stream().map(link -> toTag(link.getArticleTag())).toList())
+                .orElseGet(List::of);
+    }
+
+    /**
+     * ArticleTagEntityからArticleTagへ変換
+     *
+     * @param entity
+     *            ArticleTagEntity
+     * @return ArticleTag
+     */
+    public static ArticleTag toTag(ArticleTagEntity entity) {
+        return ArticleTag.reconstruct(
+                ArticleTag.Id.of(entity.getDomainId()),
+                entity.getName());
+    }
+
+    /**
+     * ArticleTagからArticleTagEntityへ変換（新規タグの永続化用。articleTagLinkとの関連付けは呼び出し側の責務）
+     *
+     * @param tag
+     *            ArticleTag
+     * @return ArticleTagEntity
+     */
+    public static ArticleTagEntity toTagEntity(ArticleTag tag) {
+        final var entity = new ArticleTagEntity();
+        entity.setDomainId(tag.id().value());
+        entity.setName(tag.getName());
+        return entity;
     }
 
     private static @Nullable BusinessDateTime toBusinessDateTime(@Nullable Instant instant) {

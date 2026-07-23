@@ -37,6 +37,9 @@ public class ArticleTagEntity extends AuditableEntity {
     @Column(name = "article_tag_id")
     private Long articleTagId;
 
+    @Column(name = "domain_id", nullable = false, unique = true)
+    private String domainId;
+
     @Column(name = "name", nullable = false, unique = true, length = 100)
     private String name;
 
