@@ -622,7 +622,7 @@ class TrackTest {
     class UpdateTuneTest {
 
         @Test
-        @DisplayName("チューンを更新できること")
+        @DisplayName("チューンの上書き情報を更新できること")
         void updateTuneShouldSucceed() {
             // Arrange
             final var track = Track
@@ -634,27 +634,32 @@ class TrackTest {
                                     2024,
                                     1,
                                     1));
+            final var tuneId = Tune.Id.generate();
             final var originalTune = TrackTune.create(
                     1,
-                    Tune.Id.generate(),
+                    tuneId,
                     null,
                     null,
                     null);
             final var trackWithTune = track.addTune(originalTune);
 
             final var composerCredit = Credit.of("New Composer");
-            final var updatedTune = originalTune.changeComposerCreditOverride(composerCredit);
 
             // Act
-            final var updated = trackWithTune.updateTune(updatedTune);
+            final var updated = trackWithTune.updateTune(
+                    1,
+                    composerCredit,
+                    null,
+                    null);
 
             // Assert
             assertThat(updated.getTunes().size()).isEqualTo(1);
+            assertThat(updated.getTunes().get(0).tuneId()).isEqualTo(tuneId);
             assertThat(updated.getTunes().get(0).composerCreditOverride()).isEqualTo(composerCredit);
         }
 
         @Test
-        @DisplayName("複数のチューンの中から特定のチューンを更新できること")
+        @DisplayName("複数のチューンの中から特定のチューンの上書き情報を更新できること")
         void updateSpecificTuneFromMultipleShouldSucceed() {
             // Arrange
             final var track = Track
@@ -681,10 +686,13 @@ class TrackTest {
             final var trackWithTunes = track.addTune(tune1).addTune(tune2);
 
             final var url = Url.of("https://example.com");
-            final var updatedTune2 = tune2.changeLinkUrl(url);
 
             // Act
-            final var updated = trackWithTunes.updateTune(updatedTune2);
+            final var updated = trackWithTunes.updateTune(
+                    2,
+                    null,
+                    null,
+                    url);
 
             // Assert
             assertThat(updated.getTunes().size()).isEqualTo(2);
@@ -693,8 +701,8 @@ class TrackTest {
         }
 
         @Test
-        @DisplayName("nullのチューンで更新しようとすると例外が発生すること")
-        void updateWithNullTuneShouldThrowException() {
+        @DisplayName("nullのseqで更新しようとすると例外が発生すること")
+        void updateWithNullSeqShouldThrowException() {
             // Arrange
             final var track = Track
                     .create(
@@ -708,12 +716,16 @@ class TrackTest {
 
             // Act & Assert
             assertThatThrownBy(() -> {
-                track.updateTune(null);
-            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Updated tune cannot be null");
+                track.updateTune(
+                        null,
+                        null,
+                        null,
+                        null);
+            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Seq cannot be null");
         }
 
         @Test
-        @DisplayName("存在しないseqのチューンで更新しようとすると例外が発生すること")
+        @DisplayName("存在しないseqで更新しようとすると例外が発生すること")
         void updateNonExistentTuneShouldThrowException() {
             // Arrange
             final var track = Track
@@ -725,16 +737,14 @@ class TrackTest {
                                     2024,
                                     1,
                                     1));
-            final var nonExistentTune = TrackTune.create(
-                    999,
-                    Tune.Id.generate(),
-                    null,
-                    null,
-                    null);
 
             // Act & Assert
             assertThatThrownBy(() -> {
-                track.updateTune(nonExistentTune);
+                track.updateTune(
+                        999,
+                        null,
+                        null,
+                        null);
             }).isInstanceOf(BusinessRuleViolationException.class).hasMessage("Tune with seq 999 not found");
         }
     }

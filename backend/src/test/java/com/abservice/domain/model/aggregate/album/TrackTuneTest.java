@@ -139,49 +139,6 @@ class TrackTuneTest {
     }
 
     @Nested
-    @DisplayName("チューンID変更テスト")
-    class ChangeTuneIdTest {
-
-        @Test
-        @DisplayName("チューンIDを変更できること")
-        void changeTuneIdShouldSucceed() {
-            // Arrange
-            final var original = TrackTune.create(
-                    1,
-                    Tune.Id.generate(),
-                    null,
-                    null,
-                    null);
-            final var newTuneId = Tune.Id.generate();
-
-            // Act
-            final var updated = original.changeTuneId(newTuneId);
-
-            // Assert
-            assertThat(updated.tuneId()).isEqualTo(newTuneId);
-            assertThat(updated.seq()).isEqualTo(original.seq());
-        }
-
-        @Test
-        @DisplayName("チューンIDをnullに変更できること")
-        void changeTuneIdToNullShouldSucceed() {
-            // Arrange
-            final var original = TrackTune.create(
-                    1,
-                    Tune.Id.generate(),
-                    null,
-                    null,
-                    null);
-
-            // Act
-            final var updated = original.changeTuneId(null);
-
-            // Assert
-            assertThat(updated.tuneId()).isNull();
-        }
-    }
-
-    @Nested
     @DisplayName("作曲者クレジット上書き変更テスト")
     class ChangeComposerCreditOverrideTest {
 

@@ -1,5 +1,7 @@
 package com.abservice.domain.service;
 
+import static com.abservice.lib.Both.by;
+import static com.abservice.lib.Both.to;
 import static com.abservice.lib.Optionals.both;
 import static io.github.lambig.funcifextension.predicate.Predicates.or;
 
@@ -51,8 +53,8 @@ public class EventMatchingService implements DomainService {
      */
     public boolean isSameEvent(EventToParticipate toParticipate, EventReleasedAt releasedAt) {
         return both(toParticipate, releasedAt)
-                .filter(pair -> pair.a().name().equivalentTo(pair.b().name()))
-                .map(pair -> matchesEventDetails(pair.a(), pair.b()))
+                .filter(by((tp, ra) -> tp.name().equivalentTo(ra.name())))
+                .map(to(this::matchesEventDetails))
                 .orElse(false);
     }
 
@@ -79,8 +81,8 @@ public class EventMatchingService implements DomainService {
      */
     public boolean matchesEventNameAndDate(EventToParticipate toParticipate, EventReleasedAt releasedAt) {
         return both(toParticipate, releasedAt)
-                .filter(pair -> pair.a().name().equivalentTo(pair.b().name()))
-                .map(pair -> matchesDateDetails(pair.a(), pair.b()))
+                .filter(by((tp, ra) -> tp.name().equivalentTo(ra.name())))
+                .map(to(this::matchesDateDetails))
                 .orElse(false);
     }
 
