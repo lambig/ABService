@@ -1,7 +1,7 @@
 package com.abservice.infrastructure.persistence.datasource;
 
-import com.abservice.infrastructure.persistence.entity.AlbumEntity;
-import com.abservice.infrastructure.persistence.entity.TrackEntity;
+import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
+import com.abservice.infrastructure.persistence.entity.TrackTableRecord;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -21,7 +21,7 @@ import java.util.function.Predicate;
  * </p>
  */
 @ApplicationScoped
-public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long> {
+public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, Long> {
 
     private final Mutiny.SessionFactory sessionFactory;
 
@@ -36,7 +36,7 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
      *            アルバムエンティティ
      * @return 永続化されたアルバムエンティティ
      */
-    public Uni<AlbumEntity> persistAlbumWithRelations(AlbumEntity albumEntity) {
+    public Uni<AlbumTableRecord> persistAlbumWithRelations(AlbumTableRecord albumEntity) {
         return persist(albumEntity).onItem()
                 .transformToUni(
                         savedAlbum -> sessionFactory.withSession(
@@ -48,16 +48,16 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
                                         : Uni.createFrom().item(savedAlbum)));
     }
 
-    private static boolean hasTracks(AlbumEntity albumEntity) {
+    private static boolean hasTracks(AlbumTableRecord albumEntity) {
         return Optional.ofNullable(albumEntity.getTracks())
                 .filter(Predicate.not(List::isEmpty))
                 .isPresent();
     }
 
-    private static Uni<AlbumEntity> persistTracks(
+    private static Uni<AlbumTableRecord> persistTracks(
             Mutiny.Session session,
-            AlbumEntity savedAlbum,
-            List<TrackEntity> tracks) {
+            AlbumTableRecord savedAlbum,
+            List<TrackTableRecord> tracks) {
         tracks.forEach(track -> track.setAlbum(savedAlbum));
         return session.persistAll(tracks.toArray())
                 .replaceWith(savedAlbum);
@@ -70,12 +70,12 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
      *            アルバムのドメインID
      * @return アルバムエンティティ（トラックを含む）
      */
-    public Uni<AlbumEntity> findByIdWithTracks(String domainId) {
+    public Uni<AlbumTableRecord> findByIdWithTracks(String domainId) {
         return sessionFactory.withSession(
                 session -> session.createQuery(
-                        "SELECT DISTINCT a FROM AlbumEntity a " + "LEFT JOIN FETCH a.tracks "
+                        "SELECT DISTINCT a FROM AlbumTableRecord a " + "LEFT JOIN FETCH a.tracks "
                                 + "WHERE a.domainId = :domainId",
-                        AlbumEntity.class).setParameter("domainId", domainId).getSingleResultOrNull());
+                        AlbumTableRecord.class).setParameter("domainId", domainId).getSingleResultOrNull());
     }
 
     /**
@@ -85,12 +85,12 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
      *            アルバムのドメインID群
      * @return 該当するアルバムエンティティのリスト（トラックを含む）
      */
-    public Uni<List<AlbumEntity>> findByIdsWithTracks(Collection<String> domainIds) {
+    public Uni<List<AlbumTableRecord>> findByIdsWithTracks(Collection<String> domainIds) {
         return sessionFactory.withSession(
                 session -> session.createQuery(
-                        "SELECT DISTINCT a FROM AlbumEntity a " + "LEFT JOIN FETCH a.tracks "
+                        "SELECT DISTINCT a FROM AlbumTableRecord a " + "LEFT JOIN FETCH a.tracks "
                                 + "WHERE a.domainId IN (:domainIds)",
-                        AlbumEntity.class).setParameter("domainIds", domainIds).getResultList());
+                        AlbumTableRecord.class).setParameter("domainIds", domainIds).getResultList());
     }
 
     /**
@@ -100,7 +100,7 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
      *            アルバムタイトル
      * @return 該当するアルバムのリスト
      */
-    public Uni<List<AlbumEntity>> findByTitle(String title) {
+    public Uni<List<AlbumTableRecord>> findByTitle(String title) {
         return list("title", title);
     }
 
@@ -111,7 +111,7 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
      *            アーティスト表示名
      * @return 該当するアルバムのリスト
      */
-    public Uni<List<AlbumEntity>> findByArtistDisplayName(String artistDisplayName) {
+    public Uni<List<AlbumTableRecord>> findByArtistDisplayName(String artistDisplayName) {
         return list("artistDisplayName", artistDisplayName);
     }
 
@@ -122,7 +122,7 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
      *            イベント名
      * @return 該当するアルバムのリスト
      */
-    public Uni<List<AlbumEntity>> findByEventName(String eventName) {
+    public Uni<List<AlbumTableRecord>> findByEventName(String eventName) {
         return list("eventName", eventName);
     }
 
@@ -133,7 +133,7 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
      *            カタログナンバー
      * @return 該当するアルバム（存在しない場合はnull）
      */
-    public Uni<AlbumEntity> findByCatalogNumber(String catalogNumber) {
+    public Uni<AlbumTableRecord> findByCatalogNumber(String catalogNumber) {
         return find("catalogNumber", catalogNumber).firstResult();
     }
 
@@ -144,7 +144,7 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
      *            リリース年
      * @return 該当するアルバムのリスト
      */
-    public Uni<List<AlbumEntity>> findByReleaseYear(int year) {
+    public Uni<List<AlbumTableRecord>> findByReleaseYear(int year) {
         final LocalDate startDate = LocalDate.of(
                 year,
                 1,
@@ -157,9 +157,9 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
         return sessionFactory.withSession(
                 session -> session
                         .createQuery(
-                                "SELECT a FROM AlbumEntity a "
+                                "SELECT a FROM AlbumTableRecord a "
                                         + "WHERE a.releaseDate >= :startDate AND a.releaseDate <= :endDate",
-                                AlbumEntity.class)
+                                AlbumTableRecord.class)
                         .setParameter("startDate", startDate).setParameter("endDate", endDate).getResultList());
     }
 

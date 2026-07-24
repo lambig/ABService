@@ -2,7 +2,7 @@ package com.abservice.application.query.article;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.abservice.infrastructure.persistence.entity.ArticleEntity;
+import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -12,7 +12,7 @@ class GetArticleServiceTest {
     @Test
     @DisplayName("エンティティありはFoundを返す")
     void entityYieldsFound() {
-        final var entity = new ArticleEntity();
+        final var entity = new ArticleTableRecord();
         entity.setDomainId("0192f8a0-0000-7000-8000-000000000000");
         entity.setArticleType("NOTE");
         entity.setTitle("タイトル");

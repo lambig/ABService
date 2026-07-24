@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * 記事タグリンクエンティティ
+ * 記事タグリンクテーブルレコード
  * <p>
  * テーブル: article_tag_link（中間テーブル）
  * </p>
@@ -25,7 +25,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class ArticleTagLinkEntity extends AuditableEntity {
+public class ArticleTagLinkTableRecord extends AuditableEntity {
 
     @EmbeddedId
     private ArticleTagLinkId id;
@@ -33,10 +33,10 @@ public class ArticleTagLinkEntity extends AuditableEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @MapsId("articleId")
     @JoinColumn(name = "article_id", nullable = false)
-    private ArticleEntity article;
+    private ArticleTableRecord article;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @MapsId("articleTagId")
     @JoinColumn(name = "article_tag_id", nullable = false)
-    private ArticleTagEntity articleTag;
+    private ArticleTagTableRecord articleTag;
 }

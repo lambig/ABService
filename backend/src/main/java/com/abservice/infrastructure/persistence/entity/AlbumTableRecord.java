@@ -22,7 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * アルバムエンティティ
+ * アルバムテーブルレコード
  * <p>
  * テーブル: album
  * </p>
@@ -34,7 +34,7 @@ import java.util.List;
 @Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
-public class AlbumEntity extends AuditableEntity {
+public class AlbumTableRecord extends AuditableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -75,7 +75,7 @@ public class AlbumEntity extends AuditableEntity {
 
     // Event Date and Space (複数日程対応)
     @OneToMany(mappedBy = "album", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private List<AlbumEventDateSpaceEntity> eventDateSpaces = new ArrayList<>();
+    private List<AlbumEventDateSpaceTableRecord> eventDateSpaces = new ArrayList<>();
 
     @Column(name = "catalog_number", length = 100)
     private String catalogNumber;
@@ -84,16 +84,16 @@ public class AlbumEntity extends AuditableEntity {
     private String isdn;
 
     @OneToMany(mappedBy = "album", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private List<TrackEntity> tracks = new ArrayList<>();
+    private List<TrackTableRecord> tracks = new ArrayList<>();
 
     @OneToOne(mappedBy = "album", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private AlbumArticleEntity albumArticle;
+    private AlbumArticleTableRecord albumArticle;
 
     @OneToOne(mappedBy = "album", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private AlbumDistributionEntity albumDistribution;
+    private AlbumDistributionTableRecord albumDistribution;
 
     @OneToMany(mappedBy = "album", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private List<AlbumAcquisitionChannelEntity> acquisitionChannels = new ArrayList<>();
+    private List<AlbumAcquisitionChannelTableRecord> acquisitionChannels = new ArrayList<>();
 
     /**
      * トラックを差し替える（managed collection を in-place で置換し、親参照を張り直す）。
@@ -107,7 +107,7 @@ public class AlbumEntity extends AuditableEntity {
      *            新しいトラック
      * @return このエンティティ（chainable）
      */
-    public AlbumEntity replaceTracks(List<TrackEntity> newTracks) {
+    public AlbumTableRecord replaceTracks(List<TrackTableRecord> newTracks) {
         this.tracks.clear();
         newTracks.forEach(track -> {
             track.setAlbum(this);

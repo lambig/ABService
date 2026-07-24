@@ -16,7 +16,7 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 /**
- * アルバム記事・お品書き用メタ情報エンティティ
+ * アルバム記事・お品書き用メタ情報テーブルレコード
  * <p>
  * テーブル: album_article
  * </p>
@@ -28,7 +28,7 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
-public class AlbumArticleEntity extends AuditableEntity {
+public class AlbumArticleTableRecord extends AuditableEntity {
 
     @Id
     @Column(name = "album_id")
@@ -40,7 +40,7 @@ public class AlbumArticleEntity extends AuditableEntity {
     @OneToOne(fetch = FetchType.LAZY)
     @MapsId
     @JoinColumn(name = "album_id")
-    private AlbumEntity album;
+    private AlbumTableRecord album;
 
     @Column(name = "intro_long", columnDefinition = "TEXT")
     private String introLong;

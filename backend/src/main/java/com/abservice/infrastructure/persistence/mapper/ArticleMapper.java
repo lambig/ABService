@@ -10,9 +10,9 @@ import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.model.vo.article.MarkupContent;
 import com.abservice.domain.model.vo.article.MarkupFormat;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
-import com.abservice.infrastructure.persistence.entity.ArticleEntity;
-import com.abservice.infrastructure.persistence.entity.ArticleTagEntity;
-import com.abservice.infrastructure.persistence.entity.ArticleTagLinkEntity;
+import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
+import com.abservice.infrastructure.persistence.entity.ArticleTagTableRecord;
+import com.abservice.infrastructure.persistence.entity.ArticleTagLinkTableRecord;
 
 import java.time.Instant;
 import java.util.List;
@@ -23,7 +23,7 @@ import org.jspecify.annotations.Nullable;
  * Article Mapper
  *
  * <p>
- * ArticleドメインモデルとArticleEntityの相互変換を担当します。
+ * ArticleドメインモデルとArticleTableRecordの相互変換を担当します。
  * </p>
  */
 public final class ArticleMapper {
@@ -36,10 +36,10 @@ public final class ArticleMapper {
      * EntityからDomainモデルへ変換
      *
      * @param entity
-     *            ArticleEntity
+     *            ArticleTableRecord
      * @return Article
      */
-    public static Article toDomain(ArticleEntity entity) {
+    public static Article toDomain(ArticleTableRecord entity) {
         return Article.reconstruct(
                 new Article.Id(entity.getDomainId()),
                 ArticleType.valueOf(entity.getArticleType()),
@@ -57,40 +57,40 @@ public final class ArticleMapper {
     }
 
     /**
-     * ArticleTagLinkEntityのリストからArticleTagのリストへ変換
+     * ArticleTagLinkTableRecordのリストからArticleTagのリストへ変換
      *
      * @param links
-     *            ArticleTagLinkEntityのリスト
+     *            ArticleTagLinkTableRecordのリスト
      * @return ArticleTagのリスト（linksがnullの場合は空リスト）
      */
-    public static List<ArticleTag> toTags(@Nullable List<ArticleTagLinkEntity> links) {
+    public static List<ArticleTag> toTags(@Nullable List<ArticleTagLinkTableRecord> links) {
         return Optional.ofNullable(links)
                 .map(toList(link -> toTag(link.getArticleTag())))
                 .orElseGet(List::of);
     }
 
     /**
-     * ArticleTagEntityからArticleTagへ変換
+     * ArticleTagTableRecordからArticleTagへ変換
      *
      * @param entity
-     *            ArticleTagEntity
+     *            ArticleTagTableRecord
      * @return ArticleTag
      */
-    public static ArticleTag toTag(ArticleTagEntity entity) {
+    public static ArticleTag toTag(ArticleTagTableRecord entity) {
         return ArticleTag.reconstruct(
                 ArticleTag.Id.of(entity.getDomainId()),
                 entity.getName());
     }
 
     /**
-     * ArticleTagからArticleTagEntityへ変換（新規タグの永続化用。articleTagLinkとの関連付けは呼び出し側の責務）
+     * ArticleTagからArticleTagTableRecordへ変換（新規タグの永続化用。articleTagLinkとの関連付けは呼び出し側の責務）
      *
      * @param tag
      *            ArticleTag
-     * @return ArticleTagEntity
+     * @return ArticleTagTableRecord
      */
-    public static ArticleTagEntity toTagEntity(ArticleTag tag) {
-        final var entity = new ArticleTagEntity();
+    public static ArticleTagTableRecord toTagEntity(ArticleTag tag) {
+        final var entity = new ArticleTagTableRecord();
         entity.setDomainId(tag.id().value());
         entity.setName(tag.getName());
         return entity;
@@ -113,10 +113,10 @@ public final class ArticleMapper {
      *
      * @param article
      *            Article
-     * @return ArticleEntity
+     * @return ArticleTableRecord
      */
-    public static ArticleEntity toEntity(Article article) {
-        final var articleEntity = new ArticleEntity();
+    public static ArticleTableRecord toEntity(Article article) {
+        final var articleEntity = new ArticleTableRecord();
         articleEntity.setDomainId(article.id().value());
         articleEntity.setArticleType(article.articleType().name());
         articleEntity.setAlbumId(

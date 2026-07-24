@@ -62,7 +62,7 @@ import io.smallrye.mutiny.Uni;
  *                     .transform(entities -> new AlbumListResult(entities.stream().map(this::toDto).toList()));
  *         }
  *
- *         private AlbumDto toDto(AlbumEntity entity) {
+ *         private AlbumDto toDto(AlbumTableRecord entity) {
  *             return new AlbumDto(entity.getId(), entity.getTitle());
  *         }
  *     }

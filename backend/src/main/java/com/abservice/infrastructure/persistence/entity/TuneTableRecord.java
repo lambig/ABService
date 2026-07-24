@@ -14,7 +14,7 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 /**
- * チューン（曲）エンティティ
+ * チューン（曲）テーブルレコード
  * <p>
  * テーブル: tune
  * </p>
@@ -26,7 +26,7 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
-public class TuneEntity extends AuditableEntity {
+public class TuneTableRecord extends AuditableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

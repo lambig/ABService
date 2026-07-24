@@ -10,9 +10,9 @@ import com.abservice.domain.model.vo.album.ChannelType;
 import com.abservice.domain.model.vo.album.LabelTag;
 import com.abservice.domain.model.vo.common.Price;
 import com.abservice.domain.model.vo.common.Url;
-import com.abservice.infrastructure.persistence.entity.AlbumAcquisitionChannelEntity;
-import com.abservice.infrastructure.persistence.entity.AlbumArticleEntity;
-import com.abservice.infrastructure.persistence.entity.AlbumDistributionEntity;
+import com.abservice.infrastructure.persistence.entity.AlbumAcquisitionChannelTableRecord;
+import com.abservice.infrastructure.persistence.entity.AlbumArticleTableRecord;
+import com.abservice.infrastructure.persistence.entity.AlbumDistributionTableRecord;
 
 import java.util.List;
 import java.util.Optional;
@@ -22,7 +22,7 @@ import org.jspecify.annotations.Nullable;
  * AlbumArticle Mapper
  *
  * <p>
- * AlbumArticleドメインモデルとAlbumArticleEntityの相互変換を担当します。
+ * AlbumArticleドメインモデルとAlbumArticleTableRecordの相互変換を担当します。
  * </p>
  */
 public final class AlbumArticleMapper {
@@ -35,10 +35,10 @@ public final class AlbumArticleMapper {
      * EntityからDomainモデルへ変換
      *
      * @param entity
-     *            AlbumArticleEntity
+     *            AlbumArticleTableRecord
      * @return AlbumArticle
      */
-    public static AlbumArticle toDomain(AlbumArticleEntity entity) {
+    public static AlbumArticle toDomain(AlbumArticleTableRecord entity) {
         return AlbumArticle.reconstruct(
                 new Album.Id(entity.getDomainId()),
                 entity.getIntroLong(),
@@ -52,13 +52,13 @@ public final class AlbumArticleMapper {
     }
 
     /**
-     * AlbumDistributionEntityからAlbumDistributionへ変換
+     * AlbumDistributionTableRecordからAlbumDistributionへ変換
      *
      * @param entity
-     *            AlbumDistributionEntity
+     *            AlbumDistributionTableRecord
      * @return AlbumDistribution（entityがnullの場合はnull）
      */
-    public static @Nullable AlbumDistribution toDistribution(@Nullable AlbumDistributionEntity entity) {
+    public static @Nullable AlbumDistribution toDistribution(@Nullable AlbumDistributionTableRecord entity) {
         return Optional.ofNullable(entity)
                 .map(
                         e -> AlbumDistribution.reconstruct(
@@ -70,16 +70,17 @@ public final class AlbumArticleMapper {
     }
 
     /**
-     * AlbumDistributionからAlbumDistributionEntityへ変換（albumとの関連付けは呼び出し側の責務）
+     * AlbumDistributionからAlbumDistributionTableRecordへ変換（albumとの関連付けは呼び出し側の責務）
      *
      * @param distribution
      *            AlbumDistribution
-     * @return AlbumDistributionEntity（distributionがnullの場合はnull）
+     * @return AlbumDistributionTableRecord（distributionがnullの場合はnull）
      */
-    public static @Nullable AlbumDistributionEntity toDistributionEntity(@Nullable AlbumDistribution distribution) {
+    public static @Nullable AlbumDistributionTableRecord toDistributionEntity(
+            @Nullable AlbumDistribution distribution) {
         return Optional.ofNullable(distribution)
                 .map(d -> {
-                    final var entity = new AlbumDistributionEntity();
+                    final var entity = new AlbumDistributionTableRecord();
                     entity.setPhysicalPrice(toAmount(d.getPhysicalPrice()));
                     entity.setDownloadPrice(toAmount(d.getDownloadPrice()));
                     entity.setDemoUrl(toUrlValue(d.getDemoUrl()));
@@ -90,13 +91,13 @@ public final class AlbumArticleMapper {
     }
 
     /**
-     * AlbumAcquisitionChannelEntityからAlbumAcquisitionChannelへ変換
+     * AlbumAcquisitionChannelTableRecordからAlbumAcquisitionChannelへ変換
      *
      * @param entity
-     *            AlbumAcquisitionChannelEntity
+     *            AlbumAcquisitionChannelTableRecord
      * @return AlbumAcquisitionChannel
      */
-    public static AlbumAcquisitionChannel toAcquisitionChannel(AlbumAcquisitionChannelEntity entity) {
+    public static AlbumAcquisitionChannel toAcquisitionChannel(AlbumAcquisitionChannelTableRecord entity) {
         return AlbumAcquisitionChannel.reconstruct(
                 AlbumAcquisitionChannel.Id.of(entity.getDomainId()),
                 ChannelType.valueOf(entity.getChannelType()),
@@ -106,28 +107,28 @@ public final class AlbumArticleMapper {
     }
 
     /**
-     * AlbumAcquisitionChannelEntityのリストからAlbumAcquisitionChannelのリストへ変換
+     * AlbumAcquisitionChannelTableRecordのリストからAlbumAcquisitionChannelのリストへ変換
      *
      * @param entities
-     *            AlbumAcquisitionChannelEntityのリスト
+     *            AlbumAcquisitionChannelTableRecordのリスト
      * @return AlbumAcquisitionChannelのリスト（entitiesがnullの場合は空リスト）
      */
     public static List<AlbumAcquisitionChannel> toAcquisitionChannels(
-            @Nullable List<AlbumAcquisitionChannelEntity> entities) {
+            @Nullable List<AlbumAcquisitionChannelTableRecord> entities) {
         return Optional.ofNullable(entities)
                 .map(toList(AlbumArticleMapper::toAcquisitionChannel))
                 .orElseGet(List::of);
     }
 
     /**
-     * AlbumAcquisitionChannelからAlbumAcquisitionChannelEntityへ変換（albumとの関連付けは呼び出し側の責務）
+     * AlbumAcquisitionChannelからAlbumAcquisitionChannelTableRecordへ変換（albumとの関連付けは呼び出し側の責務）
      *
      * @param channel
      *            AlbumAcquisitionChannel
-     * @return AlbumAcquisitionChannelEntity
+     * @return AlbumAcquisitionChannelTableRecord
      */
-    public static AlbumAcquisitionChannelEntity toAcquisitionChannelEntity(AlbumAcquisitionChannel channel) {
-        final var entity = new AlbumAcquisitionChannelEntity();
+    public static AlbumAcquisitionChannelTableRecord toAcquisitionChannelEntity(AlbumAcquisitionChannel channel) {
+        final var entity = new AlbumAcquisitionChannelTableRecord();
         entity.setDomainId(channel.id().value());
         entity.setChannelType(channel.getChannelType().name());
         entity.setName(channel.getName());
@@ -165,10 +166,10 @@ public final class AlbumArticleMapper {
      *
      * @param albumArticle
      *            AlbumArticle
-     * @return AlbumArticleEntity
+     * @return AlbumArticleTableRecord
      */
-    public static AlbumArticleEntity toEntity(AlbumArticle albumArticle) {
-        final var albumArticleEntity = new AlbumArticleEntity();
+    public static AlbumArticleTableRecord toEntity(AlbumArticle albumArticle) {
+        final var albumArticleEntity = new AlbumArticleTableRecord();
         albumArticleEntity.setDomainId(albumArticle.albumId().value());
         albumArticleEntity.setIntroLong(albumArticle.introLong());
         albumArticleEntity.setIntroShort(albumArticle.introShort());

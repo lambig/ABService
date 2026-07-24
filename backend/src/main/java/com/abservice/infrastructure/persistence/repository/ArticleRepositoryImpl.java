@@ -11,9 +11,9 @@ import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.repository.article.ArticleRepository;
 import com.abservice.infrastructure.persistence.datasource.ArticleDataSource;
 import com.abservice.infrastructure.persistence.datasource.ArticleTagDataSource;
-import com.abservice.infrastructure.persistence.entity.ArticleEntity;
-import com.abservice.infrastructure.persistence.entity.ArticleTagEntity;
-import com.abservice.infrastructure.persistence.entity.ArticleTagLinkEntity;
+import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
+import com.abservice.infrastructure.persistence.entity.ArticleTagTableRecord;
+import com.abservice.infrastructure.persistence.entity.ArticleTagLinkTableRecord;
 import com.abservice.infrastructure.persistence.entity.ArticleTagLinkId;
 import com.abservice.infrastructure.persistence.mapper.ArticleMapper;
 import io.smallrye.mutiny.Multi;
@@ -56,10 +56,10 @@ public class ArticleRepositoryImpl implements ArticleRepository {
                 .orElseGet(() -> Uni.createFrom().failure(new IllegalArgumentException("Article cannot be null")));
     }
 
-    private Uni<ArticleEntity> upsertArticle(@Nullable ArticleEntity existingEntity, Article aggregate) {
+    private Uni<ArticleTableRecord> upsertArticle(@Nullable ArticleTableRecord existingEntity, Article aggregate) {
         final var newValues = ArticleMapper.toEntity(aggregate);
         // 記事自体を先に確定（新規時はIDENTITY採番を解決）してからタグリンクを付与する。
-        // 同一flush内で行うと、複合@MapsId（ArticleTagLinkEntity）の親IDが未解決のまま
+        // 同一flush内で行うと、複合@MapsId（ArticleTagLinkTableRecord）の親IDが未解決のまま
         // カスケードされ IdentifierGenerationException となるため2段階に分ける。
         return dataSource.persistAndFlush(
                 Optional.ofNullable(existingEntity)
@@ -77,7 +77,7 @@ public class ArticleRepositoryImpl implements ArticleRepository {
                                 .flatMap(dataSource::persistAndFlush));
     }
 
-    private static ArticleEntity copyArticleScalarFields(ArticleEntity target, ArticleEntity source) {
+    private static ArticleTableRecord copyArticleScalarFields(ArticleTableRecord target, ArticleTableRecord source) {
         target.setArticleType(source.getArticleType());
         target.setAlbumId(source.getAlbumId());
         target.setTitle(source.getTitle());
@@ -90,7 +90,7 @@ public class ArticleRepositoryImpl implements ArticleRepository {
         return target;
     }
 
-    private Uni<List<ArticleTagEntity>> ensureTagEntities(List<ArticleTag> tags) {
+    private Uni<List<ArticleTagTableRecord>> ensureTagEntities(List<ArticleTag> tags) {
         return tagDataSource.findByDomainIds(
                 tags.stream()
                         .map(t -> t.id().value())
@@ -98,11 +98,11 @@ public class ArticleRepositoryImpl implements ArticleRepository {
                 .flatMap(existingTagEntities -> persistMissingTags(tags, existingTagEntities));
     }
 
-    private Uni<List<ArticleTagEntity>> persistMissingTags(
+    private Uni<List<ArticleTagTableRecord>> persistMissingTags(
             List<ArticleTag> tags,
-            List<ArticleTagEntity> existingTagEntities) {
+            List<ArticleTagTableRecord> existingTagEntities) {
         final var existingByDomainId = existingTagEntities.stream()
-                .collect(Collectors.toMap(ArticleTagEntity::getDomainId, Function.identity()));
+                .collect(Collectors.toMap(ArticleTagTableRecord::getDomainId, Function.identity()));
         tags.forEach(
                 t -> Optional.ofNullable(existingByDomainId.get(t.id().value()))
                         .ifPresent(entity -> entity.setName(t.getName())));
@@ -115,8 +115,8 @@ public class ArticleRepositoryImpl implements ArticleRepository {
     }
 
     private static void reconcileTagLinks(
-            ArticleEntity article,
-            List<ArticleTagEntity> allTagEntities,
+            ArticleTableRecord article,
+            List<ArticleTagTableRecord> allTagEntities,
             List<ArticleTag> desiredTags) {
         final var desiredIds = desiredTags.stream()
                 .map(t -> t.id().value())
@@ -128,13 +128,13 @@ public class ArticleRepositoryImpl implements ArticleRepository {
                 .map(link -> link.getArticleTag().getDomainId())
                 .collect(Collectors.toSet());
         final var tagEntityByDomainId = allTagEntities.stream()
-                .collect(Collectors.toMap(ArticleTagEntity::getDomainId, Function.identity()));
+                .collect(Collectors.toMap(ArticleTagTableRecord::getDomainId, Function.identity()));
 
         desiredTags.stream()
                 .filter(not(t -> linkedIds.contains(t.id().value())))
                 .forEach(t -> {
                     final var tagEntity = Objects.requireNonNull(tagEntityByDomainId.get(t.id().value()));
-                    final var link = new ArticleTagLinkEntity();
+                    final var link = new ArticleTagLinkTableRecord();
                     link.setId(new ArticleTagLinkId(article.getArticleId(), tagEntity.getArticleTagId()));
                     link.setArticle(article);
                     link.setArticleTag(tagEntity);

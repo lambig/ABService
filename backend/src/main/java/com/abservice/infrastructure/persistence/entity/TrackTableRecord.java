@@ -22,7 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * トラック（録音単位）エンティティ
+ * トラック（録音単位）テーブルレコード
  * <p>
  * テーブル: track
  * </p>
@@ -33,7 +33,7 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class TrackEntity extends AuditableEntity {
+public class TrackTableRecord extends AuditableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -45,7 +45,7 @@ public class TrackEntity extends AuditableEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "album_id", nullable = false)
-    private AlbumEntity album;
+    private AlbumTableRecord album;
 
     @Column(name = "track_no", nullable = false)
     private Integer trackNo;
@@ -70,5 +70,5 @@ public class TrackEntity extends AuditableEntity {
     private Boolean isLive;
 
     @OneToMany(mappedBy = "track", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private List<TrackTuneEntity> trackTunes = new ArrayList<>();
+    private List<TrackTuneTableRecord> trackTunes = new ArrayList<>();
 }

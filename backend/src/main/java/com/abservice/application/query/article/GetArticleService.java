@@ -2,7 +2,7 @@ package com.abservice.application.query.article;
 
 import com.abservice.application.query.QueryService;
 import com.abservice.infrastructure.persistence.datasource.ArticleDataSource;
-import com.abservice.infrastructure.persistence.entity.ArticleEntity;
+import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -38,7 +38,7 @@ public class GetArticleService implements QueryService<GetArticleQuery, GetArtic
                 .map(GetArticleService::toResult);
     }
 
-    static GetArticleResult toResult(@Nullable ArticleEntity entity) {
+    static GetArticleResult toResult(@Nullable ArticleTableRecord entity) {
         return Optional.ofNullable(entity)
                 .map(ArticleViewMapper::toView)
                 .<GetArticleResult>map(GetArticleResult.Found::new)

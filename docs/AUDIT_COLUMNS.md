@@ -42,7 +42,7 @@ import jakarta.persistence.*;
 
 @Entity
 @Table(name = "example")
-public class ExampleEntity extends AuditableEntity {
+public class ExampleTableRecord extends AuditableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -78,7 +78,7 @@ public class ExampleEntity extends AuditableEntity {
 import com.abservice.infrastructure.persistence.AuditInfo;
 
 // 新規作成時
-ExampleEntity entity = new ExampleEntity();
+ExampleTableRecord entity = new ExampleTableRecord();
 entity.setName("Example");
 entity.setCreationAuditInfo(new AuditInfo("ab-service", "user-123"));
 

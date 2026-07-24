@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * トラック内のチューン構成エンティティ
+ * トラック内のチューン構成テーブルレコード
  * <p>
  * テーブル: track_tune（中間テーブル）
  * </p>
@@ -26,7 +26,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class TrackTuneEntity extends AuditableEntity {
+public class TrackTuneTableRecord extends AuditableEntity {
 
     @EmbeddedId
     private TrackTuneId id;
@@ -34,7 +34,7 @@ public class TrackTuneEntity extends AuditableEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @MapsId("trackId")
     @JoinColumn(name = "track_id", nullable = false)
-    private TrackEntity track;
+    private TrackTableRecord track;
 
     @Column(name = "tune_id")
     private String tuneId;

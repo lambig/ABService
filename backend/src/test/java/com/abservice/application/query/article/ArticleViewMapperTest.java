@@ -2,7 +2,7 @@ package com.abservice.application.query.article;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.abservice.infrastructure.persistence.entity.ArticleEntity;
+import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
 import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,7 +16,7 @@ class ArticleViewMapperTest {
         // Arrange
         final var publishedAt = Instant.parse("2026-01-01T00:00:00Z");
         final var updatedAt = Instant.parse("2026-02-01T00:00:00Z");
-        final var entity = new ArticleEntity();
+        final var entity = new ArticleTableRecord();
         entity.setDomainId("0192f8a0-0000-7000-8000-000000000000");
         entity.setArticleType("NOTE");
         entity.setAlbumId("0192f8a0-0000-7000-8000-000000000001");
@@ -48,7 +48,7 @@ class ArticleViewMapperTest {
     @DisplayName("nullable 項目が null のエンティティも写像できる")
     void toViewShouldMapNullableFields() {
         // Arrange
-        final var entity = new ArticleEntity();
+        final var entity = new ArticleTableRecord();
         entity.setDomainId("0192f8a0-0000-7000-8000-000000000002");
         entity.setArticleType("NEWS");
         entity.setTitle("ニュース");
@@ -69,7 +69,7 @@ class ArticleViewMapperTest {
     @DisplayName("isPublic が null の場合は publicFlag=false")
     void toViewShouldTreatNullIsPublicAsFalse() {
         // Arrange
-        final var entity = new ArticleEntity();
+        final var entity = new ArticleTableRecord();
         entity.setDomainId("0192f8a0-0000-7000-8000-000000000003");
         entity.setArticleType("OTHER");
         entity.setTitle("その他");

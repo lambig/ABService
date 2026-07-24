@@ -15,41 +15,37 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
+
 /**
- * アルバム入手経路エンティティ
+ * アルバムイベント日付・スペーステーブルレコード
  * <p>
- * テーブル: album_acquisition_channel
+ * テーブル: album_event_date_space
+ * </p>
+ * <p>
+ * 複数日程参加に対応するため、イベントの日付とスペース番号の組み合わせを管理します。
  * </p>
  */
 @Entity
-@Table(name = "album_acquisition_channel")
+@Table(name = "album_event_date_space")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class AlbumAcquisitionChannelEntity extends AuditableEntity {
+public class AlbumEventDateSpaceTableRecord extends AuditableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "album_acquisition_id")
-    private Long albumAcquisitionId;
-
-    @Column(name = "domain_id", nullable = false, unique = true)
-    private String domainId;
+    @Column(name = "album_event_date_space_id")
+    private Long albumEventDateSpaceId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "album_id", nullable = false)
-    private AlbumEntity album;
+    private AlbumTableRecord album;
 
-    @Column(name = "channel_type", nullable = false, length = 50)
-    private String channelType;
+    @Column(name = "event_date", nullable = false)
+    private LocalDate eventDate;
 
-    @Column(name = "name", nullable = false, length = 255)
-    private String name;
-
-    @Column(name = "url", length = 500)
-    private String url;
-
-    @Column(name = "note", columnDefinition = "TEXT")
-    private String note;
+    @Column(name = "space_number", length = 50)
+    private String spaceNumber;
 }

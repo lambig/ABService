@@ -1,7 +1,7 @@
 package com.abservice.application.query.article;
 
 import com.abservice.application.query.article.model.ArticleView;
-import com.abservice.infrastructure.persistence.entity.ArticleEntity;
+import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
 import java.util.Optional;
 
 /**
@@ -9,7 +9,7 @@ import java.util.Optional;
  *
  * <p>
  * CQRS の Read 側マッパー。{@code infrastructure.persistence.datasource} が返す
- * {@link ArticleEntity} を照会結果 DTO へ平坦化します。ドメインモデルを経由しません。
+ * {@link ArticleTableRecord} を照会結果 DTO へ平坦化します。ドメインモデルを経由しません。
  * </p>
  */
 final class ArticleViewMapper {
@@ -25,7 +25,7 @@ final class ArticleViewMapper {
      *            記事エンティティ
      * @return 記事の Read Model
      */
-    static ArticleView toView(ArticleEntity entity) {
+    static ArticleView toView(ArticleTableRecord entity) {
         return new ArticleView(
                 entity.getDomainId(),
                 entity.getArticleType(),
