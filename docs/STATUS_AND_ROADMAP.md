@@ -46,7 +46,7 @@ com.abservice/
 │       ├── model/             Read Model DTO
 │       └── mapper/            Row→DTO マッパー
 ├── infrastructure/
-│   ├── persistence/{repository, entity(*Entity), mapper, datasource}
+│   ├── persistence/{repository, entity(*TableRecord), mapper, datasource}
 │   └── datetime/
 └── presentation/rest/         ★未着手
     ├── *Resource.java         CQRSで分割（Command/Query）
