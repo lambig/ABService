@@ -151,12 +151,12 @@ public class AlbumFactoryImpl implements AlbumFactory {
 
 ### 3.2 インフラ層
 
-#### AlbumEntityの実装例
+#### AlbumTableRecordの実装例
 
 ```java
 @Entity
 @Table(name = "album")
-public class AlbumEntity extends AuditableEntity {
+public class AlbumTableRecord extends AuditableEntity {
     /**
      * DB内部ID（主キー）
      * インフラ層でのみ使用
@@ -186,18 +186,18 @@ public class AlbumEntity extends AuditableEntity {
 
 ```java
 @ApplicationScoped
-public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long> {
+public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, Long> {
     /**
      * ドメインIDで検索
      */
-    public Uni<AlbumEntity> findByAlbumId(String albumId) {
+    public Uni<AlbumTableRecord> findByAlbumId(String albumId) {
         return find("albumId", albumId).firstResult();
     }
 
     /**
      * タイトルで検索
      */
-    public Uni<List<AlbumEntity>> findByTitle(String title) {
+    public Uni<List<AlbumTableRecord>> findByTitle(String title) {
         return find("title", title).list();
     }
 }
@@ -224,7 +224,7 @@ public class AlbumRepositoryImpl implements AlbumRepository {
         return albumDataSource.findByAlbumId(album.id().value())
             .onItem().ifNull().continueWith(() -> {
                 // 新規作成
-                var entity = new AlbumEntity();
+                var entity = new AlbumTableRecord();
                 entity.setAlbumId(album.id().value());
                 return entity;
             })
@@ -305,7 +305,7 @@ CREATE INDEX idx_track_album_db_id ON track(album_db_id);
    Album.Id.generate() → "550e8400-e29b-41d4-a716-446655440000" (UUIDv7)
 
 2. Repository層（save）
-   Domain ID → AlbumEntity.albumId = "550e8400-e29b-41d4-a716-446655440000"
+   Domain ID → AlbumTableRecord.albumId = "550e8400-e29b-41d4-a716-446655440000"
 
 3. DB永続化
    INSERT INTO album (album_id, ...) VALUES ('550e8400-...', ...)
@@ -323,7 +323,7 @@ CREATE INDEX idx_track_album_db_id ON track(album_db_id);
    → id=1, album_id='550e8400-...', title='Example'
 
 3. Mapper
-   AlbumEntity → Album（ドメインモデル）
+   AlbumTableRecord → Album（ドメインモデル）
    DB内部ID（1）は破棄、ドメインID（'550e8400-...'）のみ使用
 ```
 

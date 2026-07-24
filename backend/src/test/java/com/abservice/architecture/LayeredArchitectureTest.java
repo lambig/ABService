@@ -185,12 +185,14 @@ class LayeredArchitectureTest {
     }
 
     /**
-     * JPAエンティティ（{@code @Entity}）のクラス名は {@code *Entity} サフィックスにする。
+     * JPAエンティティ（{@code @Entity}）のクラス名は {@code *TableRecord} サフィックスにする。
+     * DDDのDomainEntityと紛らわしい{@code *Entity}を避け、JPA永続化用のテーブルレコードであることを明示する。
      */
     @ArchTest
-    void jpaEntitiesShouldHaveEntitySuffix(JavaClasses classes) {
-        classes().that().areAnnotatedWith("jakarta.persistence.Entity").should().haveSimpleNameEndingWith("Entity")
-                .as("@Entity 付与クラス名は *Entity サフィックスにする").check(classes);
+    void jpaEntitiesShouldHaveTableRecordSuffix(JavaClasses classes) {
+        classes().that().areAnnotatedWith("jakarta.persistence.Entity").should()
+                .haveSimpleNameEndingWith("TableRecord")
+                .as("@Entity 付与クラス名は *TableRecord サフィックスにする").check(classes);
     }
 
     /**

@@ -1,6 +1,6 @@
 package com.abservice.infrastructure.persistence.datasource;
 
-import com.abservice.infrastructure.persistence.entity.ArticleEntity;
+import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -18,9 +18,9 @@ import java.util.List;
  * </p>
  */
 @ApplicationScoped
-public class ArticleDataSource implements PanacheRepositoryBase<ArticleEntity, Long> {
+public class ArticleDataSource implements PanacheRepositoryBase<ArticleTableRecord, Long> {
 
-    private static final String EAGER_SELECT = "SELECT DISTINCT a FROM ArticleEntity a "
+    private static final String EAGER_SELECT = "SELECT DISTINCT a FROM ArticleTableRecord a "
             + "LEFT JOIN FETCH a.articleTagLinks link "
             + "LEFT JOIN FETCH link.articleTag ";
 
@@ -37,9 +37,9 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleEntity, L
      *            ドメインID
      * @return 該当する記事（存在しない場合はnull）
      */
-    public Uni<ArticleEntity> findByDomainId(String domainId) {
+    public Uni<ArticleTableRecord> findByDomainId(String domainId) {
         return sessionFactory.withSession(
-                session -> session.createQuery(EAGER_SELECT + "WHERE a.domainId = :domainId", ArticleEntity.class)
+                session -> session.createQuery(EAGER_SELECT + "WHERE a.domainId = :domainId", ArticleTableRecord.class)
                         .setParameter("domainId", domainId).getSingleResultOrNull());
     }
 
@@ -48,9 +48,9 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleEntity, L
      *
      * @return 記事のリスト
      */
-    public Uni<List<ArticleEntity>> findAllEager() {
+    public Uni<List<ArticleTableRecord>> findAllEager() {
         return sessionFactory.withSession(
-                session -> session.createQuery(EAGER_SELECT, ArticleEntity.class)
+                session -> session.createQuery(EAGER_SELECT, ArticleTableRecord.class)
                         .getResultList());
     }
 
@@ -61,9 +61,10 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleEntity, L
      *            記事のドメインID群
      * @return 該当する記事のリスト
      */
-    public Uni<List<ArticleEntity>> findByIds(Collection<String> domainIds) {
+    public Uni<List<ArticleTableRecord>> findByIds(Collection<String> domainIds) {
         return sessionFactory.withSession(
-                session -> session.createQuery(EAGER_SELECT + "WHERE a.domainId IN :domainIds", ArticleEntity.class)
+                session -> session
+                        .createQuery(EAGER_SELECT + "WHERE a.domainId IN :domainIds", ArticleTableRecord.class)
                         .setParameter("domainIds", domainIds).getResultList());
     }
 
@@ -74,10 +75,10 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleEntity, L
      *            記事タイプ
      * @return 該当する記事のリスト
      */
-    public Uni<List<ArticleEntity>> findByArticleType(String articleType) {
+    public Uni<List<ArticleTableRecord>> findByArticleType(String articleType) {
         return sessionFactory.withSession(
                 session -> session
-                        .createQuery(EAGER_SELECT + "WHERE a.articleType = :articleType", ArticleEntity.class)
+                        .createQuery(EAGER_SELECT + "WHERE a.articleType = :articleType", ArticleTableRecord.class)
                         .setParameter("articleType", articleType).getResultList());
     }
 
@@ -88,9 +89,9 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleEntity, L
      *            アルバムID (domain_id)
      * @return 該当する記事（存在しない場合はnull）
      */
-    public Uni<ArticleEntity> findByAlbumId(String albumId) {
+    public Uni<ArticleTableRecord> findByAlbumId(String albumId) {
         return sessionFactory.withSession(
-                session -> session.createQuery(EAGER_SELECT + "WHERE a.albumId = :albumId", ArticleEntity.class)
+                session -> session.createQuery(EAGER_SELECT + "WHERE a.albumId = :albumId", ArticleTableRecord.class)
                         .setParameter("albumId", albumId).getSingleResultOrNull());
     }
 
@@ -101,9 +102,10 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleEntity, L
      *            公開フラグ
      * @return 該当する記事のリスト
      */
-    public Uni<List<ArticleEntity>> findByPublicFlag(boolean publicFlag) {
+    public Uni<List<ArticleTableRecord>> findByPublicFlag(boolean publicFlag) {
         return sessionFactory.withSession(
-                session -> session.createQuery(EAGER_SELECT + "WHERE a.isPublic = :publicFlag", ArticleEntity.class)
+                session -> session
+                        .createQuery(EAGER_SELECT + "WHERE a.isPublic = :publicFlag", ArticleTableRecord.class)
                         .setParameter("publicFlag", publicFlag).getResultList());
     }
 
@@ -116,11 +118,11 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleEntity, L
      *            終了日時
      * @return 該当する記事のリスト
      */
-    public Uni<List<ArticleEntity>> findByPublishedAtBetween(Instant startDate, Instant endDate) {
+    public Uni<List<ArticleTableRecord>> findByPublishedAtBetween(Instant startDate, Instant endDate) {
         return sessionFactory.withSession(
                 session -> session.createQuery(
                         EAGER_SELECT + "WHERE a.publishedAt >= :startDate AND a.publishedAt <= :endDate",
-                        ArticleEntity.class).setParameter("startDate", startDate).setParameter("endDate", endDate)
+                        ArticleTableRecord.class).setParameter("startDate", startDate).setParameter("endDate", endDate)
                         .getResultList());
     }
 
@@ -131,10 +133,10 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleEntity, L
      *            タイトルキーワード
      * @return 該当する記事のリスト
      */
-    public Uni<List<ArticleEntity>> findByTitleContaining(String titleKeyword) {
+    public Uni<List<ArticleTableRecord>> findByTitleContaining(String titleKeyword) {
         return sessionFactory.withSession(
                 session -> session
-                        .createQuery(EAGER_SELECT + "WHERE a.title LIKE :keyword", ArticleEntity.class)
+                        .createQuery(EAGER_SELECT + "WHERE a.title LIKE :keyword", ArticleTableRecord.class)
                         .setParameter("keyword", "%" + titleKeyword + "%").getResultList());
     }
 

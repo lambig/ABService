@@ -6,13 +6,13 @@ import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.tune.TuneKind;
 import com.abservice.domain.model.vo.tune.TuneTitle;
-import com.abservice.infrastructure.persistence.entity.TuneEntity;
+import com.abservice.infrastructure.persistence.entity.TuneTableRecord;
 
 /**
  * Tune Mapper
  *
  * <p>
- * TuneドメインモデルとTuneEntityの相互変換を担当します。
+ * TuneドメインモデルとTuneTableRecordの相互変換を担当します。
  * </p>
  */
 public final class TuneMapper {
@@ -25,10 +25,10 @@ public final class TuneMapper {
      * EntityからDomainモデルへ変換
      *
      * @param entity
-     *            TuneEntity
+     *            TuneTableRecord
      * @return Tune
      */
-    public static Tune toDomain(TuneEntity entity) {
+    public static Tune toDomain(TuneTableRecord entity) {
         return Tune.reconstruct(
                 new Tune.Id(entity.getDomainId()),
                 new TuneTitle(entity.getTitle()),
@@ -51,10 +51,10 @@ public final class TuneMapper {
      *
      * @param tune
      *            Tune
-     * @return TuneEntity
+     * @return TuneTableRecord
      */
-    public static TuneEntity toEntity(Tune tune) {
-        final var tuneEntity = new TuneEntity();
+    public static TuneTableRecord toEntity(Tune tune) {
+        final var tuneEntity = new TuneTableRecord();
         tuneEntity.setDomainId(tune.id().value());
         tuneEntity.setTitle(tune.title().value());
         tuneEntity.setTuneKind(tune.tuneKind().name());

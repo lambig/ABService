@@ -1,7 +1,7 @@
 package com.abservice.infrastructure.persistence.datasource;
 
-import com.abservice.infrastructure.persistence.entity.AlbumArticleEntity;
-import com.abservice.infrastructure.persistence.entity.AlbumEntity;
+import com.abservice.infrastructure.persistence.entity.AlbumArticleTableRecord;
+import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -18,9 +18,9 @@ import java.util.List;
  * </p>
  */
 @ApplicationScoped
-public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticleEntity, Long> {
+public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticleTableRecord, Long> {
 
-    private static final String EAGER_SELECT = "SELECT DISTINCT aa FROM AlbumArticleEntity aa "
+    private static final String EAGER_SELECT = "SELECT DISTINCT aa FROM AlbumArticleTableRecord aa "
             + "LEFT JOIN FETCH aa.album a "
             + "LEFT JOIN FETCH a.albumDistribution "
             + "LEFT JOIN FETCH a.acquisitionChannels ";
@@ -38,11 +38,11 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
      *            アルバムID
      * @return 該当するアルバム記事（存在しない場合はnull）
      */
-    public Uni<AlbumArticleEntity> findByAlbumId(String domainId) {
+    public Uni<AlbumArticleTableRecord> findByAlbumId(String domainId) {
         return sessionFactory.withSession(
                 session -> session.createQuery(
                         EAGER_SELECT + "WHERE aa.domainId = :domainId",
-                        AlbumArticleEntity.class).setParameter("domainId", domainId).getSingleResultOrNull());
+                        AlbumArticleTableRecord.class).setParameter("domainId", domainId).getSingleResultOrNull());
     }
 
     /**
@@ -50,9 +50,9 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
      *
      * @return アルバム記事のリスト
      */
-    public Uni<List<AlbumArticleEntity>> findAllEager() {
+    public Uni<List<AlbumArticleTableRecord>> findAllEager() {
         return sessionFactory.withSession(
-                session -> session.createQuery(EAGER_SELECT, AlbumArticleEntity.class)
+                session -> session.createQuery(EAGER_SELECT, AlbumArticleTableRecord.class)
                         .getResultList());
     }
 
@@ -63,11 +63,11 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
      *            アルバム記事のドメインID群
      * @return 該当するアルバム記事のリスト
      */
-    public Uni<List<AlbumArticleEntity>> findByIds(Collection<String> domainIds) {
+    public Uni<List<AlbumArticleTableRecord>> findByIds(Collection<String> domainIds) {
         return sessionFactory.withSession(
                 session -> session.createQuery(
                         EAGER_SELECT + "WHERE aa.domainId IN :domainIds",
-                        AlbumArticleEntity.class).setParameter("domainIds", domainIds).getResultList());
+                        AlbumArticleTableRecord.class).setParameter("domainIds", domainIds).getResultList());
     }
 
     /**
@@ -77,11 +77,11 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
      *            ラベルタグ
      * @return 該当するアルバム記事のリスト
      */
-    public Uni<List<AlbumArticleEntity>> findByLabelTag(String labelTag) {
+    public Uni<List<AlbumArticleTableRecord>> findByLabelTag(String labelTag) {
         return sessionFactory.withSession(
                 session -> session.createQuery(
                         EAGER_SELECT + "WHERE aa.labelTag = :labelTag",
-                        AlbumArticleEntity.class).setParameter("labelTag", labelTag).getResultList());
+                        AlbumArticleTableRecord.class).setParameter("labelTag", labelTag).getResultList());
     }
 
     /**
@@ -91,12 +91,12 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
      *            イベントスペースキーワード
      * @return 該当するアルバム記事のリスト
      */
-    public Uni<List<AlbumArticleEntity>> findByFirstEventSpaceContaining(String spaceKeyword) {
+    public Uni<List<AlbumArticleTableRecord>> findByFirstEventSpaceContaining(String spaceKeyword) {
         return sessionFactory.withSession(
                 session -> session
                         .createQuery(
                                 EAGER_SELECT + "WHERE aa.firstEventSpace LIKE :keyword",
-                                AlbumArticleEntity.class)
+                                AlbumArticleTableRecord.class)
                         .setParameter("keyword", "%" + spaceKeyword + "%").getResultList());
     }
 
@@ -105,11 +105,11 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
      *
      * @return 頒布情報を持つアルバム記事のリスト
      */
-    public Uni<List<AlbumArticleEntity>> findWithDistribution() {
+    public Uni<List<AlbumArticleTableRecord>> findWithDistribution() {
         return sessionFactory.withSession(
                 session -> session.createQuery(
                         EAGER_SELECT + "WHERE a.albumDistribution IS NOT NULL",
-                        AlbumArticleEntity.class).getResultList());
+                        AlbumArticleTableRecord.class).getResultList());
     }
 
     /**
@@ -117,28 +117,29 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
      *
      * @return 入手経路を持つアルバム記事のリスト
      */
-    public Uni<List<AlbumArticleEntity>> findWithAcquisitionChannels() {
+    public Uni<List<AlbumArticleTableRecord>> findWithAcquisitionChannels() {
         return sessionFactory.withSession(
                 session -> session.createQuery(
                         EAGER_SELECT + "WHERE SIZE(a.acquisitionChannels) > 0",
-                        AlbumArticleEntity.class).getResultList());
+                        AlbumArticleTableRecord.class).getResultList());
     }
 
     /**
-     * アルバムのドメインIDから、記事・頒布情報・入手経路を含むAlbumEntityを取得する。
-     * save時にAlbumEntityの{@code cascade = ALL}を介して3種の子エンティティを 統一的に反映するためのエントリポイント。
+     * アルバムのドメインIDから、記事・頒布情報・入手経路を含むAlbumTableRecordを取得する。
+     * save時にAlbumTableRecordの{@code cascade = ALL}を介して3種の子エンティティを
+     * 統一的に反映するためのエントリポイント。
      *
      * @param albumDomainId
      *            アルバムのドメインID
-     * @return AlbumEntity（存在しない場合はnull）
+     * @return AlbumTableRecord（存在しない場合はnull）
      */
-    public Uni<AlbumEntity> findAlbumWithArticleRelationsByDomainId(String albumDomainId) {
+    public Uni<AlbumTableRecord> findAlbumWithArticleRelationsByDomainId(String albumDomainId) {
         return sessionFactory.withSession(
                 session -> session.createQuery(
-                        "SELECT a FROM AlbumEntity a " + "LEFT JOIN FETCH a.albumArticle "
+                        "SELECT a FROM AlbumTableRecord a " + "LEFT JOIN FETCH a.albumArticle "
                                 + "LEFT JOIN FETCH a.albumDistribution " + "LEFT JOIN FETCH a.acquisitionChannels "
                                 + "WHERE a.domainId = :domainId",
-                        AlbumEntity.class).setParameter("domainId", albumDomainId).getSingleResultOrNull());
+                        AlbumTableRecord.class).setParameter("domainId", albumDomainId).getSingleResultOrNull());
     }
 
     /**

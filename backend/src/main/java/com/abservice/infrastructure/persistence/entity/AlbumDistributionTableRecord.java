@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * アルバム頒布条件・価格情報エンティティ
+ * アルバム頒布条件・価格情報テーブルレコード
  * <p>
  * テーブル: album_distribution
  * </p>
@@ -26,7 +26,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class AlbumDistributionEntity extends AuditableEntity {
+public class AlbumDistributionTableRecord extends AuditableEntity {
 
     @Id
     @Column(name = "album_id")
@@ -35,7 +35,7 @@ public class AlbumDistributionEntity extends AuditableEntity {
     @OneToOne(fetch = FetchType.LAZY)
     @MapsId
     @JoinColumn(name = "album_id")
-    private AlbumEntity album;
+    private AlbumTableRecord album;
 
     @Column(name = "physical_price")
     private Integer physicalPrice;

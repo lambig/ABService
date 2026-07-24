@@ -11,10 +11,10 @@ import com.abservice.domain.model.vo.album.LabelTag;
 import com.abservice.domain.model.vo.common.Url;
 import com.abservice.domain.repository.albumarticle.AlbumArticleRepository;
 import com.abservice.infrastructure.persistence.datasource.AlbumArticleDataSource;
-import com.abservice.infrastructure.persistence.entity.AlbumAcquisitionChannelEntity;
-import com.abservice.infrastructure.persistence.entity.AlbumArticleEntity;
-import com.abservice.infrastructure.persistence.entity.AlbumDistributionEntity;
-import com.abservice.infrastructure.persistence.entity.AlbumEntity;
+import com.abservice.infrastructure.persistence.entity.AlbumAcquisitionChannelTableRecord;
+import com.abservice.infrastructure.persistence.entity.AlbumArticleTableRecord;
+import com.abservice.infrastructure.persistence.entity.AlbumDistributionTableRecord;
+import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
 import com.abservice.infrastructure.persistence.mapper.AlbumArticleMapper;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -54,7 +54,7 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
                 .map(AlbumArticleMapper::toDomain);
     }
 
-    private Uni<AlbumArticleEntity> upsertArticle(AlbumEntity album, AlbumArticle aggregate) {
+    private Uni<AlbumArticleTableRecord> upsertArticle(AlbumTableRecord album, AlbumArticle aggregate) {
         final var newValues = AlbumArticleMapper.toEntity(aggregate);
         reconcileDistribution(album, aggregate.distribution());
         reconcileAcquisitionChannels(album, aggregate.getAcquisitionChannels());
@@ -64,7 +64,8 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
                         .orElseGet(() -> linkNewArticle(album, newValues)));
     }
 
-    private static AlbumArticleEntity copyArticleScalarFields(AlbumArticleEntity target, AlbumArticleEntity source) {
+    private static AlbumArticleTableRecord copyArticleScalarFields(AlbumArticleTableRecord target,
+            AlbumArticleTableRecord source) {
         target.setIntroLong(source.getIntroLong());
         target.setIntroShort(source.getIntroShort());
         target.setFirstEventSpace(source.getFirstEventSpace());
@@ -72,13 +73,13 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
         return target;
     }
 
-    private static AlbumArticleEntity linkNewArticle(AlbumEntity album, AlbumArticleEntity newValues) {
+    private static AlbumArticleTableRecord linkNewArticle(AlbumTableRecord album, AlbumArticleTableRecord newValues) {
         newValues.setAlbum(album);
         album.setAlbumArticle(newValues);
         return newValues;
     }
 
-    private static void reconcileDistribution(AlbumEntity album, @Nullable AlbumDistribution desired) {
+    private static void reconcileDistribution(AlbumTableRecord album, @Nullable AlbumDistribution desired) {
         Optional.ofNullable(desired)
                 .map(AlbumArticleMapper::toDistributionEntity)
                 .ifPresentOrElse(
@@ -86,7 +87,7 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
                         () -> album.setAlbumDistribution(null));
     }
 
-    private static void applyDistribution(AlbumEntity album, AlbumDistributionEntity newEntity) {
+    private static void applyDistribution(AlbumTableRecord album, AlbumDistributionTableRecord newEntity) {
         Optional.ofNullable(album.getAlbumDistribution())
                 .ifPresentOrElse(
                         existing -> copyDistributionFields(existing, newEntity),
@@ -96,16 +97,17 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
                         });
     }
 
-    private static void copyDistributionFields(AlbumDistributionEntity target, AlbumDistributionEntity source) {
+    private static void copyDistributionFields(AlbumDistributionTableRecord target,
+            AlbumDistributionTableRecord source) {
         target.setPhysicalPrice(source.getPhysicalPrice());
         target.setDownloadPrice(source.getDownloadPrice());
         target.setDemoUrl(source.getDemoUrl());
         target.setNote(source.getNote());
     }
 
-    private static void reconcileAcquisitionChannels(AlbumEntity album, List<AlbumAcquisitionChannel> desired) {
+    private static void reconcileAcquisitionChannels(AlbumTableRecord album, List<AlbumAcquisitionChannel> desired) {
         final var existingByDomainId = album.getAcquisitionChannels().stream()
-                .collect(Collectors.toMap(AlbumAcquisitionChannelEntity::getDomainId, Function.identity()));
+                .collect(Collectors.toMap(AlbumAcquisitionChannelTableRecord::getDomainId, Function.identity()));
         final var desiredIds = desired.stream()
                 .map(c -> c.id().value())
                 .collect(Collectors.toSet());
@@ -123,7 +125,7 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
                                 }));
     }
 
-    private static void copyChannelFields(AlbumAcquisitionChannelEntity target, AlbumAcquisitionChannel source) {
+    private static void copyChannelFields(AlbumAcquisitionChannelTableRecord target, AlbumAcquisitionChannel source) {
         target.setChannelType(source.getChannelType().name());
         target.setName(source.getName());
         target.setUrl(

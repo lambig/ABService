@@ -1,6 +1,6 @@
 package com.abservice.infrastructure.persistence.datasource;
 
-import com.abservice.infrastructure.persistence.entity.ArticleTagEntity;
+import com.abservice.infrastructure.persistence.entity.ArticleTagTableRecord;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -17,7 +17,7 @@ import java.util.List;
  * </p>
  */
 @ApplicationScoped
-public class ArticleTagDataSource implements PanacheRepositoryBase<ArticleTagEntity, Long> {
+public class ArticleTagDataSource implements PanacheRepositoryBase<ArticleTagTableRecord, Long> {
 
     /**
      * ドメインIDの集合に一致する記事タグを取得する
@@ -26,7 +26,7 @@ public class ArticleTagDataSource implements PanacheRepositoryBase<ArticleTagEnt
      *            ドメインIDの集合
      * @return 該当する記事タグのリスト
      */
-    public Uni<List<ArticleTagEntity>> findByDomainIds(Collection<String> domainIds) {
+    public Uni<List<ArticleTagTableRecord>> findByDomainIds(Collection<String> domainIds) {
         return domainIds.isEmpty()
                 ? Uni.createFrom().item(List.of())
                 : list("domainId in ?1", domainIds);
@@ -39,7 +39,7 @@ public class ArticleTagDataSource implements PanacheRepositoryBase<ArticleTagEnt
      *            永続化する記事タグエンティティのリスト
      * @return 完了シグナル
      */
-    public Uni<Void> persistAll(List<ArticleTagEntity> entities) {
+    public Uni<Void> persistAll(List<ArticleTagTableRecord> entities) {
         return Multi.createFrom().iterable(entities)
                 .onItem().transformToUniAndConcatenate(this::persist)
                 .collect().asList()

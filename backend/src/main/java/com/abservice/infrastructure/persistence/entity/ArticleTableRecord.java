@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 記事エンティティ
+ * 記事テーブルレコード
  * <p>
  * テーブル: article
  * </p>
@@ -33,7 +33,7 @@ import java.util.List;
 @Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
-public class ArticleEntity extends AuditableEntity {
+public class ArticleTableRecord extends AuditableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -71,5 +71,5 @@ public class ArticleEntity extends AuditableEntity {
     private Boolean isPublic = false;
 
     @OneToMany(mappedBy = "article", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private List<ArticleTagLinkEntity> articleTagLinks = new ArrayList<>();
+    private List<ArticleTagLinkTableRecord> articleTagLinks = new ArrayList<>();
 }

@@ -1,6 +1,6 @@
 package com.abservice.infrastructure.persistence.datasource;
 
-import com.abservice.infrastructure.persistence.entity.TuneEntity;
+import com.abservice.infrastructure.persistence.entity.TuneTableRecord;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -17,7 +17,7 @@ import java.util.List;
  * </p>
  */
 @ApplicationScoped
-public class TuneDataSource implements PanacheRepositoryBase<TuneEntity, Long> {
+public class TuneDataSource implements PanacheRepositoryBase<TuneTableRecord, Long> {
 
     private final Mutiny.SessionFactory sessionFactory;
 
@@ -32,7 +32,7 @@ public class TuneDataSource implements PanacheRepositoryBase<TuneEntity, Long> {
      *            チューンのドメインID群
      * @return 該当するチューンのリスト
      */
-    public Uni<List<TuneEntity>> findByIds(Collection<String> domainIds) {
+    public Uni<List<TuneTableRecord>> findByIds(Collection<String> domainIds) {
         return list("domainId in ?1", domainIds);
     }
 
@@ -43,7 +43,7 @@ public class TuneDataSource implements PanacheRepositoryBase<TuneEntity, Long> {
      *            チューンタイトル
      * @return 該当するチューンのリスト
      */
-    public Uni<List<TuneEntity>> findByTitle(String title) {
+    public Uni<List<TuneTableRecord>> findByTitle(String title) {
         return list("title", title);
     }
 
@@ -54,7 +54,7 @@ public class TuneDataSource implements PanacheRepositoryBase<TuneEntity, Long> {
      *            チューン種別
      * @return 該当するチューンのリスト
      */
-    public Uni<List<TuneEntity>> findByTuneKind(String tuneKind) {
+    public Uni<List<TuneTableRecord>> findByTuneKind(String tuneKind) {
         return list("tuneKind", tuneKind);
     }
 
@@ -65,7 +65,7 @@ public class TuneDataSource implements PanacheRepositoryBase<TuneEntity, Long> {
      *            チューンタイプ
      * @return 該当するチューンのリスト
      */
-    public Uni<List<TuneEntity>> findByTuneType(String tuneType) {
+    public Uni<List<TuneTableRecord>> findByTuneType(String tuneType) {
         return list("tuneType", tuneType);
     }
 
@@ -76,7 +76,7 @@ public class TuneDataSource implements PanacheRepositoryBase<TuneEntity, Long> {
      *            デフォルトキー
      * @return 該当するチューンのリスト
      */
-    public Uni<List<TuneEntity>> findByDefaultKey(String defaultKey) {
+    public Uni<List<TuneTableRecord>> findByDefaultKey(String defaultKey) {
         return list("defaultKey", defaultKey);
     }
 
