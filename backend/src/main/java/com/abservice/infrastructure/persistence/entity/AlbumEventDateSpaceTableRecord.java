@@ -1,6 +1,6 @@
 package com.abservice.infrastructure.persistence.entity;
 
-import com.abservice.infrastructure.persistence.AuditableEntity;
+import com.abservice.infrastructure.persistence.AuditableTableRecord;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -34,7 +34,7 @@ import java.time.LocalDate;
 @Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
-public class AlbumEventDateSpaceTableRecord extends AuditableEntity {
+public class AlbumEventDateSpaceTableRecord extends AuditableTableRecord<AlbumEventDateSpaceTableRecord> {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

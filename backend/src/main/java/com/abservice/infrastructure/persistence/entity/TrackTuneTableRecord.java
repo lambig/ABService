@@ -1,6 +1,6 @@
 package com.abservice.infrastructure.persistence.entity;
 
-import com.abservice.infrastructure.persistence.AuditableEntity;
+import com.abservice.infrastructure.persistence.AuditableTableRecord;
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
@@ -13,6 +13,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 
 /**
  * トラック内のチューン構成テーブルレコード
@@ -24,9 +25,10 @@ import lombok.Setter;
 @Table(name = "track_tune")
 @Getter
 @Setter
+@Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
-public class TrackTuneTableRecord extends AuditableEntity {
+public class TrackTuneTableRecord extends AuditableTableRecord<TrackTuneTableRecord> {
 
     @EmbeddedId
     private TrackTuneId id;

@@ -106,10 +106,10 @@ public final class AlbumMapper {
      * @return AlbumTableRecord
      */
     public static AlbumTableRecord toEntity(Album album) {
-        final var albumEntity = new AlbumTableRecord();
-        albumEntity.setDomainId(album.id().value());
-        albumEntity.setTitle(album.title().value());
-        albumEntity.setReleaseDate(album.releaseDate().asLocalDate());
+        final var albumEntity = new AlbumTableRecord()
+                .setDomainId(album.id().value())
+                .setTitle(album.title().value())
+                .setReleaseDate(album.releaseDate().asLocalDate());
         setArtistCreditFields(albumEntity, album.artistCredit());
         Optional.ofNullable(album.eventReleasedAt())
                 .ifPresent(event -> populateEventFields(albumEntity, event));
@@ -119,19 +119,19 @@ public final class AlbumMapper {
     }
 
     private static void setArtistCreditFields(AlbumTableRecord entity, ArtistCredit credit) {
-        entity.setArtistDisplayName(credit.displayName().value());
-        entity.setArtistSortKey(credit.sortKey());
+        entity.setArtistDisplayName(credit.displayName().value())
+                .setArtistSortKey(credit.sortKey());
     }
 
     private static void setCatalogFields(AlbumTableRecord entity, Album album) {
         entity.setCatalogNumber(
                 Optional.ofNullable(album.catalogNumber())
                         .map(CatalogNumber::value)
-                        .orElse(null));
-        entity.setIsdn(
-                Optional.ofNullable(album.isdn())
-                        .map(Isdn::value)
-                        .orElse(null));
+                        .orElse(null))
+                .setIsdn(
+                        Optional.ofNullable(album.isdn())
+                                .map(Isdn::value)
+                                .orElse(null));
     }
 
     private static void setTracksField(AlbumTableRecord entity, Album album) {
@@ -142,9 +142,9 @@ public final class AlbumMapper {
     }
 
     private static void populateEventFields(AlbumTableRecord albumEntity, EventReleasedAt event) {
-        albumEntity.setEventName(event.name().value());
-        albumEntity.setEventPlace(event.place());
-        albumEntity.setEventNote(event.note());
+        albumEntity.setEventName(event.name().value())
+                .setEventPlace(event.place())
+                .setEventNote(event.note());
 
         Optional.ofNullable(event.dateAndSpaces())
                 .filter(not(List::isEmpty))
@@ -157,23 +157,21 @@ public final class AlbumMapper {
     private static void populateDateAndSpaceEntities(AlbumTableRecord albumEntity,
             List<EventDateAndSpace> dateAndSpaces) {
         dateAndSpaces.stream()
-                .map(ds -> {
-                    final var entity = new AlbumEventDateSpaceTableRecord();
-                    entity.setAlbum(albumEntity);
-                    entity.setEventDate(ds.date().asLocalDate());
-                    entity.setSpaceNumber(ds.spaceNumber());
-                    // 監査カラムのデフォルト値を設定
-                    entity.setCreatedByService("abservice");
-                    entity.setUpdatedByService("abservice");
-                    return entity;
-                })
+                // 監査カラムはデフォルト値を設定
+                .map(
+                        ds -> new AlbumEventDateSpaceTableRecord()
+                                .setAlbum(albumEntity)
+                                .setEventDate(ds.date().asLocalDate())
+                                .setSpaceNumber(ds.spaceNumber())
+                                .setCreatedByService("abservice")
+                                .setUpdatedByService("abservice"))
                 .collect(optionally(toUnmodifiableList()))
                 .ifPresent(albumEntity::setEventDateSpaces);
     }
 
     private static void populateLegacyDateAndSpace(AlbumTableRecord albumEntity, EventDateAndSpace firstDateSpace) {
-        albumEntity.setEventDate(firstDateSpace.date().asLocalDate());
-        albumEntity.setEventSpaceNumber(firstDateSpace.spaceNumber());
+        albumEntity.setEventDate(firstDateSpace.date().asLocalDate())
+                .setEventSpaceNumber(firstDateSpace.spaceNumber());
     }
 
     /**
@@ -219,26 +217,26 @@ public final class AlbumMapper {
      * @return TrackTableRecord
      */
     private static TrackTableRecord trackToEntity(Track track, AlbumTableRecord albumEntity) {
-        final var trackEntity = new TrackTableRecord();
-        trackEntity.setDomainId(track.id().value());
-        trackEntity.setAlbum(albumEntity);
-        trackEntity.setTrackNo(track.trackNo());
-        trackEntity.setTitle(track.title().value());
+        final var trackEntity = new TrackTableRecord()
+                .setDomainId(track.id().value())
+                .setAlbum(albumEntity)
+                .setTrackNo(track.trackNo())
+                .setTitle(track.title().value())
+                .setRecordingDate(
+                        Optional.ofNullable(track.recordingDate())
+                                .map(BusinessDate::asLocalDate)
+                                .orElse(null))
+                .setRecordingPlace(track.recordingPlace())
+                .setIsLive(track.isLive());
         Optional.ofNullable(track.artistCredit())
                 .ifPresent(ac -> setTrackArtistCredit(trackEntity, ac));
-        trackEntity.setRecordingDate(
-                Optional.ofNullable(track.recordingDate())
-                        .map(BusinessDate::asLocalDate)
-                        .orElse(null));
-        trackEntity.setRecordingPlace(track.recordingPlace());
-        trackEntity.setIsLive(track.isLive());
         setTrackTunesField(trackEntity, track);
         return trackEntity;
     }
 
     private static void setTrackArtistCredit(TrackTableRecord entity, ArtistCredit credit) {
-        entity.setArtistDisplayName(credit.displayName().value());
-        entity.setArtistSortKey(credit.sortKey());
+        entity.setArtistDisplayName(credit.displayName().value())
+                .setArtistSortKey(credit.sortKey());
     }
 
     private static void setTrackTunesField(TrackTableRecord entity, Track track) {
@@ -282,25 +280,24 @@ public final class AlbumMapper {
      * @return TrackTuneTableRecord
      */
     private static TrackTuneTableRecord trackTuneToEntity(TrackTune trackTune, TrackTableRecord trackEntity) {
-        final var trackTuneEntity = new TrackTuneTableRecord();
-        trackTuneEntity.setId(new TrackTuneId(trackEntity.getTrackId(), trackTune.seq()));
-        trackTuneEntity.setTrack(trackEntity);
-        trackTuneEntity.setTuneId(
-                Optional.ofNullable(trackTune.tuneId())
-                        .map(Tune.Id::value)
-                        .orElse(null));
-        trackTuneEntity.setComposerCreditOverride(
-                Optional.ofNullable(trackTune.composerCreditOverride())
-                        .map(Credit::value)
-                        .orElse(null));
-        trackTuneEntity.setArrangerCreditOverride(
-                Optional.ofNullable(trackTune.arrangerCreditOverride())
-                        .map(Credit::value)
-                        .orElse(null));
-        trackTuneEntity.setLinkUrl(
-                Optional.ofNullable(trackTune.linkUrl())
-                        .map(Url::value)
-                        .orElse(null));
-        return trackTuneEntity;
+        return new TrackTuneTableRecord()
+                .setId(new TrackTuneId(trackEntity.getTrackId(), trackTune.seq()))
+                .setTrack(trackEntity)
+                .setTuneId(
+                        Optional.ofNullable(trackTune.tuneId())
+                                .map(Tune.Id::value)
+                                .orElse(null))
+                .setComposerCreditOverride(
+                        Optional.ofNullable(trackTune.composerCreditOverride())
+                                .map(Credit::value)
+                                .orElse(null))
+                .setArrangerCreditOverride(
+                        Optional.ofNullable(trackTune.arrangerCreditOverride())
+                                .map(Credit::value)
+                                .orElse(null))
+                .setLinkUrl(
+                        Optional.ofNullable(trackTune.linkUrl())
+                                .map(Url::value)
+                                .orElse(null));
     }
 }

@@ -54,23 +54,22 @@ public final class TuneMapper {
      * @return TuneTableRecord
      */
     public static TuneTableRecord toEntity(Tune tune) {
-        final var tuneEntity = new TuneTableRecord();
-        tuneEntity.setDomainId(tune.id().value());
-        tuneEntity.setTitle(tune.title().value());
-        tuneEntity.setTuneKind(tune.tuneKind().name());
-        tuneEntity.setDefaultComposerCredit(
-                Optional.ofNullable(tune.defaultComposerCredit())
-                        .map(Credit::value)
-                        .orElse(null));
-        tuneEntity.setDefaultArrangerCredit(
-                Optional.ofNullable(tune.defaultArrangerCredit())
-                        .map(Credit::value)
-                        .orElse(null));
-        tuneEntity.setOriginalWorkTitle(tune.originalWorkTitle());
-        tuneEntity.setOriginalWorkCredit(tune.originalWorkCredit());
-        tuneEntity.setTuneType(tune.tuneType());
-        tuneEntity.setDefaultKey(tune.defaultKey());
-        tuneEntity.setDefaultTempo(tune.defaultTempo());
-        return tuneEntity;
+        return new TuneTableRecord()
+                .setDomainId(tune.id().value())
+                .setTitle(tune.title().value())
+                .setTuneKind(tune.tuneKind().name())
+                .setDefaultComposerCredit(
+                        Optional.ofNullable(tune.defaultComposerCredit())
+                                .map(Credit::value)
+                                .orElse(null))
+                .setDefaultArrangerCredit(
+                        Optional.ofNullable(tune.defaultArrangerCredit())
+                                .map(Credit::value)
+                                .orElse(null))
+                .setOriginalWorkTitle(tune.originalWorkTitle())
+                .setOriginalWorkCredit(tune.originalWorkCredit())
+                .setTuneType(tune.tuneType())
+                .setDefaultKey(tune.defaultKey())
+                .setDefaultTempo(tune.defaultTempo());
     }
 }

@@ -9,9 +9,9 @@ import java.time.Instant;
 import java.util.Optional;
 
 /**
- * 共通監査列を持つエンティティの基底クラス
+ * 共通監査列を持つテーブルレコードの基底クラス
  * <p>
- * すべてのエンティティは以下の7つの監査列を持つ必要があります:
+ * すべてのテーブルレコードは以下の7つの監査列を持つ必要があります:
  * <ul>
  * <li>created_at: レコード作成日時</li>
  * <li>updated_at: レコード最終更新日時</li>
@@ -22,9 +22,19 @@ import java.util.Optional;
  * <li>version: 楽観ロック用バージョン番号</li>
  * </ul>
  * </p>
+ *
+ * <p>
+ * 自己型ジェネリクス（CRTP、{@link com.abservice.domain.model.DomainObject}と同型）で、
+ * setterはサブクラス自身の型（{@code T}）を返す。サブクラス側の{@code @Accessors(chain = true)}
+ * によるchainable setterと戻り値型が一致し、継承元・サブクラス自身のsetter呼び出しを
+ * 呼び出し順によらず1本のfluentチェーンで連結できる。
+ * </p>
+ *
+ * @param <T>
+ *            サブクラス自身の型
  */
 @MappedSuperclass
-public abstract class AuditableEntity {
+public abstract class AuditableTableRecord<T extends AuditableTableRecord<T>> {
 
     /**
      * レコード作成日時
@@ -101,62 +111,79 @@ public abstract class AuditableEntity {
         this.updatedAt = Instant.now();
     }
 
+    /**
+     * 自分自身を{@code T}として返す（CRTPのキャスト集約点）。
+     *
+     * @return {@code T}にキャストした自分自身
+     */
+    @SuppressWarnings("unchecked") // CRTP: 宣言側でT extends AuditableTableRecord<T>のため実行時安全
+    private T self() {
+        return (T) this;
+    }
+
     // Getters and Setters
 
     public Instant getCreatedAt() {
         return createdAt;
     }
 
-    public void setCreatedAt(Instant createdAt) {
-        this.createdAt = createdAt;
+    public T setCreatedAt(Instant value) {
+        this.createdAt = value;
+        return self();
     }
 
     public Instant getUpdatedAt() {
         return updatedAt;
     }
 
-    public void setUpdatedAt(Instant updatedAt) {
-        this.updatedAt = updatedAt;
+    public T setUpdatedAt(Instant value) {
+        this.updatedAt = value;
+        return self();
     }
 
     public String getCreatedByService() {
         return createdByService;
     }
 
-    public void setCreatedByService(String createdByService) {
-        this.createdByService = createdByService;
+    public T setCreatedByService(String value) {
+        this.createdByService = value;
+        return self();
     }
 
     public String getUpdatedByService() {
         return updatedByService;
     }
 
-    public void setUpdatedByService(String updatedByService) {
-        this.updatedByService = updatedByService;
+    public T setUpdatedByService(String value) {
+        this.updatedByService = value;
+        return self();
     }
 
     public String getCreatedByUser() {
         return createdByUser;
     }
 
-    public void setCreatedByUser(String createdByUser) {
-        this.createdByUser = createdByUser;
+    public T setCreatedByUser(String value) {
+        this.createdByUser = value;
+        return self();
     }
 
     public String getUpdatedByUser() {
         return updatedByUser;
     }
 
-    public void setUpdatedByUser(String updatedByUser) {
-        this.updatedByUser = updatedByUser;
+    public T setUpdatedByUser(String value) {
+        this.updatedByUser = value;
+        return self();
     }
 
     public Integer getVersion() {
         return version;
     }
 
-    public void setVersion(Integer version) {
-        this.version = version;
+    public T setVersion(Integer value) {
+        this.version = value;
+        return self();
     }
 
     /**
@@ -167,12 +194,14 @@ public abstract class AuditableEntity {
      *
      * @param auditInfo
      *            監査情報
+     * @return 自分自身（chainable）
      */
-    public void setCreationAuditInfo(AuditInfo auditInfo) {
+    public T setCreationAuditInfo(AuditInfo auditInfo) {
         Optional.ofNullable(auditInfo).ifPresent(info -> {
             this.createdByService = info.serviceName();
             this.createdByUser = info.userId();
         });
+        return self();
     }
 
     /**
@@ -183,11 +212,13 @@ public abstract class AuditableEntity {
      *
      * @param auditInfo
      *            監査情報
+     * @return 自分自身（chainable）
      */
-    public void setUpdateAuditInfo(AuditInfo auditInfo) {
+    public T setUpdateAuditInfo(AuditInfo auditInfo) {
         Optional.ofNullable(auditInfo).ifPresent(info -> {
             this.updatedByService = info.serviceName();
             this.updatedByUser = info.userId();
         });
+        return self();
     }
 }

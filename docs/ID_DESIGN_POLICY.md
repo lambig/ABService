@@ -156,7 +156,7 @@ public class AlbumFactoryImpl implements AlbumFactory {
 ```java
 @Entity
 @Table(name = "album")
-public class AlbumTableRecord extends AuditableEntity {
+public class AlbumTableRecord extends AuditableTableRecord {
     /**
      * DB内部ID（主キー）
      * インフラ層でのみ使用

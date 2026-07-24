@@ -90,10 +90,9 @@ public final class ArticleMapper {
      * @return ArticleTagTableRecord
      */
     public static ArticleTagTableRecord toTagEntity(ArticleTag tag) {
-        final var entity = new ArticleTagTableRecord();
-        entity.setDomainId(tag.id().value());
-        entity.setName(tag.getName());
-        return entity;
+        return new ArticleTagTableRecord()
+                .setDomainId(tag.id().value())
+                .setName(tag.getName());
     }
 
     private static @Nullable BusinessDateTime toBusinessDateTime(@Nullable Instant instant) {
@@ -116,26 +115,27 @@ public final class ArticleMapper {
      * @return ArticleTableRecord
      */
     public static ArticleTableRecord toEntity(Article article) {
-        final var articleEntity = new ArticleTableRecord();
-        articleEntity.setDomainId(article.id().value());
-        articleEntity.setArticleType(article.articleType().name());
-        articleEntity.setAlbumId(
-                Optional.ofNullable(article.albumId())
-                        .map(Album.Id::value)
-                        .orElse(null));
-        articleEntity.setTitle(article.title().value());
-        Optional.ofNullable(article.body()).ifPresentOrElse(body -> {
-            articleEntity.setBody(body.content());
-            articleEntity.setBodyFormat(body.format().name());
-        }, () -> {
-            articleEntity.setBody(null);
-            articleEntity.setBodyFormat(MarkupFormat.PLAIN_TEXT.name());
-        });
-        articleEntity.setIntroShort(article.introShort());
-        articleEntity.setPublishedAt(toInstant(article.publishedAt()));
-        articleEntity.setUpdatedAtBusiness(toInstant(article.updatedAtBusiness()));
-        articleEntity.setIsPublic(article.publicFlag());
-        return articleEntity;
+        final var body = article.body();
+        return new ArticleTableRecord()
+                .setDomainId(article.id().value())
+                .setArticleType(article.articleType().name())
+                .setAlbumId(
+                        Optional.ofNullable(article.albumId())
+                                .map(Album.Id::value)
+                                .orElse(null))
+                .setTitle(article.title().value())
+                .setBody(
+                        Optional.ofNullable(body)
+                                .map(MarkupContent::content)
+                                .orElse(null))
+                .setBodyFormat(
+                        Optional.ofNullable(body)
+                                .map(b -> b.format().name())
+                                .orElse(MarkupFormat.PLAIN_TEXT.name()))
+                .setIntroShort(article.introShort())
+                .setPublishedAt(toInstant(article.publishedAt()))
+                .setUpdatedAtBusiness(toInstant(article.updatedAtBusiness()))
+                .setIsPublic(article.publicFlag());
     }
 
     private static @Nullable Instant toInstant(@Nullable BusinessDateTime businessDateTime) {

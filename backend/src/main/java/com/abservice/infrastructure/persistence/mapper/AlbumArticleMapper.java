@@ -79,14 +79,12 @@ public final class AlbumArticleMapper {
     public static @Nullable AlbumDistributionTableRecord toDistributionEntity(
             @Nullable AlbumDistribution distribution) {
         return Optional.ofNullable(distribution)
-                .map(d -> {
-                    final var entity = new AlbumDistributionTableRecord();
-                    entity.setPhysicalPrice(toAmount(d.getPhysicalPrice()));
-                    entity.setDownloadPrice(toAmount(d.getDownloadPrice()));
-                    entity.setDemoUrl(toUrlValue(d.getDemoUrl()));
-                    entity.setNote(d.getNote());
-                    return entity;
-                })
+                .map(
+                        d -> new AlbumDistributionTableRecord()
+                                .setPhysicalPrice(toAmount(d.getPhysicalPrice()))
+                                .setDownloadPrice(toAmount(d.getDownloadPrice()))
+                                .setDemoUrl(toUrlValue(d.getDemoUrl()))
+                                .setNote(d.getNote()))
                 .orElse(null);
     }
 
@@ -128,13 +126,12 @@ public final class AlbumArticleMapper {
      * @return AlbumAcquisitionChannelTableRecord
      */
     public static AlbumAcquisitionChannelTableRecord toAcquisitionChannelEntity(AlbumAcquisitionChannel channel) {
-        final var entity = new AlbumAcquisitionChannelTableRecord();
-        entity.setDomainId(channel.id().value());
-        entity.setChannelType(channel.getChannelType().name());
-        entity.setName(channel.getName());
-        entity.setUrl(toUrlValue(channel.getUrl()));
-        entity.setNote(channel.getNote());
-        return entity;
+        return new AlbumAcquisitionChannelTableRecord()
+                .setDomainId(channel.id().value())
+                .setChannelType(channel.getChannelType().name())
+                .setName(channel.getName())
+                .setUrl(toUrlValue(channel.getUrl()))
+                .setNote(channel.getNote());
     }
 
     private static @Nullable Price toPrice(@Nullable Integer amount) {
@@ -169,16 +166,14 @@ public final class AlbumArticleMapper {
      * @return AlbumArticleTableRecord
      */
     public static AlbumArticleTableRecord toEntity(AlbumArticle albumArticle) {
-        final var albumArticleEntity = new AlbumArticleTableRecord();
-        albumArticleEntity.setDomainId(albumArticle.albumId().value());
-        albumArticleEntity.setIntroLong(albumArticle.introLong());
-        albumArticleEntity.setIntroShort(albumArticle.introShort());
-        albumArticleEntity.setFirstEventSpace(albumArticle.firstEventSpace());
-        albumArticleEntity.setLabelTag(
-                Optional.ofNullable(albumArticle.labelTag())
-                        .map(LabelTag::name)
-                        .orElse(null));
-
-        return albumArticleEntity;
+        return new AlbumArticleTableRecord()
+                .setDomainId(albumArticle.albumId().value())
+                .setIntroLong(albumArticle.introLong())
+                .setIntroShort(albumArticle.introShort())
+                .setFirstEventSpace(albumArticle.firstEventSpace())
+                .setLabelTag(
+                        Optional.ofNullable(albumArticle.labelTag())
+                                .map(LabelTag::name)
+                                .orElse(null));
     }
 }

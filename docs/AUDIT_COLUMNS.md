@@ -32,17 +32,17 @@ ABServiceプロジェクトでは、すべてのデータベーステーブル�
 
 ### 基本的な使い方
 
-すべてのエンティティは `AuditableEntity` を継承します。
+すべてのエンティティは `AuditableTableRecord` を継承します。
 
 ```java
 package com.abservice.infrastructure.persistence.entity;
 
-import com.abservice.infrastructure.persistence.AuditableEntity;
+import com.abservice.infrastructure.persistence.AuditableTableRecord;
 import jakarta.persistence.*;
 
 @Entity
 @Table(name = "example")
-public class ExampleTableRecord extends AuditableEntity {
+public class ExampleTableRecord extends AuditableTableRecord {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -165,5 +165,5 @@ CREATE INDEX idx_existing_table_updated_at ON existing_table(updated_at);
 
 ## 関連クラス
 
-- `com.abservice.infrastructure.persistence.AuditableEntity` - 共通監査列を持つエンティティの基底クラス
+- `com.abservice.infrastructure.persistence.AuditableTableRecord` - 共通監査列を持つテーブルレコードの基底クラス
 - `com.abservice.infrastructure.persistence.AuditInfo` - 監査情報を保持するデータクラス
