@@ -1,6 +1,6 @@
 package com.abservice.infrastructure.persistence.entity;
 
-import com.abservice.infrastructure.persistence.AuditableEntity;
+import com.abservice.infrastructure.persistence.AuditableTableRecord;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -28,7 +28,7 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
-public class AlbumArticleTableRecord extends AuditableEntity {
+public class AlbumArticleTableRecord extends AuditableTableRecord<AlbumArticleTableRecord> {
 
     @Id
     @Column(name = "album_id")

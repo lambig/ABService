@@ -1,6 +1,6 @@
 package com.abservice.infrastructure.persistence.entity;
 
-import com.abservice.infrastructure.persistence.AuditableEntity;
+import com.abservice.infrastructure.persistence.AuditableTableRecord;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -33,7 +33,7 @@ import java.util.List;
 @Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
-public class ArticleTableRecord extends AuditableEntity {
+public class ArticleTableRecord extends AuditableTableRecord<ArticleTableRecord> {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

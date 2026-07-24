@@ -1,6 +1,6 @@
 package com.abservice.infrastructure.persistence.entity;
 
-import com.abservice.infrastructure.persistence.AuditableEntity;
+import com.abservice.infrastructure.persistence.AuditableTableRecord;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -26,7 +26,7 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
-public class TuneTableRecord extends AuditableEntity {
+public class TuneTableRecord extends AuditableTableRecord<TuneTableRecord> {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

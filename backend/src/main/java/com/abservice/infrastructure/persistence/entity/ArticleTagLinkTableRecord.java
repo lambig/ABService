@@ -1,6 +1,6 @@
 package com.abservice.infrastructure.persistence.entity;
 
-import com.abservice.infrastructure.persistence.AuditableEntity;
+import com.abservice.infrastructure.persistence.AuditableTableRecord;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -27,7 +27,7 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
-public class ArticleTagLinkTableRecord extends AuditableEntity {
+public class ArticleTagLinkTableRecord extends AuditableTableRecord<ArticleTagLinkTableRecord> {
 
     @EmbeddedId
     private ArticleTagLinkId id;
