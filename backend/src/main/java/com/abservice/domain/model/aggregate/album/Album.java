@@ -1,6 +1,5 @@
 package com.abservice.domain.model.aggregate.album;
 
-import static com.abservice.lib.Iterables.toList;
 import static java.util.function.Predicate.not;
 
 import java.util.Collections;
@@ -251,11 +250,12 @@ public class Album implements Aggregate<Album, Album.Id> {
                             "Track number " + validatedTrack.trackNo() + " already exists");
                 });
         return withTracks(
-                toList(
-                        tracks,
-                        t -> validatedTrack.equivalentTo(t)
-                                ? validatedTrack
-                                : t));
+                tracks.stream()
+                        .map(
+                                t -> validatedTrack.equivalentTo(t)
+                                        ? validatedTrack
+                                        : t)
+                        .toList());
     }
 
     /**
@@ -283,10 +283,11 @@ public class Album implements Aggregate<Album, Album.Id> {
 
     private @NonNull List<Track> renumberByOrder(@NonNull List<Track.Id> orderedTrackIds) {
         final var trackNo = new AtomicInteger(1);
-        return toList(
-                orderedTrackIds,
-                trackId -> getTrack(trackId)
-                        .withTrackNo(trackNo.getAndIncrement()));
+        return orderedTrackIds.stream()
+                .map(
+                        trackId -> getTrack(trackId)
+                                .withTrackNo(trackNo.getAndIncrement()))
+                .toList();
     }
 
     /**

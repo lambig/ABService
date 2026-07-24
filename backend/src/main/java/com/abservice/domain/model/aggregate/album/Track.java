@@ -1,6 +1,5 @@
 package com.abservice.domain.model.aggregate.album;
 
-import static com.abservice.lib.Iterables.toList;
 import static java.util.function.Predicate.not;
 
 import java.util.Collections;
@@ -265,11 +264,12 @@ public class Track implements DomainEntity<Track, Track.Id> {
         tunes.stream().filter(t -> t.seq().equals(validatedTune.seq())).findFirst().orElseThrow(
                 () -> new BusinessRuleViolationException("Tune with seq " + validatedTune.seq() + " not found"));
         return withTunes(
-                toList(
-                        tunes,
-                        t -> t.seq().equals(validatedTune.seq())
-                                ? validatedTune
-                                : t));
+                tunes.stream()
+                        .map(
+                                t -> t.seq().equals(validatedTune.seq())
+                                        ? validatedTune
+                                        : t)
+                        .toList());
     }
 
     /**

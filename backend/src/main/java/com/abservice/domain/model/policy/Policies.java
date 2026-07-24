@@ -89,13 +89,12 @@ public final class Policies {
         return Optional.of(result.errors())
                 .filter(not(List::isEmpty))
                 .map(
-                        errors -> Result.<T>failure(
-                                toList(
-                                        errors,
-                                        e -> new ErrorResult(
-                                                parent + "." + e.field(),
-                                                e.message(),
-                                                e.code()))))
+                        toList(
+                                e -> new ErrorResult(
+                                        parent + "." + e.field(),
+                                        e.message(),
+                                        e.code())))
+                .<Result<T>>map(Result::failure)
                 .orElse(result);
     }
 }

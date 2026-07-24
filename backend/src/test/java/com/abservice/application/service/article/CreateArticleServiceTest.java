@@ -1,6 +1,5 @@
 package com.abservice.application.service.article;
 
-import static com.abservice.lib.Iterables.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.abservice.domain.model.vo.article.MarkupContent;
@@ -39,7 +38,7 @@ class CreateArticleServiceTest {
                         null));
 
         assertThat(result).isInstanceOf(Result.Failure.class);
-        assertThat(toList(((Result.Failure<?>) result).errors(), e -> e.code()))
+        assertThat(((Result.Failure<?>) result).errors().stream().map(e -> e.code()).toList())
                 .contains("ARTICLE_TITLE_REQUIRED", "ARTICLE_TYPE_INVALID");
     }
 
@@ -55,7 +54,7 @@ class CreateArticleServiceTest {
                         null));
 
         assertThat(result).isInstanceOf(Result.Failure.class);
-        assertThat(toList(((Result.Failure<?>) result).errors(), e -> e.code()))
+        assertThat(((Result.Failure<?>) result).errors().stream().map(e -> e.code()).toList())
                 .contains("MARKUP_FORMAT_REQUIRED");
     }
 

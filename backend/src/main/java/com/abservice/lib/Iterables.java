@@ -38,28 +38,4 @@ public final class Iterables {
                 .<R>map(mapper)
                 .toList();
     }
-
-    /**
-     * 要素写像を適用し不変 List に集約する（直接適用）。
-     *
-     * <p>
-     * モナドの {@code .map(...)} 文脈が無い同期コードで {@code toList(source, Mapper::toDomain)}
-     * のように用い、{@code source.stream().map(...).toList()} 直書きを排する。
-     * </p>
-     *
-     * @param source
-     *            入力 Iterable
-     * @param mapper
-     *            要素の写像関数
-     * @param <T>
-     *            入力要素型
-     * @param <R>
-     *            出力要素型
-     * @return 写像結果の不変 List
-     */
-    public static <T, R> List<R> toList(Iterable<T> source, Function<? super T, ? extends R> mapper) {
-        return StreamSupport.stream(source.spliterator(), false)
-                .<R>map(mapper)
-                .toList();
-    }
 }

@@ -455,13 +455,17 @@
 
     <rule name="ForbiddenStreamMapToList"
           language="java"
-          message="stream().map(...).toList() の直書きは禁止です。Iterables.toList(iterable, mapper)（または .map(toList(mapper)) のカリー化版）を使ってください。"
+          message="外側の .map(...) ラムダ内で stream().map(...).toList() を再度書かないでください。point-free な .map(toList(mapper))（Iterables.toList のカリー化版）へ置換してください。"
           class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
         <description>
-            コレクション/Iterable の写像＋不変List化（x.stream().map(f).toList() および
-            StreamSupport.stream(x.spliterator(), false).map(f).toList()）の直書きを禁止し、
-            共通ヘルパ Iterables.toList への置換を促す。ヘルパ本体（com.abservice.lib）は
-            サンクションされた実装のため対象外。filter 等を挟む鎖・toList 以外の終端は対象外。
+            既に外側の .map(...)（Optional/Uni/Stream 等モナドの map）のラムダ内で、
+            受け取った値に対しさらに x.stream().map(f).toList()（または
+            StreamSupport.stream(x.spliterator(), false).map(f).toList()）を書く「入れ子」を
+            禁止し、point-free な Iterables.toList(mapper) を用いた .map(toList(mapper)) 形への
+            置換を促す。外側に .map(...) 文脈が無いスタンドアロンな List/Iterable→List 変換
+            （メソッド本体で直接 stream().map().toList() を書く、戻り値として直接返す等）は
+            対象外——カリー化形を経由する意味がなく、直書きで十分なため。ヘルパ本体
+            （com.abservice.lib）は対象外。filter 等を挟む鎖・toList 以外の終端は対象外。
         </description>
         <priority>3</priority>
         <properties>
@@ -470,6 +474,7 @@
 //MethodCall[@MethodName = "toList"]
     [*[1][self::MethodCall][@MethodName = "map"]
         [*[1][self::MethodCall][@MethodName = "stream"]]]
+    [ancestor::LambdaExpression[1][parent::ArgumentList/parent::MethodCall[@MethodName = "map"]]]
     [not(/CompilationUnit/PackageDeclaration[@Name = "com.abservice.lib"])]
                 ]]></value>
             </property>

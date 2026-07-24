@@ -153,7 +153,7 @@ public final class AlbumMapper {
     }
 
     private static void populateDateAndSpaceEntities(AlbumEntity albumEntity, List<EventDateAndSpace> dateAndSpaces) {
-        albumEntity.setEventDateSpaces(toList(dateAndSpaces, ds -> {
+        albumEntity.setEventDateSpaces(dateAndSpaces.stream().map(ds -> {
             final var entity = new AlbumEventDateSpaceEntity();
             entity.setAlbum(albumEntity);
             entity.setEventDate(ds.date().asLocalDate());
@@ -162,7 +162,7 @@ public final class AlbumMapper {
             entity.setCreatedByService("abservice");
             entity.setUpdatedByService("abservice");
             return entity;
-        }));
+        }).toList());
     }
 
     private static void populateLegacyDateAndSpace(AlbumEntity albumEntity, EventDateAndSpace firstDateSpace) {
