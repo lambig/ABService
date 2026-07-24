@@ -14,6 +14,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 
 /**
  * アルバム入手経路テーブルレコード
@@ -25,6 +26,7 @@ import lombok.Setter;
 @Table(name = "album_acquisition_channel")
 @Getter
 @Setter
+@Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class AlbumAcquisitionChannelTableRecord extends AuditableEntity {

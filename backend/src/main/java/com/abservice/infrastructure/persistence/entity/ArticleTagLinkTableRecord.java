@@ -12,6 +12,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 
 /**
  * 記事タグリンクテーブルレコード
@@ -23,6 +24,7 @@ import lombok.Setter;
 @Table(name = "article_tag_link")
 @Getter
 @Setter
+@Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class ArticleTagLinkTableRecord extends AuditableEntity {
