@@ -14,6 +14,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 
 import java.time.LocalDate;
 
@@ -30,6 +31,7 @@ import java.time.LocalDate;
 @Table(name = "album_event_date_space")
 @Getter
 @Setter
+@Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class AlbumEventDateSpaceTableRecord extends AuditableEntity {

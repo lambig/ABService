@@ -13,6 +13,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 
 /**
  * アルバム頒布条件・価格情報テーブルレコード
@@ -24,6 +25,7 @@ import lombok.Setter;
 @Table(name = "album_distribution")
 @Getter
 @Setter
+@Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class AlbumDistributionTableRecord extends AuditableEntity {
