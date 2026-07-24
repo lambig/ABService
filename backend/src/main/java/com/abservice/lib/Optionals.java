@@ -1,6 +1,8 @@
 package com.abservice.lib;
 
 import java.util.Optional;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -39,5 +41,28 @@ public final class Optionals {
                 .flatMap(
                         av -> Optional.ofNullable(b)
                                 .map(bv -> new Both<>(av, bv)));
+    }
+
+    /**
+     * 任意のコレクタの集約結果を、常に非空の{@link Optional}に包んで返すコレクタへ変換する。
+     *
+     * <p>
+     * 空/非空の判定は結果の型ごとに意味が異なる（例: {@code List} なら {@code isEmpty()}）ため 行わず、利用側の
+     * {@code .filter(...)} 等に委ねる。{@code stream.collect(optionally(downstream))}
+     * のように用い、{@code Optional.of(stream.collect(downstream))} の定型を排する。
+     * </p>
+     *
+     * @param downstream
+     *            後段で適用する集約
+     * @return downstreamの集約結果をOptionalに包んで返すコレクタ
+     * @param <T>
+     *            要素の型
+     * @param <A>
+     *            downstreamの中間集約状態の型
+     * @param <R>
+     *            downstreamの集約結果の型
+     */
+    public static <T, A, R> Collector<T, A, Optional<R>> optionally(Collector<T, A, R> downstream) {
+        return Collectors.collectingAndThen(downstream, Optional::of);
     }
 }

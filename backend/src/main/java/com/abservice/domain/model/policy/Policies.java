@@ -1,13 +1,14 @@
 package com.abservice.domain.model.policy;
 
 import static com.abservice.lib.Iterables.toList;
+import static com.abservice.lib.Optionals.optionally;
 import static java.util.function.Predicate.not;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
@@ -34,7 +35,9 @@ public final class Policies {
      *            生成される値の型
      */
     public static <R> Result<R> combine(List<Result<?>> validations, Supplier<? extends R> constructor) {
-        return Optional.of(validations.stream().flatMap(r -> r.errors().stream()).toList())
+        return validations.stream()
+                .flatMap(r -> r.errors().stream())
+                .collect(optionally(toUnmodifiableList()))
                 .filter(not(List::isEmpty))
                 .<Result<R>>map(Result::failure)
                 .orElseGet(() -> Result.success(constructor.get()));
@@ -61,10 +64,9 @@ public final class Policies {
      *         {@code Result.failure}
      */
     public static Result<Boolean> multiple(Result<?>... validations) {
-        return Optional.of(
-                Arrays.stream(validations)
-                        .flatMap(r -> r.errors().stream())
-                        .toList())
+        return Arrays.stream(validations)
+                .flatMap(r -> r.errors().stream())
+                .collect(optionally(toUnmodifiableList()))
                 .filter(not(List::isEmpty))
                 .<Result<Boolean>>map(Result::failure)
                 .orElseGet(() -> Result.success(true));
@@ -86,7 +88,8 @@ public final class Policies {
      *            検証結果の値の型
      */
     public static <T> Result<T> nested(String parent, Result<T> result) {
-        return Optional.of(result.errors())
+        return result.errors().stream()
+                .collect(optionally(toUnmodifiableList()))
                 .filter(not(List::isEmpty))
                 .map(
                         toList(
