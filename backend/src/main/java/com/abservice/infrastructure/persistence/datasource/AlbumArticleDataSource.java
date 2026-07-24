@@ -7,6 +7,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.hibernate.reactive.mutiny.Mutiny;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -53,6 +54,20 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
         return sessionFactory.withSession(
                 session -> session.createQuery(EAGER_SELECT, AlbumArticleEntity.class)
                         .getResultList());
+    }
+
+    /**
+     * 複数のドメインIDでアルバム記事を一括検索（頒布情報・入手経路を含む）
+     *
+     * @param domainIds
+     *            アルバム記事のドメインID群
+     * @return 該当するアルバム記事のリスト
+     */
+    public Uni<List<AlbumArticleEntity>> findByIds(Collection<String> domainIds) {
+        return sessionFactory.withSession(
+                session -> session.createQuery(
+                        EAGER_SELECT + "WHERE aa.domainId IN :domainIds",
+                        AlbumArticleEntity.class).setParameter("domainIds", domainIds).getResultList());
     }
 
     /**
@@ -135,6 +150,17 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
      */
     public Uni<Boolean> deleteByAlbumId(String domainId) {
         return delete("domainId", domainId).onItem().transform(deleted -> deleted > 0);
+    }
+
+    /**
+     * 複数のアルバムIDでアルバム記事を一括削除
+     *
+     * @param domainIds
+     *            アルバムID群
+     * @return 完了シグナル
+     */
+    public Uni<Void> deleteByAlbumIds(Collection<String> domainIds) {
+        return delete("domainId in ?1", domainIds).replaceWithVoid();
     }
 
     /**

@@ -1,12 +1,14 @@
 package com.abservice.infrastructure.persistence.datasource;
 
 import com.abservice.infrastructure.persistence.entity.AlbumEntity;
+import com.abservice.infrastructure.persistence.entity.TrackEntity;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.hibernate.reactive.mutiny.Mutiny;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -38,16 +40,27 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
         return persist(albumEntity).onItem()
                 .transformToUni(
                         savedAlbum -> sessionFactory.withSession(
-                                session -> Optional
-                                        .ofNullable(albumEntity.getTracks())
-                                        .filter(Predicate.not(List::isEmpty))
-                                        .map(tracks -> {
-                                            // トラックをpersist
-                                            tracks.forEach(track -> track.setAlbum(savedAlbum));
-                                            return session.persistAll(tracks.toArray())
-                                                    .replaceWith(savedAlbum);
-                                        })
-                                        .orElseGet(() -> Uni.createFrom().item(savedAlbum))));
+                                session -> hasTracks(albumEntity)
+                                        ? persistTracks(
+                                                session,
+                                                savedAlbum,
+                                                albumEntity.getTracks())
+                                        : Uni.createFrom().item(savedAlbum)));
+    }
+
+    private static boolean hasTracks(AlbumEntity albumEntity) {
+        return Optional.ofNullable(albumEntity.getTracks())
+                .filter(Predicate.not(List::isEmpty))
+                .isPresent();
+    }
+
+    private static Uni<AlbumEntity> persistTracks(
+            Mutiny.Session session,
+            AlbumEntity savedAlbum,
+            List<TrackEntity> tracks) {
+        tracks.forEach(track -> track.setAlbum(savedAlbum));
+        return session.persistAll(tracks.toArray())
+                .replaceWith(savedAlbum);
     }
 
     /**
@@ -63,6 +76,21 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
                         "SELECT DISTINCT a FROM AlbumEntity a " + "LEFT JOIN FETCH a.tracks "
                                 + "WHERE a.domainId = :domainId",
                         AlbumEntity.class).setParameter("domainId", domainId).getSingleResultOrNull());
+    }
+
+    /**
+     * 複数のドメインIDでアルバムを一括検索（トラック含む）
+     *
+     * @param domainIds
+     *            アルバムのドメインID群
+     * @return 該当するアルバムエンティティのリスト（トラックを含む）
+     */
+    public Uni<List<AlbumEntity>> findByIdsWithTracks(Collection<String> domainIds) {
+        return sessionFactory.withSession(
+                session -> session.createQuery(
+                        "SELECT DISTINCT a FROM AlbumEntity a " + "LEFT JOIN FETCH a.tracks "
+                                + "WHERE a.domainId IN (:domainIds)",
+                        AlbumEntity.class).setParameter("domainIds", domainIds).getResultList());
     }
 
     /**
@@ -144,6 +172,17 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumEntity, Long>
      */
     public Uni<Boolean> deleteByAlbumId(String domainId) {
         return delete("domainId", domainId).onItem().transform(count -> count > 0);
+    }
+
+    /**
+     * 複数のドメインIDでアルバムを一括削除
+     *
+     * @param domainIds
+     *            アルバムのドメインID群
+     * @return 完了シグナル
+     */
+    public Uni<Void> deleteByAlbumIds(Collection<String> domainIds) {
+        return delete("domainId in ?1", domainIds).replaceWithVoid();
     }
 
     /**

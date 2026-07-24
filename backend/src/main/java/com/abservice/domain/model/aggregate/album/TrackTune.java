@@ -1,6 +1,7 @@
 package com.abservice.domain.model.aggregate.album;
 
 import com.abservice.domain.model.aggregate.tune.Tune;
+import com.abservice.domain.model.entity.DomainEntity;
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.Url;
@@ -19,7 +20,8 @@ import org.jspecify.annotations.Nullable;
  * トラック内チューン構成（集約内エンティティ）
  *
  * <p>
- * 1トラック内に含まれる個々のチューンと、その順番・クレジット上書き・リンクを表します。 複合キー (trackId, seq) で識別されます。
+ * 1トラック内に含まれる個々のチューンと、その順番・クレジット上書き・リンクを表します。 トラック内では {@code seq} で識別され（永続化上は
+ * trackId との複合キー）、{@code tuneId} は録音実績の一部として生成後は不変です。
  * </p>
  */
 @With(AccessLevel.PRIVATE)
@@ -27,7 +29,7 @@ import org.jspecify.annotations.Nullable;
 @Accessors(fluent = true)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class TrackTune {
+public class TrackTune implements DomainEntity<TrackTune, Integer> {
     @EqualsAndHashCode.Include
     private final Integer seq; // トラック内での登場順（1, 2, 3, ...）
     private final Tune.@Nullable Id tuneId; // nullable: MC、環境音などの場合はnull
@@ -37,6 +39,16 @@ public class TrackTune {
     private final Credit arrangerCreditOverride; // nullable: nullの場合はTune側のデフォルトを使用
     @Nullable
     private final Url linkUrl; // nullable: 外部リンク（the session, 自サイト等）
+
+    /**
+     * トラック内での識別子（{@code seq}）を取得する
+     *
+     * @return トラック内での登場順
+     */
+    @Override
+    public Integer id() {
+        return seq;
+    }
 
     /**
      * 新規TrackTuneを生成
@@ -94,17 +106,6 @@ public class TrackTune {
                 composerCreditOverride,
                 arrangerCreditOverride,
                 linkUrl);
-    }
-
-    /**
-     * チューンIDを変更
-     *
-     * @param newTuneId
-     *            新しいチューンID
-     * @return 更新されたTrackTune
-     */
-    public TrackTune changeTuneId(Tune.@Nullable Id newTuneId) {
-        return withTuneId(newTuneId);
     }
 
     /**

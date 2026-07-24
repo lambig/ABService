@@ -13,6 +13,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 
 /**
  * アルバム記事・お品書き用メタ情報エンティティ
@@ -24,6 +25,7 @@ import lombok.Setter;
 @Table(name = "album_article")
 @Getter
 @Setter
+@Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class AlbumArticleEntity extends AuditableEntity {

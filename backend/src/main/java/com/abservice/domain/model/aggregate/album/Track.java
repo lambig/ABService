@@ -19,6 +19,8 @@ import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.domain.model.vo.common.Credit;
+import com.abservice.domain.model.vo.common.Url;
 import com.abservice.lib.ErrorResult;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -217,7 +219,7 @@ public class Track implements DomainEntity<Track, Track.Id> {
                 .verify(tune, Function.identity())
                 .resolve(Policy::illegalArgument);
         // seqの重複チェック（ビジネスルール違反 → 409）
-        tunes.stream().filter(t -> t.seq().equals(validatedTune.seq())).findFirst().ifPresent(dup -> {
+        tunes.stream().filter(validatedTune::equivalentTo).findFirst().ifPresent(dup -> {
             throw new BusinessRuleViolationException(
                     "Tune seq " + validatedTune.seq() + " already exists in this track");
         });
@@ -240,34 +242,50 @@ public class Track implements DomainEntity<Track, Track.Id> {
                         "SEQ_REQUIRED"))
                 .verify(seq, Function.identity())
                 .resolve(Policy::illegalArgument);
-        tunes.stream().filter(t -> t.seq().equals(validatedSeq)).findFirst()
+        tunes.stream().filter(t -> t.hasId(validatedSeq)).findFirst()
                 .orElseThrow(() -> new BusinessRuleViolationException("Tune with seq " + validatedSeq + " not found"));
-        return withTunes(tunes.stream().filter(not(t -> t.seq().equals(validatedSeq))).toList());
+        return withTunes(tunes.stream().filter(not(t -> t.hasId(validatedSeq))).toList());
     }
 
     /**
-     * チューンを更新
+     * チューンの上書き情報（クレジット上書き・リンクURL）を更新
      *
-     * @param updatedTune
-     *            更新するチューン
+     * <p>
+     * {@code tuneId}は録音実績の一部として生成後は不変のため対象外とする。誤認識していたチューンの 再識別・訂正は
+     * {@link #removeTune(Integer)} と {@link #addTune(TrackTune)} の組み合わせで表現する。
+     * </p>
+     *
+     * @param seq
+     *            対象チューンのシーケンス番号
+     * @param composerCreditOverride
+     *            新しい作曲者クレジット上書き（nullable）
+     * @param arrangerCreditOverride
+     *            新しいアレンジャークレジット上書き（nullable）
+     * @param linkUrl
+     *            新しいリンクURL（nullable）
      * @return 更新されたTrack
      */
-    public @NonNull Track updateTune(@NonNull TrackTune updatedTune) {
-        final var validatedTune = Policy.<TrackTune>of(
+    public @NonNull Track updateTune(@NonNull Integer seq, @Nullable Credit composerCreditOverride,
+            @Nullable Credit arrangerCreditOverride, @Nullable Url linkUrl) {
+        final var validatedSeq = Policy.<Integer>of(
                 Objects::nonNull,
                 () -> new ErrorResult(
-                        "updatedTune",
-                        "Updated tune cannot be null",
-                        "TUNE_REQUIRED"))
-                .verify(updatedTune, Function.identity())
+                        "seq",
+                        "Seq cannot be null",
+                        "SEQ_REQUIRED"))
+                .verify(seq, Function.identity())
                 .resolve(Policy::illegalArgument);
-        tunes.stream().filter(t -> t.seq().equals(validatedTune.seq())).findFirst().orElseThrow(
-                () -> new BusinessRuleViolationException("Tune with seq " + validatedTune.seq() + " not found"));
+        final var updatedTune = tunes.stream().filter(t -> t.hasId(validatedSeq)).findFirst()
+                .orElseThrow(() -> new BusinessRuleViolationException("Tune with seq " + validatedSeq + " not found"))
+                .changeComposerCreditOverride(composerCreditOverride)
+                .changeArrangerCreditOverride(arrangerCreditOverride)
+                .changeLinkUrl(linkUrl);
         return withTunes(
-                tunes.stream().map(
-                        t -> t.seq().equals(validatedTune.seq())
-                                ? validatedTune
-                                : t)
+                tunes.stream()
+                        .map(
+                                t -> t.hasId(validatedSeq)
+                                        ? updatedTune
+                                        : t)
                         .toList());
     }
 

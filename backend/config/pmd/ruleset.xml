@@ -453,4 +453,63 @@
         </properties>
     </rule>
 
+    <rule name="ForbiddenStreamMapToList"
+          language="java"
+          message="外側の .map(...) ラムダ内で stream().map(...).toList() を再度書かないでください。point-free な .map(toList(mapper))（Iterables.toList のカリー化版）へ置換してください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            既に外側の .map(...)（Optional/Uni/Stream 等モナドの map）のラムダ内で、
+            受け取った値に対しさらに x.stream().map(f).toList()（または
+            StreamSupport.stream(x.spliterator(), false).map(f).toList()）を書く「入れ子」を
+            禁止し、point-free な Iterables.toList(mapper) を用いた .map(toList(mapper)) 形への
+            置換を促す。外側に .map(...) 文脈が無いスタンドアロンな List/Iterable→List 変換
+            （メソッド本体で直接 stream().map().toList() を書く、戻り値として直接返す等）は
+            対象外——カリー化形を経由する意味がなく、直書きで十分なため。ヘルパ本体
+            （com.abservice.lib）は対象外。filter 等を挟む鎖・toList 以外の終端は対象外。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//MethodCall[@MethodName = "toList"]
+    [*[1][self::MethodCall][@MethodName = "map"]
+        [*[1][self::MethodCall][@MethodName = "stream"]]]
+    [ancestor::LambdaExpression[1][parent::ArgumentList/parent::MethodCall[@MethodName = "map"]]]
+    [not(/CompilationUnit/PackageDeclaration[@Name = "com.abservice.lib"])]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
+    <rule name="ForbiddenNestedMonadicChain"
+          language="java"
+          message="Mutiny 変換オペレータ（transformToUni/flatMap/chain/transform 等）のラムダ内で反応系チェーン（onItem/onFailure/onNull）を入れ子にしないでください。transformToUni 等で平坦連結してください。性能上ネストが不可避な場合のみ @SuppressWarnings(&quot;PMD.ForbiddenNestedMonadicChain&quot;) を付し、直上に「// PERFORMANCE: 理由」を明記してください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            Mutiny の変換オペレータのラムダ引数の内部に、別の反応系チェーンの入口
+            （onItem / onFailure / onNull）が現れる「モナディックチェーンの入れ子」を禁止する。
+            入れ子は逐次待ちや隠れた合流を可読性の裏に隠し、性能・追跡性を損なうため、
+            transformToUni 等による平坦連結へ展開する。onItem/onFailure/onNull は Mutiny 固有の
+            ナビゲータであり、Stream/Optional の map/flatMap とは名前が重複しないため誤検出を避ける。
+            性能上ネストが不可避な箇所は @SuppressWarnings("PMD.ForbiddenNestedMonadicChain") と
+            「// PERFORMANCE: 理由」コメントの併記で明示的に許容する（NullAway 抑制と同じ運用）。
+            スコープは production（src/main）限定。com.abservice.lib（サンクションされた
+            共通ヘルパの実装本体、例: Optionals#both）は ForbiddenStreamMapToList と同様に対象外。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//MethodCall[@MethodName = (
+        "transform", "transformToUni", "transformToMulti",
+        "transformToUniAndConcatenate", "transformToMultiAndConcatenate", "transformToUniAndMerge",
+        "flatMap", "chain", "call")]
+  [ArgumentList/LambdaExpression
+      //MethodCall[@MethodName = ("onItem", "onFailure", "onNull", "ofNullable", "success", "failure")]]
+  [not(/CompilationUnit/PackageDeclaration[@Name = "com.abservice.lib"])]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
 </ruleset>

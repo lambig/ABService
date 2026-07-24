@@ -1,5 +1,6 @@
 package com.abservice.infrastructure.persistence.repository;
 
+import static com.abservice.lib.Iterables.toList;
 import static java.util.function.Predicate.not;
 
 import com.abservice.domain.model.aggregate.album.Album;
@@ -15,6 +16,7 @@ import com.abservice.infrastructure.persistence.entity.ArticleTagEntity;
 import com.abservice.infrastructure.persistence.entity.ArticleTagLinkEntity;
 import com.abservice.infrastructure.persistence.entity.ArticleTagLinkId;
 import com.abservice.infrastructure.persistence.mapper.ArticleMapper;
+import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 
@@ -24,7 +26,6 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -143,44 +144,33 @@ public class ArticleRepositoryImpl implements ArticleRepository {
 
     @Override
     public Uni<List<Article>> saveAll(Iterable<Article> aggregates) {
-        return Optional.ofNullable(aggregates)
-                .map(
-                        a -> Uni.join()
-                                .all(
-                                        StreamSupport.stream(a.spliterator(), false)
-                                                .map(this::save)
-                                                .toList())
-                                .andFailFast())
-                .orElseGet(() -> Uni.createFrom().failure(new IllegalArgumentException("Aggregates cannot be null")));
+        return Multi.createFrom().iterable(aggregates)
+                .onItem().transformToUniAndConcatenate(this::save)
+                .collect().asList();
     }
 
     @Override
     public Uni<Article> findById(Article.Id id) {
         return Optional.ofNullable(id)
-                .map(
-                        i -> dataSource.findByDomainId(i.value())
-                                .map(ArticleMapper::toDomain))
-                .orElseGet(() -> Uni.createFrom().nullItem());
+                .map(List::of)
+                .map(this::findAllById)
+                .orElseGet(() -> Uni.createFrom().item(List.of()))
+                .map(articles -> articles.stream().findFirst().orElse(null));
     }
 
     @Override
     public Uni<List<Article>> findAllById(Iterable<Article.Id> ids) {
         return Optional.ofNullable(ids)
-                .map(
-                        i -> Uni.join()
-                                .all(
-                                        StreamSupport.stream(i.spliterator(), false)
-                                                .map(this::findById)
-                                                .toList())
-                                .andFailFast()
-                                .map(list -> list.stream().filter(article -> article != null).toList()))
-                .orElseGet(() -> Uni.createFrom().item(List.of()));
+                .map(toList(Article.Id::value))
+                .map(dataSource::findByIds)
+                .orElseGet(() -> Uni.createFrom().item(List.of()))
+                .map(toList(ArticleMapper::toDomain));
     }
 
     @Override
     public Uni<List<Article>> findAll() {
         return dataSource.findAllEager()
-                .map(entities -> entities.stream().map(ArticleMapper::toDomain).toList());
+                .map(toList(ArticleMapper::toDomain));
     }
 
     @Override
@@ -193,13 +183,8 @@ public class ArticleRepositoryImpl implements ArticleRepository {
     @Override
     public Uni<Void> deleteAll(Iterable<Article> aggregates) {
         return Optional.ofNullable(aggregates)
-                .map(
-                        a -> Uni.join()
-                                .all(
-                                        StreamSupport.stream(a.spliterator(), false)
-                                                .map(this::delete)
-                                                .toList())
-                                .andFailFast().replaceWithVoid())
+                .map(toList(Article::id))
+                .map(this::deleteAllById)
                 .orElseGet(() -> Uni.createFrom().voidItem());
     }
 
@@ -213,13 +198,8 @@ public class ArticleRepositoryImpl implements ArticleRepository {
     @Override
     public Uni<Void> deleteAllById(Iterable<Article.Id> ids) {
         return Optional.ofNullable(ids)
-                .map(
-                        i -> Uni.join()
-                                .all(
-                                        StreamSupport.stream(i.spliterator(), false)
-                                                .map(this::deleteById)
-                                                .toList())
-                                .andFailFast().replaceWithVoid())
+                .map(toList(Article.Id::value))
+                .map(dataSource::deleteByArticleIds)
                 .orElseGet(() -> Uni.createFrom().voidItem());
     }
 
@@ -240,25 +220,25 @@ public class ArticleRepositoryImpl implements ArticleRepository {
     @Override
     public Uni<List<Article>> findByArticleType(ArticleType articleType) {
         return Optional.ofNullable(articleType)
-                .map(
-                        t -> dataSource.findByArticleType(t.name())
-                                .map(entities -> entities.stream().map(ArticleMapper::toDomain).toList()))
-                .orElseGet(() -> Uni.createFrom().item(List.of()));
+                .map(ArticleType::name)
+                .map(dataSource::findByArticleType)
+                .orElseGet(() -> Uni.createFrom().item(List.of()))
+                .map(toList(ArticleMapper::toDomain));
     }
 
     @Override
     public Uni<Article> findByAlbumId(Album.Id albumId) {
         return Optional.ofNullable(albumId)
-                .map(
-                        a -> dataSource.findByAlbumId(a.value())
-                                .map(ArticleMapper::toDomain))
-                .orElseGet(() -> Uni.createFrom().nullItem());
+                .map(Album.Id::value)
+                .map(dataSource::findByAlbumId)
+                .orElseGet(() -> Uni.createFrom().nullItem())
+                .onItem().ifNotNull().transform(ArticleMapper::toDomain);
     }
 
     @Override
     public Uni<List<Article>> findByPublicFlag(boolean publicFlag) {
         return dataSource.findByPublicFlag(publicFlag)
-                .map(entities -> entities.stream().map(ArticleMapper::toDomain).toList());
+                .map(toList(ArticleMapper::toDomain));
     }
 
     @Override
@@ -267,15 +247,14 @@ public class ArticleRepositoryImpl implements ArticleRepository {
                 .anyMatch(Objects::isNull)
                         ? Uni.createFrom().item(List.of())
                         : dataSource.findByPublishedAtBetween(startDate.value(), endDate.value())
-                                .map(entities -> entities.stream().map(ArticleMapper::toDomain).toList());
+                                .map(toList(ArticleMapper::toDomain));
     }
 
     @Override
     public Uni<List<Article>> findByTitleContaining(String titleKeyword) {
         return Optional.ofNullable(titleKeyword)
-                .map(
-                        k -> dataSource.findByTitleContaining(k)
-                                .map(entities -> entities.stream().map(ArticleMapper::toDomain).toList()))
-                .orElseGet(() -> Uni.createFrom().item(List.of()));
+                .map(dataSource::findByTitleContaining)
+                .orElseGet(() -> Uni.createFrom().item(List.of()))
+                .map(toList(ArticleMapper::toDomain));
     }
 }

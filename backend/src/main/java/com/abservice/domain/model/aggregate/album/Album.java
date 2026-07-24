@@ -250,10 +250,11 @@ public class Album implements Aggregate<Album, Album.Id> {
                             "Track number " + validatedTrack.trackNo() + " already exists");
                 });
         return withTracks(
-                tracks.stream().map(
-                        t -> validatedTrack.equivalentTo(t)
-                                ? validatedTrack
-                                : t)
+                tracks.stream()
+                        .map(
+                                t -> validatedTrack.equivalentTo(t)
+                                        ? validatedTrack
+                                        : t)
                         .toList());
     }
 

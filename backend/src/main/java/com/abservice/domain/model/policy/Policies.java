@@ -1,5 +1,10 @@
 package com.abservice.domain.model.policy;
 
+import static com.abservice.lib.Iterables.toList;
+import static com.abservice.lib.Optionals.optionally;
+import static java.util.function.Predicate.not;
+import static java.util.stream.Collectors.toUnmodifiableList;
+
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import java.util.Arrays;
@@ -30,10 +35,12 @@ public final class Policies {
      *            生成される値の型
      */
     public static <R> Result<R> combine(List<Result<?>> validations, Supplier<? extends R> constructor) {
-        final List<ErrorResult> errors = validations.stream().flatMap(r -> r.errors().stream()).toList();
-        return errors.isEmpty()
-                ? Result.success(constructor.get())
-                : Result.failure(errors);
+        return validations.stream()
+                .flatMap(r -> r.errors().stream())
+                .collect(optionally(toUnmodifiableList()))
+                .filter(not(List::isEmpty))
+                .<Result<R>>map(Result::failure)
+                .orElseGet(() -> Result.success(constructor.get()));
     }
 
     /**
@@ -57,12 +64,12 @@ public final class Policies {
      *         {@code Result.failure}
      */
     public static Result<Boolean> multiple(Result<?>... validations) {
-        final List<ErrorResult> errors = Arrays.stream(validations)
+        return Arrays.stream(validations)
                 .flatMap(r -> r.errors().stream())
-                .toList();
-        return errors.isEmpty()
-                ? Result.success(true)
-                : Result.failure(errors);
+                .collect(optionally(toUnmodifiableList()))
+                .filter(not(List::isEmpty))
+                .<Result<Boolean>>map(Result::failure)
+                .orElseGet(() -> Result.success(true));
     }
 
     /**
@@ -81,15 +88,16 @@ public final class Policies {
      *            検証結果の値の型
      */
     public static <T> Result<T> nested(String parent, Result<T> result) {
-        final List<ErrorResult> nestedErrors = result.errors().stream()
+        return result.errors().stream()
+                .collect(optionally(toUnmodifiableList()))
+                .filter(not(List::isEmpty))
                 .map(
-                        e -> new ErrorResult(
-                                parent + "." + e.field(),
-                                e.message(),
-                                e.code()))
-                .toList();
-        return nestedErrors.isEmpty()
-                ? result
-                : Result.failure(nestedErrors);
+                        toList(
+                                e -> new ErrorResult(
+                                        parent + "." + e.field(),
+                                        e.message(),
+                                        e.code())))
+                .<Result<T>>map(Result::failure)
+                .orElse(result);
     }
 }

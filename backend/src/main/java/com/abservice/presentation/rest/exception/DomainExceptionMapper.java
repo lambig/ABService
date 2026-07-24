@@ -74,11 +74,12 @@ public class DomainExceptionMapper implements ExceptionMapper<DomainException> {
     }
 
     private static List<FieldError> toFieldErrors(List<ErrorResult> errors) {
-        return errors.stream().map(
-                e -> new FieldError(
-                        e.field(),
-                        e.message(),
-                        e.code()))
+        return errors.stream()
+                .map(
+                        e -> new FieldError(
+                                e.field(),
+                                e.message(),
+                                e.code()))
                 .toList();
     }
 }

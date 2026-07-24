@@ -11,6 +11,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 
 /**
  * チューン（曲）エンティティ
@@ -22,6 +23,7 @@ import lombok.Setter;
 @Table(name = "tune")
 @Getter
 @Setter
+@Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class TuneEntity extends AuditableEntity {

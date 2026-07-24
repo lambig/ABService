@@ -1,5 +1,7 @@
 package com.abservice.infrastructure.persistence.mapper;
 
+import static com.abservice.lib.Iterables.toList;
+
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.albumarticle.AlbumAcquisitionChannel;
 import com.abservice.domain.model.aggregate.albumarticle.AlbumArticle;
@@ -36,20 +38,17 @@ public final class AlbumArticleMapper {
      *            AlbumArticleEntity
      * @return AlbumArticle
      */
-    public static @Nullable AlbumArticle toDomain(@Nullable AlbumArticleEntity entity) {
-        return Optional.ofNullable(entity)
-                .map(
-                        e -> AlbumArticle.reconstruct(
-                                new Album.Id(e.getDomainId()),
-                                e.getIntroLong(),
-                                e.getIntroShort(),
-                                e.getFirstEventSpace(),
-                                Optional.ofNullable(e.getLabelTag())
-                                        .map(LabelTag::valueOf)
-                                        .orElse(null),
-                                toDistribution(e.getAlbum().getAlbumDistribution()),
-                                toAcquisitionChannels(e.getAlbum().getAcquisitionChannels())))
-                .orElse(null);
+    public static AlbumArticle toDomain(AlbumArticleEntity entity) {
+        return AlbumArticle.reconstruct(
+                new Album.Id(entity.getDomainId()),
+                entity.getIntroLong(),
+                entity.getIntroShort(),
+                entity.getFirstEventSpace(),
+                Optional.ofNullable(entity.getLabelTag())
+                        .map(LabelTag::valueOf)
+                        .orElse(null),
+                toDistribution(entity.getAlbum().getAlbumDistribution()),
+                toAcquisitionChannels(entity.getAlbum().getAcquisitionChannels()));
     }
 
     /**
@@ -116,7 +115,7 @@ public final class AlbumArticleMapper {
     public static List<AlbumAcquisitionChannel> toAcquisitionChannels(
             @Nullable List<AlbumAcquisitionChannelEntity> entities) {
         return Optional.ofNullable(entities)
-                .map(list -> list.stream().map(AlbumArticleMapper::toAcquisitionChannel).toList())
+                .map(toList(AlbumArticleMapper::toAcquisitionChannel))
                 .orElseGet(List::of);
     }
 

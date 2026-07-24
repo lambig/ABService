@@ -220,10 +220,11 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
                 () -> new BusinessRuleViolationException(
                         "Acquisition channel with ID " + updatedChannel.id().value() + " not found"));
         return withAcquisitionChannels(
-                acquisitionChannels.stream().map(
-                        c -> c.equivalentTo(updatedChannel)
-                                ? updatedChannel
-                                : c)
+                acquisitionChannels.stream()
+                        .map(
+                                c -> c.equivalentTo(updatedChannel)
+                                        ? updatedChannel
+                                        : c)
                         .toList());
     }
 

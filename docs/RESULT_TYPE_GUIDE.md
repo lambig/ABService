@@ -10,36 +10,39 @@
 
 - `com.abservice.lib.Result<T>` - 処理結果を表すsealed interface
 - `com.abservice.lib.ErrorResult` - エラー情報を表すrecord
+- `com.abservice.domain.model.policy.Policy<T>` - 値の検証を表現し、成功時のみ`constructor`を適用した`Result`を返すポリシー抽象。VOの`fromInput`実装の基盤
 
 ## 基本的な使い方
 
 ### 成功を表すResultの生成
 
 ```java
-Result<Album> result = Result.success(album);
+Result<ArticleTitle> result = Result.success(articleTitle);
 ```
 
 ### 失敗を表すResultの生成
 
 ```java
 // 単一のエラー
-Result<Album> result = Result.failure(
+Result<ArticleTitle> result = Result.failure(
     new ErrorResult("title", "タイトルの形式が不正です")
 );
 
 // 複数のエラー
-Result<Album> result = Result.failure(
+Result<ArticleTitle> result = Result.failure(
     new ErrorResult("title", "タイトルは必須です"),
-    new ErrorResult("catalogNumber", "カタログ番号の形式が不正です")
+    new ErrorResult("title", "タイトルは500文字以内です")
 );
 
 // エラーコード付き
-Result<Album> result = Result.failure(
-    new ErrorResult("title", "タイトルの形式が不正です", "E001")
+Result<ArticleTitle> result = Result.failure(
+    new ErrorResult("title", "タイトルの形式が不正です", "ARTICLE_TITLE_REQUIRED")
 );
 ```
 
 ## 結果の処理パターン
+
+以降のパターンでは、外部入力からの検証生成を行う実在のVOファクトリ `ArticleTitle.fromInput(String): Result<ArticleTitle>`（`backend/src/main/java/com/abservice/domain/model/vo/article/ArticleTitle.java`）を例に用います。
 
 ### パターン1: `resolve()` - 失敗時に例外をスロー
 
@@ -47,12 +50,10 @@ Result<Album> result = Result.failure(
 
 ```java
 // デフォルト例外（IllegalStateException）
-Album album = Album.create(title, catalogNumber).resolve();
+ArticleTitle title = ArticleTitle.fromInput(input.title()).resolve();
 
-// カスタム例外
-Album album = Album.create(title, catalogNumber).resolve(errors ->
-    new ValidationException("アルバム情報が不正です", errors)
-);
+// カスタム例外（実際にCreateArticleServiceで使われている形）
+Article article = validate(input).resolve(ValidationException::new);
 ```
 
 ### パターン2: `orElse()` - 失敗時にデフォルト値を返す
@@ -60,7 +61,7 @@ Album album = Album.create(title, catalogNumber).resolve(errors ->
 失敗時に固定のデフォルト値を返します。
 
 ```java
-Album album = Album.create(title, catalogNumber).orElse(defaultAlbum);
+ArticleTitle title = ArticleTitle.fromInput(input.title()).orElse(ArticleTitle.of("無題"));
 ```
 
 ### パターン3: `orElseGet()` - 失敗時に関数を実行してデフォルト値を取得
@@ -69,10 +70,10 @@ Album album = Album.create(title, catalogNumber).orElse(defaultAlbum);
 エラー情報に基づいて異なるデフォルト値を生成することもできます。
 
 ```java
-Album album = Album.create(title, catalogNumber).orElseGet(errors -> {
+ArticleTitle title = ArticleTitle.fromInput(input.title()).orElseGet(errors -> {
     // エラーに基づいてデフォルト値を生成
-    logger.warn("アルバム生成失敗: {}", errors);
-    return Album.createDefault();
+    logger.warn("タイトル検証失敗: {}", errors);
+    return ArticleTitle.of("無題");
 });
 ```
 
@@ -82,9 +83,9 @@ Album album = Album.create(title, catalogNumber).orElseGet(errors -> {
 処理実行後、例外をスローします。
 
 ```java
-Album album = Album.create(title, catalogNumber).orElseDo(errors -> {
+ArticleTitle title = ArticleTitle.fromInput(input.title()).orElseDo(errors -> {
     // ログ記録などの副作用のある処理
-    logger.error("アルバム生成失敗: {}", errors);
+    logger.error("タイトル検証失敗: {}", errors);
     notificationService.send("エラーが発生しました");
 });
 // ここで例外がスローされる
@@ -99,16 +100,26 @@ Album album = Album.create(title, catalogNumber).orElseDo(errors -> {
 成功時のみ変換関数を適用します。失敗時はエラーをそのまま引き継ぎ、関数は実行されません。
 
 ```java
-Result<Integer> length = AlbumTitle.create(title).map(t -> t.value().length());
+Result<Integer> length = ArticleTitle.fromInput(input.title()).map(t -> t.value().length());
 ```
 
 #### `flatMap` - `Result` を返す処理を連鎖する
 
 後続処理も `Result` を返し、直前の成功値に依存して連鎖させたい場合に使用します。ネストした `Result<Result<T>>` を平坦化します。
+`ArticleType.fromInput`（`backend/src/main/java/com/abservice/domain/model/vo/article/ArticleType.java`）が実例です。1段目で非空を検証し、その成功値に対して2段目で既知の列挙子名かを検証しています。
 
 ```java
-Result<Album> album = AlbumTitle.create(title)
-    .flatMap(t -> Album.createWithTitle(t)); // createWithTitle は Result<Album> を返す
+public static Result<ArticleType> fromInput(@Nullable String value) {
+    return Policy.<String>of(
+            StringUtils::isNotBlank,
+            () -> new ErrorResult("articleType", "記事種別は必須です", "ARTICLE_TYPE_REQUIRED"))
+            .verify(value, Function.identity())
+            .flatMap(
+                    v -> Policy.of(
+                            ArticleType::isKnownName,
+                            () -> new ErrorResult("articleType", "不正な記事種別です: " + v, "ARTICLE_TYPE_INVALID"))
+                            .verify(v, valid -> valueOf(valid.trim())));
+}
 ```
 
 #### `zip` - 複数の検証を合成し、エラーを集約する
@@ -117,10 +128,10 @@ Result<Album> album = AlbumTitle.create(title)
 
 ```java
 // 2つの検証を合成。両方失敗すれば errors には両方のエラーが含まれる
-Result<Album> album = Result.zip(
-    AlbumTitle.create(title),
-    CatalogNumber.create(catalogNumber),
-    (t, c) -> new Album(Album.Id.generate(), t, c)
+Result<Article> article = Result.zip(
+    ArticleTitle.fromInput(title),
+    ArticleType.fromInput(type),
+    (t, ty) -> Article.create(ty, null, t, MarkupContent.EMPTY, null)
 );
 ```
 
@@ -128,143 +139,125 @@ Result<Album> album = Result.zip(
 
 ### Value Objectの生成
 
+`ArticleTitle`（`backend/src/main/java/com/abservice/domain/model/vo/article/ArticleTitle.java`）の実例です。信頼できる内部生成には例外throwの`of()`を、外部入力からの生成にはResultを返す`fromInput()`を用いる、2系統のファクトリを持ちます。
+
 ```java
-public record AlbumTitle(String value) {
+public record ArticleTitle(@NonNull String value) implements ValueObject<ArticleTitle> {
 
-  public static Result<AlbumTitle> create(String value) {
-    if (value == null || value.isBlank()) {
-      return Result.failure(
-          new ErrorResult("title", "タイトルは必須です", "E001")
-      );
+    public ArticleTitle {
+        titlePolicy().verify(value, Function.identity())
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
     }
 
-    if (value.length() > 200) {
-      return Result.failure(
-          new ErrorResult("title", "タイトルは200文字以内です", "E002")
-      );
+    // 内部生成用（不正時は例外）
+    public static @NonNull ArticleTitle of(@NonNull String value) {
+        return new ArticleTitle(value);
     }
 
-    return Result.success(new AlbumTitle(value));
-  }
+    // 外部入力用（不正時はResult.failure）
+    public static Result<ArticleTitle> fromInput(@Nullable String value) {
+        return titlePolicy().verify(value, ArticleTitle::new);
+    }
+
+    private static Policy<String> titlePolicy() {
+        return Policy.all(
+                Policy.of(StringUtils::isNotBlank,
+                        () -> new ErrorResult("title", "記事タイトルは必須です", "ARTICLE_TITLE_REQUIRED")),
+                Policy.of((String v) -> StringUtils.length(v) <= 500,
+                        () -> new ErrorResult("title", "記事タイトルは500文字以内です", "ARTICLE_TITLE_TOO_LONG")));
+    }
 }
 ```
 
 ### Entityの生成
 
-複数のバリデーションエラーを集約して返す例。`zip` を使うと、各検証を独立に実行しつつエラーを自動で集約でき、`instanceof` による分岐やエラーリストの手組みが不要になります：
+複数のバリデーションエラーを集約して返す例。`zip` を使うと、各検証を独立に実行しつつエラーを自動で集約でき、`instanceof` による分岐やエラーリストの手組みが不要になります。`CreateArticleService.validate`（`backend/src/main/java/com/abservice/application/service/article/CreateArticleService.java`）の実例です。
 
 ```java
-public class Album {
-  private final Album.Id id;
-  private final AlbumTitle title;
-  private final CatalogNumber catalogNumber;
-
-  public static Result<Album> create(String title, String catalogNumber) {
-    // 両方成功時のみ Album を生成。いずれか失敗すれば全エラーが集約される
+static Result<Article> validate(CreateArticleInput input) {
     return Result.zip(
-        AlbumTitle.create(title),
-        CatalogNumber.create(catalogNumber),
-        (t, c) -> new Album(Album.Id.generate(), t, c)
-    );
-  }
+            ArticleTitle.fromInput(input.title()),
+            ArticleType.fromInput(input.articleType()),
+            resolveBody(input.body(), input.bodyFormat()),
+            (title, type, body) -> Article.create(
+                    type,
+                    null,
+                    title,
+                    body,
+                    input.introShort()));
 }
 ```
 
-> `zip` は独立した検証（前段の成否に依存しない）の合成に使います。前段の成功値に依存して次の検証を行う場合は `flatMap` で連鎖します。
+> `zip` は独立した検証（前段の成否に依存しない）の合成に使います。前段の成功値に依存して次の検証を行う場合は `flatMap` で連鎖します（上記`ArticleType.fromInput`参照）。
 
 ## Application層での使用例
 
+`CreateArticleService`（`backend/src/main/java/com/abservice/application/service/article/CreateArticleService.java`）の実例です。値検証は各VOの`fromInput`（`Result`返却）に委譲し、本サービスは`Result.zip`で集約して`Article`を組み立て、`resolve`で`ValidationException`（`DomainException`のサブクラス）へ変換するオーケストレーションに徹します。
+
 ```java
-@ApplicationScoped
-public class RegisterAlbumService {
-
-  public AlbumDto registerAlbum(RegisterAlbumCommand command) {
-    Result<Album> result = Album.create(
-        command.title(),
-        command.catalogNumber()
-    );
-
-    // パターン1: カスタム例外でエラーハンドリング
-    Album album = result.resolve(errors ->
-        new ValidationException("アルバム情報が不正です", errors)
-    );
-
-    albumRepository.save(album);
-    return AlbumDto.from(album);
-  }
+@WithTransaction
+@Override
+public Uni<CreateArticleOutput> execute(CreateArticleInput input) {
+    return Uni.createFrom()
+            .item(() -> validate(input).resolve(ValidationException::new))
+            .flatMap(articleRepository::save)
+            .map(CreateArticleService::toOutput);
 }
 ```
 
-## Resource層（REST API）での使用例
+`Result`が保持する検証エラーは、この`resolve(ValidationException::new)`の時点で例外へ畳み込まれます。**`Result`自体はApplication層より先（Presentation層）には渡りません**。
+
+## Presentation層との関係（Resultはここまで到達しない）
+
+Presentation層（`@Path`のResourceクラス）はApplication層のサービスを呼び出すだけで、`Result`を直接扱うことも、成功/失敗で分岐することもありません。検証失敗は`DomainException`として例外の形でReactive chainを伝播し、`DomainExceptionMapper`（JAX-RS `ExceptionMapper<DomainException>`、`backend/src/main/java/com/abservice/presentation/rest/exception/DomainExceptionMapper.java`）が一括してRFC 9457 Problem Details（`application/problem+json`）へ変換します。
+
+`ArticleCommandResource`（`backend/src/main/java/com/abservice/presentation/rest/article/ArticleCommandResource.java`）の実例:
 
 ```java
-@Path("/albums")
-public class AlbumResource {
-
-  @POST
-  public Response registerAlbum(RegisterAlbumRequest request) {
-    Result<Album> result = Album.create(
-        request.title(),
-        request.catalogNumber()
-    );
-
-    // Resultの型に応じて適切なレスポンスを返す
-    return switch (result) {
-      case Result.Success<Album> success -> {
-        Album album = success.value();
-        albumRepository.save(album);
-        yield Response.ok(AlbumDto.from(album)).build();
-      }
-      case Result.Failure<Album> failure -> {
-        var errors = failure.errors().stream()
-            .map(e -> new ErrorDto(e.field(), e.message(), e.code()))
-            .toList();
-        yield Response.status(Response.Status.BAD_REQUEST)
-            .entity(new ErrorResponse(errors))
-            .build();
-      }
-    };
-  }
+@POST
+public Uni<Response> create(CreateArticleRequest request) {
+    return createArticleService.execute(toInput(request))
+            .map(ArticleCommandResource::toCreated);
 }
 ```
+
+成功時の変換（`toCreated`）だけを書けばよく、失敗時の分岐は一切登場しません。`ValidationException`→400、`EntityNotFoundException`→404、`BusinessRuleViolationException`→409、その他の`DomainException`→500への変換は、`DomainExceptionMapper`側に一元化されています。
 
 ## ベストプラクティス
 
 ### 1. ドメイン層ではResultを返す
 
-ドメインモデルの生成やビジネスロジックでは、例外をスローせずにResultを返すことを推奨します。
+ドメインモデルの外部入力からの生成やビジネスロジックでは、例外をスローせずにResultを返すことを推奨します。
 
 ```java
 // Good
-public static Result<AlbumTitle> create(String value) { ... }
+public static Result<ArticleTitle> fromInput(@Nullable String value) { ... }
 
 // Bad
-public static AlbumTitle create(String value) throws ValidationException { ... }
+public static ArticleTitle fromInput(String value) throws ValidationException { ... }
 ```
 
-### 2. Application層で適切に処理
+信頼できる内部生成（永続化層からの再構成等）には、例外throwの`of()`を別途用意します。
 
-Application層では、Resultを適切な形に変換します。
+### 2. Application層でDomainExceptionへ変換する
 
-```java
-// resolve()でドメイン例外に変換（値検証エラーは ValidationException）
-Album album = result.resolve(errors ->
-    new ValidationException("アルバム情報が不正です", errors)
-);
-```
+Application層では、`resolve(ValidationException::new)`のように`Result`を`DomainException`へ変換します。以降はPresentation層まで通常の例外として伝播させ、`Result`をPresentation層まで持ち越しません。
 
-### 3. Resource層でHTTPレスポンスに変換
+### 3. Presentation層はDomainExceptionMapperに委ねる
 
-Resource層では、Resultをswitch式で分岐してHTTPレスポンスに変換します。
+Presentation層でResultをswitchで分岐するコードは書きません。HTTPへの変換は`DomainExceptionMapper`（RFC 9457 Problem Details）に一元化します。
 
 ### 4. エラーコードの活用
 
 エラーコードを設定することで、クライアント側での詳細なエラーハンドリングが可能になります。
 
 ```java
-new ErrorResult("title", "タイトルの形式が不正です", "E002")
+new ErrorResult("title", "記事タイトルは必須です", "ARTICLE_TITLE_REQUIRED")
 ```
 
 ## 参考
 
 - テストコード: `backend/src/test/java/com/abservice/lib/ResultTest.java`
+- VOの2系統生成の実例: `backend/src/main/java/com/abservice/domain/model/vo/article/ArticleTitle.java` / `ArticleType.java` / `MarkupContent.java`
+- Application層の実例: `backend/src/main/java/com/abservice/application/service/article/CreateArticleService.java`
+- Presentation層とDomainExceptionMapperの実例: `backend/src/main/java/com/abservice/presentation/rest/article/ArticleCommandResource.java` / `backend/src/main/java/com/abservice/presentation/rest/exception/DomainExceptionMapper.java`
