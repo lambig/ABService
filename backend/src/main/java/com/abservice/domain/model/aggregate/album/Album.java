@@ -1,6 +1,8 @@
 package com.abservice.domain.model.aggregate.album;
 
+import static com.abservice.lib.Optionals.optionally;
 import static java.util.function.Predicate.not;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.Collections;
 import java.util.Comparator;
@@ -249,13 +251,14 @@ public class Album implements Aggregate<Album, Album.Id> {
                     throw new BusinessRuleViolationException(
                             "Track number " + validatedTrack.trackNo() + " already exists");
                 });
-        return withTracks(
-                tracks.stream()
-                        .map(
-                                t -> validatedTrack.equivalentTo(t)
-                                        ? validatedTrack
-                                        : t)
-                        .toList());
+        return tracks.stream()
+                .map(
+                        t -> validatedTrack.equivalentTo(t)
+                                ? validatedTrack
+                                : t)
+                .collect(optionally(toUnmodifiableList()))
+                .map(this::withTracks)
+                .get();
     }
 
     /**

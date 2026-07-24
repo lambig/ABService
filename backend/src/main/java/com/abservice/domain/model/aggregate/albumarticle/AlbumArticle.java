@@ -1,6 +1,8 @@
 package com.abservice.domain.model.aggregate.albumarticle;
 
+import static com.abservice.lib.Optionals.optionally;
 import static java.util.function.Predicate.not;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.Collections;
 import java.util.List;
@@ -219,13 +221,14 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
         acquisitionChannels.stream().filter(updatedChannel::equivalentTo).findFirst().orElseThrow(
                 () -> new BusinessRuleViolationException(
                         "Acquisition channel with ID " + updatedChannel.id().value() + " not found"));
-        return withAcquisitionChannels(
-                acquisitionChannels.stream()
-                        .map(
-                                c -> c.equivalentTo(updatedChannel)
-                                        ? updatedChannel
-                                        : c)
-                        .toList());
+        return acquisitionChannels.stream()
+                .map(
+                        c -> c.equivalentTo(updatedChannel)
+                                ? updatedChannel
+                                : c)
+                .collect(optionally(toUnmodifiableList()))
+                .map(this::withAcquisitionChannels)
+                .get();
     }
 
     /**

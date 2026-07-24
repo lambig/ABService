@@ -1,6 +1,8 @@
 package com.abservice.domain.model.aggregate.album;
 
+import static com.abservice.lib.Optionals.optionally;
 import static java.util.function.Predicate.not;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.Collections;
 import java.util.List;
@@ -280,13 +282,14 @@ public class Track implements DomainEntity<Track, Track.Id> {
                 .changeComposerCreditOverride(composerCreditOverride)
                 .changeArrangerCreditOverride(arrangerCreditOverride)
                 .changeLinkUrl(linkUrl);
-        return withTunes(
-                tunes.stream()
-                        .map(
-                                t -> t.hasId(validatedSeq)
-                                        ? updatedTune
-                                        : t)
-                        .toList());
+        return tunes.stream()
+                .map(
+                        t -> t.hasId(validatedSeq)
+                                ? updatedTune
+                                : t)
+                .collect(optionally(toUnmodifiableList()))
+                .map(this::withTunes)
+                .get();
     }
 
     /**
