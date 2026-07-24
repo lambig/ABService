@@ -1,7 +1,9 @@
 package com.abservice.infrastructure.persistence.mapper;
 
 import static com.abservice.lib.Iterables.toList;
+import static com.abservice.lib.Optionals.optionally;
 import static java.util.function.Predicate.not;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.album.Track;
@@ -153,16 +155,19 @@ public final class AlbumMapper {
     }
 
     private static void populateDateAndSpaceEntities(AlbumEntity albumEntity, List<EventDateAndSpace> dateAndSpaces) {
-        albumEntity.setEventDateSpaces(dateAndSpaces.stream().map(ds -> {
-            final var entity = new AlbumEventDateSpaceEntity();
-            entity.setAlbum(albumEntity);
-            entity.setEventDate(ds.date().asLocalDate());
-            entity.setSpaceNumber(ds.spaceNumber());
-            // 監査カラムのデフォルト値を設定
-            entity.setCreatedByService("abservice");
-            entity.setUpdatedByService("abservice");
-            return entity;
-        }).toList());
+        dateAndSpaces.stream()
+                .map(ds -> {
+                    final var entity = new AlbumEventDateSpaceEntity();
+                    entity.setAlbum(albumEntity);
+                    entity.setEventDate(ds.date().asLocalDate());
+                    entity.setSpaceNumber(ds.spaceNumber());
+                    // 監査カラムのデフォルト値を設定
+                    entity.setCreatedByService("abservice");
+                    entity.setUpdatedByService("abservice");
+                    return entity;
+                })
+                .collect(optionally(toUnmodifiableList()))
+                .ifPresent(albumEntity::setEventDateSpaces);
     }
 
     private static void populateLegacyDateAndSpace(AlbumEntity albumEntity, EventDateAndSpace firstDateSpace) {

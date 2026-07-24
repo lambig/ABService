@@ -512,4 +512,36 @@
         </properties>
     </rule>
 
+    <rule name="ForbiddenOuterCallWrappingStreamToList"
+          language="java"
+          message="外側の呼び出しの引数に複数行の stream 計算を直接渡さないでください。.collect(Optionals.optionally(downstream)) の後、値を返す変換なら .map(...).get()、void の setter/consumer なら .ifPresent(...) を用いて、記述順と実行順を一致させてください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            外側のメソッド呼び出し（Lombok {@code @With} が生成する {@code withXxx(...)} や、JPA
+            エンティティの setter 等）の引数として、複数行にまたがる {@code x.stream()...toList()}
+            という stream 計算を直接渡す形を禁止する。外側の呼び出しを先に読んでから内側の計算を
+            読む必要があり、記述順と実行順が一致せずトレースしづらいため、
+            {@code stream().collect(Optionals.optionally(downstream))} の後段で、値を返す変換
+            （{@code withXxx} 等）なら {@code .map(this::withXxx).get()}、戻り値のない
+            setter/consumer（{@code entity::setXxx} 等）なら {@code .ifPresent(entity::setXxx)}
+            という、記述順=実行順の形へ置き換える。1行に収まる {@code withXxx(Stream.concat(...)
+            .toList())} 等（トレース性の問題が生じない単純な形）は対象外。スコープは production
+            （src/main）限定。com.abservice.lib（サンクションされた共通ヘルパの実装本体）は他の
+            ルールと同様に対象外。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//MethodCall
+    [ArgumentList[count(*) = 1]]
+    [ArgumentList/*[1][self::MethodCall][@MethodName = "toList"]
+        [@BeginLine != @EndLine]
+        [descendant-or-self::MethodCall[@MethodName = "stream"]]]
+    [not(/CompilationUnit/PackageDeclaration[@Name = "com.abservice.lib"])]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
 </ruleset>
