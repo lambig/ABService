@@ -18,11 +18,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.With;
@@ -41,9 +39,8 @@ import org.jspecify.annotations.Nullable;
 @With(AccessLevel.PRIVATE)
 @Getter
 @Accessors(fluent = true)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class Article implements Aggregate<Article, Article.@NonNull Id> {
+public final class Article implements Aggregate<Article, Article.@NonNull Id> {
     @EqualsAndHashCode.Include
     @NonNull
     private final Id id;
@@ -64,6 +61,25 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
     @NonNull
     private final List<ArticleTag> tags; // 記事タグのリスト
 
+    // 全フィールドを受け取る唯一の構築経路（@Withが生成するwitherも本コンストラクタを呼ぶ）。
+    // Policy検証をここに一本化することで、witherを含むどの経路からも検証を迂回できない（#101）。
+    @SuppressWarnings("checkstyle:ParameterNumber") // 全フィールドを受け取る唯一の構築経路のため引数が多い
+    private Article(@NonNull Id id, @NonNull ArticleType articleType, Album.@Nullable Id albumId,
+            @NonNull ArticleTitle title, @Nullable MarkupContent body, @Nullable String introShort,
+            @Nullable BusinessDateTime publishedAt, @Nullable BusinessDateTime updatedAtBusiness,
+            boolean publicFlag, @NonNull List<ArticleTag> tags) {
+        this.id = id;
+        this.articleType = requireType(articleType);
+        this.albumId = albumId;
+        this.title = requireTitle(title);
+        this.body = body;
+        this.introShort = introShort;
+        this.publishedAt = publishedAt;
+        this.updatedAtBusiness = updatedAtBusiness;
+        this.publicFlag = publicFlag;
+        this.tags = tags;
+    }
+
     /**
      * 新規記事を生成
      *
@@ -81,7 +97,7 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      */
     public static @NonNull Article create(@NonNull ArticleType articleType, Album.@Nullable Id albumId,
             @NonNull ArticleTitle title, @Nullable MarkupContent body, @Nullable String introShort) {
-        return new Article(Id.generate(), requireType(articleType), albumId, requireTitle(title), body, introShort,
+        return new Article(Id.generate(), articleType, albumId, title, body, introShort,
                 null, null, false, Collections.emptyList());
     }
 
@@ -129,8 +145,8 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article changeTitle(@NonNull ArticleTitle newTitle, @NonNull BusinessDateTime currentDateTime) {
-        return withTitle(requireTitle(newTitle))
-                .withUpdatedAtBusiness(currentDateTime);
+        return new Article(id, articleType, albumId, newTitle, body, introShort, publishedAt, currentDateTime,
+                publicFlag, tags);
     }
 
     /**
@@ -229,18 +245,19 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      */
     public @NonNull Article changeArticleType(@NonNull ArticleType newArticleType,
             @NonNull BusinessDateTime currentDateTime) {
-        return Optional.of(requireType(newArticleType))
-                .map(this::withArticleType)
-                .map(
-                        newArticleType == ArticleType.ALBUM
-                                ? UnaryOperator.<Article>identity()
-                                : (UnaryOperator<Article>) Article::withoutAlbumId)
-                .map(article -> article.withUpdatedAtBusiness(currentDateTime))
-                .orElseThrow();
-    }
-
-    private @NonNull Article withoutAlbumId() {
-        return withAlbumId(null);
+        return new Article(
+                id,
+                newArticleType,
+                newArticleType == ArticleType.ALBUM
+                        ? albumId
+                        : null,
+                title,
+                body,
+                introShort,
+                publishedAt,
+                currentDateTime,
+                publicFlag,
+                tags);
     }
 
     /**
