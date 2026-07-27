@@ -6,6 +6,7 @@ import static com.abservice.lib.Optionals.both;
 import static io.github.lambig.funcifextension.predicate.Predicates.or;
 
 import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.domain.model.vo.common.EventDateAndSpace;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.domain.model.vo.event.ConfirmedEvent;
 import com.abservice.domain.model.vo.event.EventToParticipate;
@@ -94,15 +95,16 @@ public class EventMatchingService implements DomainService {
         };
     }
 
+    @SuppressWarnings("PMD.ForbiddenSingleHopProjectionLambda") // or(Predicate<E>...)のE推論がList::isEmpty単独では解決不可のため
     private boolean matchesTentativeDates(TentativeEvent tentative, EventReleasedAt releasedAt) {
-        final var releasedDates = releasedAt.dateAndSpaces().stream().map(ds -> ds.date()).toList();
+        final var releasedDates = releasedAt.dateAndSpaces().stream().map(EventDateAndSpace::date).toList();
         return or(
                 (List<BusinessDate> dates) -> dates.isEmpty(),
                 dates -> dates.stream().anyMatch(releasedDates::contains)).test(tentative.tentativeDates());
     }
 
     private boolean matchesConfirmedDates(ConfirmedEvent confirmed, EventReleasedAt releasedAt) {
-        return confirmed.dateAndSpaces().stream().map(ds -> ds.date()).toList()
-                .equals(releasedAt.dateAndSpaces().stream().map(ds -> ds.date()).toList());
+        return confirmed.dateAndSpaces().stream().map(EventDateAndSpace::date).toList()
+                .equals(releasedAt.dateAndSpaces().stream().map(EventDateAndSpace::date).toList());
     }
 }
