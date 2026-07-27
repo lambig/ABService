@@ -5,8 +5,8 @@
 **機械的に検証できる規約は静的解析で強制済みであり、本書では繰り返さない。** 強制ルールの一覧と実体は [STATUS_AND_ROADMAP.md](STATUS_AND_ROADMAP.md) §6、および各設定（`backend/config/`・`backend/build.gradle`）が正。以下はその代表例で、いずれも本書の記述ではなくルール／設定が拘束する:
 
 - 命名・配置（`@Entity` 命名/配置、`RepositoryImpl`、レイヤ依存方向）、Repository/ApplicationService の `Uni` 返却契約 → **ArchUnit**
-- ローカル変数の `final var`、中置論理演算子禁止、domain の try-catch/可変コレクション禁止、AssertJ 統一 → **Checkstyle**
-- `if` 文の全廃（値生成は式のみ）、VO/record の検証必須、単一行三項禁止、FQN 禁止 → **PMD**
+- ローカル変数の `final var`、中置論理演算子禁止、domain の try-catch禁止、production全域の可変コレクション直接生成禁止（`infrastructure.persistence` 境界のみ例外）、AssertJ 統一 → **Checkstyle**
+- `if` 文の全廃（値生成は式のみ）、VO/record の検証必須、単一行三項禁止、FQN 禁止、可変コレクタ・Collection/Map変異呼び出し禁止（`infrastructure.persistence` 境界のみ例外） → **PMD**
 - domain の `java.time`（`LocalDate` 等）直接使用禁止・`Uni`/Provider 禁止 → **ArchUnit**
 - コンパイル時 null 安全（`@NullMarked` + `@Nullable`） → **NullAway**
 - フォーマット（三項の複数行整形を含む） → **Spotless**
