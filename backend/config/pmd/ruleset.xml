@@ -583,6 +583,59 @@
         </properties>
     </rule>
 
+    <rule name="ForbiddenMutableCollector"
+          language="java"
+          message="Collectors.toList/toSet/toMap は可変コレクションを返します。Stream#toList()（不変）や toolbox の Iterables.toList 等へ置換してください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            java.util.stream.Collectors の toList/toSet/toMap（いずれも可変コレクションを
+            返す静的ファクトリ）の呼び出しを禁止する。Stream#toList()（Java 16+ の不変終端
+            操作、同名だが Stream インスタンスへの呼び出しであり Collectors への静的呼び出し
+            ではないため対象外）への置換、または toSet/toMap 相当が必要な場合は不変コレクタへの
+            置換を促す。スコープは production（src/main）限定。JPA エンティティのコレクション
+            操作を行う infrastructure.persistence 境界のみ例外とする（#78）。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//MethodCall[@MethodName = ("toList", "toSet", "toMap")]
+    [child::*[not(self::ArgumentList)][self::TypeExpression]/ClassType[@SimpleName = "Collectors"]]
+    [not(/CompilationUnit/PackageDeclaration[starts-with(@Name, "com.abservice.infrastructure.persistence")])]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
+    <rule name="ForbiddenMutableCollectionMutation"
+          language="java"
+          message="Collection/Map を直接変異させるメソッド呼び出し（add/addAll/clear/put/putAll/remove/removeAll/removeIf/set 等）は禁止です。不変生成（List.of/Map.of/Stream#toList 等）で新しい値を組み立ててください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            受け手（レシーバ）の静的型が java.util.Collection または java.util.Map（その実装/
+            サブタイプを含む）である呼び出しのうち、変異メソッド（add/addAll/clear/put/putAll/
+            remove/removeAll/removeIf/set/replace）を禁止する。型解決により、String#replace
+            や AtomicInteger#set 等の非コレクション型に対する同名メソッド呼び出しは対象外
+            （レシーバの型が Collection/Map ではないため）。スコープは production（src/main）
+            限定。JPA エンティティのコレクションフィールド初期化・管理コレクションの変異（例:
+            AlbumRepositoryImpl.save の merge における existingEntity.getTracks().clear()/.add()）
+            を行う infrastructure.persistence 境界のみ例外とする（#78）。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//MethodCall[@MethodName = (
+        "add", "addAll", "clear", "put", "putAll",
+        "remove", "removeAll", "removeIf", "set", "replace")]
+    [child::*[not(self::ArgumentList)]
+        [pmd-java:typeIs("java.util.Collection") or pmd-java:typeIs("java.util.Map")]]
+    [not(/CompilationUnit/PackageDeclaration[starts-with(@Name, "com.abservice.infrastructure.persistence")])]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
     <rule name="ForbiddenOuterCallWrappingStreamToList"
           language="java"
           message="外側の呼び出しの引数に複数行の stream 計算を直接渡さないでください。.collect(Optionals.optionally(downstream)) の後、値を返す変換なら .map(...).get()、void の setter/consumer なら .ifPresent(...) を用いて、記述順と実行順を一致させてください。"

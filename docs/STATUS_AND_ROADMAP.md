@@ -129,8 +129,8 @@ ABService のアーキテクチャ制約・コーディング規約は多層の�
 | 手段 | 実体 | 主な強制内容 |
 |---|---|---|
 | ArchUnit | `backend/src/test/java/com/abservice/architecture/`（`LayeredArchitectureTest` / `TestConventionsArchTest`） | レイヤ依存方向、`@Entity` 配置/命名、`@Transactional` 禁止、Repository/ApplicationService の `Uni` 返却契約、domain の `java.time`/`Uni`/Provider 禁止、コンストラクタ可視性、フィールド final、`@DisplayName` 必須 |
-| Checkstyle | `backend/config/checkstyle/`（+ `suppressions.xml`） | domain の try-catch/可変コレクション禁止、中置論理演算子禁止、全ローカル final、JUnit assertion 禁止（AssertJ 統一）、`@SuppressWarnings` 理由必須 |
-| PMD | `backend/config/pmd/ruleset.xml` | `if` 文全廃、VO/record の検証必須、FQN 禁止、`if` 値 return / `switch` 文禁止 |
+| Checkstyle | `backend/config/checkstyle/`（+ `suppressions.xml`） | domain の try-catch禁止、production全域の可変コレクション直接生成禁止（`infrastructure.persistence` 境界のみ例外）、中置論理演算子禁止、全ローカル final、JUnit assertion 禁止（AssertJ 統一）、`@SuppressWarnings` 理由必須 |
+| PMD | `backend/config/pmd/ruleset.xml` | `if` 文全廃、VO/record の検証必須、FQN 禁止、`if` 値 return / `switch` 文禁止、可変コレクタ（`Collectors.toList/toSet/toMap`）・Collection/Map変異呼び出し禁止（型解決で判定、`infrastructure.persistence` 境界のみ例外） |
 | NullAway / ErrorProne | `backend/build.gradle` | `@NullMarked`（package-info）＋ `@Nullable` によるコンパイル時 null 安全。`main` 全体（`..persistence.entity..` は Hibernate populate 体のため対象外）を ERROR で強制。設計・除外方針は #44 |
 | Spotless | `backend/config/spotless/eclipse-formatter.xml` | フォーマット |
 

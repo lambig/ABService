@@ -12,9 +12,13 @@
     <suppress id="DomainNoTryCatch"
         files="^(?!.*[\\/]src[\\/]main[\\/]java[\\/]com[\\/]abservice[\\/]domain[\\/]).*$"/>
 
-    <!-- 可変コレクション生成禁止（DomainNoMutableCollection）も production の domain 層のみに適用 -->
-    <suppress id="DomainNoMutableCollection"
-        files="^(?!.*[\\/]src[\\/]main[\\/]java[\\/]com[\\/]abservice[\\/]domain[\\/]).*$"/>
+    <!-- 可変コレクション生成禁止（NoMutableCollectionInstantiation）は production 全域に適用。
+         JPAエンティティのコレクションフィールド初期化・管理コレクション変異のみを行う
+         infrastructure.persistence 境界のみ例外とする（#78。旧DomainNoMutableCollectionから拡張） -->
+    <suppress id="NoMutableCollectionInstantiation"
+        files="^(?!.*[\\/]src[\\/]main[\\/]java[\\/]).*$"/>
+    <suppress id="NoMutableCollectionInstantiation"
+        files=".*[\\/]src[\\/]main[\\/]java[\\/]com[\\/]abservice[\\/]infrastructure[\\/]persistence[\\/].*"/>
 
     <!-- 中置論理演算子禁止（ForbiddenLogicalOperators）は production コード（src/main/java）のみに適用。テスト等は抑制 -->
     <suppress id="ForbiddenLogicalOperators"
