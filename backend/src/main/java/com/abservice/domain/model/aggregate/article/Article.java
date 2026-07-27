@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import lombok.AccessLevel;
@@ -228,11 +229,18 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      */
     public @NonNull Article changeArticleType(@NonNull ArticleType newArticleType,
             @NonNull BusinessDateTime currentDateTime) {
-        // ALBUM以外の種別に変更する場合、albumIdをクリア
-        final var typed = withArticleType(requireType(newArticleType));
-        return (newArticleType == ArticleType.ALBUM
-                ? typed
-                : typed.withAlbumId(null)).withUpdatedAtBusiness(currentDateTime);
+        return Optional.of(requireType(newArticleType))
+                .map(this::withArticleType)
+                .map(
+                        newArticleType == ArticleType.ALBUM
+                                ? UnaryOperator.<Article>identity()
+                                : (UnaryOperator<Article>) Article::withoutAlbumId)
+                .map(article -> article.withUpdatedAtBusiness(currentDateTime))
+                .orElseThrow();
+    }
+
+    private @NonNull Article withoutAlbumId() {
+        return withAlbumId(null);
     }
 
     /**
