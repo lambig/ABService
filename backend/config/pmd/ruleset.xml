@@ -592,8 +592,8 @@
             返す静的ファクトリ）の呼び出しを禁止する。Stream#toList()（Java 16+ の不変終端
             操作、同名だが Stream インスタンスへの呼び出しであり Collectors への静的呼び出し
             ではないため対象外）への置換、または toSet/toMap 相当が必要な場合は不変コレクタへの
-            置換を促す。スコープは production（src/main）限定。JPA エンティティのコレクション
-            操作を行う infrastructure.persistence 境界のみ例外とする（#78）。
+            置換を促す。適用範囲はテストコードを含むソースツリー全体で、JPA エンティティの
+            コレクション操作を行う infrastructure.persistence 境界のみ例外とする（#78）。
         </description>
         <priority>3</priority>
         <properties>
@@ -616,10 +616,15 @@
             サブタイプを含む）である呼び出しのうち、変異メソッド（add/addAll/clear/put/putAll/
             remove/removeAll/removeIf/set/replace）を禁止する。型解決により、String#replace
             や AtomicInteger#set 等の非コレクション型に対する同名メソッド呼び出しは対象外
-            （レシーバの型が Collection/Map ではないため）。スコープは production（src/main）
-            限定。JPA エンティティのコレクションフィールド初期化・管理コレクションの変異（例:
-            AlbumRepositoryImpl.save の merge における existingEntity.getTracks().clear()/.add()）
-            を行う infrastructure.persistence 境界のみ例外とする（#78）。
+            （レシーバの型が Collection/Map ではないため）。適用範囲はテストコードを含む
+            ソースツリー全体。例外は2種類: (1) JPA エンティティのコレクションフィールド
+            初期化・管理コレクションの変異（例: AlbumRepositoryImpl.save の merge における
+            existingEntity.getTracks().clear()/.add()）を行う infrastructure.persistence
+            境界（#78）。(2) assertThatThrownBy(() -&gt; コレクション.add(...))
+            .isInstanceOf(UnsupportedOperationException.class) の形（不変性そのものを証明
+            するために変異を意図的に試みるテストであり、コレクションを可変として使う意図では
+            ないため）。可変コレクションを要する場面はテストにも存在しないという前提のもと、
+            この2種類以外は一切例外化しない。
         </description>
         <priority>3</priority>
         <properties>
@@ -631,6 +636,11 @@
     [child::*[not(self::ArgumentList)]
         [pmd-java:typeIs("java.util.Collection") or pmd-java:typeIs("java.util.Map")]]
     [not(/CompilationUnit/PackageDeclaration[starts-with(@Name, "com.abservice.infrastructure.persistence")])]
+    [not(ancestor::LambdaExpression
+        [parent::ArgumentList
+            /parent::MethodCall[@MethodName = "assertThatThrownBy"]
+                [parent::MethodCall[@MethodName = "isInstanceOf"]
+                    [ArgumentList//ClassType[@SimpleName = "UnsupportedOperationException"]]]])]
                 ]]></value>
             </property>
         </properties>
