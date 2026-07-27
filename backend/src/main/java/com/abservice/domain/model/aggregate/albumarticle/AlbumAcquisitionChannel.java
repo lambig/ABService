@@ -9,7 +9,6 @@ import com.abservice.lib.ErrorResult;
 import java.util.Objects;
 import java.util.function.Function;
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.With;
@@ -25,9 +24,10 @@ import org.jspecify.annotations.Nullable;
  */
 @With(AccessLevel.PRIVATE)
 @Getter
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class AlbumAcquisitionChannel implements DomainEntity<AlbumAcquisitionChannel, AlbumAcquisitionChannel.Id> {
+public final class AlbumAcquisitionChannel
+        implements
+            DomainEntity<AlbumAcquisitionChannel, AlbumAcquisitionChannel.Id> {
     @EqualsAndHashCode.Include
     private final Id id;
     private final ChannelType channelType;
@@ -36,6 +36,39 @@ public class AlbumAcquisitionChannel implements DomainEntity<AlbumAcquisitionCha
     private final Url url; // nullable: 詳細ページへのURL
     @Nullable
     private final String note; // nullable: 補足
+
+    // 全フィールドを受け取る唯一の構築経路（@Withが生成するwitherも本コンストラクタを呼ぶ）。
+    // Policy検証をここに一本化することで、witherを含むどの経路からも検証を迂回できない（#101）。
+    private AlbumAcquisitionChannel(Id id, ChannelType channelType, String name, @Nullable Url url,
+            @Nullable String note) {
+        this.id = id;
+        this.channelType = requireChannelType(channelType);
+        this.name = requireName(name);
+        this.url = url;
+        this.note = note;
+    }
+
+    private static ChannelType requireChannelType(@Nullable ChannelType channelType) {
+        return Policy.<ChannelType>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "channelType",
+                        "Channel type cannot be null",
+                        "CHANNEL_TYPE_REQUIRED"))
+                .verify(channelType, Function.identity())
+                .resolve(Policy::illegalArgument);
+    }
+
+    private static String requireName(@Nullable String name) {
+        return Policy.<String>of(
+                StringUtils::isNotBlank,
+                () -> new ErrorResult(
+                        "name",
+                        "Name cannot be blank",
+                        "NAME_REQUIRED"))
+                .verify(name, Function.identity())
+                .resolve(Policy::illegalArgument);
+    }
 
     /**
      * 新規AlbumAcquisitionChannelを生成
@@ -55,22 +88,6 @@ public class AlbumAcquisitionChannel implements DomainEntity<AlbumAcquisitionCha
             String name,
             @Nullable Url url,
             @Nullable String note) {
-        Policy.<ChannelType>of(
-                Objects::nonNull,
-                () -> new ErrorResult(
-                        "channelType",
-                        "Channel type cannot be null",
-                        "CHANNEL_TYPE_REQUIRED"))
-                .verify(channelType, Function.identity())
-                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
-        Policy.<String>of(
-                StringUtils::isNotBlank,
-                () -> new ErrorResult(
-                        "name",
-                        "Name cannot be blank",
-                        "NAME_REQUIRED"))
-                .verify(name, Function.identity())
-                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         return new AlbumAcquisitionChannel(
                 Id.generate(),
                 channelType,
@@ -112,15 +129,12 @@ public class AlbumAcquisitionChannel implements DomainEntity<AlbumAcquisitionCha
      * @return 更新されたAlbumAcquisitionChannel
      */
     public AlbumAcquisitionChannel changeChannelType(ChannelType newChannelType) {
-        Policy.<ChannelType>of(
-                Objects::nonNull,
-                () -> new ErrorResult(
-                        "channelType",
-                        "Channel type cannot be null",
-                        "CHANNEL_TYPE_REQUIRED"))
-                .verify(newChannelType, Function.identity())
-                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
-        return withChannelType(newChannelType);
+        return new AlbumAcquisitionChannel(
+                id,
+                newChannelType,
+                name,
+                url,
+                note);
     }
 
     /**
@@ -131,15 +145,12 @@ public class AlbumAcquisitionChannel implements DomainEntity<AlbumAcquisitionCha
      * @return 更新されたAlbumAcquisitionChannel
      */
     public AlbumAcquisitionChannel changeName(String newName) {
-        Policy.<String>of(
-                StringUtils::isNotBlank,
-                () -> new ErrorResult(
-                        "name",
-                        "Name cannot be blank",
-                        "NAME_REQUIRED"))
-                .verify(newName, Function.identity())
-                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
-        return withName(newName);
+        return new AlbumAcquisitionChannel(
+                id,
+                channelType,
+                newName,
+                url,
+                note);
     }
 
     /**

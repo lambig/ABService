@@ -29,7 +29,6 @@ import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.lib.ErrorResult;
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.With;
@@ -45,9 +44,8 @@ import lombok.experimental.Accessors;
 @With(AccessLevel.PRIVATE)
 @Getter
 @Accessors(fluent = true)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class Album implements Aggregate<Album, Album.Id> {
+public final class Album implements Aggregate<Album, Album.Id> {
     @EqualsAndHashCode.Include
     @NonNull
     private final Id id;
@@ -65,6 +63,22 @@ public class Album implements Aggregate<Album, Album.Id> {
     private final Isdn isdn; // nullable: ISDN（国際標準同人誌番号）
     @NonNull
     private final List<Track> tracks;
+
+    // 全フィールドを受け取る唯一の構築経路（@Withが生成するwitherも本コンストラクタを呼ぶ）。
+    // Policy検証をここに一本化することで、witherを含むどの経路からも検証を迂回できない（#101）。
+    @SuppressWarnings("checkstyle:ParameterNumber") // 全フィールドを受け取る唯一の構築経路のため引数が多い
+    private Album(@NonNull Id id, @NonNull AlbumTitle title, @NonNull BusinessDate releaseDate,
+            @NonNull ArtistCredit artistCredit, @Nullable EventReleasedAt eventReleasedAt,
+            @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn, @NonNull List<Track> tracks) {
+        this.id = id;
+        this.title = requireTitle(title);
+        this.releaseDate = releaseDate;
+        this.artistCredit = requireArtistCredit(artistCredit);
+        this.eventReleasedAt = eventReleasedAt;
+        this.catalogNumber = catalogNumber;
+        this.isdn = isdn;
+        this.tracks = tracks;
+    }
 
     /**
      * 新規アルバムを生成
@@ -86,7 +100,7 @@ public class Album implements Aggregate<Album, Album.Id> {
     public static @NonNull Album create(@NonNull AlbumTitle title, @NonNull BusinessDate releaseDate,
             @NonNull ArtistCredit artistCredit, @Nullable EventReleasedAt eventReleasedAt,
             @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn) {
-        return new Album(Id.generate(), requireTitle(title), releaseDate, requireArtistCredit(artistCredit),
+        return new Album(Id.generate(), title, releaseDate, artistCredit,
                 eventReleasedAt, catalogNumber, isdn, Collections.emptyList());
     }
 
@@ -135,7 +149,15 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album changeTitle(@NonNull AlbumTitle newTitle) {
-        return withTitle(requireTitle(newTitle));
+        return new Album(
+                id,
+                newTitle,
+                releaseDate,
+                artistCredit,
+                eventReleasedAt,
+                catalogNumber,
+                isdn,
+                tracks);
     }
 
     /**
@@ -157,7 +179,15 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album changeArtistCredit(@NonNull ArtistCredit newArtistCredit) {
-        return withArtistCredit(requireArtistCredit(newArtistCredit));
+        return new Album(
+                id,
+                title,
+                releaseDate,
+                newArtistCredit,
+                eventReleasedAt,
+                catalogNumber,
+                isdn,
+                tracks);
     }
 
     /**

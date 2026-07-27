@@ -683,6 +683,33 @@
         </properties>
     </rule>
 
+    <rule name="ForbiddenWithAllArgsConstructorCombination"
+          language="java"
+          message="@With と @AllArgsConstructor を同一クラスで併用しないでください。@AllArgsConstructorはフィールド代入のみでPolicy検証を注入できず、@Withが生成するwitherもこの無検証コンストラクタを直接呼ぶため、Always Validを迂回できてしまいます。手書きのprivateコンストラクタへ置き換え、Policy検証を一本化してください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            クラス宣言が {@code @With} と {@code @AllArgsConstructor} の両方を持つ場合を禁止する。
+            {@code @AllArgsConstructor} が生成する全引数コンストラクタはフィールド代入のみで
+            Policy検証を注入できず、{@code @With} が生成するwitherもこの無検証コンストラクタを
+            直接呼ぶため、Always Validが構造的に保証されず規約（人間の注意）依存になる（#101）。
+            手書きのprivateコンストラクタへ置き換え、Policy検証（{@code require*}ヘルパー等）を
+            そのコンストラクタに一本化することで、witherを含むどの構築経路からも検証を迂回
+            できなくする。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//ClassDeclaration[
+    ModifierList/*[contains(local-name(), "Annotation")][@SimpleName = "With"]
+][
+    ModifierList/*[contains(local-name(), "Annotation")][@SimpleName = "AllArgsConstructor"]
+]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
     <rule name="ForbiddenOuterCallWrappingStreamToList"
           language="java"
           message="外側の呼び出しの引数に複数行の stream 計算を直接渡さないでください。.collect(Optionals.optionally(downstream)) の後、値を返す変換なら .map(...).get()、void の setter/consumer なら .ifPresent(...) を用いて、記述順と実行順を一致させてください。"

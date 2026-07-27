@@ -17,7 +17,6 @@ import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.album.LabelTag;
 import com.abservice.lib.ErrorResult;
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.With;
@@ -34,9 +33,8 @@ import org.jspecify.annotations.Nullable;
 @With(AccessLevel.PRIVATE)
 @Getter
 @Accessors(fluent = true)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
+public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
     @EqualsAndHashCode.Include
     private final Album.Id albumId; // Album集約への参照（IDのみ）
     @Nullable
@@ -50,6 +48,32 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
     @Nullable
     private final AlbumDistribution distribution; // nullable: 頒布情報
     private final List<AlbumAcquisitionChannel> acquisitionChannels; // 入手経路
+
+    // 全フィールドを受け取る唯一の構築経路（@Withが生成するwitherも本コンストラクタを呼ぶ）。
+    // Policy検証をここに一本化することで、witherを含むどの経路からも検証を迂回できない（#101）。
+    @SuppressWarnings("checkstyle:ParameterNumber") // 全フィールドを受け取る唯一の構築経路のため引数が多い
+    private AlbumArticle(Album.Id albumId, @Nullable String introLong, @Nullable String introShort,
+            @Nullable String firstEventSpace, @Nullable LabelTag labelTag, @Nullable AlbumDistribution distribution,
+            List<AlbumAcquisitionChannel> acquisitionChannels) {
+        this.albumId = requireAlbumId(albumId);
+        this.introLong = introLong;
+        this.introShort = introShort;
+        this.firstEventSpace = firstEventSpace;
+        this.labelTag = labelTag;
+        this.distribution = distribution;
+        this.acquisitionChannels = acquisitionChannels;
+    }
+
+    private static Album.Id requireAlbumId(Album.@Nullable Id albumId) {
+        return Policy.<Album.Id>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "albumId",
+                        "Album ID cannot be null",
+                        "ALBUM_ID_REQUIRED"))
+                .verify(albumId, Function.identity())
+                .resolve(Policy::illegalArgument);
+    }
 
     /**
      * 新規AlbumArticleを生成
@@ -70,14 +94,6 @@ public class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      */
     public static AlbumArticle create(Album.Id albumId, @Nullable String introLong, @Nullable String introShort,
             @Nullable String firstEventSpace, @Nullable LabelTag labelTag, @Nullable AlbumDistribution distribution) {
-        Policy.<Album.Id>of(
-                Objects::nonNull,
-                () -> new ErrorResult(
-                        "albumId",
-                        "Album ID cannot be null",
-                        "ALBUM_ID_REQUIRED"))
-                .verify(albumId, Function.identity())
-                .resolve(Policy::illegalArgument);
         return new AlbumArticle(albumId, introLong, introShort, firstEventSpace, labelTag, distribution,
                 Collections.emptyList());
     }

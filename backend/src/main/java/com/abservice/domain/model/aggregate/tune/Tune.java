@@ -12,7 +12,6 @@ import com.abservice.lib.ErrorResult;
 import java.util.Objects;
 import java.util.function.Function;
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.With;
@@ -35,9 +34,8 @@ import org.jspecify.annotations.Nullable;
 @With(AccessLevel.PRIVATE)
 @Getter
 @Accessors(fluent = true)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
+public final class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
     @EqualsAndHashCode.Include
     @NonNull
     private final Id id;
@@ -59,6 +57,25 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
     private final String defaultKey; // 想定キー
     @Nullable
     private final Integer defaultTempo; // BPM
+
+    // 全フィールドを受け取る唯一の構築経路（@Withが生成するwitherも本コンストラクタを呼ぶ）。
+    // Policy検証をここに一本化することで、witherを含むどの経路からも検証を迂回できない（#101）。
+    @SuppressWarnings("checkstyle:ParameterNumber") // 全フィールドを受け取る唯一の構築経路のため引数が多い
+    private Tune(@NonNull Id id, @NonNull TuneTitle title, @NonNull TuneKind tuneKind,
+            @Nullable Credit defaultComposerCredit, @Nullable Credit defaultArrangerCredit,
+            @Nullable String originalWorkTitle, @Nullable String originalWorkCredit, @Nullable String tuneType,
+            @Nullable String defaultKey, @Nullable Integer defaultTempo) {
+        this.id = id;
+        this.title = requireTitle(title);
+        this.tuneKind = requireKind(tuneKind);
+        this.defaultComposerCredit = defaultComposerCredit;
+        this.defaultArrangerCredit = defaultArrangerCredit;
+        this.originalWorkTitle = originalWorkTitle;
+        this.originalWorkCredit = originalWorkCredit;
+        this.tuneType = tuneType;
+        this.defaultKey = defaultKey;
+        this.defaultTempo = defaultTempo;
+    }
 
     /**
      * 新規Tuneを生成
@@ -88,7 +105,7 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
             @Nullable Credit defaultComposerCredit, @Nullable Credit defaultArrangerCredit,
             @Nullable String originalWorkTitle, @Nullable String originalWorkCredit, @Nullable String tuneType,
             @Nullable String defaultKey, @Nullable Integer defaultTempo) {
-        return new Tune(Id.generate(), requireTitle(title), requireKind(tuneKind), defaultComposerCredit,
+        return new Tune(Id.generate(), title, tuneKind, defaultComposerCredit,
                 defaultArrangerCredit, originalWorkTitle, originalWorkCredit, tuneType, defaultKey, defaultTempo);
     }
 
@@ -134,7 +151,17 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
      * @return 更新されたTune
      */
     public @NonNull Tune changeTitle(@NonNull TuneTitle newTitle) {
-        return withTitle(requireTitle(newTitle));
+        return new Tune(
+                id,
+                newTitle,
+                tuneKind,
+                defaultComposerCredit,
+                defaultArrangerCredit,
+                originalWorkTitle,
+                originalWorkCredit,
+                tuneType,
+                defaultKey,
+                defaultTempo);
     }
 
     /**

@@ -25,7 +25,6 @@ import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.Url;
 import com.abservice.lib.ErrorResult;
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.With;
@@ -41,9 +40,8 @@ import lombok.experimental.Accessors;
 @With(AccessLevel.PACKAGE)
 @Getter
 @Accessors(fluent = true)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class Track implements DomainEntity<Track, Track.Id> {
+public final class Track implements DomainEntity<Track, Track.Id> {
     @EqualsAndHashCode.Include
     @NonNull
     private final Id id;
@@ -61,6 +59,22 @@ public class Track implements DomainEntity<Track, Track.Id> {
     private final Boolean isLive;
     @NonNull
     private final List<TrackTune> tunes;
+
+    // 全フィールドを受け取る唯一の構築経路（@Withが生成するwitherも本コンストラクタを呼ぶ）。
+    // Policy検証をここに一本化することで、witherを含むどの経路からも検証を迂回できない（#101）。
+    @SuppressWarnings("checkstyle:ParameterNumber") // 全フィールドを受け取る唯一の構築経路のため引数が多い
+    private Track(@NonNull Id id, @NonNull Integer trackNo, @NonNull TrackTitle title,
+            @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate,
+            @Nullable String recordingPlace, @Nullable Boolean isLive, @NonNull List<TrackTune> tunes) {
+        this.id = id;
+        this.trackNo = requireTrackNo(trackNo);
+        this.title = requireTitle(title);
+        this.artistCredit = artistCredit;
+        this.recordingDate = recordingDate;
+        this.recordingPlace = recordingPlace;
+        this.isLive = isLive;
+        this.tunes = tunes;
+    }
 
     /**
      * 新規トラックを生成
@@ -85,7 +99,7 @@ public class Track implements DomainEntity<Track, Track.Id> {
     public static @NonNull Track create(@NonNull Integer trackNo, @NonNull TrackTitle title,
             @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate, @Nullable String recordingPlace,
             @Nullable Boolean isLive) {
-        return new Track(Id.generate(), requireTrackNo(trackNo), requireTitle(title), artistCredit, recordingDate,
+        return new Track(Id.generate(), trackNo, title, artistCredit, recordingDate,
                 recordingPlace, isLive, Collections.emptyList());
     }
 
@@ -157,7 +171,15 @@ public class Track implements DomainEntity<Track, Track.Id> {
      * @return 更新されたTrack
      */
     public @NonNull Track changeTitle(@NonNull TrackTitle newTitle) {
-        return withTitle(requireTitle(newTitle));
+        return new Track(
+                id,
+                trackNo,
+                newTitle,
+                artistCredit,
+                recordingDate,
+                recordingPlace,
+                isLive,
+                tunes);
     }
 
     /**

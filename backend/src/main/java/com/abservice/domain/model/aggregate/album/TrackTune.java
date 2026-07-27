@@ -9,7 +9,6 @@ import com.abservice.lib.ErrorResult;
 import java.util.Objects;
 import java.util.function.Function;
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.With;
@@ -27,9 +26,8 @@ import org.jspecify.annotations.Nullable;
 @With(AccessLevel.PRIVATE)
 @Getter
 @Accessors(fluent = true)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class TrackTune implements DomainEntity<TrackTune, Integer> {
+public final class TrackTune implements DomainEntity<TrackTune, Integer> {
     @EqualsAndHashCode.Include
     private final Integer seq; // トラック内での登場順（1, 2, 3, ...）
     private final Tune.@Nullable Id tuneId; // nullable: MC、環境音などの場合はnull
@@ -39,6 +37,28 @@ public class TrackTune implements DomainEntity<TrackTune, Integer> {
     private final Credit arrangerCreditOverride; // nullable: nullの場合はTune側のデフォルトを使用
     @Nullable
     private final Url linkUrl; // nullable: 外部リンク（the session, 自サイト等）
+
+    // 全フィールドを受け取る唯一の構築経路（@Withが生成するwitherも本コンストラクタを呼ぶ）。
+    // Policy検証をここに一本化することで、witherを含むどの経路からも検証を迂回できない（#101）。
+    private TrackTune(Integer seq, Tune.@Nullable Id tuneId, @Nullable Credit composerCreditOverride,
+            @Nullable Credit arrangerCreditOverride, @Nullable Url linkUrl) {
+        this.seq = requireSeq(seq);
+        this.tuneId = tuneId;
+        this.composerCreditOverride = composerCreditOverride;
+        this.arrangerCreditOverride = arrangerCreditOverride;
+        this.linkUrl = linkUrl;
+    }
+
+    private static Integer requireSeq(@Nullable Integer seq) {
+        return Policy.<Integer>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "seq",
+                        "Seq cannot be null",
+                        "SEQ_REQUIRED"))
+                .verify(seq, Function.identity())
+                .resolve(Policy::illegalArgument);
+    }
 
     /**
      * トラック内での識別子（{@code seq}）を取得する
@@ -67,14 +87,6 @@ public class TrackTune implements DomainEntity<TrackTune, Integer> {
      */
     public static TrackTune create(Integer seq, Tune.@Nullable Id tuneId, @Nullable Credit composerCreditOverride,
             @Nullable Credit arrangerCreditOverride, @Nullable Url linkUrl) {
-        Policy.<Integer>of(
-                Objects::nonNull,
-                () -> new ErrorResult(
-                        "seq",
-                        "Seq cannot be null",
-                        "SEQ_REQUIRED"))
-                .verify(seq, Function.identity())
-                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         return new TrackTune(
                 seq,
                 tuneId,
