@@ -646,6 +646,43 @@
         </properties>
     </rule>
 
+    <rule name="ForbiddenCoarseTernaryArmGranularity"
+          language="java"
+          message="三項演算子のarm全体を分岐させず、真に異なる最小の部分式だけを分岐させてください（共通部分式は括り出す）。例: digit : digit * 3 → digit * (cond ? 1 : 3)。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            三項演算子の一方のarmが単一の変数/フィールド参照（VariableAccess/FieldAccess）で
+            あり、もう一方のarmがその同名参照を部分式として（任意の深さで）含む場合を禁止する。
+            「一方のarmが他方の恒等（identity）である」ケース（digit : digit * 3 →
+            digit * (cond ? 1 : 3)、digit : digit + n → digit + (cond ? 0 : n) 等、算術の
+            単位元で表現できる場合）だけでなく、恒等ではなく変換関数を適用するケース
+            （a : f(a) → (cond ? Function.identity() : f).apply(a) のように、値ではなく
+            適用する関数自体を分岐させる形）も同一原則の対象として検出する。両arm共有の
+            レシーバに対する異なるメソッド呼び出し（obj.foo() : obj.bar()）は、どちらのarmも
+            単一の裸参照ではないため対象外（部分式包含関係に該当しない）。arm全体が完全に同一の
+            裸参照（cond ? a : a）は変換を伴わないため対象外（他方armが裸参照でないことを要求）。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//ConditionalExpression[
+  let $thenArm := *[2],
+      $elseArm := *[3]
+  return
+    ($thenArm[self::VariableAccess or self::FieldAccess]
+      and not($elseArm[self::VariableAccess or self::FieldAccess])
+      and $elseArm/descendant-or-self::*[self::VariableAccess or self::FieldAccess][@Name = $thenArm/@Name])
+    or
+    ($elseArm[self::VariableAccess or self::FieldAccess]
+      and not($thenArm[self::VariableAccess or self::FieldAccess])
+      and $thenArm/descendant-or-self::*[self::VariableAccess or self::FieldAccess][@Name = $elseArm/@Name])
+]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
     <rule name="ForbiddenOuterCallWrappingStreamToList"
           language="java"
           message="外側の呼び出しの引数に複数行の stream 計算を直接渡さないでください。.collect(Optionals.optionally(downstream)) の後、値を返す変換なら .map(...).get()、void の setter/consumer なら .ifPresent(...) を用いて、記述順と実行順を一致させてください。"

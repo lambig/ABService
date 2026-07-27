@@ -230,9 +230,11 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
             @NonNull BusinessDateTime currentDateTime) {
         // ALBUM以外の種別に変更する場合、albumIdをクリア
         final var typed = withArticleType(requireType(newArticleType));
-        return (newArticleType == ArticleType.ALBUM
-                ? typed
-                : typed.withAlbumId(null)).withUpdatedAtBusiness(currentDateTime);
+        return Optional.of(typed)
+                .filter(unused -> newArticleType != ArticleType.ALBUM)
+                .map(article -> article.withAlbumId(null))
+                .orElse(typed)
+                .withUpdatedAtBusiness(currentDateTime);
     }
 
     /**
