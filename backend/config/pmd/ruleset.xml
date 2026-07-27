@@ -512,6 +512,77 @@
         </properties>
     </rule>
 
+    <rule name="ForbiddenSingleHopProjectionLambda"
+          language="java"
+          message="単一引数ラムダの本体がそのままメソッド参照化できる形（param.method() または recv.method(param)）です。メソッド参照に置換してください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            引数を1つだけ取るラムダの本体が、(1) その引数へのゼロ引数メソッド呼び出し
+            （param.method()）、または (2) 何らかの呼び出しの唯一の引数として引数を
+            そのまま渡す形（recv.method(param) / Class.method(param)）であり、かつ
+            それ自体が完結した単一のメソッド呼び出しである場合を禁止する。前者は
+            Type::method、後者は recv::method / Class::method へのメソッド参照化で
+            置換できる。引数を2回以上使う式（x -&gt; x.a() + x.b()）や、多段チェーン
+            （entities -&gt; entities.stream()...）はメソッド参照1つに収まらないため
+            対象外。引数の奥（別呼び出しの引数位置）に射影が埋め込まれた形
+            （a -&gt; ds.findByX(a.value())...）は1ホップでの機械的メソッド参照化が
+            できず、map分割という別種の書き換えを要するため意図的に対象外
+            （#85 issue参照）。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//LambdaExpression[
+  let $params := (VariableId | LambdaParameterList/LambdaParameter/VariableId),
+      $p := $params[1]/@Name
+  return count($params) = 1
+    and (
+      MethodCall[count(ArgumentList/*) = 0][VariableAccess[@Name = $p]]
+      or
+      MethodCall[ArgumentList[count(*) = 1][VariableAccess[@Name = $p]]]
+        [not(VariableAccess[@Name = $p])]
+    )
+]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
+    <rule name="ForbiddenBlockLambdaPassthroughInMap"
+          language="java"
+          message="map/flatMap のブロックラムダが、副作用の後に自身のパラメータでもブロック内ローカル変数でもない外側の値をそのまま return しています。Uni#invoke（Stream の peek 相当）+ replaceWith で表現してください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            map/flatMap に渡すブロックラムダの本体が、副作用文を書いたうえで、
+            ラムダの仮引数でもブロック内で宣言されたローカル変数でもない単純な
+            識別子（＝外側スコープからキャプチャしただけの値）を return している
+            場合を禁止する。この形は「副作用を行いつつ元の値をそのまま通過させる」
+            意図であり、Mutiny の Uni#invoke（Stream の peek に相当する副作用
+            パススルー演算子）+ replaceWith で1つの宣言的チェーンに書き換えられる。
+            段階的にローカル変数へ計算した値を return する形（var y = f(x); ...;
+            return y;）は正当な多段変換のため対象外（$locals に含まれ除外される）。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//MethodCall[@MethodName = ("map", "flatMap")]
+    [ArgumentList/LambdaExpression[
+        let $params := (VariableId | LambdaParameterList/LambdaParameter/VariableId),
+            $p := $params[1]/@Name,
+            $locals := Block//LocalVariableDeclaration/VariableDeclarator/VariableId/@Name,
+            $ret := Block/ReturnStatement[1]/VariableAccess
+        return Block
+            and $ret
+            and $ret/@Name != $p
+            and not($ret/@Name = $locals)
+    ]]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
     <rule name="ForbiddenOuterCallWrappingStreamToList"
           language="java"
           message="外側の呼び出しの引数に複数行の stream 計算を直接渡さないでください。.collect(Optionals.optionally(downstream)) の後、値を返す変換なら .map(...).get()、void の setter/consumer なら .ifPresent(...) を用いて、記述順と実行順を一致させてください。"

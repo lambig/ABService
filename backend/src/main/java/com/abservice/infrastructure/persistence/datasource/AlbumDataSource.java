@@ -58,8 +58,8 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, 
             Mutiny.Session session,
             AlbumTableRecord savedAlbum,
             List<TrackTableRecord> tracks) {
-        tracks.forEach(track -> track.setAlbum(savedAlbum));
-        return session.persistAll(tracks.toArray())
+        return session
+                .persistAll(tracks.stream().peek(track -> track.setAlbum(savedAlbum)).toArray())
                 .replaceWith(savedAlbum);
     }
 

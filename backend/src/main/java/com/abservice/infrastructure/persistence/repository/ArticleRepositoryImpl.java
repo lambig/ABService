@@ -67,13 +67,12 @@ public class ArticleRepositoryImpl implements ArticleRepository {
                         .orElse(newValues))
                 .flatMap(
                         saved -> ensureTagEntities(aggregate.getTags())
-                                .map(tagEntities -> {
-                                    reconcileTagLinks(
-                                            saved,
-                                            tagEntities,
-                                            aggregate.getTags());
-                                    return saved;
-                                })
+                                .invoke(
+                                        tagEntities -> reconcileTagLinks(
+                                                saved,
+                                                tagEntities,
+                                                aggregate.getTags()))
+                                .replaceWith(saved)
                                 .flatMap(dataSource::persistAndFlush));
     }
 
