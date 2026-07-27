@@ -16,7 +16,7 @@ class PolicyTest {
 
     private static Policy<String> nonBlank() {
         return Policy.of(
-                (String v) -> StringUtils.isNotBlank(v),
+                StringUtils::isNotBlank,
                 () -> new ErrorResult(
                         "value",
                         "必須です",

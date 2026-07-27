@@ -3,6 +3,7 @@ package com.abservice.application.service.article;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.abservice.domain.model.vo.article.MarkupContent;
+import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,7 +39,7 @@ class CreateArticleServiceTest {
                         null));
 
         assertThat(result).isInstanceOf(Result.Failure.class);
-        assertThat(((Result.Failure<?>) result).errors().stream().map(e -> e.code()).toList())
+        assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
                 .contains("ARTICLE_TITLE_REQUIRED", "ARTICLE_TYPE_INVALID");
     }
 
@@ -54,7 +55,7 @@ class CreateArticleServiceTest {
                         null));
 
         assertThat(result).isInstanceOf(Result.Failure.class);
-        assertThat(((Result.Failure<?>) result).errors().stream().map(e -> e.code()).toList())
+        assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
                 .contains("MARKUP_FORMAT_REQUIRED");
     }
 
