@@ -229,11 +229,14 @@ public class Article implements Aggregate<Article, Article.@NonNull Id> {
      */
     public @NonNull Article changeArticleType(@NonNull ArticleType newArticleType,
             @NonNull BusinessDateTime currentDateTime) {
-        return (newArticleType == ArticleType.ALBUM
-                ? UnaryOperator.<Article>identity()
-                : (UnaryOperator<Article>) Article::withoutAlbumId)
-                .apply(withArticleType(requireType(newArticleType)))
-                .withUpdatedAtBusiness(currentDateTime);
+        return Optional.of(requireType(newArticleType))
+                .map(this::withArticleType)
+                .map(
+                        newArticleType == ArticleType.ALBUM
+                                ? UnaryOperator.<Article>identity()
+                                : (UnaryOperator<Article>) Article::withoutAlbumId)
+                .map(article -> article.withUpdatedAtBusiness(currentDateTime))
+                .orElseThrow();
     }
 
     private @NonNull Article withoutAlbumId() {
