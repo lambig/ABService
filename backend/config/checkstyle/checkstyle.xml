@@ -101,9 +101,11 @@
             <property name="ignoreConstructorParameter" value="true"/>
             <property name="ignoreSetter" value="true"/>
         </module>
-        <!-- domain 層では可変コレクションの直接生成を禁止（不変生成 List.of/Stream.toList 等を使う）。domain 以外は suppressions.xml で抑制 -->
+        <!-- production全域で可変コレクションの直接生成を禁止（不変生成 List.of/Stream.toList 等を使う）。
+             JPAエンティティのコレクションフィールド初期化・管理コレクション変異のみを行う
+             infrastructure.persistence 境界のみ suppressions.xml で例外化する（#78） -->
         <module name="IllegalInstantiation">
-            <property name="id" value="DomainNoMutableCollection"/>
+            <property name="id" value="NoMutableCollectionInstantiation"/>
             <property name="classes"
                 value="java.util.ArrayList,java.util.LinkedList,java.util.HashMap,java.util.LinkedHashMap,java.util.TreeMap,java.util.HashSet,java.util.LinkedHashSet,java.util.TreeSet"/>
         </module>
