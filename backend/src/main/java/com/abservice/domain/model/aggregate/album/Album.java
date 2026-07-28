@@ -19,6 +19,8 @@ import org.jspecify.annotations.Nullable;
 
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.AggregateFactory;
+import com.abservice.domain.model.DomainConstructor;
+import com.abservice.domain.model.DomainFactory;
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.aggregate.Aggregate;
 import com.abservice.domain.model.policy.Policy;
@@ -83,7 +85,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
             "Artist credit cannot be null",
             "ARTIST_CREDIT_REQUIRED");
 
-    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 全フィールドを受け取る唯一の構築経路のため引数が多い
+    @DomainConstructor
     private Album(@NonNull Id id, @NonNull AlbumTitle title, @NonNull BusinessDate releaseDate,
             @NonNull ArtistCredit artistCredit, @Nullable EventReleasedAt eventReleasedAt,
             @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn, @NonNull List<Track> tracks) {
@@ -97,7 +99,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
         this.tracks = tracks;
     }
 
-    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 全項目を受け取るため引数が多い
+    @DomainFactory
     private static @NonNull Album factory(@Nullable Id id, @Nullable AlbumTitle title,
             @Nullable BusinessDate releaseDate, @Nullable ArtistCredit artistCredit,
             @Nullable EventReleasedAt eventReleasedAt, @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn,
@@ -194,7 +196,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
      *            トラックリスト
      * @return 再構成されたAlbum
      */
-    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 永続化からの再構成で全項目を受け取るため引数が多い
+    @DomainFactory
     public static @NonNull Album reconstruct(@NonNull Id id, @NonNull AlbumTitle title,
             @NonNull BusinessDate releaseDate, @NonNull ArtistCredit artistCredit,
             @Nullable EventReleasedAt eventReleasedAt, @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn,

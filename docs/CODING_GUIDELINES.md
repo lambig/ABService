@@ -2,20 +2,35 @@
 
 本書は ABService の**設計上の意図・判断基準**（なぜその書き方を選ぶか）を記述する。
 
-**機械的に検証できる規約は静的解析で強制済みであり、本書では繰り返さない。** 強制ルールの一覧と実体は [STATUS_AND_ROADMAP.md](STATUS_AND_ROADMAP.md) §6、および各設定（`backend/config/`・`backend/build.gradle`）が正。以下はその代表例で、いずれも本書の記述ではなくルール／設定が拘束する:
-
-- 命名・配置（`@Entity` 命名/配置、`RepositoryImpl`、レイヤ依存方向）、Repository/ApplicationService の `Uni` 返却契約 → **ArchUnit**
-- ローカル変数の `final var`、中置論理演算子禁止、domain の try-catch禁止、production全域の可変コレクション直接生成禁止（`infrastructure.persistence` 境界のみ例外）、AssertJ 統一、`domain.model` 配下のクラス/フィールド/publicメソッドJavadoc必須、インラインコメントのwhy notプレフィックス必須（§7） → **Checkstyle**
-- `if` 文の全廃（値生成は式のみ）、VO/record の検証必須、単一行三項禁止、FQN 禁止、可変コレクタ・Collection/Map変異呼び出し禁止（`infrastructure.persistence` 境界のみ例外） → **PMD**
-- domain の `java.time`（`LocalDate` 等）直接使用禁止・`Uni`/Provider 禁止 → **ArchUnit**
-- コンパイル時 null 安全（`@NullMarked` + `@Nullable`） → **NullAway**
-- フォーマット（三項の複数行整形を含む） → **Spotless**
+**機械的に検証できる規約は静的解析で強制済みであり、本書では繰り返さない。** 強制ルールの一覧と実体は §1、および各設定（`backend/config/`・`backend/build.gradle`）が正。
 
 具体的な実装例は本書に埋め込まず、**現行コードの実クラスを正**とする（記載例の陳腐化と実装との乖離を避けるため）。
 
 ---
 
-## 1. 型安全性を最優先する
+## 1. 静的解析ガバナンス（強制済み）
+
+ABService のアーキテクチャ制約・コーディング規約は多層の静的解析で **CI 強制済み**。**正は設定・テストの実体**（本節は概要のみ）:
+
+| 手段 | 実体 | 主な強制内容 |
+|---|---|---|
+| ArchUnit | `backend/src/test/java/com/abservice/architecture/`（`LayeredArchitectureTest` / `TestConventionsArchTest` / `AggregateConstructionArchTest`） | レイヤ依存方向、`@Entity` 配置/命名、`@Transactional` 禁止、Repository/ApplicationService の `Uni` 返却契約、domain の `java.time`/`Uni`/Provider 禁止、コンストラクタ可視性、フィールド final、`@DisplayName` 必須、Aggregate/Entity の private 全項目コンストラクタは `@AggregateFactory` 付きメソッド以外から呼べない（Always Valid、#101） |
+| Checkstyle | `backend/config/checkstyle/`（+ `suppressions.xml`・`checkstyle-xpath-suppressions.xml`） | domain の try-catch禁止、production全域の可変コレクション直接生成禁止（`infrastructure.persistence` 境界のみ例外）、中置論理演算子禁止、全ローカル final、JUnit assertion 禁止（AssertJ 統一）、`@SuppressWarnings` 理由必須、`domain.model` 配下はクラス・フィールド・publicメソッドへのJavadoc必須（`JavadocVariable`/`JavadocType`/`JavadocMethod`。privateメソッドは対象外）、production全域でインラインコメント（`//`）は大文字+ハイフン＋コロンのprefixを伴う"why not"のみ許可（`InlineCommentRequiresWhyNotPrefix`。一般的な理由=whyはPMD/ArchUnit側のJavadocへ、#99。詳細は§8）、Always Validパターンの全項目構築経路（`@DomainConstructor`/`@DomainFactory`）は`SuppressionXpathFilter`で`ParameterNumber`を抑止し個別の理由コメントを不要化（#103） |
+| PMD | `backend/config/pmd/ruleset.xml` | `if` 文全廃、VO/record の検証必須、FQN 禁止、`if` 値 return / `switch` 文禁止、可変コレクタ（`Collectors.toList/toSet/toMap`）・Collection/Map変異呼び出し禁止（型解決で判定、`infrastructure.persistence` 境界のみ例外） |
+| NullAway / ErrorProne | `backend/build.gradle` | `@NullMarked`（package-info）＋ `@Nullable` によるコンパイル時 null 安全。`main` 全体（`..persistence.entity..` は Hibernate populate 体のため対象外）を ERROR で強制。設計・除外方針は #44 |
+| Spotless | `backend/config/spotless/eclipse-formatter.xml` | フォーマット |
+
+detekt（Kotlin）カスタムルール26件相当は、Java に構文的対応物のある21件を全件強制・5件は対象外（`!!`・バッククォート名など Java に存在しない構文）。
+
+**維持すべき設計方針**（今後の拡張で保つ）:
+- **規約ベースのルールは実装を待たず先行導入する**。対象0件の間は `allowEmptyShould(true)` で不活性、最初の実装が入った瞬間から強制。「機能実装を待ってからルール化」はしない。
+- **値の生成は式のみ**（ternary / switch 式）。`if` は副作用・例外（`throw`）分岐に限る。sealed 型 + switch 式で網羅性を javac が担保。STATUS_AND_ROADMAP.md §3 のエラー設計と整合。
+- **NullAway / ErrorProne のバージョン固定（管理下の一時的負債・要追随）**: `error_prone_core 2.39.0` + `nullaway 0.12.7`（`net.ltgt.errorprone 5.1.0`）。ErrorProne 内部 API 密結合のため両者を揃える（最新 `error_prone_core 2.50.0` は非互換）。**昇格トリガ**: NullAway が 2.50 系対応版を出したら両者 bump。**退避路**: JSpecify アノテーションはツール非依存のため Checker Framework へ差し替え可能。
+- 追加ルールは STATUS_AND_ROADMAP.md §5 フェーズB 参照（真に構造依存なもの・SpotBugs/PMD 組込ルールセットの再導入）。
+
+---
+
+## 2. 型安全性を最優先する
 
 Java 25 の型システムを最大限活用し、不正状態をコンパイル時に排除する。
 
@@ -25,13 +40,13 @@ Java 25 の型システムを最大限活用し、不正状態をコンパイル
 
 参照実装: 状態の型表現は `domain.model.vo.event`（`EventToParticipate` とその permits）、検証の Policy 化は各集約・VO（`Album` / `AlbumTitle` 等）。
 
-## 2. 不変性
+## 3. 不変性
 
 - **値オブジェクト**: 完全に不変（`record`）。
 - **エンティティ / 集約**: Lombok `@With(AccessLevel.PRIVATE)` による不変更新パターン。更新は新しいインスタンスを返す。
 - コレクションは `List.copyOf` 等で不変化して保持する。
 
-## 3. 生成パターンの選択
+## 4. 生成パターンの選択
 
 コンストラクタは `private`（ArchUnit で強制）とし、用途に応じて生成手段を選ぶ:
 
@@ -44,7 +59,7 @@ Java 25 の型システムを最大限活用し、不正状態をコンパイル
 
 VO の外部入力用の生成は、例外 throw の `of()`（内部生成）と `Result` を返す `fromInput()`（外部入力・複数エラー収集）の2系統を用意する（`ArticleType` / `MarkupContent` が先行例）。
 
-## 4. CQRS とリアクティブ
+## 5. CQRS とリアクティブ
 
 - **更新系は `CommandService`**: `Repository`（Write Model）経由でドメインモデルを操作。`execute()` は `@WithTransaction` で `Uni<Output>` を返す。
 - **照会系は `QueryService`**: `DataSource` から Read Model DTO を取得。`query()` は `Uni<Result>` を返す。
@@ -52,9 +67,9 @@ VO の外部入力用の生成は、例外 throw の `of()`（内部生成）と
 - 同期→非同期は `Uni.createFrom().item(() -> ...)`、連鎖は `flatMap`、同期変換は `onItem().transform`、未存在の例外化は `onItem().ifNull().failWith(...)`。
 - ブロッキングの `@Transactional` は使わない（Mutiny 非互換）。`@WithTransaction` を使う。
 
-レイヤ依存方向・返却型契約・CQRS の非対称（Command=Repository / Query=DataSource）は ArchUnit が強制する（§7）。参照実装: `application.service.article` / `application.query.article`、REST は `presentation.rest.article`。
+レイヤ依存方向・返却型契約・CQRS の非対称（Command=Repository / Query=DataSource）は ArchUnit が強制する（§1）。参照実装: `application.service.article` / `application.query.article`、REST は `presentation.rest.article`。
 
-## 5. エラー表現
+## 6. エラー表現
 
 3層で使い分ける（詳細は [RESULT_TYPE_GUIDE.md](RESULT_TYPE_GUIDE.md) と STATUS_AND_ROADMAP.md §3）:
 
@@ -63,13 +78,13 @@ VO の外部入力用の生成は、例外 throw の `of()`（内部生成）と
 - **ビジネスルール違反**: `DomainException` 階層（`ValidationException` / `EntityNotFoundException` / `BusinessRuleViolationException`）。
 - **HTTP 変換**: presentation 層の `DomainExceptionMapper` が RFC9457 `ProblemDetail`（400/404/409/5xx）へ変換する。
 
-## 6. データベース
+## 7. データベース
 
 - 共通監査列（7列）は [AUDIT_COLUMNS.md](AUDIT_COLUMNS.md) が正。
 - ドメイン ID（UUIDv7 文字列）と DB 内部 ID（`Long`）の分離方針は [ID_DESIGN_POLICY.md](ID_DESIGN_POLICY.md) が正。
 - ドメイン層の日付・日時は `BusinessDate` / `BusinessDateTime` を使う（`java.time` 直接使用は domain では ArchUnit で禁止）。インフラ層・変換処理では `LocalDate` 等の使用を許可する。
 
-## 7. コメント方針
+## 8. コメント方針
 
 **why（一般的な動機・ルールの背景）はインラインコメントに書かない。** 一般的な設計判断・規約の理由は、その規約自体が定義されている場所（PMD/Checkstyleルールのメッセージ・ArchUnitルールの Javadoc・関連アノテーションの Javadoc）に書く。同じ説明を複数クラスに逐語コピペしない（#99・[[abservice-archunit-plan]] も参照）。フィールド・型・publicメソッドの意味は、コメントではなく命名で表現するか Javadoc に書く（`domain.model` 配下は Checkstyle が Javadoc 必須を強制）。
 
@@ -79,11 +94,12 @@ why not コメントは大文字+ハイフンの語＋コロンのプレフィ�
 
 参照実装: `AuditableTableRecord`（CRTP）、`ArticleRepositoryImpl`（HIBERNATE-CASCADE）、`AlbumDistribution`（EMPTY-RULESET）。
 
+**同一の why not 理由が複数箇所に反復する場合**（`@SuppressWarnings` の仕組み上、理由コメントは抑止対象の箇所ごとに物理的に必要になるため起こりうる）は、その理由が単発の例外ではなく再利用可能な設計パターンであることの表れなので、意味を表す独自アノテーション＋各静的解析ツール固有の抑止経路（Checkstyleは `SuppressionXpathFilter`、PMDはルールごとの `violationSuppressXPath`）に置き換えることを検討する。`@SuppressWarnings` を別アノテーションで包んでも抑止効果は継承されない（Javaのメタアノテーションの仕組み上）ため、各ツールへの接続はツールごとに個別に設定する。ArchUnitと併用する場合は `@Retention(RetentionPolicy.CLASS)` が必要（ArchUnitはコンパイル済みバイトコードをインポートするため）。参照実装: `DomainConstructor` / `DomainFactory`（Always Validパターンの全項目構築経路、`ParameterNumber` 抑止、#103）。
+
 ---
 
 ## 参考資料
 
-- [STATUS_AND_ROADMAP.md](STATUS_AND_ROADMAP.md) §6 - 強制済み静的解析ルールの一覧（正は各設定・テスト）
 - [ARCHITECTURE.md](ARCHITECTURE.md) / [DOMAIN_MODEL_DESIGN.md](DOMAIN_MODEL_DESIGN.md) - アーキテクチャ・ドメインモデル設計
 - [REPOSITORY_IMPLEMENTATION.md](REPOSITORY_IMPLEMENTATION.md) - リポジトリ実装ガイド
 - [RESULT_TYPE_GUIDE.md](RESULT_TYPE_GUIDE.md) - Result 型の使用ガイド
