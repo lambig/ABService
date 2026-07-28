@@ -16,6 +16,8 @@ import org.jspecify.annotations.Nullable;
 
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.AggregateFactory;
+import com.abservice.domain.model.DomainConstructor;
+import com.abservice.domain.model.DomainFactory;
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.entity.DomainEntity;
 import com.abservice.domain.model.policy.Policy;
@@ -79,7 +81,7 @@ public final class Track implements DomainEntity<Track, Track.Id> {
             "Track title cannot be null",
             "TRACK_TITLE_REQUIRED");
 
-    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 全フィールドを受け取る唯一の構築経路のため引数が多い
+    @DomainConstructor
     private Track(@NonNull Id id, @NonNull Integer trackNo, @NonNull TrackTitle title,
             @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate,
             @Nullable String recordingPlace, @Nullable Boolean isLive, @NonNull List<TrackTune> tunes) {
@@ -93,7 +95,7 @@ public final class Track implements DomainEntity<Track, Track.Id> {
         this.tunes = tunes;
     }
 
-    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 全項目を受け取るため引数が多い
+    @DomainFactory
     private static @NonNull Track factory(@Nullable Id id, @Nullable Integer trackNo, @Nullable TrackTitle title,
             @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate,
             @Nullable String recordingPlace, @Nullable Boolean isLive, @Nullable List<TrackTune> tunes) {
@@ -154,7 +156,7 @@ public final class Track implements DomainEntity<Track, Track.Id> {
      *            ライブフラグ
      * @return 新規Track
      */
-    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 生成に必要な全項目を受け取るため引数が多い
+    @DomainFactory
     public static @NonNull Track create(@NonNull Integer trackNo, @NonNull TrackTitle title,
             @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate, @Nullable String recordingPlace,
             @Nullable Boolean isLive) {
@@ -214,7 +216,7 @@ public final class Track implements DomainEntity<Track, Track.Id> {
      *            チューンリスト
      * @return 再構成されたTrack
      */
-    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 永続化からの再構成で全項目を受け取るため引数が多い
+    @DomainFactory
     public static @NonNull Track reconstruct(@NonNull Id id, @NonNull Integer trackNo, @NonNull TrackTitle title,
             @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate, @Nullable String recordingPlace,
             @Nullable Boolean isLive, @NonNull List<TrackTune> tunes) {

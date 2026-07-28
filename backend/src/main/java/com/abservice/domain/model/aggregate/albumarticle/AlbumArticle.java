@@ -12,6 +12,8 @@ import java.util.stream.Stream;
 
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.AggregateFactory;
+import com.abservice.domain.model.DomainConstructor;
+import com.abservice.domain.model.DomainFactory;
 import com.abservice.domain.model.aggregate.Aggregate;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.policy.Policy;
@@ -62,7 +64,7 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
             "Album ID cannot be null",
             "ALBUM_ID_REQUIRED");
 
-    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 全フィールドを受け取る唯一の構築経路のため引数が多い
+    @DomainConstructor
     private AlbumArticle(Album.Id albumId, @Nullable String introLong, @Nullable String introShort,
             @Nullable String firstEventSpace, @Nullable LabelTag labelTag, @Nullable AlbumDistribution distribution,
             List<AlbumAcquisitionChannel> acquisitionChannels) {
@@ -75,7 +77,7 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
         this.acquisitionChannels = acquisitionChannels;
     }
 
-    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 全項目を受け取るため引数が多い
+    @DomainFactory
     private static AlbumArticle factory(Album.@Nullable Id albumId, @Nullable String introLong,
             @Nullable String introShort, @Nullable String firstEventSpace, @Nullable LabelTag labelTag,
             @Nullable AlbumDistribution distribution, @Nullable List<AlbumAcquisitionChannel> acquisitionChannels) {
@@ -161,7 +163,7 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      *            入手経路リスト
      * @return 再構成されたAlbumArticle
      */
-    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 永続化からの再構成で全項目を受け取るため引数が多い
+    @DomainFactory
     public static AlbumArticle reconstruct(Album.Id albumId, @Nullable String introLong, @Nullable String introShort,
             @Nullable String firstEventSpace, @Nullable LabelTag labelTag, @Nullable AlbumDistribution distribution,
             List<AlbumAcquisitionChannel> acquisitionChannels) {

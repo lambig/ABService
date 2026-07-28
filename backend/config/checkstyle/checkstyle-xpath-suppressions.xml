@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+    "-//Checkstyle//DTD SuppressionXpathFilter Configuration 1.2//EN"
+    "https://checkstyle.org/dtds/suppressions_1_2_xpath.dtd">
+
+<suppressions>
+    <!-- Always Validパターンの構築経路（@DomainConstructor / @DomainFactory）は
+         全フィールド・全項目を受け取るため引数が多いことが構造上の帰結であり、
+         個別のSuppressWarnings理由コメントを要さない（#103） -->
+    <suppress-xpath id="ParamCount"
+        query="//*[(self::CTOR_DEF or self::METHOD_DEF) and .//ANNOTATION/IDENT[@text='DomainConstructor' or @text='DomainFactory']]/descendant-or-self::node()"/>
+</suppressions>

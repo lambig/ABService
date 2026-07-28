@@ -19,7 +19,7 @@
 | **プレゼンテーション層** | 🟡 Article のみ縦通し済み | Article REST（`ArticleCommandResource` / `ArticleQueryResource` + Request/Response DTO）、RFC9457 `ProblemDetail` + `DomainExceptionMapper` を実装。サンプル `GreetingResource` / `HealthResource` / `CircleMemberResource` は残置。**他集約の Resource は未着手** |
 | **共通基盤（lib）** | 🟢 完成 | `Result`（combinator `map`/`flatMap`/`zip` 含む）/ `ErrorResult` を実装。ドメイン例外階層（`DomainException` 抽象基底 + `ValidationException`/`EntityNotFoundException`/`BusinessRuleViolationException`）も整備済み |
 | **テスト** | 🟡 ユニット充実・統合は選択的 | VO/集約/エンティティのユニット、Article のアプリ層/例外マッパーのユニット、Article REST の E2E 統合テスト、`AlbumRepositoryImplTest` / `AlbumArticleRepositoryImplTest` / `ArticleRepositoryImplTest`。残る統合テストは §4.1 |
-| **静的解析** | 🟢 完了 | Checkstyle + Spotless + PMD + ArchUnit + NullAway で多層強制（レイヤ依存方向・配置・戻り値契約・機能的スタイル・コンパイル時 null 安全）。強制設計・対象ルールは §6。SpotBugs / PMD 組込ルールセットの再導入のみフェーズB で検討（§5 フェーズB） |
+| **静的解析** | 🟢 完了 | Checkstyle + Spotless + PMD + ArchUnit + NullAway で多層強制（レイヤ依存方向・配置・戻り値契約・機能的スタイル・コンパイル時 null 安全）。強制設計・対象ルールは [CODING_GUIDELINES.md](CODING_GUIDELINES.md) 静的解析ガバナンス節。SpotBugs / PMD 組込ルールセットの再導入のみフェーズB で検討（§5 フェーズB） |
 | **フロントエンド** | ⬜ 未調査 | `frontend-admin`（Svelte）/ `frontend-public`（Svelte+Astro）。本ドキュメントの対象外 |
 
 **一言でいうと**: **Article 集約で domain→app→REST→統合テストの縦1本が通り、パターンが確立済み**。次に積むべきは **同パターンの Tune / Album / AlbumArticle への横展開** と、残る統合テスト（§4.1）です。
@@ -116,35 +116,13 @@ DomainException (abstract, errorCode付き)
 2. RepositoryImpl 統合テスト（Phase 7）を残り集約に追加（#45）
 
 ### フェーズ B: 品質ゲート
-1. **ArchUnit 残ルールの点検**（§6）: 命名・配置・戻り値型契約は先行導入済み。追加するのは §2 の規約だけでは述語を書けず**具体実装がないと表現できない**真に構造依存なルールに限る（原則として想定なし。必要が生じた時点で判断）
+1. **ArchUnit 残ルールの点検**（[CODING_GUIDELINES.md](CODING_GUIDELINES.md) 静的解析ガバナンス節）: 命名・配置・戻り値型契約は先行導入済み。追加するのは §2 の規約だけでは述語を書けず**具体実装がないと表現できない**真に構造依存なルールに限る（原則として想定なし。必要が生じた時点で判断）
 2. DataSource 統合テスト（Phase 9）、カバレッジ計測（JaCoCo導入検討）
-3. **SpotBugs / PMD 組込ルールセットの再導入検討**: SpotBugs 4.10.2（Gradle plugin 6.5.8）は Java25 対応済み。バグパターン系を SpotBugs、collection/security 系を PMD 組込ルールセットで補う。本プロジェクト固有規約（§6）とは別系統で、導入時に顕在化する違反の段階是正・除外スコープ設計が要る。品質ゲート＝ポリシー変更のため都度承認のうえ実施
+3. **SpotBugs / PMD 組込ルールセットの再導入検討**: SpotBugs 4.10.2（Gradle plugin 6.5.8）は Java25 対応済み。バグパターン系を SpotBugs、collection/security 系を PMD 組込ルールセットで補う。本プロジェクト固有規約（[CODING_GUIDELINES.md](CODING_GUIDELINES.md) 静的解析ガバナンス節）とは別系統で、導入時に顕在化する違反の段階是正・除外スコープ設計が要る。品質ゲート＝ポリシー変更のため都度承認のうえ実施
 
 ---
 
-## 6. 静的解析ガバナンス（強制済み）
-
-ABService のアーキテクチャ制約・コーディング規約は多層の静的解析で **CI 強制済み**。**正は設定・テストの実体**（本節は概要のみ）:
-
-| 手段 | 実体 | 主な強制内容 |
-|---|---|---|
-| ArchUnit | `backend/src/test/java/com/abservice/architecture/`（`LayeredArchitectureTest` / `TestConventionsArchTest` / `AggregateConstructionArchTest`） | レイヤ依存方向、`@Entity` 配置/命名、`@Transactional` 禁止、Repository/ApplicationService の `Uni` 返却契約、domain の `java.time`/`Uni`/Provider 禁止、コンストラクタ可視性、フィールド final、`@DisplayName` 必須、Aggregate/Entity の private 全項目コンストラクタは `@AggregateFactory` 付きメソッド以外から呼べない（Always Valid、#101） |
-| Checkstyle | `backend/config/checkstyle/`（+ `suppressions.xml`） | domain の try-catch禁止、production全域の可変コレクション直接生成禁止（`infrastructure.persistence` 境界のみ例外）、中置論理演算子禁止、全ローカル final、JUnit assertion 禁止（AssertJ 統一）、`@SuppressWarnings` 理由必須、`domain.model` 配下はクラス・フィールド・publicメソッドへのJavadoc必須（`JavadocVariable`/`JavadocType`/`JavadocMethod`。privateメソッドは対象外）、production全域でインラインコメント（`//`）は大文字+ハイフン＋コロンのprefixを伴う"why not"のみ許可（`InlineCommentRequiresWhyNotPrefix`。一般的な理由=whyはPMD/ArchUnit側のJavadocへ、#99。詳細はCODING_GUIDELINES.md §7） |
-| PMD | `backend/config/pmd/ruleset.xml` | `if` 文全廃、VO/record の検証必須、FQN 禁止、`if` 値 return / `switch` 文禁止、可変コレクタ（`Collectors.toList/toSet/toMap`）・Collection/Map変異呼び出し禁止（型解決で判定、`infrastructure.persistence` 境界のみ例外） |
-| NullAway / ErrorProne | `backend/build.gradle` | `@NullMarked`（package-info）＋ `@Nullable` によるコンパイル時 null 安全。`main` 全体（`..persistence.entity..` は Hibernate populate 体のため対象外）を ERROR で強制。設計・除外方針は #44 |
-| Spotless | `backend/config/spotless/eclipse-formatter.xml` | フォーマット |
-
-detekt（Kotlin）カスタムルール26件相当は、Java に構文的対応物のある21件を全件強制・5件は対象外（`!!`・バッククォート名など Java に存在しない構文）。
-
-**維持すべき設計方針**（今後の拡張で保つ）:
-- **規約ベースのルールは実装を待たず先行導入する**。対象0件の間は `allowEmptyShould(true)` で不活性、最初の実装が入った瞬間から強制。「機能実装を待ってからルール化」はしない。
-- **値の生成は式のみ**（ternary / switch 式）。`if` は副作用・例外（`throw`）分岐に限る。sealed 型 + switch 式で網羅性を javac が担保。§3 のエラー設計と整合。
-- **NullAway / ErrorProne のバージョン固定（管理下の一時的負債・要追随）**: `error_prone_core 2.39.0` + `nullaway 0.12.7`（`net.ltgt.errorprone 5.1.0`）。ErrorProne 内部 API 密結合のため両者を揃える（最新 `error_prone_core 2.50.0` は非互換）。**昇格トリガ**: NullAway が 2.50 系対応版を出したら両者 bump。**退避路**: JSpecify アノテーションはツール非依存のため Checker Framework へ差し替え可能。
-- 追加ルールは §5 フェーズB 参照（真に構造依存なもの・SpotBugs/PMD 組込ルールセットの再導入）。
-
----
-
-## 7. 参照ドキュメント
+## 6. 参照ドキュメント
 
 - 個別計画・設計判断（背景・詳細手順）: `UNIT_TEST_PLAN.md`（`backend/`）/ `VO_REFACTORING.md`。JSpecify 移行の設計・除外方針は #44 が正
 - 設計: `ARCHITECTURE.md` / `DOMAIN_MODEL_DESIGN.md` / `DATABASE_DESIGN.md` / `ID_DESIGN_POLICY.md` / `AUDIT_COLUMNS.md`

@@ -43,6 +43,14 @@
         <!-- Enable @SuppressWarnings annotation support -->
         <module name="SuppressWarningsHolder"/>
 
+        <!-- 独自アノテーション（@DomainConstructor / @DomainFactory）でParameterNumberを抑止する。
+             XPathで対象ASTノードを直接選択するため、SuppressWarningsFilterのような
+             @SuppressWarnings経由ではなく独立した抑止経路になる（#103） -->
+        <module name="SuppressionXpathFilter">
+            <property name="file" value="${config_loc}/checkstyle-xpath-suppressions.xml"/>
+            <property name="optional" value="true"/>
+        </module>
+
         <!-- Naming Conventions -->
         <module name="ConstantName"/>
         <module name="LocalFinalVariableName"/>
@@ -67,6 +75,7 @@
             <property name="max" value="100"/>
         </module>
         <module name="ParameterNumber">
+            <property name="id" value="ParamCount"/>
             <property name="max" value="7"/>
             <property name="tokens" value="METHOD_DEF"/>
         </module>
