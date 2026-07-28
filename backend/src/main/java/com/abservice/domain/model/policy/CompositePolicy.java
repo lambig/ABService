@@ -26,7 +26,7 @@ final class CompositePolicy<T> implements Policy<T> {
     }
 
     @Override
-    @SuppressWarnings("NullAway") // 全ルール合格後に constructor を適用するため value は検証済み（述語→非null を NullAway は追跡不可）
+    @SuppressWarnings("NullAway") // NULLAWAY-LIMITATION: valueは検証済みだが、述語→非null をNullAwayは追跡不可
     public <R> Result<R> verify(@Nullable T value, Function<? super T, ? extends R> constructor) {
         final List<ErrorResult> errors = rules.stream().map(rule -> rule.verify(value, Function.identity()))
                 .flatMap(r -> r.errors().stream()).toList();

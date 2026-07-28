@@ -79,7 +79,7 @@ public final class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
             "Tune kind cannot be null",
             "TUNE_KIND_REQUIRED");
 
-    @SuppressWarnings("checkstyle:ParameterNumber") // 全フィールドを受け取る唯一の構築経路のため引数が多い
+    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 全フィールドを受け取る唯一の構築経路のため引数が多い
     private Tune(@NonNull Id id, @NonNull TuneTitle title, @NonNull TuneKind tuneKind,
             @Nullable Credit defaultComposerCredit, @Nullable Credit defaultArrangerCredit,
             @Nullable String originalWorkTitle, @Nullable String originalWorkCredit, @Nullable String tuneType,
@@ -96,7 +96,7 @@ public final class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
         this.defaultTempo = defaultTempo;
     }
 
-    @SuppressWarnings("checkstyle:ParameterNumber") // 全項目を受け取るため引数が多い
+    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 全項目を受け取るため引数が多い
     private static @NonNull Tune factory(@Nullable Id id, @Nullable TuneTitle title, @Nullable TuneKind tuneKind,
             @Nullable Credit defaultComposerCredit, @Nullable Credit defaultArrangerCredit,
             @Nullable String originalWorkTitle, @Nullable String originalWorkCredit, @Nullable String tuneType,
@@ -169,7 +169,7 @@ public final class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
      *            デフォルトテンポ（nullable）
      * @return 新規Tune
      */
-    @SuppressWarnings("checkstyle:ParameterNumber") // 生成に必要な全項目を受け取るため引数が多い
+    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 生成に必要な全項目を受け取るため引数が多い
     public static @NonNull Tune create(@NonNull TuneTitle title, @NonNull TuneKind tuneKind,
             @Nullable Credit defaultComposerCredit, @Nullable Credit defaultArrangerCredit,
             @Nullable String originalWorkTitle, @Nullable String originalWorkCredit, @Nullable String tuneType,
@@ -212,7 +212,7 @@ public final class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
      *            デフォルトテンポ（nullable）
      * @return 再構成されたTune
      */
-    @SuppressWarnings("checkstyle:ParameterNumber") // 永続化からの再構成で全項目を受け取るため引数が多い
+    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 永続化からの再構成で全項目を受け取るため引数が多い
     public static @NonNull Tune reconstruct(@NonNull Id id, @NonNull TuneTitle title, @NonNull TuneKind tuneKind,
             @Nullable Credit defaultComposerCredit, @Nullable Credit defaultArrangerCredit,
             @Nullable String originalWorkTitle, @Nullable String originalWorkCredit, @Nullable String tuneType,

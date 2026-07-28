@@ -95,7 +95,7 @@ public class EventMatchingService implements DomainService {
         };
     }
 
-    @SuppressWarnings("PMD.ForbiddenSingleHopProjectionLambda") // or(Predicate<E>...)のE推論がList::isEmpty単独では解決不可のため
+    @SuppressWarnings("PMD.ForbiddenSingleHopProjectionLambda") // TYPE-INFERENCE: List::isEmpty単独ではE推論不可のため
     private boolean matchesTentativeDates(TentativeEvent tentative, EventReleasedAt releasedAt) {
         final var releasedDates = releasedAt.dateAndSpaces().stream().map(EventDateAndSpace::date).toList();
         return or(

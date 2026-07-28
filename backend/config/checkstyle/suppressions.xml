@@ -31,4 +31,9 @@
         files="^(?!.*[\\/]src[\\/]main[\\/]java[\\/]com[\\/]abservice[\\/]domain[\\/]model[\\/]).*$"/>
     <suppress id="DomainModelMethodJavadoc"
         files="^(?!.*[\\/]src[\\/]main[\\/]java[\\/]com[\\/]abservice[\\/]domain[\\/]model[\\/]).*$"/>
+
+    <!-- インラインコメントのwhy notプレフィックス必須（InlineCommentRequiresWhyNotPrefix）は
+         production コード（src/main/java）のみに適用。テスト等は抑制（#99） -->
+    <suppress id="InlineCommentRequiresWhyNotPrefix"
+        files="^(?!.*[\\/]src[\\/]main[\\/]java[\\/]).*$"/>
 </suppressions>

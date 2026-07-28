@@ -70,7 +70,7 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
     @NonNull
     private final List<ArticleTag> tags;
 
-    @SuppressWarnings("checkstyle:ParameterNumber") // 全フィールドを受け取るため引数が多い
+    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 全フィールドを受け取るため引数が多い
     private Article(@NonNull Id id, @NonNull ArticleType articleType, Album.@Nullable Id albumId,
             @NonNull ArticleTitle title, @Nullable MarkupContent body, @Nullable String introShort,
             @Nullable BusinessDateTime publishedAt, @Nullable BusinessDateTime updatedAtBusiness,
@@ -87,7 +87,7 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
         this.tags = tags;
     }
 
-    @SuppressWarnings("checkstyle:ParameterNumber") // 全項目を受け取るため引数が多い
+    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 全項目を受け取るため引数が多い
     private static @NonNull Article factory(@Nullable Id id, @Nullable ArticleType articleType,
             Album.@Nullable Id albumId, @Nullable ArticleTitle title, @Nullable MarkupContent body,
             @Nullable String introShort, @Nullable BusinessDateTime publishedAt,
@@ -184,7 +184,7 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
      *            タグリスト
      * @return 再構成されたArticle
      */
-    @SuppressWarnings("checkstyle:ParameterNumber") // 永続化からの再構成で全項目を受け取るため引数が多い
+    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 永続化からの再構成で全項目を受け取るため引数が多い
     public static @NonNull Article reconstruct(@NonNull Id id, @NonNull ArticleType articleType,
             Album.@Nullable Id albumId, @NonNull ArticleTitle title, @Nullable MarkupContent body,
             @Nullable String introShort, @Nullable BusinessDateTime publishedAt,
@@ -397,7 +397,7 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
                 Objects::nonNull,
                 TAG_REQUIRED_ERROR)
                 .verify(tag, Function.identity()).resolve(Policy::illegalArgument);
-        // メッセージにIDを埋め込むため、静的ErrorResultではなく都度生成のSupplierを使う
+        // DYNAMIC-MESSAGE: メッセージにIDを埋め込むため、静的ErrorResultではなく都度生成のSupplierを使う
         Policy.<ArticleTag>of(
                 t -> tags.stream().noneMatch(t::equivalentTo),
                 () -> new ErrorResult(

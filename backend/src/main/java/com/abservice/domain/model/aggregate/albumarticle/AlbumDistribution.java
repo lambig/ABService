@@ -41,8 +41,10 @@ public final class AlbumDistribution {
         this.note = note;
     }
 
-    // 検証対象フィールドが現状ないためPolicy.<Stub>all()はルール0件（常に成功）だが、
-    // 他クラスと同じ形に揃えることで一目で正しさを判定できるようにする。
+    /*
+     * EMPTY-RULESET: 検証対象フィールドが現状ないためPolicy.<Stub>all()はルール0件（常に成功）だが、
+     * 他クラスと同じ形に揃えることで一目で正しさを判定できるようにする。
+     */
     private static AlbumDistribution factory(@Nullable Price physicalPrice, @Nullable Price downloadPrice,
             @Nullable Url demoUrl, @Nullable String note) {
         return Policy.<Stub>all()

@@ -62,7 +62,7 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
             "Album ID cannot be null",
             "ALBUM_ID_REQUIRED");
 
-    @SuppressWarnings("checkstyle:ParameterNumber") // 全フィールドを受け取る唯一の構築経路のため引数が多い
+    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 全フィールドを受け取る唯一の構築経路のため引数が多い
     private AlbumArticle(Album.Id albumId, @Nullable String introLong, @Nullable String introShort,
             @Nullable String firstEventSpace, @Nullable LabelTag labelTag, @Nullable AlbumDistribution distribution,
             List<AlbumAcquisitionChannel> acquisitionChannels) {
@@ -75,7 +75,7 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
         this.acquisitionChannels = acquisitionChannels;
     }
 
-    @SuppressWarnings("checkstyle:ParameterNumber") // 全項目を受け取るため引数が多い
+    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 全項目を受け取るため引数が多い
     private static AlbumArticle factory(Album.@Nullable Id albumId, @Nullable String introLong,
             @Nullable String introShort, @Nullable String firstEventSpace, @Nullable LabelTag labelTag,
             @Nullable AlbumDistribution distribution, @Nullable List<AlbumAcquisitionChannel> acquisitionChannels) {
@@ -161,7 +161,7 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      *            入手経路リスト
      * @return 再構成されたAlbumArticle
      */
-    @SuppressWarnings("checkstyle:ParameterNumber") // 永続化からの再構成で全項目を受け取るため引数が多い
+    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 永続化からの再構成で全項目を受け取るため引数が多い
     public static AlbumArticle reconstruct(Album.Id albumId, @Nullable String introLong, @Nullable String introShort,
             @Nullable String firstEventSpace, @Nullable LabelTag labelTag, @Nullable AlbumDistribution distribution,
             List<AlbumAcquisitionChannel> acquisitionChannels) {
