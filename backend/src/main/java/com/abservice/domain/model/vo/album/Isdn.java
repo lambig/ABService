@@ -32,9 +32,7 @@ import java.util.stream.Stream;
  *            ISDN（13桁の数字）
  */
 public record Isdn(String value) implements ValueObject<Isdn> {
-    // ISDNのフォーマット（ハイフンあり/なし両方対応）
-    // 278または279で始まる13桁の数字
-    private static final Pattern ISDN_PATTERN = Pattern.compile("^27[89]-?\\d{1,5}-?\\d+-?\\d+-?\\d$");
+    /** ISDNのフォーマット（ハイフン除去後、278/279始まりの13桁） */
     private static final Pattern ISDN_SIMPLE_PATTERN = Pattern.compile("^27[89]\\d{10}$");
 
     /**
@@ -124,12 +122,12 @@ public record Isdn(String value) implements ValueObject<Isdn> {
     }
 
     /**
-     * ハイフン付きフォーマットで取得 標準的な表示形式: 278-4-XXXXXX-XX-X
+     * ハイフン付きフォーマットで取得。 フラグが2784/2794（日本）の場合は3-1-6-2-1区切り（278-4-XXXXXX-XX-X）、
+     * それ以外の地域は簡略表示（フラグ-本体-チェックデジット）
      *
      * @return ハイフン付きISDN（例: 278-4-702901-97-8）
      */
     public String formattedValue() {
-        // 日本の場合: 278-4-XXXXXX-XX-X (3-1-6-2-1の構成)、その他の地域は簡略表示
         return TextEscape.escape("${flag}-${body}-${check}")
                 .where("flag", value.substring(0, 3))
                 .where(

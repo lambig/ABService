@@ -45,6 +45,9 @@ import java.util.Optional;
  * String dateString = "2025-01-01";
  * BusinessDate businessDate = BusinessDate.of(LocalDate.parse(dateString));
  * }</pre>
+ *
+ * @param value
+ *            日付
  */
 public record BusinessDate(LocalDate value) implements ValueObject<BusinessDate>, Comparable<BusinessDate> {
 

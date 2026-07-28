@@ -28,7 +28,6 @@ import org.jspecify.annotations.Nullable;
 public final class AlbumArticleMapper {
 
     private AlbumArticleMapper() {
-        // ユーティリティクラス
     }
 
     /**

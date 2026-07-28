@@ -35,7 +35,6 @@ public class AlbumRepositoryImpl implements AlbumRepository {
     @Override
     public Uni<Album> save(Album aggregate) {
         final var entity = AlbumMapper.toEntity(aggregate);
-        // 存在すれば更新、なければ新規作成
         return dataSource.findByIdWithTracks(entity.getDomainId())
                 .onItem().ifNotNull().transformToUni(
                         existingEntity -> dataSource.persistAndFlush(
@@ -126,8 +125,6 @@ public class AlbumRepositoryImpl implements AlbumRepository {
     public Uni<Long> count() {
         return dataSource.count();
     }
-
-    // カスタムメソッド
 
     @Override
     public Uni<List<Album>> findByTitle(AlbumTitle title) {

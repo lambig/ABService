@@ -208,8 +208,6 @@ public class AlbumArticleRepositoryImpl implements AlbumArticleRepository {
         return dataSource.count();
     }
 
-    // カスタムメソッド
-
     @Override
     public Uni<AlbumArticle> findByAlbumId(Album.Id albumId) {
         return Optional.ofNullable(albumId)

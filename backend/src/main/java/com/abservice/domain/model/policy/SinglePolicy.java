@@ -20,7 +20,9 @@ import org.jspecify.annotations.Nullable;
  */
 final class SinglePolicy<T> implements Policy<T> {
 
+    /** 検証述語 */
     private final Predicate<? super T> predicate;
+    /** 検証失敗時のエラー供給元 */
     private final Supplier<ErrorResult> errorSupplier;
 
     SinglePolicy(Predicate<? super T> predicate, Supplier<ErrorResult> errorSupplier) {

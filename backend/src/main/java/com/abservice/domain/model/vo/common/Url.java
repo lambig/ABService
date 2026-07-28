@@ -25,6 +25,7 @@ import java.util.function.Function;
  *            URL文字列
  */
 public record Url(String value) implements ValueObject<Url> {
+    /** URL文字列の最大長 */
     private static final int MAX_LENGTH = 500;
 
     /**

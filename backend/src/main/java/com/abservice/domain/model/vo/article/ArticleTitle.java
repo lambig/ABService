@@ -31,6 +31,7 @@ import org.jspecify.annotations.Nullable;
  */
 public record ArticleTitle(@NonNull String value) implements ValueObject<ArticleTitle> {
 
+    /** 記事タイトルの最大長 */
     private static final int MAX_LENGTH = 500;
 
     /**

@@ -15,7 +15,6 @@ import java.util.Optional;
 final class ArticleViewMapper {
 
     private ArticleViewMapper() {
-        // ユーティリティクラス
     }
 
     /**

@@ -18,6 +18,7 @@ import org.jspecify.annotations.Nullable;
  */
 final class CompositePolicy<T> implements Policy<T> {
 
+    /** 合成対象のルール一覧 */
     private final List<Policy<T>> rules;
 
     CompositePolicy(List<Policy<T>> rules) {

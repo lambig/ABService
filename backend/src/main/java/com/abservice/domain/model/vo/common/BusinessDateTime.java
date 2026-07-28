@@ -52,6 +52,9 @@ import java.util.Optional;
  * String utcString = "2025-01-01T00:00:00Z";
  * BusinessDateTime businessDateTime = BusinessDateTime.of(Instant.parse(utcString));
  * }</pre>
+ *
+ * @param value
+ *            日時
  */
 public record BusinessDateTime(Instant value) implements ValueObject<BusinessDateTime>, Comparable<BusinessDateTime> {
 

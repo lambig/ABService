@@ -214,8 +214,6 @@ public class ArticleRepositoryImpl implements ArticleRepository {
         return dataSource.count();
     }
 
-    // カスタムメソッド
-
     @Override
     public Uni<List<Article>> findByArticleType(ArticleType articleType) {
         return Optional.ofNullable(articleType)

@@ -35,40 +35,50 @@ import org.jspecify.annotations.Nullable;
 @Accessors(fluent = true)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public final class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
+    /** チューンID */
     @EqualsAndHashCode.Include
     @NonNull
     private final Id id;
+    /** チューンタイトル */
     @NonNull
     private final TuneTitle title;
+    /** チューン種別（トラッド/オリジナル/アレンジ） */
     @NonNull
     private final TuneKind tuneKind;
+    /** 作曲者クレジット（デフォルト） */
     @Nullable
     private final Credit defaultComposerCredit;
+    /** 編曲者クレジット（デフォルト） */
     @Nullable
     private final Credit defaultArrangerCredit;
+    /** {@code tuneKind}がアレンジの場合のみ設定 */
     @Nullable
-    private final String originalWorkTitle; // アレンジの場合の原曲タイトル
+    private final String originalWorkTitle;
+    /** {@code tuneKind}がアレンジの場合のみ設定 */
     @Nullable
-    private final String originalWorkCredit; // アレンジの場合の原曲作曲者・アーティスト
+    private final String originalWorkCredit;
+    /** 例: リール、ジグ */
     @Nullable
-    private final String tuneType; // リール、ジグなど
+    private final String tuneType;
+    /** 想定キー */
     @Nullable
-    private final String defaultKey; // 想定キー
+    private final String defaultKey;
+    /** 単位はBPM */
     @Nullable
-    private final Integer defaultTempo; // BPM
+    private final Integer defaultTempo;
 
+    /** title必須違反時のエラー */
     private static final ErrorResult TITLE_REQUIRED_ERROR = new ErrorResult(
             "title",
             "Tune title cannot be null",
             "TUNE_TITLE_REQUIRED");
 
+    /** tuneKind必須違反時のエラー */
     private static final ErrorResult KIND_REQUIRED_ERROR = new ErrorResult(
             "tuneKind",
             "Tune kind cannot be null",
             "TUNE_KIND_REQUIRED");
 
-    // 全フィールドを受け取る唯一の構築経路。自身では検証しないため、factory以外から呼ばせない
-    // （ArchUnitで強制、#101）。
     @SuppressWarnings("checkstyle:ParameterNumber") // 全フィールドを受け取る唯一の構築経路のため引数が多い
     private Tune(@NonNull Id id, @NonNull TuneTitle title, @NonNull TuneKind tuneKind,
             @Nullable Credit defaultComposerCredit, @Nullable Credit defaultArrangerCredit,
@@ -86,7 +96,6 @@ public final class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
         this.defaultTempo = defaultTempo;
     }
 
-    // 生の全項目を受け取り、Policy検証を経てTuneを生成する唯一のfactory（#101）。
     @SuppressWarnings("checkstyle:ParameterNumber") // 全項目を受け取るため引数が多い
     private static @NonNull Tune factory(@Nullable Id id, @Nullable TuneTitle title, @Nullable TuneKind tuneKind,
             @Nullable Credit defaultComposerCredit, @Nullable Credit defaultArrangerCredit,
@@ -115,9 +124,6 @@ public final class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
                 .resolve(Policy::illegalArgument);
     }
 
-    // TuneのAllArgsConstructorと同形の、制約を持たないdumbな入れ物。全フィールドが自明にnullable
-    // なので@NullUnmarkedでNullAwareの対象外にし、個別の@Nullable注釈を省く。
-    // ArchUnit（stubShouldMatchEnclosingConstructor）が実コンストラクタとの引数一致を機械的に強制する。
     @NullUnmarked
     private record Stub(Id id, TuneTitle title, TuneKind tuneKind, Credit defaultComposerCredit,
             Credit defaultArrangerCredit, String originalWorkTitle, String originalWorkCredit, String tuneType,
@@ -420,6 +426,8 @@ public final class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
 
         /**
          * UUIDv7を生成してTune.Idを作成
+         *
+         * @return 新規Id
          */
         public static @NonNull Id generate() {
             return new Id(EntityId.generateUuidV7());
@@ -427,6 +435,10 @@ public final class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
 
         /**
          * 文字列からTune.Idを生成
+         *
+         * @param value
+         *            ID値（UUIDv7形式の文字列）
+         * @return Id
          */
         public static @NonNull Id of(@NonNull String value) {
             return new Id(value);

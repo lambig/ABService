@@ -23,4 +23,12 @@
     <!-- 中置論理演算子禁止（ForbiddenLogicalOperators）は production コード（src/main/java）のみに適用。テスト等は抑制 -->
     <suppress id="ForbiddenLogicalOperators"
         files="^(?!.*[\\/]src[\\/]main[\\/]java[\\/]).*$"/>
+
+    <!-- フィールド/クラス/publicメソッドJavadoc必須は domain.model 配下のみに適用（#99） -->
+    <suppress id="DomainModelFieldJavadoc"
+        files="^(?!.*[\\/]src[\\/]main[\\/]java[\\/]com[\\/]abservice[\\/]domain[\\/]model[\\/]).*$"/>
+    <suppress id="DomainModelTypeJavadoc"
+        files="^(?!.*[\\/]src[\\/]main[\\/]java[\\/]com[\\/]abservice[\\/]domain[\\/]model[\\/]).*$"/>
+    <suppress id="DomainModelMethodJavadoc"
+        files="^(?!.*[\\/]src[\\/]main[\\/]java[\\/]com[\\/]abservice[\\/]domain[\\/]model[\\/]).*$"/>
 </suppressions>

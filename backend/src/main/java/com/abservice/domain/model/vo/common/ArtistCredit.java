@@ -26,8 +26,10 @@ import org.jspecify.annotations.Nullable;
 @Accessors(fluent = true)
 @EqualsAndHashCode
 public final class ArtistCredit implements ValueObject<ArtistCredit> {
+    /** 表示名 */
     @NonNull
     private final ArtistCreditName displayName;
+    /** ソートキー */
     @NonNull
     private final String sortKey;
 

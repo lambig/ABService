@@ -140,6 +140,19 @@
         </module>
         <module name="UpperEll"/>
 
+        <!-- domain.model 配下はクラス・フィールド・publicメソッドにJavadocを必須化（doc欠落防止、#99）。
+             privateメソッドは状況に応じて必要なため機械的必須化はしない -->
+        <module name="JavadocVariable">
+            <property name="id" value="DomainModelFieldJavadoc"/>
+            <property name="scope" value="private"/>
+        </module>
+        <module name="JavadocType">
+            <property name="id" value="DomainModelTypeJavadoc"/>
+        </module>
+        <module name="JavadocMethod">
+            <property name="id" value="DomainModelMethodJavadoc"/>
+        </module>
+
         <!-- Annotations -->
         <module name="AnnotationLocation">
             <property name="allowSamelineMultipleAnnotations" value="false"/>

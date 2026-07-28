@@ -23,6 +23,7 @@ public enum DeclineReason {
      */
     EVENT_CANCELLED("イベント中止");
 
+    /** 表示名 */
     private final String displayName;
 
     DeclineReason(String displayName) {

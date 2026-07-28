@@ -15,7 +15,6 @@ import java.util.stream.StreamSupport;
 public final class Iterables {
 
     private Iterables() {
-        // ユーティリティクラス
     }
 
     /**

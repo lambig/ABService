@@ -40,7 +40,6 @@ import org.jspecify.annotations.Nullable;
 public final class AlbumMapper {
 
     private AlbumMapper() {
-        // ユーティリティクラス
     }
 
     /**
@@ -157,7 +156,6 @@ public final class AlbumMapper {
     private static void populateDateAndSpaceEntities(AlbumTableRecord albumEntity,
             List<EventDateAndSpace> dateAndSpaces) {
         dateAndSpaces.stream()
-                // 監査カラムはデフォルト値を設定
                 .map(
                         ds -> new AlbumEventDateSpaceTableRecord()
                                 .setAlbum(albumEntity)
