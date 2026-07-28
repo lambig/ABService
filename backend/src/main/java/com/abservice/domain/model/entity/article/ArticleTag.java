@@ -24,20 +24,19 @@ import org.jspecify.annotations.Nullable;
 @Getter
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public final class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@NonNull Id> {
+    /** タグID */
     @EqualsAndHashCode.Include
     @NonNull
     private final Id id;
+    /** タグ名 */
     @NonNull
     private final String name;
 
-    // 全フィールドを受け取る唯一の構築経路。自身では検証しないため、factory以外から呼ばせない
-    // （ArchUnitで強制、#101）。
     private ArticleTag(@NonNull Id id, @NonNull String name) {
         this.id = id;
         this.name = name;
     }
 
-    // 生の全項目を受け取り、Policy検証を経てArticleTagを生成する唯一のfactory（#101）。
     private static @NonNull ArticleTag factory(@Nullable Id id, @Nullable String name) {
         return Policy.<Stub>of(
                 self -> StringUtils.isNotBlank(self.name()),
@@ -49,9 +48,6 @@ public final class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@No
                 .resolve(Policy::illegalArgument);
     }
 
-    // ArticleTagのAllArgsConstructorと同形の、制約を持たないdumbな入れ物。全フィールドが自明にnullable
-    // なので@NullUnmarkedでNullAwareの対象外にし、個別の@Nullable注釈を省く。
-    // ArchUnit（stubShouldMatchEnclosingConstructor）が実コンストラクタとの引数一致を機械的に強制する。
     @NullUnmarked
     private record Stub(Id id, String name) {
 
@@ -113,6 +109,8 @@ public final class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@No
 
         /**
          * UUIDv7を生成してArticleTag.Idを作成
+         *
+         * @return 新規Id
          */
         public static @NonNull Id generate() {
             return new Id(EntityId.generateUuidV7());
@@ -120,6 +118,10 @@ public final class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@No
 
         /**
          * 文字列からArticleTag.Idを生成
+         *
+         * @param value
+         *            ID値（UUIDv7形式の文字列）
+         * @return Id
          */
         public static @NonNull Id of(@NonNull String value) {
             return new Id(value);

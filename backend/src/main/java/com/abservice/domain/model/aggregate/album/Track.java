@@ -41,37 +41,45 @@ import org.jspecify.annotations.NullUnmarked;
 @Accessors(fluent = true)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public final class Track implements DomainEntity<Track, Track.Id> {
+    /** トラックID */
     @EqualsAndHashCode.Include
     @NonNull
     private final Id id;
+    /** トラック番号 */
     @NonNull
     private final Integer trackNo;
+    /** トラックタイトル */
     @NonNull
     private final TrackTitle title;
+    /** nullの場合はAlbumのartistCreditを継承 */
     @Nullable
-    private final ArtistCredit artistCredit; // nullable: nullの場合はAlbumのartistCreditを継承
+    private final ArtistCredit artistCredit;
+    /** 録音日 */
     @Nullable
     private final BusinessDate recordingDate;
+    /** 録音場所 */
     @Nullable
     private final String recordingPlace;
+    /** ライブ録音フラグ */
     @Nullable
     private final Boolean isLive;
+    /** トラック内のチューンのリスト */
     @NonNull
     private final List<TrackTune> tunes;
 
+    /** trackNo必須違反時のエラー */
     private static final ErrorResult TRACK_NO_REQUIRED_ERROR = new ErrorResult(
             "trackNo",
             "Track number cannot be null",
             "TRACK_NO_REQUIRED");
 
+    /** title必須違反時のエラー */
     private static final ErrorResult TITLE_REQUIRED_ERROR = new ErrorResult(
             "title",
             "Track title cannot be null",
             "TRACK_TITLE_REQUIRED");
 
-    // 全フィールドを受け取る唯一の構築経路。自身では検証しないため、factory以外から呼ばせない
-    // （ArchUnitで強制、#101）。
-    @SuppressWarnings("checkstyle:ParameterNumber") // 全フィールドを受け取る唯一の構築経路のため引数が多い
+    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 全フィールドを受け取る唯一の構築経路のため引数が多い
     private Track(@NonNull Id id, @NonNull Integer trackNo, @NonNull TrackTitle title,
             @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate,
             @Nullable String recordingPlace, @Nullable Boolean isLive, @NonNull List<TrackTune> tunes) {
@@ -85,8 +93,7 @@ public final class Track implements DomainEntity<Track, Track.Id> {
         this.tunes = tunes;
     }
 
-    // 生の全項目を受け取り、Policy検証を経てTrackを生成する唯一のfactory（#101）。
-    @SuppressWarnings("checkstyle:ParameterNumber") // 全項目を受け取るため引数が多い
+    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 全項目を受け取るため引数が多い
     private static @NonNull Track factory(@Nullable Id id, @Nullable Integer trackNo, @Nullable TrackTitle title,
             @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate,
             @Nullable String recordingPlace, @Nullable Boolean isLive, @Nullable List<TrackTune> tunes) {
@@ -111,9 +118,6 @@ public final class Track implements DomainEntity<Track, Track.Id> {
                 .resolve(Policy::illegalArgument);
     }
 
-    // TrackのAllArgsConstructorと同形の、制約を持たないdumbな入れ物。全フィールドが自明にnullable
-    // なので@NullUnmarkedでNullAwareの対象外にし、個別の@Nullable注釈を省く。
-    // ArchUnit（stubShouldMatchEnclosingConstructor）が実コンストラクタとの引数一致を機械的に強制する。
     @NullUnmarked
     private record Stub(Id id, Integer trackNo, TrackTitle title, ArtistCredit artistCredit,
             BusinessDate recordingDate, String recordingPlace, Boolean isLive, List<TrackTune> tunes) {
@@ -146,13 +150,11 @@ public final class Track implements DomainEntity<Track, Track.Id> {
      *            録音日
      * @param recordingPlace
      *            録音場所
-     * @param duration
-     *            再生時間
      * @param isLive
      *            ライブフラグ
      * @return 新規Track
      */
-    @SuppressWarnings("checkstyle:ParameterNumber") // 生成に必要な全項目を受け取るため引数が多い
+    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 生成に必要な全項目を受け取るため引数が多い
     public static @NonNull Track create(@NonNull Integer trackNo, @NonNull TrackTitle title,
             @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate, @Nullable String recordingPlace,
             @Nullable Boolean isLive) {
@@ -212,7 +214,7 @@ public final class Track implements DomainEntity<Track, Track.Id> {
      *            チューンリスト
      * @return 再構成されたTrack
      */
-    @SuppressWarnings("checkstyle:ParameterNumber") // 永続化からの再構成で全項目を受け取るため引数が多い
+    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 永続化からの再構成で全項目を受け取るため引数が多い
     public static @NonNull Track reconstruct(@NonNull Id id, @NonNull Integer trackNo, @NonNull TrackTitle title,
             @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate, @Nullable String recordingPlace,
             @Nullable Boolean isLive, @NonNull List<TrackTune> tunes) {
@@ -338,7 +340,6 @@ public final class Track implements DomainEntity<Track, Track.Id> {
                         "TUNE_REQUIRED"))
                 .verify(tune, Function.identity())
                 .resolve(Policy::illegalArgument);
-        // seqの重複チェック（ビジネスルール違反 → 409）
         tunes.stream().filter(validatedTune::equivalentTo).findFirst().ifPresent(dup -> {
             throw new BusinessRuleViolationException(
                     "Tune seq " + validatedTune.seq() + " already exists in this track");
@@ -474,6 +475,8 @@ public final class Track implements DomainEntity<Track, Track.Id> {
 
         /**
          * UUIDv7を生成してTrack.Idを作成
+         *
+         * @return 新規Id
          */
         public static @NonNull Id generate() {
             return new Id(EntityId.generateUuidV7());
@@ -481,6 +484,10 @@ public final class Track implements DomainEntity<Track, Track.Id> {
 
         /**
          * 文字列からTrack.Idを生成
+         *
+         * @param value
+         *            ID値（UUIDv7形式の文字列）
+         * @return Id
          */
         public static @NonNull Id of(@NonNull String value) {
             return new Id(value);

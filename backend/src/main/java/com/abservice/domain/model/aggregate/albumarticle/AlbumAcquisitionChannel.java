@@ -28,27 +28,32 @@ import org.jspecify.annotations.Nullable;
 public final class AlbumAcquisitionChannel
         implements
             DomainEntity<AlbumAcquisitionChannel, AlbumAcquisitionChannel.Id> {
+    /** ID */
     @EqualsAndHashCode.Include
     private final Id id;
+    /** チャネルタイプ */
     private final ChannelType channelType;
-    private final String name; // 表示用の名前
+    /** 表示用の名前 */
+    private final String name;
+    /** 詳細ページへのURL */
     @Nullable
-    private final Url url; // nullable: 詳細ページへのURL
+    private final Url url;
+    /** 補足 */
     @Nullable
-    private final String note; // nullable: 補足
+    private final String note;
 
+    /** channelType必須違反時のエラー */
     private static final ErrorResult CHANNEL_TYPE_REQUIRED_ERROR = new ErrorResult(
             "channelType",
             "Channel type cannot be null",
             "CHANNEL_TYPE_REQUIRED");
 
+    /** name必須違反時のエラー */
     private static final ErrorResult NAME_REQUIRED_ERROR = new ErrorResult(
             "name",
             "Name cannot be blank",
             "NAME_REQUIRED");
 
-    // 全フィールドを受け取る唯一の構築経路。自身では検証しないため、factory以外から呼ばせない
-    // （ArchUnitで強制、#101）。
     private AlbumAcquisitionChannel(Id id, ChannelType channelType, String name, @Nullable Url url,
             @Nullable String note) {
         this.id = id;
@@ -58,7 +63,6 @@ public final class AlbumAcquisitionChannel
         this.note = note;
     }
 
-    // 生の全項目を受け取り、Policy検証を経てAlbumAcquisitionChannelを生成する唯一のfactory（#101）。
     private static AlbumAcquisitionChannel factory(@Nullable Id id, @Nullable ChannelType channelType,
             @Nullable String name, @Nullable Url url, @Nullable String note) {
         return Policy.<Stub>all(
@@ -79,9 +83,6 @@ public final class AlbumAcquisitionChannel
                 .resolve(Policy::illegalArgument);
     }
 
-    // AlbumAcquisitionChannelのAllArgsConstructorと同形の、制約を持たないdumbな入れ物。全フィールドが
-    // 自明にnullableなので@NullUnmarkedでNullAwareの対象外にし、個別の@Nullable注釈を省く。
-    // ArchUnit（stubShouldMatchEnclosingConstructor）が実コンストラクタとの引数一致を機械的に強制する。
     @NullUnmarked
     private record Stub(Id id, ChannelType channelType, String name, Url url, String note) {
 
@@ -242,6 +243,8 @@ public final class AlbumAcquisitionChannel
 
         /**
          * UUIDv7を生成してAlbumAcquisitionChannel.Idを作成
+         *
+         * @return 新規Id
          */
         public static Id generate() {
             return new Id(EntityId.generateUuidV7());
@@ -249,6 +252,10 @@ public final class AlbumAcquisitionChannel
 
         /**
          * 文字列からAlbumAcquisitionChannel.Idを生成
+         *
+         * @param value
+         *            ID値（UUIDv7形式の文字列）
+         * @return Id
          */
         public static Id of(String value) {
             return new Id(value);

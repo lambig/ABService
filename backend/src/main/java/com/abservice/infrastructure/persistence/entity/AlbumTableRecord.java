@@ -50,14 +50,12 @@ public class AlbumTableRecord extends AuditableTableRecord<AlbumTableRecord> {
     @Column(name = "release_date")
     private LocalDate releaseDate;
 
-    // Artist Credit (Value Object)
     @Column(name = "artist_display_name", nullable = false, length = 255)
     private String artistDisplayName;
 
     @Column(name = "artist_sort_key", length = 255)
     private String artistSortKey;
 
-    // Event Released At (Value Object)
     @Column(name = "event_name", length = 255)
     private String eventName;
 
@@ -73,7 +71,6 @@ public class AlbumTableRecord extends AuditableTableRecord<AlbumTableRecord> {
     @Column(name = "event_note", columnDefinition = "TEXT")
     private String eventNote;
 
-    // Event Date and Space (複数日程対応)
     @OneToMany(mappedBy = "album", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<AlbumEventDateSpaceTableRecord> eventDateSpaces = new ArrayList<>();
 

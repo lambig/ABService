@@ -45,37 +45,45 @@ import org.jspecify.annotations.NullUnmarked;
 @Accessors(fluent = true)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public final class Album implements Aggregate<Album, Album.Id> {
+    /** アルバムID */
     @EqualsAndHashCode.Include
     @NonNull
     private final Id id;
+    /** アルバムタイトル */
     @NonNull
     private final AlbumTitle title;
+    /** リリース日 */
     @NonNull
     private final BusinessDate releaseDate;
+    /** アルバム全体のアーティスト名義 */
     @NonNull
-    private final ArtistCredit artistCredit; // アルバム全体のアーティスト名義（必須）
+    private final ArtistCredit artistCredit;
+    /** イベント頒布情報 */
     @Nullable
-    private final EventReleasedAt eventReleasedAt; // nullable: イベント頒布情報が不明な場合
+    private final EventReleasedAt eventReleasedAt;
+    /** カタログ番号 */
     @Nullable
-    private final CatalogNumber catalogNumber; // nullable
+    private final CatalogNumber catalogNumber;
+    /** ISDN */
     @Nullable
-    private final Isdn isdn; // nullable: ISDN（国際標準同人誌番号）
+    private final Isdn isdn;
+    /** トラックのリスト */
     @NonNull
     private final List<Track> tracks;
 
+    /** title必須違反時のエラー */
     private static final ErrorResult TITLE_REQUIRED_ERROR = new ErrorResult(
             "title",
             "Album title cannot be null",
             "ALBUM_TITLE_REQUIRED");
 
+    /** artistCredit必須違反時のエラー */
     private static final ErrorResult ARTIST_CREDIT_REQUIRED_ERROR = new ErrorResult(
             "artistCredit",
             "Artist credit cannot be null",
             "ARTIST_CREDIT_REQUIRED");
 
-    // 全フィールドを受け取る唯一の構築経路。自身では検証しないため、factory以外から呼ばせない
-    // （ArchUnitで強制、#101）。
-    @SuppressWarnings("checkstyle:ParameterNumber") // 全フィールドを受け取る唯一の構築経路のため引数が多い
+    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 全フィールドを受け取る唯一の構築経路のため引数が多い
     private Album(@NonNull Id id, @NonNull AlbumTitle title, @NonNull BusinessDate releaseDate,
             @NonNull ArtistCredit artistCredit, @Nullable EventReleasedAt eventReleasedAt,
             @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn, @NonNull List<Track> tracks) {
@@ -89,8 +97,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
         this.tracks = tracks;
     }
 
-    // 生の全項目を受け取り、Policy検証を経てAlbumを生成する唯一のfactory（#101）。
-    @SuppressWarnings("checkstyle:ParameterNumber") // 全項目を受け取るため引数が多い
+    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 全項目を受け取るため引数が多い
     private static @NonNull Album factory(@Nullable Id id, @Nullable AlbumTitle title,
             @Nullable BusinessDate releaseDate, @Nullable ArtistCredit artistCredit,
             @Nullable EventReleasedAt eventReleasedAt, @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn,
@@ -116,9 +123,6 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 .resolve(Policy::illegalArgument);
     }
 
-    // AlbumのAllArgsConstructorと同形の、制約を持たないdumbな入れ物。全フィールドが自明にnullable
-    // なので@NullUnmarkedでNullAwareの対象外にし、個別の@Nullable注釈を省く。
-    // ArchUnit（stubShouldMatchEnclosingConstructor）が実コンストラクタとの引数一致を機械的に強制する。
     @NullUnmarked
     private record Stub(Id id, AlbumTitle title, BusinessDate releaseDate, ArtistCredit artistCredit,
             EventReleasedAt eventReleasedAt, CatalogNumber catalogNumber, Isdn isdn, List<Track> tracks) {
@@ -190,7 +194,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
      *            トラックリスト
      * @return 再構成されたAlbum
      */
-    @SuppressWarnings("checkstyle:ParameterNumber") // 永続化からの再構成で全項目を受け取るため引数が多い
+    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 永続化からの再構成で全項目を受け取るため引数が多い
     public static @NonNull Album reconstruct(@NonNull Id id, @NonNull AlbumTitle title,
             @NonNull BusinessDate releaseDate, @NonNull ArtistCredit artistCredit,
             @Nullable EventReleasedAt eventReleasedAt, @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn,
@@ -317,7 +321,6 @@ public final class Album implements Aggregate<Album, Album.Id> {
                         "TRACK_REQUIRED"))
                 .verify(track, Function.identity())
                 .resolve(Policy::illegalArgument);
-        // トラック番号の重複チェック（ビジネスルール違反 → 409）
         tracks.stream().filter(t -> t.trackNo().equals(validatedTrack.trackNo())).findFirst().ifPresent(dup -> {
             throw new BusinessRuleViolationException("Track number " + validatedTrack.trackNo() + " already exists");
         });
@@ -380,7 +383,6 @@ public final class Album implements Aggregate<Album, Album.Id> {
         tracks.stream().filter(validatedTrack::equivalentTo).findFirst().orElseThrow(
                 () -> new BusinessRuleViolationException(
                         "Track with ID " + validatedTrack.id().value() + " not found"));
-        // トラック番号の重複チェック（自分自身以外。ビジネスルール違反 → 409）
         tracks.stream().filter(not(validatedTrack::equivalentTo))
                 .filter(t -> t.trackNo().equals(validatedTrack.trackNo())).findFirst().ifPresent(dup -> {
                     throw new BusinessRuleViolationException(
@@ -524,6 +526,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
 
         /**
          * UUIDv7を生成してAlbum.Idを作成
+         *
+         * @return 新規Id
          */
         public static @NonNull Id generate() {
             return new Id(EntityId.generateUuidV7());
@@ -531,6 +535,10 @@ public final class Album implements Aggregate<Album, Album.Id> {
 
         /**
          * 文字列からAlbum.Idを生成
+         *
+         * @param value
+         *            ID値（UUIDv7形式の文字列）
+         * @return Id
          */
         public static @NonNull Id of(@NonNull String value) {
             return new Id(value);

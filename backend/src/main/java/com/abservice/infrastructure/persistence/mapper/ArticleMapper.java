@@ -29,7 +29,6 @@ import org.jspecify.annotations.Nullable;
 public final class ArticleMapper {
 
     private ArticleMapper() {
-        // ユーティリティクラス
     }
 
     /**

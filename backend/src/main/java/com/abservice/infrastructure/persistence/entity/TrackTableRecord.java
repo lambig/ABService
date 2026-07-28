@@ -55,7 +55,7 @@ public class TrackTableRecord extends AuditableTableRecord<TrackTableRecord> {
     @Column(name = "title", nullable = false, length = 255)
     private String title;
 
-    // Artist Credit (Value Object) - nullable: nullの場合はAlbumのartistCreditを継承
+    /** nullの場合はAlbumのartistCreditを継承 */
     @Column(name = "artist_display_name", length = 255)
     private String artistDisplayName;
 

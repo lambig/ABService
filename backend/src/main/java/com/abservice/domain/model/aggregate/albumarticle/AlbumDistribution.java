@@ -20,17 +20,19 @@ import org.jspecify.annotations.Nullable;
 @Getter
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public final class AlbumDistribution {
+    /** 物理頒価 */
     @Nullable
-    private final Price physicalPrice; // nullable: CD等の物理頒価
+    private final Price physicalPrice;
+    /** DL版価格 */
     @Nullable
-    private final Price downloadPrice; // nullable: DL版価格
+    private final Price downloadPrice;
+    /** デモ音源へのリンク */
     @Nullable
-    private final Url demoUrl; // nullable: デモ音源へのリンク
+    private final Url demoUrl;
+    /** 補足メモ */
     @Nullable
-    private final String note; // nullable: 補足メモ
+    private final String note;
 
-    // 全フィールドを受け取る唯一の構築経路。自身では検証しないため、factory以外から呼ばせない
-    // （ArchUnitで強制、#101）。
     private AlbumDistribution(@Nullable Price physicalPrice, @Nullable Price downloadPrice, @Nullable Url demoUrl,
             @Nullable String note) {
         this.physicalPrice = physicalPrice;
@@ -39,9 +41,10 @@ public final class AlbumDistribution {
         this.note = note;
     }
 
-    // 生の全項目を受け取り、Policy検証を経てAlbumDistributionを生成する唯一のfactory（#101）。
-    // 検証対象フィールドが現状ないためPolicy.<Stub>all()はルール0件（常に成功）だが、
-    // 他クラスと同じ形に揃えることで一目で正しさを判定できるようにする。
+    /*
+     * EMPTY-RULESET: 検証対象フィールドが現状ないためPolicy.<Stub>all()はルール0件（常に成功）だが、
+     * 他クラスと同じ形に揃えることで一目で正しさを判定できるようにする。
+     */
     private static AlbumDistribution factory(@Nullable Price physicalPrice, @Nullable Price downloadPrice,
             @Nullable Url demoUrl, @Nullable String note) {
         return Policy.<Stub>all()
@@ -55,9 +58,6 @@ public final class AlbumDistribution {
                 .resolve(Policy::illegalArgument);
     }
 
-    // AlbumDistributionのAllArgsConstructorと同形の、制約を持たないdumbな入れ物。全フィールドが
-    // 自明にnullableなので@NullUnmarkedでNullAwareの対象外にし、個別の@Nullable注釈を省く。
-    // ArchUnit（stubShouldMatchEnclosingConstructor）が実コンストラクタとの引数一致を機械的に強制する。
     @NullUnmarked
     private record Stub(Price physicalPrice, Price downloadPrice, Url demoUrl, String note) {
 

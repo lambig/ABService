@@ -35,28 +35,34 @@ import org.jspecify.annotations.Nullable;
 @Accessors(fluent = true)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
+    /** 対応するAlbumのID */
     @EqualsAndHashCode.Include
-    private final Album.Id albumId; // Album集約への参照（IDのみ）
+    private final Album.Id albumId;
+    /** 記事本文としての紹介コメント */
     @Nullable
-    private final String introLong; // nullable: 記事本文としての紹介コメント
+    private final String introLong;
+    /** お品書き用のショートコメント */
     @Nullable
-    private final String introShort; // nullable: お品書き用のショートコメント
+    private final String introShort;
+    /** nullable。例: "東X-00b" */
     @Nullable
-    private final String firstEventSpace; // nullable: 初出イベントのスペース（例: "東X-00b"）
+    private final String firstEventSpace;
+    /** お品書き用ラベル */
     @Nullable
-    private final LabelTag labelTag; // nullable: お品書き用ラベル
+    private final LabelTag labelTag;
+    /** 頒布情報 */
     @Nullable
-    private final AlbumDistribution distribution; // nullable: 頒布情報
-    private final List<AlbumAcquisitionChannel> acquisitionChannels; // 入手経路
+    private final AlbumDistribution distribution;
+    /** 入手経路 */
+    private final List<AlbumAcquisitionChannel> acquisitionChannels;
 
+    /** albumId必須違反時のエラー */
     private static final ErrorResult ALBUM_ID_REQUIRED_ERROR = new ErrorResult(
             "albumId",
             "Album ID cannot be null",
             "ALBUM_ID_REQUIRED");
 
-    // 全フィールドを受け取る唯一の構築経路。自身では検証しないため、factory以外から呼ばせない
-    // （ArchUnitで強制、#101）。
-    @SuppressWarnings("checkstyle:ParameterNumber") // 全フィールドを受け取る唯一の構築経路のため引数が多い
+    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 全フィールドを受け取る唯一の構築経路のため引数が多い
     private AlbumArticle(Album.Id albumId, @Nullable String introLong, @Nullable String introShort,
             @Nullable String firstEventSpace, @Nullable LabelTag labelTag, @Nullable AlbumDistribution distribution,
             List<AlbumAcquisitionChannel> acquisitionChannels) {
@@ -69,8 +75,7 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
         this.acquisitionChannels = acquisitionChannels;
     }
 
-    // 生の全項目を受け取り、Policy検証を経てAlbumArticleを生成する唯一のfactory（#101）。
-    @SuppressWarnings("checkstyle:ParameterNumber") // 全項目を受け取るため引数が多い
+    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 全項目を受け取るため引数が多い
     private static AlbumArticle factory(Album.@Nullable Id albumId, @Nullable String introLong,
             @Nullable String introShort, @Nullable String firstEventSpace, @Nullable LabelTag labelTag,
             @Nullable AlbumDistribution distribution, @Nullable List<AlbumAcquisitionChannel> acquisitionChannels) {
@@ -90,9 +95,6 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
                 .resolve(Policy::illegalArgument);
     }
 
-    // AlbumArticleのAllArgsConstructorと同形の、制約を持たないdumbな入れ物。全フィールドが自明に
-    // nullableなので@NullUnmarkedでNullAwareの対象外にし、個別の@Nullable注釈を省く。
-    // ArchUnit（stubShouldMatchEnclosingConstructor）が実コンストラクタとの引数一致を機械的に強制する。
     @NullUnmarked
     private record Stub(Album.Id albumId, String introLong, String introShort, String firstEventSpace,
             LabelTag labelTag, AlbumDistribution distribution, List<AlbumAcquisitionChannel> acquisitionChannels) {
@@ -159,7 +161,7 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      *            入手経路リスト
      * @return 再構成されたAlbumArticle
      */
-    @SuppressWarnings("checkstyle:ParameterNumber") // 永続化からの再構成で全項目を受け取るため引数が多い
+    @SuppressWarnings("checkstyle:ParameterNumber") // PARAM-COUNT: 永続化からの再構成で全項目を受け取るため引数が多い
     public static AlbumArticle reconstruct(Album.Id albumId, @Nullable String introLong, @Nullable String introShort,
             @Nullable String firstEventSpace, @Nullable LabelTag labelTag, @Nullable AlbumDistribution distribution,
             List<AlbumAcquisitionChannel> acquisitionChannels) {
@@ -263,7 +265,6 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
                         "ACQUISITION_CHANNEL_REQUIRED"))
                 .verify(channel, Function.identity())
                 .resolve(Policy::illegalArgument);
-        // IDの重複チェック（ビジネスルール違反 → 409）
         acquisitionChannels.stream().filter(channel::equivalentTo).findFirst().ifPresent(dup -> {
             throw new BusinessRuleViolationException(
                     "Acquisition channel with ID " + channel.id().value() + " already exists");

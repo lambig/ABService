@@ -21,6 +21,8 @@ import java.util.Optional;
 public interface EntityId<T extends DomainObject<T>> extends Comparable<EntityId<T>> {
     /**
      * IDの実際の値（UUIDv7形式の文字列）
+     *
+     * @return ID値
      */
     String value();
 
@@ -34,6 +36,8 @@ public interface EntityId<T extends DomainObject<T>> extends Comparable<EntityId
 
     /**
      * UUID v7を生成する
+     *
+     * @return 生成されたUUID v7文字列
      */
     static String generateUuidV7() {
         return Generators.timeBasedEpochGenerator().generate().toString();
@@ -41,6 +45,10 @@ public interface EntityId<T extends DomainObject<T>> extends Comparable<EntityId
 
     /**
      * 文字列がUUID形式（正準形）かどうかを検証する
+     *
+     * @param value
+     *            検証対象の文字列
+     * @return UUID形式であればtrue
      */
     static boolean isValidUuid(String value) {
         return Optional.ofNullable(value)

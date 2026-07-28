@@ -27,23 +27,27 @@ import org.jspecify.annotations.Nullable;
 @Accessors(fluent = true)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public final class TrackTune implements DomainEntity<TrackTune, Integer> {
+    /** トラック内での登場順（1, 2, 3, ...） */
     @EqualsAndHashCode.Include
-    private final Integer seq; // トラック内での登場順（1, 2, 3, ...）
-    private final Tune.@Nullable Id tuneId; // nullable: MC、環境音などの場合はnull
+    private final Integer seq;
+    /** MC、環境音などの場合はnull */
+    private final Tune.@Nullable Id tuneId;
+    /** nullの場合はTune側のデフォルトを使用 */
     @Nullable
-    private final Credit composerCreditOverride; // nullable: nullの場合はTune側のデフォルトを使用
+    private final Credit composerCreditOverride;
+    /** nullの場合はTune側のデフォルトを使用 */
     @Nullable
-    private final Credit arrangerCreditOverride; // nullable: nullの場合はTune側のデフォルトを使用
+    private final Credit arrangerCreditOverride;
+    /** 外部リンク（the session、自サイト等） */
     @Nullable
-    private final Url linkUrl; // nullable: 外部リンク（the session, 自サイト等）
+    private final Url linkUrl;
 
+    /** seq必須違反時のエラー */
     private static final ErrorResult SEQ_REQUIRED_ERROR = new ErrorResult(
             "seq",
             "Seq cannot be null",
             "SEQ_REQUIRED");
 
-    // 全フィールドを受け取る唯一の構築経路。自身では検証しないため、factory以外から呼ばせない
-    // （ArchUnitで強制、#101）。
     private TrackTune(Integer seq, Tune.@Nullable Id tuneId, @Nullable Credit composerCreditOverride,
             @Nullable Credit arrangerCreditOverride, @Nullable Url linkUrl) {
         this.seq = seq;
@@ -53,7 +57,6 @@ public final class TrackTune implements DomainEntity<TrackTune, Integer> {
         this.linkUrl = linkUrl;
     }
 
-    // 生の全項目を受け取り、Policy検証を経てTrackTuneを生成する唯一のfactory（#101）。
     private static TrackTune factory(@Nullable Integer seq, Tune.@Nullable Id tuneId,
             @Nullable Credit composerCreditOverride, @Nullable Credit arrangerCreditOverride,
             @Nullable Url linkUrl) {
@@ -71,9 +74,6 @@ public final class TrackTune implements DomainEntity<TrackTune, Integer> {
                 .resolve(Policy::illegalArgument);
     }
 
-    // TrackTuneのAllArgsConstructorと同形の、制約を持たないdumbな入れ物。全フィールドが自明に
-    // nullableなので@NullUnmarkedでNullAwareの対象外にし、個別の@Nullable注釈を省く。
-    // ArchUnit（stubShouldMatchEnclosingConstructor）が実コンストラクタとの引数一致を機械的に強制する。
     @NullUnmarked
     private record Stub(Integer seq, Tune.Id tuneId, Credit composerCreditOverride,
             Credit arrangerCreditOverride, Url linkUrl) {

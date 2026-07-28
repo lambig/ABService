@@ -18,7 +18,6 @@ import com.abservice.infrastructure.persistence.entity.TuneTableRecord;
 public final class TuneMapper {
 
     private TuneMapper() {
-        // ユーティリティクラス
     }
 
     /**

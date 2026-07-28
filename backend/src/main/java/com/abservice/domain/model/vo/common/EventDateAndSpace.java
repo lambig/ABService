@@ -26,7 +26,9 @@ import org.jspecify.annotations.Nullable;
 @Accessors(fluent = true)
 @EqualsAndHashCode
 public final class EventDateAndSpace implements ValueObject<EventDateAndSpace> {
+    /** イベント開催日 */
     private final BusinessDate date;
+    /** スペース番号（例: 東A-01） */
     @Nullable
     private final String spaceNumber;
 

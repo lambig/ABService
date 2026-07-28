@@ -121,8 +121,6 @@ public abstract class AuditableTableRecord<T extends AuditableTableRecord<T>> {
         return (T) this;
     }
 
-    // Getters and Setters
-
     public Instant getCreatedAt() {
         return createdAt;
     }

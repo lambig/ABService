@@ -58,9 +58,11 @@ public class ArticleRepositoryImpl implements ArticleRepository {
 
     private Uni<ArticleTableRecord> upsertArticle(@Nullable ArticleTableRecord existingEntity, Article aggregate) {
         final var newValues = ArticleMapper.toEntity(aggregate);
-        // 記事自体を先に確定（新規時はIDENTITY採番を解決）してからタグリンクを付与する。
-        // 同一flush内で行うと、複合@MapsId（ArticleTagLinkTableRecord）の親IDが未解決のまま
-        // カスケードされ IdentifierGenerationException となるため2段階に分ける。
+        /*
+         * HIBERNATE-CASCADE: 記事自体を先に確定（新規時はIDENTITY採番を解決）してからタグリンクを付与する。
+         * 同一flush内で行うと、複合@MapsId（ArticleTagLinkTableRecord）の親IDが未解決のまま カスケードされ
+         * IdentifierGenerationException となるため2段階に分ける。
+         */
         return dataSource.persistAndFlush(
                 Optional.ofNullable(existingEntity)
                         .map(existing -> copyArticleScalarFields(existing, newValues))
@@ -213,8 +215,6 @@ public class ArticleRepositoryImpl implements ArticleRepository {
     public Uni<Long> count() {
         return dataSource.count();
     }
-
-    // カスタムメソッド
 
     @Override
     public Uni<List<Article>> findByArticleType(ArticleType articleType) {

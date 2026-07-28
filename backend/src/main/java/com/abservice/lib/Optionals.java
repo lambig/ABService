@@ -16,7 +16,6 @@ import org.jspecify.annotations.Nullable;
 public final class Optionals {
 
     private Optionals() {
-        // ユーティリティクラス
     }
 
     /**

@@ -140,6 +140,19 @@
         </module>
         <module name="UpperEll"/>
 
+        <!-- domain.model 配下はクラス・フィールド・publicメソッドにJavadocを必須化（doc欠落防止、#99）。
+             privateメソッドは状況に応じて必要なため機械的必須化はしない -->
+        <module name="JavadocVariable">
+            <property name="id" value="DomainModelFieldJavadoc"/>
+            <property name="scope" value="private"/>
+        </module>
+        <module name="JavadocType">
+            <property name="id" value="DomainModelTypeJavadoc"/>
+        </module>
+        <module name="JavadocMethod">
+            <property name="id" value="DomainModelMethodJavadoc"/>
+        </module>
+
         <!-- Annotations -->
         <module name="AnnotationLocation">
             <property name="allowSamelineMultipleAnnotations" value="false"/>
@@ -153,6 +166,18 @@
             <property name="ignoreComments" value="false"/>
             <property name="message"
                 value="@SuppressWarnings には同行末尾に理由コメント（// で始まり10文字以上）を付与してください"/>
+        </module>
+
+        <!-- インラインコメント（// ...）は「why not」（この箇所固有の例外的実装判断の理由）のみ許可し、
+             大文字+ハイフンの語＋コロンのプレフィックスを必須とする（例: // HACK: 理由）。
+             一般的な理由（why、ルール自体の背景）はコメントに書かず、PMDメッセージやArchUnitルール・
+             アノテーションのJavadocに書く（#99）。Javadoc内の継続行（行頭が*）とURL（https://等）は対象外 -->
+        <module name="RegexpSinglelineJava">
+            <property name="id" value="InlineCommentRequiresWhyNotPrefix"/>
+            <property name="format" value="^(?!\s*\*).*(?&lt;!:)//(?!/)(?!\s?[A-Z][A-Z-]*:)"/>
+            <property name="ignoreComments" value="false"/>
+            <property name="message"
+                value="インラインコメント（// ...）は大文字+ハイフンのプレフィックス＋コロンを伴う「why not」（この箇所固有の例外的実装判断の理由）のみ許可されます（例: // HACK: 理由）。一般的な理由（why）はコメントに書かず、PMDメッセージやArchUnit/アノテーションのJavadocに書いてください。"/>
         </module>
 
         <!-- JUnit の Assertions は使用禁止（AssertJ の assertThat / assertThatThrownBy に統一） -->

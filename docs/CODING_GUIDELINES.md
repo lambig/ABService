@@ -5,7 +5,7 @@
 **機械的に検証できる規約は静的解析で強制済みであり、本書では繰り返さない。** 強制ルールの一覧と実体は [STATUS_AND_ROADMAP.md](STATUS_AND_ROADMAP.md) §6、および各設定（`backend/config/`・`backend/build.gradle`）が正。以下はその代表例で、いずれも本書の記述ではなくルール／設定が拘束する:
 
 - 命名・配置（`@Entity` 命名/配置、`RepositoryImpl`、レイヤ依存方向）、Repository/ApplicationService の `Uni` 返却契約 → **ArchUnit**
-- ローカル変数の `final var`、中置論理演算子禁止、domain の try-catch禁止、production全域の可変コレクション直接生成禁止（`infrastructure.persistence` 境界のみ例外）、AssertJ 統一 → **Checkstyle**
+- ローカル変数の `final var`、中置論理演算子禁止、domain の try-catch禁止、production全域の可変コレクション直接生成禁止（`infrastructure.persistence` 境界のみ例外）、AssertJ 統一、`domain.model` 配下のクラス/フィールド/publicメソッドJavadoc必須、インラインコメントのwhy notプレフィックス必須（§7） → **Checkstyle**
 - `if` 文の全廃（値生成は式のみ）、VO/record の検証必須、単一行三項禁止、FQN 禁止、可変コレクタ・Collection/Map変異呼び出し禁止（`infrastructure.persistence` 境界のみ例外） → **PMD**
 - domain の `java.time`（`LocalDate` 等）直接使用禁止・`Uni`/Provider 禁止 → **ArchUnit**
 - コンパイル時 null 安全（`@NullMarked` + `@Nullable`） → **NullAway**
@@ -68,6 +68,16 @@ VO の外部入力用の生成は、例外 throw の `of()`（内部生成）と
 - 共通監査列（7列）は [AUDIT_COLUMNS.md](AUDIT_COLUMNS.md) が正。
 - ドメイン ID（UUIDv7 文字列）と DB 内部 ID（`Long`）の分離方針は [ID_DESIGN_POLICY.md](ID_DESIGN_POLICY.md) が正。
 - ドメイン層の日付・日時は `BusinessDate` / `BusinessDateTime` を使う（`java.time` 直接使用は domain では ArchUnit で禁止）。インフラ層・変換処理では `LocalDate` 等の使用を許可する。
+
+## 7. コメント方針
+
+**why（一般的な動機・ルールの背景）はインラインコメントに書かない。** 一般的な設計判断・規約の理由は、その規約自体が定義されている場所（PMD/Checkstyleルールのメッセージ・ArchUnitルールの Javadoc・関連アノテーションの Javadoc）に書く。同じ説明を複数クラスに逐語コピペしない（#99・[[abservice-archunit-plan]] も参照）。フィールド・型・publicメソッドの意味は、コメントではなく命名で表現するか Javadoc に書く（`domain.model` 配下は Checkstyle が Javadoc 必須を強制）。
+
+**インラインコメント（`//`）として許容されるのは "why not" のみ**: その実装箇所において、標準的なやり方やアプリケーション全体の方針と異なる特殊な設計・実装判断が行われた理由（HACK・ワークアラウンド・型推論の限界・lintルール抑制の安全性根拠など）。判定基準: このコメントを消したとき、読み手が「なぜ普通のやり方・アプリの標準パターンにしなかったのか」と疑問に思うなら why not（許容）。「これは何を意味するのか」としか思わないなら why（Javadoc/命名/docsへ）。
+
+why not コメントは大文字+ハイフンの語＋コロンのプレフィックスを付与する（Checkstyle `InlineCommentRequiresWhyNotPrefix` が強制、例: `// HACK: 理由` `// CRTP: 理由`）。複数行にまたがる説明は `//` の行連続ではなく `/* PREFIX: ... */` ブロックコメントを使う（プレフィックスは1行目のみでよく、フォーマッタによる再改行の影響を受けない）。
+
+参照実装: `AuditableTableRecord`（CRTP）、`ArticleRepositoryImpl`（HIBERNATE-CASCADE）、`AlbumDistribution`（EMPTY-RULESET）。
 
 ---
 

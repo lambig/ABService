@@ -30,10 +30,14 @@ import org.jspecify.annotations.Nullable;
 @Accessors(fluent = true)
 @EqualsAndHashCode
 public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
+    /** イベント名 */
     private final EventName name;
+    /** 開催日・スペース番号の組み合わせリスト（複数日参加対応） */
     private final List<EventDateAndSpace> dateAndSpaces;
+    /** 会場 */
     @Nullable
     private final String place;
+    /** 補足情報 */
     @Nullable
     private final String note;
 

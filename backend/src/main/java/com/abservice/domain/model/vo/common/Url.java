@@ -25,6 +25,7 @@ import java.util.function.Function;
  *            URL文字列
  */
 public record Url(String value) implements ValueObject<Url> {
+    /** URL文字列の最大長 */
     private static final int MAX_LENGTH = 500;
 
     /**
@@ -64,7 +65,6 @@ public record Url(String value) implements ValueObject<Url> {
     }
 
     private static void validateUriFormat(String value) {
-        // URI.create は不正な構文の場合に IllegalArgumentException（URISyntaxException を内包）を送出する
         URI.create(value);
     }
 

@@ -29,7 +29,7 @@ import java.util.regex.Pattern;
  *            ISRC
  */
 public record Isrc(String value) implements ValueObject<Isrc> {
-    // ISRCのフォーマット（ハイフンあり/なし両方対応）
+    /** ISRCのフォーマット（ハイフンあり/なし両対応） */
     private static final Pattern ISRC_PATTERN = Pattern.compile("^[A-Z]{2}-?[A-Z0-9]{3}-?[0-9]{2}-?[0-9]{5}$");
 
     /**
@@ -56,7 +56,7 @@ public record Isrc(String value) implements ValueObject<Isrc> {
                         "ISRC_INVALID_FORMAT"))
                 .verify(normalized, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
-        value = normalized.replace("-", ""); // ハイフンを除去して統一フォーマットで保持
+        value = normalized.replace("-", "");
     }
 
     /**

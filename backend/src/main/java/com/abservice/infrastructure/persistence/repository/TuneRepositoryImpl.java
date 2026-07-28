@@ -34,7 +34,6 @@ public class TuneRepositoryImpl implements TuneRepository {
     @Override
     public Uni<Tune> save(Tune aggregate) {
         final var entity = TuneMapper.toEntity(aggregate);
-        // 存在すれば更新、なければ新規作成
         return dataSource.find("domainId", entity.getDomainId()).firstResult()
                 .onItem().ifNotNull().transformToUni(
                         existingEntity -> dataSource.persistAndFlush(
@@ -124,8 +123,6 @@ public class TuneRepositoryImpl implements TuneRepository {
     public Uni<Long> count() {
         return dataSource.count();
     }
-
-    // カスタムメソッド
 
     @Override
     public Uni<List<Tune>> findByTitle(TuneTitle title) {
