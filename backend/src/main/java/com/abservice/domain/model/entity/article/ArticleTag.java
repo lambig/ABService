@@ -1,14 +1,17 @@
 package com.abservice.domain.model.entity.article;
 
+import com.abservice.domain.model.AggregateFactory;
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.entity.DomainEntity;
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.lib.ErrorResult;
+import java.util.Objects;
 import java.util.function.Function;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullUnmarked;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -27,22 +30,36 @@ public final class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@No
     @NonNull
     private final String name;
 
-    // 唯一の構築経路。Policy検証をここに一本化することで、createだけでなくreconstructも
-    // 含めどの経路からも検証を迂回できない（#101）。
+    // 全フィールドを受け取る唯一の構築経路。自身では検証しないため、factory以外から呼ばせない
+    // （ArchUnitで強制、#101）。
     private ArticleTag(@NonNull Id id, @NonNull String name) {
         this.id = id;
-        this.name = requireName(name);
+        this.name = name;
     }
 
-    private static @NonNull String requireName(@Nullable String name) {
-        return Policy.<String>of(
-                StringUtils::isNotBlank,
+    // 生の全項目を受け取り、Policy検証を経てArticleTagを生成する唯一のfactory（#101）。
+    private static @NonNull ArticleTag factory(@Nullable Id id, @Nullable String name) {
+        return Policy.<Stub>of(
+                self -> StringUtils.isNotBlank(self.name()),
                 () -> new ErrorResult(
                         "name",
                         "Tag name cannot be blank",
                         "TAG_NAME_REQUIRED"))
-                .verify(name, Function.identity())
+                .verify(new Stub(id, name), Stub::asArticleTag)
                 .resolve(Policy::illegalArgument);
+    }
+
+    // ArticleTagのAllArgsConstructorと同形の、制約を持たないdumbな入れ物。全フィールドが自明にnullable
+    // なので@NullUnmarkedでNullAwareの対象外にし、個別の@Nullable注釈を省く。
+    // ArchUnit（stubShouldMatchEnclosingConstructor）が実コンストラクタとの引数一致を機械的に強制する。
+    @NullUnmarked
+    private record Stub(Id id, String name) {
+
+        @AggregateFactory
+        @NonNull
+        ArticleTag asArticleTag() {
+            return new ArticleTag(Objects.requireNonNull(id), Objects.requireNonNull(name));
+        }
     }
 
     /**
@@ -53,7 +70,7 @@ public final class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@No
      * @return 新規ArticleTag
      */
     public static @NonNull ArticleTag create(@NonNull String name) {
-        return new ArticleTag(Id.generate(), name);
+        return ArticleTag.factory(Id.generate(), name);
     }
 
     /**
@@ -66,7 +83,7 @@ public final class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@No
      * @return 再構成されたArticleTag
      */
     public static @NonNull ArticleTag reconstruct(@NonNull Id id, @NonNull String name) {
-        return new ArticleTag(id, name);
+        return ArticleTag.factory(id, name);
     }
 
     /**

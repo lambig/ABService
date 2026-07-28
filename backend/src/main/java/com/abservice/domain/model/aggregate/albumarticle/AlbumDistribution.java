@@ -1,11 +1,13 @@
 package com.abservice.domain.model.aggregate.albumarticle;
 
+import com.abservice.domain.model.AggregateFactory;
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.common.Price;
 import com.abservice.domain.model.vo.common.Url;
-import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.With;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullUnmarked;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -15,7 +17,6 @@ import org.jspecify.annotations.Nullable;
  * 頒価、DL価格、デモリンクなど、作品側の頒布状態を管理します。
  * </p>
  */
-@With(AccessLevel.PRIVATE)
 @Getter
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public final class AlbumDistribution {
@@ -28,14 +29,47 @@ public final class AlbumDistribution {
     @Nullable
     private final String note; // nullable: 補足メモ
 
-    // 全フィールドを受け取る唯一の構築経路（@Withが生成するwitherも本コンストラクタを呼ぶ）。
-    // 現状は検証対象フィールドがないが、将来追加された場合に迂回できないよう手書きにする（#101）。
+    // 全フィールドを受け取る唯一の構築経路。自身では検証しないため、factory以外から呼ばせない
+    // （ArchUnitで強制、#101）。
     private AlbumDistribution(@Nullable Price physicalPrice, @Nullable Price downloadPrice, @Nullable Url demoUrl,
             @Nullable String note) {
         this.physicalPrice = physicalPrice;
         this.downloadPrice = downloadPrice;
         this.demoUrl = demoUrl;
         this.note = note;
+    }
+
+    // 生の全項目を受け取り、Policy検証を経てAlbumDistributionを生成する唯一のfactory（#101）。
+    // 検証対象フィールドが現状ないためPolicy.<Stub>all()はルール0件（常に成功）だが、
+    // 他クラスと同じ形に揃えることで一目で正しさを判定できるようにする。
+    private static AlbumDistribution factory(@Nullable Price physicalPrice, @Nullable Price downloadPrice,
+            @Nullable Url demoUrl, @Nullable String note) {
+        return Policy.<Stub>all()
+                .verify(
+                        new Stub(
+                                physicalPrice,
+                                downloadPrice,
+                                demoUrl,
+                                note),
+                        Stub::asAlbumDistribution)
+                .resolve(Policy::illegalArgument);
+    }
+
+    // AlbumDistributionのAllArgsConstructorと同形の、制約を持たないdumbな入れ物。全フィールドが
+    // 自明にnullableなので@NullUnmarkedでNullAwareの対象外にし、個別の@Nullable注釈を省く。
+    // ArchUnit（stubShouldMatchEnclosingConstructor）が実コンストラクタとの引数一致を機械的に強制する。
+    @NullUnmarked
+    private record Stub(Price physicalPrice, Price downloadPrice, Url demoUrl, String note) {
+
+        @AggregateFactory
+        @NonNull
+        AlbumDistribution asAlbumDistribution() {
+            return new AlbumDistribution(
+                    physicalPrice(),
+                    downloadPrice(),
+                    demoUrl(),
+                    note());
+        }
     }
 
     /**
@@ -56,7 +90,7 @@ public final class AlbumDistribution {
             @Nullable Price downloadPrice,
             @Nullable Url demoUrl,
             @Nullable String note) {
-        return new AlbumDistribution(
+        return AlbumDistribution.factory(
                 physicalPrice,
                 downloadPrice,
                 demoUrl,
@@ -81,7 +115,7 @@ public final class AlbumDistribution {
             @Nullable Price downloadPrice,
             @Nullable Url demoUrl,
             @Nullable String note) {
-        return new AlbumDistribution(
+        return AlbumDistribution.factory(
                 physicalPrice,
                 downloadPrice,
                 demoUrl,
@@ -96,7 +130,11 @@ public final class AlbumDistribution {
      * @return 更新されたAlbumDistribution
      */
     public AlbumDistribution changePhysicalPrice(Price newPhysicalPrice) {
-        return withPhysicalPrice(newPhysicalPrice);
+        return AlbumDistribution.factory(
+                newPhysicalPrice,
+                downloadPrice,
+                demoUrl,
+                note);
     }
 
     /**
@@ -107,7 +145,11 @@ public final class AlbumDistribution {
      * @return 更新されたAlbumDistribution
      */
     public AlbumDistribution changeDownloadPrice(Price newDownloadPrice) {
-        return withDownloadPrice(newDownloadPrice);
+        return AlbumDistribution.factory(
+                physicalPrice,
+                newDownloadPrice,
+                demoUrl,
+                note);
     }
 
     /**
@@ -118,7 +160,11 @@ public final class AlbumDistribution {
      * @return 更新されたAlbumDistribution
      */
     public AlbumDistribution changeDemoUrl(Url newDemoUrl) {
-        return withDemoUrl(newDemoUrl);
+        return AlbumDistribution.factory(
+                physicalPrice,
+                downloadPrice,
+                newDemoUrl,
+                note);
     }
 
     /**
@@ -129,6 +175,10 @@ public final class AlbumDistribution {
      * @return 更新されたAlbumDistribution
      */
     public AlbumDistribution changeNote(String newNote) {
-        return withNote(newNote);
+        return AlbumDistribution.factory(
+                physicalPrice,
+                downloadPrice,
+                demoUrl,
+                newNote);
     }
 }

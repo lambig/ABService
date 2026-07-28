@@ -3,6 +3,7 @@ package com.abservice.domain.model.aggregate.article;
 import static java.util.function.Predicate.not;
 
 import com.abservice.domain.exception.BusinessRuleViolationException;
+import com.abservice.domain.model.AggregateFactory;
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.aggregate.Aggregate;
 import com.abservice.domain.model.aggregate.album.Album;
@@ -20,12 +21,11 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
-import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.With;
 import lombok.experimental.Accessors;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullUnmarked;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -36,7 +36,6 @@ import org.jspecify.annotations.Nullable;
  * 集約への参照を持ちます（片方向関連）。
  * </p>
  */
-@With(AccessLevel.PRIVATE)
 @Getter
 @Accessors(fluent = true)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
@@ -61,23 +60,69 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
     @NonNull
     private final List<ArticleTag> tags; // 記事タグのリスト
 
-    // 全フィールドを受け取る唯一の構築経路（@Withが生成するwitherも本コンストラクタを呼ぶ）。
-    // Policy検証をここに一本化することで、witherを含むどの経路からも検証を迂回できない（#101）。
-    @SuppressWarnings("checkstyle:ParameterNumber") // 全フィールドを受け取る唯一の構築経路のため引数が多い
+    // 全フィールドを受け取る唯一の構築経路。自身では検証しないため、factory以外から呼ばせない
+    // （ArchUnitで強制、#101）。
+    @SuppressWarnings("checkstyle:ParameterNumber") // 全フィールドを受け取るため引数が多い
     private Article(@NonNull Id id, @NonNull ArticleType articleType, Album.@Nullable Id albumId,
             @NonNull ArticleTitle title, @Nullable MarkupContent body, @Nullable String introShort,
             @Nullable BusinessDateTime publishedAt, @Nullable BusinessDateTime updatedAtBusiness,
             boolean publicFlag, @NonNull List<ArticleTag> tags) {
         this.id = id;
-        this.articleType = requireType(articleType);
+        this.articleType = articleType;
         this.albumId = albumId;
-        this.title = requireTitle(title);
+        this.title = title;
         this.body = body;
         this.introShort = introShort;
         this.publishedAt = publishedAt;
         this.updatedAtBusiness = updatedAtBusiness;
         this.publicFlag = publicFlag;
         this.tags = tags;
+    }
+
+    // 生の全項目を受け取り、Policy検証を経てArticleを生成する唯一のfactory（#101）。
+    @SuppressWarnings("checkstyle:ParameterNumber") // 全項目を受け取るため引数が多い
+    private static @NonNull Article factory(@Nullable Id id, @Nullable ArticleType articleType,
+            Album.@Nullable Id albumId, @Nullable ArticleTitle title, @Nullable MarkupContent body,
+            @Nullable String introShort, @Nullable BusinessDateTime publishedAt,
+            @Nullable BusinessDateTime updatedAtBusiness, boolean publicFlag, @Nullable List<ArticleTag> tags) {
+        return Policy.<Stub>all(
+                Policy.of(
+                        self -> self.articleType() != null,
+                        TYPE_REQUIRED_ERROR),
+                Policy.of(
+                        self -> self.title() != null,
+                        TITLE_REQUIRED_ERROR))
+                .verify(
+                        new Stub(
+                                id,
+                                articleType,
+                                albumId,
+                                title,
+                                body,
+                                introShort,
+                                publishedAt,
+                                updatedAtBusiness,
+                                publicFlag,
+                                tags),
+                        Stub::asArticle)
+                .resolve(Policy::illegalArgument);
+    }
+
+    // Article.AllArgsConstructorと同形の、制約を持たないdumbな入れ物。全フィールドが自明にnullable
+    // なので@NullUnmarkedでNullAwareの対象外にし、個別の@Nullable注釈を省く。
+    // ArchUnit（stubShouldMatchEnclosingConstructor）が実コンストラクタとの引数一致を機械的に強制する。
+    @NullUnmarked
+    private record Stub(Id id, ArticleType articleType, Album.Id albumId, ArticleTitle title,
+            MarkupContent body, String introShort, BusinessDateTime publishedAt,
+            BusinessDateTime updatedAtBusiness, boolean publicFlag, List<ArticleTag> tags) {
+
+        @AggregateFactory
+        @NonNull
+        Article asArticle() {
+            return new Article(Objects.requireNonNull(id), Objects.requireNonNull(articleType), albumId(),
+                    Objects.requireNonNull(title), body(), introShort(), publishedAt(), updatedAtBusiness(),
+                    publicFlag(), Objects.requireNonNull(tags));
+        }
     }
 
     /**
@@ -97,8 +142,17 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
      */
     public static @NonNull Article create(@NonNull ArticleType articleType, Album.@Nullable Id albumId,
             @NonNull ArticleTitle title, @Nullable MarkupContent body, @Nullable String introShort) {
-        return new Article(Id.generate(), articleType, albumId, title, body, introShort,
-                null, null, false, Collections.emptyList());
+        return Article.factory(
+                Id.generate(),
+                articleType,
+                albumId,
+                title,
+                body,
+                introShort,
+                null,
+                null,
+                false,
+                Collections.emptyList());
     }
 
     /**
@@ -131,8 +185,17 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
             Album.@Nullable Id albumId, @NonNull ArticleTitle title, @Nullable MarkupContent body,
             @Nullable String introShort, @Nullable BusinessDateTime publishedAt,
             @Nullable BusinessDateTime updatedAtBusiness, boolean publicFlag, @NonNull List<ArticleTag> tags) {
-        return new Article(id, articleType, albumId, title, body, introShort, publishedAt, updatedAtBusiness,
-                publicFlag, tags);
+        return Article.factory(
+                id,
+                articleType,
+                albumId,
+                title,
+                body,
+                introShort,
+                publishedAt,
+                updatedAtBusiness,
+                publicFlag,
+                tags);
     }
 
     /**
@@ -145,8 +208,17 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article changeTitle(@NonNull ArticleTitle newTitle, @NonNull BusinessDateTime currentDateTime) {
-        return new Article(id, articleType, albumId, newTitle, body, introShort, publishedAt, currentDateTime,
-                publicFlag, tags);
+        return Article.factory(
+                id,
+                articleType,
+                albumId,
+                newTitle,
+                body,
+                introShort,
+                publishedAt,
+                currentDateTime,
+                publicFlag,
+                tags);
     }
 
     /**
@@ -159,8 +231,17 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article changeBody(@Nullable MarkupContent newBody, @NonNull BusinessDateTime currentDateTime) {
-        return withBody(newBody)
-                .withUpdatedAtBusiness(currentDateTime);
+        return Article.factory(
+                id,
+                articleType,
+                albumId,
+                title,
+                newBody,
+                introShort,
+                publishedAt,
+                currentDateTime,
+                publicFlag,
+                tags);
     }
 
     /**
@@ -174,8 +255,17 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
      */
     public @NonNull Article changeIntroShort(@Nullable String newIntroShort,
             @NonNull BusinessDateTime currentDateTime) {
-        return withIntroShort(newIntroShort)
-                .withUpdatedAtBusiness(currentDateTime);
+        return Article.factory(
+                id,
+                articleType,
+                albumId,
+                title,
+                body,
+                newIntroShort,
+                publishedAt,
+                currentDateTime,
+                publicFlag,
+                tags);
     }
 
     /**
@@ -186,11 +276,22 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article publish(@NonNull BusinessDateTime currentDateTime) {
-        return withPublicFlag(true)
-                .withPublishedAt(
-                        Optional.ofNullable(publishedAt)
-                                .orElse(currentDateTime))
-                .withUpdatedAtBusiness(currentDateTime);
+        return Article.factory(
+                id,
+                articleType,
+                albumId,
+                title,
+                body,
+                introShort,
+                resolvePublishedAt(currentDateTime),
+                currentDateTime,
+                true,
+                tags);
+    }
+
+    private @NonNull BusinessDateTime resolvePublishedAt(@NonNull BusinessDateTime currentDateTime) {
+        return Optional.ofNullable(publishedAt)
+                .orElse(currentDateTime);
     }
 
     /**
@@ -201,8 +302,17 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
      * @return 更新されたArticle
      */
     public @NonNull Article unpublish(@NonNull BusinessDateTime currentDateTime) {
-        return withPublicFlag(false)
-                .withUpdatedAtBusiness(currentDateTime);
+        return Article.factory(
+                id,
+                articleType,
+                albumId,
+                title,
+                body,
+                introShort,
+                publishedAt,
+                currentDateTime,
+                false,
+                tags);
     }
 
     /**
@@ -230,8 +340,17 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
                         "ARTICLE_TYPE_NOT_ALBUM"))
                 .verify(this, Function.identity())
                 .resolve(errors -> new IllegalStateException(errors.getFirst().message()));
-        return withAlbumId(newAlbumId)
-                .withUpdatedAtBusiness(currentDateTime);
+        return Article.factory(
+                id,
+                articleType,
+                newAlbumId,
+                title,
+                body,
+                introShort,
+                publishedAt,
+                currentDateTime,
+                publicFlag,
+                tags);
     }
 
     /**
@@ -245,7 +364,7 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
      */
     public @NonNull Article changeArticleType(@NonNull ArticleType newArticleType,
             @NonNull BusinessDateTime currentDateTime) {
-        return new Article(
+        return Article.factory(
                 id,
                 newArticleType,
                 newArticleType == ArticleType.ALBUM
@@ -283,8 +402,17 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
                         "ARTICLE_TAG_DUPLICATE"))
                 .verify(validatedTag, Function.identity())
                 .resolve(BusinessRuleViolationException::fromErrors);
-        return withTags(Stream.concat(tags.stream(), Stream.of(validatedTag)).toList())
-                .withUpdatedAtBusiness(currentDateTime);
+        return Article.factory(
+                id,
+                articleType,
+                albumId,
+                title,
+                body,
+                introShort,
+                publishedAt,
+                currentDateTime,
+                publicFlag,
+                Stream.concat(tags.stream(), Stream.of(validatedTag)).toList());
     }
 
     /**
@@ -301,8 +429,17 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
                 Objects::nonNull,
                 TAG_ID_REQUIRED_ERROR)
                 .verify(tagId, Function.identity()).resolve(Policy::illegalArgument);
-        return withTags(tags.stream().filter(not(t -> t.hasId(validatedTagId))).toList())
-                .withUpdatedAtBusiness(currentDateTime);
+        return Article.factory(
+                id,
+                articleType,
+                albumId,
+                title,
+                body,
+                introShort,
+                publishedAt,
+                currentDateTime,
+                publicFlag,
+                tags.stream().filter(not(t -> t.hasId(validatedTagId))).toList());
     }
 
     /**
@@ -333,20 +470,6 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
             "tagId",
             "Tag ID cannot be null",
             "ARTICLE_TAG_ID_REQUIRED");
-
-    private static @NonNull ArticleType requireType(@Nullable ArticleType articleType) {
-        return Policy.<ArticleType>of(
-                Objects::nonNull,
-                TYPE_REQUIRED_ERROR)
-                .verify(articleType, Function.identity()).resolve(Policy::illegalArgument);
-    }
-
-    private static @NonNull ArticleTitle requireTitle(@Nullable ArticleTitle title) {
-        return Policy.<ArticleTitle>of(
-                Objects::nonNull,
-                TITLE_REQUIRED_ERROR)
-                .verify(title, Function.identity()).resolve(Policy::illegalArgument);
-    }
 
     /**
      * 記事ID

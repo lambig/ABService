@@ -1,5 +1,6 @@
 package com.abservice.domain.model.aggregate.albumarticle;
 
+import com.abservice.domain.model.AggregateFactory;
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.entity.DomainEntity;
 import com.abservice.domain.model.policy.Policy;
@@ -8,11 +9,11 @@ import com.abservice.domain.model.vo.common.Url;
 import com.abservice.lib.ErrorResult;
 import java.util.Objects;
 import java.util.function.Function;
-import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.With;
 import org.apache.commons.lang3.StringUtils;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullUnmarked;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -22,7 +23,6 @@ import org.jspecify.annotations.Nullable;
  * 入手経路（委託ショップ、BOOTH、Bandcamp、自サイト通販など）を管理します。
  * </p>
  */
-@With(AccessLevel.PRIVATE)
 @Getter
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public final class AlbumAcquisitionChannel
@@ -37,37 +37,64 @@ public final class AlbumAcquisitionChannel
     @Nullable
     private final String note; // nullable: 補足
 
-    // 全フィールドを受け取る唯一の構築経路（@Withが生成するwitherも本コンストラクタを呼ぶ）。
-    // Policy検証をここに一本化することで、witherを含むどの経路からも検証を迂回できない（#101）。
+    private static final ErrorResult CHANNEL_TYPE_REQUIRED_ERROR = new ErrorResult(
+            "channelType",
+            "Channel type cannot be null",
+            "CHANNEL_TYPE_REQUIRED");
+
+    private static final ErrorResult NAME_REQUIRED_ERROR = new ErrorResult(
+            "name",
+            "Name cannot be blank",
+            "NAME_REQUIRED");
+
+    // 全フィールドを受け取る唯一の構築経路。自身では検証しないため、factory以外から呼ばせない
+    // （ArchUnitで強制、#101）。
     private AlbumAcquisitionChannel(Id id, ChannelType channelType, String name, @Nullable Url url,
             @Nullable String note) {
         this.id = id;
-        this.channelType = requireChannelType(channelType);
-        this.name = requireName(name);
+        this.channelType = channelType;
+        this.name = name;
         this.url = url;
         this.note = note;
     }
 
-    private static ChannelType requireChannelType(@Nullable ChannelType channelType) {
-        return Policy.<ChannelType>of(
-                Objects::nonNull,
-                () -> new ErrorResult(
-                        "channelType",
-                        "Channel type cannot be null",
-                        "CHANNEL_TYPE_REQUIRED"))
-                .verify(channelType, Function.identity())
+    // 生の全項目を受け取り、Policy検証を経てAlbumAcquisitionChannelを生成する唯一のfactory（#101）。
+    private static AlbumAcquisitionChannel factory(@Nullable Id id, @Nullable ChannelType channelType,
+            @Nullable String name, @Nullable Url url, @Nullable String note) {
+        return Policy.<Stub>all(
+                Policy.of(
+                        self -> self.channelType() != null,
+                        CHANNEL_TYPE_REQUIRED_ERROR),
+                Policy.of(
+                        self -> StringUtils.isNotBlank(self.name()),
+                        NAME_REQUIRED_ERROR))
+                .verify(
+                        new Stub(
+                                id,
+                                channelType,
+                                name,
+                                url,
+                                note),
+                        Stub::asAlbumAcquisitionChannel)
                 .resolve(Policy::illegalArgument);
     }
 
-    private static String requireName(@Nullable String name) {
-        return Policy.<String>of(
-                StringUtils::isNotBlank,
-                () -> new ErrorResult(
-                        "name",
-                        "Name cannot be blank",
-                        "NAME_REQUIRED"))
-                .verify(name, Function.identity())
-                .resolve(Policy::illegalArgument);
+    // AlbumAcquisitionChannelのAllArgsConstructorと同形の、制約を持たないdumbな入れ物。全フィールドが
+    // 自明にnullableなので@NullUnmarkedでNullAwareの対象外にし、個別の@Nullable注釈を省く。
+    // ArchUnit（stubShouldMatchEnclosingConstructor）が実コンストラクタとの引数一致を機械的に強制する。
+    @NullUnmarked
+    private record Stub(Id id, ChannelType channelType, String name, Url url, String note) {
+
+        @AggregateFactory
+        @NonNull
+        AlbumAcquisitionChannel asAlbumAcquisitionChannel() {
+            return new AlbumAcquisitionChannel(
+                    Objects.requireNonNull(id),
+                    Objects.requireNonNull(channelType),
+                    Objects.requireNonNull(name),
+                    url(),
+                    note());
+        }
     }
 
     /**
@@ -88,7 +115,7 @@ public final class AlbumAcquisitionChannel
             String name,
             @Nullable Url url,
             @Nullable String note) {
-        return new AlbumAcquisitionChannel(
+        return AlbumAcquisitionChannel.factory(
                 Id.generate(),
                 channelType,
                 name,
@@ -113,7 +140,7 @@ public final class AlbumAcquisitionChannel
      */
     public static AlbumAcquisitionChannel reconstruct(Id id, ChannelType channelType, String name,
             @Nullable Url url, @Nullable String note) {
-        return new AlbumAcquisitionChannel(
+        return AlbumAcquisitionChannel.factory(
                 id,
                 channelType,
                 name,
@@ -129,7 +156,7 @@ public final class AlbumAcquisitionChannel
      * @return 更新されたAlbumAcquisitionChannel
      */
     public AlbumAcquisitionChannel changeChannelType(ChannelType newChannelType) {
-        return new AlbumAcquisitionChannel(
+        return AlbumAcquisitionChannel.factory(
                 id,
                 newChannelType,
                 name,
@@ -145,7 +172,7 @@ public final class AlbumAcquisitionChannel
      * @return 更新されたAlbumAcquisitionChannel
      */
     public AlbumAcquisitionChannel changeName(String newName) {
-        return new AlbumAcquisitionChannel(
+        return AlbumAcquisitionChannel.factory(
                 id,
                 channelType,
                 newName,
@@ -161,7 +188,12 @@ public final class AlbumAcquisitionChannel
      * @return 更新されたAlbumAcquisitionChannel
      */
     public AlbumAcquisitionChannel changeUrl(Url newUrl) {
-        return withUrl(newUrl);
+        return AlbumAcquisitionChannel.factory(
+                id,
+                channelType,
+                name,
+                newUrl,
+                note);
     }
 
     /**
@@ -172,7 +204,12 @@ public final class AlbumAcquisitionChannel
      * @return 更新されたAlbumAcquisitionChannel
      */
     public AlbumAcquisitionChannel changeNote(String newNote) {
-        return withNote(newNote);
+        return AlbumAcquisitionChannel.factory(
+                id,
+                channelType,
+                name,
+                url,
+                newNote);
     }
 
     @Override

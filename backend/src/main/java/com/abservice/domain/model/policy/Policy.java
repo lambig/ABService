@@ -41,6 +41,22 @@ public interface Policy<T> {
     <R> Result<R> verify(@Nullable T value, Function<? super T, ? extends R> constructor);
 
     /**
+     * 値を検証し、変換結果を捨てて合否のみを返します。
+     *
+     * <p>
+     * {@code verify(value, Function.identity())} の戻り値を使わず捨てる（合否のみが関心事の）
+     * 呼び出しでは、{@code Function.identity()} という無意味な第二引数を書く必要がなくなります。
+     * </p>
+     *
+     * @param value
+     *            検証対象の値
+     * @return 成功時は {@code Result.success(true)}、失敗時は検証エラーの {@code Failure}
+     */
+    default Result<Boolean> check(@Nullable T value) {
+        return verify(value, v -> true);
+    }
+
+    /**
      * 単一の述語からポリシーを生成します。
      *
      * @param predicate

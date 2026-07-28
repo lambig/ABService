@@ -11,16 +11,17 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import com.abservice.domain.exception.BusinessRuleViolationException;
+import com.abservice.domain.model.AggregateFactory;
 import com.abservice.domain.model.aggregate.Aggregate;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.album.LabelTag;
 import com.abservice.lib.ErrorResult;
-import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.With;
 import lombok.experimental.Accessors;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullUnmarked;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -30,7 +31,6 @@ import org.jspecify.annotations.Nullable;
  * Web記事・お品書き用テキスト、頒布条件、入手経路を管理する集約です。 Album集約とは別のトランザクション境界を持ちます。
  * </p>
  */
-@With(AccessLevel.PRIVATE)
 @Getter
 @Accessors(fluent = true)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
@@ -49,13 +49,18 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
     private final AlbumDistribution distribution; // nullable: 頒布情報
     private final List<AlbumAcquisitionChannel> acquisitionChannels; // 入手経路
 
-    // 全フィールドを受け取る唯一の構築経路（@Withが生成するwitherも本コンストラクタを呼ぶ）。
-    // Policy検証をここに一本化することで、witherを含むどの経路からも検証を迂回できない（#101）。
+    private static final ErrorResult ALBUM_ID_REQUIRED_ERROR = new ErrorResult(
+            "albumId",
+            "Album ID cannot be null",
+            "ALBUM_ID_REQUIRED");
+
+    // 全フィールドを受け取る唯一の構築経路。自身では検証しないため、factory以外から呼ばせない
+    // （ArchUnitで強制、#101）。
     @SuppressWarnings("checkstyle:ParameterNumber") // 全フィールドを受け取る唯一の構築経路のため引数が多い
     private AlbumArticle(Album.Id albumId, @Nullable String introLong, @Nullable String introShort,
             @Nullable String firstEventSpace, @Nullable LabelTag labelTag, @Nullable AlbumDistribution distribution,
             List<AlbumAcquisitionChannel> acquisitionChannels) {
-        this.albumId = requireAlbumId(albumId);
+        this.albumId = albumId;
         this.introLong = introLong;
         this.introShort = introShort;
         this.firstEventSpace = firstEventSpace;
@@ -64,15 +69,46 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
         this.acquisitionChannels = acquisitionChannels;
     }
 
-    private static Album.Id requireAlbumId(Album.@Nullable Id albumId) {
-        return Policy.<Album.Id>of(
-                Objects::nonNull,
-                () -> new ErrorResult(
-                        "albumId",
-                        "Album ID cannot be null",
-                        "ALBUM_ID_REQUIRED"))
-                .verify(albumId, Function.identity())
+    // 生の全項目を受け取り、Policy検証を経てAlbumArticleを生成する唯一のfactory（#101）。
+    @SuppressWarnings("checkstyle:ParameterNumber") // 全項目を受け取るため引数が多い
+    private static AlbumArticle factory(Album.@Nullable Id albumId, @Nullable String introLong,
+            @Nullable String introShort, @Nullable String firstEventSpace, @Nullable LabelTag labelTag,
+            @Nullable AlbumDistribution distribution, @Nullable List<AlbumAcquisitionChannel> acquisitionChannels) {
+        return Policy.<Stub>of(
+                self -> self.albumId() != null,
+                ALBUM_ID_REQUIRED_ERROR)
+                .verify(
+                        new Stub(
+                                albumId,
+                                introLong,
+                                introShort,
+                                firstEventSpace,
+                                labelTag,
+                                distribution,
+                                acquisitionChannels),
+                        Stub::asAlbumArticle)
                 .resolve(Policy::illegalArgument);
+    }
+
+    // AlbumArticleのAllArgsConstructorと同形の、制約を持たないdumbな入れ物。全フィールドが自明に
+    // nullableなので@NullUnmarkedでNullAwareの対象外にし、個別の@Nullable注釈を省く。
+    // ArchUnit（stubShouldMatchEnclosingConstructor）が実コンストラクタとの引数一致を機械的に強制する。
+    @NullUnmarked
+    private record Stub(Album.Id albumId, String introLong, String introShort, String firstEventSpace,
+            LabelTag labelTag, AlbumDistribution distribution, List<AlbumAcquisitionChannel> acquisitionChannels) {
+
+        @AggregateFactory
+        @NonNull
+        AlbumArticle asAlbumArticle() {
+            return new AlbumArticle(
+                    Objects.requireNonNull(albumId),
+                    introLong(),
+                    introShort(),
+                    firstEventSpace(),
+                    labelTag(),
+                    distribution(),
+                    Objects.requireNonNull(acquisitionChannels));
+        }
     }
 
     /**
@@ -94,7 +130,13 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      */
     public static AlbumArticle create(Album.Id albumId, @Nullable String introLong, @Nullable String introShort,
             @Nullable String firstEventSpace, @Nullable LabelTag labelTag, @Nullable AlbumDistribution distribution) {
-        return new AlbumArticle(albumId, introLong, introShort, firstEventSpace, labelTag, distribution,
+        return AlbumArticle.factory(
+                albumId,
+                introLong,
+                introShort,
+                firstEventSpace,
+                labelTag,
+                distribution,
                 Collections.emptyList());
     }
 
@@ -121,7 +163,13 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
     public static AlbumArticle reconstruct(Album.Id albumId, @Nullable String introLong, @Nullable String introShort,
             @Nullable String firstEventSpace, @Nullable LabelTag labelTag, @Nullable AlbumDistribution distribution,
             List<AlbumAcquisitionChannel> acquisitionChannels) {
-        return new AlbumArticle(albumId, introLong, introShort, firstEventSpace, labelTag, distribution,
+        return AlbumArticle.factory(
+                albumId,
+                introLong,
+                introShort,
+                firstEventSpace,
+                labelTag,
+                distribution,
                 acquisitionChannels);
     }
 
@@ -135,8 +183,14 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      * @return 更新されたAlbumArticle
      */
     public AlbumArticle updateIntro(@Nullable String newIntroLong, @Nullable String newIntroShort) {
-        return withIntroLong(newIntroLong)
-                .withIntroShort(newIntroShort);
+        return AlbumArticle.factory(
+                albumId,
+                newIntroLong,
+                newIntroShort,
+                firstEventSpace,
+                labelTag,
+                distribution,
+                acquisitionChannels);
     }
 
     /**
@@ -147,7 +201,14 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      * @return 更新されたAlbumArticle
      */
     public AlbumArticle changeFirstEventSpace(@Nullable String newFirstEventSpace) {
-        return withFirstEventSpace(newFirstEventSpace);
+        return AlbumArticle.factory(
+                albumId,
+                introLong,
+                introShort,
+                newFirstEventSpace,
+                labelTag,
+                distribution,
+                acquisitionChannels);
     }
 
     /**
@@ -158,7 +219,14 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      * @return 更新されたAlbumArticle
      */
     public AlbumArticle updateLabelTag(@Nullable LabelTag newLabelTag) {
-        return withLabelTag(newLabelTag);
+        return AlbumArticle.factory(
+                albumId,
+                introLong,
+                introShort,
+                firstEventSpace,
+                newLabelTag,
+                distribution,
+                acquisitionChannels);
     }
 
     /**
@@ -169,7 +237,14 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
      * @return 更新されたAlbumArticle
      */
     public AlbumArticle setDistribution(@Nullable AlbumDistribution newDistribution) {
-        return withDistribution(newDistribution);
+        return AlbumArticle.factory(
+                albumId,
+                introLong,
+                introShort,
+                firstEventSpace,
+                labelTag,
+                newDistribution,
+                acquisitionChannels);
     }
 
     /**
@@ -193,7 +268,14 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
             throw new BusinessRuleViolationException(
                     "Acquisition channel with ID " + channel.id().value() + " already exists");
         });
-        return withAcquisitionChannels(Stream.concat(acquisitionChannels.stream(), Stream.of(channel)).toList());
+        return AlbumArticle.factory(
+                albumId,
+                introLong,
+                introShort,
+                firstEventSpace,
+                labelTag,
+                distribution,
+                Stream.concat(acquisitionChannels.stream(), Stream.of(channel)).toList());
     }
 
     /**
@@ -215,7 +297,14 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
         acquisitionChannels.stream().filter(c -> c.hasId(channelId)).findFirst().orElseThrow(
                 () -> new BusinessRuleViolationException(
                         "Acquisition channel with ID " + channelId.value() + " not found"));
-        return withAcquisitionChannels(acquisitionChannels.stream().filter(not(c -> c.hasId(channelId))).toList());
+        return AlbumArticle.factory(
+                albumId,
+                introLong,
+                introShort,
+                firstEventSpace,
+                labelTag,
+                distribution,
+                acquisitionChannels.stream().filter(not(c -> c.hasId(channelId))).toList());
     }
 
     /**
@@ -243,7 +332,15 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
                                 ? updatedChannel
                                 : c)
                 .collect(optionally(toUnmodifiableList()))
-                .map(this::withAcquisitionChannels)
+                .map(
+                        newChannels -> AlbumArticle.factory(
+                                albumId,
+                                introLong,
+                                introShort,
+                                firstEventSpace,
+                                labelTag,
+                                distribution,
+                                newChannels))
                 .get();
     }
 

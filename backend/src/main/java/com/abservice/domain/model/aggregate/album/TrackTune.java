@@ -1,5 +1,6 @@
 package com.abservice.domain.model.aggregate.album;
 
+import com.abservice.domain.model.AggregateFactory;
 import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.domain.model.entity.DomainEntity;
 import com.abservice.domain.model.policy.Policy;
@@ -7,12 +8,11 @@ import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.Url;
 import com.abservice.lib.ErrorResult;
 import java.util.Objects;
-import java.util.function.Function;
-import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.With;
 import lombok.experimental.Accessors;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullUnmarked;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -23,7 +23,6 @@ import org.jspecify.annotations.Nullable;
  * trackId との複合キー）、{@code tuneId} は録音実績の一部として生成後は不変です。
  * </p>
  */
-@With(AccessLevel.PRIVATE)
 @Getter
 @Accessors(fluent = true)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
@@ -38,26 +37,53 @@ public final class TrackTune implements DomainEntity<TrackTune, Integer> {
     @Nullable
     private final Url linkUrl; // nullable: 外部リンク（the session, 自サイト等）
 
-    // 全フィールドを受け取る唯一の構築経路（@Withが生成するwitherも本コンストラクタを呼ぶ）。
-    // Policy検証をここに一本化することで、witherを含むどの経路からも検証を迂回できない（#101）。
+    private static final ErrorResult SEQ_REQUIRED_ERROR = new ErrorResult(
+            "seq",
+            "Seq cannot be null",
+            "SEQ_REQUIRED");
+
+    // 全フィールドを受け取る唯一の構築経路。自身では検証しないため、factory以外から呼ばせない
+    // （ArchUnitで強制、#101）。
     private TrackTune(Integer seq, Tune.@Nullable Id tuneId, @Nullable Credit composerCreditOverride,
             @Nullable Credit arrangerCreditOverride, @Nullable Url linkUrl) {
-        this.seq = requireSeq(seq);
+        this.seq = seq;
         this.tuneId = tuneId;
         this.composerCreditOverride = composerCreditOverride;
         this.arrangerCreditOverride = arrangerCreditOverride;
         this.linkUrl = linkUrl;
     }
 
-    private static Integer requireSeq(@Nullable Integer seq) {
-        return Policy.<Integer>of(
-                Objects::nonNull,
-                () -> new ErrorResult(
-                        "seq",
-                        "Seq cannot be null",
-                        "SEQ_REQUIRED"))
-                .verify(seq, Function.identity())
+    // 生の全項目を受け取り、Policy検証を経てTrackTuneを生成する唯一のfactory（#101）。
+    private static TrackTune factory(@Nullable Integer seq, Tune.@Nullable Id tuneId,
+            @Nullable Credit composerCreditOverride, @Nullable Credit arrangerCreditOverride,
+            @Nullable Url linkUrl) {
+        return Policy.<Stub>of(
+                self -> self.seq() != null,
+                SEQ_REQUIRED_ERROR)
+                .verify(
+                        new Stub(
+                                seq,
+                                tuneId,
+                                composerCreditOverride,
+                                arrangerCreditOverride,
+                                linkUrl),
+                        Stub::asTrackTune)
                 .resolve(Policy::illegalArgument);
+    }
+
+    // TrackTuneのAllArgsConstructorと同形の、制約を持たないdumbな入れ物。全フィールドが自明に
+    // nullableなので@NullUnmarkedでNullAwareの対象外にし、個別の@Nullable注釈を省く。
+    // ArchUnit（stubShouldMatchEnclosingConstructor）が実コンストラクタとの引数一致を機械的に強制する。
+    @NullUnmarked
+    private record Stub(Integer seq, Tune.Id tuneId, Credit composerCreditOverride,
+            Credit arrangerCreditOverride, Url linkUrl) {
+
+        @AggregateFactory
+        @NonNull
+        TrackTune asTrackTune() {
+            return new TrackTune(Objects.requireNonNull(seq), tuneId(), composerCreditOverride(),
+                    arrangerCreditOverride(), linkUrl());
+        }
     }
 
     /**
@@ -87,7 +113,7 @@ public final class TrackTune implements DomainEntity<TrackTune, Integer> {
      */
     public static TrackTune create(Integer seq, Tune.@Nullable Id tuneId, @Nullable Credit composerCreditOverride,
             @Nullable Credit arrangerCreditOverride, @Nullable Url linkUrl) {
-        return new TrackTune(
+        return TrackTune.factory(
                 seq,
                 tuneId,
                 composerCreditOverride,
@@ -112,7 +138,7 @@ public final class TrackTune implements DomainEntity<TrackTune, Integer> {
      */
     public static TrackTune reconstruct(Integer seq, Tune.@Nullable Id tuneId, @Nullable Credit composerCreditOverride,
             @Nullable Credit arrangerCreditOverride, @Nullable Url linkUrl) {
-        return new TrackTune(
+        return TrackTune.factory(
                 seq,
                 tuneId,
                 composerCreditOverride,
@@ -128,7 +154,12 @@ public final class TrackTune implements DomainEntity<TrackTune, Integer> {
      * @return 更新されたTrackTune
      */
     public TrackTune changeComposerCreditOverride(@Nullable Credit newComposerCreditOverride) {
-        return withComposerCreditOverride(newComposerCreditOverride);
+        return TrackTune.factory(
+                seq,
+                tuneId,
+                newComposerCreditOverride,
+                arrangerCreditOverride,
+                linkUrl);
     }
 
     /**
@@ -139,7 +170,12 @@ public final class TrackTune implements DomainEntity<TrackTune, Integer> {
      * @return 更新されたTrackTune
      */
     public TrackTune changeArrangerCreditOverride(@Nullable Credit newArrangerCreditOverride) {
-        return withArrangerCreditOverride(newArrangerCreditOverride);
+        return TrackTune.factory(
+                seq,
+                tuneId,
+                composerCreditOverride,
+                newArrangerCreditOverride,
+                linkUrl);
     }
 
     /**
@@ -150,6 +186,11 @@ public final class TrackTune implements DomainEntity<TrackTune, Integer> {
      * @return 更新されたTrackTune
      */
     public TrackTune changeLinkUrl(@Nullable Url newLinkUrl) {
-        return withLinkUrl(newLinkUrl);
+        return TrackTune.factory(
+                seq,
+                tuneId,
+                composerCreditOverride,
+                arrangerCreditOverride,
+                newLinkUrl);
     }
 }
