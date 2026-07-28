@@ -2,6 +2,7 @@ package com.abservice.domain.model.aggregate.tune;
 
 import static io.github.lambig.funcifextension.predicate.Predicates.or;
 
+import com.abservice.domain.model.AggregateFactory;
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.aggregate.Aggregate;
 import com.abservice.domain.model.policy.Policy;
@@ -11,14 +12,12 @@ import com.abservice.domain.model.vo.tune.TuneTitle;
 import com.abservice.lib.ErrorResult;
 import java.util.Objects;
 import java.util.function.Function;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.With;
 import lombok.experimental.Accessors;
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullUnmarked;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -32,12 +31,10 @@ import org.jspecify.annotations.Nullable;
  * 必要になった場合は、完全な集約ルートとして拡張されます。
  * </p>
  */
-@With(AccessLevel.PRIVATE)
 @Getter
 @Accessors(fluent = true)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
+public final class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
     @EqualsAndHashCode.Include
     @NonNull
     private final Id id;
@@ -59,6 +56,89 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
     private final String defaultKey; // 想定キー
     @Nullable
     private final Integer defaultTempo; // BPM
+
+    private static final ErrorResult TITLE_REQUIRED_ERROR = new ErrorResult(
+            "title",
+            "Tune title cannot be null",
+            "TUNE_TITLE_REQUIRED");
+
+    private static final ErrorResult KIND_REQUIRED_ERROR = new ErrorResult(
+            "tuneKind",
+            "Tune kind cannot be null",
+            "TUNE_KIND_REQUIRED");
+
+    // 全フィールドを受け取る唯一の構築経路。自身では検証しないため、factory以外から呼ばせない
+    // （ArchUnitで強制、#101）。
+    @SuppressWarnings("checkstyle:ParameterNumber") // 全フィールドを受け取る唯一の構築経路のため引数が多い
+    private Tune(@NonNull Id id, @NonNull TuneTitle title, @NonNull TuneKind tuneKind,
+            @Nullable Credit defaultComposerCredit, @Nullable Credit defaultArrangerCredit,
+            @Nullable String originalWorkTitle, @Nullable String originalWorkCredit, @Nullable String tuneType,
+            @Nullable String defaultKey, @Nullable Integer defaultTempo) {
+        this.id = id;
+        this.title = title;
+        this.tuneKind = tuneKind;
+        this.defaultComposerCredit = defaultComposerCredit;
+        this.defaultArrangerCredit = defaultArrangerCredit;
+        this.originalWorkTitle = originalWorkTitle;
+        this.originalWorkCredit = originalWorkCredit;
+        this.tuneType = tuneType;
+        this.defaultKey = defaultKey;
+        this.defaultTempo = defaultTempo;
+    }
+
+    // 生の全項目を受け取り、Policy検証を経てTuneを生成する唯一のfactory（#101）。
+    @SuppressWarnings("checkstyle:ParameterNumber") // 全項目を受け取るため引数が多い
+    private static @NonNull Tune factory(@Nullable Id id, @Nullable TuneTitle title, @Nullable TuneKind tuneKind,
+            @Nullable Credit defaultComposerCredit, @Nullable Credit defaultArrangerCredit,
+            @Nullable String originalWorkTitle, @Nullable String originalWorkCredit, @Nullable String tuneType,
+            @Nullable String defaultKey, @Nullable Integer defaultTempo) {
+        return Policy.<Stub>all(
+                Policy.of(
+                        self -> self.title() != null,
+                        TITLE_REQUIRED_ERROR),
+                Policy.of(
+                        self -> self.tuneKind() != null,
+                        KIND_REQUIRED_ERROR))
+                .verify(
+                        new Stub(
+                                id,
+                                title,
+                                tuneKind,
+                                defaultComposerCredit,
+                                defaultArrangerCredit,
+                                originalWorkTitle,
+                                originalWorkCredit,
+                                tuneType,
+                                defaultKey,
+                                defaultTempo),
+                        Stub::asTune)
+                .resolve(Policy::illegalArgument);
+    }
+
+    // TuneのAllArgsConstructorと同形の、制約を持たないdumbな入れ物。全フィールドが自明にnullable
+    // なので@NullUnmarkedでNullAwareの対象外にし、個別の@Nullable注釈を省く。
+    // ArchUnit（stubShouldMatchEnclosingConstructor）が実コンストラクタとの引数一致を機械的に強制する。
+    @NullUnmarked
+    private record Stub(Id id, TuneTitle title, TuneKind tuneKind, Credit defaultComposerCredit,
+            Credit defaultArrangerCredit, String originalWorkTitle, String originalWorkCredit, String tuneType,
+            String defaultKey, Integer defaultTempo) {
+
+        @AggregateFactory
+        @NonNull
+        Tune asTune() {
+            return new Tune(
+                    Objects.requireNonNull(id),
+                    Objects.requireNonNull(title),
+                    Objects.requireNonNull(tuneKind),
+                    defaultComposerCredit(),
+                    defaultArrangerCredit(),
+                    originalWorkTitle(),
+                    originalWorkCredit(),
+                    tuneType(),
+                    defaultKey(),
+                    defaultTempo());
+        }
+    }
 
     /**
      * 新規Tuneを生成
@@ -88,8 +168,17 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
             @Nullable Credit defaultComposerCredit, @Nullable Credit defaultArrangerCredit,
             @Nullable String originalWorkTitle, @Nullable String originalWorkCredit, @Nullable String tuneType,
             @Nullable String defaultKey, @Nullable Integer defaultTempo) {
-        return new Tune(Id.generate(), requireTitle(title), requireKind(tuneKind), defaultComposerCredit,
-                defaultArrangerCredit, originalWorkTitle, originalWorkCredit, tuneType, defaultKey, defaultTempo);
+        return Tune.factory(
+                Id.generate(),
+                title,
+                tuneKind,
+                defaultComposerCredit,
+                defaultArrangerCredit,
+                originalWorkTitle,
+                originalWorkCredit,
+                tuneType,
+                defaultKey,
+                defaultTempo);
     }
 
     /**
@@ -122,8 +211,17 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
             @Nullable Credit defaultComposerCredit, @Nullable Credit defaultArrangerCredit,
             @Nullable String originalWorkTitle, @Nullable String originalWorkCredit, @Nullable String tuneType,
             @Nullable String defaultKey, @Nullable Integer defaultTempo) {
-        return new Tune(id, title, tuneKind, defaultComposerCredit, defaultArrangerCredit, originalWorkTitle,
-                originalWorkCredit, tuneType, defaultKey, defaultTempo);
+        return Tune.factory(
+                id,
+                title,
+                tuneKind,
+                defaultComposerCredit,
+                defaultArrangerCredit,
+                originalWorkTitle,
+                originalWorkCredit,
+                tuneType,
+                defaultKey,
+                defaultTempo);
     }
 
     /**
@@ -134,7 +232,17 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
      * @return 更新されたTune
      */
     public @NonNull Tune changeTitle(@NonNull TuneTitle newTitle) {
-        return withTitle(requireTitle(newTitle));
+        return Tune.factory(
+                id,
+                newTitle,
+                tuneKind,
+                defaultComposerCredit,
+                defaultArrangerCredit,
+                originalWorkTitle,
+                originalWorkCredit,
+                tuneType,
+                defaultKey,
+                defaultTempo);
     }
 
     /**
@@ -145,7 +253,17 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
      * @return 更新されたTune
      */
     public @NonNull Tune changeDefaultComposerCredit(@Nullable Credit newComposerCredit) {
-        return withDefaultComposerCredit(newComposerCredit);
+        return Tune.factory(
+                id,
+                title,
+                tuneKind,
+                newComposerCredit,
+                defaultArrangerCredit,
+                originalWorkTitle,
+                originalWorkCredit,
+                tuneType,
+                defaultKey,
+                defaultTempo);
     }
 
     /**
@@ -156,7 +274,17 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
      * @return 更新されたTune
      */
     public @NonNull Tune changeDefaultArrangerCredit(@Nullable Credit newArrangerCredit) {
-        return withDefaultArrangerCredit(newArrangerCredit);
+        return Tune.factory(
+                id,
+                title,
+                tuneKind,
+                defaultComposerCredit,
+                newArrangerCredit,
+                originalWorkTitle,
+                originalWorkCredit,
+                tuneType,
+                defaultKey,
+                defaultTempo);
     }
 
     /**
@@ -176,8 +304,17 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
                         "ORIGINAL_WORK_TITLE_REQUIRED"))
                 .verify(newOriginalWorkTitle, Function.identity())
                 .resolve(Policy::illegalArgument);
-        return withOriginalWorkTitle(newOriginalWorkTitle)
-                .withOriginalWorkCredit(newOriginalWorkCredit);
+        return Tune.factory(
+                id,
+                title,
+                tuneKind,
+                defaultComposerCredit,
+                defaultArrangerCredit,
+                newOriginalWorkTitle,
+                newOriginalWorkCredit,
+                tuneType,
+                defaultKey,
+                defaultTempo);
     }
 
     /**
@@ -188,7 +325,17 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
      * @return 更新されたTune
      */
     public @NonNull Tune changeTuneType(@Nullable String newTuneType) {
-        return withTuneType(newTuneType);
+        return Tune.factory(
+                id,
+                title,
+                tuneKind,
+                defaultComposerCredit,
+                defaultArrangerCredit,
+                originalWorkTitle,
+                originalWorkCredit,
+                newTuneType,
+                defaultKey,
+                defaultTempo);
     }
 
     /**
@@ -199,7 +346,17 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
      * @return 更新されたTune
      */
     public @NonNull Tune changeDefaultKey(@Nullable String newDefaultKey) {
-        return withDefaultKey(newDefaultKey);
+        return Tune.factory(
+                id,
+                title,
+                tuneKind,
+                defaultComposerCredit,
+                defaultArrangerCredit,
+                originalWorkTitle,
+                originalWorkCredit,
+                tuneType,
+                newDefaultKey,
+                defaultTempo);
     }
 
     /**
@@ -218,29 +375,17 @@ public class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
                         "TEMPO_MUST_BE_POSITIVE"))
                 .verify(newDefaultTempo, Function.identity())
                 .resolve(Policy::illegalArgument);
-        return withDefaultTempo(newDefaultTempo);
-    }
-
-    private static @NonNull TuneTitle requireTitle(@Nullable TuneTitle title) {
-        return Policy.<TuneTitle>of(
-                Objects::nonNull,
-                () -> new ErrorResult(
-                        "title",
-                        "Tune title cannot be null",
-                        "TUNE_TITLE_REQUIRED"))
-                .verify(title, Function.identity())
-                .resolve(Policy::illegalArgument);
-    }
-
-    private static @NonNull TuneKind requireKind(@Nullable TuneKind tuneKind) {
-        return Policy.<TuneKind>of(
-                Objects::nonNull,
-                () -> new ErrorResult(
-                        "tuneKind",
-                        "Tune kind cannot be null",
-                        "TUNE_KIND_REQUIRED"))
-                .verify(tuneKind, Function.identity())
-                .resolve(Policy::illegalArgument);
+        return Tune.factory(
+                id,
+                title,
+                tuneKind,
+                defaultComposerCredit,
+                defaultArrangerCredit,
+                originalWorkTitle,
+                originalWorkCredit,
+                tuneType,
+                defaultKey,
+                newDefaultTempo);
     }
 
     @Override

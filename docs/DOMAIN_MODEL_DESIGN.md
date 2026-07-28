@@ -682,13 +682,20 @@ var title = AlbumTitle.of("My Album");
  */
 @Getter
 @With(AccessLevel.PRIVATE)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class Track implements DomainEntity<Track, Track.Id> {
+public final class Track implements DomainEntity<Track, Track.Id> {
     @EqualsAndHashCode.Include
     private final Id id;
     private final Integer trackNo;
     private final TrackTitle title;
+
+    // @AllArgsConstructorではなく手書き。@Withが生成するwitherも含め全構築経路が
+    // ここを通るため、検証をここに一本化して迂回できないようにする。
+    private Track(Id id, Integer trackNo, TrackTitle title) {
+        this.id = id;
+        this.trackNo = trackNo;
+        this.title = title;
+    }
 
     /**
      * 新規トラック生成
@@ -747,9 +754,8 @@ public class Track implements DomainEntity<Track, Track.Id> {
  */
 @Getter
 @With(AccessLevel.PRIVATE)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class Album implements Aggregate<Album, Album.Id> {
+public final class Album implements Aggregate<Album, Album.Id> {
     @EqualsAndHashCode.Include
     private final Id id;
     private final AlbumTitle title;
@@ -758,6 +764,19 @@ public class Album implements Aggregate<Album, Album.Id> {
     private final EventInfo eventInfo;
     private final CatalogNumber catalogNumber;
     private final List<Track> tracks;
+
+    // @AllArgsConstructorではなく手書き。@Withが生成するwitherも含め全構築経路が
+    // ここを通るため、検証をここに一本化して迂回できないようにする。
+    private Album(Id id, AlbumTitle title, LocalDate releaseDate, ArtistCredit artistCredit,
+            EventInfo eventInfo, CatalogNumber catalogNumber, List<Track> tracks) {
+        this.id = id;
+        this.title = title;
+        this.releaseDate = releaseDate;
+        this.artistCredit = artistCredit;
+        this.eventInfo = eventInfo;
+        this.catalogNumber = catalogNumber;
+        this.tracks = tracks;
+    }
 
     /**
      * トラック追加（整合性を保ちながら新しいインスタンスを返す）

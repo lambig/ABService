@@ -15,6 +15,7 @@ import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import com.abservice.domain.exception.BusinessRuleViolationException;
+import com.abservice.domain.model.AggregateFactory;
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.entity.DomainEntity;
 import com.abservice.domain.model.policy.Policy;
@@ -24,12 +25,10 @@ import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.Url;
 import com.abservice.lib.ErrorResult;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.With;
 import lombok.experimental.Accessors;
+import org.jspecify.annotations.NullUnmarked;
 
 /**
  * トラック（集約内エンティティ）
@@ -38,12 +37,10 @@ import lombok.experimental.Accessors;
  * アルバム内の1トラックの録音を表します。 録音違い（スタジオ版/ライブ版など）は別Trackとして扱います。
  * </p>
  */
-@With(AccessLevel.PACKAGE)
 @Getter
 @Accessors(fluent = true)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class Track implements DomainEntity<Track, Track.Id> {
+public final class Track implements DomainEntity<Track, Track.Id> {
     @EqualsAndHashCode.Include
     @NonNull
     private final Id id;
@@ -61,6 +58,80 @@ public class Track implements DomainEntity<Track, Track.Id> {
     private final Boolean isLive;
     @NonNull
     private final List<TrackTune> tunes;
+
+    private static final ErrorResult TRACK_NO_REQUIRED_ERROR = new ErrorResult(
+            "trackNo",
+            "Track number cannot be null",
+            "TRACK_NO_REQUIRED");
+
+    private static final ErrorResult TITLE_REQUIRED_ERROR = new ErrorResult(
+            "title",
+            "Track title cannot be null",
+            "TRACK_TITLE_REQUIRED");
+
+    // 全フィールドを受け取る唯一の構築経路。自身では検証しないため、factory以外から呼ばせない
+    // （ArchUnitで強制、#101）。
+    @SuppressWarnings("checkstyle:ParameterNumber") // 全フィールドを受け取る唯一の構築経路のため引数が多い
+    private Track(@NonNull Id id, @NonNull Integer trackNo, @NonNull TrackTitle title,
+            @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate,
+            @Nullable String recordingPlace, @Nullable Boolean isLive, @NonNull List<TrackTune> tunes) {
+        this.id = id;
+        this.trackNo = trackNo;
+        this.title = title;
+        this.artistCredit = artistCredit;
+        this.recordingDate = recordingDate;
+        this.recordingPlace = recordingPlace;
+        this.isLive = isLive;
+        this.tunes = tunes;
+    }
+
+    // 生の全項目を受け取り、Policy検証を経てTrackを生成する唯一のfactory（#101）。
+    @SuppressWarnings("checkstyle:ParameterNumber") // 全項目を受け取るため引数が多い
+    private static @NonNull Track factory(@Nullable Id id, @Nullable Integer trackNo, @Nullable TrackTitle title,
+            @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate,
+            @Nullable String recordingPlace, @Nullable Boolean isLive, @Nullable List<TrackTune> tunes) {
+        return Policy.<Stub>all(
+                Policy.of(
+                        self -> self.trackNo() != null,
+                        TRACK_NO_REQUIRED_ERROR),
+                Policy.of(
+                        self -> self.title() != null,
+                        TITLE_REQUIRED_ERROR))
+                .verify(
+                        new Stub(
+                                id,
+                                trackNo,
+                                title,
+                                artistCredit,
+                                recordingDate,
+                                recordingPlace,
+                                isLive,
+                                tunes),
+                        Stub::asTrack)
+                .resolve(Policy::illegalArgument);
+    }
+
+    // TrackのAllArgsConstructorと同形の、制約を持たないdumbな入れ物。全フィールドが自明にnullable
+    // なので@NullUnmarkedでNullAwareの対象外にし、個別の@Nullable注釈を省く。
+    // ArchUnit（stubShouldMatchEnclosingConstructor）が実コンストラクタとの引数一致を機械的に強制する。
+    @NullUnmarked
+    private record Stub(Id id, Integer trackNo, TrackTitle title, ArtistCredit artistCredit,
+            BusinessDate recordingDate, String recordingPlace, Boolean isLive, List<TrackTune> tunes) {
+
+        @AggregateFactory
+        @NonNull
+        Track asTrack() {
+            return new Track(
+                    Objects.requireNonNull(id),
+                    Objects.requireNonNull(trackNo),
+                    Objects.requireNonNull(title),
+                    artistCredit(),
+                    recordingDate(),
+                    recordingPlace(),
+                    isLive(),
+                    Objects.requireNonNull(tunes));
+        }
+    }
 
     /**
      * 新規トラックを生成
@@ -85,8 +156,15 @@ public class Track implements DomainEntity<Track, Track.Id> {
     public static @NonNull Track create(@NonNull Integer trackNo, @NonNull TrackTitle title,
             @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate, @Nullable String recordingPlace,
             @Nullable Boolean isLive) {
-        return new Track(Id.generate(), requireTrackNo(trackNo), requireTitle(title), artistCredit, recordingDate,
-                recordingPlace, isLive, Collections.emptyList());
+        return Track.factory(
+                Id.generate(),
+                trackNo,
+                title,
+                artistCredit,
+                recordingDate,
+                recordingPlace,
+                isLive,
+                Collections.emptyList());
     }
 
     /**
@@ -138,7 +216,7 @@ public class Track implements DomainEntity<Track, Track.Id> {
     public static @NonNull Track reconstruct(@NonNull Id id, @NonNull Integer trackNo, @NonNull TrackTitle title,
             @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate, @Nullable String recordingPlace,
             @Nullable Boolean isLive, @NonNull List<TrackTune> tunes) {
-        return new Track(
+        return Track.factory(
                 id,
                 trackNo,
                 title,
@@ -157,7 +235,15 @@ public class Track implements DomainEntity<Track, Track.Id> {
      * @return 更新されたTrack
      */
     public @NonNull Track changeTitle(@NonNull TrackTitle newTitle) {
-        return withTitle(requireTitle(newTitle));
+        return Track.factory(
+                id,
+                trackNo,
+                newTitle,
+                artistCredit,
+                recordingDate,
+                recordingPlace,
+                isLive,
+                tunes);
     }
 
     /**
@@ -168,7 +254,15 @@ public class Track implements DomainEntity<Track, Track.Id> {
      * @return 更新されたTrack
      */
     public @NonNull Track changeArtistCredit(@Nullable ArtistCredit newArtistCredit) {
-        return withArtistCredit(newArtistCredit);
+        return Track.factory(
+                id,
+                trackNo,
+                title,
+                newArtistCredit,
+                recordingDate,
+                recordingPlace,
+                isLive,
+                tunes);
     }
 
     /**
@@ -179,7 +273,15 @@ public class Track implements DomainEntity<Track, Track.Id> {
      * @return 更新されたTrack
      */
     public @NonNull Track changeRecordingDate(@Nullable BusinessDate newRecordingDate) {
-        return withRecordingDate(newRecordingDate);
+        return Track.factory(
+                id,
+                trackNo,
+                title,
+                artistCredit,
+                newRecordingDate,
+                recordingPlace,
+                isLive,
+                tunes);
     }
 
     /**
@@ -190,7 +292,15 @@ public class Track implements DomainEntity<Track, Track.Id> {
      * @return 更新されたTrack
      */
     public @NonNull Track changeRecordingPlace(@Nullable String newRecordingPlace) {
-        return withRecordingPlace(newRecordingPlace);
+        return Track.factory(
+                id,
+                trackNo,
+                title,
+                artistCredit,
+                recordingDate,
+                newRecordingPlace,
+                isLive,
+                tunes);
     }
 
     /**
@@ -201,7 +311,15 @@ public class Track implements DomainEntity<Track, Track.Id> {
      * @return 更新されたTrack
      */
     public @NonNull Track changeIsLive(@Nullable Boolean newIsLive) {
-        return withIsLive(newIsLive);
+        return Track.factory(
+                id,
+                trackNo,
+                title,
+                artistCredit,
+                recordingDate,
+                recordingPlace,
+                newIsLive,
+                tunes);
     }
 
     /**
@@ -225,7 +343,15 @@ public class Track implements DomainEntity<Track, Track.Id> {
             throw new BusinessRuleViolationException(
                     "Tune seq " + validatedTune.seq() + " already exists in this track");
         });
-        return withTunes(Stream.concat(tunes.stream(), Stream.of(validatedTune)).toList());
+        return Track.factory(
+                id,
+                trackNo,
+                title,
+                artistCredit,
+                recordingDate,
+                recordingPlace,
+                isLive,
+                Stream.concat(tunes.stream(), Stream.of(validatedTune)).toList());
     }
 
     /**
@@ -246,7 +372,15 @@ public class Track implements DomainEntity<Track, Track.Id> {
                 .resolve(Policy::illegalArgument);
         tunes.stream().filter(t -> t.hasId(validatedSeq)).findFirst()
                 .orElseThrow(() -> new BusinessRuleViolationException("Tune with seq " + validatedSeq + " not found"));
-        return withTunes(tunes.stream().filter(not(t -> t.hasId(validatedSeq))).toList());
+        return Track.factory(
+                id,
+                trackNo,
+                title,
+                artistCredit,
+                recordingDate,
+                recordingPlace,
+                isLive,
+                tunes.stream().filter(not(t -> t.hasId(validatedSeq))).toList());
     }
 
     /**
@@ -288,7 +422,16 @@ public class Track implements DomainEntity<Track, Track.Id> {
                                 ? updatedTune
                                 : t)
                 .collect(optionally(toUnmodifiableList()))
-                .map(this::withTunes)
+                .map(
+                        newTunes -> Track.factory(
+                                id,
+                                trackNo,
+                                title,
+                                artistCredit,
+                                recordingDate,
+                                recordingPlace,
+                                isLive,
+                                newTunes))
                 .get();
     }
 
@@ -299,28 +442,6 @@ public class Track implements DomainEntity<Track, Track.Id> {
      */
     public @NonNull List<TrackTune> getTunes() {
         return Collections.unmodifiableList(tunes);
-    }
-
-    private static @NonNull Integer requireTrackNo(@Nullable Integer trackNo) {
-        return Policy.<Integer>of(
-                Objects::nonNull,
-                () -> new ErrorResult(
-                        "trackNo",
-                        "Track number cannot be null",
-                        "TRACK_NO_REQUIRED"))
-                .verify(trackNo, Function.identity())
-                .resolve(Policy::illegalArgument);
-    }
-
-    private static @NonNull TrackTitle requireTitle(@Nullable TrackTitle title) {
-        return Policy.<TrackTitle>of(
-                Objects::nonNull,
-                () -> new ErrorResult(
-                        "title",
-                        "Track title cannot be null",
-                        "TRACK_TITLE_REQUIRED"))
-                .verify(title, Function.identity())
-                .resolve(Policy::illegalArgument);
     }
 
     @Override

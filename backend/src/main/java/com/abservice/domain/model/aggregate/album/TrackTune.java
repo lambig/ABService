@@ -1,5 +1,6 @@
 package com.abservice.domain.model.aggregate.album;
 
+import com.abservice.domain.model.AggregateFactory;
 import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.domain.model.entity.DomainEntity;
 import com.abservice.domain.model.policy.Policy;
@@ -7,13 +8,11 @@ import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.Url;
 import com.abservice.lib.ErrorResult;
 import java.util.Objects;
-import java.util.function.Function;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.With;
 import lombok.experimental.Accessors;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullUnmarked;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -24,12 +23,10 @@ import org.jspecify.annotations.Nullable;
  * trackId との複合キー）、{@code tuneId} は録音実績の一部として生成後は不変です。
  * </p>
  */
-@With(AccessLevel.PRIVATE)
 @Getter
 @Accessors(fluent = true)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class TrackTune implements DomainEntity<TrackTune, Integer> {
+public final class TrackTune implements DomainEntity<TrackTune, Integer> {
     @EqualsAndHashCode.Include
     private final Integer seq; // トラック内での登場順（1, 2, 3, ...）
     private final Tune.@Nullable Id tuneId; // nullable: MC、環境音などの場合はnull
@@ -39,6 +36,55 @@ public class TrackTune implements DomainEntity<TrackTune, Integer> {
     private final Credit arrangerCreditOverride; // nullable: nullの場合はTune側のデフォルトを使用
     @Nullable
     private final Url linkUrl; // nullable: 外部リンク（the session, 自サイト等）
+
+    private static final ErrorResult SEQ_REQUIRED_ERROR = new ErrorResult(
+            "seq",
+            "Seq cannot be null",
+            "SEQ_REQUIRED");
+
+    // 全フィールドを受け取る唯一の構築経路。自身では検証しないため、factory以外から呼ばせない
+    // （ArchUnitで強制、#101）。
+    private TrackTune(Integer seq, Tune.@Nullable Id tuneId, @Nullable Credit composerCreditOverride,
+            @Nullable Credit arrangerCreditOverride, @Nullable Url linkUrl) {
+        this.seq = seq;
+        this.tuneId = tuneId;
+        this.composerCreditOverride = composerCreditOverride;
+        this.arrangerCreditOverride = arrangerCreditOverride;
+        this.linkUrl = linkUrl;
+    }
+
+    // 生の全項目を受け取り、Policy検証を経てTrackTuneを生成する唯一のfactory（#101）。
+    private static TrackTune factory(@Nullable Integer seq, Tune.@Nullable Id tuneId,
+            @Nullable Credit composerCreditOverride, @Nullable Credit arrangerCreditOverride,
+            @Nullable Url linkUrl) {
+        return Policy.<Stub>of(
+                self -> self.seq() != null,
+                SEQ_REQUIRED_ERROR)
+                .verify(
+                        new Stub(
+                                seq,
+                                tuneId,
+                                composerCreditOverride,
+                                arrangerCreditOverride,
+                                linkUrl),
+                        Stub::asTrackTune)
+                .resolve(Policy::illegalArgument);
+    }
+
+    // TrackTuneのAllArgsConstructorと同形の、制約を持たないdumbな入れ物。全フィールドが自明に
+    // nullableなので@NullUnmarkedでNullAwareの対象外にし、個別の@Nullable注釈を省く。
+    // ArchUnit（stubShouldMatchEnclosingConstructor）が実コンストラクタとの引数一致を機械的に強制する。
+    @NullUnmarked
+    private record Stub(Integer seq, Tune.Id tuneId, Credit composerCreditOverride,
+            Credit arrangerCreditOverride, Url linkUrl) {
+
+        @AggregateFactory
+        @NonNull
+        TrackTune asTrackTune() {
+            return new TrackTune(Objects.requireNonNull(seq), tuneId(), composerCreditOverride(),
+                    arrangerCreditOverride(), linkUrl());
+        }
+    }
 
     /**
      * トラック内での識別子（{@code seq}）を取得する
@@ -67,15 +113,7 @@ public class TrackTune implements DomainEntity<TrackTune, Integer> {
      */
     public static TrackTune create(Integer seq, Tune.@Nullable Id tuneId, @Nullable Credit composerCreditOverride,
             @Nullable Credit arrangerCreditOverride, @Nullable Url linkUrl) {
-        Policy.<Integer>of(
-                Objects::nonNull,
-                () -> new ErrorResult(
-                        "seq",
-                        "Seq cannot be null",
-                        "SEQ_REQUIRED"))
-                .verify(seq, Function.identity())
-                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
-        return new TrackTune(
+        return TrackTune.factory(
                 seq,
                 tuneId,
                 composerCreditOverride,
@@ -100,7 +138,7 @@ public class TrackTune implements DomainEntity<TrackTune, Integer> {
      */
     public static TrackTune reconstruct(Integer seq, Tune.@Nullable Id tuneId, @Nullable Credit composerCreditOverride,
             @Nullable Credit arrangerCreditOverride, @Nullable Url linkUrl) {
-        return new TrackTune(
+        return TrackTune.factory(
                 seq,
                 tuneId,
                 composerCreditOverride,
@@ -116,7 +154,12 @@ public class TrackTune implements DomainEntity<TrackTune, Integer> {
      * @return 更新されたTrackTune
      */
     public TrackTune changeComposerCreditOverride(@Nullable Credit newComposerCreditOverride) {
-        return withComposerCreditOverride(newComposerCreditOverride);
+        return TrackTune.factory(
+                seq,
+                tuneId,
+                newComposerCreditOverride,
+                arrangerCreditOverride,
+                linkUrl);
     }
 
     /**
@@ -127,7 +170,12 @@ public class TrackTune implements DomainEntity<TrackTune, Integer> {
      * @return 更新されたTrackTune
      */
     public TrackTune changeArrangerCreditOverride(@Nullable Credit newArrangerCreditOverride) {
-        return withArrangerCreditOverride(newArrangerCreditOverride);
+        return TrackTune.factory(
+                seq,
+                tuneId,
+                composerCreditOverride,
+                newArrangerCreditOverride,
+                linkUrl);
     }
 
     /**
@@ -138,6 +186,11 @@ public class TrackTune implements DomainEntity<TrackTune, Integer> {
      * @return 更新されたTrackTune
      */
     public TrackTune changeLinkUrl(@Nullable Url newLinkUrl) {
-        return withLinkUrl(newLinkUrl);
+        return TrackTune.factory(
+                seq,
+                tuneId,
+                composerCreditOverride,
+                arrangerCreditOverride,
+                newLinkUrl);
     }
 }

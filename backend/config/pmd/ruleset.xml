@@ -683,6 +683,36 @@
         </properties>
     </rule>
 
+    <rule name="ForbiddenAllArgsConstructorInDomainModel"
+          language="java"
+          message="ドメインモデルで @AllArgsConstructor は禁止です。生成される全引数コンストラクタはフィールド代入のみでPolicy検証を注入できず、一部の静的ファクトリだけが個別に検証し他の構築経路（reconstruct等、@Withのwitherを伴う場合はそれも含む）が無検証で素通りする構造的な穴が生まれます。手書きのprivateコンストラクタへ置き換え、Policy検証を一本化してください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            {@code com.abservice.domain.model} 配下のクラスで {@code @AllArgsConstructor} を
+            禁止する。{@code @With} の有無にかかわらず、{@code @AllArgsConstructor} が生成する
+            全引数コンストラクタはフィールド代入のみでPolicy検証を注入できないため、一部の静的
+            ファクトリ（{@code create} 等）だけが呼び出し側で個別に検証し、{@code reconstruct}
+            等の別の構築経路が無検証で素通りする、という構造的な穴が生まれる（#101）。{@code @With}
+            を伴う場合はwitherもこの無検証コンストラクタを直接呼ぶため、さらに迂回経路が増える。
+            手書きのprivateコンストラクタへ置き換え、Policy検証（{@code require*}ヘルパー等）を
+            そのコンストラクタに一本化することで、どの構築経路からも検証を迂回できなくする。
+            {@code infrastructure.persistence.entity}（Hibernate populate用のTableRecord・
+            複合キーId）は対象外（可変・Hibernate管理の別種の生成規約のため）。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//ClassDeclaration[
+    ModifierList/*[contains(local-name(), "Annotation")][@SimpleName = "AllArgsConstructor"]
+][
+    /CompilationUnit/PackageDeclaration[starts-with(@Name, "com.abservice.domain.model")]
+]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
     <rule name="ForbiddenOuterCallWrappingStreamToList"
           language="java"
           message="外側の呼び出しの引数に複数行の stream 計算を直接渡さないでください。.collect(Optionals.optionally(downstream)) の後、値を返す変換なら .map(...).get()、void の setter/consumer なら .ifPresent(...) を用いて、記述順と実行順を一致させてください。"

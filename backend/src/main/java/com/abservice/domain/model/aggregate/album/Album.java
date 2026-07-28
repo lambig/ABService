@@ -18,6 +18,7 @@ import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import com.abservice.domain.exception.BusinessRuleViolationException;
+import com.abservice.domain.model.AggregateFactory;
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.aggregate.Aggregate;
 import com.abservice.domain.model.policy.Policy;
@@ -28,12 +29,10 @@ import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.lib.ErrorResult;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.With;
 import lombok.experimental.Accessors;
+import org.jspecify.annotations.NullUnmarked;
 
 /**
  * アルバム集約ルート
@@ -42,12 +41,10 @@ import lombok.experimental.Accessors;
  * アルバム、トラック、セット構成を管理する集約です。 トランザクション境界はこの集約全体に及びます。
  * </p>
  */
-@With(AccessLevel.PRIVATE)
 @Getter
 @Accessors(fluent = true)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class Album implements Aggregate<Album, Album.Id> {
+public final class Album implements Aggregate<Album, Album.Id> {
     @EqualsAndHashCode.Include
     @NonNull
     private final Id id;
@@ -65,6 +62,81 @@ public class Album implements Aggregate<Album, Album.Id> {
     private final Isdn isdn; // nullable: ISDN（国際標準同人誌番号）
     @NonNull
     private final List<Track> tracks;
+
+    private static final ErrorResult TITLE_REQUIRED_ERROR = new ErrorResult(
+            "title",
+            "Album title cannot be null",
+            "ALBUM_TITLE_REQUIRED");
+
+    private static final ErrorResult ARTIST_CREDIT_REQUIRED_ERROR = new ErrorResult(
+            "artistCredit",
+            "Artist credit cannot be null",
+            "ARTIST_CREDIT_REQUIRED");
+
+    // 全フィールドを受け取る唯一の構築経路。自身では検証しないため、factory以外から呼ばせない
+    // （ArchUnitで強制、#101）。
+    @SuppressWarnings("checkstyle:ParameterNumber") // 全フィールドを受け取る唯一の構築経路のため引数が多い
+    private Album(@NonNull Id id, @NonNull AlbumTitle title, @NonNull BusinessDate releaseDate,
+            @NonNull ArtistCredit artistCredit, @Nullable EventReleasedAt eventReleasedAt,
+            @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn, @NonNull List<Track> tracks) {
+        this.id = id;
+        this.title = title;
+        this.releaseDate = releaseDate;
+        this.artistCredit = artistCredit;
+        this.eventReleasedAt = eventReleasedAt;
+        this.catalogNumber = catalogNumber;
+        this.isdn = isdn;
+        this.tracks = tracks;
+    }
+
+    // 生の全項目を受け取り、Policy検証を経てAlbumを生成する唯一のfactory（#101）。
+    @SuppressWarnings("checkstyle:ParameterNumber") // 全項目を受け取るため引数が多い
+    private static @NonNull Album factory(@Nullable Id id, @Nullable AlbumTitle title,
+            @Nullable BusinessDate releaseDate, @Nullable ArtistCredit artistCredit,
+            @Nullable EventReleasedAt eventReleasedAt, @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn,
+            @Nullable List<Track> tracks) {
+        return Policy.<Stub>all(
+                Policy.of(
+                        self -> self.title() != null,
+                        TITLE_REQUIRED_ERROR),
+                Policy.of(
+                        self -> self.artistCredit() != null,
+                        ARTIST_CREDIT_REQUIRED_ERROR))
+                .verify(
+                        new Stub(
+                                id,
+                                title,
+                                releaseDate,
+                                artistCredit,
+                                eventReleasedAt,
+                                catalogNumber,
+                                isdn,
+                                tracks),
+                        Stub::asAlbum)
+                .resolve(Policy::illegalArgument);
+    }
+
+    // AlbumのAllArgsConstructorと同形の、制約を持たないdumbな入れ物。全フィールドが自明にnullable
+    // なので@NullUnmarkedでNullAwareの対象外にし、個別の@Nullable注釈を省く。
+    // ArchUnit（stubShouldMatchEnclosingConstructor）が実コンストラクタとの引数一致を機械的に強制する。
+    @NullUnmarked
+    private record Stub(Id id, AlbumTitle title, BusinessDate releaseDate, ArtistCredit artistCredit,
+            EventReleasedAt eventReleasedAt, CatalogNumber catalogNumber, Isdn isdn, List<Track> tracks) {
+
+        @AggregateFactory
+        @NonNull
+        Album asAlbum() {
+            return new Album(
+                    Objects.requireNonNull(id),
+                    Objects.requireNonNull(title),
+                    Objects.requireNonNull(releaseDate),
+                    Objects.requireNonNull(artistCredit),
+                    eventReleasedAt(),
+                    catalogNumber(),
+                    isdn(),
+                    Objects.requireNonNull(tracks));
+        }
+    }
 
     /**
      * 新規アルバムを生成
@@ -86,8 +158,15 @@ public class Album implements Aggregate<Album, Album.Id> {
     public static @NonNull Album create(@NonNull AlbumTitle title, @NonNull BusinessDate releaseDate,
             @NonNull ArtistCredit artistCredit, @Nullable EventReleasedAt eventReleasedAt,
             @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn) {
-        return new Album(Id.generate(), requireTitle(title), releaseDate, requireArtistCredit(artistCredit),
-                eventReleasedAt, catalogNumber, isdn, Collections.emptyList());
+        return Album.factory(
+                Id.generate(),
+                title,
+                releaseDate,
+                artistCredit,
+                eventReleasedAt,
+                catalogNumber,
+                isdn,
+                Collections.emptyList());
     }
 
     /**
@@ -116,7 +195,7 @@ public class Album implements Aggregate<Album, Album.Id> {
             @NonNull BusinessDate releaseDate, @NonNull ArtistCredit artistCredit,
             @Nullable EventReleasedAt eventReleasedAt, @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn,
             @NonNull List<Track> tracks) {
-        return new Album(
+        return Album.factory(
                 id,
                 title,
                 releaseDate,
@@ -135,7 +214,15 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album changeTitle(@NonNull AlbumTitle newTitle) {
-        return withTitle(requireTitle(newTitle));
+        return Album.factory(
+                id,
+                newTitle,
+                releaseDate,
+                artistCredit,
+                eventReleasedAt,
+                catalogNumber,
+                isdn,
+                tracks);
     }
 
     /**
@@ -146,7 +233,15 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album changeReleaseDate(@NonNull BusinessDate newReleaseDate) {
-        return withReleaseDate(newReleaseDate);
+        return Album.factory(
+                id,
+                title,
+                newReleaseDate,
+                artistCredit,
+                eventReleasedAt,
+                catalogNumber,
+                isdn,
+                tracks);
     }
 
     /**
@@ -157,7 +252,15 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album changeArtistCredit(@NonNull ArtistCredit newArtistCredit) {
-        return withArtistCredit(requireArtistCredit(newArtistCredit));
+        return Album.factory(
+                id,
+                title,
+                releaseDate,
+                newArtistCredit,
+                eventReleasedAt,
+                catalogNumber,
+                isdn,
+                tracks);
     }
 
     /**
@@ -168,7 +271,15 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album changeEventReleasedAt(@Nullable EventReleasedAt newEventReleasedAt) {
-        return withEventReleasedAt(newEventReleasedAt);
+        return Album.factory(
+                id,
+                title,
+                releaseDate,
+                artistCredit,
+                newEventReleasedAt,
+                catalogNumber,
+                isdn,
+                tracks);
     }
 
     /**
@@ -179,7 +290,15 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album changeCatalogNumber(@Nullable CatalogNumber newCatalogNumber) {
-        return withCatalogNumber(newCatalogNumber);
+        return Album.factory(
+                id,
+                title,
+                releaseDate,
+                artistCredit,
+                eventReleasedAt,
+                newCatalogNumber,
+                isdn,
+                tracks);
     }
 
     /**
@@ -202,7 +321,15 @@ public class Album implements Aggregate<Album, Album.Id> {
         tracks.stream().filter(t -> t.trackNo().equals(validatedTrack.trackNo())).findFirst().ifPresent(dup -> {
             throw new BusinessRuleViolationException("Track number " + validatedTrack.trackNo() + " already exists");
         });
-        return withTracks(Stream.concat(tracks.stream(), Stream.of(validatedTrack)).toList());
+        return Album.factory(
+                id,
+                title,
+                releaseDate,
+                artistCredit,
+                eventReleasedAt,
+                catalogNumber,
+                isdn,
+                Stream.concat(tracks.stream(), Stream.of(validatedTrack)).toList());
     }
 
     /**
@@ -223,7 +350,15 @@ public class Album implements Aggregate<Album, Album.Id> {
                 .resolve(Policy::illegalArgument);
         tracks.stream().filter(t -> t.hasId(validatedTrackId)).findFirst().orElseThrow(
                 () -> new BusinessRuleViolationException("Track with ID " + validatedTrackId.value() + " not found"));
-        return withTracks(tracks.stream().filter(not(t -> t.hasId(validatedTrackId))).toList());
+        return Album.factory(
+                id,
+                title,
+                releaseDate,
+                artistCredit,
+                eventReleasedAt,
+                catalogNumber,
+                isdn,
+                tracks.stream().filter(not(t -> t.hasId(validatedTrackId))).toList());
     }
 
     /**
@@ -257,7 +392,16 @@ public class Album implements Aggregate<Album, Album.Id> {
                                 ? validatedTrack
                                 : t)
                 .collect(optionally(toUnmodifiableList()))
-                .map(this::withTracks)
+                .map(
+                        newTracks -> Album.factory(
+                                id,
+                                title,
+                                releaseDate,
+                                artistCredit,
+                                eventReleasedAt,
+                                catalogNumber,
+                                isdn,
+                                newTracks))
                 .get();
     }
 
@@ -269,27 +413,44 @@ public class Album implements Aggregate<Album, Album.Id> {
      * @return 更新されたAlbum
      */
     public @NonNull Album reorderTracks(@NonNull List<Track.@NonNull Id> orderedTrackIds) {
-        return withTracks(
-                Collections.unmodifiableList(
-                        renumberByOrder(
-                                Policy.<List<Track.Id>>of(
-                                        ids -> Optional.ofNullable(ids)
-                                                .filter(i -> i.size() == tracks.size())
-                                                .isPresent(),
-                                        () -> new ErrorResult(
-                                                "orderedTrackIds",
-                                                "Ordered track IDs must match the number of tracks",
-                                                "TRACK_ORDER_SIZE_MISMATCH"))
-                                        .verify(orderedTrackIds, Function.identity())
-                                        .resolve(Policy::illegalArgument))));
+        return Album.factory(
+                id,
+                title,
+                releaseDate,
+                artistCredit,
+                eventReleasedAt,
+                catalogNumber,
+                isdn,
+                Collections.unmodifiableList(renumberByOrder(validateOrderedTrackIds(orderedTrackIds))));
+    }
+
+    private @NonNull List<Track.Id> validateOrderedTrackIds(@NonNull List<Track.@NonNull Id> orderedTrackIds) {
+        return Policy.<List<Track.Id>>of(
+                ids -> Optional.ofNullable(ids)
+                        .filter(i -> i.size() == tracks.size())
+                        .isPresent(),
+                () -> new ErrorResult(
+                        "orderedTrackIds",
+                        "Ordered track IDs must match the number of tracks",
+                        "TRACK_ORDER_SIZE_MISMATCH"))
+                .verify(orderedTrackIds, Function.identity())
+                .resolve(Policy::illegalArgument);
     }
 
     private @NonNull List<Track> renumberByOrder(@NonNull List<Track.Id> orderedTrackIds) {
         final var trackNo = new AtomicInteger(1);
         return orderedTrackIds.stream()
+                .map(this::getTrack)
                 .map(
-                        trackId -> getTrack(trackId)
-                                .withTrackNo(trackNo.getAndIncrement()))
+                        track -> Track.reconstruct(
+                                track.id(),
+                                trackNo.getAndIncrement(),
+                                track.title(),
+                                track.artistCredit(),
+                                track.recordingDate(),
+                                track.recordingPlace(),
+                                track.isLive(),
+                                track.getTunes()))
                 .toList();
     }
 
@@ -331,28 +492,6 @@ public class Album implements Aggregate<Album, Album.Id> {
      */
     public @NonNull List<Track> getTracks() {
         return Collections.unmodifiableList(tracks);
-    }
-
-    private static @NonNull AlbumTitle requireTitle(@Nullable AlbumTitle title) {
-        return Policy.<AlbumTitle>of(
-                Objects::nonNull,
-                () -> new ErrorResult(
-                        "title",
-                        "Album title cannot be null",
-                        "ALBUM_TITLE_REQUIRED"))
-                .verify(title, Function.identity())
-                .resolve(Policy::illegalArgument);
-    }
-
-    private static @NonNull ArtistCredit requireArtistCredit(@Nullable ArtistCredit artistCredit) {
-        return Policy.<ArtistCredit>of(
-                Objects::nonNull,
-                () -> new ErrorResult(
-                        "artistCredit",
-                        "Artist credit cannot be null",
-                        "ARTIST_CREDIT_REQUIRED"))
-                .verify(artistCredit, Function.identity())
-                .resolve(Policy::illegalArgument);
     }
 
     @Override
