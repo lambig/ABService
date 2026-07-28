@@ -342,10 +342,14 @@ public final class Track implements DomainEntity<Track, Track.Id> {
                         "TUNE_REQUIRED"))
                 .verify(tune, Function.identity())
                 .resolve(Policy::illegalArgument);
-        tunes.stream().filter(validatedTune::equivalentTo).findFirst().ifPresent(dup -> {
-            throw new BusinessRuleViolationException(
-                    "Tune seq " + validatedTune.seq() + " already exists in this track");
-        });
+        Policy.<TrackTune>of(
+                t -> tunes.stream().noneMatch(t::equivalentTo),
+                () -> new ErrorResult(
+                        "seq",
+                        "Tune seq " + validatedTune.seq() + " already exists in this track",
+                        "TUNE_SEQ_DUPLICATE"))
+                .verify(validatedTune, Function.identity())
+                .resolve(BusinessRuleViolationException::fromErrors);
         return Track.factory(
                 id,
                 trackNo,

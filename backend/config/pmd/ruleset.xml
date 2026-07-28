@@ -583,6 +583,41 @@
         </properties>
     </rule>
 
+    <rule name="ForbiddenUnusedLambdaParameter"
+          language="java"
+          message="宣言した仮引数がラムダ本体で一度も使われていません。外側スコープの値のみを参照する形になっていないか確認し、可能ならメソッド参照・束縛済み比較などへ置換してください。"
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>
+            ラムダ式が宣言した仮引数のうち、少なくとも1つが本体中で一度も
+            VariableAccess として参照されていない場合を検出する（#100）。
+            0引数ラムダ（() -> ...）は仮引数集合が空のため対象外。
+            #85 の ForbiddenSingleHopProjectionLambda が「引数を射影に使う」形を
+            対象にするのに対し、本ルールは「引数を全く使わない」形を対象にする、
+            対になる検出。
+            本番全体の実測（#100）に基づき、以下2パターンは構造的に回避不能なため対象外:
+            (1) 本体が外側変数への参照を一切含まない定数式（例: v -&gt; true）。
+            Function の定数版に相当する意図的なプレースホルダーで、値を捨てること
+            自体が設計であり、代替のメソッド参照が存在しない。
+            (2) toolbox の Predicates.or / Predicates.and に直接渡されるガード述語
+            （例: or(unused -&gt; tuneKind != ARRANGEMENT, StringUtils::isNotBlank)）。
+            無視している引数と分岐条件の型が異なるため、メソッド参照化できない
+            条件付き必須チェックの正当な書き方。
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//LambdaExpression[
+  let $params := (VariableId | LambdaParameterList/LambdaParameter/VariableId)
+  return some $p in $params satisfies not(descendant::VariableAccess[@Name = $p/@Name])
+]
+[descendant::VariableAccess]
+[not(parent::ArgumentList/parent::MethodCall[@MethodName = ("or", "and")])]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
     <rule name="ForbiddenMutableCollector"
           language="java"
           message="Collectors.toList/toSet/toMap は可変コレクションを返します。Stream#toList()（不変）や toolbox の Iterables.toList 等へ置換してください。"

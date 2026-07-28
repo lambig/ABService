@@ -267,10 +267,14 @@ public final class AlbumArticle implements Aggregate<AlbumArticle, Album.Id> {
                         "ACQUISITION_CHANNEL_REQUIRED"))
                 .verify(channel, Function.identity())
                 .resolve(Policy::illegalArgument);
-        acquisitionChannels.stream().filter(channel::equivalentTo).findFirst().ifPresent(dup -> {
-            throw new BusinessRuleViolationException(
-                    "Acquisition channel with ID " + channel.id().value() + " already exists");
-        });
+        Policy.<AlbumAcquisitionChannel>of(
+                c -> acquisitionChannels.stream().noneMatch(c::equivalentTo),
+                () -> new ErrorResult(
+                        "channel",
+                        "Acquisition channel with ID " + channel.id().value() + " already exists",
+                        "ACQUISITION_CHANNEL_DUPLICATE"))
+                .verify(channel, Function.identity())
+                .resolve(BusinessRuleViolationException::fromErrors);
         return AlbumArticle.factory(
                 albumId,
                 introLong,
