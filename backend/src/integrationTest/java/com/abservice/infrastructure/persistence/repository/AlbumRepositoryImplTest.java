@@ -9,6 +9,7 @@ import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
+import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.TestReactiveTransaction;
 import io.quarkus.test.vertx.RunOnVertxContext;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -36,6 +38,9 @@ class AlbumRepositoryImplTest {
 
     @Inject
     private AlbumRepositoryImpl repository;
+
+    @Inject
+    private AlbumDataSource dataSource;
 
     private ArtistCredit testArtistCredit;
     private BusinessDate testReleaseDate;
@@ -115,6 +120,173 @@ class AlbumRepositoryImplTest {
             assertThat(saved.tracks().get(0).title().value()).isEqualTo("Track 1");
             assertThat(saved.tracks().get(1).title().value()).isEqualTo("Track 2");
         });
+    }
+
+    /**
+     * #90: Album再保存のたびにTrackが総入れ替えされ、内部idとcreated_atが再生成されるバグの回帰テスト。
+     */
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldPreserveTrackIdentityAndCreatedAtOnUnrelatedResave(UniAsserter asserter) {
+        initTestData();
+
+        final var track = Track.create(
+                1,
+                new TrackTitle("Track 1"),
+                null,
+                null,
+                null,
+                false);
+        final var album = Album
+                .create(
+                        new AlbumTitle("Original Title"),
+                        testReleaseDate,
+                        testArtistCredit,
+                        null,
+                        null,
+                        null)
+                .addTrack(track);
+
+        final Long[] capturedTrackId = new Long[1];
+        final Instant[] capturedCreatedAt = new Instant[1];
+
+        asserter.execute(() -> repository.save(album));
+        asserter.assertThat(
+                () -> dataSource.findByIdWithTracks(album.id().value()),
+                entity -> {
+                    final var trackEntity = entity.getTracks().get(0);
+                    capturedTrackId[0] = trackEntity.getTrackId();
+                    capturedCreatedAt[0] = trackEntity.getCreatedAt();
+                });
+
+        asserter.execute(() -> repository.save(album.changeTitle(new AlbumTitle("Updated Title"))));
+        asserter.assertThat(
+                () -> dataSource.findByIdWithTracks(album.id().value()),
+                entity -> {
+                    final var trackEntity = entity.getTracks().get(0);
+                    assertThat(trackEntity.getTrackId()).isEqualTo(capturedTrackId[0]);
+                    assertThat(trackEntity.getCreatedAt()).isEqualTo(capturedCreatedAt[0]);
+                });
+    }
+
+    /**
+     * #90の回帰テスト: 既存Trackがある状態で新規Trackを追加して再保存しても、既存Trackの内部id・ created_atは変化しない。
+     */
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldPreserveExistingTrackIdentityWhenAddingAnotherTrackOnResave(UniAsserter asserter) {
+        initTestData();
+
+        final var track1 = Track.create(
+                1,
+                new TrackTitle("Track 1"),
+                null,
+                null,
+                null,
+                false);
+        final var track2 = Track.create(
+                2,
+                new TrackTitle("Track 2"),
+                null,
+                null,
+                null,
+                false);
+        final var album = Album
+                .create(
+                        new AlbumTitle("Album"),
+                        testReleaseDate,
+                        testArtistCredit,
+                        null,
+                        null,
+                        null)
+                .addTrack(track1);
+
+        final Long[] capturedTrackId = new Long[1];
+        final Instant[] capturedCreatedAt = new Instant[1];
+
+        asserter.execute(() -> repository.save(album));
+        asserter.assertThat(
+                () -> dataSource.findByIdWithTracks(album.id().value()),
+                entity -> {
+                    final var trackEntity = entity.getTracks().get(0);
+                    capturedTrackId[0] = trackEntity.getTrackId();
+                    capturedCreatedAt[0] = trackEntity.getCreatedAt();
+                });
+
+        asserter.execute(() -> repository.save(album.addTrack(track2)));
+        asserter.assertThat(
+                () -> dataSource.findByIdWithTracks(album.id().value()),
+                entity -> {
+                    assertThat(entity.getTracks()).hasSize(2);
+                    final var track1Entity = entity.getTracks().stream()
+                            .filter(t -> t.getDomainId().equals(track1.id().value()))
+                            .findFirst()
+                            .orElseThrow();
+                    assertThat(track1Entity.getTrackId()).isEqualTo(capturedTrackId[0]);
+                    assertThat(track1Entity.getCreatedAt()).isEqualTo(capturedCreatedAt[0]);
+                });
+    }
+
+    /**
+     * #90の回帰テスト: 2件のTrackがある状態で1件削除して再保存しても、残るTrackの内部id・ created_atは変化しない。
+     */
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldPreserveRemainingTrackIdentityWhenRemovingATrackOnResave(UniAsserter asserter) {
+        initTestData();
+
+        final var track1 = Track.create(
+                1,
+                new TrackTitle("Track 1"),
+                null,
+                null,
+                null,
+                false);
+        final var track2 = Track.create(
+                2,
+                new TrackTitle("Track 2"),
+                null,
+                null,
+                null,
+                false);
+        final var album = Album
+                .create(
+                        new AlbumTitle("Album"),
+                        testReleaseDate,
+                        testArtistCredit,
+                        null,
+                        null,
+                        null)
+                .addTrack(track1).addTrack(track2);
+
+        final Long[] capturedTrackId = new Long[1];
+        final Instant[] capturedCreatedAt = new Instant[1];
+
+        asserter.execute(() -> repository.save(album));
+        asserter.assertThat(
+                () -> dataSource.findByIdWithTracks(album.id().value()),
+                entity -> {
+                    final var track1Entity = entity.getTracks().stream()
+                            .filter(t -> t.getDomainId().equals(track1.id().value()))
+                            .findFirst()
+                            .orElseThrow();
+                    capturedTrackId[0] = track1Entity.getTrackId();
+                    capturedCreatedAt[0] = track1Entity.getCreatedAt();
+                });
+
+        asserter.execute(() -> repository.save(album.removeTrack(track2.id())));
+        asserter.assertThat(
+                () -> dataSource.findByIdWithTracks(album.id().value()),
+                entity -> {
+                    assertThat(entity.getTracks()).hasSize(1);
+                    final var remaining = entity.getTracks().get(0);
+                    assertThat(remaining.getDomainId()).isEqualTo(track1.id().value());
+                    assertThat(remaining.getTrackId()).isEqualTo(capturedTrackId[0]);
+                    assertThat(remaining.getCreatedAt()).isEqualTo(capturedCreatedAt[0]);
+                });
     }
 
     @Test

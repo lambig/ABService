@@ -1,12 +1,22 @@
 package com.abservice.infrastructure.persistence.repository;
 
 import static com.abservice.lib.Iterables.toList;
+import static java.util.function.Predicate.not;
 
 import com.abservice.domain.model.aggregate.album.Album;
+import com.abservice.domain.model.aggregate.album.Track;
+import com.abservice.domain.model.aggregate.album.TrackTune;
+import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
+import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.domain.model.vo.common.Credit;
+import com.abservice.domain.model.vo.common.Url;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;
+import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
+import com.abservice.infrastructure.persistence.entity.TrackTableRecord;
+import com.abservice.infrastructure.persistence.entity.TrackTuneTableRecord;
 import com.abservice.infrastructure.persistence.mapper.AlbumMapper;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -14,6 +24,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 
 /**
@@ -37,20 +49,118 @@ public class AlbumRepositoryImpl implements AlbumRepository {
         final var entity = AlbumMapper.toEntity(aggregate);
         return dataSource.findByIdWithTracks(entity.getDomainId())
                 .onItem().ifNotNull().transformToUni(
-                        existingEntity -> dataSource.persistAndFlush(
-                                existingEntity
-                                        .setTitle(entity.getTitle())
-                                        .setReleaseDate(entity.getReleaseDate())
-                                        .setArtistDisplayName(entity.getArtistDisplayName())
-                                        .setArtistSortKey(entity.getArtistSortKey())
-                                        .setEventName(entity.getEventName())
-                                        .setEventDate(entity.getEventDate())
-                                        .setEventPlace(entity.getEventPlace())
-                                        .setEventNote(entity.getEventNote())
-                                        .setCatalogNumber(entity.getCatalogNumber())
-                                        .replaceTracks(entity.getTracks())))
+                        existingEntity -> {
+                            reconcileTracks(existingEntity, aggregate.tracks());
+                            return dataSource.persistAndFlush(
+                                    existingEntity
+                                            .setTitle(entity.getTitle())
+                                            .setReleaseDate(entity.getReleaseDate())
+                                            .setArtistDisplayName(entity.getArtistDisplayName())
+                                            .setArtistSortKey(entity.getArtistSortKey())
+                                            .setEventName(entity.getEventName())
+                                            .setEventDate(entity.getEventDate())
+                                            .setEventPlace(entity.getEventPlace())
+                                            .setEventNote(entity.getEventNote())
+                                            .setCatalogNumber(entity.getCatalogNumber()));
+                        })
                 .onItem().ifNull().switchTo(() -> dataSource.persistAlbumWithRelations(entity))
                 .map(AlbumMapper::toDomain);
+    }
+
+    /**
+     * アルバムのトラック一覧を、既存行の内部ID・監査カラムを保ったまま反映する。
+     *
+     * <p>
+     * {@code AlbumMapper.toEntity} を都度呼ぶと毎回新規エンティティが生成され、 {@code orphanRemoval}
+     * により既存行が全削除・全件再insertされてしまう（#90）。 {@code domain_id}
+     * で既存行を引き当てて差分のみ反映する（{@code AlbumArticleRepositoryImpl} の 入手経路の差分反映と同型）。
+     * {@code orphanRemoval} 下ではコレクション参照そのものを差し替えることはできず（Hibernateが
+     * dereferenceとして例外を送出する）、同一のコレクションインスタンスをインプレースで書き換える必要がある。
+     * </p>
+     *
+     * @param album
+     *            永続化済みのアルバムエンティティ（管理下）
+     * @param desiredTracks
+     *            アルバム集約が保持する望ましいトラック一覧
+     */
+    private static void reconcileTracks(AlbumTableRecord album, List<Track> desiredTracks) {
+        final var existingByDomainId = album.getTracks().stream()
+                .collect(Collectors.toMap(TrackTableRecord::getDomainId, Function.identity()));
+        final var desiredIds = desiredTracks.stream()
+                .map(t -> t.id().value())
+                .collect(Collectors.toSet());
+
+        album.getTracks().removeIf(not(e -> desiredIds.contains(e.getDomainId())));
+
+        desiredTracks.forEach(
+                track -> Optional.ofNullable(existingByDomainId.get(track.id().value()))
+                        .ifPresentOrElse(
+                                existing -> {
+                                    copyTrackScalarFields(existing, track);
+                                    reconcileTrackTunes(existing, track.tunes());
+                                },
+                                () -> album.getTracks().add(AlbumMapper.trackToEntity(track, album))));
+    }
+
+    private static void copyTrackScalarFields(TrackTableRecord target, Track source) {
+        target.setTrackNo(source.trackNo());
+        target.setTitle(source.title().value());
+        target.setRecordingDate(
+                Optional.ofNullable(source.recordingDate())
+                        .map(BusinessDate::asLocalDate)
+                        .orElse(null));
+        target.setRecordingPlace(source.recordingPlace());
+        target.setIsLive(source.isLive());
+        Optional.ofNullable(source.artistCredit())
+                .ifPresentOrElse(
+                        ac -> target.setArtistDisplayName(ac.displayName().value())
+                                .setArtistSortKey(ac.sortKey()),
+                        () -> target.setArtistDisplayName(null)
+                                .setArtistSortKey(null));
+    }
+
+    /**
+     * トラック内のチューン構成一覧を、既存行の内部ID・監査カラムを保ったまま反映する。
+     *
+     * @param trackEntity
+     *            永続化済みのトラックエンティティ（管理下）
+     * @param desiredTunes
+     *            トラックが保持する望ましいチューン構成一覧
+     */
+    private static void reconcileTrackTunes(TrackTableRecord trackEntity, List<TrackTune> desiredTunes) {
+        final var existingBySeq = trackEntity.getTrackTunes().stream()
+                .collect(Collectors.toMap(e -> e.getId().getSeq(), Function.identity()));
+        final var desiredSeqs = desiredTunes.stream()
+                .map(TrackTune::seq)
+                .collect(Collectors.toSet());
+
+        trackEntity.getTrackTunes().removeIf(not(e -> desiredSeqs.contains(e.getId().getSeq())));
+
+        desiredTunes.forEach(
+                tune -> Optional.ofNullable(existingBySeq.get(tune.seq()))
+                        .ifPresentOrElse(
+                                existing -> copyTrackTuneFields(existing, tune),
+                                () -> trackEntity.getTrackTunes()
+                                        .add(AlbumMapper.trackTuneToEntity(tune, trackEntity))));
+    }
+
+    private static void copyTrackTuneFields(TrackTuneTableRecord target, TrackTune source) {
+        target.setTuneId(
+                Optional.ofNullable(source.tuneId())
+                        .map(Tune.Id::value)
+                        .orElse(null));
+        target.setComposerCreditOverride(
+                Optional.ofNullable(source.composerCreditOverride())
+                        .map(Credit::value)
+                        .orElse(null));
+        target.setArrangerCreditOverride(
+                Optional.ofNullable(source.arrangerCreditOverride())
+                        .map(Credit::value)
+                        .orElse(null));
+        target.setLinkUrl(
+                Optional.ofNullable(source.linkUrl())
+                        .map(Url::value)
+                        .orElse(null));
     }
 
     @Override
