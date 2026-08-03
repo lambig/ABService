@@ -3,14 +3,20 @@ package com.abservice.presentation.rest.article;
 import com.abservice.application.query.article.GetArticleQuery;
 import com.abservice.application.query.article.GetArticleResult;
 import com.abservice.application.query.article.GetArticleService;
+import com.abservice.application.query.article.ListArticlesQuery;
+import com.abservice.application.query.article.ListArticlesResult;
+import com.abservice.application.query.article.ListArticlesService;
 import com.abservice.application.query.article.model.ArticleView;
+import com.abservice.presentation.rest.article.response.ArticleListResponse;
 import com.abservice.presentation.rest.article.response.ArticleResponse;
 import com.abservice.presentation.rest.exception.ProblemDetail;
 import io.smallrye.mutiny.Uni;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.List;
@@ -19,8 +25,9 @@ import java.util.List;
  * 記事集約の Query REST リソース
  *
  * <p>
- * 記事の詳細照会（GET）を受け付ける。未存在は例外ではなく {@link GetArticleResult.NotFound} として扱い、 404 を
- * RFC 9457 Problem Details（{@code application/problem+json}）で返す。
+ * 記事の詳細照会（GET）と一覧照会（GET、ページネーション付き）を受け付ける。未存在は例外ではなく
+ * {@link GetArticleResult.NotFound} として扱い、404 を RFC 9457 Problem Details
+ * （{@code application/problem+json}）で返す。
  * </p>
  */
 @Path("/api/v1/articles")
@@ -29,13 +36,17 @@ public class ArticleQueryResource {
     private static final String PROBLEM_JSON = "application/problem+json";
 
     private final GetArticleService getArticleService;
+    private final ListArticlesService listArticlesService;
 
     /**
      * @param getArticleService
      *            記事詳細照会ユースケース
+     * @param listArticlesService
+     *            記事一覧照会ユースケース
      */
-    public ArticleQueryResource(GetArticleService getArticleService) {
+    public ArticleQueryResource(GetArticleService getArticleService, ListArticlesService listArticlesService) {
         this.getArticleService = getArticleService;
+        this.listArticlesService = listArticlesService;
     }
 
     /**
@@ -82,5 +93,34 @@ public class ArticleQueryResource {
                 view.publishedAt(),
                 view.updatedAtBusiness(),
                 view.publicFlag());
+    }
+
+    /**
+     * 記事一覧を照会します（ページネーション付き）。
+     *
+     * @param page
+     *            ページ番号（0始まり。デフォルト0）
+     * @param size
+     *            1ページの件数（デフォルト20、最大100）
+     * @return 200 と記事一覧
+     */
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    public Uni<Response> list(
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("size") @DefaultValue("20") int size) {
+        return listArticlesService.query(new ListArticlesQuery(page, size))
+                .map(ArticleQueryResource::toListResponse);
+    }
+
+    private static Response toListResponse(ListArticlesResult result) {
+        return Response.ok(
+                new ArticleListResponse(
+                        result.items().stream().map(ArticleQueryResource::toArticleResponse).toList(),
+                        result.page(),
+                        result.size(),
+                        result.totalElements(),
+                        result.totalPages()))
+                .build();
     }
 }
