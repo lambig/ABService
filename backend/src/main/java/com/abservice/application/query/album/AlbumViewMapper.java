@@ -2,6 +2,9 @@ package com.abservice.application.query.album;
 
 import com.abservice.application.query.album.model.AlbumView;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
+import java.time.LocalDate;
+import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * アルバムエンティティから Read Model（{@link AlbumView}）への変換
@@ -31,6 +34,17 @@ final class AlbumViewMapper {
                 entity.getArtistDisplayName(),
                 entity.getArtistSortKey(),
                 entity.getCatalogNumber(),
-                entity.getIsdn());
+                entity.getIsdn(),
+                entity.getEventName(),
+                toDateString(entity.getEventDate()),
+                entity.getEventPlace(),
+                entity.getEventSpaceNumber(),
+                entity.getEventNote());
+    }
+
+    private static @Nullable String toDateString(@Nullable LocalDate date) {
+        return Optional.ofNullable(date)
+                .map(LocalDate::toString)
+                .orElse(null);
     }
 }

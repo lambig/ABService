@@ -2,6 +2,7 @@ package com.abservice.application.service.album;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.abservice.application.service.album.CreateAlbumInput.EventInput;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import org.junit.jupiter.api.DisplayName;
@@ -20,6 +21,7 @@ class CreateAlbumServiceTest {
                         "アーティスト名",
                         null,
                         "ABC-0001",
+                        null,
                         null));
 
         assertThat(result).isInstanceOf(Result.Success.class);
@@ -38,6 +40,7 @@ class CreateAlbumServiceTest {
                         "   ",
                         "not-a-date",
                         "   ",
+                        null,
                         null,
                         null,
                         null));
@@ -60,6 +63,7 @@ class CreateAlbumServiceTest {
                         "アーティスト名",
                         null,
                         null,
+                        null,
                         null));
 
         assertThat(result).isInstanceOf(Result.Failure.class);
@@ -77,11 +81,13 @@ class CreateAlbumServiceTest {
                         "アーティスト名",
                         null,
                         "   ",
-                        ""));
+                        "",
+                        null));
 
         assertThat(result).isInstanceOf(Result.Success.class);
         assertThat(result.resolve().catalogNumber()).isNull();
         assertThat(result.resolve().isdn()).isNull();
+        assertThat(result.resolve().eventReleasedAt()).isNull();
     }
 
     @Test
@@ -94,10 +100,85 @@ class CreateAlbumServiceTest {
                         "アーティスト名",
                         null,
                         null,
-                        "0000000000000"));
+                        "0000000000000",
+                        null));
 
         assertThat(result).isInstanceOf(Result.Failure.class);
         assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
                 .contains("ISDN_INVALID_FORMAT");
+    }
+
+    @Test
+    @DisplayName("初出イベント情報を指定すると成功しeventReleasedAtに反映される")
+    void validEventSucceeds() {
+        final var result = CreateAlbumService.validate(
+                new CreateAlbumInput(
+                        "アルバムタイトル",
+                        "2026-01-01",
+                        "アーティスト名",
+                        null,
+                        null,
+                        null,
+                        new EventInput(
+                                "コミックマーケット104",
+                                "2026-01-01",
+                                "東京ビッグサイト",
+                                "東ホ-01a",
+                                "新譜あります")));
+
+        assertThat(result).isInstanceOf(Result.Success.class);
+        final var event = result.resolve().eventReleasedAt();
+        assertThat(event).isNotNull();
+        assertThat(event.name().value()).isEqualTo("コミックマーケット104");
+        assertThat(event.date().asLocalDate().toString()).isEqualTo("2026-01-01");
+        assertThat(event.place()).isEqualTo("東京ビッグサイト");
+        assertThat(event.spaceNumber()).isEqualTo("東ホ-01a");
+        assertThat(event.note()).isEqualTo("新譜あります");
+    }
+
+    @Test
+    @DisplayName("初出イベントの日付形式が不正ならエラー")
+    void invalidEventDateFails() {
+        final var result = CreateAlbumService.validate(
+                new CreateAlbumInput(
+                        "アルバムタイトル",
+                        "2026-01-01",
+                        "アーティスト名",
+                        null,
+                        null,
+                        null,
+                        new EventInput(
+                                "コミックマーケット104",
+                                "not-a-date",
+                                null,
+                                null,
+                                null)));
+
+        assertThat(result).isInstanceOf(Result.Failure.class);
+        assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
+                .contains("ALBUM_EVENT_DATE_INVALID");
+    }
+
+    @Test
+    @DisplayName("初出イベント名が未指定ならエラー")
+    void blankEventNameFails() {
+        final var result = CreateAlbumService.validate(
+                new CreateAlbumInput(
+                        "アルバムタイトル",
+                        "2026-01-01",
+                        "アーティスト名",
+                        null,
+                        null,
+                        null,
+                        new EventInput(
+                                "   ",
+                                null,
+                                null,
+                                null,
+                                null)));
+
+        assertThat(result).isInstanceOf(Result.Failure.class);
+        assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
+                .contains("EVENT_NAME_REQUIRED");
     }
 }

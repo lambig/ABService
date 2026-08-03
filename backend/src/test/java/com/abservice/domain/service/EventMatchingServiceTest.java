@@ -126,9 +126,9 @@ class EventMatchingServiceTest {
         assertThat(service.isSameEvent(confirmed, released)).isFalse();
     }
 
-    @DisplayName("確定イベントは複数日程が一致すると同一と判定される")
+    @DisplayName("確定イベントが複数日程を持つ場合、初出実績がそのうち1日と一致すれば同一と判定される")
     @Test
-    void testIsSameEventConfirmedEventMultipleDates() {
+    void testIsSameEventConfirmedEventMultipleDatesContainsReleaseDay() {
         final BusinessDate date1 = BusinessDate.of(
                 LocalDate.of(
                         2024,
@@ -148,11 +148,42 @@ class EventMatchingServiceTest {
                 "東京ビッグサイト");
         final EventReleasedAt released = EventReleasedAt.of(
                 "コミケ",
-                dateAndSpaces,
+                date2,
                 "東京ビッグサイト",
+                "東ホ-01b",
                 null);
 
         assertThat(service.isSameEvent(confirmed, released)).isTrue();
+    }
+
+    @DisplayName("確定イベントが複数日程を持っていても、初出実績がいずれの日・スペースとも一致しなければ非同一と判定される")
+    @Test
+    void testIsSameEventConfirmedEventMultipleDatesNoMatch() {
+        final BusinessDate date1 = BusinessDate.of(
+                LocalDate.of(
+                        2024,
+                        12,
+                        30));
+        final BusinessDate date2 = BusinessDate.of(
+                LocalDate.of(
+                        2024,
+                        12,
+                        31));
+        final List<EventDateAndSpace> dateAndSpaces = List
+                .of(EventDateAndSpace.of(date1, "東ホ-01a"), EventDateAndSpace.of(date2, "東ホ-01b"));
+
+        final ConfirmedEvent confirmed = ConfirmedEvent.of(
+                "コミケ",
+                dateAndSpaces,
+                "東京ビッグサイト");
+        final EventReleasedAt released = EventReleasedAt.of(
+                "コミケ",
+                date2,
+                "東京ビッグサイト",
+                "東ホ-01a", // date2当日のスペースは東ホ-01bなので不一致
+                null);
+
+        assertThat(service.isSameEvent(confirmed, released)).isFalse();
     }
 
     @DisplayName("参加予定イベントがnullなら非同一と判定される")

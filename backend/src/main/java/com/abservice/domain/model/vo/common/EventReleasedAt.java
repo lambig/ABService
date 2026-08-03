@@ -3,8 +3,6 @@ package com.abservice.domain.model.vo.common;
 import static io.github.lambig.funcifextension.predicate.By.having;
 import static io.github.lambig.funcifextension.predicate.Predicates.and;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -13,6 +11,7 @@ import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
 import com.abservice.domain.model.vo.event.EventName;
 import com.abservice.lib.ErrorResult;
+import com.abservice.lib.Result;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.experimental.Accessors;
@@ -22,8 +21,19 @@ import org.jspecify.annotations.Nullable;
  * イベント頒布情報 Value Object
  *
  * <p>
- * コミケ、M3、ライブなどのイベントでアルバムがリリース（頒布）された情報を表すValue Objectです。
- * イベント名、開催日・スペース番号の組み合わせ（複数日参加対応）、会場、補足情報を含みます。
+ * コミケ、M3、ライブなどのイベントでアルバムが最初にリリース（頒布）された情報を表すValue
+ * Objectです。イベント名、開催日、スペース番号、会場、補足情報を含みます。
+ * </p>
+ *
+ * <p>
+ * 「初出」は最初に頒布した1点の事実を指すため、開催日・スペース番号は単一です（複数日出展時の 日ごとの配置管理は
+ * {@code ConfirmedEvent}（{@code EventToParticipate}）が別途担います）。
+ * </p>
+ *
+ * <p>
+ * 生成は2系統です。信頼できる内部生成には {@code of(...)}（不正時は例外）を、外部入力からの生成には
+ * {@link #fromInput(String, BusinessDate, String, String, String)}（不正時は
+ * {@code Failure} を返す）を使用します。
  * </p>
  */
 @Getter
@@ -32,8 +42,12 @@ import org.jspecify.annotations.Nullable;
 public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
     /** イベント名 */
     private final EventName name;
-    /** 開催日・スペース番号の組み合わせリスト（複数日参加対応） */
-    private final List<EventDateAndSpace> dateAndSpaces;
+    /** 開催日 */
+    @Nullable
+    private final BusinessDate date;
+    /** スペース番号（例: 東A-01） */
+    @Nullable
+    private final String spaceNumber;
     /** 会場 */
     @Nullable
     private final String place;
@@ -47,7 +61,8 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
                 .filter(
                         and(
                                 having(EventReleasedAt::name).that(this.name::equivalentTo),
-                                having(EventReleasedAt::dateAndSpaces).thatEqualsTo(this.dateAndSpaces),
+                                having(EventReleasedAt::date).thatEqualsTo(this.date),
+                                having(EventReleasedAt::spaceNumber).thatEqualsTo(this.spaceNumber),
                                 having(EventReleasedAt::place).thatEqualsTo(this.place),
                                 having(EventReleasedAt::note).thatEqualsTo(this.note)))
                 .isPresent();
@@ -58,8 +73,10 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      *
      * @param name
      *            イベント名（必須）
-     * @param dateAndSpaces
-     *            開催日・スペース番号の組み合わせリスト（nullable）
+     * @param date
+     *            開催日（nullable）
+     * @param spaceNumber
+     *            スペース番号（nullable）
      * @param place
      *            会場（nullable）
      * @param note
@@ -67,7 +84,8 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      */
     private EventReleasedAt(
             EventName name,
-            @Nullable List<EventDateAndSpace> dateAndSpaces,
+            @Nullable BusinessDate date,
+            @Nullable String spaceNumber,
             @Nullable String place,
             @Nullable String note) {
         Policy.<EventName>of(
@@ -79,8 +97,8 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
                 .verify(name, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         this.name = name;
-        this.dateAndSpaces = Optional.ofNullable(dateAndSpaces)
-                .<List<EventDateAndSpace>>map(Collections::unmodifiableList).orElse(Collections.emptyList());
+        this.date = date;
+        this.spaceNumber = spaceNumber;
         this.place = place;
         this.note = note;
     }
@@ -97,6 +115,7 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
                 new EventName(name),
                 null,
                 null,
+                null,
                 null);
     }
 
@@ -109,12 +128,13 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      *            開催日
      * @return EventReleasedAt
      */
-    public static EventReleasedAt of(String name, BusinessDate date) {
-        return new EventReleasedAt(new EventName(name),
-                Optional.ofNullable(date)
-                        .map(d -> List.of(EventDateAndSpace.of(d)))
-                        .orElse(null),
-                null, null);
+    public static EventReleasedAt of(String name, @Nullable BusinessDate date) {
+        return new EventReleasedAt(
+                new EventName(name),
+                date,
+                null,
+                null,
+                null);
     }
 
     /**
@@ -130,12 +150,12 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      */
     public static EventReleasedAt of(
             String name,
-            BusinessDate date,
-            String spaceNumber) {
-        return new EventReleasedAt(new EventName(name),
-                Optional.ofNullable(date)
-                        .map(d -> List.of(EventDateAndSpace.of(d, spaceNumber)))
-                        .orElse(null),
+            @Nullable BusinessDate date,
+            @Nullable String spaceNumber) {
+        return new EventReleasedAt(
+                new EventName(name),
+                date,
+                spaceNumber,
                 null,
                 null);
     }
@@ -167,56 +187,68 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
     }
 
     /**
-     * イベント名、年月日、開催場所で生成
+     * 名前・開催日・会場・スペース番号・補足情報の全項目で生成
      *
      * @param name
      *            イベント名
-     * @param dateAndSpaces
-     *            開催日・スペース番号の組み合わせリスト
+     * @param date
+     *            開催日（nullable）
      * @param place
-     *            会場
+     *            会場（nullable）
+     * @param spaceNumber
+     *            スペース番号（nullable）
      * @param note
-     *            補足情報
+     *            補足情報（nullable）
      * @return EventReleasedAt
      */
     public static EventReleasedAt of(
             String name,
-            @Nullable List<EventDateAndSpace> dateAndSpaces,
+            @Nullable BusinessDate date,
             @Nullable String place,
+            @Nullable String spaceNumber,
             @Nullable String note) {
         return new EventReleasedAt(
                 new EventName(name),
-                dateAndSpaces,
+                date,
+                spaceNumber,
                 place,
                 note);
     }
 
     /**
-     * 単一の日付・スペース情報で生成
+     * 外部入力からイベント頒布情報を生成します。
+     *
+     * <p>
+     * 例外をスローせず、検証結果を {@link Result} で返します。イベント名が未指定・最大長超過の場合は {@code Failure}
+     * として返します。{@link BusinessDate} は文字列パースを提供しないため、開催日は
+     * 呼び出し側で解釈済みの値を渡してください。信頼できる内部生成には {@code of(...)} を使用してください。
+     * </p>
      *
      * @param name
-     *            イベント名
+     *            イベント名を表す文字列
      * @param date
-     *            開催日
+     *            開催日（呼び出し側で解釈済み。nullable）
      * @param place
-     *            会場
+     *            会場（nullable）
      * @param spaceNumber
-     *            スペース番号
+     *            スペース番号（nullable）
      * @param note
-     *            補足情報
-     * @return EventReleasedAt
+     *            補足情報（nullable）
+     * @return 成功時は {@code EventReleasedAt}、失敗時はエラー
      */
-    public static EventReleasedAt of(
-            String name,
-            BusinessDate date,
-            String place,
-            String spaceNumber,
-            String note) {
-        return new EventReleasedAt(new EventName(name),
-                Optional.ofNullable(date)
-                        .map(d -> List.of(EventDateAndSpace.of(d, spaceNumber)))
-                        .orElse(null),
-                place,
-                note);
+    public static Result<EventReleasedAt> fromInput(
+            @Nullable String name,
+            @Nullable BusinessDate date,
+            @Nullable String place,
+            @Nullable String spaceNumber,
+            @Nullable String note) {
+        return EventName.fromInput(name)
+                .map(
+                        n -> new EventReleasedAt(
+                                n,
+                                date,
+                                spaceNumber,
+                                place,
+                                note));
     }
 }

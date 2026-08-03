@@ -65,7 +65,7 @@ com.abservice/
 | **Command ユースケース** | `@ApplicationScoped` な `CommandService<Input, Output>` 実装。`@WithTransaction execute(): Uni<Output>`。Input/Output は同パッケージの record |
 | **Query ユースケース** | `QueryService<Request, Result>` を `application/query/` に配置。`@WithSession query(): Uni<Result>`。Read Model は `application/query/model/`。`sealed interface`（`Found`/`NotFound`）で 200/404 を出し分け。`INSUFFICIENT_DATA`（422）相当は未導入（将来追加可能） |
 | **REST Resource** | `presentation/rest/` に集約ごとに Command/Query Resource を作成。`Uni<Response>` 返却、MicroProfile OpenAPI アノテーション |
-| **VO の2系統生成** | 内部生成は例外throwのコンパクトコンストラクタ/`of()`、外部入力は `Result` を返す `fromInput()` の2系統。Article/Tune/Album/AlbumArticle の主要VOで導入済み。`BusinessDate` はドメイン層が文字列パースを提供しない設計のため、境界層（`Create*Service`）が文字列解釈・例外変換を担う。子コレクションを内部に持つ複合VO（`EventReleasedAt` 等）は横展開の対象外（§4.2） |
+| **VO の2系統生成** | 内部生成は例外throwのコンパクトコンストラクタ/`of()`、外部入力は `Result` を返す `fromInput()` の2系統。Article/Tune/Album/AlbumArticle の主要VOで導入済み。`BusinessDate` はドメイン層が文字列パースを提供しない設計のため、境界層（`Create*Service`）が文字列解釈・例外変換を担う |
 | **3層のエラー表現** | 値検証=`Result`、未存在=empty `Uni`+`failWith`、ビジネス違反=`DomainException` 階層。§3 / §4 参照 |
 | **テスト分割** | `unitTest`（Fake注入・DI無）/ `integrationTest`（@QuarkusTest・実DB）の2分割済み。実HTTP のテストは外部連携が出た時点で検討 |
 
@@ -102,7 +102,9 @@ DomainException (abstract, errorCode付き)
 ### 4.2 アプリケーション層 / プレゼンテーション層
 
 - 各集約（Article/Tune/Album/AlbumArticle）の残ユースケース（更新/削除、一覧 Query）
-- Album の `tracks`、AlbumArticle の `acquisitionChannels`（コレクションへの追加系ユースケース）、Album の `eventReleasedAt`（内部に `List<EventDateAndSpace>` を持つ複合VO）は Create/Get の横展開では対象外とした。`Album.create()`/`AlbumArticle.create()` 自体がコレクションを受け取らない設計、`eventReleasedAt` は複数の `@OneToMany` を1クエリで JOIN FETCH すると Hibernate の multiple-bag-fetch 制約に抵触するため。追加時は個別ユースケースとして設計する
+- Album の `tracks`、AlbumArticle の `acquisitionChannels`（コレクションへの追加系ユースケース）は
+  Create/Get の横展開では対象外とした。`Album.create()`/`AlbumArticle.create()` 自体がコレクションを
+  受け取らない設計のため。追加時は個別ユースケースとして設計する
 
 ---
 

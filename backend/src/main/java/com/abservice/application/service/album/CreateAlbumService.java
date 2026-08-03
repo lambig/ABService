@@ -8,6 +8,7 @@ import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
@@ -36,7 +37,7 @@ import org.jspecify.annotations.Nullable;
  * </p>
  *
  * <p>
- * {@link BusinessDate} は文字列からの直接生成を提供しないため（パース方式の解釈は境界層の責務）、リリース日の
+ * {@link BusinessDate} は文字列からの直接生成を提供しないため（パース方式の解釈は境界層の責務）、リリース日・ 初出イベント開催日の
  * ISO-8601文字列の解釈は本サービスが担います。
  * </p>
  */
@@ -74,14 +75,16 @@ public class CreateAlbumService implements CommandService<CreateAlbumInput, Crea
                         base -> resolveOptional(CatalogNumber::fromInput, input.catalogNumber())
                                 .flatMap(
                                         catalogNumber -> resolveOptional(Isdn::fromInput, input.isdn())
-                                                .map(
-                                                        isdn -> Album.create(
-                                                                base.title(),
-                                                                base.releaseDate(),
-                                                                base.artistCredit(),
-                                                                null,
-                                                                catalogNumber.orElse(null),
-                                                                isdn.orElse(null)))));
+                                                .flatMap(
+                                                        isdn -> resolveEvent(input.event())
+                                                                .map(
+                                                                        event -> Album.create(
+                                                                                base.title(),
+                                                                                base.releaseDate(),
+                                                                                base.artistCredit(),
+                                                                                event.orElse(null),
+                                                                                catalogNumber.orElse(null),
+                                                                                isdn.orElse(null))))));
     }
 
     private record TitleDateArtist(AlbumTitle title, BusinessDate releaseDate, ArtistCredit artistCredit) {
@@ -90,7 +93,11 @@ public class CreateAlbumService implements CommandService<CreateAlbumInput, Crea
     private static Result<BusinessDate> resolveReleaseDate(@Nullable String value) {
         return Optional.ofNullable(value)
                 .filter(StringUtils::isNotBlank)
-                .map(CreateAlbumService::parseReleaseDate)
+                .map(
+                        v -> parseDate(
+                                v,
+                                "releaseDate",
+                                "ALBUM_RELEASE_DATE_INVALID"))
                 .orElseGet(
                         () -> Result.failure(
                                 new ErrorResult(
@@ -99,15 +106,49 @@ public class CreateAlbumService implements CommandService<CreateAlbumInput, Crea
                                         "ALBUM_RELEASE_DATE_REQUIRED")));
     }
 
-    private static Result<BusinessDate> parseReleaseDate(String value) {
+    private static Result<Optional<EventReleasedAt>> resolveEvent(
+            CreateAlbumInput.@Nullable EventInput input) {
+        return Optional.ofNullable(input)
+                .map(CreateAlbumService::validateEvent)
+                .orElseGet(() -> Result.<Optional<EventReleasedAt>>success(Optional.empty()));
+    }
+
+    private static Result<Optional<EventReleasedAt>> validateEvent(CreateAlbumInput.EventInput input) {
+        return resolveEventDate(input.date())
+                .flatMap(
+                        date -> EventReleasedAt.fromInput(
+                                input.name(),
+                                date.orElse(null),
+                                input.place(),
+                                input.spaceNumber(),
+                                input.note()))
+                .map(Optional::of);
+    }
+
+    private static Result<Optional<BusinessDate>> resolveEventDate(@Nullable String value) {
+        return Optional.ofNullable(value)
+                .filter(StringUtils::isNotBlank)
+                .map(
+                        v -> parseDate(
+                                v,
+                                "event.date",
+                                "ALBUM_EVENT_DATE_INVALID")
+                                .map(Optional::of))
+                .orElseGet(() -> Result.<Optional<BusinessDate>>success(Optional.empty()));
+    }
+
+    private static Result<BusinessDate> parseDate(
+            String value,
+            String field,
+            String invalidErrorCode) {
         try {
             return Result.success(BusinessDate.of(LocalDate.parse(value)));
         } catch (DateTimeParseException e) {
             return Result.failure(
                     new ErrorResult(
-                            "releaseDate",
-                            "リリース日の形式が不正です: " + value,
-                            "ALBUM_RELEASE_DATE_INVALID"));
+                            field,
+                            "日付の形式が不正です: " + value,
+                            invalidErrorCode));
         }
     }
 

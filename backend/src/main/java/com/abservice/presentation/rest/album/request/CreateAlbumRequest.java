@@ -21,6 +21,8 @@ import org.jspecify.annotations.Nullable;
  *            カタログナンバー（nullable）
  * @param isdn
  *            ISDN（nullable。ハイフンは省略可）
+ * @param event
+ *            初出イベント情報（nullable）
  */
 public record CreateAlbumRequest(
         @Nullable String title,
@@ -28,5 +30,28 @@ public record CreateAlbumRequest(
         @Nullable String artistDisplayName,
         @Nullable String artistSortKey,
         @Nullable String catalogNumber,
-        @Nullable String isdn) {
+        @Nullable String isdn,
+        @Nullable EventRequest event) {
+
+    /**
+     * 初出イベント情報のリクエスト契約
+     *
+     * @param name
+     *            イベント名
+     * @param date
+     *            開催日（ISO-8601形式の文字列。nullable）
+     * @param place
+     *            会場（nullable）
+     * @param spaceNumber
+     *            スペース番号（nullable）
+     * @param note
+     *            補足情報（nullable）
+     */
+    public record EventRequest(
+            @Nullable String name,
+            @Nullable String date,
+            @Nullable String place,
+            @Nullable String spaceNumber,
+            @Nullable String note) {
+    }
 }

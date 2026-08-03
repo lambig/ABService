@@ -78,6 +78,11 @@ public class AlbumQueryResource {
                 view.artistDisplayName(),
                 view.artistSortKey(),
                 view.catalogNumber(),
-                view.isdn());
+                view.isdn(),
+                view.eventName(),
+                view.eventDate(),
+                view.eventPlace(),
+                view.eventSpaceNumber(),
+                view.eventNote());
     }
 }

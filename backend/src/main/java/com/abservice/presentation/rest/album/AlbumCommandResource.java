@@ -1,9 +1,11 @@
 package com.abservice.presentation.rest.album;
 
 import com.abservice.application.service.album.CreateAlbumInput;
+import com.abservice.application.service.album.CreateAlbumInput.EventInput;
 import com.abservice.application.service.album.CreateAlbumOutput;
 import com.abservice.application.service.album.CreateAlbumService;
 import com.abservice.presentation.rest.album.request.CreateAlbumRequest;
+import com.abservice.presentation.rest.album.request.CreateAlbumRequest.EventRequest;
 import com.abservice.presentation.rest.album.response.CreateAlbumResponse;
 import io.smallrye.mutiny.Uni;
 import jakarta.ws.rs.Consumes;
@@ -12,6 +14,8 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * アルバム集約の Command REST リソース
@@ -56,7 +60,20 @@ public class AlbumCommandResource {
                 request.artistDisplayName(),
                 request.artistSortKey(),
                 request.catalogNumber(),
-                request.isdn());
+                request.isdn(),
+                toEventInput(request.event()));
+    }
+
+    private static @Nullable EventInput toEventInput(@Nullable EventRequest event) {
+        return Optional.ofNullable(event)
+                .map(
+                        e -> new EventInput(
+                                e.name(),
+                                e.date(),
+                                e.place(),
+                                e.spaceNumber(),
+                                e.note()))
+                .orElse(null);
     }
 
     private static Response toCreated(CreateAlbumOutput output) {

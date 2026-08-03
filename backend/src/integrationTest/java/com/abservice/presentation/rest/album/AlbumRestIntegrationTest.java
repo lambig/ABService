@@ -29,13 +29,16 @@ class AlbumRestIntegrationTest {
         final String albumId = given().contentType(ContentType.JSON)
                 .body(
                         "{\"title\":\"E2Eテストアルバム\",\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"E2Eアーティスト\","
-                                + "\"catalogNumber\":\"E2E-0001\"}")
+                                + "\"catalogNumber\":\"E2E-0001\",\"event\":{\"name\":\"コミックマーケット104\","
+                                + "\"date\":\"2026-01-01\",\"place\":\"東京ビッグサイト\",\"spaceNumber\":\"東ホ-01a\"}}")
                 .when().post("/api/v1/albums").then().statusCode(201).body("title", equalTo("E2Eテストアルバム"))
                 .body("releaseDate", equalTo("2026-01-01")).body("artistDisplayName", equalTo("E2Eアーティスト")).extract()
                 .path("albumId");
 
         given().when().get("/api/v1/albums/" + albumId).then().statusCode(200).body("albumId", equalTo(albumId))
-                .body("title", equalTo("E2Eテストアルバム")).body("catalogNumber", equalTo("E2E-0001"));
+                .body("title", equalTo("E2Eテストアルバム")).body("catalogNumber", equalTo("E2E-0001"))
+                .body("eventName", equalTo("コミックマーケット104")).body("eventDate", equalTo("2026-01-01"))
+                .body("eventPlace", equalTo("東京ビッグサイト")).body("eventSpaceNumber", equalTo("東ホ-01a"));
     }
 
     @Test

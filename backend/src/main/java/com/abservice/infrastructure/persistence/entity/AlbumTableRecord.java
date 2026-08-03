@@ -71,9 +71,6 @@ public class AlbumTableRecord extends AuditableTableRecord<AlbumTableRecord> {
     @Column(name = "event_note", columnDefinition = "TEXT")
     private String eventNote;
 
-    @OneToMany(mappedBy = "album", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private List<AlbumEventDateSpaceTableRecord> eventDateSpaces = new ArrayList<>();
-
     @Column(name = "catalog_number", length = 100)
     private String catalogNumber;
 

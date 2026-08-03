@@ -3,6 +3,7 @@ package com.abservice.domain.service;
 import static com.abservice.lib.Both.by;
 import static com.abservice.lib.Both.to;
 import static com.abservice.lib.Optionals.both;
+import static io.github.lambig.funcifextension.predicate.Predicates.and;
 import static io.github.lambig.funcifextension.predicate.Predicates.or;
 
 import com.abservice.domain.model.vo.common.BusinessDate;
@@ -14,6 +15,7 @@ import com.abservice.domain.model.vo.event.TentativeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * イベント照合ドメインサービス
@@ -62,7 +64,11 @@ public class EventMatchingService implements DomainService {
     private boolean matchesEventDetails(EventToParticipate toParticipate, EventReleasedAt releasedAt) {
         return switch (toParticipate) {
             case TentativeEvent ignored -> true;
-            case ConfirmedEvent confirmed -> confirmed.dateAndSpaces().equals(releasedAt.dateAndSpaces());
+            case ConfirmedEvent confirmed -> confirmed.dateAndSpaces().stream()
+                    .anyMatch(
+                            and(
+                                    (EventDateAndSpace ds) -> ds.date().equals(releasedAt.date()),
+                                    ds -> Objects.equals(ds.spaceNumber(), releasedAt.spaceNumber())));
             default -> false;
         };
     }
@@ -97,14 +103,14 @@ public class EventMatchingService implements DomainService {
 
     @SuppressWarnings("PMD.ForbiddenSingleHopProjectionLambda") // TYPE-INFERENCE: List::isEmpty単独ではE推論不可のため
     private boolean matchesTentativeDates(TentativeEvent tentative, EventReleasedAt releasedAt) {
-        final var releasedDates = releasedAt.dateAndSpaces().stream().map(EventDateAndSpace::date).toList();
         return or(
                 (List<BusinessDate> dates) -> dates.isEmpty(),
-                dates -> dates.stream().anyMatch(releasedDates::contains)).test(tentative.tentativeDates());
+                dates -> dates.contains(releasedAt.date())).test(tentative.tentativeDates());
     }
 
     private boolean matchesConfirmedDates(ConfirmedEvent confirmed, EventReleasedAt releasedAt) {
-        return confirmed.dateAndSpaces().stream().map(EventDateAndSpace::date).toList()
-                .equals(releasedAt.dateAndSpaces().stream().map(EventDateAndSpace::date).toList());
+        return confirmed.dateAndSpaces().stream()
+                .map(EventDateAndSpace::date)
+                .anyMatch(date -> date.equals(releasedAt.date()));
     }
 }

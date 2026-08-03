@@ -12,9 +12,10 @@ import org.jspecify.annotations.Nullable;
  * </p>
  *
  * <p>
- * トラック・イベント頒布情報は本 DTO には含めません（複数の {@code @OneToMany} コレクションを1クエリで JOIN FETCH
- * すると Hibernate の multiple-bag-fetch 制約に抵触するため、集約自身のカラムのみに限定しています。
- * 一覧・詳細ユースケースで拡張します）。
+ * トラックは本 DTO には含めません（複数の {@code @OneToMany} コレクションを1クエリで JOIN FETCH すると
+ * Hibernate の multiple-bag-fetch 制約に抵触するため、集約自身のカラムのみに限定しています。一覧・詳細
+ * ユースケースで拡張します）。初出イベント情報（{@code eventName} 以下）は {@code AlbumTableRecord}
+ * 自身の直接カラムのため、JOINなしで含められます。
  * </p>
  *
  * @param albumId
@@ -31,6 +32,16 @@ import org.jspecify.annotations.Nullable;
  *            カタログナンバー（nullable）
  * @param isdn
  *            ISDN（nullable）
+ * @param eventName
+ *            初出イベント名（nullable）
+ * @param eventDate
+ *            初出イベント開催日（ISO-8601形式の文字列。nullable）
+ * @param eventPlace
+ *            初出イベント会場（nullable）
+ * @param eventSpaceNumber
+ *            初出イベントスペース番号（nullable）
+ * @param eventNote
+ *            初出イベント補足情報（nullable）
  */
 public record AlbumView(
         String albumId,
@@ -39,5 +50,10 @@ public record AlbumView(
         String artistDisplayName,
         @Nullable String artistSortKey,
         @Nullable String catalogNumber,
-        @Nullable String isdn) {
+        @Nullable String isdn,
+        @Nullable String eventName,
+        @Nullable String eventDate,
+        @Nullable String eventPlace,
+        @Nullable String eventSpaceNumber,
+        @Nullable String eventNote) {
 }
