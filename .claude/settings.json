@@ -59,8 +59,23 @@
           },
           {
             "type": "command",
+            "if": "Bash(git commit*)",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/require-feature-branch-for-commit.sh"
+          },
+          {
+            "type": "command",
+            "if": "Bash(git commit*)",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/require-local-git-identity.sh"
+          },
+          {
+            "type": "command",
             "if": "Bash(find *)",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/block-unscoped-find.sh"
+          },
+          {
+            "type": "command",
+            "if": "Bash(docker run*)",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/block-bare-docker-run.sh"
           },
           {
             "type": "command",

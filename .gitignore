@@ -185,3 +185,4 @@ temp/
 
 # Claude Code personal (machine-specific) settings
 .claude/settings.local.json
+.claude/hooks/*.local.sh
