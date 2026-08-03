@@ -32,6 +32,17 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
     }
 
     /**
+     * ドメインIDでアルバム記事を検索（自身のカラムのみ。頒布情報・入手経路はJOINしない）
+     *
+     * @param domainId
+     *            アルバム記事のドメインID
+     * @return 該当するアルバム記事（存在しない場合はnull）
+     */
+    public Uni<AlbumArticleTableRecord> findByDomainId(String domainId) {
+        return find("domainId", domainId).firstResult();
+    }
+
+    /**
      * アルバムIDでアルバム記事を取得（頒布情報・入手経路を含む）
      *
      * @param domainId
