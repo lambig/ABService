@@ -12,6 +12,7 @@ import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchCondition;
+import com.tngtech.archunit.lang.ConditionEvent;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import java.util.Optional;
@@ -70,15 +71,14 @@ class AggregateConstructionArchTest {
                 final var stubParameterTypes = stubConstructor.getRawParameterTypes();
                 final boolean anyMatches = enclosing.getConstructors().stream()
                         .anyMatch(c -> c.getRawParameterTypes().equals(stubParameterTypes));
-                Optional.of(anyMatches)
-                        .filter(matches -> !matches)
-                        .ifPresent(
-                                unused -> events.add(
-                                        SimpleConditionEvent.violated(
-                                                stubClass,
-                                                "Stub " + stubClass.getName() + " parameter types "
-                                                        + stubParameterTypes + " do not match any constructor of "
-                                                        + enclosing.getName())));
+                final ConditionEvent event = anyMatches
+                        ? null
+                        : SimpleConditionEvent.violated(
+                                stubClass,
+                                "Stub " + stubClass.getName() + " parameter types "
+                                        + stubParameterTypes + " do not match any constructor of "
+                                        + enclosing.getName());
+                Optional.ofNullable(event).ifPresent(events::add);
             }
         };
     }
