@@ -21,6 +21,7 @@ import com.abservice.infrastructure.persistence.entity.TrackTableRecord;
 import com.abservice.infrastructure.persistence.entity.TrackTuneTableRecord;
 import com.abservice.infrastructure.persistence.entity.TrackTuneId;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -125,6 +126,12 @@ public final class AlbumMapper {
         Optional.ofNullable(album.tracks())
                 .filter(not(List::isEmpty))
                 .map(toList(track -> trackToEntity(track, entity)))
+                /*
+                 * MUTABLE-COLLECTION: toList()の不変Listをそのままセットすると、後続の再保存時に
+                 * orphanRemoval下のインプレース差分反映（AlbumRepositoryImpl.reconcileTracks）が
+                 * removeIf/addで失敗する（#90）ため、Hibernate管理コレクションの初期値は可変にする。
+                 */
+                .map(ArrayList::new)
                 .ifPresent(entity::setTracks);
     }
 
@@ -179,7 +186,7 @@ public final class AlbumMapper {
      *            親のAlbumTableRecord
      * @return TrackTableRecord
      */
-    private static TrackTableRecord trackToEntity(Track track, AlbumTableRecord albumEntity) {
+    public static TrackTableRecord trackToEntity(Track track, AlbumTableRecord albumEntity) {
         final var trackEntity = new TrackTableRecord()
                 .setDomainId(track.id().value())
                 .setAlbum(albumEntity)
@@ -206,6 +213,8 @@ public final class AlbumMapper {
         Optional.ofNullable(track.tunes())
                 .filter(not(List::isEmpty))
                 .map(toList(trackTune -> trackTuneToEntity(trackTune, entity)))
+                // MUTABLE-COLLECTION: setTracksFieldと同じ理由（#90）
+                .map(ArrayList::new)
                 .ifPresent(entity::setTrackTunes);
     }
 
@@ -242,7 +251,7 @@ public final class AlbumMapper {
      *            親のTrackTableRecord
      * @return TrackTuneTableRecord
      */
-    private static TrackTuneTableRecord trackTuneToEntity(TrackTune trackTune, TrackTableRecord trackEntity) {
+    public static TrackTuneTableRecord trackTuneToEntity(TrackTune trackTune, TrackTableRecord trackEntity) {
         return new TrackTuneTableRecord()
                 .setId(new TrackTuneId(trackEntity.getTrackId(), trackTune.seq()))
                 .setTrack(trackEntity)
