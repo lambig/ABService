@@ -323,9 +323,14 @@ public final class Album implements Aggregate<Album, Album.Id> {
                         "TRACK_REQUIRED"))
                 .verify(track, Function.identity())
                 .resolve(Policy::illegalArgument);
-        tracks.stream().filter(t -> t.trackNo().equals(validatedTrack.trackNo())).findFirst().ifPresent(dup -> {
-            throw new BusinessRuleViolationException("Track number " + validatedTrack.trackNo() + " already exists");
-        });
+        Policy.<Track>of(
+                t -> tracks.stream().noneMatch(existing -> existing.trackNo().equals(t.trackNo())),
+                () -> new ErrorResult(
+                        "trackNo",
+                        "Track number " + validatedTrack.trackNo() + " already exists",
+                        "TRACK_NO_DUPLICATE"))
+                .verify(validatedTrack, Function.identity())
+                .resolve(BusinessRuleViolationException::fromErrors);
         return Album.factory(
                 id,
                 title,
@@ -385,11 +390,15 @@ public final class Album implements Aggregate<Album, Album.Id> {
         tracks.stream().filter(validatedTrack::equivalentTo).findFirst().orElseThrow(
                 () -> new BusinessRuleViolationException(
                         "Track with ID " + validatedTrack.id().value() + " not found"));
-        tracks.stream().filter(not(validatedTrack::equivalentTo))
-                .filter(t -> t.trackNo().equals(validatedTrack.trackNo())).findFirst().ifPresent(dup -> {
-                    throw new BusinessRuleViolationException(
-                            "Track number " + validatedTrack.trackNo() + " already exists");
-                });
+        Policy.<Track>of(
+                t -> tracks.stream().filter(not(t::equivalentTo))
+                        .noneMatch(existing -> existing.trackNo().equals(t.trackNo())),
+                () -> new ErrorResult(
+                        "trackNo",
+                        "Track number " + validatedTrack.trackNo() + " already exists",
+                        "TRACK_NO_DUPLICATE"))
+                .verify(validatedTrack, Function.identity())
+                .resolve(BusinessRuleViolationException::fromErrors);
         return tracks.stream()
                 .map(
                         t -> validatedTrack.equivalentTo(t)

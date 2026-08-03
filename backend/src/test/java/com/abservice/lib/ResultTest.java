@@ -152,6 +152,7 @@ class ResultTest {
 
             // Act & Assert
             assertThatThrownBy(() -> result.orElseDo(errors -> {
+                assertThat(errors).containsExactly(error);
                 executed[0] = true;
             })).isInstanceOf(IllegalStateException.class);
 
@@ -273,15 +274,16 @@ class ResultTest {
         @DisplayName("成功時に関数が失敗を返せばその失敗になる")
         void flatMapShouldReturnFailureFromMapper() {
             // Arrange
-            final ErrorResult error = new ErrorResult("field", "invalid");
             final Result<Integer> result = Result.success(10);
 
             // Act
-            final Result<String> mapped = result.flatMap(v -> Result.failure(error));
+            final Result<String> mapped = result.flatMap(
+                    v -> Result.failure(new ErrorResult("field", "invalid value=" + v)));
 
             // Assert
             assertThat(mapped).isInstanceOf(Result.Failure.class);
-            assertThat(((Result.Failure<String>) mapped).errors()).containsExactly(error);
+            assertThat(((Result.Failure<String>) mapped).errors())
+                    .containsExactly(new ErrorResult("field", "invalid value=10"));
         }
 
         @Test
