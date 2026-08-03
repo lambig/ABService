@@ -3,8 +3,10 @@ package com.abservice.domain.model.vo.album;
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
 import com.abservice.lib.ErrorResult;
+import com.abservice.lib.Result;
 import io.github.lambig.textescape.TextEscape;
 import org.apache.commons.lang3.StringUtils;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Optional;
 import java.util.function.Function;
@@ -28,6 +30,11 @@ import java.util.stream.Stream;
  * ハイフンは省略可能ですが、内部的には統一したフォーマットで保持します。
  * </p>
  *
+ * <p>
+ * 生成は2系統です。信頼できる内部生成には {@link #of(String)}（不正時は例外）を、外部入力からの生成には
+ * {@link #fromInput(String)}（不正時は {@code Failure} を返す）を使用します。
+ * </p>
+ *
  * @param value
  *            ISDN（13桁の数字）
  */
@@ -44,19 +51,13 @@ public record Isdn(String value) implements ValueObject<Isdn> {
      *             ISDNがnullまたは不正なフォーマットの場合
      */
     public Isdn {
-        Policy.<String>of(
-                StringUtils::isNotBlank,
-                () -> new ErrorResult(
-                        "value",
-                        "ISDN cannot be blank",
-                        "ISDN_REQUIRED"))
-                .verify(value, Function.identity())
+        blankPolicy().verify(value, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         value = normalizeAndValidate(value);
     }
 
     /**
-     * ファクトリメソッド
+     * ファクトリメソッド（内部生成用・不正時は例外）
      *
      * @param value
      *            ISDN
@@ -66,32 +67,65 @@ public record Isdn(String value) implements ValueObject<Isdn> {
         return new Isdn(value);
     }
 
+    /**
+     * 外部入力（文字列）からISDNを生成します。
+     *
+     * <p>
+     * 例外をスローせず、検証結果を {@link Result} で返します。 未指定・不正フォーマット・チェックデジット不正は {@code Failure}
+     * として返します。 信頼できる内部生成には {@link #of(String)} を使用してください。
+     * </p>
+     *
+     * @param value
+     *            ISDNを表す文字列（ハイフンは省略可）
+     * @return 成功時は {@code Isdn}、失敗時はエラー
+     */
+    public static Result<Isdn> fromInput(@Nullable String value) {
+        return blankPolicy().verify(value, Function.identity())
+                .map(Isdn::cleanse)
+                .flatMap(normalized -> validateFormat(normalized, value))
+                .flatMap(normalized -> validateCheckDigit(normalized, value))
+                .map(Isdn::new);
+    }
+
+    private static Policy<String> blankPolicy() {
+        return Policy.of(
+                StringUtils::isNotBlank,
+                () -> new ErrorResult(
+                        "value",
+                        "ISDN cannot be blank",
+                        "ISDN_REQUIRED"));
+    }
+
+    private static String cleanse(String raw) {
+        return raw.trim().replace("-", "");
+    }
+
     private static String normalizeAndValidate(String value) {
-        final var normalized = value.trim().replace("-", "");
-        validateFormat(normalized, value);
-        validateCheckDigit(normalized, value);
+        final var normalized = cleanse(value);
+        validateFormat(normalized, value)
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
+        validateCheckDigit(normalized, value)
+                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
         return normalized;
     }
 
-    private static void validateFormat(String normalized, String original) {
-        Policy.of(
+    private static Result<String> validateFormat(String normalized, @Nullable String original) {
+        return Policy.of(
                 (String v) -> ISDN_SIMPLE_PATTERN.matcher(v).matches(),
                 () -> new ErrorResult("value",
                         "ISDN must be 13 digits starting with 278 or 279 (hyphens optional). Got: " + original,
                         "ISDN_INVALID_FORMAT"))
-                .verify(normalized, Function.identity())
-                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
+                .verify(normalized, Function.identity());
     }
 
-    private static void validateCheckDigit(String normalized, String original) {
-        Policy.<String>of(
+    private static Result<String> validateCheckDigit(String normalized, @Nullable String original) {
+        return Policy.<String>of(
                 Isdn::isValidCheckDigit,
                 () -> new ErrorResult(
                         "value",
                         "ISDN check digit is invalid: " + original,
                         "ISDN_INVALID_CHECK_DIGIT"))
-                .verify(normalized, Function.identity())
-                .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
+                .verify(normalized, Function.identity());
     }
 
     /**
