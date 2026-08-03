@@ -6,6 +6,7 @@ import static io.github.lambig.funcifextension.predicate.Predicates.and;
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;
 import com.abservice.lib.ErrorResult;
+import com.abservice.lib.Result;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -87,5 +88,25 @@ public final class ArtistCredit implements ValueObject<ArtistCredit> {
      */
     public static @NonNull ArtistCredit of(@NonNull String displayName, @Nullable String sortKey) {
         return new ArtistCredit(new ArtistCreditName(displayName), sortKey);
+    }
+
+    /**
+     * 外部入力（文字列）からアーティストクレジットを生成します。
+     *
+     * <p>
+     * 例外をスローせず、検証結果を {@link Result} で返します。 表示名が未指定・最大長超過の場合は {@code Failure}
+     * として返します。ソートキーは任意で、未指定の場合は表示名がそのまま使用されます。 信頼できる内部生成には
+     * {@link #of(String, String)} を使用してください。
+     * </p>
+     *
+     * @param displayName
+     *            表示名を表す文字列（必須）
+     * @param sortKey
+     *            ソートキー（nullable。未指定の場合は表示名を使用）
+     * @return 成功時は {@code ArtistCredit}、失敗時はエラー
+     */
+    public static Result<ArtistCredit> fromInput(@Nullable String displayName, @Nullable String sortKey) {
+        return ArtistCreditName.fromInput(displayName)
+                .map(name -> new ArtistCredit(name, sortKey));
     }
 }

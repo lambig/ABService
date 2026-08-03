@@ -8,7 +8,6 @@ import com.abservice.domain.model.vo.album.Isdn;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
-import com.abservice.domain.model.vo.common.EventDateAndSpace;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.TestReactiveTransaction;
@@ -167,8 +166,9 @@ class AlbumRepositoryImplTest {
         final var eventReleasedAt = EventReleasedAt
                 .of(
                         "Test Event",
-                        List.of(EventDateAndSpace.of(testReleaseDate, "A-01")),
+                        testReleaseDate,
                         "Test Venue",
+                        "A-01",
                         "Test Note");
 
         final var album = Album.create(

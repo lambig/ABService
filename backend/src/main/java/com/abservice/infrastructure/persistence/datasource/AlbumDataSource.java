@@ -64,6 +64,17 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, 
     }
 
     /**
+     * ドメインIDでアルバムを検索
+     *
+     * @param domainId
+     *            アルバムのドメインID
+     * @return 該当するアルバム（存在しない場合はnull）
+     */
+    public Uni<AlbumTableRecord> findByDomainId(String domainId) {
+        return find("domainId", domainId).firstResult();
+    }
+
+    /**
      * IDでアルバムを検索（トラック含む）
      *
      * @param domainId

@@ -1,31 +1,32 @@
 package com.abservice.domain.model.vo.common;
 
 import com.abservice.domain.model.vo.event.EventName;
+import com.abservice.lib.Result;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@DisplayName("EventReleasedAt（頒布イベント情報）の生成・同値判定・等価性のテスト")
+@DisplayName("EventReleasedAt（初出情報）の生成・同値判定・等価性のテスト")
 class EventReleasedAtTest {
 
     @Test
-    @DisplayName("イベント名のみで生成すると、名前が設定され日付・会場・備考は空になる")
+    @DisplayName("イベント名のみで生成すると、名前が設定され開催日・スペース・会場・備考は空になる")
     void testCreateWithNameOnly() {
         final EventReleasedAt event = EventReleasedAt.of("コミックマーケット101");
 
         assertThat(event.name().value()).isEqualTo("コミックマーケット101");
-        assertThat(event.dateAndSpaces()).isEmpty();
+        assertThat(event.date()).isNull();
+        assertThat(event.spaceNumber()).isNull();
         assertThat(event.place()).isNull();
         assertThat(event.note()).isNull();
     }
 
     @Test
-    @DisplayName("イベント名と日付で生成すると、名前と1件の日付が設定され会場・備考は空になる")
+    @DisplayName("イベント名と開催日で生成すると、名前と開催日が設定されスペース・会場・備考は空になる")
     void testCreateWithNameAndDate() {
         final BusinessDate date = BusinessDate.of(
                 LocalDate.of(
@@ -35,14 +36,14 @@ class EventReleasedAtTest {
         final EventReleasedAt event = EventReleasedAt.of("コミックマーケット101", date);
 
         assertThat(event.name().value()).isEqualTo("コミックマーケット101");
-        assertThat(event.dateAndSpaces()).hasSize(1);
-        assertThat(event.dateAndSpaces().get(0).date()).isEqualTo(date);
+        assertThat(event.date()).isEqualTo(date);
+        assertThat(event.spaceNumber()).isNull();
         assertThat(event.place()).isNull();
         assertThat(event.note()).isNull();
     }
 
     @Test
-    @DisplayName("イベント名・日付・スペース番号で生成すると、名前と1件の日付・スペース番号が設定される")
+    @DisplayName("イベント名・開催日・スペース番号で生成すると、名前・開催日・スペース番号が設定される")
     void testCreateWithNameDateAndSpace() {
         final BusinessDate date = BusinessDate.of(
                 LocalDate.of(
@@ -55,41 +56,12 @@ class EventReleasedAtTest {
                 "東ホ-01a");
 
         assertThat(event.name().value()).isEqualTo("コミックマーケット101");
-        assertThat(event.dateAndSpaces()).hasSize(1);
-        assertThat(event.dateAndSpaces().get(0).date()).isEqualTo(date);
-        assertThat(event.dateAndSpaces().get(0).spaceNumber()).isEqualTo("東ホ-01a");
+        assertThat(event.date()).isEqualTo(date);
+        assertThat(event.spaceNumber()).isEqualTo("東ホ-01a");
     }
 
     @Test
-    @DisplayName("複数の日付・スペースと会場で生成すると、日付が2件設定され会場も設定される")
-    void testCreateWithMultipleDates() {
-        final BusinessDate date1 = BusinessDate.of(
-                LocalDate.of(
-                        2023,
-                        12,
-                        30));
-        final BusinessDate date2 = BusinessDate.of(
-                LocalDate.of(
-                        2023,
-                        12,
-                        31));
-
-        final List<EventDateAndSpace> dateAndSpaces = List
-                .of(EventDateAndSpace.of(date1, "東ホ-01a"), EventDateAndSpace.of(date2, "東ホ-01b"));
-
-        final EventReleasedAt event = EventReleasedAt.of(
-                "コミックマーケット101",
-                dateAndSpaces,
-                "東京ビッグサイト",
-                null);
-
-        assertThat(event.name().value()).isEqualTo("コミックマーケット101");
-        assertThat(event.dateAndSpaces()).hasSize(2);
-        assertThat(event.place()).isEqualTo("東京ビッグサイト");
-    }
-
-    @Test
-    @DisplayName("名前・日付・会場・スペース番号・備考の全情報で生成すると、すべての項目が設定される")
+    @DisplayName("名前・開催日・会場・スペース番号・備考の全情報で生成すると、すべての項目が設定される")
     void testCreateWithAllInformation() {
         final BusinessDate date = BusinessDate.of(
                 LocalDate.of(
@@ -104,47 +76,29 @@ class EventReleasedAtTest {
                 "新譜あります");
 
         assertThat(event.name().value()).isEqualTo("M3-2023秋");
-        assertThat(event.dateAndSpaces()).hasSize(1);
-        assertThat(event.dateAndSpaces().get(0).date()).isEqualTo(date);
-        assertThat(event.dateAndSpaces().get(0).spaceNumber()).isEqualTo("第1展示場A-01a");
+        assertThat(event.date()).isEqualTo(date);
+        assertThat(event.spaceNumber()).isEqualTo("第1展示場A-01a");
         assertThat(event.place()).isEqualTo("東京流通センター");
         assertThat(event.note()).isEqualTo("新譜あります");
     }
 
     @Test
-    @DisplayName("日付・スペースのリストで生成すると、名前・会場・備考が設定され日付リストは変更不可になる")
-    void testCreateWithDateAndSpaces() {
+    @DisplayName("全項目を明示的にnullで生成すると、名前以外が空になる")
+    void testCreateWithNullOptionalFields() {
         final EventName name = new EventName("テストイベント");
-        final BusinessDate date = BusinessDate.of(
-                LocalDate.of(
-                        2023,
-                        5,
-                        1));
-        final List<EventDateAndSpace> dateAndSpaces = List.of(EventDateAndSpace.of(date, "A-01"));
 
-        final EventReleasedAt event = EventReleasedAt.of(
-                name.value(),
-                dateAndSpaces,
-                "会場名",
-                "備考");
-
-        assertThat(event.name()).isEqualTo(name);
-        assertThat(event.dateAndSpaces()).isUnmodifiable();
-        assertThat(event.place()).isEqualTo("会場名");
-        assertThat(event.note()).isEqualTo("備考");
-    }
-
-    @Test
-    @DisplayName("日付・スペースのリストにnullを渡して生成すると、日付リストは空になる")
-    void testCreateWithNullDateAndSpaces() {
-        final EventName name = new EventName("テストイベント");
         final EventReleasedAt event = EventReleasedAt.of(
                 name.value(),
                 null,
-                "会場名",
-                "備考");
+                null,
+                null,
+                null);
 
-        assertThat(event.dateAndSpaces()).isEmpty();
+        assertThat(event.name()).isEqualTo(name);
+        assertThat(event.date()).isNull();
+        assertThat(event.spaceNumber()).isNull();
+        assertThat(event.place()).isNull();
+        assertThat(event.note()).isNull();
     }
 
     @Test
@@ -155,25 +109,9 @@ class EventReleasedAtTest {
                         null,
                         null,
                         null,
+                        null,
                         null))
                 .isInstanceOf(IllegalArgumentException.class).hasMessage("Event name cannot be blank");
-    }
-
-    @Test
-    @DisplayName("日付・スペースのリストに要素を追加しようとすると、UnsupportedOperationExceptionがスローされる")
-    void testDateAndSpacesIsUnmodifiable() {
-        final BusinessDate date = BusinessDate.of(
-                LocalDate.of(
-                        2023,
-                        5,
-                        1));
-        final EventReleasedAt event = EventReleasedAt.of(
-                "イベント",
-                date,
-                "A-01");
-
-        assertThatThrownBy(() -> event.dateAndSpaces().add(EventDateAndSpace.of(date, "B-01")))
-                .isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
@@ -284,5 +222,38 @@ class EventReleasedAtTest {
                 "A-01");
 
         assertThat(event1.hashCode()).isEqualTo(event2.hashCode());
+    }
+
+    @Test
+    @DisplayName("fromInputは正常な入力で成功する")
+    void testFromInputSucceeds() {
+        final BusinessDate date = BusinessDate.of(
+                LocalDate.of(
+                        2026,
+                        1,
+                        1));
+        final Result<EventReleasedAt> result = EventReleasedAt.fromInput(
+                "コミケ104",
+                date,
+                "東京ビッグサイト",
+                "東ホ-01a",
+                "備考");
+
+        assertThat(result).isInstanceOf(Result.Success.class);
+        assertThat(result.resolve().name().value()).isEqualTo("コミケ104");
+        assertThat(result.resolve().date()).isEqualTo(date);
+    }
+
+    @Test
+    @DisplayName("fromInputはイベント名が未指定なら失敗する")
+    void testFromInputFailsWithBlankName() {
+        final Result<EventReleasedAt> result = EventReleasedAt.fromInput(
+                "   ",
+                null,
+                null,
+                null,
+                null);
+
+        assertThat(result).isInstanceOf(Result.Failure.class);
     }
 }

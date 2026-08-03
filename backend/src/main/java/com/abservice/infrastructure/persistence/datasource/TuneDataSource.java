@@ -26,6 +26,17 @@ public class TuneDataSource implements PanacheRepositoryBase<TuneTableRecord, Lo
     }
 
     /**
+     * ドメインIDでチューンを検索
+     *
+     * @param domainId
+     *            チューンのドメインID
+     * @return 該当するチューン（存在しない場合はnull）
+     */
+    public Uni<TuneTableRecord> findByDomainId(String domainId) {
+        return find("domainId", domainId).firstResult();
+    }
+
+    /**
      * 複数のドメインIDでチューンを一括検索
      *
      * @param domainIds

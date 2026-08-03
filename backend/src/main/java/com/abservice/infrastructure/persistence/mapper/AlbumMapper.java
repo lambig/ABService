@@ -1,9 +1,7 @@
 package com.abservice.infrastructure.persistence.mapper;
 
 import static com.abservice.lib.Iterables.toList;
-import static com.abservice.lib.Optionals.optionally;
 import static java.util.function.Predicate.not;
-import static java.util.stream.Collectors.toUnmodifiableList;
 
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.album.Track;
@@ -15,12 +13,10 @@ import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.Credit;
-import com.abservice.domain.model.vo.common.EventDateAndSpace;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.domain.model.vo.common.Url;
 import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
-import com.abservice.infrastructure.persistence.entity.AlbumEventDateSpaceTableRecord;
 import com.abservice.infrastructure.persistence.entity.TrackTableRecord;
 import com.abservice.infrastructure.persistence.entity.TrackTuneTableRecord;
 import com.abservice.infrastructure.persistence.entity.TrackTuneId;
@@ -76,25 +72,17 @@ public final class AlbumMapper {
     }
 
     private static @Nullable EventReleasedAt buildEventReleasedAt(AlbumTableRecord entity) {
-        return Optional.ofNullable(entity.getEventName()).map(
-                eventName -> EventReleasedAt.of(
-                        eventName,
-                        extractDateAndSpaces(entity),
-                        entity.getEventPlace(),
-                        entity.getEventNote()))
+        return Optional.ofNullable(entity.getEventName())
+                .map(
+                        eventName -> EventReleasedAt.of(
+                                eventName,
+                                Optional.ofNullable(entity.getEventDate())
+                                        .map(BusinessDate::of)
+                                        .orElse(null),
+                                entity.getEventPlace(),
+                                entity.getEventSpaceNumber(),
+                                entity.getEventNote()))
                 .orElse(null);
-    }
-
-    private static @Nullable List<EventDateAndSpace> extractDateAndSpaces(AlbumTableRecord entity) {
-        return Optional.ofNullable(entity.getEventDateSpaces())
-                .filter(not(List::isEmpty))
-                .map(toList(e -> EventDateAndSpace.of(BusinessDate.of(e.getEventDate()), e.getSpaceNumber())))
-                .or(() -> buildLegacyDateAndSpaces(entity)).orElse(null);
-    }
-
-    private static Optional<List<EventDateAndSpace>> buildLegacyDateAndSpaces(AlbumTableRecord entity) {
-        return Optional.ofNullable(entity.getEventDate()).map(
-                eventDate -> List.of(EventDateAndSpace.of(BusinessDate.of(eventDate), entity.getEventSpaceNumber())));
     }
 
     /**
@@ -143,33 +131,10 @@ public final class AlbumMapper {
     private static void populateEventFields(AlbumTableRecord albumEntity, EventReleasedAt event) {
         albumEntity.setEventName(event.name().value())
                 .setEventPlace(event.place())
+                .setEventSpaceNumber(event.spaceNumber())
                 .setEventNote(event.note());
-
-        Optional.ofNullable(event.dateAndSpaces())
-                .filter(not(List::isEmpty))
-                .ifPresent(dateAndSpaces -> {
-                    populateDateAndSpaceEntities(albumEntity, dateAndSpaces);
-                    populateLegacyDateAndSpace(albumEntity, dateAndSpaces.get(0));
-                });
-    }
-
-    private static void populateDateAndSpaceEntities(AlbumTableRecord albumEntity,
-            List<EventDateAndSpace> dateAndSpaces) {
-        dateAndSpaces.stream()
-                .map(
-                        ds -> new AlbumEventDateSpaceTableRecord()
-                                .setAlbum(albumEntity)
-                                .setEventDate(ds.date().asLocalDate())
-                                .setSpaceNumber(ds.spaceNumber())
-                                .setCreatedByService("abservice")
-                                .setUpdatedByService("abservice"))
-                .collect(optionally(toUnmodifiableList()))
-                .ifPresent(albumEntity::setEventDateSpaces);
-    }
-
-    private static void populateLegacyDateAndSpace(AlbumTableRecord albumEntity, EventDateAndSpace firstDateSpace) {
-        albumEntity.setEventDate(firstDateSpace.date().asLocalDate())
-                .setEventSpaceNumber(firstDateSpace.spaceNumber());
+        Optional.ofNullable(event.date())
+                .ifPresent(date -> albumEntity.setEventDate(date.asLocalDate()));
     }
 
     /**
