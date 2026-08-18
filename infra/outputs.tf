@@ -3,6 +3,11 @@ output "cloudfront_domain_name" {
   value       = aws_cloudfront_distribution.main.domain_name
 }
 
+output "github_actions_deploy_role_arn" {
+  description = "GitHub Actionsのデプロイワークフローが引き受けるIAMロールARN（リポジトリのvars.AWS_DEPLOY_ROLE_ARNに設定する）"
+  value       = aws_iam_role.github_actions_deploy.arn
+}
+
 output "ecr_repository_url" {
   description = "backendコンテナイメージのpush/pull先ECRリポジトリURL"
   value       = aws_ecr_repository.backend.repository_url

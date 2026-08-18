@@ -100,6 +100,12 @@ variable "cloudfront_price_class" {
   default     = "PriceClass_200"
 }
 
+variable "github_repository" {
+  description = "GitHub Actions OIDC連携の信頼範囲を絞るためのリポジトリ識別子（owner/repo）"
+  type        = string
+  default     = "lambig/ABService"
+}
+
 variable "backend_app_port" {
   description = "backendコンテナが公開するアプリケーションポート（CloudFrontオリジンのポートと一致させる）"
   type        = number
