@@ -3,14 +3,20 @@ package com.abservice.presentation.rest.albumarticle;
 import com.abservice.application.query.albumarticle.GetAlbumArticleQuery;
 import com.abservice.application.query.albumarticle.GetAlbumArticleResult;
 import com.abservice.application.query.albumarticle.GetAlbumArticleService;
+import com.abservice.application.query.albumarticle.ListAlbumArticlesQuery;
+import com.abservice.application.query.albumarticle.ListAlbumArticlesResult;
+import com.abservice.application.query.albumarticle.ListAlbumArticlesService;
 import com.abservice.application.query.albumarticle.model.AlbumArticleView;
+import com.abservice.presentation.rest.albumarticle.response.AlbumArticleListResponse;
 import com.abservice.presentation.rest.albumarticle.response.AlbumArticleResponse;
 import com.abservice.presentation.rest.exception.ProblemDetail;
 import io.smallrye.mutiny.Uni;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.List;
@@ -19,8 +25,9 @@ import java.util.List;
  * アルバム記事集約の Query REST リソース
  *
  * <p>
- * アルバム記事の詳細照会（GET）を受け付ける。未存在は例外ではなく {@link GetAlbumArticleResult.NotFound}
- * として扱い、404 を RFC 9457 Problem Details（{@code application/problem+json}）で返す。
+ * アルバム記事の詳細照会（GET）と一覧照会（GET、ページネーション付き）を受け付ける。未存在は例外ではなく
+ * {@link GetAlbumArticleResult.NotFound} として扱い、404 を RFC 9457 Problem Details
+ * （{@code application/problem+json}）で返す。
  * </p>
  */
 @Path("/api/v1/album-articles")
@@ -29,13 +36,19 @@ public class AlbumArticleQueryResource {
     private static final String PROBLEM_JSON = "application/problem+json";
 
     private final GetAlbumArticleService getAlbumArticleService;
+    private final ListAlbumArticlesService listAlbumArticlesService;
 
     /**
      * @param getAlbumArticleService
      *            アルバム記事詳細照会ユースケース
+     * @param listAlbumArticlesService
+     *            アルバム記事一覧照会ユースケース
      */
-    public AlbumArticleQueryResource(GetAlbumArticleService getAlbumArticleService) {
+    public AlbumArticleQueryResource(
+            GetAlbumArticleService getAlbumArticleService,
+            ListAlbumArticlesService listAlbumArticlesService) {
         this.getAlbumArticleService = getAlbumArticleService;
+        this.listAlbumArticlesService = listAlbumArticlesService;
     }
 
     /**
@@ -77,5 +90,34 @@ public class AlbumArticleQueryResource {
                 view.introShort(),
                 view.firstEventSpace(),
                 view.labelTag());
+    }
+
+    /**
+     * アルバム記事一覧を照会します（ページネーション付き）。
+     *
+     * @param page
+     *            ページ番号（0始まり。デフォルト0）
+     * @param size
+     *            1ページの件数（デフォルト20、最大100）
+     * @return 200 とアルバム記事一覧
+     */
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    public Uni<Response> list(
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("size") @DefaultValue("20") int size) {
+        return listAlbumArticlesService.query(new ListAlbumArticlesQuery(page, size))
+                .map(AlbumArticleQueryResource::toListResponse);
+    }
+
+    private static Response toListResponse(ListAlbumArticlesResult result) {
+        return Response.ok(
+                new AlbumArticleListResponse(
+                        result.items().stream().map(AlbumArticleQueryResource::toArticleResponse).toList(),
+                        result.page(),
+                        result.size(),
+                        result.totalElements(),
+                        result.totalPages()))
+                .build();
     }
 }
