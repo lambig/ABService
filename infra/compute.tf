@@ -88,6 +88,19 @@ resource "aws_iam_instance_profile" "ec2" {
   role = aws_iam_role.ec2.name
 }
 
+locals {
+  deploy_script = templatefile("${path.module}/templates/deploy.sh.tpl", {
+    aws_region   = var.aws_region
+    project_name = var.project_name
+    environment  = var.environment
+  })
+
+  user_data = templatefile("${path.module}/templates/user_data.sh.tpl", {
+    docker_compose_prod_yml = file("${path.module}/../docker-compose.prod.yml")
+    deploy_sh               = local.deploy_script
+  })
+}
+
 resource "aws_instance" "backend" {
   ami                    = data.aws_ami.al2023_arm64.id
   instance_type          = var.ec2_instance_type
@@ -101,14 +114,9 @@ resource "aws_instance" "backend" {
     encrypted   = true
   }
 
-  # Dockerランタイムのみを準備する。backendコンテナイメージのビルド・配布は#121、
-  # 実際のデプロイ自動化は#128（CI/CD）の対象で、本リソースはその受け皿となるホストを用意する。
-  user_data = <<-EOF
-    #!/bin/bash
-    dnf install -y docker
-    systemctl enable --now docker
-    usermod -aG docker ec2-user
-  EOF
+  # Dockerランタイムの準備に加え、CI（#128）がSSM Run Command経由で呼び出す
+  # /opt/abservice/deploy.sh と docker-compose.prod.yml を配置する。
+  user_data = local.user_data
 
   tags = {
     Name = "${var.project_name}-backend"

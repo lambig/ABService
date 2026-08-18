@@ -33,12 +33,26 @@ terraform plan
 terraform apply
 ```
 
-## ロールバック
+## ロールバック（インフラ変更）
 
 Terraform適用は`terraform plan`で差分を確認してから`apply`する運用を基本とする。誤適用時は直前のstateバージョン（S3バケットのバージョニングで保持）に戻すか、該当リソースのみ設定を戻して再度`apply`する。スタック全体の破棄は`terraform destroy`（RDSは`skip_final_snapshot = false`のため最終スナップショットが残る）。
 
+## CI/CD（backendデプロイ、#128）との連携
+
+`apply`後、以下のoutputをGitHubリポジトリのAction variables（Settings > Secrets and variables > Actions > Variables）に設定する。`.github/workflows/deploy.yml`がこれらを参照する。
+
+| Terraform output | GitHub variable |
+|---|---|
+| `github_actions_deploy_role_arn` | `AWS_DEPLOY_ROLE_ARN` |
+| `ecr_repository_url`のリポジトリ名部分 | `ECR_REPOSITORY` |
+| `ec2_instance_id` | `EC2_INSTANCE_ID` |
+
+デプロイはmainへのpushで自動実行される（ビルド→ECR push→SSM Run Command経由でEC2上の`/opt/abservice/deploy.sh`を実行しpull・再起動）。GitHub ActionsはOIDC連携で一時認証情報を取得するため、長期のAWSアクセスキーは発行・保存しない（`aws_iam_openid_connect_provider.github_actions`）。
+
+## ロールバック（backendデプロイ）
+
+ECRのライフサイクルポリシーにより直近10件のタグ付きイメージが保持される。障害時は`.github/workflows/deploy.yml`を`workflow_dispatch`で手動起動し、`image_tag`に直前の正常なタグ（gitのshort SHA）を指定して再デプロイする（再ビルドは行わず、ECRの既存イメージをそのままEC2へpull・再起動するだけなので数十秒で完了する）。ロールバック後、mainブランチの履歴は`git revert`で追随させる（force-push・履歴書き換えはしない）。
+
 ## 未着手・依存関係
 
-- backendコンテナイメージ自体（Dockerfile、#121）は整備済み。ただしEC2の`user_data`はDockerランタイムの準備までに留めており、ECRからのpull・起動は含まない。CI/CD（#128）でイメージをECRへpushしたうえで、EC2上でpull・起動する手順を追加する
-- デプロイ自動化（CI/CD、#128）は本構成の対象外
 - frontend-admin/frontend-publicの静的ビルド成果物をS3へアップロードする手順は#125の対象
