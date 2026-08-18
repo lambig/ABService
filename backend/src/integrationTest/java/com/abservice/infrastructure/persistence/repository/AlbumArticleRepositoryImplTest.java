@@ -6,6 +6,7 @@ import com.abservice.domain.model.aggregate.albumarticle.AlbumArticle;
 import com.abservice.domain.model.aggregate.albumarticle.AlbumDistribution;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.ChannelType;
+import com.abservice.domain.model.vo.album.LabelTag;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.Price;
@@ -20,9 +21,10 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * AlbumArticleRepositoryImpl統合テスト（#40: 頒布情報、#41: 入手経路のラウンドトリップ）
+ * AlbumArticleRepositoryImpl統合テスト（#40: 頒布情報、#41: 入手経路のラウンドトリップに加え、CRUD・検索全般を網羅）
  */
 @QuarkusTest
 class AlbumArticleRepositoryImplTest {
@@ -259,5 +261,242 @@ class AlbumArticleRepositoryImplTest {
                             .extracting(AlbumAcquisitionChannel::getName)
                             .containsExactlyInAnyOrder("Melonbooks Updated", "Spotify");
                 });
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldSaveAndFindAlbumArticleById(UniAsserter asserter) {
+        final var album = newAlbum("FindById Album");
+        final var article = AlbumArticle.create(
+                album.id(),
+                "Long intro",
+                "Short intro",
+                "East A-01",
+                LabelTag.NEW,
+                null);
+
+        asserter.execute(() -> albumRepository.save(album));
+
+        asserter.assertThat(() -> repository.save(article), saved -> {
+            assertThat(saved).isNotNull();
+            assertThat(saved.id()).isEqualTo(album.id());
+            assertThat(saved.introShort()).isEqualTo("Short intro");
+        });
+
+        asserter.assertThat(() -> repository.findById(album.id()), found -> {
+            assertThat(found).isNotNull();
+            assertThat(found.introLong()).isEqualTo("Long intro");
+            assertThat(found.firstEventSpace()).isEqualTo("East A-01");
+            assertThat(found.labelTag()).isEqualTo(LabelTag.NEW);
+        });
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldUpdateExistingAlbumArticleScalarFields(UniAsserter asserter) {
+        final var album = newAlbum("Update Scalar Album");
+        final var article = AlbumArticle.create(
+                album.id(),
+                "Original Long",
+                "Original Short",
+                null,
+                null,
+                null);
+
+        asserter.execute(() -> albumRepository.save(album));
+        asserter.execute(() -> repository.save(article));
+
+        final var updated = article.updateIntro("Updated Long", "Updated Short")
+                .changeFirstEventSpace("West B-02")
+                .updateLabelTag(LabelTag.BEST_OF);
+
+        asserter.assertThat(() -> repository.save(updated), result -> {
+            assertThat(result.introLong()).isEqualTo("Updated Long");
+            assertThat(result.introShort()).isEqualTo("Updated Short");
+            assertThat(result.firstEventSpace()).isEqualTo("West B-02");
+            assertThat(result.labelTag()).isEqualTo(LabelTag.BEST_OF);
+        });
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldDeleteAlbumArticle(UniAsserter asserter) {
+        final var album = newAlbum("Delete Article Album");
+        final var article = AlbumArticle.create(
+                album.id(),
+                null,
+                null,
+                null,
+                null,
+                null);
+
+        asserter.execute(() -> albumRepository.save(album));
+        asserter.assertThat(() -> repository.save(article), saved -> assertThat(saved).isNotNull());
+
+        asserter.execute(() -> repository.deleteById(album.id()));
+
+        asserter.assertThat(() -> repository.findById(album.id()), found -> assertThat(found).isNull());
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldCheckExistence(UniAsserter asserter) {
+        final var album = newAlbum("Existence Article Album");
+        final var article = AlbumArticle.create(
+                album.id(),
+                null,
+                null,
+                null,
+                null,
+                null);
+
+        asserter.execute(() -> albumRepository.save(album));
+        asserter.execute(() -> repository.save(article));
+
+        asserter.assertThat(() -> repository.existsById(album.id()), exists -> assertThat(exists).isTrue());
+
+        final var nonExistentId = Album.Id.of("01234567-89ab-7def-0123-456789abcdef");
+        asserter.assertThat(() -> repository.existsById(nonExistentId), exists -> assertThat(exists).isFalse());
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldCountAlbumArticles(UniAsserter asserter) {
+        final var album1 = newAlbum("Count Article Album 1");
+        final var article1 = AlbumArticle.create(
+                album1.id(),
+                null,
+                null,
+                null,
+                null,
+                null);
+        final var album2 = newAlbum("Count Article Album 2");
+        final var article2 = AlbumArticle.create(
+                album2.id(),
+                null,
+                null,
+                null,
+                null,
+                null);
+
+        asserter.execute(() -> albumRepository.save(album1));
+        asserter.execute(() -> albumRepository.save(album2));
+        asserter.execute(() -> repository.save(article1));
+        asserter.execute(() -> repository.save(article2));
+
+        asserter.assertThat(() -> repository.count(), count -> assertThat(count >= 2).isTrue());
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldFindByLabelTag(UniAsserter asserter) {
+        final var album = newAlbum("Label Search Album");
+        final var article = AlbumArticle.create(
+                album.id(),
+                null,
+                null,
+                null,
+                LabelTag.COLLAB,
+                null);
+
+        asserter.execute(() -> albumRepository.save(album));
+        asserter.execute(() -> repository.save(article));
+
+        asserter.assertThat(
+                () -> repository.findByLabelTag(LabelTag.COLLAB),
+                found -> assertThat(found.stream().anyMatch(a -> a.id().equals(article.id()))).isTrue());
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldFindByFirstEventSpaceContaining(UniAsserter asserter) {
+        final var album = newAlbum("Space Search Album");
+        final var article = AlbumArticle.create(
+                album.id(),
+                null,
+                null,
+                "UniqueSpaceKeyword-01",
+                null,
+                null);
+
+        asserter.execute(() -> albumRepository.save(album));
+        asserter.execute(() -> repository.save(article));
+
+        asserter.assertThat(() -> repository.findByFirstEventSpaceContaining("UniqueSpaceKeyword"), found -> {
+            assertThat(found).isNotEmpty();
+            assertThat(found.stream().anyMatch(a -> a.id().equals(article.id()))).isTrue();
+        });
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldFindWithDistribution(UniAsserter asserter) {
+        final var album = newAlbum("WithDistribution Search Album");
+        final var article = AlbumArticle.create(
+                album.id(),
+                null,
+                null,
+                null,
+                null,
+                AlbumDistribution.create(
+                        Price.of(1000),
+                        null,
+                        null,
+                        null));
+
+        asserter.execute(() -> albumRepository.save(album));
+        asserter.execute(() -> repository.save(article));
+
+        asserter.assertThat(
+                () -> repository.findWithDistribution(),
+                found -> assertThat(found.stream().anyMatch(a -> a.id().equals(article.id()))).isTrue());
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldFindWithAcquisitionChannels(UniAsserter asserter) {
+        final var album = newAlbum("WithChannels Search Album");
+        final var article = AlbumArticle.create(
+                album.id(),
+                null,
+                null,
+                null,
+                null,
+                null)
+                .addAcquisitionChannel(
+                        AlbumAcquisitionChannel.create(
+                                ChannelType.EVENT,
+                                "Search Channel",
+                                null,
+                                null));
+
+        asserter.execute(() -> albumRepository.save(album));
+        asserter.execute(() -> repository.save(article));
+
+        asserter.assertThat(
+                () -> repository.findWithAcquisitionChannels(),
+                found -> assertThat(found.stream().anyMatch(a -> a.id().equals(article.id()))).isTrue());
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldHandleNullInputs(UniAsserter asserter) {
+        assertThatThrownBy(() -> repository.save(null)).isInstanceOf(NullPointerException.class);
+
+        asserter.assertThat(() -> repository.findById(null), found -> assertThat(found).isNull());
+
+        asserter.assertThat(() -> repository.existsById(null), exists -> assertThat(exists).isFalse());
+
+        asserter.execute(() -> repository.deleteById(null));
     }
 }

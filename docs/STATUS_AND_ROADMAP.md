@@ -18,11 +18,11 @@
 | **アプリケーション層** | 🟢 4集約でCreate/Get/Update/Delete/List縦通し済み | `CommandService` / `QueryService` 基底に加え、Article/Tune/Album/AlbumArticle 各集約の Command（`Create*Service`/`Update*Service`/`Delete*Service`）/ Query（`Get*Service`/`List*Service` + `*View`）を実装。Update はCreate相当フィールドのみのPUT風全項目置換、Deleteはべき等、Listはページネーション付き |
 | **プレゼンテーション層** | 🟢 4集約でCreate/Get/Update/Delete/List縦通し済み | Article/Tune/Album/AlbumArticle 各集約の REST（`*CommandResource` / `*QueryResource` + Request/Response DTO）、RFC9457 `ProblemDetail` + `DomainExceptionMapper` を実装。サンプル `GreetingResource` / `HealthResource` は残置。PUT/DELETE、一覧GETも4集約で実装済み |
 | **共通基盤（lib）** | 🟢 完成 | `Result`（combinator `map`/`flatMap`/`zip` 含む）/ `ErrorResult` を実装。ドメイン例外階層（`DomainException` 抽象基底 + `ValidationException`/`EntityNotFoundException`/`BusinessRuleViolationException`）も整備済み |
-| **テスト** | 🟡 ユニット充実・統合は選択的 | VO/集約/エンティティのユニット、Article/Tune/Album/AlbumArticle のアプリ層/例外マッパーのユニット、各集約の REST の E2E 統合テスト、`AlbumRepositoryImplTest` / `AlbumArticleRepositoryImplTest` / `ArticleRepositoryImplTest`。残る統合テストは §4.1 |
+| **テスト** | 🟡 ユニット充実・統合は選択的 | VO/集約/エンティティのユニット、Article/Tune/Album/AlbumArticle のアプリ層/例外マッパーのユニット、各集約の REST の E2E 統合テスト、4集約全ての `*RepositoryImplTest`（CRUD・検索を網羅）。残る統合テストは §4.1（Phase 9） |
 | **静的解析** | 🟢 完了 | Checkstyle + Spotless + PMD + ArchUnit + NullAway で多層強制（レイヤ依存方向・配置・戻り値契約・機能的スタイル・コンパイル時 null 安全）。強制設計・対象ルールは [CODING_GUIDELINES.md](CODING_GUIDELINES.md) 静的解析ガバナンス節。SpotBugs / PMD 組込ルールセットの再導入のみフェーズB で検討（§5 フェーズB） |
 | **フロントエンド** | ⬜ 未調査 | `frontend-admin`（Svelte）/ `frontend-public`（Svelte+Astro）。本ドキュメントの対象外 |
 
-**一言でいうと**: **Article / Tune / Album / AlbumArticle の4集約で domain→app→REST→統合テストの Create/Get/Update/Delete/List 縦通しが完了**（`tracks`/`acquisitionChannels` 等の子コレクションへの追加系ユースケースは対象外のまま）。次に積むべきは、残る統合テスト（§4.1、#45）です。
+**一言でいうと**: **Article / Tune / Album / AlbumArticle の4集約で domain→app→REST→統合テストの Create/Get/Update/Delete/List 縦通しが完了**（`tracks`/`acquisitionChannels` 等の子コレクションへの追加系ユースケースは対象外のまま）。次に積むべきは、DataSource 統合テスト（§4.1 Phase 9）です。
 
 ---
 
@@ -96,7 +96,6 @@ DomainException (abstract, errorCode付き)
 
 ### 4.1 ユニット/統合テスト（`UNIT_TEST_PLAN.md`）
 
-- Phase 7: RepositoryImpl 統合テスト（`AlbumRepositoryImpl` 済み。`AlbumArticleRepositoryImpl` / `ArticleRepositoryImpl` は #39/#40/#41 観点のみ部分実装・全CRUD網羅は未着手。残り `TuneRepositoryImpl` は未着手） → #45
 - Phase 9: DataSource 統合テスト（Read Model 用の単純な `findByDomainId` は4集約とも整備済み。DataSource 自体の統合テストは未着手）
 
 ### 4.2 アプリケーション層 / プレゼンテーション層
@@ -110,12 +109,9 @@ DomainException (abstract, errorCode付き)
 
 ## 5. 推奨再開ロードマップ（優先度順）
 
-> 方針: 「動く縦の1本」を最優先で通し、そのうえで横展開・品質ゲートを固める。Article 集約で確立した domain→app→REST→統合テストの縦通しパターンは、Tune / Album / AlbumArticle への横展開（Create/Get/Update/Delete/List）が完了した。
+> 方針: 「動く縦の1本」を最優先で通し、そのうえで横展開・品質ゲートを固める。Article 集約で確立した domain→app→REST→統合テストの縦通しパターンは、Tune / Album / AlbumArticle への横展開（Create/Get/Update/Delete/List、RepositoryImpl統合テスト含む）が完了した。
 
-### フェーズ A: 各集約の深さ方向の拡張（現在地）
-1. RepositoryImpl 統合テスト（Phase 7）を残り集約に追加（#45）
-
-### フェーズ B: 品質ゲート
+### フェーズ B: 品質ゲート（現在地）
 1. **ArchUnit 残ルールの点検**（[CODING_GUIDELINES.md](CODING_GUIDELINES.md) 静的解析ガバナンス節）: 命名・配置・戻り値型契約は先行導入済み。追加するのは §2 の規約だけでは述語を書けず**具体実装がないと表現できない**真に構造依存なルールに限る（原則として想定なし。必要が生じた時点で判断）
 2. DataSource 統合テスト（Phase 9）、カバレッジ計測（JaCoCo導入検討）
 3. **SpotBugs / PMD 組込ルールセットの再導入検討**: SpotBugs 4.10.2（Gradle plugin 6.5.8）は Java25 対応済み。バグパターン系を SpotBugs、collection/security 系を PMD 組込ルールセットで補う。本プロジェクト固有規約（[CODING_GUIDELINES.md](CODING_GUIDELINES.md) 静的解析ガバナンス節）とは別系統で、導入時に顕在化する違反の段階是正・除外スコープ設計が要る。品質ゲート＝ポリシー変更のため都度承認のうえ実施
