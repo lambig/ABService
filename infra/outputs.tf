@@ -3,6 +3,11 @@ output "cloudfront_domain_name" {
   value       = aws_cloudfront_distribution.main.domain_name
 }
 
+output "ecr_repository_url" {
+  description = "backendコンテナイメージのpush/pull先ECRリポジトリURL"
+  value       = aws_ecr_repository.backend.repository_url
+}
+
 output "ec2_instance_id" {
   description = "backend EC2インスタンスID（SSM Session Manager接続に使用）"
   value       = aws_instance.backend.id

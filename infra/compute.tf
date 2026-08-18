@@ -62,6 +62,22 @@ resource "aws_iam_role_policy" "app" {
         Effect   = "Allow"
         Action   = "s3:ListBucket"
         Resource = aws_s3_bucket.assets.arn
+      },
+      {
+        Sid      = "EcrAuth"
+        Effect   = "Allow"
+        Action   = "ecr:GetAuthorizationToken"
+        Resource = "*"
+      },
+      {
+        Sid    = "EcrPullBackendImage"
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchGetImage",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer"
+        ]
+        Resource = aws_ecr_repository.backend.arn
       }
     ]
   })
