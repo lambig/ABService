@@ -67,27 +67,32 @@ public class CreateAlbumService implements CommandService<CreateAlbumInput, Crea
 
     static Result<Album> validate(CreateAlbumInput input) {
         return Result.zip(
-                AlbumTitle.fromInput(input.title()),
-                resolveReleaseDate(input.releaseDate()),
-                ArtistCredit.fromInput(input.artistDisplayName(), input.artistSortKey()),
-                TitleDateArtist::new)
-                .flatMap(
-                        base -> resolveOptional(CatalogNumber::fromInput, input.catalogNumber())
-                                .flatMap(
-                                        catalogNumber -> resolveOptional(Isdn::fromInput, input.isdn())
-                                                .flatMap(
-                                                        isdn -> resolveEvent(input.event())
-                                                                .map(
-                                                                        event -> Album.create(
-                                                                                base.title(),
-                                                                                base.releaseDate(),
-                                                                                base.artistCredit(),
-                                                                                event.orElse(null),
-                                                                                catalogNumber.orElse(null),
-                                                                                isdn.orElse(null))))));
+                Result.zip(
+                        AlbumTitle.fromInput(input.title()),
+                        resolveReleaseDate(input.releaseDate()),
+                        ArtistCredit.fromInput(input.artistDisplayName(), input.artistSortKey()),
+                        TitleDateArtist::new),
+                Result.zip(
+                        resolveOptional(CatalogNumber::fromInput, input.catalogNumber()),
+                        resolveOptional(Isdn::fromInput, input.isdn()),
+                        resolveEvent(input.event()),
+                        OptionalFields::new),
+                (base, optional) -> Album.create(
+                        base.title(),
+                        base.releaseDate(),
+                        base.artistCredit(),
+                        optional.event().orElse(null),
+                        optional.catalogNumber().orElse(null),
+                        optional.isdn().orElse(null)));
     }
 
     private record TitleDateArtist(AlbumTitle title, BusinessDate releaseDate, ArtistCredit artistCredit) {
+    }
+
+    private record OptionalFields(
+            Optional<CatalogNumber> catalogNumber,
+            Optional<Isdn> isdn,
+            Optional<EventReleasedAt> event) {
     }
 
     private static Result<BusinessDate> resolveReleaseDate(@Nullable String value) {

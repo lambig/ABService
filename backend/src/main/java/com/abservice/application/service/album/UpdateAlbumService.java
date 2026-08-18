@@ -75,29 +75,31 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
 
     static Result<Album> validateAndApply(Album existing, UpdateAlbumInput input) {
         return Result.zip(
-                AlbumTitle.fromInput(input.title()),
-                resolveReleaseDate(input.releaseDate()),
-                ArtistCredit.fromInput(input.artistDisplayName(), input.artistSortKey()),
-                TitleDateArtist::new)
-                .flatMap(
-                        base -> resolveOptional(CatalogNumber::fromInput, input.catalogNumber())
-                                .flatMap(
-                                        catalogNumber -> resolveOptional(Isdn::fromInput, input.isdn())
-                                                .flatMap(
-                                                        isdn -> resolveEvent(input.event())
-                                                                .map(
-                                                                        event -> existing.changeTitle(base.title())
-                                                                                .changeReleaseDate(base.releaseDate())
-                                                                                .changeArtistCredit(
-                                                                                        base.artistCredit())
-                                                                                .changeEventReleasedAt(
-                                                                                        event.orElse(null))
-                                                                                .changeCatalogNumber(
-                                                                                        catalogNumber.orElse(null))
-                                                                                .changeIsdn(isdn.orElse(null))))));
+                Result.zip(
+                        AlbumTitle.fromInput(input.title()),
+                        resolveReleaseDate(input.releaseDate()),
+                        ArtistCredit.fromInput(input.artistDisplayName(), input.artistSortKey()),
+                        TitleDateArtist::new),
+                Result.zip(
+                        resolveOptional(CatalogNumber::fromInput, input.catalogNumber()),
+                        resolveOptional(Isdn::fromInput, input.isdn()),
+                        resolveEvent(input.event()),
+                        OptionalFields::new),
+                (base, optional) -> existing.changeTitle(base.title())
+                        .changeReleaseDate(base.releaseDate())
+                        .changeArtistCredit(base.artistCredit())
+                        .changeEventReleasedAt(optional.event().orElse(null))
+                        .changeCatalogNumber(optional.catalogNumber().orElse(null))
+                        .changeIsdn(optional.isdn().orElse(null)));
     }
 
     private record TitleDateArtist(AlbumTitle title, BusinessDate releaseDate, ArtistCredit artistCredit) {
+    }
+
+    private record OptionalFields(
+            Optional<CatalogNumber> catalogNumber,
+            Optional<Isdn> isdn,
+            Optional<EventReleasedAt> event) {
     }
 
     private static Result<BusinessDate> resolveReleaseDate(@Nullable String value) {

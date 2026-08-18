@@ -104,6 +104,26 @@ class UpdateAlbumServiceTest {
     }
 
     @Test
+    @DisplayName("必須項目とISDNの両方が不正なら両方のエラーを集約する（zipによる独立検証の集約）")
+    void invalidRequiredFieldAndIsdnAggregatesErrorsAcrossGroups() {
+        final var result = UpdateAlbumService.validateAndApply(
+                existingAlbum(),
+                new UpdateAlbumInput(
+                        null,
+                        "   ",
+                        "2026-01-01",
+                        "新アーティスト",
+                        null,
+                        null,
+                        "0000000000000",
+                        null));
+
+        assertThat(result).isInstanceOf(Result.Failure.class);
+        assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
+                .contains("ALBUM_TITLE_REQUIRED", "ISDN_INVALID_FORMAT");
+    }
+
+    @Test
     @DisplayName("ISDN・初出イベント情報を指定すると成功し置換される")
     void validIsdnAndEventSucceeds() {
         final var updated = UpdateAlbumService.validateAndApply(
