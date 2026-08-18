@@ -1,0 +1,35 @@
+# EC2上でdocker composeにより単体起動するJVMモードのbackendイメージ。
+# ECS/Lambda等のオーケストレーション基盤を使わないため、単体実行用のシンプルな構成でよい。
+
+FROM amazoncorretto:25 AS build
+
+# 素のal2023最小構成にはGradle Wrapperが要求するfindutils（xargs）が含まれないため追加する。
+RUN dnf install -y findutils && dnf clean all
+
+WORKDIR /workspace
+
+COPY gradlew ./
+COPY gradle/ ./gradle/
+COPY build.gradle settings.gradle gradle.properties lombok.config ./
+COPY config/ ./config/
+RUN chmod +x gradlew
+
+COPY src/main ./src/main
+
+RUN ./gradlew --no-daemon quarkusBuild -x test
+
+FROM amazoncorretto:25-al2023-headless AS runtime
+
+# al2023-headlessにはshadow-utils（groupadd/useradd）が無いため、既存ユーザー名を作らず
+# 非rootの数値UID/GIDを直接指定する。
+WORKDIR /deployments
+
+# gradle.propertiesのquarkus.package.type=uber-jarによりuber jar（単一実行可能jar）が出力される
+# （標準のfast-jar構成のlib/app/quarksディレクトリは生成されない）。
+COPY --from=build --chown=1000:1000 /workspace/build/*-runner.jar ./app.jar
+
+USER 1000:1000
+
+EXPOSE 8080
+
+ENTRYPOINT ["java", "-jar", "app.jar"]

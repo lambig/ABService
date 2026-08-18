@@ -166,7 +166,6 @@ ehthumbs.db
 Thumbs.db
 
 # Docker
-.dockerignore
 docker/*/data/
 docker/*/logs/
 
