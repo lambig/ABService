@@ -1,6 +1,7 @@
 package com.abservice.application.service.album;
 
 import com.abservice.application.service.CommandService;
+import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.vo.album.AlbumTitle;
@@ -23,26 +24,23 @@ import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
 
 /**
- * アルバム作成コマンドサービス
+ * アルバム更新コマンドサービス
  *
  * <p>
- * 外部入力（{@link CreateAlbumInput}）から新規 {@link Album} を生成して永続化するユースケースです。
+ * 外部入力（{@link UpdateAlbumInput}）から既存 {@link Album} のCreate相当フィールド
+ * （title/releaseDate/artistCredit/eventReleasedAt/catalogNumber/isdn）をPUT風に全項目置換する
+ * ユースケースです。トラックは対象外のため既存の値をそのまま維持します。
  * </p>
  *
  * <p>
  * 値検証はドメインの各値オブジェクトの {@code fromInput}（{@code Result} 返却）に委譲し、本サービスはそれらを
- * {@link Result#zip} で集約して {@code Album} を組み立てるオーケストレーションに徹します。検証失敗は
- * {@link ValidationException} に集約し、HTTP への変換は presentation 層の ExceptionMapper
- * が担います。
- * </p>
- *
- * <p>
- * {@link BusinessDate} は文字列からの直接生成を提供しないため（パース方式の解釈は境界層の責務）、リリース日・ 初出イベント開催日の
- * ISO-8601文字列の解釈は本サービスが担います。
+ * {@link Result#zip} で集約して既存 {@code Album} を更新後の状態へ組み替えるオーケストレーションに徹します。検証失敗は
+ * {@link ValidationException} に、対象アルバムの不在は {@link EntityNotFoundException}
+ * に集約し、HTTP への変換は presentation 層の ExceptionMapper が担います。
  * </p>
  */
 @ApplicationScoped
-public class CreateAlbumService implements CommandService<CreateAlbumInput, CreateAlbumOutput> {
+public class UpdateAlbumService implements CommandService<UpdateAlbumInput, UpdateAlbumOutput> {
 
     private final AlbumRepository albumRepository;
 
@@ -50,22 +48,32 @@ public class CreateAlbumService implements CommandService<CreateAlbumInput, Crea
      * @param albumRepository
      *            アルバムリポジトリ
      */
-    public CreateAlbumService(AlbumRepository albumRepository) {
+    public UpdateAlbumService(AlbumRepository albumRepository) {
         this.albumRepository = albumRepository;
     }
 
     @WithTransaction
     @Override
-    public Uni<CreateAlbumOutput> execute(CreateAlbumInput input) {
+    public Uni<UpdateAlbumOutput> execute(UpdateAlbumInput input) {
         return Uni.createFrom()
                 .item(
-                        () -> validate(input)
+                        () -> Album.Id.fromInput(input.albumId())
+                                .resolve(ValidationException::new))
+                .flatMap(this::findExisting)
+                .map(
+                        existing -> validateAndApply(existing, input)
                                 .resolve(ValidationException::new))
                 .flatMap(albumRepository::save)
-                .map(CreateAlbumService::toOutput);
+                .map(UpdateAlbumService::toOutput);
     }
 
-    static Result<Album> validate(CreateAlbumInput input) {
+    private Uni<Album> findExisting(Album.Id id) {
+        return albumRepository.findById(id)
+                .onItem().ifNull()
+                .failWith(() -> EntityNotFoundException.of("Album", id.value()));
+    }
+
+    static Result<Album> validateAndApply(Album existing, UpdateAlbumInput input) {
         return Result.zip(
                 Result.zip(
                         AlbumTitle.fromInput(input.title()),
@@ -77,13 +85,12 @@ public class CreateAlbumService implements CommandService<CreateAlbumInput, Crea
                         resolveOptional(Isdn::fromInput, input.isdn()),
                         resolveEvent(input.event()),
                         OptionalFields::new),
-                (base, optional) -> Album.create(
-                        base.title(),
-                        base.releaseDate(),
-                        base.artistCredit(),
-                        optional.event().orElse(null),
-                        optional.catalogNumber().orElse(null),
-                        optional.isdn().orElse(null)));
+                (base, optional) -> existing.changeTitle(base.title())
+                        .changeReleaseDate(base.releaseDate())
+                        .changeArtistCredit(base.artistCredit())
+                        .changeEventReleasedAt(optional.event().orElse(null))
+                        .changeCatalogNumber(optional.catalogNumber().orElse(null))
+                        .changeIsdn(optional.isdn().orElse(null)));
     }
 
     private record TitleDateArtist(AlbumTitle title, BusinessDate releaseDate, ArtistCredit artistCredit) {
@@ -112,13 +119,13 @@ public class CreateAlbumService implements CommandService<CreateAlbumInput, Crea
     }
 
     private static Result<Optional<EventReleasedAt>> resolveEvent(
-            CreateAlbumInput.@Nullable EventInput input) {
+            UpdateAlbumInput.@Nullable EventInput input) {
         return Optional.ofNullable(input)
-                .map(CreateAlbumService::validateEvent)
+                .map(UpdateAlbumService::validateEvent)
                 .orElseGet(() -> Result.<Optional<EventReleasedAt>>success(Optional.empty()));
     }
 
-    private static Result<Optional<EventReleasedAt>> validateEvent(CreateAlbumInput.EventInput input) {
+    private static Result<Optional<EventReleasedAt>> validateEvent(UpdateAlbumInput.EventInput input) {
         return resolveEventDate(input.date())
                 .flatMap(
                         date -> EventReleasedAt.fromInput(
@@ -168,8 +175,8 @@ public class CreateAlbumService implements CommandService<CreateAlbumInput, Crea
                 .orElseGet(() -> Result.<Optional<T>>success(Optional.empty()));
     }
 
-    private static CreateAlbumOutput toOutput(Album album) {
-        return new CreateAlbumOutput(
+    private static UpdateAlbumOutput toOutput(Album album) {
+        return new UpdateAlbumOutput(
                 album.id().value(),
                 album.title().value(),
                 album.releaseDate().asLocalDate().toString(),

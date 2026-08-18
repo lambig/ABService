@@ -160,6 +160,24 @@ class CreateAlbumServiceTest {
     }
 
     @Test
+    @DisplayName("必須項目とISDNの両方が不正なら両方のエラーを集約する（zipによる独立検証の集約）")
+    void invalidRequiredFieldAndIsdnAggregatesErrorsAcrossGroups() {
+        final var result = CreateAlbumService.validate(
+                new CreateAlbumInput(
+                        "   ",
+                        "2026-01-01",
+                        "アーティスト名",
+                        null,
+                        null,
+                        "0000000000000",
+                        null));
+
+        assertThat(result).isInstanceOf(Result.Failure.class);
+        assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
+                .contains("ALBUM_TITLE_REQUIRED", "ISDN_INVALID_FORMAT");
+    }
+
+    @Test
     @DisplayName("初出イベント名が未指定ならエラー")
     void blankEventNameFails() {
         final var result = CreateAlbumService.validate(

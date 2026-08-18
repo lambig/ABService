@@ -1,7 +1,8 @@
 package com.abservice.application.service.albumarticle;
 
 import com.abservice.application.service.CommandService;
-import com.abservice.application.service.albumarticle.CreateAlbumArticleInput.DistributionInput;
+import com.abservice.application.service.albumarticle.UpdateAlbumArticleInput.DistributionInput;
+import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.albumarticle.AlbumArticle;
@@ -10,7 +11,6 @@ import com.abservice.domain.model.vo.album.LabelTag;
 import com.abservice.domain.model.vo.common.Price;
 import com.abservice.domain.model.vo.common.Url;
 import com.abservice.domain.repository.albumarticle.AlbumArticleRepository;
-import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -20,26 +20,24 @@ import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
 
 /**
- * アルバム記事作成コマンドサービス
+ * アルバム記事更新コマンドサービス
  *
  * <p>
- * 外部入力（{@link CreateAlbumArticleInput}）から新規 {@link AlbumArticle}
- * を生成して永続化するユースケースです。
+ * 外部入力（{@link UpdateAlbumArticleInput}）から既存 {@link AlbumArticle} のCreate相当フィールド
+ * （introLong/introShort/firstEventSpace/labelTag/distribution）をPUT風に全項目置換する
+ * ユースケースです。入手経路は対象外のため既存の値をそのまま維持します。
  * </p>
  *
  * <p>
  * 値検証はドメインの各値オブジェクトの {@code fromInput}（{@code Result} 返却）に委譲し、本サービスはそれらを
- * {@link Result#zip} で集約して {@code AlbumArticle} を組み立てるオーケストレーションに徹します。検証失敗は
- * {@link ValidationException} に集約し、HTTP への変換は presentation 層の ExceptionMapper
- * が担います。
- * </p>
- *
- * <p>
- * 本サービスは {@code Album.Id.of} で不正な入力を捕捉して {@code Result} へ変換する境界層を担います。
+ * {@link Result#zip} で集約して既存 {@code AlbumArticle}
+ * を更新後の状態へ組み替えるオーケストレーションに徹します。検証失敗は {@link ValidationException} に、対象アルバム記事の不在は
+ * {@link EntityNotFoundException} に集約し、HTTP への変換は presentation 層の
+ * ExceptionMapper が担います。
  * </p>
  */
 @ApplicationScoped
-public class CreateAlbumArticleService implements CommandService<CreateAlbumArticleInput, CreateAlbumArticleOutput> {
+public class UpdateAlbumArticleService implements CommandService<UpdateAlbumArticleInput, UpdateAlbumArticleOutput> {
 
     private final AlbumArticleRepository albumArticleRepository;
 
@@ -47,57 +45,39 @@ public class CreateAlbumArticleService implements CommandService<CreateAlbumArti
      * @param albumArticleRepository
      *            アルバム記事リポジトリ
      */
-    public CreateAlbumArticleService(AlbumArticleRepository albumArticleRepository) {
+    public UpdateAlbumArticleService(AlbumArticleRepository albumArticleRepository) {
         this.albumArticleRepository = albumArticleRepository;
     }
 
     @WithTransaction
     @Override
-    public Uni<CreateAlbumArticleOutput> execute(CreateAlbumArticleInput input) {
+    public Uni<UpdateAlbumArticleOutput> execute(UpdateAlbumArticleInput input) {
         return Uni.createFrom()
                 .item(
-                        () -> validate(input)
+                        () -> Album.Id.fromInput(input.albumId())
+                                .resolve(ValidationException::new))
+                .flatMap(this::findExisting)
+                .map(
+                        existing -> validateAndApply(existing, input)
                                 .resolve(ValidationException::new))
                 .flatMap(albumArticleRepository::save)
-                .map(CreateAlbumArticleService::toOutput);
+                .map(UpdateAlbumArticleService::toOutput);
     }
 
-    static Result<AlbumArticle> validate(CreateAlbumArticleInput input) {
+    private Uni<AlbumArticle> findExisting(Album.Id id) {
+        return albumArticleRepository.findById(id)
+                .onItem().ifNull()
+                .failWith(() -> EntityNotFoundException.of("AlbumArticle", id.value()));
+    }
+
+    static Result<AlbumArticle> validateAndApply(AlbumArticle existing, UpdateAlbumArticleInput input) {
         return Result.zip(
-                resolveAlbumId(input.albumId()),
                 resolveLabelTag(input.labelTag()),
                 resolveDistribution(input.distribution()),
-                (albumId, labelTag, distribution) -> AlbumArticle.create(
-                        albumId,
-                        input.introLong(),
-                        input.introShort(),
-                        input.firstEventSpace(),
-                        labelTag.orElse(null),
-                        distribution.orElse(null)));
-    }
-
-    private static Result<Album.Id> resolveAlbumId(@Nullable String value) {
-        return Optional.ofNullable(value)
-                .filter(StringUtils::isNotBlank)
-                .map(CreateAlbumArticleService::parseAlbumId)
-                .orElseGet(
-                        () -> Result.failure(
-                                new ErrorResult(
-                                        "albumId",
-                                        "アルバムIDは必須です",
-                                        "ALBUM_ID_REQUIRED")));
-    }
-
-    private static Result<Album.Id> parseAlbumId(String value) {
-        try {
-            return Result.success(Album.Id.of(value));
-        } catch (IllegalArgumentException e) {
-            return Result.failure(
-                    new ErrorResult(
-                            "albumId",
-                            "アルバムIDの形式が不正です: " + value,
-                            "ALBUM_ID_INVALID"));
-        }
+                (labelTag, distribution) -> existing.updateIntro(input.introLong(), input.introShort())
+                        .changeFirstEventSpace(input.firstEventSpace())
+                        .updateLabelTag(labelTag.orElse(null))
+                        .setDistribution(distribution.orElse(null)));
     }
 
     private static Result<Optional<LabelTag>> resolveLabelTag(@Nullable String value) {
@@ -111,7 +91,7 @@ public class CreateAlbumArticleService implements CommandService<CreateAlbumArti
 
     private static Result<Optional<AlbumDistribution>> resolveDistribution(@Nullable DistributionInput input) {
         return Optional.ofNullable(input)
-                .map(CreateAlbumArticleService::validateDistribution)
+                .map(UpdateAlbumArticleService::validateDistribution)
                 .orElseGet(() -> Result.<Optional<AlbumDistribution>>success(Optional.empty()));
     }
 
@@ -145,8 +125,8 @@ public class CreateAlbumArticleService implements CommandService<CreateAlbumArti
                 .orElseGet(() -> Result.<Optional<Url>>success(Optional.empty()));
     }
 
-    private static CreateAlbumArticleOutput toOutput(AlbumArticle article) {
-        return new CreateAlbumArticleOutput(
+    private static UpdateAlbumArticleOutput toOutput(AlbumArticle article) {
+        return new UpdateAlbumArticleOutput(
                 article.id().value(),
                 article.introShort(),
                 Optional.ofNullable(article.labelTag())

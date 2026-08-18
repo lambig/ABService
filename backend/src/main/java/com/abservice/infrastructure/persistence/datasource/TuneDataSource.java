@@ -1,7 +1,10 @@
 package com.abservice.infrastructure.persistence.datasource;
 
 import com.abservice.infrastructure.persistence.entity.TuneTableRecord;
+import io.quarkus.hibernate.reactive.panache.PanacheQuery;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
+import io.quarkus.panache.common.Page;
+import io.quarkus.panache.common.Sort;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.hibernate.reactive.mutiny.Mutiny;
@@ -89,6 +92,25 @@ public class TuneDataSource implements PanacheRepositoryBase<TuneTableRecord, Lo
      */
     public Uni<List<TuneTableRecord>> findByDefaultKey(String defaultKey) {
         return list("defaultKey", defaultKey);
+    }
+
+    /**
+     * ページ指定でチューンを検索（一覧表示用）
+     *
+     * <p>
+     * 件数・総ページ数は返された {@link PanacheQuery} 自身の {@code count()}/{@code pageCount()}
+     * から取得する。
+     * </p>
+     *
+     * @param page
+     *            ページ番号（0始まり）
+     * @param size
+     *            1ページの件数
+     * @return ページングクエリ
+     */
+    public PanacheQuery<TuneTableRecord> pagedQuery(int page, int size) {
+        return findAll(Sort.by("tuneId"))
+                .page(Page.of(page, size));
     }
 
     /**

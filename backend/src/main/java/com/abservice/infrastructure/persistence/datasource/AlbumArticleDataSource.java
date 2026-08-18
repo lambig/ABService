@@ -2,7 +2,10 @@ package com.abservice.infrastructure.persistence.datasource;
 
 import com.abservice.infrastructure.persistence.entity.AlbumArticleTableRecord;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
+import io.quarkus.hibernate.reactive.panache.PanacheQuery;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
+import io.quarkus.panache.common.Page;
+import io.quarkus.panache.common.Sort;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.hibernate.reactive.mutiny.Mutiny;
@@ -151,6 +154,28 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
                                 + "LEFT JOIN FETCH a.albumDistribution " + "LEFT JOIN FETCH a.acquisitionChannels "
                                 + "WHERE a.domainId = :domainId",
                         AlbumTableRecord.class).setParameter("domainId", albumDomainId).getSingleResultOrNull());
+    }
+
+    /**
+     * ページ指定でアルバム記事を検索（一覧表示用・頒布情報/入手経路は含まない）
+     *
+     * <p>
+     * 一覧表示の Read
+     * Model（{@link com.abservice.application.query.albumarticle.model.AlbumArticleView}）は
+     * 頒布情報・入手経路を含まないフラットDTOのため、JOIN FETCHを伴わない単純なページングで問題ない （JOIN
+     * FETCH併用時のページング崩れを回避できる）。件数・総ページ数は返された {@link PanacheQuery} 自身の
+     * {@code count()}/{@code pageCount()} から取得する。
+     * </p>
+     *
+     * @param page
+     *            ページ番号（0始まり）
+     * @param size
+     *            1ページの件数
+     * @return ページングクエリ
+     */
+    public PanacheQuery<AlbumArticleTableRecord> pagedQuery(int page, int size) {
+        return findAll(Sort.by("albumId"))
+                .page(Page.of(page, size));
     }
 
     /**

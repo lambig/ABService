@@ -12,6 +12,7 @@ import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.tune.TuneKind;
 import com.abservice.domain.model.vo.tune.TuneTitle;
 import com.abservice.lib.ErrorResult;
+import com.abservice.lib.Result;
 import java.util.Objects;
 import java.util.function.Function;
 import lombok.EqualsAndHashCode;
@@ -409,7 +410,13 @@ public final class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
      */
     public record Id(@NonNull String value) implements EntityId<Tune> {
         public Id {
-            Policy.<String>all(
+            idPolicy(value)
+                    .verify(value, Function.identity())
+                    .resolve(Policy::illegalArgument);
+        }
+
+        private static Policy<String> idPolicy(@Nullable String value) {
+            return Policy.all(
                     Policy.of(
                             StringUtils::isNotBlank,
                             () -> new ErrorResult(
@@ -421,9 +428,7 @@ public final class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
                             () -> new ErrorResult(
                                     "value",
                                     "Tune ID must be a valid UUID: " + value,
-                                    "ID_INVALID_UUID")))
-                    .verify(value, Function.identity())
-                    .resolve(Policy::illegalArgument);
+                                    "ID_INVALID_UUID")));
         }
 
         /**
@@ -444,6 +449,23 @@ public final class Tune implements Aggregate<Tune, Tune.@NonNull Id> {
          */
         public static @NonNull Id of(@NonNull String value) {
             return new Id(value);
+        }
+
+        /**
+         * 外部入力（文字列）からTune.Idを生成します。
+         *
+         * <p>
+         * 例外をスローせず、検証結果を {@link Result} で返します。 信頼できる内部生成には {@link #of(String)}
+         * を使用してください。
+         * </p>
+         *
+         * @param value
+         *            ID値を表す文字列
+         * @return 成功時は {@code Id}、失敗時はエラー
+         */
+        public static Result<Id> fromInput(@Nullable String value) {
+            return idPolicy(value)
+                    .verify(value, Id::new);
         }
     }
 }

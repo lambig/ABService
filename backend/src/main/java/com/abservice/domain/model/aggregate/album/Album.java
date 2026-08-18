@@ -31,6 +31,7 @@ import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.lib.ErrorResult;
+import com.abservice.lib.Result;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.experimental.Accessors;
@@ -308,6 +309,25 @@ public final class Album implements Aggregate<Album, Album.Id> {
     }
 
     /**
+     * ISDNを変更
+     *
+     * @param newIsdn
+     *            新しいISDN
+     * @return 更新されたAlbum
+     */
+    public @NonNull Album changeIsdn(@Nullable Isdn newIsdn) {
+        return Album.factory(
+                id,
+                title,
+                releaseDate,
+                artistCredit,
+                eventReleasedAt,
+                catalogNumber,
+                newIsdn,
+                tracks);
+    }
+
+    /**
      * トラックを追加
      *
      * @param track
@@ -520,7 +540,13 @@ public final class Album implements Aggregate<Album, Album.Id> {
      */
     public record Id(@NonNull String value) implements EntityId<Album> {
         public Id {
-            Policy.<String>all(
+            idPolicy(value)
+                    .verify(value, Function.identity())
+                    .resolve(Policy::illegalArgument);
+        }
+
+        private static Policy<String> idPolicy(@Nullable String value) {
+            return Policy.all(
                     Policy.of(
                             StringUtils::isNotBlank,
                             () -> new ErrorResult(
@@ -530,9 +556,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                     Policy.of(
                             EntityId::isValidUuid,
                             () -> new ErrorResult("value", "Album ID must be a valid UUID: " + value,
-                                    "ID_INVALID_UUID")))
-                    .verify(value, Function.identity())
-                    .resolve(Policy::illegalArgument);
+                                    "ID_INVALID_UUID")));
         }
 
         /**
@@ -553,6 +577,23 @@ public final class Album implements Aggregate<Album, Album.Id> {
          */
         public static @NonNull Id of(@NonNull String value) {
             return new Id(value);
+        }
+
+        /**
+         * 外部入力（文字列）からAlbum.Idを生成します。
+         *
+         * <p>
+         * 例外をスローせず、検証結果を {@link Result} で返します。 信頼できる内部生成には {@link #of(String)}
+         * を使用してください。
+         * </p>
+         *
+         * @param value
+         *            ID値を表す文字列
+         * @return 成功時は {@code Id}、失敗時はエラー
+         */
+        public static Result<Id> fromInput(@Nullable String value) {
+            return idPolicy(value)
+                    .verify(value, Id::new);
         }
     }
 }
