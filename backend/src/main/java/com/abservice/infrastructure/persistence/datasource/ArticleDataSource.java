@@ -1,7 +1,10 @@
 package com.abservice.infrastructure.persistence.datasource;
 
 import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
+import io.quarkus.hibernate.reactive.panache.PanacheQuery;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
+import io.quarkus.panache.common.Page;
+import io.quarkus.panache.common.Sort;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.hibernate.reactive.mutiny.Mutiny;
@@ -138,6 +141,28 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleTableReco
                 session -> session
                         .createQuery(EAGER_SELECT + "WHERE a.title LIKE :keyword", ArticleTableRecord.class)
                         .setParameter("keyword", "%" + titleKeyword + "%").getResultList());
+    }
+
+    /**
+     * ページ指定で記事を検索（一覧表示用・タグは含まない）
+     *
+     * <p>
+     * 一覧表示の Read
+     * Model（{@link com.abservice.application.query.article.model.ArticleView}）は
+     * タグを含まないフラットDTOのため、JOIN FETCHを伴わない単純なページングで問題ない （JOIN
+     * FETCH併用時のページング崩れを回避できる）。件数・総ページ数は返された {@link PanacheQuery} 自身の
+     * {@code count()}/{@code pageCount()} から取得する。
+     * </p>
+     *
+     * @param page
+     *            ページ番号（0始まり）
+     * @param size
+     *            1ページの件数
+     * @return ページングクエリ
+     */
+    public PanacheQuery<ArticleTableRecord> pagedQuery(int page, int size) {
+        return findAll(Sort.by("articleId"))
+                .page(Page.of(page, size));
     }
 
     /**

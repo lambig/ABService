@@ -16,6 +16,7 @@ import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.model.vo.article.MarkupContent;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.lib.ErrorResult;
+import com.abservice.lib.Result;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -495,7 +496,13 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
                 "ID_BLANK");
 
         public Id {
-            Policy.<String>all(
+            idPolicy(value)
+                    .verify(value, Function.identity())
+                    .resolve(Policy::illegalArgument);
+        }
+
+        private static Policy<String> idPolicy(@Nullable String value) {
+            return Policy.all(
                     Policy.of(
                             StringUtils::isNotBlank,
                             ID_BLANK_ERROR),
@@ -504,9 +511,7 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
                             () -> new ErrorResult(
                                     "value",
                                     "Article ID must be a valid UUID: " + value,
-                                    "ID_INVALID_UUID")))
-                    .verify(value, Function.identity())
-                    .resolve(Policy::illegalArgument);
+                                    "ID_INVALID_UUID")));
         }
 
         /**
@@ -527,6 +532,23 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
          */
         public static @NonNull Id of(@NonNull String value) {
             return new Id(value);
+        }
+
+        /**
+         * 外部入力（文字列）からArticle.Idを生成します。
+         *
+         * <p>
+         * 例外をスローせず、検証結果を {@link com.abservice.lib.Result} で返します。 信頼できる内部生成には
+         * {@link #of(String)} を使用してください。
+         * </p>
+         *
+         * @param value
+         *            ID値を表す文字列
+         * @return 成功時は {@code Id}、失敗時はエラー
+         */
+        public static Result<Id> fromInput(@Nullable String value) {
+            return idPolicy(value)
+                    .verify(value, Id::new);
         }
     }
 

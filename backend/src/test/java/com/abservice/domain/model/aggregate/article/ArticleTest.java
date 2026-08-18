@@ -17,6 +17,7 @@ import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.model.vo.article.MarkupContent;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.lib.Result;
 
 @DisplayName("Article集約のテスト")
 class ArticleTest {
@@ -547,6 +548,43 @@ class ArticleTest {
             // Act & Assert
             assertThat(id2).isEqualTo(id1);
             assertThat(id2.hashCode()).isEqualTo(id1.hashCode());
+        }
+
+        @Test
+        @DisplayName("fromInputは有効なUUID文字列で成功すること")
+        void fromInputWithValidUuidShouldSucceed() {
+            // Arrange
+            final var validUuid = Article.Id.generate().value();
+
+            // Act
+            final var result = Article.Id.fromInput(validUuid);
+
+            // Assert
+            assertThat(result.resolve().value()).isEqualTo(validUuid);
+        }
+
+        @Test
+        @DisplayName("fromInputはnullでは例外を投げず失敗を返すこと")
+        void fromInputWithNullShouldFail() {
+            // Act
+            final var result = Article.Id.fromInput(null);
+
+            // Assert
+            assertThat(result).isInstanceOf(Result.Failure.class);
+            assertThat(((Result.Failure<Article.Id>) result).errors())
+                    .anySatisfy(e -> assertThat(e.code()).isEqualTo("ID_BLANK"));
+        }
+
+        @Test
+        @DisplayName("fromInputは不正なUUID形式では例外を投げず失敗を返すこと")
+        void fromInputWithInvalidUuidShouldFail() {
+            // Act
+            final var result = Article.Id.fromInput("invalid-uuid");
+
+            // Assert
+            assertThat(result).isInstanceOf(Result.Failure.class);
+            assertThat(((Result.Failure<Article.Id>) result).errors())
+                    .anySatisfy(e -> assertThat(e.code()).isEqualTo("ID_INVALID_UUID"));
         }
     }
 

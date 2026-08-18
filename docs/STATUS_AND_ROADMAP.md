@@ -15,14 +15,14 @@
 |---|---|---|
 | **ドメイン層** | 🟢 ほぼ完成 | 集約 `Album` / `AlbumArticle` / `Article` / `Tune`、VO 約20、`EventMatchingService`。検証は `Policy` へ移行済み。ビジネスロジックのユニットテスト充実 |
 | **インフラ層** | 🟢 完成 | JPAエンティティ・Mapper・RepositoryImpl（4集約）、Flyway、Reactive Panache |
-| **アプリケーション層** | 🟢 4集約でCreate/Get縦通し済み | `CommandService` / `QueryService` 基底に加え、Article/Tune/Album/AlbumArticle 各集約の Command（`Create*Service`）/ Query（`Get*Service` + `*View`）を実装。**各集約の残ユースケース（更新/削除、一覧Query）は未着手** |
-| **プレゼンテーション層** | 🟢 4集約でCreate/Get縦通し済み | Article/Tune/Album/AlbumArticle 各集約の REST（`*CommandResource` / `*QueryResource` + Request/Response DTO）、RFC9457 `ProblemDetail` + `DomainExceptionMapper` を実装。サンプル `GreetingResource` / `HealthResource` は残置。**各集約の残ユースケース向け Resource は未着手** |
+| **アプリケーション層** | 🟢 4集約でCreate/Get縦通し済み | `CommandService` / `QueryService` 基底に加え、Article/Tune/Album/AlbumArticle 各集約の Command（`Create*Service`）/ Query（`Get*Service` + `*View`）を実装。**Article は Update（PUT風全項目置換）/Delete（べき等）/List（ページネーション付き）も実装済み。Tune/Album/AlbumArticle は同ユースケース未着手** |
+| **プレゼンテーション層** | 🟢 4集約でCreate/Get縦通し済み | Article/Tune/Album/AlbumArticle 各集約の REST（`*CommandResource` / `*QueryResource` + Request/Response DTO）、RFC9457 `ProblemDetail` + `DomainExceptionMapper` を実装。サンプル `GreetingResource` / `HealthResource` は残置。**Article は PUT/DELETE、一覧GETも実装済み。Tune/Album/AlbumArticle は同 Resource 未着手** |
 | **共通基盤（lib）** | 🟢 完成 | `Result`（combinator `map`/`flatMap`/`zip` 含む）/ `ErrorResult` を実装。ドメイン例外階層（`DomainException` 抽象基底 + `ValidationException`/`EntityNotFoundException`/`BusinessRuleViolationException`）も整備済み |
 | **テスト** | 🟡 ユニット充実・統合は選択的 | VO/集約/エンティティのユニット、Article/Tune/Album/AlbumArticle のアプリ層/例外マッパーのユニット、各集約の REST の E2E 統合テスト、`AlbumRepositoryImplTest` / `AlbumArticleRepositoryImplTest` / `ArticleRepositoryImplTest`。残る統合テストは §4.1 |
 | **静的解析** | 🟢 完了 | Checkstyle + Spotless + PMD + ArchUnit + NullAway で多層強制（レイヤ依存方向・配置・戻り値契約・機能的スタイル・コンパイル時 null 安全）。強制設計・対象ルールは [CODING_GUIDELINES.md](CODING_GUIDELINES.md) 静的解析ガバナンス節。SpotBugs / PMD 組込ルールセットの再導入のみフェーズB で検討（§5 フェーズB） |
 | **フロントエンド** | ⬜ 未調査 | `frontend-admin`（Svelte）/ `frontend-public`（Svelte+Astro）。本ドキュメントの対象外 |
 
-**一言でいうと**: **Article / Tune / Album / AlbumArticle の4集約で domain→app→REST→統合テストの Create/Get 縦通しが完了**。次に積むべきは **各集約の残ユースケース（更新/削除、一覧Query、tracks/acquisitionChannels 等の子要素追加）** と、残る統合テスト（§4.1、#45）です。
+**一言でいうと**: **Article / Tune / Album / AlbumArticle の4集約で domain→app→REST→統合テストの Create/Get 縦通しが完了**。**Article は Update/Delete/List も実装済み**。次に積むべきは **Tune/Album/AlbumArticle への同ユースケース横展開（tracks/acquisitionChannels 等の子要素追加は対象外）** と、残る統合テスト（§4.1、#45）です。
 
 ---
 
@@ -101,7 +101,9 @@ DomainException (abstract, errorCode付き)
 
 ### 4.2 アプリケーション層 / プレゼンテーション層
 
-- 各集約（Article/Tune/Album/AlbumArticle）の残ユースケース（更新/削除、一覧 Query）
+- Tune/Album/AlbumArticle の残ユースケース（更新/削除、一覧 Query）。Article は実装済み
+  （Update は Create 相当フィールドのみのPUT風全項目置換、Delete はべき等204、List はページネーション付き。
+  公開状態・タグ等のライフサイクル系フィールドは対象外で専用コマンドの責務のまま）
 - Album の `tracks`、AlbumArticle の `acquisitionChannels`（コレクションへの追加系ユースケース）は
   Create/Get の横展開では対象外とした。`Album.create()`/`AlbumArticle.create()` 自体がコレクションを
   受け取らない設計のため。追加時は個別ユースケースとして設計する
@@ -113,7 +115,7 @@ DomainException (abstract, errorCode付き)
 > 方針: 「動く縦の1本」を最優先で通し、そのうえで横展開・品質ゲートを固める。Article 集約で確立した domain→app→REST→統合テストの縦通しパターンは、Tune / Album / AlbumArticle への横展開（Create/Get）が完了した。
 
 ### フェーズ A: 各集約の深さ方向の拡張（現在地）
-1. 各集約（Article/Tune/Album/AlbumArticle）の残ユースケース（更新/削除、一覧Query）を実装する
+1. Tune/Album/AlbumArticle の残ユースケース（更新/削除、一覧Query）を実装する（Article は実装済み）
 2. RepositoryImpl 統合テスト（Phase 7）を残り集約に追加（#45）
 
 ### フェーズ B: 品質ゲート
