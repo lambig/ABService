@@ -1,0 +1,12 @@
+# このファイルをコピーして backend.hcl を作成する。backend.hcl 自体は .gitignore 対象。
+#
+#   cp backend.hcl.example backend.hcl
+#   terraform init -backend-config=backend.hcl
+#
+# bucket/dynamodb_table は事前に手動で一度だけ作成しておく（README.md の「状態管理の初期セットアップ」参照）。
+
+bucket         = "<your-terraform-state-bucket>"
+key            = "abservice/terraform.tfstate"
+region         = "ap-northeast-1"
+dynamodb_table = "<your-terraform-lock-table>"
+encrypt        = true
