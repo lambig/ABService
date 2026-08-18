@@ -52,7 +52,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/your-username/ABService.git",
+    "url": "git+https://github.com/lambig/ABService.git",
     "directory": "frontend-admin"
   },
   "keywords": [
@@ -63,6 +63,6 @@
     "typescript",
     "tailwindcss"
   ],
-  "author": "Your Name",
+  "author": "Lambig",
   "license": "MIT"
 }
