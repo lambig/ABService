@@ -106,7 +106,7 @@ class AlbumRestIntegrationTest {
                 .body("{\"title\":\"   \",\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"アーティスト\"}").when()
                 .put("/api/v1/albums/" + albumId).then().statusCode(400).contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:VALIDATION_ERROR"))
-                .body("errors[0].field", equalTo("title"));
+                .body("errors[0].field", equalTo("value"));
     }
 
     @Test
