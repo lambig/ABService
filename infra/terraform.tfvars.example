@@ -1,0 +1,11 @@
+# このファイルをコピーして terraform.tfvars を作成し、実際の値を設定する。
+# terraform.tfvars 自体は .gitignore 対象（実際のドメイン名等をリポジトリに残さないため）。
+#
+#   cp terraform.tfvars.example terraform.tfvars
+
+domain_name = "<your-domain>"
+
+# 以下は変更したい場合のみ上書きする（デフォルトはvariables.tf参照）
+# aws_region        = "ap-northeast-1"
+# ec2_instance_type = "t4g.small"
+# db_instance_class = "db.t4g.micro"
