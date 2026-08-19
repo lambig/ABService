@@ -63,6 +63,34 @@ class ArticleDataSourceTest {
     @Test
     @TestReactiveTransaction
     @RunOnVertxContext
+    void shouldFindPublicByDomainId(UniAsserter asserter) {
+        final var entity = newArticle("Find Public By Domain Id").setIsPublic(true);
+
+        asserter.execute(() -> dataSource.persist(entity));
+
+        asserter.assertThat(() -> dataSource.findPublicByDomainId(entity.getDomainId()), found -> {
+            assertThat(found).isNotNull();
+            assertThat(found.getDomainId()).isEqualTo(entity.getDomainId());
+            assertThat(found.getTitle()).isEqualTo("Find Public By Domain Id");
+        });
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldReturnNullFromFindPublicByDomainIdWhenNotPublic(UniAsserter asserter) {
+        final var entity = newArticle("Draft Not Findable As Public");
+
+        asserter.execute(() -> dataSource.persist(entity));
+
+        asserter.assertThat(
+                () -> dataSource.findPublicByDomainId(entity.getDomainId()),
+                found -> assertThat(found).isNull());
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
     void shouldFindByIds(UniAsserter asserter) {
         final var entity1 = newArticle("Find By Ids 1");
         final var entity2 = newArticle("Find By Ids 2");
@@ -171,6 +199,26 @@ class ArticleDataSourceTest {
         asserter.execute(
                 () -> dataSource.pagedQuery(0, 2).list()
                         .invoke(page -> assertThat(page).hasSizeLessThanOrEqualTo(2)));
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldOnlyPageThroughPublicArticlesWithPagedPublicQuery(UniAsserter asserter) {
+        final var publicEntity = newArticle("Paged Public Query Article").setIsPublic(true);
+        final var draftEntity = newArticle("Paged Public Query Draft Article");
+
+        asserter.execute(() -> dataSource.persist(publicEntity));
+        asserter.execute(() -> dataSource.persist(draftEntity));
+
+        asserter.assertThat(
+                () -> dataSource.pagedPublicQuery(0, 100).list(),
+                found -> {
+                    assertThat(found.stream().anyMatch(a -> a.getDomainId().equals(publicEntity.getDomainId())))
+                            .isTrue();
+                    assertThat(found.stream().anyMatch(a -> a.getDomainId().equals(draftEntity.getDomainId())))
+                            .isFalse();
+                });
     }
 
     @Test
