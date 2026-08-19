@@ -49,6 +49,8 @@ Terraform適用は`terraform plan`で差分を確認してから`apply`する運
 
 デプロイはmainへのpushで自動実行される（ビルド→ECR push→SSM Run Command経由でEC2上の`/opt/abservice/deploy.sh`を実行しpull・再起動）。GitHub ActionsはOIDC連携で一時認証情報を取得するため、長期のAWSアクセスキーは発行・保存しない（`aws_iam_openid_connect_provider.github_actions`）。
 
+`AWS_DEPLOY_ROLE_ARN`未設定の間は`deploy.yml`のjobがskipされ、mainへのpushでも何も実行されない。上表のAction variables設定後、次回のmainへのpushから自動的に有効化される。
+
 ## ロールバック（backendデプロイ）
 
 ECRのライフサイクルポリシーにより直近10件のタグ付きイメージが保持される。障害時は`.github/workflows/deploy.yml`を`workflow_dispatch`で手動起動し、`image_tag`に直前の正常なタグ（gitのshort SHA）を指定して再デプロイする（再ビルドは行わず、ECRの既存イメージをそのままEC2へpull・再起動するだけなので数十秒で完了する）。ロールバック後、mainブランチの履歴は`git revert`で追随させる（force-push・履歴書き換えはしない）。
