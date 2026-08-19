@@ -7,6 +7,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
 import io.quarkus.test.vertx.UniAsserter;
 import jakarta.inject.Inject;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -69,6 +70,33 @@ class AlbumDataSourceTest {
     void shouldReturnNullWhenDomainIdNotFound(UniAsserter asserter) {
         asserter.assertThat(
                 () -> dataSource.findByDomainId(UUID.randomUUID().toString()),
+                found -> assertThat(found).isNull());
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldFindPublicByDomainId(UniAsserter asserter) {
+        final var entity = newAlbum("Find Public By Domain Id").setPublishedAt(Instant.parse("2024-06-01T00:00:00Z"));
+
+        asserter.execute(() -> dataSource.persist(entity));
+
+        asserter.assertThat(() -> dataSource.findPublicByDomainId(entity.getDomainId()), found -> {
+            assertThat(found).isNotNull();
+            assertThat(found.getDomainId()).isEqualTo(entity.getDomainId());
+        });
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldReturnNullFromFindPublicByDomainIdWhenNotPublished(UniAsserter asserter) {
+        final var entity = newAlbum("Draft Not Findable As Public");
+
+        asserter.execute(() -> dataSource.persist(entity));
+
+        asserter.assertThat(
+                () -> dataSource.findPublicByDomainId(entity.getDomainId()),
                 found -> assertThat(found).isNull());
     }
 
@@ -205,6 +233,27 @@ class AlbumDataSourceTest {
         asserter.execute(
                 () -> dataSource.pagedQuery(0, 2).list()
                         .invoke(page -> assertThat(page).hasSizeLessThanOrEqualTo(2)));
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldOnlyPageThroughPublishedAlbumsWithPagedPublicQuery(UniAsserter asserter) {
+        final var publishedEntity = newAlbum("Paged Public Query Album")
+                .setPublishedAt(Instant.parse("2024-06-01T00:00:00Z"));
+        final var draftEntity = newAlbum("Paged Public Query Draft Album");
+
+        asserter.execute(() -> dataSource.persist(publishedEntity));
+        asserter.execute(() -> dataSource.persist(draftEntity));
+
+        asserter.assertThat(
+                () -> dataSource.pagedPublicQuery(0, 100).list(),
+                found -> {
+                    assertThat(found.stream().anyMatch(a -> a.getDomainId().equals(publishedEntity.getDomainId())))
+                            .isTrue();
+                    assertThat(found.stream().anyMatch(a -> a.getDomainId().equals(draftEntity.getDomainId())))
+                            .isFalse();
+                });
     }
 
     @Test

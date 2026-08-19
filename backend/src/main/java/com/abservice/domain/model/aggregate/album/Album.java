@@ -27,8 +27,10 @@ import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
+import com.abservice.domain.model.vo.album.Publication;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
@@ -70,6 +72,12 @@ public final class Album implements Aggregate<Album, Album.Id> {
     /** ISDN */
     @Nullable
     private final Isdn isdn;
+    /**
+     * 公開情報（Null
+     * Objectパターン。{@code Publication.Draft}=下書き、{@code Publication.Published}=公開中）
+     */
+    @NonNull
+    private final Publication publication;
     /** トラックのリスト */
     @NonNull
     private final List<Track> tracks;
@@ -86,10 +94,17 @@ public final class Album implements Aggregate<Album, Album.Id> {
             "Artist credit cannot be null",
             "ARTIST_CREDIT_REQUIRED");
 
+    /** publication必須違反時のエラー */
+    private static final ErrorResult PUBLICATION_REQUIRED_ERROR = new ErrorResult(
+            "publication",
+            "Publication cannot be null",
+            "PUBLICATION_REQUIRED");
+
     @DomainConstructor
     private Album(@NonNull Id id, @NonNull AlbumTitle title, @NonNull BusinessDate releaseDate,
             @NonNull ArtistCredit artistCredit, @Nullable EventReleasedAt eventReleasedAt,
-            @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn, @NonNull List<Track> tracks) {
+            @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn, @NonNull Publication publication,
+            @NonNull List<Track> tracks) {
         this.id = id;
         this.title = title;
         this.releaseDate = releaseDate;
@@ -97,6 +112,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
         this.eventReleasedAt = eventReleasedAt;
         this.catalogNumber = catalogNumber;
         this.isdn = isdn;
+        this.publication = publication;
         this.tracks = tracks;
     }
 
@@ -104,14 +120,17 @@ public final class Album implements Aggregate<Album, Album.Id> {
     private static @NonNull Album factory(@Nullable Id id, @Nullable AlbumTitle title,
             @Nullable BusinessDate releaseDate, @Nullable ArtistCredit artistCredit,
             @Nullable EventReleasedAt eventReleasedAt, @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn,
-            @Nullable List<Track> tracks) {
+            @Nullable Publication publication, @Nullable List<Track> tracks) {
         return Policy.<Stub>all(
                 Policy.of(
                         self -> self.title() != null,
                         TITLE_REQUIRED_ERROR),
                 Policy.of(
                         self -> self.artistCredit() != null,
-                        ARTIST_CREDIT_REQUIRED_ERROR))
+                        ARTIST_CREDIT_REQUIRED_ERROR),
+                Policy.of(
+                        self -> self.publication() != null,
+                        PUBLICATION_REQUIRED_ERROR))
                 .verify(
                         new Stub(
                                 id,
@@ -121,6 +140,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                                 eventReleasedAt,
                                 catalogNumber,
                                 isdn,
+                                publication,
                                 tracks),
                         Stub::asAlbum)
                 .resolve(Policy::illegalArgument);
@@ -128,7 +148,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
 
     @NullUnmarked
     private record Stub(Id id, AlbumTitle title, BusinessDate releaseDate, ArtistCredit artistCredit,
-            EventReleasedAt eventReleasedAt, CatalogNumber catalogNumber, Isdn isdn, List<Track> tracks) {
+            EventReleasedAt eventReleasedAt, CatalogNumber catalogNumber, Isdn isdn, Publication publication,
+            List<Track> tracks) {
 
         @AggregateFactory
         @NonNull
@@ -141,6 +162,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                     eventReleasedAt(),
                     catalogNumber(),
                     isdn(),
+                    Objects.requireNonNull(publication),
                     Objects.requireNonNull(tracks));
         }
     }
@@ -173,6 +195,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
+                Publication.draft(),
                 Collections.emptyList());
     }
 
@@ -193,6 +216,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
      *            カタログ番号（nullable）
      * @param isdn
      *            ISDN（nullable）
+     * @param publication
+     *            公開情報（non-null。{@code Publication.draft()}=下書き）
      * @param tracks
      *            トラックリスト
      * @return 再構成されたAlbum
@@ -201,7 +226,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
     public static @NonNull Album reconstruct(@NonNull Id id, @NonNull AlbumTitle title,
             @NonNull BusinessDate releaseDate, @NonNull ArtistCredit artistCredit,
             @Nullable EventReleasedAt eventReleasedAt, @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn,
-            @NonNull List<Track> tracks) {
+            @NonNull Publication publication, @NonNull List<Track> tracks) {
         return Album.factory(
                 id,
                 title,
@@ -210,6 +235,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
+                publication,
                 tracks);
     }
 
@@ -229,6 +255,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
+                publication,
                 tracks);
     }
 
@@ -248,6 +275,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
+                publication,
                 tracks);
     }
 
@@ -267,6 +295,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
+                publication,
                 tracks);
     }
 
@@ -286,6 +315,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 newEventReleasedAt,
                 catalogNumber,
                 isdn,
+                publication,
                 tracks);
     }
 
@@ -305,6 +335,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 newCatalogNumber,
                 isdn,
+                publication,
                 tracks);
     }
 
@@ -324,7 +355,59 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 catalogNumber,
                 newIsdn,
+                publication,
                 tracks);
+    }
+
+    /**
+     * アルバムを公開
+     *
+     * <p>
+     * 既に公開中の場合は最初に公開した日時を据え置く（再公開で公開日時が繰り下がらない）。
+     * </p>
+     *
+     * @param currentDateTime
+     *            現在日時
+     * @return 更新されたAlbum
+     */
+    public @NonNull Album publish(@NonNull BusinessDateTime currentDateTime) {
+        return Album.factory(
+                id,
+                title,
+                releaseDate,
+                artistCredit,
+                eventReleasedAt,
+                catalogNumber,
+                isdn,
+                Publication.published(publication.publishedAt().orElse(currentDateTime)),
+                tracks);
+    }
+
+    /**
+     * アルバムを非公開化
+     *
+     * @return 更新されたAlbum
+     */
+    public @NonNull Album unpublish() {
+        return Album.factory(
+                id,
+                title,
+                releaseDate,
+                artistCredit,
+                eventReleasedAt,
+                catalogNumber,
+                isdn,
+                Publication.draft(),
+                tracks);
+    }
+
+    /**
+     * 公開中かどうか
+     *
+     * @return 公開中の場合true
+     */
+    public boolean isPublished() {
+        return publication.isPublished();
     }
 
     /**
@@ -359,6 +442,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
+                publication,
                 Stream.concat(tracks.stream(), Stream.of(validatedTrack)).toList());
     }
 
@@ -388,6 +472,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
+                publication,
                 tracks.stream().filter(not(t -> t.hasId(validatedTrackId))).toList());
     }
 
@@ -434,6 +519,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                                 eventReleasedAt,
                                 catalogNumber,
                                 isdn,
+                                publication,
                                 newTracks))
                 .get();
     }
@@ -454,6 +540,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
+                publication,
                 Collections.unmodifiableList(renumberByOrder(validateOrderedTrackIds(orderedTrackIds))));
     }
 

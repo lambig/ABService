@@ -78,6 +78,21 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, 
     }
 
     /**
+     * ドメインIDかつ公開中（{@code publishedAt}が非null）でアルバムを検索
+     *
+     * <p>
+     * 公開向けQuery（{@code GetAlbumService}）専用。下書きは存在しないものとして{@code null}を返す。
+     * </p>
+     *
+     * @param domainId
+     *            アルバムのドメインID
+     * @return 公開中かつ該当するアルバム（下書き・未存在の場合はnull）
+     */
+    public Uni<AlbumTableRecord> findPublicByDomainId(String domainId) {
+        return find("domainId = ?1 and publishedAt is not null", domainId).firstResult();
+    }
+
+    /**
      * IDでアルバムを検索（トラック含む）
      *
      * @param domainId
@@ -196,6 +211,27 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, 
      */
     public PanacheQuery<AlbumTableRecord> pagedQuery(int page, int size) {
         return findAll(Sort.by("albumId"))
+                .page(Page.of(page, size));
+    }
+
+    /**
+     * ページ指定で公開中のアルバムのみを検索（一覧表示用・トラックは含まない）
+     *
+     * <p>
+     * 公開向けQuery（{@code ListAlbumsService}）専用。{@link #pagedQuery(int, int)}
+     * と同様の一覧向けページングだが、{@code publishedAt}が非nullのアルバムのみを対象にする。
+     * </p>
+     *
+     * @param page
+     *            ページ番号（0始まり）
+     * @param size
+     *            1ページの件数
+     * @return ページングクエリ（公開中のみ）
+     */
+    public PanacheQuery<AlbumTableRecord> pagedPublicQuery(int page, int size) {
+        return find(
+                "publishedAt is not null",
+                Sort.by("albumId"))
                 .page(Page.of(page, size));
     }
 

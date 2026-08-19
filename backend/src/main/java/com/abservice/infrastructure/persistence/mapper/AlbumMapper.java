@@ -9,9 +9,11 @@ import com.abservice.domain.model.aggregate.album.TrackTune;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
+import com.abservice.domain.model.vo.album.Publication;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.domain.model.vo.common.Url;
@@ -59,6 +61,7 @@ public final class AlbumMapper {
                 Optional.ofNullable(entity.getIsdn())
                         .map(Isdn::new)
                         .orElse(null),
+                buildPublication(entity),
                 buildTracks(entity));
     }
 
@@ -70,6 +73,12 @@ public final class AlbumMapper {
         return Optional.ofNullable(entity.getTracks())
                 .map(toList(AlbumMapper::trackToDomain))
                 .orElseGet(Collections::emptyList);
+    }
+
+    private static Publication buildPublication(AlbumTableRecord entity) {
+        return Optional.ofNullable(entity.getPublishedAt())
+                .map(publishedAt -> Publication.published(BusinessDateTime.of(publishedAt)))
+                .orElseGet(Publication::draft);
     }
 
     private static @Nullable EventReleasedAt buildEventReleasedAt(AlbumTableRecord entity) {
@@ -102,6 +111,7 @@ public final class AlbumMapper {
         Optional.ofNullable(album.eventReleasedAt())
                 .ifPresent(event -> populateEventFields(albumEntity, event));
         setCatalogFields(albumEntity, album);
+        setPublicationField(albumEntity, album.publication());
         setTracksField(albumEntity, album);
         return albumEntity;
     }
@@ -120,6 +130,26 @@ public final class AlbumMapper {
                         Optional.ofNullable(album.isdn())
                                 .map(Isdn::value)
                                 .orElse(null));
+    }
+
+    /**
+     * 公開情報を反映する
+     *
+     * <p>
+     * {@code publication}がDraftへ戻った場合に既存の{@code published_at}を確実にnullへ戻すため、
+     * 他フィールドの{@code ifPresent}方式ではなく常に値を設定する（値が無ければnullを設定する）。
+     * </p>
+     *
+     * @param entity
+     *            反映先のAlbumTableRecord
+     * @param publication
+     *            アルバム集約が保持する公開情報
+     */
+    private static void setPublicationField(AlbumTableRecord entity, Publication publication) {
+        entity.setPublishedAt(
+                publication.publishedAt()
+                        .map(BusinessDateTime::value)
+                        .orElse(null));
     }
 
     private static void setTracksField(AlbumTableRecord entity, Album album) {

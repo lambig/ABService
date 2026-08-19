@@ -61,7 +61,8 @@ public class AlbumRepositoryImpl implements AlbumRepository {
                                             .setEventDate(entity.getEventDate())
                                             .setEventPlace(entity.getEventPlace())
                                             .setEventNote(entity.getEventNote())
-                                            .setCatalogNumber(entity.getCatalogNumber()));
+                                            .setCatalogNumber(entity.getCatalogNumber())
+                                            .setPublishedAt(entity.getPublishedAt()));
                         })
                 .onItem().ifNull().switchTo(() -> dataSource.persistAlbumWithRelations(entity))
                 .map(AlbumMapper::toDomain);

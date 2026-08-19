@@ -21,7 +21,8 @@ import org.junit.jupiter.api.Test;
  * {@code PUT /api/v1/albums/{id}}（更新）→ {@code DELETE
  * /api/v1/albums/{id}}（削除）の疎通と、 {@code GET /api/v1/albums}（一覧、ページネーション付き）、未存在時の
  * 404、検証エラー時の 400 を RFC 9457 Problem Details 込みで確認する。実 DB（Flyway
- * migrate-at-start）で動作する。
+ * migrate-at-start）で動作する。GET 単体取得・一覧取得は認証を伴わない公開向けQueryのため、作成直後の下書き（未公開） アルバムは
+ * 404／一覧除外となる（下書きを含めた閲覧は認証必須の別経路で提供予定、#116。公開ユースケースは#135）。
  * </p>
  */
 @QuarkusTest
@@ -29,8 +30,8 @@ import org.junit.jupiter.api.Test;
 class AlbumRestIntegrationTest {
 
     @Test
-    @DisplayName("アルバムを作成し、IDで詳細を取得できる")
-    void createThenGet() {
+    @DisplayName("アルバムを作成すると下書き状態になり、公開向けAPIでのID詳細取得は404になる")
+    void createThenGetIsNotFoundWhileUnpublished() {
         final String albumId = given().contentType(ContentType.JSON)
                 .body(
                         "{\"title\":\"E2Eテストアルバム\",\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"E2Eアーティスト\","
@@ -40,10 +41,8 @@ class AlbumRestIntegrationTest {
                 .body("releaseDate", equalTo("2026-01-01")).body("artistDisplayName", equalTo("E2Eアーティスト")).extract()
                 .path("albumId");
 
-        given().when().get("/api/v1/albums/" + albumId).then().statusCode(200).body("albumId", equalTo(albumId))
-                .body("title", equalTo("E2Eテストアルバム")).body("catalogNumber", equalTo("E2E-0001"))
-                .body("eventName", equalTo("コミックマーケット104")).body("eventDate", equalTo("2026-01-01"))
-                .body("eventPlace", equalTo("東京ビッグサイト")).body("eventSpaceNumber", equalTo("東ホ-01a"));
+        given().when().get("/api/v1/albums/" + albumId).then().statusCode(404)
+                .contentType("application/problem+json").body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
     }
 
     @Test
@@ -65,7 +64,7 @@ class AlbumRestIntegrationTest {
     }
 
     @Test
-    @DisplayName("アルバムを更新すると全項目置換され、トラックは変化しない")
+    @DisplayName("アルバムを更新すると全項目置換され、トラックは変化しない（下書きのままなので公開向けGETは404）")
     void updateReplacesFieldsAndPreservesTracks() {
         final String albumId = given().contentType(ContentType.JSON)
                 .body(
@@ -81,8 +80,7 @@ class AlbumRestIntegrationTest {
                 .body("title", equalTo("更新後タイトル")).body("releaseDate", equalTo("2026-01-01"))
                 .body("artistDisplayName", equalTo("更新後アーティスト"));
 
-        given().when().get("/api/v1/albums/" + albumId).then().statusCode(200)
-                .body("title", equalTo("更新後タイトル")).body("catalogNumber", equalTo("UPD-0001"));
+        given().when().get("/api/v1/albums/" + albumId).then().statusCode(404);
     }
 
     @Test
@@ -134,9 +132,8 @@ class AlbumRestIntegrationTest {
     }
 
     @Test
-    @DisplayName("一覧はページネーション付きで返り、件数は作成分だけ増加する")
-    void listReturnsPaginatedResultsAndCountIncreasesByCreated() {
-        final int size = 100;
+    @DisplayName("一覧（公開向けAPI）は下書きアルバムを含まず、件数は作成しても増加しない")
+    void listExcludesUnpublishedAlbums() {
         final int before = given().when().get("/api/v1/albums?page=0&size=1").then().statusCode(200).extract()
                 .path("totalElements");
 
@@ -145,18 +142,11 @@ class AlbumRestIntegrationTest {
                 createAlbum("一覧確認アルバム2"),
                 createAlbum("一覧確認アルバム3"));
 
-        final int after = given().when().get("/api/v1/albums?page=0&size=1").then().statusCode(200).extract()
-                .path("totalElements");
-        assertThat(after).isEqualTo(before + createdIds.size());
-
-        final int totalPages = (int) Math.ceil((double) after / size);
-        final int lastPage = Math.max(totalPages - 1, 0);
-        final var response = given().when().get("/api/v1/albums?page=" + lastPage + "&size=" + size).then()
-                .statusCode(200).body("page", equalTo(lastPage)).body("size", equalTo(size))
-                .body("totalElements", equalTo(after)).body("totalPages", equalTo(totalPages)).extract();
+        final var response = given().when().get("/api/v1/albums?page=0&size=100").then().statusCode(200)
+                .body("totalElements", equalTo(before)).extract();
 
         final List<String> ids = response.path("items.albumId");
-        assertThat(ids).containsAll(createdIds);
+        assertThat(ids).doesNotContainAnyElementsOf(createdIds);
     }
 
     @Test

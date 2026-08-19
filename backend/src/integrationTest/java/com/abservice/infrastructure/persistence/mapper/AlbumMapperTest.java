@@ -10,6 +10,7 @@ import com.abservice.domain.model.vo.album.Isdn;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.domain.model.vo.common.Url;
@@ -21,6 +22,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
 import io.quarkus.test.vertx.UniAsserter;
 import jakarta.inject.Inject;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -135,6 +137,25 @@ class AlbumMapperTest {
             assertThat(domain.isdn()).isNull();
             assertThat(domain.eventReleasedAt()).isNull();
             assertThat(domain.tracks()).isEmpty();
+            assertThat(domain.isPublished()).isFalse();
+            assertThat(domain.publication().publishedAt()).isEmpty();
+        });
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldMapEntityToDomainWithPublishedAt(UniAsserter asserter) {
+        final var publishedAt = Instant.parse("2024-06-01T00:00:00Z");
+        final var album = newAlbum("Published Album").setPublishedAt(publishedAt);
+
+        asserter.execute(() -> dataSource.persistAlbumWithRelations(album));
+
+        asserter.assertThat(() -> dataSource.findByIdWithTracks(album.getDomainId()), found -> {
+            final var domain = AlbumMapper.toDomain(found);
+
+            assertThat(domain.isPublished()).isTrue();
+            assertThat(domain.publication().publishedAt()).contains(BusinessDateTime.of(publishedAt));
         });
     }
 
@@ -176,6 +197,7 @@ class AlbumMapperTest {
         assertThat(entity.getCatalogNumber()).isEqualTo("MAPPED-CAT-001");
         assertThat(entity.getIsdn()).isEqualTo("2794123456780");
         assertThat(entity.getEventName()).isEqualTo("Mapped Event");
+        assertThat(entity.getPublishedAt()).isNull();
         assertThat(entity.getTracks()).hasSize(1);
         assertThat(entity.getTracks().get(0).getTitle()).isEqualTo("Mapped Track");
         assertThat(entity.getTracks().get(0).getAlbum()).isSameAs(entity);
@@ -187,6 +209,46 @@ class AlbumMapperTest {
             assertThat(found.getTracks()).hasSize(1);
             assertThat(found.getTracks().get(0).getTitle()).isEqualTo("Mapped Track");
         });
+    }
+
+    @Test
+    void shouldMapPublishedDomainToEntity() {
+        final var publishedAt = BusinessDateTime.of(Instant.parse("2024-06-01T00:00:00Z"));
+        final var album = Album.create(
+                AlbumTitle.of("Published Domain Album"),
+                BusinessDate.of(
+                        2025,
+                        3,
+                        3),
+                ArtistCredit.of("Mapped Artist"),
+                null,
+                null,
+                null)
+                .publish(publishedAt);
+
+        final var entity = AlbumMapper.toEntity(album);
+
+        assertThat(entity.getPublishedAt()).isEqualTo(publishedAt.value());
+    }
+
+    @Test
+    void shouldMapUnpublishedDomainToEntityWithNullPublishedAt() {
+        final var album = Album.create(
+                AlbumTitle.of("Unpublished Domain Album"),
+                BusinessDate.of(
+                        2025,
+                        3,
+                        3),
+                ArtistCredit.of("Mapped Artist"),
+                null,
+                null,
+                null)
+                .publish(BusinessDateTime.of(Instant.parse("2024-06-01T00:00:00Z")))
+                .unpublish();
+
+        final var entity = AlbumMapper.toEntity(album);
+
+        assertThat(entity.getPublishedAt()).isNull();
     }
 
     @Test
