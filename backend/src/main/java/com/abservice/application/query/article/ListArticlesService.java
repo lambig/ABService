@@ -15,7 +15,8 @@ import java.util.List;
  * <p>
  * CQRS の Read 側ユースケース。ドメイン・Repository を経由せず、{@link ArticleDataSource} が返す
  * {@code PanacheQuery} の {@code list()}/{@code count()}/{@code pageCount()}
- * をそのまま活用し、 独自の COUNT クエリやページ数計算式を書かない。
+ * をそのまま活用し、 独自の COUNT クエリやページ数計算式を書かない。本サービスは認証を伴わない公開向けQueryのため、
+ * 非公開（下書き）記事は一覧に含めません。下書きを含めた閲覧は認証必須の別経路で提供します（#116）。
  * </p>
  */
 @ApplicationScoped
@@ -39,7 +40,7 @@ public class ListArticlesService implements QueryService<ListArticlesQuery, List
     public Uni<ListArticlesResult> query(ListArticlesQuery query) {
         final var page = clampPage(query.page());
         final var size = clampSize(query.size());
-        final var panacheQuery = dataSource.pagedQuery(page, size);
+        final var panacheQuery = dataSource.pagedPublicQuery(page, size);
         return Uni.combine().all()
                 .unis(
                         panacheQuery.list(),

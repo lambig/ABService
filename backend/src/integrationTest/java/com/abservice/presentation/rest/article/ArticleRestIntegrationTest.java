@@ -21,7 +21,9 @@ import org.junit.jupiter.api.Test;
  * {@code PUT /api/v1/articles/{id}}（更新）→ {@code DELETE
  * /api/v1/articles/{id}}（削除）の疎通と、 {@code GET
  * /api/v1/articles}（一覧、ページネーション付き）、未存在時の 404、検証エラー時の 400 を RFC 9457 Problem
- * Details 込みで確認する。実 DB（Flyway migrate-at-start）で動作する。
+ * Details 込みで確認する。実 DB（Flyway migrate-at-start）で動作する。GET
+ * 単体取得・一覧取得は認証を伴わない公開向けQueryのため、作成直後の下書き（非公開）記事は 404／一覧除外となる（下書きを含めた
+ * 閲覧は認証必須の別経路で提供予定、#116）。
  * </p>
  */
 @QuarkusTest
@@ -29,8 +31,8 @@ import org.junit.jupiter.api.Test;
 class ArticleRestIntegrationTest {
 
     @Test
-    @DisplayName("記事を作成し、IDで詳細を取得できる")
-    void createThenGet() {
+    @DisplayName("記事を作成すると下書き状態になり、公開向けAPIでのID詳細取得は404になる")
+    void createThenGetIsNotFoundWhileUnpublished() {
         final String articleId = given().contentType(ContentType.JSON)
                 .body(
                         "{\"articleType\":\"NOTE\",\"title\":\"E2Eテスト記事\",\"body\":\"本文\",\"bodyFormat\":\"MARKDOWN\","
@@ -39,9 +41,8 @@ class ArticleRestIntegrationTest {
                 .body("title", equalTo("E2Eテスト記事")).body("publicFlag", equalTo(false)).extract()
                 .path("articleId");
 
-        given().when().get("/api/v1/articles/" + articleId).then().statusCode(200)
-                .body("articleId", equalTo(articleId)).body("title", equalTo("E2Eテスト記事"))
-                .body("body", equalTo("本文")).body("bodyFormat", equalTo("MARKDOWN"));
+        given().when().get("/api/v1/articles/" + articleId).then().statusCode(404)
+                .contentType("application/problem+json").body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
     }
 
     @Test
@@ -62,7 +63,7 @@ class ArticleRestIntegrationTest {
     }
 
     @Test
-    @DisplayName("記事を更新すると全項目置換され、公開状態は変化しない")
+    @DisplayName("記事を更新すると全項目置換され、公開状態は変化しない（下書きのままなので公開向けGETは404）")
     void updateReplacesFieldsAndPreservesPublicFlag() {
         final String articleId = given().contentType(ContentType.JSON)
                 .body(
@@ -78,10 +79,7 @@ class ArticleRestIntegrationTest {
                 .body("articleId", equalTo(articleId)).body("title", equalTo("更新後タイトル"))
                 .body("publicFlag", equalTo(false));
 
-        given().when().get("/api/v1/articles/" + articleId).then().statusCode(200)
-                .body("title", equalTo("更新後タイトル")).body("body", equalTo("更新後本文"))
-                .body("bodyFormat", equalTo("PLAIN_TEXT")).body("introShort", equalTo("更新後概要"))
-                .body("publicFlag", equalTo(false));
+        given().when().get("/api/v1/articles/" + articleId).then().statusCode(404);
     }
 
     @Test
@@ -132,9 +130,8 @@ class ArticleRestIntegrationTest {
     }
 
     @Test
-    @DisplayName("一覧はページネーション付きで返り、件数は作成分だけ増加する")
-    void listReturnsPaginatedResultsAndCountIncreasesByCreated() {
-        final int size = 100;
+    @DisplayName("一覧（公開向けAPI）は下書き記事を含まず、件数は作成しても増加しない")
+    void listExcludesUnpublishedArticles() {
         final int before = given().when().get("/api/v1/articles?page=0&size=1").then().statusCode(200).extract()
                 .path("totalElements");
 
@@ -143,19 +140,11 @@ class ArticleRestIntegrationTest {
                 createArticle("一覧確認記事2"),
                 createArticle("一覧確認記事3"));
 
-        final int after = given().when().get("/api/v1/articles?page=0&size=1").then().statusCode(200).extract()
-                .path("totalElements");
-        assertThat(after).isEqualTo(before + createdIds.size());
-
-        // 内部PK（挿入順）昇順ソートのため、直近作成分は最終ページに現れる
-        final int totalPages = (int) Math.ceil((double) after / size);
-        final int lastPage = Math.max(totalPages - 1, 0);
-        final var response = given().when().get("/api/v1/articles?page=" + lastPage + "&size=" + size).then()
-                .statusCode(200).body("page", equalTo(lastPage)).body("size", equalTo(size))
-                .body("totalElements", equalTo(after)).body("totalPages", equalTo(totalPages)).extract();
+        final var response = given().when().get("/api/v1/articles?page=0&size=100").then().statusCode(200)
+                .body("totalElements", equalTo(before)).extract();
 
         final List<String> ids = response.path("items.articleId");
-        assertThat(ids).containsAll(createdIds);
+        assertThat(ids).doesNotContainAnyElementsOf(createdIds);
     }
 
     @Test

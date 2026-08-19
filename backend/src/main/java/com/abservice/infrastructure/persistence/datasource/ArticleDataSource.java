@@ -47,6 +47,26 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleTableReco
     }
 
     /**
+     * ドメインIDかつ公開フラグ=trueで記事を検索（タグを含む）
+     *
+     * <p>
+     * 公開向けQuery（{@code GetArticleService}）専用。非公開記事は存在しないものとして{@code null}を返す。
+     * </p>
+     *
+     * @param domainId
+     *            ドメインID
+     * @return 公開済みかつ該当する記事（非公開・未存在の場合はnull）
+     */
+    public Uni<ArticleTableRecord> findPublicByDomainId(String domainId) {
+        return sessionFactory.withSession(
+                session -> session
+                        .createQuery(
+                                EAGER_SELECT + "WHERE a.domainId = :domainId AND a.isPublic = true",
+                                ArticleTableRecord.class)
+                        .setParameter("domainId", domainId).getSingleResultOrNull());
+    }
+
+    /**
      * 記事を全件取得（タグを含む）
      *
      * @return 記事のリスト
@@ -162,6 +182,28 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleTableReco
      */
     public PanacheQuery<ArticleTableRecord> pagedQuery(int page, int size) {
         return findAll(Sort.by("articleId"))
+                .page(Page.of(page, size));
+    }
+
+    /**
+     * ページ指定で公開済みの記事のみを検索（一覧表示用・タグは含まない）
+     *
+     * <p>
+     * 公開向けQuery（{@code ListArticlesService}）専用。{@link #pagedQuery(int, int)}
+     * と同様の一覧向けページングだが、{@code isPublic = true}の記事のみを対象にする。
+     * </p>
+     *
+     * @param page
+     *            ページ番号（0始まり）
+     * @param size
+     *            1ページの件数
+     * @return ページングクエリ（公開済みのみ）
+     */
+    public PanacheQuery<ArticleTableRecord> pagedPublicQuery(int page, int size) {
+        return find(
+                "isPublic = ?1",
+                Sort.by("articleId"),
+                true)
                 .page(Page.of(page, size));
     }
 
