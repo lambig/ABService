@@ -10,10 +10,13 @@ import java.util.Optional;
  *
  * <p>
  * 不変条件を持たないコンポーネントなしrecordのため、コンストラクタは宣言しない（暗黙の正準コンストラクタを使用する）。
- * コンポーネントを持たないため、生成されたインスタンスは常に等価です。
+ * 状態を持たないため、{@link Publication#draft()}は本クラスの{@link #INSTANCE}を共有して返す。
  * </p>
  */
 public record Draft() implements Publication {
+
+    /** 唯一のDraftインスタンス（Null Object） */
+    static final Draft INSTANCE = new Draft();
 
     @Override
     public boolean isPublished() {

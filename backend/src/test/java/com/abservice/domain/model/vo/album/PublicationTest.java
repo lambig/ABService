@@ -39,10 +39,10 @@ class PublicationTest {
                 .hasMessage("Published at cannot be null");
     }
 
-    @DisplayName("draft()は常に等価なインスタンスを返す")
+    @DisplayName("draft()は常に同一のインスタンスを返す")
     @Test
-    void testDraftIsAlwaysEquivalent() {
-        assertThat(Publication.draft()).isEqualTo(Publication.draft());
+    void testDraftIsSingleton() {
+        assertThat(Publication.draft()).isSameAs(Publication.draft());
     }
 
     @DisplayName("同じ公開日時のPublishedは同等と判定される")

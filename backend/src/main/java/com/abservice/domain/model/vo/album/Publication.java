@@ -40,7 +40,7 @@ public sealed interface Publication extends ValueObject<Publication> permits Dra
      * @return Draftインスタンス
      */
     static @NonNull Publication draft() {
-        return new Draft();
+        return Draft.INSTANCE;
     }
 
     /**
