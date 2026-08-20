@@ -9,6 +9,7 @@ import com.abservice.domain.service.BusinessDateTimeProvider;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import lombok.AllArgsConstructor;
 
 /**
  * 記事非公開化コマンドサービス
@@ -20,23 +21,11 @@ import jakarta.enterprise.context.ApplicationScoped;
  * </p>
  */
 @ApplicationScoped
+@AllArgsConstructor
 public class UnpublishArticleService implements CommandService<UnpublishArticleInput, UnpublishArticleOutput> {
 
     private final ArticleRepository articleRepository;
     private final BusinessDateTimeProvider businessDateTimeProvider;
-
-    /**
-     * @param articleRepository
-     *            記事リポジトリ
-     * @param businessDateTimeProvider
-     *            ビジネス日時プロバイダー
-     */
-    public UnpublishArticleService(
-            ArticleRepository articleRepository,
-            BusinessDateTimeProvider businessDateTimeProvider) {
-        this.articleRepository = articleRepository;
-        this.businessDateTimeProvider = businessDateTimeProvider;
-    }
 
     @WithTransaction
     @Override

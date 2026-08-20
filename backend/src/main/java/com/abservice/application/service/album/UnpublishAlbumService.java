@@ -13,6 +13,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Optional;
+import lombok.AllArgsConstructor;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -27,28 +28,12 @@ import org.jspecify.annotations.Nullable;
  * </p>
  */
 @ApplicationScoped
+@AllArgsConstructor
 public class UnpublishAlbumService implements CommandService<UnpublishAlbumInput, UnpublishAlbumOutput> {
 
     private final AlbumRepository albumRepository;
     private final ArticleRepository articleRepository;
     private final BusinessDateTimeProvider businessDateTimeProvider;
-
-    /**
-     * @param albumRepository
-     *            アルバムリポジトリ
-     * @param articleRepository
-     *            記事リポジトリ（カスケード非公開化対象の検索・更新用）
-     * @param businessDateTimeProvider
-     *            ビジネス日時プロバイダー
-     */
-    public UnpublishAlbumService(
-            AlbumRepository albumRepository,
-            ArticleRepository articleRepository,
-            BusinessDateTimeProvider businessDateTimeProvider) {
-        this.albumRepository = albumRepository;
-        this.articleRepository = articleRepository;
-        this.businessDateTimeProvider = businessDateTimeProvider;
-    }
 
     @WithTransaction
     @Override

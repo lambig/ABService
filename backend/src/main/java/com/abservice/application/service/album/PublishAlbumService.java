@@ -9,6 +9,7 @@ import com.abservice.domain.service.BusinessDateTimeProvider;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import lombok.AllArgsConstructor;
 
 /**
  * アルバム公開コマンドサービス
@@ -20,23 +21,11 @@ import jakarta.enterprise.context.ApplicationScoped;
  * </p>
  */
 @ApplicationScoped
+@AllArgsConstructor
 public class PublishAlbumService implements CommandService<PublishAlbumInput, PublishAlbumOutput> {
 
     private final AlbumRepository albumRepository;
     private final BusinessDateTimeProvider businessDateTimeProvider;
-
-    /**
-     * @param albumRepository
-     *            アルバムリポジトリ
-     * @param businessDateTimeProvider
-     *            ビジネス日時プロバイダー
-     */
-    public PublishAlbumService(
-            AlbumRepository albumRepository,
-            BusinessDateTimeProvider businessDateTimeProvider) {
-        this.albumRepository = albumRepository;
-        this.businessDateTimeProvider = businessDateTimeProvider;
-    }
 
     @WithTransaction
     @Override

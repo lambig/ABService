@@ -13,6 +13,7 @@ import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Optional;
+import lombok.AllArgsConstructor;
 
 /**
  * 記事公開コマンドサービス
@@ -25,28 +26,12 @@ import java.util.Optional;
  * </p>
  */
 @ApplicationScoped
+@AllArgsConstructor
 public class PublishArticleService implements CommandService<PublishArticleInput, PublishArticleOutput> {
 
     private final ArticleRepository articleRepository;
     private final AlbumRepository albumRepository;
     private final BusinessDateTimeProvider businessDateTimeProvider;
-
-    /**
-     * @param articleRepository
-     *            記事リポジトリ
-     * @param albumRepository
-     *            アルバムリポジトリ（参照先の公開状態確認用）
-     * @param businessDateTimeProvider
-     *            ビジネス日時プロバイダー
-     */
-    public PublishArticleService(
-            ArticleRepository articleRepository,
-            AlbumRepository albumRepository,
-            BusinessDateTimeProvider businessDateTimeProvider) {
-        this.articleRepository = articleRepository;
-        this.albumRepository = albumRepository;
-        this.businessDateTimeProvider = businessDateTimeProvider;
-    }
 
     @WithTransaction
     @Override
