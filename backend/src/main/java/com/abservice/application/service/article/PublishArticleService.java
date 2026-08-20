@@ -7,7 +7,7 @@ import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.repository.article.ArticleRepository;
-import com.abservice.domain.service.ArticleAlbumReferencePolicy;
+import com.abservice.domain.service.AlbumExistenceService;
 import com.abservice.domain.service.BusinessDateTimeProvider;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -21,9 +21,10 @@ import lombok.AllArgsConstructor;
  * <p>
  * {@link Article#publish(com.abservice.domain.model.vo.common.BusinessDateTime)}
  * を呼び出すユースケースです。対象記事がアルバム記事（{@code albumId}が非null）の場合、
- * {@link ArticleAlbumReferencePolicy} を介して参照先の {@link Album} が公開中であることを確認してから
- * 公開します（非公開Albumを参照する記事は公開できない、集約をまたぐ不変条件のためドメインサービスで検証）。
- * 違反時は{@link BusinessRuleViolationException}（409）とします。
+ * {@link AlbumExistenceService#findPublic(Album.Id)} を介して参照先の {@link Album}
+ * が公開中であることを確認してから公開します（非公開Albumを参照する記事は公開できない、
+ * 集約をまたぐ不変条件のためドメインサービスで検証）。未存在は{@link EntityNotFoundException}（404）、
+ * 非公開は{@link BusinessRuleViolationException}（409）とします。
  * </p>
  */
 @ApplicationScoped
@@ -31,7 +32,7 @@ import lombok.AllArgsConstructor;
 public class PublishArticleService implements CommandService<PublishArticleInput, PublishArticleOutput> {
 
     private final ArticleRepository articleRepository;
-    private final ArticleAlbumReferencePolicy articleAlbumReferencePolicy;
+    private final AlbumExistenceService albumExistenceService;
     private final BusinessDateTimeProvider businessDateTimeProvider;
 
     @WithTransaction
@@ -59,7 +60,7 @@ public class PublishArticleService implements CommandService<PublishArticleInput
     private Uni<Article> verifyReferencedAlbumIsPublished(Article article) {
         return Optional.ofNullable(article.albumId())
                 .map(
-                        albumId -> articleAlbumReferencePolicy.requirePublishedAlbum(albumId)
+                        albumId -> albumExistenceService.findPublic(albumId)
                                 .replaceWith(article))
                 .orElseGet(() -> Uni.createFrom().item(article));
     }
