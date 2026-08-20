@@ -7,6 +7,7 @@ import com.abservice.domain.repository.albumarticle.AlbumArticleRepository;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import lombok.AllArgsConstructor;
 
 /**
  * アルバム記事削除コマンドサービス
@@ -18,17 +19,10 @@ import jakarta.enterprise.context.ApplicationScoped;
  * </p>
  */
 @ApplicationScoped
+@AllArgsConstructor
 public class DeleteAlbumArticleService implements CommandService<DeleteAlbumArticleInput, DeleteAlbumArticleOutput> {
 
     private final AlbumArticleRepository albumArticleRepository;
-
-    /**
-     * @param albumArticleRepository
-     *            アルバム記事リポジトリ
-     */
-    public DeleteAlbumArticleService(AlbumArticleRepository albumArticleRepository) {
-        this.albumArticleRepository = albumArticleRepository;
-    }
 
     @WithTransaction
     @Override

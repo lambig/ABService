@@ -9,6 +9,7 @@ import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.tuples.Tuple3;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
+import lombok.AllArgsConstructor;
 
 /**
  * アルバム一覧照会サービス（ページネーション付き）
@@ -21,20 +22,13 @@ import java.util.List;
  * </p>
  */
 @ApplicationScoped
+@AllArgsConstructor
 public class ListAlbumsService implements QueryService<ListAlbumsQuery, ListAlbumsResult> {
 
     private static final int DEFAULT_SIZE = 20;
     private static final int MAX_SIZE = 100;
 
     private final AlbumDataSource dataSource;
-
-    /**
-     * @param dataSource
-     *            アルバムデータソース（Read）
-     */
-    public ListAlbumsService(AlbumDataSource dataSource) {
-        this.dataSource = dataSource;
-    }
 
     @WithSession
     @Override

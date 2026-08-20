@@ -8,6 +8,7 @@ import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Optional;
+import lombok.AllArgsConstructor;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -21,17 +22,10 @@ import org.jspecify.annotations.Nullable;
  * </p>
  */
 @ApplicationScoped
+@AllArgsConstructor
 public class GetArticleService implements QueryService<GetArticleQuery, GetArticleResult> {
 
     private final ArticleDataSource dataSource;
-
-    /**
-     * @param dataSource
-     *            記事データソース（Read）
-     */
-    public GetArticleService(ArticleDataSource dataSource) {
-        this.dataSource = dataSource;
-    }
 
     @WithSession
     @Override

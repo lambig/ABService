@@ -9,6 +9,7 @@ import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.tuples.Tuple3;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
+import lombok.AllArgsConstructor;
 
 /**
  * 記事一覧照会サービス（ページネーション付き）
@@ -21,20 +22,13 @@ import java.util.List;
  * </p>
  */
 @ApplicationScoped
+@AllArgsConstructor
 public class ListArticlesService implements QueryService<ListArticlesQuery, ListArticlesResult> {
 
     private static final int DEFAULT_SIZE = 20;
     private static final int MAX_SIZE = 100;
 
     private final ArticleDataSource dataSource;
-
-    /**
-     * @param dataSource
-     *            記事データソース（Read）
-     */
-    public ListArticlesService(ArticleDataSource dataSource) {
-        this.dataSource = dataSource;
-    }
 
     @WithSession
     @Override

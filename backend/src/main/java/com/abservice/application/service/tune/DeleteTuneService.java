@@ -7,6 +7,7 @@ import com.abservice.domain.repository.tune.TuneRepository;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import lombok.AllArgsConstructor;
 
 /**
  * チューン削除コマンドサービス
@@ -18,17 +19,10 @@ import jakarta.enterprise.context.ApplicationScoped;
  * </p>
  */
 @ApplicationScoped
+@AllArgsConstructor
 public class DeleteTuneService implements CommandService<DeleteTuneInput, DeleteTuneOutput> {
 
     private final TuneRepository tuneRepository;
-
-    /**
-     * @param tuneRepository
-     *            チューンリポジトリ
-     */
-    public DeleteTuneService(TuneRepository tuneRepository) {
-        this.tuneRepository = tuneRepository;
-    }
 
     @WithTransaction
     @Override

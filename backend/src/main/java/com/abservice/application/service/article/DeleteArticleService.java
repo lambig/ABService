@@ -7,6 +7,7 @@ import com.abservice.domain.repository.article.ArticleRepository;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import lombok.AllArgsConstructor;
 
 /**
  * 記事削除コマンドサービス
@@ -18,17 +19,10 @@ import jakarta.enterprise.context.ApplicationScoped;
  * </p>
  */
 @ApplicationScoped
+@AllArgsConstructor
 public class DeleteArticleService implements CommandService<DeleteArticleInput, DeleteArticleOutput> {
 
     private final ArticleRepository articleRepository;
-
-    /**
-     * @param articleRepository
-     *            記事リポジトリ
-     */
-    public DeleteArticleService(ArticleRepository articleRepository) {
-        this.articleRepository = articleRepository;
-    }
 
     @WithTransaction
     @Override

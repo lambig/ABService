@@ -15,6 +15,7 @@ import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Optional;
+import lombok.AllArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
 
@@ -35,23 +36,11 @@ import org.jspecify.annotations.Nullable;
  * </p>
  */
 @ApplicationScoped
+@AllArgsConstructor
 public class UpdateArticleService implements CommandService<UpdateArticleInput, UpdateArticleOutput> {
 
     private final ArticleRepository articleRepository;
     private final BusinessDateTimeProvider businessDateTimeProvider;
-
-    /**
-     * @param articleRepository
-     *            記事リポジトリ
-     * @param businessDateTimeProvider
-     *            ビジネス日時プロバイダー
-     */
-    public UpdateArticleService(
-            ArticleRepository articleRepository,
-            BusinessDateTimeProvider businessDateTimeProvider) {
-        this.articleRepository = articleRepository;
-        this.businessDateTimeProvider = businessDateTimeProvider;
-    }
 
     @WithTransaction
     @Override

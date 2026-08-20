@@ -7,6 +7,7 @@ import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Optional;
+import lombok.AllArgsConstructor;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -19,17 +20,10 @@ import org.jspecify.annotations.Nullable;
  * </p>
  */
 @ApplicationScoped
+@AllArgsConstructor
 public class GetAlbumArticleService implements QueryService<GetAlbumArticleQuery, GetAlbumArticleResult> {
 
     private final AlbumArticleDataSource dataSource;
-
-    /**
-     * @param dataSource
-     *            アルバム記事データソース（Read）
-     */
-    public GetAlbumArticleService(AlbumArticleDataSource dataSource) {
-        this.dataSource = dataSource;
-    }
 
     @WithSession
     @Override

@@ -19,6 +19,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.Optional;
 import java.util.function.Function;
+import lombok.AllArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
 
@@ -42,17 +43,10 @@ import org.jspecify.annotations.Nullable;
  * </p>
  */
 @ApplicationScoped
+@AllArgsConstructor
 public class CreateAlbumService implements CommandService<CreateAlbumInput, CreateAlbumOutput> {
 
     private final AlbumRepository albumRepository;
-
-    /**
-     * @param albumRepository
-     *            アルバムリポジトリ
-     */
-    public CreateAlbumService(AlbumRepository albumRepository) {
-        this.albumRepository = albumRepository;
-    }
 
     @WithTransaction
     @Override

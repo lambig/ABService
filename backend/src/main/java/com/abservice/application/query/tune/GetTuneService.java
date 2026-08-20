@@ -7,6 +7,7 @@ import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Optional;
+import lombok.AllArgsConstructor;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -19,17 +20,10 @@ import org.jspecify.annotations.Nullable;
  * </p>
  */
 @ApplicationScoped
+@AllArgsConstructor
 public class GetTuneService implements QueryService<GetTuneQuery, GetTuneResult> {
 
     private final TuneDataSource dataSource;
-
-    /**
-     * @param dataSource
-     *            チューンデータソース（Read）
-     */
-    public GetTuneService(TuneDataSource dataSource) {
-        this.dataSource = dataSource;
-    }
 
     @WithSession
     @Override

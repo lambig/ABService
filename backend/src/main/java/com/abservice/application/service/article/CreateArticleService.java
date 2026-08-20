@@ -12,6 +12,7 @@ import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Optional;
+import lombok.AllArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
 
@@ -30,17 +31,10 @@ import org.jspecify.annotations.Nullable;
  * </p>
  */
 @ApplicationScoped
+@AllArgsConstructor
 public class CreateArticleService implements CommandService<CreateArticleInput, CreateArticleOutput> {
 
     private final ArticleRepository articleRepository;
-
-    /**
-     * @param articleRepository
-     *            記事リポジトリ
-     */
-    public CreateArticleService(ArticleRepository articleRepository) {
-        this.articleRepository = articleRepository;
-    }
 
     @WithTransaction
     @Override

@@ -8,6 +8,7 @@ import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.tuples.Tuple3;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
+import lombok.AllArgsConstructor;
 
 /**
  * チューン一覧照会サービス（ページネーション付き）
@@ -19,20 +20,13 @@ import java.util.List;
  * </p>
  */
 @ApplicationScoped
+@AllArgsConstructor
 public class ListTunesService implements QueryService<ListTunesQuery, ListTunesResult> {
 
     private static final int DEFAULT_SIZE = 20;
     private static final int MAX_SIZE = 100;
 
     private final TuneDataSource dataSource;
-
-    /**
-     * @param dataSource
-     *            チューンデータソース（Read）
-     */
-    public ListTunesService(TuneDataSource dataSource) {
-        this.dataSource = dataSource;
-    }
 
     @WithSession
     @Override
