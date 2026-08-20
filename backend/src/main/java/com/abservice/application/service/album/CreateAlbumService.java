@@ -1,15 +1,10 @@
 package com.abservice.application.service.album;
 
 import com.abservice.application.service.CommandService;
-import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.album.Album;
-import com.abservice.domain.model.vo.album.AlbumTitle;
-import com.abservice.domain.model.vo.album.CatalogNumber;
-import com.abservice.domain.model.vo.album.Isdn;
-import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
-import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.domain.repository.album.AlbumRepository;
+import com.abservice.domain.service.AlbumCreationService;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
@@ -18,7 +13,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.Optional;
-import java.util.function.Function;
 import lombok.AllArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
@@ -28,13 +22,8 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>
  * 外部入力（{@link CreateAlbumInput}）から新規 {@link Album} を生成して永続化するユースケースです。
- * </p>
- *
- * <p>
- * 値検証はドメインの各値オブジェクトの {@code fromInput}（{@code Result} 返却）に委譲し、本サービスはそれらを
- * {@link Result#zip} で集約して {@code Album} を組み立てるオーケストレーションに徹します。検証失敗は
- * {@link ValidationException} に集約し、HTTP への変換は presentation 層の ExceptionMapper
- * が担います。
+ * 値検証・組み立ては{@link AlbumCreationService}（トラックを同時登録する
+ * {@code RegisterAlbumWithTracksService}とも共有するドメインサービス）に委譲します。
  * </p>
  *
  * <p>
@@ -47,46 +36,34 @@ import org.jspecify.annotations.Nullable;
 public class CreateAlbumService implements CommandService<CreateAlbumInput, CreateAlbumOutput> {
 
     private final AlbumRepository albumRepository;
+    private final AlbumCreationService albumCreationService;
 
     @WithTransaction
     @Override
     public Uni<CreateAlbumOutput> execute(CreateAlbumInput input) {
-        return Uni.createFrom()
-                .item(
-                        () -> validate(input)
-                                .resolve(ValidationException::new))
+        return albumCreationService.create(
+                input.title(),
+                resolveReleaseDate(input.releaseDate()),
+                input.artistDisplayName(),
+                input.artistSortKey(),
+                input.catalogNumber(),
+                input.isdn(),
+                toEventFields(input.event()))
                 .flatMap(albumRepository::save)
                 .map(CreateAlbumService::toOutput);
     }
 
-    static Result<Album> validate(CreateAlbumInput input) {
-        return Result.zip(
-                Result.zip(
-                        AlbumTitle.fromInput(input.title()),
-                        resolveReleaseDate(input.releaseDate()),
-                        ArtistCredit.fromInput(input.artistDisplayName(), input.artistSortKey()),
-                        TitleDateArtist::new),
-                Result.zip(
-                        resolveOptional(CatalogNumber::fromInput, input.catalogNumber()),
-                        resolveOptional(Isdn::fromInput, input.isdn()),
-                        resolveEvent(input.event()),
-                        OptionalFields::new),
-                (base, optional) -> Album.create(
-                        base.title(),
-                        base.releaseDate(),
-                        base.artistCredit(),
-                        optional.event().orElse(null),
-                        optional.catalogNumber().orElse(null),
-                        optional.isdn().orElse(null)));
-    }
-
-    private record TitleDateArtist(AlbumTitle title, BusinessDate releaseDate, ArtistCredit artistCredit) {
-    }
-
-    private record OptionalFields(
-            Optional<CatalogNumber> catalogNumber,
-            Optional<Isdn> isdn,
-            Optional<EventReleasedAt> event) {
+    private static AlbumCreationService.@Nullable EventFields toEventFields(
+            CreateAlbumInput.@Nullable EventInput event) {
+        return Optional.ofNullable(event)
+                .map(
+                        e -> new AlbumCreationService.EventFields(
+                                e.name(),
+                                resolveEventDate(e.date()),
+                                e.place(),
+                                e.spaceNumber(),
+                                e.note()))
+                .orElse(null);
     }
 
     private static Result<BusinessDate> resolveReleaseDate(@Nullable String value) {
@@ -103,25 +80,6 @@ public class CreateAlbumService implements CommandService<CreateAlbumInput, Crea
                                         "releaseDate",
                                         "リリース日は必須です",
                                         "ALBUM_RELEASE_DATE_REQUIRED")));
-    }
-
-    private static Result<Optional<EventReleasedAt>> resolveEvent(
-            CreateAlbumInput.@Nullable EventInput input) {
-        return Optional.ofNullable(input)
-                .map(CreateAlbumService::validateEvent)
-                .orElseGet(() -> Result.<Optional<EventReleasedAt>>success(Optional.empty()));
-    }
-
-    private static Result<Optional<EventReleasedAt>> validateEvent(CreateAlbumInput.EventInput input) {
-        return resolveEventDate(input.date())
-                .flatMap(
-                        date -> EventReleasedAt.fromInput(
-                                input.name(),
-                                date.orElse(null),
-                                input.place(),
-                                input.spaceNumber(),
-                                input.note()))
-                .map(Optional::of);
     }
 
     private static Result<Optional<BusinessDate>> resolveEventDate(@Nullable String value) {
@@ -149,17 +107,6 @@ public class CreateAlbumService implements CommandService<CreateAlbumInput, Crea
                             "日付の形式が不正です: " + value,
                             invalidErrorCode));
         }
-    }
-
-    private static <T> Result<Optional<T>> resolveOptional(
-            Function<String, Result<T>> fromInput,
-            @Nullable String value) {
-        return Optional.ofNullable(value)
-                .filter(StringUtils::isNotBlank)
-                .map(
-                        v -> fromInput.apply(v)
-                                .map(Optional::of))
-                .orElseGet(() -> Result.<Optional<T>>success(Optional.empty()));
     }
 
     private static CreateAlbumOutput toOutput(Album album) {

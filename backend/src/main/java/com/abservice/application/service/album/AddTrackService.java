@@ -4,10 +4,10 @@ import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.album.Track;
-import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.domain.service.AlbumExistenceService;
+import com.abservice.domain.service.TrackAdditionService;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
@@ -24,8 +24,16 @@ import org.jspecify.annotations.Nullable;
  * トラック追加コマンドサービス
  *
  * <p>
- * {@link Album#addTrack(Track)} を呼び出すユースケースです。トラック番号の重複はAlbum集約自身が検証します
+ * {@link Album#addTrack(Track)}
+ * を呼び出すユースケースです。値検証・組み立ては{@link TrackAdditionService}
+ * （アルバムと同時にトラックを登録する{@code RegisterAlbumWithTracksService}とも共有するドメインサービス）に
+ * 委譲します。トラック番号の重複はAlbum集約自身が検証します
  * （{@link com.abservice.domain.exception.BusinessRuleViolationException}、409）。
+ * </p>
+ *
+ * <p>
+ * {@link BusinessDate} は文字列からの直接生成を提供しないため（パース方式の解釈は境界層の責務）、録音日の
+ * ISO-8601文字列の解釈は本サービスが担います。
  * </p>
  */
 @ApplicationScoped
@@ -34,6 +42,7 @@ public class AddTrackService implements CommandService<AddTrackInput, AddTrackOu
 
     private final AlbumRepository albumRepository;
     private final AlbumExistenceService albumExistenceService;
+    private final TrackAdditionService trackAdditionService;
 
     @WithTransaction
     @Override
@@ -44,42 +53,21 @@ public class AddTrackService implements CommandService<AddTrackInput, AddTrackOu
                                 .resolve(ValidationException::new))
                 .flatMap(albumExistenceService::findExisting)
                 .flatMap(
-                        album -> Uni.createFrom()
-                                .item(
-                                        () -> validate(input)
-                                                .resolve(ValidationException::new))
+                        album -> trackAdditionService.addTrack(album, toTrackFields(input))
                                 .flatMap(
-                                        track -> albumRepository.save(album.addTrack(track))
-                                                .map(saved -> toOutput(saved, track))));
+                                        addition -> albumRepository.save(addition.album())
+                                                .map(saved -> toOutput(saved, addition.track()))));
     }
 
-    static Result<Track> validate(AddTrackInput input) {
-        return Result.zip(
-                resolveArtistCredit(input.artistDisplayName(), input.artistSortKey()),
+    private static TrackAdditionService.TrackFields toTrackFields(AddTrackInput input) {
+        return new TrackAdditionService.TrackFields(
+                input.trackNo(),
+                input.title(),
+                input.artistDisplayName(),
+                input.artistSortKey(),
                 resolveRecordingDate(input.recordingDate()),
-                OptionalFields::new)
-                .flatMap(
-                        optional -> Track.fromInput(
-                                input.trackNo(),
-                                input.title(),
-                                optional.artistCredit().orElse(null),
-                                optional.recordingDate().orElse(null),
-                                input.recordingPlace(),
-                                input.isLive()));
-    }
-
-    private record OptionalFields(Optional<ArtistCredit> artistCredit, Optional<BusinessDate> recordingDate) {
-    }
-
-    private static Result<Optional<ArtistCredit>> resolveArtistCredit(
-            @Nullable String displayName,
-            @Nullable String sortKey) {
-        return Optional.ofNullable(displayName)
-                .filter(StringUtils::isNotBlank)
-                .map(
-                        name -> ArtistCredit.fromInput(name, sortKey)
-                                .map(Optional::of))
-                .orElseGet(() -> Result.<Optional<ArtistCredit>>success(Optional.empty()));
+                input.recordingPlace(),
+                input.isLive());
     }
 
     private static Result<Optional<BusinessDate>> resolveRecordingDate(@Nullable String value) {

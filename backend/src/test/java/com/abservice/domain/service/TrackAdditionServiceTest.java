@@ -1,26 +1,40 @@
-package com.abservice.application.service.album;
+package com.abservice.domain.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.domain.service.TrackAdditionService.TrackFields;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
+import java.time.LocalDate;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-@DisplayName("AddTrackService.validate（入力検証の集約）のテスト")
-class AddTrackServiceTest {
+@DisplayName("TrackAdditionService.validate（入力検証の集約）のテスト")
+class TrackAdditionServiceTest {
+
+    private static final Result<Optional<BusinessDate>> NO_RECORDING_DATE = Result.success(Optional.empty());
 
     @Test
     @DisplayName("正常な入力は成功しTrackを生成する")
     void validInputSucceeds() {
-        final var result = AddTrackService.validate(
-                new AddTrackInput(
-                        "album-id",
+        final var recordingDate = Result
+                .success(
+                        Optional.of(
+                                BusinessDate.of(
+                                        LocalDate.of(
+                                                2026,
+                                                1,
+                                                1))));
+
+        final var result = TrackAdditionService.validate(
+                new TrackFields(
                         1,
                         "トラックタイトル",
                         "アーティスト名",
                         null,
-                        "2026-01-01",
+                        recordingDate,
                         "会場",
                         true));
 
@@ -38,14 +52,13 @@ class AddTrackServiceTest {
     @Test
     @DisplayName("トラック番号・タイトルが不正なら全てのエラーを集約する")
     void invalidRequiredFieldsAggregatesErrors() {
-        final var result = AddTrackService.validate(
-                new AddTrackInput(
-                        "album-id",
+        final var result = TrackAdditionService.validate(
+                new TrackFields(
                         null,
                         "   ",
                         null,
                         null,
-                        null,
+                        NO_RECORDING_DATE,
                         null,
                         null));
 
@@ -57,14 +70,13 @@ class AddTrackServiceTest {
     @Test
     @DisplayName("アーティスト名・録音日が未指定でも成功しnullとして扱われる")
     void blankOptionalFieldsSucceedWithNulls() {
-        final var result = AddTrackService.validate(
-                new AddTrackInput(
-                        "album-id",
+        final var result = TrackAdditionService.validate(
+                new TrackFields(
                         1,
                         "トラックタイトル",
                         "   ",
                         null,
-                        "",
+                        NO_RECORDING_DATE,
                         null,
                         null));
 
@@ -76,14 +88,19 @@ class AddTrackServiceTest {
     @Test
     @DisplayName("録音日の形式が不正ならエラー")
     void invalidRecordingDateFails() {
-        final var result = AddTrackService.validate(
-                new AddTrackInput(
-                        "album-id",
+        final var invalidRecordingDate = Result.<Optional<BusinessDate>>failure(
+                new ErrorResult(
+                        "recordingDate",
+                        "日付の形式が不正です",
+                        "TRACK_RECORDING_DATE_INVALID"));
+
+        final var result = TrackAdditionService.validate(
+                new TrackFields(
                         1,
                         "トラックタイトル",
                         null,
                         null,
-                        "not-a-date",
+                        invalidRecordingDate,
                         null,
                         null));
 
@@ -95,14 +112,19 @@ class AddTrackServiceTest {
     @Test
     @DisplayName("録音日が不正な場合、trackNo等の必須項目検証には進まず録音日のエラーのみが返る（2段階検証の仕様）")
     void invalidRecordingDateShortCircuitsBeforeRequiredFieldCheck() {
-        final var result = AddTrackService.validate(
-                new AddTrackInput(
-                        "album-id",
+        final var invalidRecordingDate = Result.<Optional<BusinessDate>>failure(
+                new ErrorResult(
+                        "recordingDate",
+                        "日付の形式が不正です",
+                        "TRACK_RECORDING_DATE_INVALID"));
+
+        final var result = TrackAdditionService.validate(
+                new TrackFields(
                         null,
                         "トラックタイトル",
                         null,
                         null,
-                        "not-a-date",
+                        invalidRecordingDate,
                         null,
                         null));
 
