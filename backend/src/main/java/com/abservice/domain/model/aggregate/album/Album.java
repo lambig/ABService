@@ -554,7 +554,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                         "Ordered track IDs must match the number of tracks",
                         "TRACK_ORDER_SIZE_MISMATCH"))
                 .verify(orderedTrackIds, Function.identity())
-                .resolve(Policy::illegalArgument);
+                .resolve(BusinessRuleViolationException::fromErrors);
     }
 
     private @NonNull List<Track> renumberByOrder(@NonNull List<Track.Id> orderedTrackIds) {

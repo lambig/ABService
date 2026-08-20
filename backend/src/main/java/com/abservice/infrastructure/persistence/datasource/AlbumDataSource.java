@@ -6,9 +6,11 @@ import io.quarkus.hibernate.reactive.panache.PanacheQuery;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import io.quarkus.panache.common.Page;
 import io.quarkus.panache.common.Sort;
+import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.hibernate.reactive.mutiny.Mutiny;
+import org.jspecify.annotations.Nullable;
 
 import java.time.LocalDate;
 import java.util.Collection;
@@ -89,33 +91,77 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, 
     }
 
     /**
-     * IDでアルバムを検索（トラック含む）
+     * IDでアルバムを検索（トラック・トラック内チューン構成を含む）
+     *
+     * <p>
+     * {@code tracks}と{@code tracks.trackTunes}はどちらも{@code List}（bag）のため、1クエリで両方を
+     * {@code JOIN FETCH}するとHibernateの multiple-bag-fetch 制約に抵触する。{@code tracks}のみ
+     * {@code JOIN FETCH}し、各トラックの{@code trackTunes}は同一セッション内で{@link Mutiny.Session#fetch}
+     * により明示的に初期化する（セッション外で遅延初期化しようとすると {@code LazyInitializationException}になるため）。
+     * </p>
      *
      * @param domainId
      *            アルバムのドメインID
-     * @return アルバムエンティティ（トラックを含む）
+     * @return アルバムエンティティ（トラック・トラック内チューン構成を含む）
      */
     public Uni<AlbumTableRecord> findByIdWithTracks(String domainId) {
-        return sessionFactory.withSession(
-                session -> session.createQuery(
-                        "SELECT DISTINCT a FROM AlbumTableRecord a " + "LEFT JOIN FETCH a.tracks "
-                                + "WHERE a.domainId = :domainId",
-                        AlbumTableRecord.class).setParameter("domainId", domainId).getSingleResultOrNull());
+        return sessionFactory.withSession(session -> queryByIdWithTracks(session, domainId));
+    }
+
+    private static Uni<AlbumTableRecord> queryByIdWithTracks(Mutiny.Session session, String domainId) {
+        return session.createQuery(
+                "SELECT DISTINCT a FROM AlbumTableRecord a " + "LEFT JOIN FETCH a.tracks "
+                        + "WHERE a.domainId = :domainId",
+                AlbumTableRecord.class).setParameter("domainId", domainId).getSingleResultOrNull()
+                .flatMap(album -> fetchTrackTunesOrNull(session, album));
+    }
+
+    private static Uni<AlbumTableRecord> fetchTrackTunesOrNull(Mutiny.Session session,
+            @Nullable AlbumTableRecord album) {
+        return Optional.ofNullable(album)
+                .map(a -> fetchTrackTunes(session, a))
+                .orElseGet(() -> Uni.createFrom().nullItem());
     }
 
     /**
-     * 複数のドメインIDでアルバムを一括検索（トラック含む）
+     * 複数のドメインIDでアルバムを一括検索（トラック・トラック内チューン構成を含む）
      *
      * @param domainIds
      *            アルバムのドメインID群
-     * @return 該当するアルバムエンティティのリスト（トラックを含む）
+     * @return 該当するアルバムエンティティのリスト（トラック・トラック内チューン構成を含む）
      */
     public Uni<List<AlbumTableRecord>> findByIdsWithTracks(Collection<String> domainIds) {
-        return sessionFactory.withSession(
-                session -> session.createQuery(
-                        "SELECT DISTINCT a FROM AlbumTableRecord a " + "LEFT JOIN FETCH a.tracks "
-                                + "WHERE a.domainId IN (:domainIds)",
-                        AlbumTableRecord.class).setParameter("domainIds", domainIds).getResultList());
+        return sessionFactory.withSession(session -> queryByIdsWithTracks(session, domainIds));
+    }
+
+    private static Uni<List<AlbumTableRecord>> queryByIdsWithTracks(
+            Mutiny.Session session,
+            Collection<String> domainIds) {
+        return session.createQuery(
+                "SELECT DISTINCT a FROM AlbumTableRecord a " + "LEFT JOIN FETCH a.tracks "
+                        + "WHERE a.domainId IN (:domainIds)",
+                AlbumTableRecord.class).setParameter("domainIds", domainIds).getResultList()
+                .flatMap(albums -> fetchAllTrackTunes(session, albums));
+    }
+
+    /*
+     * PERFORMANCE: 同一Mutinyセッションへの並行アクセスは内部状態を破壊する
+     * （java.lang.IllegalStateException: Illegal pop() with non-matching
+     * JdbcValuesSourceProcessingState）ため、transformToUniAndMergeではなく
+     * transformToUniAndConcatenateで逐次実行する。
+     */
+    private static Uni<List<AlbumTableRecord>> fetchAllTrackTunes(Mutiny.Session session,
+            List<AlbumTableRecord> albums) {
+        return Multi.createFrom().iterable(albums)
+                .onItem().transformToUniAndConcatenate(a -> fetchTrackTunes(session, a))
+                .collect().asList();
+    }
+
+    private static Uni<AlbumTableRecord> fetchTrackTunes(Mutiny.Session session, AlbumTableRecord album) {
+        return Multi.createFrom().iterable(album.getTracks())
+                .onItem().transformToUniAndConcatenate(track -> session.fetch(track.getTrackTunes()))
+                .collect().asList()
+                .replaceWith(album);
     }
 
     /**
