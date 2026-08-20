@@ -1,7 +1,6 @@
 package com.abservice.application.service.album;
 
 import com.abservice.application.service.CommandService;
-import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.repository.album.AlbumRepository;
@@ -12,6 +11,7 @@ import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import lombok.AllArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -39,10 +39,8 @@ public class UnpublishAlbumService implements CommandService<UnpublishAlbumInput
     @WithTransaction
     @Override
     public Uni<UnpublishAlbumOutput> execute(UnpublishAlbumInput input) {
-        return Uni.createFrom()
-                .item(
-                        () -> Album.Id.fromInput(input.albumId())
-                                .resolve(ValidationException::new))
+        return input.asValidated()
+                .map(valid -> Album.Id.of(Objects.requireNonNull(valid.albumId())))
                 .flatMap(albumExistenceService::findExisting)
                 .map(Album::unpublish)
                 .flatMap(albumRepository::save)

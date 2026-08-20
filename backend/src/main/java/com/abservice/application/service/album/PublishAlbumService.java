@@ -1,7 +1,6 @@
 package com.abservice.application.service.album;
 
 import com.abservice.application.service.CommandService;
-import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.domain.service.AlbumExistenceService;
@@ -9,6 +8,7 @@ import com.abservice.domain.service.BusinessDateTimeProvider;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.util.Objects;
 import lombok.AllArgsConstructor;
 
 /**
@@ -31,10 +31,8 @@ public class PublishAlbumService implements CommandService<PublishAlbumInput, Pu
     @WithTransaction
     @Override
     public Uni<PublishAlbumOutput> execute(PublishAlbumInput input) {
-        return Uni.createFrom()
-                .item(
-                        () -> Album.Id.fromInput(input.albumId())
-                                .resolve(ValidationException::new))
+        return input.asValidated()
+                .map(valid -> Album.Id.of(Objects.requireNonNull(valid.albumId())))
                 .flatMap(albumExistenceService::findExisting)
                 .flatMap(
                         existing -> businessDateTimeProvider.now()

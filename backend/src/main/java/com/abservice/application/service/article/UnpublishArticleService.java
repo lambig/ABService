@@ -2,13 +2,13 @@ package com.abservice.application.service.article;
 
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.EntityNotFoundException;
-import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.repository.article.ArticleRepository;
 import com.abservice.domain.service.BusinessDateTimeProvider;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.util.Objects;
 import lombok.AllArgsConstructor;
 
 /**
@@ -30,10 +30,8 @@ public class UnpublishArticleService implements CommandService<UnpublishArticleI
     @WithTransaction
     @Override
     public Uni<UnpublishArticleOutput> execute(UnpublishArticleInput input) {
-        return Uni.createFrom()
-                .item(
-                        () -> Article.Id.fromInput(input.articleId())
-                                .resolve(ValidationException::new))
+        return input.asValidated()
+                .map(valid -> Article.Id.of(Objects.requireNonNull(valid.articleId())))
                 .flatMap(this::findExisting)
                 .flatMap(
                         existing -> businessDateTimeProvider.now()
