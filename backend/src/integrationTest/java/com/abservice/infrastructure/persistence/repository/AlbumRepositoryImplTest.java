@@ -5,6 +5,7 @@ import com.abservice.domain.model.aggregate.album.Track;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
+import com.abservice.domain.model.vo.album.Publication;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
@@ -387,6 +388,7 @@ class AlbumRepositoryImplTest {
                 null,
                 null,
                 null,
+                Publication.draft(),
                 List.of());
 
         asserter.assertThat(() -> repository.save(updated), result -> {

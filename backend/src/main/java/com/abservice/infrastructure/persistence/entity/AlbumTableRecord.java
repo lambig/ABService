@@ -17,6 +17,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -76,6 +77,9 @@ public class AlbumTableRecord extends AuditableTableRecord<AlbumTableRecord> {
 
     @Column(name = "isdn", length = 20)
     private String isdn;
+
+    @Column(name = "published_at")
+    private Instant publishedAt;
 
     @OneToMany(mappedBy = "album", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<TrackTableRecord> tracks = new ArrayList<>();

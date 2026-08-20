@@ -13,11 +13,15 @@ import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
+import com.abservice.domain.model.vo.album.Publication;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.lib.Result;
+
+import java.time.Instant;
 
 @DisplayName("Album集約のテスト")
 class AlbumTest {
@@ -56,6 +60,8 @@ class AlbumTest {
             assertThat(album.catalogNumber()).isNull();
             assertThat(album.isdn()).isNull();
             assertThat(album.getTracks().isEmpty()).isTrue();
+            assertThat(album.isPublished()).isFalse();
+            assertThat(album.publication()).isEqualTo(Publication.draft());
         }
 
         @Test
@@ -196,6 +202,56 @@ class AlbumTest {
             // Act & Assert
             assertThatThrownBy(() -> album.changeArtistCredit(null)).isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Artist credit cannot be null");
+        }
+    }
+
+    @Nested
+    @DisplayName("公開/非公開テスト")
+    class PublicationTest {
+
+        @Test
+        @DisplayName("公開すると公開情報が設定されること")
+        void publishShouldMarkAlbumAsPublished() {
+            // Arrange
+            final var album = createTestAlbum();
+            final var currentDateTime = BusinessDateTime.of(Instant.parse("2024-06-01T00:00:00Z"));
+
+            // Act
+            final var published = album.publish(currentDateTime);
+
+            // Assert
+            assertThat(published.isPublished()).isTrue();
+            assertThat(published.publication()).isEqualTo(Publication.published(currentDateTime));
+        }
+
+        @Test
+        @DisplayName("既に公開中のアルバムを再度公開しても最初の公開日時が据え置かれること")
+        void publishTwiceShouldKeepOriginalPublishedAt() {
+            // Arrange
+            final var firstPublishedAt = BusinessDateTime.of(Instant.parse("2024-06-01T00:00:00Z"));
+            final var republishedAt = BusinessDateTime.of(Instant.parse("2024-07-01T00:00:00Z"));
+            final var published = createTestAlbum().publish(firstPublishedAt);
+
+            // Act
+            final var republished = published.publish(republishedAt);
+
+            // Assert
+            assertThat(republished.publication()).isEqualTo(Publication.published(firstPublishedAt));
+        }
+
+        @Test
+        @DisplayName("非公開化すると公開情報が下書きに戻ること")
+        void unpublishShouldMarkAlbumAsDraft() {
+            // Arrange
+            final var currentDateTime = BusinessDateTime.of(Instant.parse("2024-06-01T00:00:00Z"));
+            final var published = createTestAlbum().publish(currentDateTime);
+
+            // Act
+            final var unpublished = published.unpublish();
+
+            // Assert
+            assertThat(unpublished.isPublished()).isFalse();
+            assertThat(unpublished.publication()).isEqualTo(Publication.draft());
         }
     }
 

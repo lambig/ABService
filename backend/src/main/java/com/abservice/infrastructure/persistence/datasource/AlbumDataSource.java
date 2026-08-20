@@ -69,12 +69,23 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, 
     /**
      * ドメインIDでアルバムを検索
      *
+     * <p>
+     * {@code visibility}に{@link Visibility#PUBLIC_ONLY}を渡すと、公開中（{@code publishedAt}が非null）
+     * のアルバムのみを対象にする（公開向けQuery {@code GetAlbumService}専用。下書きは存在しないものとして
+     * {@code null}を返す）。
+     * </p>
+     *
      * @param domainId
      *            アルバムのドメインID
-     * @return 該当するアルバム（存在しない場合はnull）
+     * @param visibility
+     *            検索対象の公開状態スコープ
+     * @return 該当するアルバム（対象外・未存在の場合はnull）
      */
-    public Uni<AlbumTableRecord> findByDomainId(String domainId) {
-        return find("domainId", domainId).firstResult();
+    public Uni<AlbumTableRecord> findByDomainId(String domainId, Visibility visibility) {
+        return (visibility == Visibility.PUBLIC_ONLY
+                ? find("domainId = ?1 and publishedAt is not null", domainId)
+                : find("domainId", domainId))
+                .firstResult();
     }
 
     /**
@@ -185,17 +196,26 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, 
      * Model（{@link com.abservice.application.query.album.model.AlbumView}）は
      * トラックを含まないフラットDTOのため、JOIN FETCHを伴わない単純なページングで問題ない （JOIN
      * FETCH併用時のページング崩れを回避できる）。件数・総ページ数は返された {@link PanacheQuery} 自身の
-     * {@code count()}/{@code pageCount()} から取得する。
+     * {@code count()}/{@code pageCount()} から取得する。{@code visibility}に
+     * {@link Visibility#PUBLIC_ONLY}を渡すと、公開向けQuery（{@code ListAlbumsService}）専用として
+     * {@code publishedAt}が非nullのアルバムのみを対象にする。
      * </p>
      *
      * @param page
      *            ページ番号（0始まり）
      * @param size
      *            1ページの件数
+     * @param visibility
+     *            検索対象の公開状態スコープ
      * @return ページングクエリ
      */
-    public PanacheQuery<AlbumTableRecord> pagedQuery(int page, int size) {
-        return findAll(Sort.by("albumId"))
+    public PanacheQuery<AlbumTableRecord> pagedQuery(
+            int page,
+            int size,
+            Visibility visibility) {
+        return (visibility == Visibility.PUBLIC_ONLY
+                ? find("publishedAt is not null", Sort.by("albumId"))
+                : findAll(Sort.by("albumId")))
                 .page(Page.of(page, size));
     }
 

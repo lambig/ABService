@@ -27,6 +27,10 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleTableReco
             + "LEFT JOIN FETCH a.articleTagLinks link "
             + "LEFT JOIN FETCH link.articleTag ";
 
+    private static final String WHERE_DOMAIN_ID = "WHERE a.domainId = :domainId";
+
+    private static final String WHERE_DOMAIN_ID_PUBLIC = WHERE_DOMAIN_ID + " AND a.isPublic = true";
+
     private final Mutiny.SessionFactory sessionFactory;
 
     public ArticleDataSource(Mutiny.SessionFactory sessionFactory) {
@@ -36,32 +40,27 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleTableReco
     /**
      * ドメインIDで記事を検索（タグを含む）
      *
-     * @param domainId
-     *            ドメインID
-     * @return 該当する記事（存在しない場合はnull）
-     */
-    public Uni<ArticleTableRecord> findByDomainId(String domainId) {
-        return sessionFactory.withSession(
-                session -> session.createQuery(EAGER_SELECT + "WHERE a.domainId = :domainId", ArticleTableRecord.class)
-                        .setParameter("domainId", domainId).getSingleResultOrNull());
-    }
-
-    /**
-     * ドメインIDかつ公開フラグ=trueで記事を検索（タグを含む）
-     *
      * <p>
-     * 公開向けQuery（{@code GetArticleService}）専用。非公開記事は存在しないものとして{@code null}を返す。
+     * {@code visibility}に{@link Visibility#PUBLIC_ONLY}を渡すと、公開フラグ=trueの記事のみを対象にする
+     * （公開向けQuery {@code GetArticleService}専用。非公開記事は存在しないものとして{@code null}を返す）。
      * </p>
      *
      * @param domainId
      *            ドメインID
-     * @return 公開済みかつ該当する記事（非公開・未存在の場合はnull）
+     * @param visibility
+     *            検索対象の公開状態スコープ
+     * @return 該当する記事（対象外・未存在の場合はnull）
      */
-    public Uni<ArticleTableRecord> findPublicByDomainId(String domainId) {
+    public Uni<ArticleTableRecord> findByDomainId(
+            String domainId,
+            Visibility visibility) {
         return sessionFactory.withSession(
                 session -> session
                         .createQuery(
-                                EAGER_SELECT + "WHERE a.domainId = :domainId AND a.isPublic = true",
+                                EAGER_SELECT
+                                        + (visibility == Visibility.PUBLIC_ONLY
+                                                ? WHERE_DOMAIN_ID_PUBLIC
+                                                : WHERE_DOMAIN_ID),
                                 ArticleTableRecord.class)
                         .setParameter("domainId", domainId).getSingleResultOrNull());
     }
@@ -171,39 +170,29 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleTableReco
      * Model（{@link com.abservice.application.query.article.model.ArticleView}）は
      * タグを含まないフラットDTOのため、JOIN FETCHを伴わない単純なページングで問題ない （JOIN
      * FETCH併用時のページング崩れを回避できる）。件数・総ページ数は返された {@link PanacheQuery} 自身の
-     * {@code count()}/{@code pageCount()} から取得する。
+     * {@code count()}/{@code pageCount()} から取得する。{@code visibility}に
+     * {@link Visibility#PUBLIC_ONLY}を渡すと、公開向けQuery（{@code ListArticlesService}）専用として
+     * {@code isPublic = true}の記事のみを対象にする。
      * </p>
      *
      * @param page
      *            ページ番号（0始まり）
      * @param size
      *            1ページの件数
+     * @param visibility
+     *            検索対象の公開状態スコープ
      * @return ページングクエリ
      */
-    public PanacheQuery<ArticleTableRecord> pagedQuery(int page, int size) {
-        return findAll(Sort.by("articleId"))
-                .page(Page.of(page, size));
-    }
-
-    /**
-     * ページ指定で公開済みの記事のみを検索（一覧表示用・タグは含まない）
-     *
-     * <p>
-     * 公開向けQuery（{@code ListArticlesService}）専用。{@link #pagedQuery(int, int)}
-     * と同様の一覧向けページングだが、{@code isPublic = true}の記事のみを対象にする。
-     * </p>
-     *
-     * @param page
-     *            ページ番号（0始まり）
-     * @param size
-     *            1ページの件数
-     * @return ページングクエリ（公開済みのみ）
-     */
-    public PanacheQuery<ArticleTableRecord> pagedPublicQuery(int page, int size) {
-        return find(
-                "isPublic = ?1",
-                Sort.by("articleId"),
-                true)
+    public PanacheQuery<ArticleTableRecord> pagedQuery(
+            int page,
+            int size,
+            Visibility visibility) {
+        return (visibility == Visibility.PUBLIC_ONLY
+                ? find(
+                        "isPublic = ?1",
+                        Sort.by("articleId"),
+                        true)
+                : findAll(Sort.by("articleId")))
                 .page(Page.of(page, size));
     }
 
