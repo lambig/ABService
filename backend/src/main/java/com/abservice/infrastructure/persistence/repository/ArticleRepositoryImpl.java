@@ -11,6 +11,7 @@ import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.repository.article.ArticleRepository;
 import com.abservice.infrastructure.persistence.datasource.ArticleDataSource;
 import com.abservice.infrastructure.persistence.datasource.ArticleTagDataSource;
+import com.abservice.infrastructure.persistence.datasource.Visibility;
 import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
 import com.abservice.infrastructure.persistence.entity.ArticleTagTableRecord;
 import com.abservice.infrastructure.persistence.entity.ArticleTagLinkTableRecord;
@@ -50,7 +51,8 @@ public class ArticleRepositoryImpl implements ArticleRepository {
     public Uni<Article> save(Article aggregate) {
         return Optional.ofNullable(aggregate)
                 .map(
-                        a -> dataSource.findByDomainId(ArticleMapper.toEntity(a).getDomainId())
+                        a -> dataSource
+                                .findByDomainId(ArticleMapper.toEntity(a).getDomainId(), Visibility.ALL)
                                 .flatMap(existingEntity -> upsertArticle(existingEntity, a))
                                 .map(ArticleMapper::toDomain))
                 .orElseGet(() -> Uni.createFrom().failure(new IllegalArgumentException("Article cannot be null")));

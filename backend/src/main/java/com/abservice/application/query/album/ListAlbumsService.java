@@ -2,6 +2,7 @@ package com.abservice.application.query.album;
 
 import com.abservice.application.query.QueryService;
 import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;
+import com.abservice.infrastructure.persistence.datasource.Visibility;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
@@ -40,7 +41,10 @@ public class ListAlbumsService implements QueryService<ListAlbumsQuery, ListAlbu
     public Uni<ListAlbumsResult> query(ListAlbumsQuery query) {
         final var page = clampPage(query.page());
         final var size = clampSize(query.size());
-        final var panacheQuery = dataSource.pagedPublicQuery(page, size);
+        final var panacheQuery = dataSource.pagedQuery(
+                page,
+                size,
+                Visibility.PUBLIC_ONLY);
         return Uni.combine().all()
                 .unis(
                         panacheQuery.list(),

@@ -57,7 +57,7 @@ class AlbumDataSourceTest {
 
         asserter.execute(() -> dataSource.persist(entity));
 
-        asserter.assertThat(() -> dataSource.findByDomainId(entity.getDomainId()), found -> {
+        asserter.assertThat(() -> dataSource.findByDomainId(entity.getDomainId(), Visibility.ALL), found -> {
             assertThat(found).isNotNull();
             assertThat(found.getDomainId()).isEqualTo(entity.getDomainId());
             assertThat(found.getTitle()).isEqualTo("Find By Domain Id");
@@ -69,7 +69,7 @@ class AlbumDataSourceTest {
     @RunOnVertxContext
     void shouldReturnNullWhenDomainIdNotFound(UniAsserter asserter) {
         asserter.assertThat(
-                () -> dataSource.findByDomainId(UUID.randomUUID().toString()),
+                () -> dataSource.findByDomainId(UUID.randomUUID().toString(), Visibility.ALL),
                 found -> assertThat(found).isNull());
     }
 
@@ -81,7 +81,7 @@ class AlbumDataSourceTest {
 
         asserter.execute(() -> dataSource.persist(entity));
 
-        asserter.assertThat(() -> dataSource.findPublicByDomainId(entity.getDomainId()), found -> {
+        asserter.assertThat(() -> dataSource.findByDomainId(entity.getDomainId(), Visibility.PUBLIC_ONLY), found -> {
             assertThat(found).isNotNull();
             assertThat(found.getDomainId()).isEqualTo(entity.getDomainId());
         });
@@ -96,7 +96,7 @@ class AlbumDataSourceTest {
         asserter.execute(() -> dataSource.persist(entity));
 
         asserter.assertThat(
-                () -> dataSource.findPublicByDomainId(entity.getDomainId()),
+                () -> dataSource.findByDomainId(entity.getDomainId(), Visibility.PUBLIC_ONLY),
                 found -> assertThat(found).isNull());
     }
 
@@ -227,11 +227,17 @@ class AlbumDataSourceTest {
         asserter.execute(() -> dataSource.persist(entity3));
 
         asserter.execute(
-                () -> dataSource.pagedQuery(0, 1).count()
+                () -> dataSource.pagedQuery(
+                        0,
+                        1,
+                        Visibility.ALL).count()
                         .invoke(total -> assertThat(total >= 3).isTrue()));
 
         asserter.execute(
-                () -> dataSource.pagedQuery(0, 2).list()
+                () -> dataSource.pagedQuery(
+                        0,
+                        2,
+                        Visibility.ALL).list()
                         .invoke(page -> assertThat(page).hasSizeLessThanOrEqualTo(2)));
     }
 
@@ -247,7 +253,10 @@ class AlbumDataSourceTest {
         asserter.execute(() -> dataSource.persist(draftEntity));
 
         asserter.assertThat(
-                () -> dataSource.pagedPublicQuery(0, 100).list(),
+                () -> dataSource.pagedQuery(
+                        0,
+                        100,
+                        Visibility.PUBLIC_ONLY).list(),
                 found -> {
                     assertThat(found.stream().anyMatch(a -> a.getDomainId().equals(publishedEntity.getDomainId())))
                             .isTrue();
@@ -286,10 +295,10 @@ class AlbumDataSourceTest {
         asserter.execute(() -> dataSource.deleteByAlbumIds(List.of(entity1.getDomainId(), entity2.getDomainId())));
 
         asserter.assertThat(
-                () -> dataSource.findByDomainId(entity1.getDomainId()),
+                () -> dataSource.findByDomainId(entity1.getDomainId(), Visibility.ALL),
                 found -> assertThat(found).isNull());
         asserter.assertThat(
-                () -> dataSource.findByDomainId(entity2.getDomainId()),
+                () -> dataSource.findByDomainId(entity2.getDomainId(), Visibility.ALL),
                 found -> assertThat(found).isNull());
     }
 

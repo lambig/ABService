@@ -2,6 +2,7 @@ package com.abservice.application.query.article;
 
 import com.abservice.application.query.QueryService;
 import com.abservice.infrastructure.persistence.datasource.ArticleDataSource;
+import com.abservice.infrastructure.persistence.datasource.Visibility;
 import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
@@ -35,7 +36,7 @@ public class GetArticleService implements QueryService<GetArticleQuery, GetArtic
     @WithSession
     @Override
     public Uni<GetArticleResult> query(GetArticleQuery query) {
-        return dataSource.findPublicByDomainId(query.articleId())
+        return dataSource.findByDomainId(query.articleId(), Visibility.PUBLIC_ONLY)
                 .map(GetArticleService::toResult);
     }
 

@@ -2,6 +2,7 @@ package com.abservice.application.query.album;
 
 import com.abservice.application.query.QueryService;
 import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;
+import com.abservice.infrastructure.persistence.datasource.Visibility;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
@@ -35,7 +36,7 @@ public class GetAlbumService implements QueryService<GetAlbumQuery, GetAlbumResu
     @WithSession
     @Override
     public Uni<GetAlbumResult> query(GetAlbumQuery query) {
-        return dataSource.findPublicByDomainId(query.albumId())
+        return dataSource.findByDomainId(query.albumId(), Visibility.PUBLIC_ONLY)
                 .map(GetAlbumService::toResult);
     }
 
