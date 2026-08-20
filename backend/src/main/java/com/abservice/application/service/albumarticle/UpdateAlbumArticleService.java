@@ -16,6 +16,7 @@ import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Optional;
+import lombok.AllArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
 
@@ -37,17 +38,10 @@ import org.jspecify.annotations.Nullable;
  * </p>
  */
 @ApplicationScoped
+@AllArgsConstructor
 public class UpdateAlbumArticleService implements CommandService<UpdateAlbumArticleInput, UpdateAlbumArticleOutput> {
 
     private final AlbumArticleRepository albumArticleRepository;
-
-    /**
-     * @param albumArticleRepository
-     *            アルバム記事リポジトリ
-     */
-    public UpdateAlbumArticleService(AlbumArticleRepository albumArticleRepository) {
-        this.albumArticleRepository = albumArticleRepository;
-    }
 
     @WithTransaction
     @Override
