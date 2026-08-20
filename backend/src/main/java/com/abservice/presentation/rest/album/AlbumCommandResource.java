@@ -9,6 +9,9 @@ import com.abservice.application.service.album.DeleteAlbumService;
 import com.abservice.application.service.album.PublishAlbumInput;
 import com.abservice.application.service.album.PublishAlbumOutput;
 import com.abservice.application.service.album.PublishAlbumService;
+import com.abservice.application.service.album.RegisterAlbumWithTracksInput;
+import com.abservice.application.service.album.RegisterAlbumWithTracksOutput;
+import com.abservice.application.service.album.RegisterAlbumWithTracksService;
 import com.abservice.application.service.album.UnpublishAlbumInput;
 import com.abservice.application.service.album.UnpublishAlbumOutput;
 import com.abservice.application.service.album.UnpublishAlbumService;
@@ -17,9 +20,11 @@ import com.abservice.application.service.album.UpdateAlbumOutput;
 import com.abservice.application.service.album.UpdateAlbumService;
 import com.abservice.presentation.rest.album.request.CreateAlbumRequest;
 import com.abservice.presentation.rest.album.request.CreateAlbumRequest.EventRequest;
+import com.abservice.presentation.rest.album.request.RegisterAlbumWithTracksRequest;
 import com.abservice.presentation.rest.album.request.UpdateAlbumRequest;
 import com.abservice.presentation.rest.album.response.CreateAlbumResponse;
 import com.abservice.presentation.rest.album.response.PublishAlbumResponse;
+import com.abservice.presentation.rest.album.response.RegisterAlbumWithTracksResponse;
 import com.abservice.presentation.rest.album.response.UnpublishAlbumResponse;
 import com.abservice.presentation.rest.album.response.UpdateAlbumResponse;
 import io.smallrye.mutiny.Uni;
@@ -32,6 +37,7 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.util.List;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -40,9 +46,10 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>
  * アルバムの作成（POST）・更新（PUT、全項目置換）・削除（DELETE、べき等）・公開（POST .../publish）・非公開化（POST
- * .../unpublish）を受け付ける。検証・永続化は アプリケーション層に委譲し、検証失敗・対象不在は {@code DomainException}
- * 経由で {@code DomainExceptionMapper} が RFC 9457 Problem Details
- * に変換する。非公開化時、当該アルバムを 参照する公開中の記事があれば連動して非公開化する（カスケード非公開）。
+ * .../unpublish）・初期トラックを含めたワンリクエスト登録（POST .../with-tracks）を受け付ける。検証・永続化は
+ * アプリケーション層に委譲し、検証失敗・対象不在は {@code DomainException} 経由で
+ * {@code DomainExceptionMapper} が RFC 9457 Problem Details に変換する。非公開化時、当該アルバムを
+ * 参照する公開中の記事があれば連動して非公開化する（カスケード非公開）。
  * </p>
  */
 @Path("/api/v1/albums")
@@ -53,6 +60,7 @@ public class AlbumCommandResource {
     private final DeleteAlbumService deleteAlbumService;
     private final PublishAlbumService publishAlbumService;
     private final UnpublishAlbumService unpublishAlbumService;
+    private final RegisterAlbumWithTracksService registerAlbumWithTracksService;
 
     /**
      * @param createAlbumService
@@ -65,18 +73,22 @@ public class AlbumCommandResource {
      *            アルバム公開ユースケース
      * @param unpublishAlbumService
      *            アルバム非公開化ユースケース
+     * @param registerAlbumWithTracksService
+     *            アルバムと初期トラック一覧のワンリクエスト登録ユースケース
      */
     public AlbumCommandResource(
             CreateAlbumService createAlbumService,
             UpdateAlbumService updateAlbumService,
             DeleteAlbumService deleteAlbumService,
             PublishAlbumService publishAlbumService,
-            UnpublishAlbumService unpublishAlbumService) {
+            UnpublishAlbumService unpublishAlbumService,
+            RegisterAlbumWithTracksService registerAlbumWithTracksService) {
         this.createAlbumService = createAlbumService;
         this.updateAlbumService = updateAlbumService;
         this.deleteAlbumService = deleteAlbumService;
         this.publishAlbumService = publishAlbumService;
         this.unpublishAlbumService = unpublishAlbumService;
+        this.registerAlbumWithTracksService = registerAlbumWithTracksService;
     }
 
     /**
@@ -260,5 +272,96 @@ public class AlbumCommandResource {
         return new UnpublishAlbumResponse.CascadeUnpublishedArticleResponse(
                 article.articleId(),
                 article.title());
+    }
+
+    /**
+     * アルバムとその初期トラック一覧をワンリクエストで登録します。
+     *
+     * @param request
+     *            アルバムと初期トラック一覧のワンリクエスト登録リクエスト
+     * @return 201 Created と登録結果
+     */
+    @POST
+    @Path("/with-tracks")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Uni<Response> registerWithTracks(RegisterAlbumWithTracksRequest request) {
+        return registerAlbumWithTracksService.execute(toInput(request))
+                .map(AlbumCommandResource::toCreated);
+    }
+
+    private static RegisterAlbumWithTracksInput toInput(RegisterAlbumWithTracksRequest request) {
+        return new RegisterAlbumWithTracksInput(
+                request.title(),
+                request.releaseDate(),
+                request.artistDisplayName(),
+                request.artistSortKey(),
+                request.catalogNumber(),
+                request.isdn(),
+                toEventInput(request.event()),
+                toTrackInputs(request.tracks()));
+    }
+
+    private static RegisterAlbumWithTracksInput.@Nullable EventInput toEventInput(
+            RegisterAlbumWithTracksRequest.@Nullable EventRequest event) {
+        return Optional.ofNullable(event)
+                .map(
+                        e -> new RegisterAlbumWithTracksInput.EventInput(
+                                e.name(),
+                                e.date(),
+                                e.place(),
+                                e.spaceNumber(),
+                                e.note()))
+                .orElse(null);
+    }
+
+    private static @Nullable List<RegisterAlbumWithTracksInput.TrackInput> toTrackInputs(
+            @Nullable List<RegisterAlbumWithTracksRequest.TrackRequest> tracks) {
+        return Optional.ofNullable(tracks)
+                .map(AlbumCommandResource::toTrackInputList)
+                .orElse(null);
+    }
+
+    private static List<RegisterAlbumWithTracksInput.TrackInput> toTrackInputList(
+            List<RegisterAlbumWithTracksRequest.TrackRequest> tracks) {
+        return tracks.stream()
+                .map(AlbumCommandResource::toTrackInput)
+                .toList();
+    }
+
+    private static RegisterAlbumWithTracksInput.@Nullable TrackInput toTrackInput(
+            RegisterAlbumWithTracksRequest.@Nullable TrackRequest track) {
+        return Optional.ofNullable(track)
+                .map(
+                        t -> new RegisterAlbumWithTracksInput.TrackInput(
+                                t.trackNo(),
+                                t.title(),
+                                t.artistDisplayName(),
+                                t.artistSortKey(),
+                                t.recordingDate(),
+                                t.recordingPlace(),
+                                t.isLive()))
+                .orElse(null);
+    }
+
+    private static Response toCreated(RegisterAlbumWithTracksOutput output) {
+        return Response.status(Response.Status.CREATED)
+                .entity(toResponse(output))
+                .build();
+    }
+
+    private static RegisterAlbumWithTracksResponse toResponse(RegisterAlbumWithTracksOutput output) {
+        return new RegisterAlbumWithTracksResponse(
+                output.albumId(),
+                output.title(),
+                output.releaseDate(),
+                output.artistDisplayName(),
+                output.tracks().stream()
+                        .map(
+                                track -> new RegisterAlbumWithTracksResponse.TrackSummaryResponse(
+                                        track.trackId(),
+                                        track.trackNo(),
+                                        track.title()))
+                        .toList());
     }
 }

@@ -27,6 +27,7 @@ import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.Url;
 import com.abservice.lib.ErrorResult;
+import com.abservice.lib.Result;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.experimental.Accessors;
@@ -169,6 +170,50 @@ public final class Track implements DomainEntity<Track, Track.Id> {
                 recordingPlace,
                 isLive,
                 Collections.emptyList());
+    }
+
+    /**
+     * 外部入力からトラックを生成します。
+     *
+     * <p>
+     * 例外をスローせず、検証結果を {@link Result} で返します。{@code trackNo}・{@code title}の必須検証のみを担い、
+     * {@code recordingDate}の文字列解釈のような境界層固有の解釈は本メソッドの対象外です（呼び出し側で解決済みの
+     * ドメイン値を渡してください）。信頼できる内部生成には {@link #create} を使用してください。
+     * </p>
+     *
+     * @param trackNo
+     *            トラック番号
+     * @param title
+     *            トラックタイトルを表す文字列
+     * @param artistCredit
+     *            アーティストクレジット（nullable）
+     * @param recordingDate
+     *            録音日（nullable）
+     * @param recordingPlace
+     *            録音場所（nullable）
+     * @param isLive
+     *            ライブフラグ（nullable）
+     * @return 成功時は {@code Track}、失敗時はエラー
+     */
+    public static Result<Track> fromInput(@Nullable Integer trackNo, @Nullable String title,
+            @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate,
+            @Nullable String recordingPlace, @Nullable Boolean isLive) {
+        return Result.zip(
+                Policy.<Integer>of(
+                        Objects::nonNull,
+                        () -> new ErrorResult(
+                                "trackNo",
+                                "Track number is required",
+                                "TRACK_NO_REQUIRED"))
+                        .verify(trackNo, Function.identity()),
+                TrackTitle.fromInput(title),
+                (validTrackNo, validTitle) -> Track.create(
+                        validTrackNo,
+                        validTitle,
+                        artistCredit,
+                        recordingDate,
+                        recordingPlace,
+                        isLive));
     }
 
     /**
@@ -464,7 +509,13 @@ public final class Track implements DomainEntity<Track, Track.Id> {
      */
     public record Id(@NonNull String value) implements EntityId<Track> {
         public Id {
-            Policy.<String>all(
+            idPolicy(value)
+                    .verify(value, Function.identity())
+                    .resolve(Policy::illegalArgument);
+        }
+
+        private static Policy<String> idPolicy(@Nullable String value) {
+            return Policy.all(
                     Policy.of(
                             StringUtils::isNotBlank,
                             () -> new ErrorResult(
@@ -474,9 +525,7 @@ public final class Track implements DomainEntity<Track, Track.Id> {
                     Policy.of(
                             EntityId::isValidUuid,
                             () -> new ErrorResult("value", "Track ID must be a valid UUID: " + value,
-                                    "ID_INVALID_UUID")))
-                    .verify(value, Function.identity())
-                    .resolve(Policy::illegalArgument);
+                                    "ID_INVALID_UUID")));
         }
 
         /**
@@ -497,6 +546,23 @@ public final class Track implements DomainEntity<Track, Track.Id> {
          */
         public static @NonNull Id of(@NonNull String value) {
             return new Id(value);
+        }
+
+        /**
+         * 外部入力（文字列）からTrack.Idを生成します。
+         *
+         * <p>
+         * 例外をスローせず、検証結果を {@link Result} で返します。 信頼できる内部生成には {@link #of(String)}
+         * を使用してください。
+         * </p>
+         *
+         * @param value
+         *            ID値を表す文字列
+         * @return 成功時は {@code Id}、失敗時はエラー
+         */
+        public static Result<Id> fromInput(@Nullable String value) {
+            return idPolicy(value)
+                    .verify(value, Id::new);
         }
     }
 }

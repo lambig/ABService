@@ -519,7 +519,7 @@ class AlbumTest {
             // Act & Assert
             final var finalAlbum = album;
             assertThatThrownBy(() -> finalAlbum.reorderTracks(invalidOrder))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(BusinessRuleViolationException.class)
                     .hasMessage("Ordered track IDs must match the number of tracks");
         }
 
