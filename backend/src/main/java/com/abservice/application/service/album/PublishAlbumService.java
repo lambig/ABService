@@ -1,10 +1,10 @@
 package com.abservice.application.service.album;
 
 import com.abservice.application.service.CommandService;
-import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.repository.album.AlbumRepository;
+import com.abservice.domain.service.AlbumExistenceService;
 import com.abservice.domain.service.BusinessDateTimeProvider;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -25,6 +25,7 @@ import lombok.AllArgsConstructor;
 public class PublishAlbumService implements CommandService<PublishAlbumInput, PublishAlbumOutput> {
 
     private final AlbumRepository albumRepository;
+    private final AlbumExistenceService albumExistenceService;
     private final BusinessDateTimeProvider businessDateTimeProvider;
 
     @WithTransaction
@@ -34,18 +35,12 @@ public class PublishAlbumService implements CommandService<PublishAlbumInput, Pu
                 .item(
                         () -> Album.Id.fromInput(input.albumId())
                                 .resolve(ValidationException::new))
-                .flatMap(this::findExisting)
+                .flatMap(albumExistenceService::findExisting)
                 .flatMap(
                         existing -> businessDateTimeProvider.now()
                                 .map(existing::publish))
                 .flatMap(albumRepository::save)
                 .map(PublishAlbumService::toOutput);
-    }
-
-    private Uni<Album> findExisting(Album.Id id) {
-        return albumRepository.findById(id)
-                .onItem().ifNull()
-                .failWith(() -> EntityNotFoundException.of("Album", id.value()));
     }
 
     private static PublishAlbumOutput toOutput(Album album) {
