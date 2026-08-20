@@ -18,12 +18,16 @@ import org.junit.jupiter.api.Test;
  *
  * <p>
  * {@code POST /api/v1/articles}（作成）→ {@code GET /api/v1/articles/{id}}（詳細）→
- * {@code PUT /api/v1/articles/{id}}（更新）→ {@code DELETE
+ * {@code PUT /api/v1/articles/{id}}（更新）→ {@code POST
+ * /api/v1/articles/{id}/publish} （公開）→ {@code POST
+ * /api/v1/articles/{id}/unpublish}（非公開化）→ {@code DELETE
  * /api/v1/articles/{id}}（削除）の疎通と、 {@code GET
  * /api/v1/articles}（一覧、ページネーション付き）、未存在時の 404、検証エラー時の 400 を RFC 9457 Problem
  * Details 込みで確認する。実 DB（Flyway migrate-at-start）で動作する。GET
  * 単体取得・一覧取得は認証を伴わない公開向けQueryのため、作成直後の下書き（非公開）記事は 404／一覧除外となる（下書きを含めた
- * 閲覧は認証必須の別経路で提供予定、#116）。
+ * 閲覧は認証必須の別経路で提供予定、#116）。アルバム記事公開時の参照先Album公開状態チェック・アルバム非公開化に伴う
+ * カスケード非公開化は{@code PublishArticleServiceIntegrationTest}/{@code UnpublishAlbumServiceIntegrationTest}
+ * で検証する（REST経由ではアルバム記事の作成手段が未提供のため）。
  * </p>
  */
 @QuarkusTest
@@ -103,6 +107,51 @@ class ArticleRestIntegrationTest {
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:VALIDATION_ERROR"))
                 .body("errors[0].field", equalTo("title"));
+    }
+
+    @Test
+    @DisplayName("記事を公開すると公開向けGETで参照できるようになる")
+    void publishThenGetSucceeds() {
+        final String articleId = given().contentType(ContentType.JSON)
+                .body("{\"articleType\":\"NOTE\",\"title\":\"公開確認記事\"}").when().post("/api/v1/articles").then()
+                .statusCode(201).extract().path("articleId");
+
+        given().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(200)
+                .body("articleId", equalTo(articleId)).body("publicFlag", equalTo(true));
+
+        given().when().get("/api/v1/articles/" + articleId).then().statusCode(200)
+                .body("articleId", equalTo(articleId));
+    }
+
+    @Test
+    @DisplayName("公開済み記事を非公開化すると公開向けGETは404になる")
+    void unpublishThenGetNotFound() {
+        final String articleId = given().contentType(ContentType.JSON)
+                .body("{\"articleType\":\"NOTE\",\"title\":\"非公開化確認記事\"}").when().post("/api/v1/articles").then()
+                .statusCode(201).extract().path("articleId");
+
+        given().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(200);
+
+        given().when().post("/api/v1/articles/" + articleId + "/unpublish").then().statusCode(200)
+                .body("articleId", equalTo(articleId)).body("publicFlag", equalTo(false));
+
+        given().when().get("/api/v1/articles/" + articleId).then().statusCode(404);
+    }
+
+    @Test
+    @DisplayName("存在しないIDの公開は404 problem+jsonを返す")
+    void publishNotFound() {
+        given().when().post("/api/v1/articles/" + UUID.randomUUID() + "/publish").then().statusCode(404)
+                .contentType("application/problem+json")
+                .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("存在しないIDの非公開化は404 problem+jsonを返す")
+    void unpublishNotFound() {
+        given().when().post("/api/v1/articles/" + UUID.randomUUID() + "/unpublish").then().statusCode(404)
+                .contentType("application/problem+json")
+                .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
     }
 
     @Test
