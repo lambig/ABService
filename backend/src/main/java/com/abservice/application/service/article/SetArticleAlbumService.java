@@ -3,17 +3,16 @@ package com.abservice.application.service.article;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.exception.EntityNotFoundException;
-import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.repository.article.ArticleRepository;
 import com.abservice.domain.service.AlbumExistenceService;
 import com.abservice.domain.service.BusinessDateTimeProvider;
-import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.util.Objects;
 import lombok.AllArgsConstructor;
 
 /**
@@ -37,8 +36,8 @@ public class SetArticleAlbumService implements CommandService<SetArticleAlbumInp
     @WithTransaction
     @Override
     public Uni<SetArticleAlbumOutput> execute(SetArticleAlbumInput input) {
-        return Uni.createFrom()
-                .item(() -> parseIds(input))
+        return input.asValidated()
+                .map(SetArticleAlbumService::toIds)
                 .flatMap(
                         ids -> findExistingAlbumArticle(ids.articleId())
                                 .flatMap(
@@ -52,12 +51,10 @@ public class SetArticleAlbumService implements CommandService<SetArticleAlbumInp
     private record Ids(Article.Id articleId, Album.Id albumId) {
     }
 
-    private static Ids parseIds(SetArticleAlbumInput input) {
-        return Result.zip(
-                Article.Id.fromInput(input.articleId()),
-                Album.Id.fromInput(input.albumId()),
-                Ids::new)
-                .resolve(ValidationException::new);
+    private static Ids toIds(SetArticleAlbumInput valid) {
+        return new Ids(
+                Article.Id.of(Objects.requireNonNull(valid.articleId())),
+                Album.Id.of(Objects.requireNonNull(valid.albumId())));
     }
 
     private Uni<Article> findExistingAlbumArticle(Article.Id id) {
