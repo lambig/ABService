@@ -18,16 +18,16 @@ import org.junit.jupiter.api.Test;
  *
  * <p>
  * {@code POST /api/v1/articles}（作成）→ {@code GET /api/v1/articles/{id}}（詳細）→
- * {@code PUT /api/v1/articles/{id}}（更新）→ {@code POST
+ * {@code PUT /api/v1/articles/{id}}（更新）→ {@code PUT
+ * /api/v1/articles/{id}/album} （アルバム紐付け）→ {@code POST
  * /api/v1/articles/{id}/publish} （公開）→ {@code POST
  * /api/v1/articles/{id}/unpublish}（非公開化）→ {@code DELETE
  * /api/v1/articles/{id}}（削除）の疎通と、 {@code GET
  * /api/v1/articles}（一覧、ページネーション付き）、未存在時の 404、検証エラー時の 400 を RFC 9457 Problem
  * Details 込みで確認する。実 DB（Flyway migrate-at-start）で動作する。GET
  * 単体取得・一覧取得は認証を伴わない公開向けQueryのため、作成直後の下書き（非公開）記事は 404／一覧除外となる（下書きを含めた
- * 閲覧は認証必須の別経路で提供予定、#116）。アルバム記事公開時の参照先Album公開状態チェック・アルバム非公開化に伴う
- * カスケード非公開化は{@code PublishArticleServiceIntegrationTest}/{@code UnpublishAlbumServiceIntegrationTest}
- * で検証する（REST経由ではアルバム記事の作成手段が未提供のため）。
+ * 閲覧は認証必須の別経路で提供予定、#116）。アルバム非公開化に伴うカスケード非公開化は
+ * {@code UnpublishAlbumServiceIntegrationTest}で検証する。
  * </p>
  */
 @QuarkusTest
@@ -152,6 +152,86 @@ class ArticleRestIntegrationTest {
         given().when().post("/api/v1/articles/" + UUID.randomUUID() + "/unpublish").then().statusCode(404)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("ALBUM種別の記事にアルバムを紐付けられる（参照先が下書きでも紐付け自体は成功する）")
+    void setAlbumSucceedsForAlbumTypeArticle() {
+        final String albumId = createDraftAlbum("紐付け確認アルバム");
+        final String articleId = given().contentType(ContentType.JSON)
+                .body("{\"articleType\":\"ALBUM\",\"title\":\"紐付け確認記事\"}").when().post("/api/v1/articles").then()
+                .statusCode(201).extract().path("articleId");
+
+        given().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
+                .put("/api/v1/articles/" + articleId + "/album").then().statusCode(200)
+                .body("articleId", equalTo(articleId)).body("albumId", equalTo(albumId));
+    }
+
+    @Test
+    @DisplayName("NOTE種別の記事へのアルバム紐付けは409 problem+jsonを返す")
+    void setAlbumFailsForNonAlbumTypeArticle() {
+        final String albumId = createDraftAlbum("紐付け拒否確認アルバム");
+        final String articleId = given().contentType(ContentType.JSON)
+                .body("{\"articleType\":\"NOTE\",\"title\":\"紐付け拒否確認記事\"}").when().post("/api/v1/articles").then()
+                .statusCode(201).extract().path("articleId");
+
+        given().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
+                .put("/api/v1/articles/" + articleId + "/album").then().statusCode(409)
+                .contentType("application/problem+json")
+                .body("type", equalTo("urn:abservice:error:BUSINESS_RULE_VIOLATION"));
+    }
+
+    @Test
+    @DisplayName("存在しないアルバムへの紐付けは404 problem+jsonを返す")
+    void setAlbumNotFoundForUnknownAlbum() {
+        final String articleId = given().contentType(ContentType.JSON)
+                .body("{\"articleType\":\"ALBUM\",\"title\":\"存在しないアルバム紐付け確認記事\"}").when()
+                .post("/api/v1/articles").then().statusCode(201).extract().path("articleId");
+
+        given().contentType(ContentType.JSON).body("{\"albumId\":\"" + UUID.randomUUID() + "\"}").when()
+                .put("/api/v1/articles/" + articleId + "/album").then().statusCode(404)
+                .contentType("application/problem+json")
+                .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("存在しない記事への紐付けは404 problem+jsonを返す")
+    void setAlbumNotFoundForUnknownArticle() {
+        final String albumId = createDraftAlbum("記事不在確認アルバム");
+
+        given().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
+                .put("/api/v1/articles/" + UUID.randomUUID() + "/album").then().statusCode(404)
+                .contentType("application/problem+json")
+                .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("下書きAlbumへ紐付けた記事は公開できないが、Album公開後は公開できる")
+    void publishFailsUntilReferencedAlbumIsPublished() {
+        final String albumId = createDraftAlbum("公開制御確認アルバム");
+        final String articleId = given().contentType(ContentType.JSON)
+                .body("{\"articleType\":\"ALBUM\",\"title\":\"公開制御確認記事\"}").when().post("/api/v1/articles").then()
+                .statusCode(201).extract().path("articleId");
+
+        given().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
+                .put("/api/v1/articles/" + articleId + "/album").then().statusCode(200);
+
+        given().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(409)
+                .contentType("application/problem+json")
+                .body("type", equalTo("urn:abservice:error:BUSINESS_RULE_VIOLATION"));
+
+        given().when().post("/api/v1/albums/" + albumId + "/publish").then().statusCode(200);
+
+        given().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(200)
+                .body("publicFlag", equalTo(true));
+    }
+
+    private static String createDraftAlbum(String title) {
+        return given().contentType(ContentType.JSON)
+                .body(
+                        "{\"title\":\"" + title + "\",\"releaseDate\":\"2026-01-01\","
+                                + "\"artistDisplayName\":\"アーティスト\"}")
+                .when().post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
     }
 
     @Test

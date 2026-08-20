@@ -26,8 +26,9 @@ import org.junit.jupiter.api.Test;
  * PublishArticleServiceの集約横断ビジネスルール（非公開Albumを参照する記事は公開できない）の統合テスト
  *
  * <p>
- * アルバム記事（{@code albumId}を持つArticle）の作成はREST未提供のため、ここではリポジトリを直接使って
- * 前提データを組み立てる。単純な記事公開・404・検証エラーはREST経由で
+ * ここではリポジトリを直接使って前提データ（アルバム記事）を組み立て、
+ * {@code ArticleAlbumReferencePolicy}経由の検証ロジックを単体・高速に検証する。REST経由での
+ * 同等の疎通確認（{@code PUT .../album}によるアルバム紐付けを含む）は
  * {@code ArticleRestIntegrationTest}が検証する。
  * </p>
  */
