@@ -6,6 +6,12 @@ import com.abservice.application.service.album.CreateAlbumOutput;
 import com.abservice.application.service.album.CreateAlbumService;
 import com.abservice.application.service.album.DeleteAlbumInput;
 import com.abservice.application.service.album.DeleteAlbumService;
+import com.abservice.application.service.album.PublishAlbumInput;
+import com.abservice.application.service.album.PublishAlbumOutput;
+import com.abservice.application.service.album.PublishAlbumService;
+import com.abservice.application.service.album.UnpublishAlbumInput;
+import com.abservice.application.service.album.UnpublishAlbumOutput;
+import com.abservice.application.service.album.UnpublishAlbumService;
 import com.abservice.application.service.album.UpdateAlbumInput;
 import com.abservice.application.service.album.UpdateAlbumOutput;
 import com.abservice.application.service.album.UpdateAlbumService;
@@ -13,6 +19,8 @@ import com.abservice.presentation.rest.album.request.CreateAlbumRequest;
 import com.abservice.presentation.rest.album.request.CreateAlbumRequest.EventRequest;
 import com.abservice.presentation.rest.album.request.UpdateAlbumRequest;
 import com.abservice.presentation.rest.album.response.CreateAlbumResponse;
+import com.abservice.presentation.rest.album.response.PublishAlbumResponse;
+import com.abservice.presentation.rest.album.response.UnpublishAlbumResponse;
 import com.abservice.presentation.rest.album.response.UpdateAlbumResponse;
 import io.smallrye.mutiny.Uni;
 import jakarta.ws.rs.Consumes;
@@ -31,9 +39,10 @@ import org.jspecify.annotations.Nullable;
  * アルバム集約の Command REST リソース
  *
  * <p>
- * アルバムの作成（POST）・更新（PUT、全項目置換）・削除（DELETE、べき等）を受け付ける。検証・永続化は
- * アプリケーション層に委譲し、検証失敗・対象不在は {@code DomainException} 経由で
- * {@code DomainExceptionMapper} が RFC 9457 Problem Details に変換する。
+ * アルバムの作成（POST）・更新（PUT、全項目置換）・削除（DELETE、べき等）・公開（POST .../publish）・非公開化（POST
+ * .../unpublish）を受け付ける。検証・永続化は アプリケーション層に委譲し、検証失敗・対象不在は {@code DomainException}
+ * 経由で {@code DomainExceptionMapper} が RFC 9457 Problem Details
+ * に変換する。非公開化時、当該アルバムを 参照する公開中の記事があれば連動して非公開化する（カスケード非公開）。
  * </p>
  */
 @Path("/api/v1/albums")
@@ -42,6 +51,8 @@ public class AlbumCommandResource {
     private final CreateAlbumService createAlbumService;
     private final UpdateAlbumService updateAlbumService;
     private final DeleteAlbumService deleteAlbumService;
+    private final PublishAlbumService publishAlbumService;
+    private final UnpublishAlbumService unpublishAlbumService;
 
     /**
      * @param createAlbumService
@@ -50,14 +61,22 @@ public class AlbumCommandResource {
      *            アルバム更新ユースケース
      * @param deleteAlbumService
      *            アルバム削除ユースケース
+     * @param publishAlbumService
+     *            アルバム公開ユースケース
+     * @param unpublishAlbumService
+     *            アルバム非公開化ユースケース
      */
     public AlbumCommandResource(
             CreateAlbumService createAlbumService,
             UpdateAlbumService updateAlbumService,
-            DeleteAlbumService deleteAlbumService) {
+            DeleteAlbumService deleteAlbumService,
+            PublishAlbumService publishAlbumService,
+            UnpublishAlbumService unpublishAlbumService) {
         this.createAlbumService = createAlbumService;
         this.updateAlbumService = updateAlbumService;
         this.deleteAlbumService = deleteAlbumService;
+        this.publishAlbumService = publishAlbumService;
+        this.unpublishAlbumService = unpublishAlbumService;
     }
 
     /**
@@ -179,5 +198,67 @@ public class AlbumCommandResource {
     public Uni<Response> delete(@PathParam("id") String id) {
         return deleteAlbumService.execute(new DeleteAlbumInput(id))
                 .replaceWith(Response.noContent().build());
+    }
+
+    /**
+     * アルバムを公開します。
+     *
+     * @param id
+     *            公開対象のアルバムID
+     * @return 200 OK と公開結果
+     */
+    @POST
+    @Path("/{id}/publish")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Uni<Response> publish(@PathParam("id") String id) {
+        return publishAlbumService.execute(new PublishAlbumInput(id))
+                .map(AlbumCommandResource::toOk);
+    }
+
+    private static Response toOk(PublishAlbumOutput output) {
+        return Response.ok(toResponse(output)).build();
+    }
+
+    private static PublishAlbumResponse toResponse(PublishAlbumOutput output) {
+        return new PublishAlbumResponse(
+                output.albumId(),
+                output.title(),
+                output.published());
+    }
+
+    /**
+     * アルバムを非公開化します。当該アルバムを参照する公開中の記事があれば連動して非公開化し、 結果に含めて返します（カスケード非公開）。
+     *
+     * @param id
+     *            非公開化対象のアルバムID
+     * @return 200 OK と非公開化結果
+     */
+    @POST
+    @Path("/{id}/unpublish")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Uni<Response> unpublish(@PathParam("id") String id) {
+        return unpublishAlbumService.execute(new UnpublishAlbumInput(id))
+                .map(AlbumCommandResource::toOk);
+    }
+
+    private static Response toOk(UnpublishAlbumOutput output) {
+        return Response.ok(toResponse(output)).build();
+    }
+
+    private static UnpublishAlbumResponse toResponse(UnpublishAlbumOutput output) {
+        return new UnpublishAlbumResponse(
+                output.albumId(),
+                output.title(),
+                output.published(),
+                output.cascadeUnpublishedArticles().stream()
+                        .map(AlbumCommandResource::toCascadeUnpublishedArticleResponse)
+                        .toList());
+    }
+
+    private static UnpublishAlbumResponse.CascadeUnpublishedArticleResponse toCascadeUnpublishedArticleResponse(
+            UnpublishAlbumOutput.CascadeUnpublishedArticle article) {
+        return new UnpublishAlbumResponse.CascadeUnpublishedArticleResponse(
+                article.articleId(),
+                article.title());
     }
 }
