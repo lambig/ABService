@@ -16,7 +16,7 @@ import com.tngtech.archunit.junit.ArchTest;
  * </p>
  *
  * <p>
- * 対応ドキュメント: {@code docs/STATUS_AND_ROADMAP.md} §6。
+ * 対応ドキュメント: {@code docs/CODING_GUIDELINES.md} §1（静的解析ガバナンス）。
  * </p>
  */
 @AnalyzeClasses(packages = "com.abservice")

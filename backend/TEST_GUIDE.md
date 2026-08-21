@@ -2,22 +2,7 @@
 
 ## ディレクトリ構成
 
-```
-backend/src/
-├── main/java/              # 本番コード
-├── test/java/              # ユニットテスト（DBなし・高速実行）
-│   └── com/abservice/
-│       └── domain/
-│           └── model/
-│               └── vo/
-│                   ├── BusinessDateTest.java
-│                   └── BusinessDateTimeTest.java
-└── integrationTest/java/   # 統合テスト（DB必要・低頻度実行）
-    └── com/abservice/
-        └── infrastructure/
-            └── datetime/
-                └── SystemBusinessDateTimeProviderTest.java
-```
+ユニットテストは `backend/src/test/java/`、統合テストは `backend/src/integrationTest/java/` に置き、本番コードと同じパッケージ構成をたどる。Gradle のソースセットが分かれているため、実行対象も分かれる。
 
 ## テスト分類ルール
 
@@ -77,36 +62,6 @@ backend/src/
   - `asserter.assertThat(() -> uniOperation, result -> { ... })`
   - `asserter.assertFailedWith(() -> uniOperation, ExceptionClass.class)`
 
-**統合テストの例:**
-```java
-@QuarkusTest
-class AlbumRepositoryImplTest {
-    @Inject
-    AlbumRepositoryImpl repository;
-
-    @Test
-    @RunOnVertxContext
-    void shouldSaveAndFindAlbum(UniAsserter asserter) {
-        var album = Album.create(...);
-
-        // Save操作のテスト
-        asserter.assertThat(
-            () -> repository.save(album),
-            saved -> {
-                asserter.assertNotNull(saved);
-                asserter.assertEquals(album.id(), saved.id());
-            }
-        );
-
-        // Find操作のテスト
-        asserter.assertThat(
-            () -> repository.findById(album.id()),
-            found -> asserter.assertNotNull(found)
-        );
-    }
-}
-```
-
 **命名規則:**
 - `*IntegrationTest.java`
 - `*RepositoryTest.java`
@@ -141,18 +96,14 @@ class AlbumRepositoryImplTest {
 
 ## 統合テスト実行前の準備
 
-統合テストはデータベースが必要なため、以下を実行:
+統合テストは PostgreSQL と、アセットのアップロードを検証するため MinIO（S3互換）を使う。リポジトリルートで以下を実行する:
 
 ```bash
-# Dockerコンテナ起動
-docker-compose up -d
-
-# または開発環境用
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
-
-# マイグレーション実行
-./gradlew flywayMigrate
+docker compose up -d postgres
+docker compose up -d minio minio-init
 ```
+
+マイグレーションは Quarkus の `migrate-at-start` により統合テスト起動時に自動適用される（別タスクの実行は不要）。各サービスの接続情報は `docker/README.md` が正。
 
 ## テスト追加ガイドライン
 
@@ -176,85 +127,10 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
    - YES → `test`（ユニット）
    - NO → 再検討
 
-### 例
+### 参照する実例
 
-#### ユニットテストの例
-```java
-// src/test/java/com/abservice/domain/model/vo/AlbumTitleTest.java
-package com.abservice.domain.model.vo.album;
+現行のテストを参照する。ユニットテストは `domain/model/vo` 配下（VOの検証）と `application/service` 配下（Fake注入によるユースケース検証）、統合テストは `infrastructure/persistence/repository`（`UniAsserter` を使ったDB操作）と `presentation/rest`（RestAssured による E2E）が代表例。
 
-import org.junit.jupiter.api.Test;
-import static org.assertj.core.api.Assertions.*;
+## CI
 
-class AlbumTitleTest {
-    @Test
-    void testValidTitle() {
-        var title = new AlbumTitle("Test Album");
-        assertThat(title.value()).isEqualTo("Test Album");
-    }
-
-    @Test
-    void testInvalidTitle() {
-        assertThatThrownBy(() -> new AlbumTitle(""))
-            .isInstanceOf(IllegalArgumentException.class);
-    }
-}
-```
-
-#### 統合テストの例
-```java
-// src/integrationTest/java/com/abservice/infrastructure/persistence/repository/AlbumRepositoryIntegrationTest.java
-package com.abservice.infrastructure.persistence.repository;
-
-import com.abservice.domain.model.aggregate.album.Album;
-import com.abservice.domain.repository.album.AlbumRepository;
-import io.quarkus.test.junit.QuarkusTest;
-import jakarta.inject.Inject;
-import org.junit.jupiter.api.Test;
-
-import static org.assertj.core.api.Assertions.*;
-
-@QuarkusTest
-class AlbumRepositoryIntegrationTest {
-
-    @Inject
-    AlbumRepository albumRepository;
-
-    @Test
-    void testSaveAndFind() {
-        var album = Album.create(
-            Album.Id.generate(),
-            new AlbumTitle("Integration Test")
-        );
-
-        var saved = albumRepository.save(album).await().indefinitely();
-        var found = albumRepository.findById(saved.id()).await().indefinitely();
-
-        assertThat(found).isPresent();
-        assertThat(found.get().title()).isEqualTo(album.title());
-    }
-}
-```
-
-## CI/CD設定例
-
-```yaml
-# .github/workflows/test.yml
-jobs:
-  unit-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Run unit tests
-        run: ./gradlew test
-
-  integration-test:
-    runs-on: ubuntu-latest
-    needs: unit-test
-    steps:
-      - uses: actions/checkout@v3
-      - name: Start services
-        run: docker-compose up -d
-      - name: Run integration tests
-        run: ./gradlew integrationTest
-```
+`.github/workflows/ci.yml` が `check`（spotless / checkstyle / PMD / ユニット+ArchUnit / 統合）を実行する。定義の正はワークフロー本体。
