@@ -64,6 +64,15 @@ aws ssm get-parameter --name "/<project>/<environment>/app/admin-api-key" \
 
 ローテーションは Parameter Store の値を更新し、backend を再デプロイ（再起動）して反映する。
 
+## アセット配信（#136）
+
+画像アセットは管理画面が backend から署名付きURLを受け取り、S3（`aws_s3_bucket.assets`）へ直接 PUT する。実体は backend／CloudFront を経由しないため、サイズ上限はアプリ側の検証（`abservice.assets.max-bytes`）だけで決まる。
+
+- 配信は CloudFront の `/assets/*` ビヘイビア経由（OAC で S3 を読み取り、バケットは非公開のまま）。オブジェクトキーの接頭辞を `assets/` に揃えているため `origin_path` は使わない
+- 確定後のアセットはキーが一意（UUIDv7）で内容が変わらないため長期キャッシュ設定（`default_ttl` 1日 / `max_ttl` 1年）
+- クロスオリジンの PUT を許可するため、バケットに CORS（`allowed_methods = ["PUT"]`、オリジンはサイトのドメイン）を設定している
+- backend の実行ロールには assets バケットへの `GetObject` / `PutObject` / `DeleteObject` / `ListBucket` を付与済み（署名付きURLの発行に追加権限は不要）
+
 ## ロールバック（backendデプロイ）
 
 ECRのライフサイクルポリシーにより直近10件のタグ付きイメージが保持される。障害時は`.github/workflows/deploy.yml`を`workflow_dispatch`で手動起動し、`image_tag`に直前の正常なタグ（gitのshort SHA）を指定して再デプロイする（再ビルドは行わず、ECRの既存イメージをそのままEC2へpull・再起動するだけなので数十秒で完了する）。ロールバック後、mainブランチの履歴は`git revert`で追随させる（force-push・履歴書き換えはしない）。

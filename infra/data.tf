@@ -139,3 +139,17 @@ resource "aws_s3_bucket_versioning" "assets" {
     status = "Enabled"
   }
 }
+
+# 管理画面はbackendが発行した署名付きURLへ直接PUTする（実体はbackendを経由しない）。
+# PUT先はCloudFrontではなくS3のエンドポイントになるため、サイトのオリジンからのクロスオリジンPUTを許可する。
+resource "aws_s3_bucket_cors_configuration" "assets" {
+  bucket = aws_s3_bucket.assets.id
+
+  cors_rule {
+    allowed_headers = ["Content-Type"]
+    allowed_methods = ["PUT"]
+    allowed_origins = ["https://${var.domain_name}"]
+    expose_headers  = ["ETag"]
+    max_age_seconds = 3000
+  }
+}

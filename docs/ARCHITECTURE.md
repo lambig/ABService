@@ -14,6 +14,7 @@ ABServiceは、モノリポジトリ構成で構築されたWebサービスで�
 - **マイグレーション**: Flyway
 - **認証・認可**:
   - Quarkus Security（自作の APIキー認証メカニズム + `@RolesAllowed`）
+- **オブジェクトストレージ**: S3互換（本番はS3、開発はMinIO。quarkus-amazon-s3）
 - **API**: RESTEasy Reactive
 - **設定管理**: Quarkus Configuration
 - **テスト**: JUnit 5 + REST Assured
@@ -161,8 +162,15 @@ DomainObject<T>
 ### API仕様
 - **OpenAPI**: Swagger UIによるAPI仕様書
 - **バージョニング**: URLパスでのバージョン管理
-- **認証**: Bearer Token (JWT)
+- **認証**: `Authorization: Bearer <APIキー>`（管理操作のみ。認証・認可アーキテクチャの節を参照）
 - **レート制限**: 必要に応じて実装
+
+### アセット（画像）のアップロードと配信
+- **アップロード**: 3ステップ。`POST /api/v1/assets/upload-url` で署名付きURLとアセットキーを得て、クライアントがそのURLへ実体を直接 PUT し、`POST /api/v1/assets/{assetKey}/confirm` で確定する。実体は backend を経由しない
+- **検証**: 確定時に先頭バイト列の範囲取得1回で、サイズ上限・マジックバイトによる形式判定・払い出したキーの拡張子との一致を確認する。申告された Content-Type は信用しない。検査に通らない実体は保管先から削除して 400 を返す
+- **受け入れ形式**: JPEG / PNG / WebP。キーは UUIDv7 + 拡張子で、元のファイル名は使わない
+- **配信**: CloudFront の `/assets/*` 経由（保管バケットは非公開のまま OAC で読み取る）。集約が保持するのは確定時に返る配信URL
+- **音源**: 自前ホストせず外部サービス（SoundCloud）の埋め込みに委ねる（転送コストと運用の観点）
 
 ## フロントエンド設計
 
@@ -230,5 +238,4 @@ DomainObject<T>
 
 ### 機能拡張
 - **リアルタイム通信**: WebSocket
-- **ファイルアップロード**: オブジェクトストレージ
 - **通知機能**: メール、プッシュ通知
