@@ -118,6 +118,7 @@ public class AlbumCommandResource {
                 request.artistSortKey(),
                 request.catalogNumber(),
                 request.isdn(),
+                request.coverImageKey(),
                 toEventInput(request.event()));
     }
 
@@ -174,6 +175,7 @@ public class AlbumCommandResource {
                 request.artistSortKey(),
                 request.catalogNumber(),
                 request.isdn(),
+                request.coverImageKey(),
                 toEventInput(request.event()));
     }
 
@@ -302,6 +304,7 @@ public class AlbumCommandResource {
                 request.artistSortKey(),
                 request.catalogNumber(),
                 request.isdn(),
+                request.coverImageKey(),
                 toEventInput(request.event()),
                 toTrackInputs(request.tracks()));
     }

@@ -46,6 +46,7 @@ class AlbumArticleRepositoryImplTest {
                 ArtistCredit.of("Test Artist", "test-artist"),
                 null,
                 null,
+                null,
                 null);
     }
 

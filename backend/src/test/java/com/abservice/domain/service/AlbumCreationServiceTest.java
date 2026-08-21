@@ -34,6 +34,7 @@ class AlbumCreationServiceTest {
                 null,
                 "ABC-0001",
                 null,
+                "01a0233d-d25a-7c3b-924f-236ee154fecc.png",
                 null);
 
         assertThat(result).isInstanceOf(Result.Success.class);
@@ -42,6 +43,26 @@ class AlbumCreationServiceTest {
         assertThat(result.resolve().artistCredit().displayName().value()).isEqualTo("アーティスト名");
         assertThat(result.resolve().catalogNumber().value()).isEqualTo("ABC-0001");
         assertThat(result.resolve().isdn()).isNull();
+        assertThat(result.resolve().coverImageKey().value())
+                .isEqualTo("01a0233d-d25a-7c3b-924f-236ee154fecc.png");
+    }
+
+    @Test
+    @DisplayName("カバー画像のキーが配信URLの形なら検証エラーを集約する")
+    void invalidCoverImageKeyAggregatesError() {
+        final var result = AlbumCreationService.validate(
+                "アルバムタイトル",
+                VALID_RELEASE_DATE,
+                "アーティスト名",
+                null,
+                null,
+                null,
+                "/assets/01a0233d-d25a-7c3b-924f-236ee154fecc.png",
+                null);
+
+        assertThat(result).isInstanceOf(Result.Failure.class);
+        assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
+                .contains("ASSET_KEY_INVALID_FORMAT");
     }
 
     @Test
@@ -57,6 +78,7 @@ class AlbumCreationServiceTest {
                 "   ",
                 invalidReleaseDate,
                 "   ",
+                null,
                 null,
                 null,
                 null,
@@ -86,6 +108,7 @@ class AlbumCreationServiceTest {
                 null,
                 null,
                 null,
+                null,
                 null);
 
         assertThat(result).isInstanceOf(Result.Failure.class);
@@ -103,6 +126,7 @@ class AlbumCreationServiceTest {
                 null,
                 "   ",
                 "",
+                null,
                 null);
 
         assertThat(result).isInstanceOf(Result.Success.class);
@@ -121,6 +145,7 @@ class AlbumCreationServiceTest {
                 null,
                 null,
                 "0000000000000",
+                null,
                 null);
 
         assertThat(result).isInstanceOf(Result.Failure.class);
@@ -144,6 +169,7 @@ class AlbumCreationServiceTest {
                 "アルバムタイトル",
                 VALID_RELEASE_DATE,
                 "アーティスト名",
+                null,
                 null,
                 null,
                 null,
@@ -180,6 +206,7 @@ class AlbumCreationServiceTest {
                 null,
                 null,
                 null,
+                null,
                 new EventFields(
                         "コミックマーケット104",
                         invalidEventDate,
@@ -202,6 +229,7 @@ class AlbumCreationServiceTest {
                 null,
                 null,
                 "0000000000000",
+                null,
                 null);
 
         assertThat(result).isInstanceOf(Result.Failure.class);
@@ -216,6 +244,7 @@ class AlbumCreationServiceTest {
                 "アルバムタイトル",
                 VALID_RELEASE_DATE,
                 "アーティスト名",
+                null,
                 null,
                 null,
                 null,

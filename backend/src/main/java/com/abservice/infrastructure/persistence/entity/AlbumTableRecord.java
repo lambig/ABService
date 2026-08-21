@@ -78,6 +78,9 @@ public class AlbumTableRecord extends AuditableTableRecord<AlbumTableRecord> {
     @Column(name = "isdn", length = 20)
     private String isdn;
 
+    @Column(name = "cover_image_key", length = 255)
+    private String coverImageKey;
+
     @Column(name = "published_at")
     private Instant publishedAt;
 

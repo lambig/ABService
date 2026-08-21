@@ -16,6 +16,7 @@ import com.abservice.domain.model.vo.album.Isdn;
 import com.abservice.domain.model.vo.album.Publication;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
+import com.abservice.domain.model.vo.common.AssetKey;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
@@ -46,6 +47,7 @@ class AlbumTest {
                     title,
                     releaseDate,
                     artistCredit,
+                    null,
                     null,
                     null,
                     null);
@@ -82,6 +84,7 @@ class AlbumTest {
             final var catalogNumber = CatalogNumber.of("CAT-001");
             // 278-4-000000-00-7: チェックデジット計算 sum=43 -> (10-(43%10))%10 = 7
             final var isdn = Isdn.of("2784000000007");
+            final var coverImageKey = AssetKey.of("01a0233d-d25a-7c3b-924f-236ee154fecc.png");
 
             // Act
             final var album = Album.create(
@@ -90,13 +93,15 @@ class AlbumTest {
                     artistCredit,
                     eventReleasedAt,
                     catalogNumber,
-                    isdn);
+                    isdn,
+                    coverImageKey);
 
             // Assert
             assertThat(album).isNotNull();
             assertThat(album.eventReleasedAt()).isEqualTo(eventReleasedAt);
             assertThat(album.catalogNumber()).isEqualTo(catalogNumber);
             assertThat(album.isdn()).isEqualTo(isdn);
+            assertThat(album.coverImageKey()).isEqualTo(coverImageKey);
         }
 
         @Test
@@ -115,6 +120,7 @@ class AlbumTest {
                             null,
                             releaseDate,
                             artistCredit,
+                            null,
                             null,
                             null,
                             null))
@@ -136,6 +142,7 @@ class AlbumTest {
                     () -> Album.create(
                             title,
                             releaseDate,
+                            null,
                             null,
                             null,
                             null,
@@ -699,6 +706,7 @@ class AlbumTest {
                         1,
                         1),
                 ArtistCredit.of("Test Artist"),
+                null,
                 null,
                 null,
                 null);

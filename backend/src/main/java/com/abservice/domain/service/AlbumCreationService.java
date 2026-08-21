@@ -1,11 +1,13 @@
 package com.abservice.domain.service;
 
 import com.abservice.domain.exception.ValidationException;
+import com.abservice.domain.model.DomainFactory;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
 import com.abservice.domain.model.vo.common.ArtistCredit;
+import com.abservice.domain.model.vo.common.AssetKey;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.lib.Result;
@@ -50,10 +52,13 @@ public class AlbumCreationService implements DomainService {
      *            カタログナンバー（nullable）
      * @param isdn
      *            ISDN（nullable）
+     * @param coverImageKey
+     *            カバー画像のアセットキー（nullable。アップロード基盤が返す{@code assetKey}）
      * @param event
      *            初出イベント情報（nullable）
      * @return 検証・生成されたAlbum。検証失敗時は{@link ValidationException}で失敗する
      */
+    @DomainFactory
     public Uni<Album> create(
             @Nullable String title,
             Result<BusinessDate> releaseDate,
@@ -61,6 +66,7 @@ public class AlbumCreationService implements DomainService {
             @Nullable String artistSortKey,
             @Nullable String catalogNumber,
             @Nullable String isdn,
+            @Nullable String coverImageKey,
             @Nullable EventFields event) {
         return Uni.createFrom()
                 .item(
@@ -71,10 +77,12 @@ public class AlbumCreationService implements DomainService {
                                 artistSortKey,
                                 catalogNumber,
                                 isdn,
+                                coverImageKey,
                                 event)
                                 .resolve(ValidationException::new));
     }
 
+    @DomainFactory
     static Result<Album> validate(
             @Nullable String title,
             Result<BusinessDate> releaseDate,
@@ -82,6 +90,7 @@ public class AlbumCreationService implements DomainService {
             @Nullable String artistSortKey,
             @Nullable String catalogNumber,
             @Nullable String isdn,
+            @Nullable String coverImageKey,
             @Nullable EventFields event) {
         return Result.zip(
                 Result.zip(
@@ -94,13 +103,15 @@ public class AlbumCreationService implements DomainService {
                         resolveOptional(Isdn::fromInput, isdn),
                         resolveEvent(event),
                         OptionalFields::new),
-                (base, optional) -> Album.create(
+                resolveOptional(AssetKey::fromInput, coverImageKey),
+                (base, optional, cover) -> Album.create(
                         base.title(),
                         base.releaseDate(),
                         base.artistCredit(),
                         optional.event().orElse(null),
                         optional.catalogNumber().orElse(null),
-                        optional.isdn().orElse(null)));
+                        optional.isdn().orElse(null),
+                        cover.orElse(null)));
     }
 
     /**

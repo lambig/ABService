@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 @DisplayName("GetAlbumService.toResult（結果分岐）のテスト")
 class GetAlbumServiceTest {
 
+    private static final String ASSET_BASE_PATH = "/assets";
+
     @Test
     @DisplayName("エンティティありはFoundを返す")
     void entityYieldsFound() {
@@ -23,7 +25,7 @@ class GetAlbumServiceTest {
                         1));
         entity.setArtistDisplayName("アーティスト名");
 
-        final var result = GetAlbumService.toResult(entity);
+        final var result = GetAlbumService.toResult(entity, ASSET_BASE_PATH);
 
         assertThat(result).isInstanceOf(GetAlbumResult.Found.class);
         assertThat(((GetAlbumResult.Found) result).album().title()).isEqualTo("タイトル");
@@ -32,6 +34,6 @@ class GetAlbumServiceTest {
     @Test
     @DisplayName("nullはNotFoundを返す")
     void nullYieldsNotFound() {
-        assertThat(GetAlbumService.toResult(null)).isInstanceOf(GetAlbumResult.NotFound.class);
+        assertThat(GetAlbumService.toResult(null, ASSET_BASE_PATH)).isInstanceOf(GetAlbumResult.NotFound.class);
     }
 }

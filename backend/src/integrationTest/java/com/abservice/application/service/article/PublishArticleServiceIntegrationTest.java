@@ -57,6 +57,7 @@ class PublishArticleServiceIntegrationTest {
                 ArtistCredit.of("Cross Aggregate Test Artist"),
                 null,
                 null,
+                null,
                 null);
     }
 

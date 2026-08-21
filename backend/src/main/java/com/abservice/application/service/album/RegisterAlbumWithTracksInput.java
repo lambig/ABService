@@ -25,6 +25,8 @@ import org.jspecify.annotations.Nullable;
  *            カタログナンバー（nullable）
  * @param isdn
  *            ISDN（nullable。ハイフンは省略可）
+ * @param coverImageKey
+ *            カバー画像のアセットキー（nullable。アップロード確定APIが返す {@code assetKey}）
  * @param event
  *            初出イベント情報（nullable）
  * @param tracks
@@ -37,6 +39,7 @@ public record RegisterAlbumWithTracksInput(
         @Nullable String artistSortKey,
         @Nullable String catalogNumber,
         @Nullable String isdn,
+        @Nullable String coverImageKey,
         @Nullable EventInput event,
         @Nullable List<TrackInput> tracks) implements CommandService.Input {
 

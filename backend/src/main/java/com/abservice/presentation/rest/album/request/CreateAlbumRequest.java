@@ -21,6 +21,9 @@ import org.jspecify.annotations.Nullable;
  *            カタログナンバー（nullable）
  * @param isdn
  *            ISDN（nullable。ハイフンは省略可）
+ * @param coverImageKey
+ *            カバー画像のアセットキー（nullable。{@code POST
+ *            /api/v1/assets/{assetKey}/confirm} が返す {@code assetKey}）
  * @param event
  *            初出イベント情報（nullable）
  */
@@ -31,6 +34,7 @@ public record CreateAlbumRequest(
         @Nullable String artistSortKey,
         @Nullable String catalogNumber,
         @Nullable String isdn,
+        @Nullable String coverImageKey,
         @Nullable EventRequest event) {
 
     /**

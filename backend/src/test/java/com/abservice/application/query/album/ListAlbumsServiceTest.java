@@ -64,7 +64,8 @@ class ListAlbumsServiceTest {
         final var result = ListAlbumsService.toResult(
                 tuple,
                 0,
-                20);
+                20,
+                "/assets");
 
         assertThat(result.items()).singleElement().satisfies(v -> assertThat(v.title()).isEqualTo("タイトル"));
         assertThat(result.page()).isZero();

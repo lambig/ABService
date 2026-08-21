@@ -59,6 +59,7 @@ class TrackCommandServiceIntegrationTest {
                 ArtistCredit.of("Track Test Artist"),
                 null,
                 null,
+                null,
                 null);
     }
 

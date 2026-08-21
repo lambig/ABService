@@ -22,11 +22,17 @@ final class AlbumViewMapper {
     /**
      * エンティティを Read Model へ変換します。
      *
+     * <p>
+     * カバー画像はDBに保管キーだけを持つため、配信URLは {@code assetBasePath} と組み合わせて組み立てます。
+     * </p>
+     *
      * @param entity
      *            アルバムエンティティ
+     * @param assetBasePath
+     *            アセットの配信ベースパス（{@code abservice.assets.public-base-path}）
      * @return アルバムの Read Model
      */
-    static AlbumView toView(AlbumTableRecord entity) {
+    static AlbumView toView(AlbumTableRecord entity, String assetBasePath) {
         return new AlbumView(
                 entity.getDomainId(),
                 entity.getTitle(),
@@ -40,7 +46,14 @@ final class AlbumViewMapper {
                 entity.getEventPlace(),
                 entity.getEventSpaceNumber(),
                 entity.getEventNote(),
-                entity.getPublishedAt());
+                entity.getPublishedAt(),
+                toCoverImageUrl(entity.getCoverImageKey(), assetBasePath));
+    }
+
+    private static @Nullable String toCoverImageUrl(@Nullable String coverImageKey, String assetBasePath) {
+        return Optional.ofNullable(coverImageKey)
+                .map(key -> assetBasePath + "/" + key)
+                .orElse(null);
     }
 
     private static @Nullable String toDateString(@Nullable LocalDate date) {

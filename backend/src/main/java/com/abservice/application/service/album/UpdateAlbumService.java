@@ -8,6 +8,7 @@ import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
 import com.abservice.domain.model.vo.common.ArtistCredit;
+import com.abservice.domain.model.vo.common.AssetKey;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.domain.repository.album.AlbumRepository;
@@ -79,12 +80,14 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
                         resolveOptional(Isdn::fromInput, input.isdn()),
                         resolveEvent(input.event()),
                         OptionalFields::new),
-                (base, optional) -> existing.changeTitle(base.title())
+                resolveOptional(AssetKey::fromInput, input.coverImageKey()),
+                (base, optional, cover) -> existing.changeTitle(base.title())
                         .changeReleaseDate(base.releaseDate())
                         .changeArtistCredit(base.artistCredit())
                         .changeEventReleasedAt(optional.event().orElse(null))
                         .changeCatalogNumber(optional.catalogNumber().orElse(null))
-                        .changeIsdn(optional.isdn().orElse(null)));
+                        .changeIsdn(optional.isdn().orElse(null))
+                        .changeCoverImageKey(cover.orElse(null)));
     }
 
     private record TitleDateArtist(AlbumTitle title, BusinessDate releaseDate, ArtistCredit artistCredit) {

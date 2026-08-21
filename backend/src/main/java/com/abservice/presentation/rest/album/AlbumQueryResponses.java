@@ -83,6 +83,7 @@ final class AlbumQueryResponses {
                 view.eventPlace(),
                 view.eventSpaceNumber(),
                 view.eventNote(),
-                view.publishedAt());
+                view.publishedAt(),
+                view.coverImageUrl());
     }
 }

@@ -54,6 +54,7 @@ class UnpublishAlbumServiceIntegrationTest {
                 ArtistCredit.of("Cascade Test Artist"),
                 null,
                 null,
+                null,
                 null)
                 .publish(NOW);
     }

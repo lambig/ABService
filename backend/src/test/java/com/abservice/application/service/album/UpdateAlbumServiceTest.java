@@ -8,6 +8,7 @@ import com.abservice.domain.model.aggregate.album.Track;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
+import com.abservice.domain.model.vo.common.AssetKey;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
@@ -27,6 +28,7 @@ class UpdateAlbumServiceTest {
                 ArtistCredit.of("元のアーティスト"),
                 null,
                 null,
+                null,
                 null);
     }
 
@@ -43,6 +45,7 @@ class UpdateAlbumServiceTest {
                         null,
                         "ABC-0001",
                         null,
+                        "01a0233d-d25a-7c3b-924f-236ee154fecc.png",
                         null))
                 .resolve();
 
@@ -50,6 +53,51 @@ class UpdateAlbumServiceTest {
         assertThat(updated.releaseDate().asLocalDate().toString()).isEqualTo("2026-01-01");
         assertThat(updated.artistCredit().displayName().value()).isEqualTo("新アーティスト");
         assertThat(updated.catalogNumber().value()).isEqualTo("ABC-0001");
+        assertThat(updated.coverImageKey().value()).isEqualTo("01a0233d-d25a-7c3b-924f-236ee154fecc.png");
+    }
+
+    @Test
+    @DisplayName("カバー画像を省略した更新は既存のカバー画像を外す（全項目置換）")
+    void omittedCoverImageIsCleared() {
+        final var existing = existingAlbum()
+                .changeCoverImageKey(AssetKey.of("01a0233d-d25a-7c3b-924f-236ee154fecc.png"));
+
+        final var updated = UpdateAlbumService.validateAndApply(
+                existing,
+                new UpdateAlbumInput(
+                        null,
+                        "新タイトル",
+                        "2026-01-01",
+                        "新アーティスト",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null))
+                .resolve();
+
+        assertThat(updated.coverImageKey()).isNull();
+    }
+
+    @Test
+    @DisplayName("カバー画像のキーが配信URLの形なら検証エラーにする")
+    void invalidCoverImageKeyFails() {
+        final var result = UpdateAlbumService.validateAndApply(
+                existingAlbum(),
+                new UpdateAlbumInput(
+                        null,
+                        "新タイトル",
+                        "2026-01-01",
+                        "新アーティスト",
+                        null,
+                        null,
+                        null,
+                        "/assets/01a0233d-d25a-7c3b-924f-236ee154fecc.png",
+                        null));
+
+        assertThat(result).isInstanceOf(Result.Failure.class);
+        assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
+                .contains("ASSET_KEY_INVALID_FORMAT");
     }
 
     @Test
@@ -73,6 +121,7 @@ class UpdateAlbumServiceTest {
                         null,
                         null,
                         null,
+                        null,
                         null))
                 .resolve();
 
@@ -90,6 +139,7 @@ class UpdateAlbumServiceTest {
                         "   ",
                         "not-a-date",
                         "   ",
+                        null,
                         null,
                         null,
                         null,
@@ -116,6 +166,7 @@ class UpdateAlbumServiceTest {
                         null,
                         null,
                         "0000000000000",
+                        null,
                         null));
 
         assertThat(result).isInstanceOf(Result.Failure.class);
@@ -136,6 +187,7 @@ class UpdateAlbumServiceTest {
                         null,
                         null,
                         "2784702901978",
+                        null,
                         new EventInput(
                                 "コミックマーケット104",
                                 "2026-01-01",

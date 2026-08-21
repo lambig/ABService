@@ -29,6 +29,7 @@ import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
 import com.abservice.domain.model.vo.album.Publication;
 import com.abservice.domain.model.vo.common.ArtistCredit;
+import com.abservice.domain.model.vo.common.AssetKey;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
@@ -72,6 +73,9 @@ public final class Album implements Aggregate<Album, Album.Id> {
     /** ISDN */
     @Nullable
     private final Isdn isdn;
+    /** カバー画像のアセットキー（配信URLは照会時に配信設定から組み立てる） */
+    @Nullable
+    private final AssetKey coverImageKey;
     /**
      * 公開情報（Null
      * Objectパターン。{@code Publication.Draft}=下書き、{@code Publication.Published}=公開中）
@@ -103,8 +107,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
     @DomainConstructor
     private Album(@NonNull Id id, @NonNull AlbumTitle title, @NonNull BusinessDate releaseDate,
             @NonNull ArtistCredit artistCredit, @Nullable EventReleasedAt eventReleasedAt,
-            @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn, @NonNull Publication publication,
-            @NonNull List<Track> tracks) {
+            @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn, @Nullable AssetKey coverImageKey,
+            @NonNull Publication publication, @NonNull List<Track> tracks) {
         this.id = id;
         this.title = title;
         this.releaseDate = releaseDate;
@@ -112,6 +116,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
         this.eventReleasedAt = eventReleasedAt;
         this.catalogNumber = catalogNumber;
         this.isdn = isdn;
+        this.coverImageKey = coverImageKey;
         this.publication = publication;
         this.tracks = tracks;
     }
@@ -120,7 +125,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
     private static @NonNull Album factory(@Nullable Id id, @Nullable AlbumTitle title,
             @Nullable BusinessDate releaseDate, @Nullable ArtistCredit artistCredit,
             @Nullable EventReleasedAt eventReleasedAt, @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn,
-            @Nullable Publication publication, @Nullable List<Track> tracks) {
+            @Nullable AssetKey coverImageKey, @Nullable Publication publication, @Nullable List<Track> tracks) {
         return Policy.<Stub>all(
                 Policy.of(
                         self -> self.title() != null,
@@ -140,6 +145,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                                 eventReleasedAt,
                                 catalogNumber,
                                 isdn,
+                                coverImageKey,
                                 publication,
                                 tracks),
                         Stub::asAlbum)
@@ -148,8 +154,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
 
     @NullUnmarked
     private record Stub(Id id, AlbumTitle title, BusinessDate releaseDate, ArtistCredit artistCredit,
-            EventReleasedAt eventReleasedAt, CatalogNumber catalogNumber, Isdn isdn, Publication publication,
-            List<Track> tracks) {
+            EventReleasedAt eventReleasedAt, CatalogNumber catalogNumber, Isdn isdn, AssetKey coverImageKey,
+            Publication publication, List<Track> tracks) {
 
         @AggregateFactory
         @NonNull
@@ -162,6 +168,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                     eventReleasedAt(),
                     catalogNumber(),
                     isdn(),
+                    coverImageKey(),
                     Objects.requireNonNull(publication),
                     Objects.requireNonNull(tracks));
         }
@@ -182,11 +189,13 @@ public final class Album implements Aggregate<Album, Album.Id> {
      *            カタログ番号（nullable）
      * @param isdn
      *            ISDN（nullable）
+     * @param coverImageKey
+     *            カバー画像のアセットキー（nullable）
      * @return 新規Album
      */
     public static @NonNull Album create(@NonNull AlbumTitle title, @NonNull BusinessDate releaseDate,
             @NonNull ArtistCredit artistCredit, @Nullable EventReleasedAt eventReleasedAt,
-            @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn) {
+            @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn, @Nullable AssetKey coverImageKey) {
         return Album.factory(
                 Id.generate(),
                 title,
@@ -195,6 +204,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
+                coverImageKey,
                 Publication.draft(),
                 Collections.emptyList());
     }
@@ -216,6 +226,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
      *            カタログ番号（nullable）
      * @param isdn
      *            ISDN（nullable）
+     * @param coverImageKey
+     *            カバー画像のアセットキー（nullable）
      * @param publication
      *            公開情報（non-null。{@code Publication.draft()}=下書き）
      * @param tracks
@@ -226,7 +238,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
     public static @NonNull Album reconstruct(@NonNull Id id, @NonNull AlbumTitle title,
             @NonNull BusinessDate releaseDate, @NonNull ArtistCredit artistCredit,
             @Nullable EventReleasedAt eventReleasedAt, @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn,
-            @NonNull Publication publication, @NonNull List<Track> tracks) {
+            @Nullable AssetKey coverImageKey, @NonNull Publication publication, @NonNull List<Track> tracks) {
         return Album.factory(
                 id,
                 title,
@@ -235,6 +247,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
+                coverImageKey,
                 publication,
                 tracks);
     }
@@ -255,6 +268,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
+                coverImageKey,
                 publication,
                 tracks);
     }
@@ -275,6 +289,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
+                coverImageKey,
                 publication,
                 tracks);
     }
@@ -295,6 +310,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
+                coverImageKey,
                 publication,
                 tracks);
     }
@@ -315,6 +331,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 newEventReleasedAt,
                 catalogNumber,
                 isdn,
+                coverImageKey,
                 publication,
                 tracks);
     }
@@ -335,6 +352,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 newCatalogNumber,
                 isdn,
+                coverImageKey,
                 publication,
                 tracks);
     }
@@ -355,6 +373,28 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 catalogNumber,
                 newIsdn,
+                coverImageKey,
+                publication,
+                tracks);
+    }
+
+    /**
+     * カバー画像を変更
+     *
+     * @param newCoverImageKey
+     *            新しいカバー画像のアセットキー（nullable。null でカバー画像なしにする）
+     * @return 更新されたAlbum
+     */
+    public @NonNull Album changeCoverImageKey(@Nullable AssetKey newCoverImageKey) {
+        return Album.factory(
+                id,
+                title,
+                releaseDate,
+                artistCredit,
+                eventReleasedAt,
+                catalogNumber,
+                isdn,
+                newCoverImageKey,
                 publication,
                 tracks);
     }
@@ -379,6 +419,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
+                coverImageKey,
                 Publication.published(publication.publishedAt().orElse(currentDateTime)),
                 tracks);
     }
@@ -397,6 +438,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
+                coverImageKey,
                 Publication.draft(),
                 tracks);
     }
@@ -442,6 +484,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
+                coverImageKey,
                 publication,
                 Stream.concat(tracks.stream(), Stream.of(validatedTrack)).toList());
     }
@@ -472,6 +515,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
+                coverImageKey,
                 publication,
                 tracks.stream().filter(not(t -> t.hasId(validatedTrackId))).toList());
     }
@@ -519,6 +563,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                                 eventReleasedAt,
                                 catalogNumber,
                                 isdn,
+                                coverImageKey,
                                 publication,
                                 newTracks))
                 .get();
@@ -540,6 +585,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
+                coverImageKey,
                 publication,
                 Collections.unmodifiableList(renumberByOrder(validateOrderedTrackIds(orderedTrackIds))));
     }
