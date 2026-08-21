@@ -33,6 +33,7 @@ import com.abservice.domain.model.vo.common.AssetKey;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
+import com.abservice.domain.model.vo.common.ExternalAudioUrl;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import lombok.EqualsAndHashCode;
@@ -85,6 +86,9 @@ public final class Album implements Aggregate<Album, Album.Id> {
     /** トラックのリスト */
     @NonNull
     private final List<Track> tracks;
+    /** 外部音源（外部サービスの埋め込み）のリスト */
+    @NonNull
+    private final List<ExternalAudio> externalAudios;
 
     /** title必須違反時のエラー */
     private static final ErrorResult TITLE_REQUIRED_ERROR = new ErrorResult(
@@ -108,7 +112,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
     private Album(@NonNull Id id, @NonNull AlbumTitle title, @NonNull BusinessDate releaseDate,
             @NonNull ArtistCredit artistCredit, @Nullable EventReleasedAt eventReleasedAt,
             @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn, @Nullable AssetKey coverImageKey,
-            @NonNull Publication publication, @NonNull List<Track> tracks) {
+            @NonNull Publication publication, @NonNull List<Track> tracks,
+            @NonNull List<ExternalAudio> externalAudios) {
         this.id = id;
         this.title = title;
         this.releaseDate = releaseDate;
@@ -119,13 +124,15 @@ public final class Album implements Aggregate<Album, Album.Id> {
         this.coverImageKey = coverImageKey;
         this.publication = publication;
         this.tracks = tracks;
+        this.externalAudios = externalAudios;
     }
 
     @DomainFactory
     private static @NonNull Album factory(@Nullable Id id, @Nullable AlbumTitle title,
             @Nullable BusinessDate releaseDate, @Nullable ArtistCredit artistCredit,
             @Nullable EventReleasedAt eventReleasedAt, @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn,
-            @Nullable AssetKey coverImageKey, @Nullable Publication publication, @Nullable List<Track> tracks) {
+            @Nullable AssetKey coverImageKey, @Nullable Publication publication, @Nullable List<Track> tracks,
+            @Nullable List<ExternalAudio> externalAudios) {
         return Policy.<Stub>all(
                 Policy.of(
                         self -> self.title() != null,
@@ -147,7 +154,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
                                 isdn,
                                 coverImageKey,
                                 publication,
-                                tracks),
+                                tracks,
+                                externalAudios),
                         Stub::asAlbum)
                 .resolve(Policy::illegalArgument);
     }
@@ -155,7 +163,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
     @NullUnmarked
     private record Stub(Id id, AlbumTitle title, BusinessDate releaseDate, ArtistCredit artistCredit,
             EventReleasedAt eventReleasedAt, CatalogNumber catalogNumber, Isdn isdn, AssetKey coverImageKey,
-            Publication publication, List<Track> tracks) {
+            Publication publication, List<Track> tracks, List<ExternalAudio> externalAudios) {
 
         @AggregateFactory
         @NonNull
@@ -170,7 +178,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
                     isdn(),
                     coverImageKey(),
                     Objects.requireNonNull(publication),
-                    Objects.requireNonNull(tracks));
+                    Objects.requireNonNull(tracks),
+                    Objects.requireNonNull(externalAudios));
         }
     }
 
@@ -206,6 +215,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 isdn,
                 coverImageKey,
                 Publication.draft(),
+                Collections.emptyList(),
                 Collections.emptyList());
     }
 
@@ -232,13 +242,16 @@ public final class Album implements Aggregate<Album, Album.Id> {
      *            公開情報（non-null。{@code Publication.draft()}=下書き）
      * @param tracks
      *            トラックリスト
+     * @param externalAudios
+     *            外部音源リスト
      * @return 再構成されたAlbum
      */
     @DomainFactory
     public static @NonNull Album reconstruct(@NonNull Id id, @NonNull AlbumTitle title,
             @NonNull BusinessDate releaseDate, @NonNull ArtistCredit artistCredit,
             @Nullable EventReleasedAt eventReleasedAt, @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn,
-            @Nullable AssetKey coverImageKey, @NonNull Publication publication, @NonNull List<Track> tracks) {
+            @Nullable AssetKey coverImageKey, @NonNull Publication publication, @NonNull List<Track> tracks,
+            @NonNull List<ExternalAudio> externalAudios) {
         return Album.factory(
                 id,
                 title,
@@ -249,7 +262,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 isdn,
                 coverImageKey,
                 publication,
-                tracks);
+                tracks,
+                externalAudios);
     }
 
     /**
@@ -270,7 +284,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 isdn,
                 coverImageKey,
                 publication,
-                tracks);
+                tracks,
+                externalAudios);
     }
 
     /**
@@ -291,7 +306,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 isdn,
                 coverImageKey,
                 publication,
-                tracks);
+                tracks,
+                externalAudios);
     }
 
     /**
@@ -312,7 +328,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 isdn,
                 coverImageKey,
                 publication,
-                tracks);
+                tracks,
+                externalAudios);
     }
 
     /**
@@ -333,7 +350,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 isdn,
                 coverImageKey,
                 publication,
-                tracks);
+                tracks,
+                externalAudios);
     }
 
     /**
@@ -354,7 +372,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 isdn,
                 coverImageKey,
                 publication,
-                tracks);
+                tracks,
+                externalAudios);
     }
 
     /**
@@ -375,7 +394,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 newIsdn,
                 coverImageKey,
                 publication,
-                tracks);
+                tracks,
+                externalAudios);
     }
 
     /**
@@ -396,7 +416,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 isdn,
                 newCoverImageKey,
                 publication,
-                tracks);
+                tracks,
+                externalAudios);
     }
 
     /**
@@ -421,7 +442,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 isdn,
                 coverImageKey,
                 Publication.published(publication.publishedAt().orElse(currentDateTime)),
-                tracks);
+                tracks,
+                externalAudios);
     }
 
     /**
@@ -440,7 +462,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 isdn,
                 coverImageKey,
                 Publication.draft(),
-                tracks);
+                tracks,
+                externalAudios);
     }
 
     /**
@@ -486,7 +509,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 isdn,
                 coverImageKey,
                 publication,
-                Stream.concat(tracks.stream(), Stream.of(validatedTrack)).toList());
+                Stream.concat(tracks.stream(), Stream.of(validatedTrack)).toList(),
+                externalAudios);
     }
 
     /**
@@ -517,7 +541,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 isdn,
                 coverImageKey,
                 publication,
-                tracks.stream().filter(not(t -> t.hasId(validatedTrackId))).toList());
+                tracks.stream().filter(not(t -> t.hasId(validatedTrackId))).toList(),
+                externalAudios);
     }
 
     /**
@@ -565,7 +590,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
                                 isdn,
                                 coverImageKey,
                                 publication,
-                                newTracks))
+                                newTracks,
+                                externalAudios))
                 .get();
     }
 
@@ -587,7 +613,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 isdn,
                 coverImageKey,
                 publication,
-                Collections.unmodifiableList(renumberByOrder(validateOrderedTrackIds(orderedTrackIds))));
+                Collections.unmodifiableList(renumberByOrder(validateOrderedTrackIds(orderedTrackIds))),
+                externalAudios);
     }
 
     private @NonNull List<Track.Id> validateOrderedTrackIds(@NonNull List<Track.@NonNull Id> orderedTrackIds) {
@@ -658,6 +685,190 @@ public final class Album implements Aggregate<Album, Album.Id> {
      */
     public @NonNull List<Track> getTracks() {
         return Collections.unmodifiableList(tracks);
+    }
+
+    /**
+     * 外部音源を追加
+     *
+     * <p>
+     * 表示順は末尾に採番します。同一URLの重複登録は業務違反として拒否します。
+     * </p>
+     *
+     * @param url
+     *            追加する外部音源の埋め込み元URL
+     * @return 追加後のアルバムと追加された外部音源の組
+     */
+    public @NonNull ExternalAudioAddition addExternalAudio(@NonNull ExternalAudioUrl url) {
+        final var validatedUrl = Policy.<ExternalAudioUrl>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "url",
+                        "External audio URL cannot be null",
+                        "EXTERNAL_AUDIO_URL_REQUIRED"))
+                .verify(url, Function.identity())
+                .resolve(Policy::illegalArgument);
+        Policy.<ExternalAudioUrl>of(
+                u -> externalAudios.stream().noneMatch(existing -> existing.hasUrl(u)),
+                () -> new ErrorResult(
+                        "url",
+                        "External audio " + validatedUrl.value().value() + " already exists",
+                        "EXTERNAL_AUDIO_URL_DUPLICATE"))
+                .verify(validatedUrl, Function.identity())
+                .resolve(BusinessRuleViolationException::fromErrors);
+        final var added = ExternalAudio.create(externalAudios.size() + 1, validatedUrl);
+        return new ExternalAudioAddition(
+                Album.factory(
+                        id,
+                        title,
+                        releaseDate,
+                        artistCredit,
+                        eventReleasedAt,
+                        catalogNumber,
+                        isdn,
+                        coverImageKey,
+                        publication,
+                        tracks,
+                        Stream.concat(externalAudios.stream(), Stream.of(added)).toList()),
+                added);
+    }
+
+    /**
+     * 外部音源を削除
+     *
+     * <p>
+     * 残る外部音源の表示順は1から詰め直します（表示順は並びの表現でしかなく、欠番に意味がないため）。
+     * </p>
+     *
+     * @param externalAudioId
+     *            削除する外部音源のID
+     * @return 更新されたAlbum
+     */
+    public @NonNull Album removeExternalAudio(ExternalAudio.@NonNull Id externalAudioId) {
+        final var validatedId = Policy.<ExternalAudio.Id>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "externalAudioId",
+                        "External audio ID cannot be null",
+                        "EXTERNAL_AUDIO_ID_REQUIRED"))
+                .verify(externalAudioId, Function.identity())
+                .resolve(Policy::illegalArgument);
+        externalAudios.stream().filter(a -> a.hasId(validatedId)).findFirst().orElseThrow(
+                () -> new BusinessRuleViolationException(
+                        "External audio with ID " + validatedId.value() + " not found"));
+        return Album.factory(
+                id,
+                title,
+                releaseDate,
+                artistCredit,
+                eventReleasedAt,
+                catalogNumber,
+                isdn,
+                coverImageKey,
+                publication,
+                tracks,
+                renumberSequentially(externalAudiosExcluding(validatedId)));
+    }
+
+    private @NonNull List<ExternalAudio> externalAudiosExcluding(ExternalAudio.@NonNull Id excludedId) {
+        return externalAudios.stream().filter(not(a -> a.hasId(excludedId))).toList();
+    }
+
+    /**
+     * 外部音源の表示順を変更
+     *
+     * @param orderedExternalAudioIds
+     *            新しい順序の外部音源IDリスト
+     * @return 更新されたAlbum
+     */
+    public @NonNull Album reorderExternalAudios(
+            @NonNull List<ExternalAudio.@NonNull Id> orderedExternalAudioIds) {
+        return Album.factory(
+                id,
+                title,
+                releaseDate,
+                artistCredit,
+                eventReleasedAt,
+                catalogNumber,
+                isdn,
+                coverImageKey,
+                publication,
+                tracks,
+                Collections.unmodifiableList(
+                        renumberExternalAudiosByOrder(
+                                validateOrderedExternalAudioIds(orderedExternalAudioIds))));
+    }
+
+    private @NonNull List<ExternalAudio.Id> validateOrderedExternalAudioIds(
+            @NonNull List<ExternalAudio.@NonNull Id> orderedExternalAudioIds) {
+        return Policy.<List<ExternalAudio.Id>>of(
+                ids -> Optional.ofNullable(ids)
+                        .filter(i -> i.size() == externalAudios.size())
+                        .isPresent(),
+                () -> new ErrorResult(
+                        "orderedExternalAudioIds",
+                        "Ordered external audio IDs must match the number of external audios",
+                        "EXTERNAL_AUDIO_ORDER_SIZE_MISMATCH"))
+                .verify(orderedExternalAudioIds, Function.identity())
+                .resolve(BusinessRuleViolationException::fromErrors);
+    }
+
+    private @NonNull List<ExternalAudio> renumberExternalAudiosByOrder(
+            @NonNull List<ExternalAudio.Id> orderedExternalAudioIds) {
+        return orderedExternalAudioIds.stream()
+                .map(this::getExternalAudio)
+                .collect(optionally(toUnmodifiableList()))
+                .map(Album::renumberSequentially)
+                .get();
+    }
+
+    private static @NonNull List<ExternalAudio> renumberSequentially(@NonNull List<ExternalAudio> audios) {
+        final var displayOrder = new AtomicInteger(1);
+        return audios.stream()
+                .map(audio -> audio.changeDisplayOrder(displayOrder.getAndIncrement()))
+                .toList();
+    }
+
+    /**
+     * 外部音源リストを表示順でソートして取得
+     *
+     * @return 表示順にソートされた外部音源リスト
+     */
+    public @NonNull List<ExternalAudio> getExternalAudiosSortedByDisplayOrder() {
+        return externalAudios.stream().sorted(Comparator.comparing(ExternalAudio::displayOrder)).toList();
+    }
+
+    /**
+     * 特定の外部音源を取得
+     *
+     * @param externalAudioId
+     *            外部音源ID
+     * @return 外部音源
+     */
+    public @NonNull ExternalAudio getExternalAudio(ExternalAudio.@NonNull Id externalAudioId) {
+        return externalAudios.stream().filter(a -> a.hasId(externalAudioId)).findFirst()
+                .orElseThrow(
+                        () -> new BusinessRuleViolationException(
+                                "External audio with ID " + externalAudioId.value() + " not found"));
+    }
+
+    /**
+     * 外部音源リストを取得（不変）
+     *
+     * @return 外部音源リストの不変コピー
+     */
+    public @NonNull List<ExternalAudio> getExternalAudios() {
+        return Collections.unmodifiableList(externalAudios);
+    }
+
+    /**
+     * 外部音源追加の結果
+     *
+     * @param album
+     *            追加後のアルバム
+     * @param externalAudio
+     *            追加された外部音源
+     */
+    public record ExternalAudioAddition(@NonNull Album album, @NonNull ExternalAudio externalAudio) {
     }
 
     @Override

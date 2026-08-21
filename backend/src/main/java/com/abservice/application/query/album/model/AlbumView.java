@@ -1,6 +1,7 @@
 package com.abservice.application.query.album.model;
 
 import java.time.Instant;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -13,10 +14,10 @@ import org.jspecify.annotations.Nullable;
  * </p>
  *
  * <p>
- * トラックは本 DTO には含めません（複数の {@code @OneToMany} コレクションを1クエリで JOIN FETCH すると
- * Hibernate の multiple-bag-fetch 制約に抵触するため、集約自身のカラムのみに限定しています。一覧・詳細
- * ユースケースで拡張します）。初出イベント情報（{@code eventName} 以下）は {@code AlbumTableRecord}
- * 自身の直接カラムのため、JOINなしで含められます。
+ * トラックは本 DTO には含めません（一覧・詳細ユースケースで拡張します）。外部音源はアルバム本体とは別クエリで 取得した結果を受け取って含めます（複数の
+ * {@code @OneToMany} コレクションを1クエリで JOIN FETCH すると Hibernate の multiple-bag-fetch
+ * 制約に抵触し、ページング付き一覧では JOIN FETCH 併用でページングが崩れる ため）。初出イベント情報（{@code eventName}
+ * 以下）は {@code AlbumTableRecord} 自身の直接カラムのため、 JOINなしで含められます。
  * </p>
  *
  * @param albumId
@@ -47,6 +48,8 @@ import org.jspecify.annotations.Nullable;
  *            公開日時（nullable。null は下書き。UTC の {@link Instant}）
  * @param coverImageUrl
  *            カバー画像の配信URL（nullable。保管キーと配信設定から組み立てた値で、DBに保存されるのはキーのみ）
+ * @param externalAudios
+ *            外部音源（外部サービスの埋め込み元URL）の一覧。表示順の昇順
  */
 public record AlbumView(
         String albumId,
@@ -62,5 +65,19 @@ public record AlbumView(
         @Nullable String eventSpaceNumber,
         @Nullable String eventNote,
         @Nullable Instant publishedAt,
-        @Nullable String coverImageUrl) {
+        @Nullable String coverImageUrl,
+        List<ExternalAudioView> externalAudios) {
+
+    /**
+     * 外部音源1件の Read Model
+     *
+     * @param externalAudioId
+     *            外部音源ID（ドメインID・UUIDv7形式の文字列）
+     * @param displayOrder
+     *            アルバム内での表示順（1, 2, 3, ...）
+     * @param url
+     *            埋め込み元URL
+     */
+    public record ExternalAudioView(String externalAudioId, int displayOrder, String url) {
+    }
 }

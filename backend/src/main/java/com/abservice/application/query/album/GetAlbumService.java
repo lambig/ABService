@@ -3,10 +3,12 @@ package com.abservice.application.query.album;
 import com.abservice.application.query.AudienceVisibility;
 import com.abservice.application.query.QueryService;
 import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;
+import com.abservice.infrastructure.persistence.datasource.AlbumExternalAudioRow;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.util.List;
 import java.util.Optional;
 import lombok.AllArgsConstructor;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -36,12 +38,42 @@ public class GetAlbumService implements QueryService<GetAlbumQuery, GetAlbumResu
     @Override
     public Uni<GetAlbumResult> query(GetAlbumQuery query) {
         return dataSource.findByDomainId(query.albumId(), AudienceVisibility.of(query.audience()))
-                .map(entity -> toResult(entity, assetBasePath));
+                .flatMap(this::toResultWithExternalAudios);
     }
 
-    static GetAlbumResult toResult(@Nullable AlbumTableRecord entity, String assetBasePath) {
+    /**
+     * 外部音源はアルバム本体とは別クエリで取得して結果に載せる。
+     *
+     * <p>
+     * 対象アルバムが無い場合は外部音源を引かずに {@link GetAlbumResult.NotFound} を返す。
+     * </p>
+     *
+     * @param entity
+     *            照会したアルバムエンティティ（対象外・未存在の場合はnull）
+     * @return 照会結果
+     */
+    private Uni<GetAlbumResult> toResultWithExternalAudios(@Nullable AlbumTableRecord entity) {
         return Optional.ofNullable(entity)
-                .map(found -> AlbumViewMapper.toView(found, assetBasePath))
+                .map(
+                        found -> dataSource.findExternalAudiosByAlbumIds(List.of(found.getAlbumId()))
+                                .map(
+                                        externalAudios -> toResult(
+                                                found,
+                                                assetBasePath,
+                                                externalAudios)))
+                .orElseGet(() -> Uni.createFrom().item(new GetAlbumResult.NotFound()));
+    }
+
+    static GetAlbumResult toResult(
+            @Nullable AlbumTableRecord entity,
+            String assetBasePath,
+            List<AlbumExternalAudioRow> externalAudios) {
+        return Optional.ofNullable(entity)
+                .map(
+                        found -> AlbumViewMapper.toView(
+                                found,
+                                assetBasePath,
+                                externalAudios))
                 .<GetAlbumResult>map(GetAlbumResult.Found::new)
                 .orElseGet(GetAlbumResult.NotFound::new);
     }

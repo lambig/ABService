@@ -1,6 +1,7 @@
 package com.abservice.presentation.rest.album.response;
 
 import java.time.Instant;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -34,6 +35,8 @@ import org.jspecify.annotations.Nullable;
  *            公開日時（nullable。null は下書き。UTC）
  * @param coverImageUrl
  *            カバー画像の配信URL（nullable。サイト相対。登録時に渡すのは配信URLではなくアセットキー）
+ * @param externalAudios
+ *            外部音源（外部サービスの埋め込み元URL）の一覧。表示順の昇順
  */
 public record AlbumResponse(
         String albumId,
@@ -49,5 +52,19 @@ public record AlbumResponse(
         @Nullable String eventSpaceNumber,
         @Nullable String eventNote,
         @Nullable Instant publishedAt,
-        @Nullable String coverImageUrl) {
+        @Nullable String coverImageUrl,
+        List<ExternalAudioResponse> externalAudios) {
+
+    /**
+     * 外部音源1件（REST の公開出力契約）
+     *
+     * @param externalAudioId
+     *            外部音源ID（UUIDv7形式の文字列）
+     * @param displayOrder
+     *            アルバム内での表示順（1, 2, 3, ...）
+     * @param url
+     *            埋め込み元URL
+     */
+    public record ExternalAudioResponse(String externalAudioId, int displayOrder, String url) {
+    }
 }

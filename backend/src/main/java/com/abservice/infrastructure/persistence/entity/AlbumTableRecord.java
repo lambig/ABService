@@ -87,6 +87,9 @@ public class AlbumTableRecord extends AuditableTableRecord<AlbumTableRecord> {
     @OneToMany(mappedBy = "album", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<TrackTableRecord> tracks = new ArrayList<>();
 
+    @OneToMany(mappedBy = "album", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<AlbumExternalAudioTableRecord> externalAudios = new ArrayList<>();
+
     @OneToOne(mappedBy = "album", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private AlbumArticleTableRecord albumArticle;
 

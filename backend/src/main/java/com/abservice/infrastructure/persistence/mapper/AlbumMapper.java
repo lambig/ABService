@@ -4,6 +4,7 @@ import static com.abservice.lib.Iterables.toList;
 import static java.util.function.Predicate.not;
 
 import com.abservice.domain.model.aggregate.album.Album;
+import com.abservice.domain.model.aggregate.album.ExternalAudio;
 import com.abservice.domain.model.aggregate.album.Track;
 import com.abservice.domain.model.aggregate.album.TrackTune;
 import com.abservice.domain.model.vo.album.AlbumTitle;
@@ -17,8 +18,10 @@ import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
+import com.abservice.domain.model.vo.common.ExternalAudioUrl;
 import com.abservice.domain.model.vo.common.Url;
 import com.abservice.domain.model.aggregate.tune.Tune;
+import com.abservice.infrastructure.persistence.entity.AlbumExternalAudioTableRecord;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
 import com.abservice.infrastructure.persistence.entity.TrackTableRecord;
 import com.abservice.infrastructure.persistence.entity.TrackTuneTableRecord;
@@ -66,7 +69,8 @@ public final class AlbumMapper {
                         .map(AssetKey::new)
                         .orElse(null),
                 buildPublication(entity),
-                buildTracks(entity));
+                buildTracks(entity),
+                buildExternalAudios(entity));
     }
 
     private static ArtistCredit buildArtistCredit(AlbumTableRecord entity) {
@@ -76,6 +80,12 @@ public final class AlbumMapper {
     private static List<Track> buildTracks(AlbumTableRecord entity) {
         return Optional.ofNullable(entity.getTracks())
                 .map(toList(AlbumMapper::trackToDomain))
+                .orElseGet(Collections::emptyList);
+    }
+
+    private static List<ExternalAudio> buildExternalAudios(AlbumTableRecord entity) {
+        return Optional.ofNullable(entity.getExternalAudios())
+                .map(toList(AlbumMapper::externalAudioToDomain))
                 .orElseGet(Collections::emptyList);
     }
 
@@ -117,6 +127,7 @@ public final class AlbumMapper {
         setCatalogFields(albumEntity, album);
         setPublicationField(albumEntity, album.publication());
         setTracksField(albumEntity, album);
+        setExternalAudiosField(albumEntity, album);
         return albumEntity;
     }
 
@@ -171,6 +182,48 @@ public final class AlbumMapper {
                  */
                 .map(ArrayList::new)
                 .ifPresent(entity::setTracks);
+    }
+
+    private static void setExternalAudiosField(AlbumTableRecord entity, Album album) {
+        Optional.ofNullable(album.externalAudios())
+                .filter(not(List::isEmpty))
+                .map(toList(externalAudio -> externalAudioToEntity(externalAudio, entity)))
+                // MUTABLE-COLLECTION: setTracksFieldと同じ理由（#90）
+                .map(ArrayList::new)
+                .ifPresent(entity::setExternalAudios);
+    }
+
+    /**
+     * AlbumExternalAudioTableRecordからExternalAudioドメインモデルへ変換
+     *
+     * @param entity
+     *            AlbumExternalAudioTableRecord
+     * @return ExternalAudio
+     */
+    private static ExternalAudio externalAudioToDomain(AlbumExternalAudioTableRecord entity) {
+        return ExternalAudio.reconstruct(
+                new ExternalAudio.Id(entity.getDomainId()),
+                entity.getDisplayOrder(),
+                ExternalAudioUrl.of(entity.getUrl()));
+    }
+
+    /**
+     * ExternalAudioドメインモデルからAlbumExternalAudioTableRecordへ変換
+     *
+     * @param externalAudio
+     *            ExternalAudio
+     * @param albumEntity
+     *            親のAlbumTableRecord
+     * @return AlbumExternalAudioTableRecord
+     */
+    public static AlbumExternalAudioTableRecord externalAudioToEntity(
+            ExternalAudio externalAudio,
+            AlbumTableRecord albumEntity) {
+        return new AlbumExternalAudioTableRecord()
+                .setDomainId(externalAudio.id().value())
+                .setAlbum(albumEntity)
+                .setDisplayOrder(externalAudio.displayOrder())
+                .setUrl(externalAudio.url().value().value());
     }
 
     private static void populateEventFields(AlbumTableRecord albumEntity, EventReleasedAt event) {

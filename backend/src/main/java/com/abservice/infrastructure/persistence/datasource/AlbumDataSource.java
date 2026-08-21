@@ -1,5 +1,6 @@
 package com.abservice.infrastructure.persistence.datasource;
 
+import com.abservice.infrastructure.persistence.entity.AlbumExternalAudioTableRecord;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
 import com.abservice.infrastructure.persistence.entity.TrackTableRecord;
 import io.quarkus.hibernate.reactive.panache.PanacheQuery;
@@ -16,6 +17,7 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 
 /**
@@ -45,27 +47,44 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, 
         return persist(albumEntity).onItem()
                 .transformToUni(
                         savedAlbum -> sessionFactory.withSession(
-                                session -> hasTracks(albumEntity)
-                                        ? persistTracks(
-                                                session,
-                                                savedAlbum,
-                                                albumEntity.getTracks())
-                                        : Uni.createFrom().item(savedAlbum)));
+                                session -> persistChildren(
+                                        session,
+                                        savedAlbum,
+                                        albumEntity)));
     }
 
-    private static boolean hasTracks(AlbumTableRecord albumEntity) {
-        return Optional.ofNullable(albumEntity.getTracks())
-                .filter(Predicate.not(List::isEmpty))
-                .isPresent();
-    }
-
-    private static Uni<AlbumTableRecord> persistTracks(
+    private static Uni<AlbumTableRecord> persistChildren(
             Mutiny.Session session,
             AlbumTableRecord savedAlbum,
-            List<TrackTableRecord> tracks) {
-        return session
-                .persistAll(tracks.stream().peek(track -> track.setAlbum(savedAlbum)).toArray())
-                .replaceWith(savedAlbum);
+            AlbumTableRecord albumEntity) {
+        return persistChildCollection(
+                session,
+                savedAlbum,
+                albumEntity.getTracks(),
+                TrackTableRecord::setAlbum)
+                .flatMap(
+                        album -> persistChildCollection(
+                                session,
+                                album,
+                                albumEntity.getExternalAudios(),
+                                AlbumExternalAudioTableRecord::setAlbum));
+    }
+
+    private static <T> Uni<AlbumTableRecord> persistChildCollection(
+            Mutiny.Session session,
+            AlbumTableRecord savedAlbum,
+            @Nullable List<T> children,
+            BiConsumer<T, AlbumTableRecord> parentSetter) {
+        return Optional.ofNullable(children)
+                .filter(Predicate.not(List::isEmpty))
+                .map(
+                        items -> session
+                                .persistAll(
+                                        items.stream()
+                                                .peek(item -> parentSetter.accept(item, savedAlbum))
+                                                .toArray())
+                                .replaceWith(savedAlbum))
+                .orElseGet(() -> Uni.createFrom().item(savedAlbum));
     }
 
     /**
@@ -94,9 +113,10 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, 
      * IDでアルバムを検索（トラック・トラック内チューン構成を含む）
      *
      * <p>
-     * {@code tracks}と{@code tracks.trackTunes}はどちらも{@code List}（bag）のため、1クエリで両方を
-     * {@code JOIN FETCH}するとHibernateの multiple-bag-fetch 制約に抵触する。{@code tracks}のみ
-     * {@code JOIN FETCH}し、各トラックの{@code trackTunes}は同一セッション内で{@link Mutiny.Session#fetch}
+     * {@code tracks}・{@code tracks.trackTunes}・{@code externalAudios}はいずれも{@code List}（bag）のため、
+     * 1クエリで複数を{@code JOIN FETCH}するとHibernateの multiple-bag-fetch
+     * 制約に抵触する。{@code tracks}のみ
+     * {@code JOIN FETCH}し、残りは同一セッション内で{@link Mutiny.Session#fetch}
      * により明示的に初期化する（セッション外で遅延初期化しようとすると {@code LazyInitializationException}になるため）。
      * </p>
      *
@@ -113,13 +133,13 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, 
                 "SELECT DISTINCT a FROM AlbumTableRecord a " + "LEFT JOIN FETCH a.tracks "
                         + "WHERE a.domainId = :domainId",
                 AlbumTableRecord.class).setParameter("domainId", domainId).getSingleResultOrNull()
-                .flatMap(album -> fetchTrackTunesOrNull(session, album));
+                .flatMap(album -> fetchLazyChildrenOrNull(session, album));
     }
 
-    private static Uni<AlbumTableRecord> fetchTrackTunesOrNull(Mutiny.Session session,
+    private static Uni<AlbumTableRecord> fetchLazyChildrenOrNull(Mutiny.Session session,
             @Nullable AlbumTableRecord album) {
         return Optional.ofNullable(album)
-                .map(a -> fetchTrackTunes(session, a))
+                .map(a -> fetchLazyChildren(session, a))
                 .orElseGet(() -> Uni.createFrom().nullItem());
     }
 
@@ -141,7 +161,7 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, 
                 "SELECT DISTINCT a FROM AlbumTableRecord a " + "LEFT JOIN FETCH a.tracks "
                         + "WHERE a.domainId IN (:domainIds)",
                 AlbumTableRecord.class).setParameter("domainIds", domainIds).getResultList()
-                .flatMap(albums -> fetchAllTrackTunes(session, albums));
+                .flatMap(albums -> fetchAllLazyChildren(session, albums));
     }
 
     /*
@@ -150,11 +170,17 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, 
      * JdbcValuesSourceProcessingState）ため、transformToUniAndMergeではなく
      * transformToUniAndConcatenateで逐次実行する。
      */
-    private static Uni<List<AlbumTableRecord>> fetchAllTrackTunes(Mutiny.Session session,
+    private static Uni<List<AlbumTableRecord>> fetchAllLazyChildren(Mutiny.Session session,
             List<AlbumTableRecord> albums) {
         return Multi.createFrom().iterable(albums)
-                .onItem().transformToUniAndConcatenate(a -> fetchTrackTunes(session, a))
+                .onItem().transformToUniAndConcatenate(a -> fetchLazyChildren(session, a))
                 .collect().asList();
+    }
+
+    private static Uni<AlbumTableRecord> fetchLazyChildren(Mutiny.Session session, AlbumTableRecord album) {
+        return fetchTrackTunes(session, album)
+                .flatMap(a -> session.fetch(a.getExternalAudios()))
+                .replaceWith(album);
     }
 
     private static Uni<AlbumTableRecord> fetchTrackTunes(Mutiny.Session session, AlbumTableRecord album) {
@@ -162,6 +188,40 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, 
                 .onItem().transformToUniAndConcatenate(track -> session.fetch(track.getTrackTunes()))
                 .collect().asList()
                 .replaceWith(album);
+    }
+
+    /**
+     * 指定したアルバム（内部ID）の外部音源を表示順で取得
+     *
+     * <p>
+     * Query側（CQRS Read）が一覧・詳細のどちらでも同じ形で使えるよう、アルバム本体とは別クエリで取得する。
+     * ページング付き一覧では{@code JOIN FETCH}を併用できず（ページング崩れ）、詳細では他のコレクションと multiple-bag-fetch
+     * 制約に抵触するため、ページ内のアルバムをまとめて1クエリで引く。
+     * </p>
+     *
+     * @param albumIds
+     *            アルバムの内部ID群
+     * @return 該当する外部音源の投影のリスト（アルバム内部ID・表示順の昇順）
+     */
+    public Uni<List<AlbumExternalAudioRow>> findExternalAudiosByAlbumIds(Collection<Long> albumIds) {
+        return Optional.of(albumIds)
+                .filter(Predicate.not(Collection::isEmpty))
+                .map(this::queryExternalAudiosByAlbumIds)
+                .orElseGet(() -> Uni.createFrom().item(List.of()));
+    }
+
+    private Uni<List<AlbumExternalAudioRow>> queryExternalAudiosByAlbumIds(Collection<Long> albumIds) {
+        return sessionFactory.withSession(
+                session -> session
+                        .createQuery(
+                                "SELECT new com.abservice.infrastructure.persistence.datasource"
+                                        + ".AlbumExternalAudioRow("
+                                        + "ea.album.albumId, ea.domainId, ea.displayOrder, ea.url) "
+                                        + "FROM AlbumExternalAudioTableRecord ea "
+                                        + "WHERE ea.album.albumId IN (:albumIds) "
+                                        + "ORDER BY ea.album.albumId, ea.displayOrder",
+                                AlbumExternalAudioRow.class)
+                        .setParameter("albumIds", albumIds).getResultList());
     }
 
     /**
