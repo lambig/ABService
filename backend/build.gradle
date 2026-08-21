@@ -26,6 +26,15 @@ dependencies {
     implementation 'io.quarkus:quarkus-hibernate-reactive-panache'
     implementation 'io.quarkus:quarkus-reactive-pg-client'
 
+    // Amazon S3（アセット保存。開発は MinIO、本番は S3 を endpoint-override で切り替える）。
+    // バージョン固定の理由: quarkiverse 拡張は Quarkus 本体と別のリリース列で、各リリースが特定の
+    // Quarkus バージョンを前提にビルドされる。3.11.0 は Quarkus 3.28.4（本プロジェクトの固定版）
+    // ターゲット。3.12.0 以降は Quarkus 3.29+ 前提のため上げられない。
+    // 昇格トリガ: Quarkus 本体を上げるとき、同じ Quarkus 版をターゲットにする拡張版へ揃えて bump する。
+    implementation 'io.quarkiverse.amazonservices:quarkus-amazon-s3:3.11.0'
+    // 非同期 S3 クライアントの HTTP 実装（拡張が要求）。拡張の awssdk 2.34.9 に合わせる。
+    implementation 'software.amazon.awssdk:netty-nio-client:2.34.9'
+
     // Flyway（データベースマイグレーション）
     implementation 'io.quarkus:quarkus-flyway'
     implementation 'io.quarkus:quarkus-jdbc-postgresql'

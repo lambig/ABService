@@ -42,11 +42,13 @@ com.abservice/
 │   └── exception/             ドメイン例外階層
 ├── application/
 │   ├── service/<agg>/         CommandService実装 + Input/Output DTO
+│   ├── port/                  外部システムへのポート interface（実装は infrastructure）
 │   └── query/                 QueryService実装 + Request/Result
 │       ├── model/             Read Model DTO
 │       └── mapper/            Row→DTO マッパー
 ├── infrastructure/
 │   ├── persistence/{repository, entity(*TableRecord), mapper, datasource}
+│   ├── storage/               オブジェクトストレージ（S3互換）アダプタ
 │   └── datetime/
 └── presentation/rest/
     ├── *Resource.java         CQRSで分割（Command/Query）

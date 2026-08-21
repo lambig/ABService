@@ -56,6 +56,14 @@ jobs:
       - name: Ensure gradlew is executable
         run: chmod +x backend/gradlew
 
+      # アセットの統合テストは実ストレージを使う。PostgreSQL は service container で用意しているが、MinIO は
+      # 起動コマンド指定が必要なため service container にできず、ローカルと同じ docker compose で起動する。
+      - name: Start MinIO (object storage for asset integration tests)
+        run: docker compose up -d --wait minio
+
+      - name: Create asset bucket
+        run: docker compose run --rm minio-init
+
       # check = spotlessCheck / checkstyleMain / checkstyleTest / test（ArchUnit含む） / integrationTest
       - name: Run full check
         run: backend/gradlew -p backend --no-daemon --console=plain check

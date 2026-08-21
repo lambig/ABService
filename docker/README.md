@@ -105,6 +105,14 @@ docker-compose down -v
 - **APIポート**: 9000
 - **コンソール**: http://localhost:9001
 - **ユーザー**: minioadmin / minioadmin123
+- **バケット**: `abservice-assets`（アセット保管先）。`minio-init` サービスが起動時に作成する一過性コンテナで、
+  MinIO が healthy になってから `mc mb` を実行して終了する
+
+アセットの統合テストは実際に MinIO へ署名付きURLで PUT するため、テスト実行前に以下で起動する。
+
+```bash
+docker compose up -d minio minio-init
+```
 
 ### pgAdmin（開発環境のみ）
 - **ポート**: 5050

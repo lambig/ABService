@@ -120,6 +120,7 @@ resource "aws_cloudfront_origin_access_control" "s3" {
 locals {
   public_origin_id  = "s3-frontend-public"
   admin_origin_id   = "s3-frontend-admin"
+  assets_origin_id  = "s3-assets"
   backend_origin_id = "ec2-backend"
 }
 
@@ -140,6 +141,13 @@ resource "aws_cloudfront_distribution" "main" {
   origin {
     domain_name              = aws_s3_bucket.frontend_admin.bucket_regional_domain_name
     origin_id                = local.admin_origin_id
+    origin_access_control_id = aws_cloudfront_origin_access_control.s3.id
+  }
+
+  # /assets/* -> アセット（S3, OAC経由）。オブジェクトキーの接頭辞を assets/ に揃えているため origin_path は不要
+  origin {
+    domain_name              = aws_s3_bucket.assets.bucket_regional_domain_name
+    origin_id                = local.assets_origin_id
     origin_access_control_id = aws_cloudfront_origin_access_control.s3.id
   }
 
@@ -186,6 +194,27 @@ resource "aws_cloudfront_distribution" "main" {
         forward = "none"
       }
     }
+  }
+
+  # アセットは確定後に内容が変わらない（キーがUUIDv7で一意）ため長期キャッシュしてよい
+  ordered_cache_behavior {
+    path_pattern           = "/assets/*"
+    target_origin_id       = local.assets_origin_id
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    compress               = true
+
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
+
+    min_ttl     = 0
+    default_ttl = 86400
+    max_ttl     = 31536000
   }
 
   ordered_cache_behavior {
@@ -291,4 +320,29 @@ data "aws_iam_policy_document" "frontend_admin_oac" {
 resource "aws_s3_bucket_policy" "frontend_admin" {
   bucket = aws_s3_bucket.frontend_admin.id
   policy = data.aws_iam_policy_document.frontend_admin_oac.json
+}
+
+data "aws_iam_policy_document" "assets_oac" {
+  statement {
+    sid       = "AllowCloudFrontServicePrincipalReadOnly"
+    effect    = "Allow"
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.assets.arn}/*"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.main.arn]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "assets" {
+  bucket = aws_s3_bucket.assets.id
+  policy = data.aws_iam_policy_document.assets_oac.json
 }
