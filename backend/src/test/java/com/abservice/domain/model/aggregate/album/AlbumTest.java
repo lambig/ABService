@@ -20,12 +20,16 @@ import com.abservice.domain.model.vo.common.AssetKey;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
+import com.abservice.domain.model.vo.common.ExternalAudioUrl;
 import com.abservice.lib.Result;
 
 import java.time.Instant;
 
 @DisplayName("Album集約のテスト")
 class AlbumTest {
+
+    private static final String FIRST_AUDIO_URL = "https://soundcloud.com/example/first";
+    private static final String SECOND_AUDIO_URL = "https://soundcloud.com/example/second";
 
     @Nested
     @DisplayName("生成テスト")
@@ -599,6 +603,133 @@ class AlbumTest {
             assertThat(sorted.get(0).trackNo()).isEqualTo(1);
             assertThat(sorted.get(1).trackNo()).isEqualTo(2);
             assertThat(sorted.get(2).trackNo()).isEqualTo(3);
+        }
+    }
+
+    @Nested
+    @DisplayName("外部音源テスト")
+    class ExternalAudioTest {
+
+        @Test
+        @DisplayName("外部音源を追加すると表示順が末尾に採番されること")
+        void addExternalAudioAppendsWithNextDisplayOrder() {
+            // Arrange
+            final var album = createTestAlbum();
+
+            // Act
+            final var first = album.addExternalAudio(ExternalAudioUrl.of(FIRST_AUDIO_URL));
+            final var second = first.album().addExternalAudio(ExternalAudioUrl.of(SECOND_AUDIO_URL));
+
+            // Assert
+            assertThat(first.externalAudio().displayOrder()).isEqualTo(1);
+            assertThat(second.externalAudio().displayOrder()).isEqualTo(2);
+            assertThat(second.album().getExternalAudiosSortedByDisplayOrder())
+                    .extracting(audio -> audio.url().value().value())
+                    .containsExactly(FIRST_AUDIO_URL, SECOND_AUDIO_URL);
+        }
+
+        @Test
+        @DisplayName("同じURLの外部音源を追加すると例外が発生すること")
+        void addDuplicateUrlShouldThrowException() {
+            // Arrange
+            final var album = createTestAlbum().addExternalAudio(ExternalAudioUrl.of(FIRST_AUDIO_URL)).album();
+
+            // Act & Assert
+            assertThatThrownBy(() -> album.addExternalAudio(ExternalAudioUrl.of(FIRST_AUDIO_URL)))
+                    .isInstanceOf(BusinessRuleViolationException.class)
+                    .hasMessageContaining("already exists");
+        }
+
+        @Test
+        @DisplayName("外部音源を削除すると残りの表示順が詰め直されること")
+        void removeExternalAudioRenumbersRemaining() {
+            // Arrange
+            final var first = createTestAlbum().addExternalAudio(ExternalAudioUrl.of(FIRST_AUDIO_URL));
+            final var second = first.album().addExternalAudio(ExternalAudioUrl.of(SECOND_AUDIO_URL));
+
+            // Act
+            final var updated = second.album().removeExternalAudio(first.externalAudio().id());
+
+            // Assert
+            assertThat(updated.getExternalAudios()).hasSize(1);
+            assertThat(updated.getExternalAudios().getFirst().id()).isEqualTo(second.externalAudio().id());
+            assertThat(updated.getExternalAudios().getFirst().displayOrder()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("存在しない外部音源を削除しようとすると例外が発生すること")
+        void removeNonExistentExternalAudioShouldThrowException() {
+            // Arrange
+            final var album = createTestAlbum();
+
+            // Act & Assert
+            assertThatThrownBy(() -> album.removeExternalAudio(ExternalAudio.Id.generate()))
+                    .isInstanceOf(BusinessRuleViolationException.class)
+                    .hasMessageContaining("not found");
+        }
+
+        @Test
+        @DisplayName("外部音源の表示順を変更できること")
+        void reorderExternalAudiosChangesDisplayOrder() {
+            // Arrange
+            final var first = createTestAlbum().addExternalAudio(ExternalAudioUrl.of(FIRST_AUDIO_URL));
+            final var second = first.album().addExternalAudio(ExternalAudioUrl.of(SECOND_AUDIO_URL));
+
+            // Act
+            final var updated = second.album().reorderExternalAudios(
+                    List.of(
+                            second.externalAudio().id(),
+                            first.externalAudio().id()));
+
+            // Assert
+            assertThat(updated.getExternalAudiosSortedByDisplayOrder())
+                    .extracting(audio -> audio.url().value().value())
+                    .containsExactly(SECOND_AUDIO_URL, FIRST_AUDIO_URL);
+            assertThat(updated.getExternalAudiosSortedByDisplayOrder())
+                    .extracting(ExternalAudio::displayOrder)
+                    .containsExactly(1, 2);
+        }
+
+        @Test
+        @DisplayName("件数が一致しない順序指定は例外が発生すること")
+        void reorderExternalAudiosWithMismatchedCountShouldThrowException() {
+            // Arrange
+            final var album = createTestAlbum().addExternalAudio(ExternalAudioUrl.of(FIRST_AUDIO_URL)).album();
+            final var invalidOrder = List.of(
+                    ExternalAudio.Id.generate(),
+                    ExternalAudio.Id.generate());
+
+            // Act & Assert
+            assertThatThrownBy(() -> album.reorderExternalAudios(invalidOrder))
+                    .isInstanceOf(BusinessRuleViolationException.class)
+                    .hasMessage("Ordered external audio IDs must match the number of external audios");
+        }
+
+        @Test
+        @DisplayName("存在しないIDを含む順序指定は例外が発生すること")
+        void reorderExternalAudiosWithNonExistentIdShouldThrowException() {
+            // Arrange
+            final var album = createTestAlbum().addExternalAudio(ExternalAudioUrl.of(FIRST_AUDIO_URL)).album();
+            final var invalidOrder = List.of(ExternalAudio.Id.generate());
+
+            // Act & Assert
+            assertThatThrownBy(() -> album.reorderExternalAudios(invalidOrder))
+                    .isInstanceOf(BusinessRuleViolationException.class)
+                    .hasMessageContaining("not found");
+        }
+
+        @Test
+        @DisplayName("トラック操作は外部音源を保持すること")
+        void trackOperationsPreserveExternalAudios() {
+            // Arrange
+            final var album = createTestAlbum().addExternalAudio(ExternalAudioUrl.of(FIRST_AUDIO_URL)).album();
+
+            // Act
+            final var updated = album.addTrack(createTestTrack(1, "Track 1"))
+                    .publish(BusinessDateTime.of(Instant.parse("2026-01-01T00:00:00Z")));
+
+            // Assert
+            assertThat(updated.getExternalAudios()).hasSize(1);
         }
     }
 

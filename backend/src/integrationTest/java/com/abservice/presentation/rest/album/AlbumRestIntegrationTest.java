@@ -132,6 +132,30 @@ class AlbumRestIntegrationTest {
     }
 
     @Test
+    @DisplayName("更新はカバー画像・ISDN・イベントスペース番号も置換する")
+    void updateReplacesCoverImageIsdnAndEventSpaceNumber() {
+        final String albumId = authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"title\":\"更新前タイトル\",\"releaseDate\":\"2025-01-01\","
+                                + "\"artistDisplayName\":\"更新前アーティスト\"}")
+                .when().post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
+
+        authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"title\":\"更新後タイトル\",\"releaseDate\":\"2026-01-01\","
+                                + "\"artistDisplayName\":\"更新後アーティスト\",\"isdn\":\"2784702901978\","
+                                + "\"coverImageKey\":\"01a0233d-d25a-7c3b-924f-236ee154fecc.png\","
+                                + "\"event\":{\"name\":\"コミックマーケット104\",\"date\":\"2026-01-01\","
+                                + "\"place\":\"東京ビッグサイト\",\"spaceNumber\":\"東ホ-01a\"}}")
+                .when().put("/api/v1/albums/" + albumId).then().statusCode(200);
+
+        authorized().when().get("/api/v1/admin/albums/" + albumId).then().statusCode(200)
+                .body("isdn", equalTo("2784702901978"))
+                .body("coverImageUrl", equalTo("/assets/01a0233d-d25a-7c3b-924f-236ee154fecc.png"))
+                .body("eventSpaceNumber", equalTo("東ホ-01a"));
+    }
+
+    @Test
     @DisplayName("存在しないIDの更新は404 problem+jsonを返す")
     void updateNotFound() {
         authorized().contentType(ContentType.JSON)

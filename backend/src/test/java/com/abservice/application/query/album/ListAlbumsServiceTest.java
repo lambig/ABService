@@ -2,6 +2,7 @@ package com.abservice.application.query.album;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.abservice.infrastructure.persistence.datasource.AlbumExternalAudioRow;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
 import io.smallrye.mutiny.tuples.Tuple3;
 import java.time.LocalDate;
@@ -47,6 +48,7 @@ class ListAlbumsServiceTest {
     @DisplayName("toResultはエンティティ一覧をViewへ変換しページ情報を組み立てる")
     void toResultBuildsResultFromTuple() {
         final var entity = new AlbumTableRecord();
+        entity.setAlbumId(1L);
         entity.setDomainId("0192f8a0-0000-7000-8000-000000000000");
         entity.setTitle("タイトル");
         entity.setReleaseDate(
@@ -65,9 +67,17 @@ class ListAlbumsServiceTest {
                 tuple,
                 0,
                 20,
-                "/assets");
+                "/assets",
+                ListAlbumsService.groupByAlbumId(
+                        List.of(
+                                new AlbumExternalAudioRow(
+                                        1L,
+                                        "0192f8a0-0000-7000-8000-0000000000a1",
+                                        1,
+                                        "https://soundcloud.com/example/first"))));
 
         assertThat(result.items()).singleElement().satisfies(v -> assertThat(v.title()).isEqualTo("タイトル"));
+        assertThat(result.items()).singleElement().satisfies(v -> assertThat(v.externalAudios()).hasSize(1));
         assertThat(result.page()).isZero();
         assertThat(result.size()).isEqualTo(20);
         assertThat(result.totalElements()).isEqualTo(1L);

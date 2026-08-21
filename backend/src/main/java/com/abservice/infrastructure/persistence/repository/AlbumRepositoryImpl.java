@@ -4,6 +4,7 @@ import static com.abservice.lib.Iterables.toList;
 import static java.util.function.Predicate.not;
 
 import com.abservice.domain.model.aggregate.album.Album;
+import com.abservice.domain.model.aggregate.album.ExternalAudio;
 import com.abservice.domain.model.aggregate.album.Track;
 import com.abservice.domain.model.aggregate.album.TrackTune;
 import com.abservice.domain.model.aggregate.tune.Tune;
@@ -14,6 +15,7 @@ import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.Url;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;
+import com.abservice.infrastructure.persistence.entity.AlbumExternalAudioTableRecord;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
 import com.abservice.infrastructure.persistence.entity.TrackTableRecord;
 import com.abservice.infrastructure.persistence.entity.TrackTuneTableRecord;
@@ -51,6 +53,7 @@ public class AlbumRepositoryImpl implements AlbumRepository {
                 .onItem().ifNotNull().transformToUni(
                         existingEntity -> {
                             reconcileTracks(existingEntity, aggregate.tracks());
+                            reconcileExternalAudios(existingEntity, aggregate.externalAudios());
                             return dataSource.persistAndFlush(
                                     existingEntity
                                             .setTitle(entity.getTitle())
@@ -60,8 +63,11 @@ public class AlbumRepositoryImpl implements AlbumRepository {
                                             .setEventName(entity.getEventName())
                                             .setEventDate(entity.getEventDate())
                                             .setEventPlace(entity.getEventPlace())
+                                            .setEventSpaceNumber(entity.getEventSpaceNumber())
                                             .setEventNote(entity.getEventNote())
                                             .setCatalogNumber(entity.getCatalogNumber())
+                                            .setIsdn(entity.getIsdn())
+                                            .setCoverImageKey(entity.getCoverImageKey())
                                             .setPublishedAt(entity.getPublishedAt()));
                         })
                 .onItem().ifNull().switchTo(() -> dataSource.persistAlbumWithRelations(entity))
@@ -101,6 +107,42 @@ public class AlbumRepositoryImpl implements AlbumRepository {
                                     reconcileTrackTunes(existing, track.tunes());
                                 },
                                 () -> album.getTracks().add(AlbumMapper.trackToEntity(track, album))));
+    }
+
+    /**
+     * アルバムの外部音源一覧を、既存行の内部ID・監査カラムを保ったまま反映する。
+     *
+     * <p>
+     * 反映方針は {@link #reconcileTracks} と同じ（{@code domain_id} で引き当て、インプレースで差分反映）。
+     * 表示順の入れ替えは既存行の {@code display_order} を書き換えるため、トランザクション内の中間状態で
+     * 一意制約に触れる。テーブル側の制約を遅延検証にしてコミット時に判定する（{@code V32}）。
+     * </p>
+     *
+     * @param album
+     *            永続化済みのアルバムエンティティ（管理下）
+     * @param desiredExternalAudios
+     *            アルバム集約が保持する望ましい外部音源一覧
+     */
+    private static void reconcileExternalAudios(AlbumTableRecord album, List<ExternalAudio> desiredExternalAudios) {
+        final var existingByDomainId = album.getExternalAudios().stream()
+                .collect(Collectors.toMap(AlbumExternalAudioTableRecord::getDomainId, Function.identity()));
+        final var desiredIds = desiredExternalAudios.stream()
+                .map(a -> a.id().value())
+                .collect(Collectors.toSet());
+
+        album.getExternalAudios().removeIf(not(e -> desiredIds.contains(e.getDomainId())));
+
+        desiredExternalAudios.forEach(
+                externalAudio -> Optional.ofNullable(existingByDomainId.get(externalAudio.id().value()))
+                        .ifPresentOrElse(
+                                existing -> copyExternalAudioFields(existing, externalAudio),
+                                () -> album.getExternalAudios()
+                                        .add(AlbumMapper.externalAudioToEntity(externalAudio, album))));
+    }
+
+    private static void copyExternalAudioFields(AlbumExternalAudioTableRecord target, ExternalAudio source) {
+        target.setDisplayOrder(source.displayOrder());
+        target.setUrl(source.url().value().value());
     }
 
     private static void copyTrackScalarFields(TrackTableRecord target, Track source) {

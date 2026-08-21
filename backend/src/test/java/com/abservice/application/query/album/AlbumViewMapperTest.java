@@ -1,9 +1,13 @@
 package com.abservice.application.query.album;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
+import com.abservice.application.query.album.model.AlbumView.ExternalAudioView;
+import com.abservice.infrastructure.persistence.datasource.AlbumExternalAudioRow;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
 import java.time.LocalDate;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -40,7 +44,20 @@ class AlbumViewMapperTest {
         entity.setCoverImageKey("01a0233d-d25a-7c3b-924f-236ee154fecc.png");
 
         // Act
-        final var view = AlbumViewMapper.toView(entity, ASSET_BASE_PATH);
+        final var view = AlbumViewMapper.toView(
+                entity,
+                ASSET_BASE_PATH,
+                List.of(
+                        new AlbumExternalAudioRow(
+                                1L,
+                                "0192f8a0-0000-7000-8000-0000000000a2",
+                                2,
+                                "https://soundcloud.com/example/second"),
+                        new AlbumExternalAudioRow(
+                                1L,
+                                "0192f8a0-0000-7000-8000-0000000000a1",
+                                1,
+                                "https://soundcloud.com/example/first")));
 
         // Assert
         assertThat(view.albumId()).isEqualTo("0192f8a0-0000-7000-8000-000000000000");
@@ -56,6 +73,20 @@ class AlbumViewMapperTest {
         assertThat(view.eventSpaceNumber()).isEqualTo("東ホ-01a");
         assertThat(view.eventNote()).isEqualTo("新譜あります");
         assertThat(view.coverImageUrl()).isEqualTo("/assets/01a0233d-d25a-7c3b-924f-236ee154fecc.png");
+        assertThat(view.externalAudios())
+                .extracting(
+                        ExternalAudioView::externalAudioId,
+                        ExternalAudioView::displayOrder,
+                        ExternalAudioView::url)
+                .containsExactly(
+                        tuple(
+                                "0192f8a0-0000-7000-8000-0000000000a1",
+                                1,
+                                "https://soundcloud.com/example/first"),
+                        tuple(
+                                "0192f8a0-0000-7000-8000-0000000000a2",
+                                2,
+                                "https://soundcloud.com/example/second"));
     }
 
     @Test
@@ -73,7 +104,10 @@ class AlbumViewMapperTest {
         entity.setArtistDisplayName("アーティスト名");
 
         // Act
-        final var view = AlbumViewMapper.toView(entity, ASSET_BASE_PATH);
+        final var view = AlbumViewMapper.toView(
+                entity,
+                ASSET_BASE_PATH,
+                List.of());
 
         // Assert
         assertThat(view.artistSortKey()).isNull();
@@ -85,5 +119,6 @@ class AlbumViewMapperTest {
         assertThat(view.eventSpaceNumber()).isNull();
         assertThat(view.eventNote()).isNull();
         assertThat(view.coverImageUrl()).isNull();
+        assertThat(view.externalAudios()).isEmpty();
     }
 }

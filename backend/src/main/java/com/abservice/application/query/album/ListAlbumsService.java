@@ -2,13 +2,17 @@ package com.abservice.application.query.album;
 
 import com.abservice.application.query.AudienceVisibility;
 import com.abservice.application.query.QueryService;
+import com.abservice.application.query.album.model.AlbumView;
 import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;
+import com.abservice.infrastructure.persistence.datasource.AlbumExternalAudioRow;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.tuples.Tuple3;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
@@ -50,25 +54,78 @@ public class ListAlbumsService implements QueryService<ListAlbumsQuery, ListAlbu
                         panacheQuery.count(),
                         panacheQuery.pageCount())
                 .asTuple()
+                .flatMap(
+                        tuple -> toResultWithExternalAudios(
+                                tuple,
+                                page,
+                                size));
+    }
+
+    /**
+     * 外部音源はアルバム本体とは別クエリで取得して結果に載せる。
+     *
+     * <p>
+     * ページ内のアルバムをまとめて1クエリで引き、アルバムごとに振り分ける（アルバム件数分のクエリを発行しない）。
+     * </p>
+     *
+     * @param tuple
+     *            ページ内のアルバム・総件数・総ページ数
+     * @param page
+     *            ページ番号（0始まり）
+     * @param size
+     *            1ページの件数
+     * @return 一覧照会結果
+     */
+    private Uni<ListAlbumsResult> toResultWithExternalAudios(
+            Tuple3<List<AlbumTableRecord>, Long, Integer> tuple,
+            int page,
+            int size) {
+        return dataSource.findExternalAudiosByAlbumIds(albumIds(tuple.getItem1()))
                 .map(
-                        tuple -> toResult(
+                        externalAudios -> toResult(
                                 tuple,
                                 page,
                                 size,
-                                assetBasePath));
+                                assetBasePath,
+                                groupByAlbumId(externalAudios)));
+    }
+
+    private static List<Long> albumIds(List<AlbumTableRecord> albums) {
+        return albums.stream().map(AlbumTableRecord::getAlbumId).toList();
+    }
+
+    static Map<Long, List<AlbumExternalAudioRow>> groupByAlbumId(List<AlbumExternalAudioRow> externalAudios) {
+        return externalAudios.stream().collect(Collectors.groupingBy(AlbumExternalAudioRow::albumId));
     }
 
     static ListAlbumsResult toResult(
             Tuple3<List<AlbumTableRecord>, Long, Integer> tuple,
             int page,
             int size,
-            String assetBasePath) {
+            String assetBasePath,
+            Map<Long, List<AlbumExternalAudioRow>> externalAudiosByAlbumId) {
         return new ListAlbumsResult(
-                tuple.getItem1().stream().map(entity -> AlbumViewMapper.toView(entity, assetBasePath)).toList(),
+                toViews(
+                        tuple.getItem1(),
+                        assetBasePath,
+                        externalAudiosByAlbumId),
                 page,
                 size,
                 tuple.getItem2(),
                 tuple.getItem3());
+    }
+
+    private static List<AlbumView> toViews(
+            List<AlbumTableRecord> albums,
+            String assetBasePath,
+            Map<Long, List<AlbumExternalAudioRow>> externalAudiosByAlbumId) {
+        return albums.stream()
+                .map(
+                        entity -> AlbumViewMapper.toView(
+                                entity,
+                                assetBasePath,
+                                externalAudiosByAlbumId.getOrDefault(entity.getAlbumId(), List.of())))
+                .toList();
     }
 
     static int clampPage(int page) {

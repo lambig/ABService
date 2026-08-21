@@ -5,6 +5,7 @@ import com.abservice.application.query.album.ListAlbumsResult;
 import com.abservice.application.query.album.model.AlbumView;
 import com.abservice.presentation.rest.album.response.AlbumListResponse;
 import com.abservice.presentation.rest.album.response.AlbumResponse;
+import com.abservice.presentation.rest.album.response.AlbumResponse.ExternalAudioResponse;
 import com.abservice.presentation.rest.exception.ProblemDetail;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -84,6 +85,13 @@ final class AlbumQueryResponses {
                 view.eventSpaceNumber(),
                 view.eventNote(),
                 view.publishedAt(),
-                view.coverImageUrl());
+                view.coverImageUrl(),
+                view.externalAudios().stream()
+                        .map(
+                                audio -> new ExternalAudioResponse(
+                                        audio.externalAudioId(),
+                                        audio.displayOrder(),
+                                        audio.url()))
+                        .toList());
     }
 }

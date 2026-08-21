@@ -98,7 +98,7 @@
 
 **トレードオフ**: 外部サービスの可用性・UI・埋め込み仕様に依存する。CSPの `frame-src` 許可が必要になる。自前配信へ戻す場合はアップロード基盤の上限と許可形式を足すだけで済むよう、アップロード経路は署名付きURL方式で統一している。
 
-**実体**: `application/service/asset/`（画像専用の受け入れ形式）、#155（埋め込み対応）。
+**実体**: `application/service/asset/`（画像専用の受け入れ形式）、`domain/model/vo/common/AssetKey` と対になる `ExternalAudioUrl`（埋め込み可能なホストの許可リスト）、`V32`（Albumの外部音源）。公開サイト側の埋め込み表示とCSPは #155。
 
 ---
 

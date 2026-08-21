@@ -399,6 +399,7 @@ class AlbumRepositoryImplTest {
                 null,
                 null,
                 Publication.draft(),
+                List.of(),
                 List.of());
 
         asserter.assertThat(() -> repository.save(updated), result -> {
