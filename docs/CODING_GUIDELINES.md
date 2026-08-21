@@ -24,9 +24,9 @@ detekt（Kotlin）カスタムルール26件相当は、Java に構文的対応�
 
 **維持すべき設計方針**（今後の拡張で保つ）:
 - **規約ベースのルールは実装を待たず先行導入する**。対象0件の間は `allowEmptyShould(true)` で不活性、最初の実装が入った瞬間から強制。「機能実装を待ってからルール化」はしない。
-- **値の生成は式のみ**（ternary / switch 式）。`if` は副作用・例外（`throw`）分岐に限る。sealed 型 + switch 式で網羅性を javac が担保。STATUS_AND_ROADMAP.md §3 のエラー設計と整合。
+- **値の生成は式のみ**（ternary / switch 式）。`if` は副作用・例外（`throw`）分岐に限る。sealed 型 + switch 式で網羅性を javac が担保。§6 のエラー表現と整合。
 - **NullAway / ErrorProne のバージョン固定（管理下の一時的負債・要追随）**: `error_prone_core 2.39.0` + `nullaway 0.12.7`（`net.ltgt.errorprone 5.1.0`）。ErrorProne 内部 API 密結合のため両者を揃える（最新 `error_prone_core 2.50.0` は非互換）。**昇格トリガ**: NullAway が 2.50 系対応版を出したら両者 bump。**退避路**: JSpecify アノテーションはツール非依存のため Checker Framework へ差し替え可能。
-- 追加ルールは STATUS_AND_ROADMAP.md §5 フェーズB 参照（真に構造依存なもの・SpotBugs/PMD 組込ルールセットの再導入）。
+- 追加ルールの検討状況は [STATUS_AND_ROADMAP.md](STATUS_AND_ROADMAP.md) の残タスク参照（SpotBugs/PMD 組込ルールセットの再導入）。
 
 ---
 
@@ -71,7 +71,7 @@ VO の外部入力用の生成は、例外 throw の `of()`（内部生成）と
 
 ## 6. エラー表現
 
-3層で使い分ける（詳細は [RESULT_TYPE_GUIDE.md](RESULT_TYPE_GUIDE.md) と STATUS_AND_ROADMAP.md §3）:
+3層で使い分ける（`Result` のAPIと使用例は `lib.Result` の Javadoc・`ResultTest`・`lib.example.ResultExample` が正）:
 
 - **値検証（複数エラー収集）**: `Result<T>`（`lib.Result`）。
 - **リソース未存在**: empty `Uni` → `EntityNotFoundException` へ変換。
@@ -80,8 +80,8 @@ VO の外部入力用の生成は、例外 throw の `of()`（内部生成）と
 
 ## 7. データベース
 
-- 共通監査列（7列）は [AUDIT_COLUMNS.md](AUDIT_COLUMNS.md) が正。
-- ドメイン ID（UUIDv7 文字列）と DB 内部 ID（`Long`）の分離方針は [ID_DESIGN_POLICY.md](ID_DESIGN_POLICY.md) が正。
+- 共通監査列（7列）は `AuditableTableRecord` と各マイグレーションが正。運用ルールと理由は [DECISIONS.md](DECISIONS.md) §5。
+- ドメイン ID（UUIDv7 文字列）と DB 内部 ID（`Long`）の分離は `EntityId` と `*TableRecord` が正。理由は [DECISIONS.md](DECISIONS.md) §1。
 - ドメイン層の日付・日時は `BusinessDate` / `BusinessDateTime` を使う（`java.time` 直接使用は domain では ArchUnit で禁止）。インフラ層・変換処理では `LocalDate` 等の使用を許可する。
 
 ## 8. コメント方針
@@ -100,6 +100,6 @@ why not コメントは大文字+ハイフンの語＋コロンのプレフィ�
 
 ## 参考資料
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) / [DOMAIN_MODEL_DESIGN.md](DOMAIN_MODEL_DESIGN.md) - アーキテクチャ・ドメインモデル設計
-- [REPOSITORY_IMPLEMENTATION.md](REPOSITORY_IMPLEMENTATION.md) - リポジトリ実装ガイド
-- [RESULT_TYPE_GUIDE.md](RESULT_TYPE_GUIDE.md) - Result 型の使用ガイド
+- [ARCHITECTURE.md](ARCHITECTURE.md) - 構成・境界・経路の決定
+- [DECISIONS.md](DECISIONS.md) - なぜその構造にしたか（設計判断の記録）
+- 参照実装は現行コード: `application.service.article` / `application.query.article` / `presentation.rest.article`、リポジトリは `infrastructure.persistence.repository`

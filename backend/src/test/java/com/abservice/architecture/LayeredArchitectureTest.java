@@ -32,7 +32,7 @@ import com.tngtech.archunit.library.GeneralCodingRules;
  * </p>
  *
  * <p>
- * 対応ドキュメント: {@code docs/STATUS_AND_ROADMAP.md} §6。
+ * 対応ドキュメント: {@code docs/CODING_GUIDELINES.md} §1（静的解析ガバナンス）。
  * </p>
  */
 @AnalyzeClasses(packages = "com.abservice", importOptions = ImportOption.DoNotIncludeTests.class)
@@ -85,7 +85,7 @@ class LayeredArchitectureTest {
      *
      * <p>
      * CQRS の Read/Write 分離: Query は DataSource 直アクセスで Read Model DTO
-     * を返す（{@code docs/STATUS_AND_ROADMAP.md} §2.2）。この読み取り経路のみを許可するため、infrastructure
+     * を返す（{@code docs/ARCHITECTURE.md} レイヤと依存方向）。この読み取り経路のみを許可するため、infrastructure
      * のうち datasource / entity 以外への依存を禁止する。
      * </p>
      */

@@ -18,78 +18,16 @@ WebService/Site implementation for my own use
 - ✅ サーバー起動: 成功
 - ✅ Webアクセス: 成功
 
-## バックエンド パッケージ構造
+## 設計と規約
 
-```
-com.abservice/
-├── domain/                      # ドメイン層
-│   ├── model/                   # ドメインモデル
-│   │   ├── DomainObject.java
-│   │   ├── EntityId.java
-│   │   ├── entity/              # エンティティ
-│   │   │   └── DomainEntity.java
-│   │   ├── aggregate/           # 集約
-│   │   │   └── Aggregate.java
-│   │   └── vo/                  # 値オブジェクト
-│   │       ├── ValueObject.java
-│   │       ├── BusinessDate.java
-│   │       └── BusinessDateTime.java
-│   ├── service/                 # ドメインサービス
-│   │   ├── DomainService.java
-│   │   └── BusinessDateTimeProvider.java
-│   ├── factory/                 # ファクトリ
-│   │   └── Factory.java
-│   ├── repository/              # リポジトリインターフェース
-│   └── exception/               # ドメイン例外
-│       └── DomainException.java
-├── application/                 # アプリケーション層
-│   ├── service/                 # コマンドサービス（更新系）
-│   │   └── CommandService.java  # CQRS基底インターフェース
-│   └── query/                   # クエリサービス（照会系）
-│       └── QueryService.java    # CQRS基底インターフェース
-├── infrastructure/              # インフラ層
-│   ├── persistence/             # 永続化実装
-│   │   ├── AuditableEntity.java # 共通監査列を持つ基底クラス
-│   │   └── AuditInfo.java       # 監査情報を保持するデータクラス
-│   └── datetime/                # 日時プロバイダー実装
-│       └── SystemBusinessDateTimeProvider.java
-└── presentation/                # プレゼンテーション層
-    └── rest/                    # RESTエンドポイント
-```
+現行の構造・スキーマ・APIの正は実装（実クラス / `backend/src/main/resources/db/migration/` / 静的解析の設定）であり、ドキュメントには再記述しない。
 
-## ドメイン駆動設計とCQRS
-
-ABServiceはドメイン駆動設計（DDD）とCQRSパターンに基づいています：
-
-- **値オブジェクト**: 不変性、等価性、副作用なし（Java Records推奨）
-- **エンティティ/集約**: 同一性、Lombok `@With`による不変更新パターン
-- **集約**: 整合性境界、ID参照
-- **CQRS**: コマンド（更新系）とクエリ（照会系）の明確な分離
-- **ドメインID**: UUIDv7形式（DB内部IDと分離）
-- **業務日付/日時**: Asia/Tokyoタイムゾーン固定
-- **共通監査列**: すべてのエンティティに7つの監査列を含める
-
-### ドキュメント
-
-- [アーキテクチャ](docs/ARCHITECTURE.md) - システム全体の設計
-- [コーディングガイドライン](docs/CODING_GUIDELINES.md) - 日々の実装規約
-- [ID設計ポリシー](docs/ID_DESIGN_POLICY.md) - ドメインIDとDB内部IDの分離方針
-- [ドメインモデル設計](docs/DOMAIN_MODEL_DESIGN.md) - DDDの実装詳細
-- [共通監査列ガイドライン](docs/AUDIT_COLUMNS.md) - 監査列の標準
-
-## 共通監査列
-
-すべてのデータベーステーブルは、以下の7つの監査列を含む必要があります：
-
-1. `created_at` - レコード作成日時
-2. `updated_at` - レコード最終更新日時
-3. `created_by_service` - 作成時のサービス名
-4. `updated_by_service` - 更新時のサービス名
-5. `created_by_user` - 作成者ユーザーID
-6. `updated_by_user` - 更新者ユーザーID
-7. `version` - 楽観ロック用バージョン番号
-
-詳細は [docs/AUDIT_COLUMNS.md](docs/AUDIT_COLUMNS.md) を参照してください。
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - 構成・境界・経路（CloudFrontのパスベースルーティング、認証方式、アセットの経路）
+- [docs/DECISIONS.md](docs/DECISIONS.md) - 設計判断の記録（なぜその構造にしたか）
+- [docs/CODING_GUIDELINES.md](docs/CODING_GUIDELINES.md) - 設計上の意図と、静的解析で強制しているルールの索引
+- [docs/STATUS_AND_ROADMAP.md](docs/STATUS_AND_ROADMAP.md) - 開発状況と残タスク
+- [backend/TEST_GUIDE.md](backend/TEST_GUIDE.md) - テスト分離規約
+- [docs/README.md](docs/README.md) - ドキュメント記述規約（何を文書に書き、何を書かないか）
 
 ## 開発
 
