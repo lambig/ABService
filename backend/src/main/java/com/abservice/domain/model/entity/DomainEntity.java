@@ -28,60 +28,10 @@ import java.util.Optional;
  * 業務的な意味を持つpublicメソッド内で使用してください。
  * </p>
  *
- * <pre>
- * {
- *     &#64;code
- *     // ✅ 推奨実装（Lombok @With使用、witherはprivate）
- *     &#64;With(AccessLevel.PRIVATE) // witherメソッドをprivateに
- *     &#64;Getter
- *     &#64;AllArgsConstructor
- *     &#64;EqualsAndHashCode(onlyExplicitlyIncluded = true)
- *     public class Album implements Aggregate<Album, Album.Id> {
- *         @EqualsAndHashCode.Include
- *         private final Album.Id id;
- *         private final AlbumTitle title;
- *         private final CatalogNumber catalogNumber;
- *
- *         // Lombokが生成: private withTitle(), private withCatalogNumber()
- *
- *         // 業務的な意味を持つpublicメソッドを提供（検証はVOと式で表現し、if文は使わない）
- *         public Album changeTitle(AlbumTitle newTitle) {
- *             return withTitle( // private witherを使用
- *                     Optional.ofNullable(newTitle)
- *                             .orElseThrow(() -> new IllegalArgumentException("Title cannot be null")));
- *         }
- *
- *         public Album changeCatalogNumber(CatalogNumber newCatalogNumber) {
- *             return withCatalogNumber( // private witherを使用
- *                     Optional.ofNullable(newCatalogNumber)
- *                             .orElseThrow(() -> new IllegalArgumentException("Catalog number cannot be null")));
- *         }
- *     }
- *
- *     // ✅ EntityIdの実装（record・コンパクトコンストラクタで検証）
- *     public record Id(String value) implements EntityId<Album> {
- *         public Id {
- *             Policy.<String>all(
- *                     Policy.of(
- *                             StringUtils::isNotBlank,
- *                             () -> new ErrorResult("value", "Album ID cannot be blank", "ID_BLANK")),
- *                     Policy.of(
- *                             EntityId::isValidUuid,
- *                             () -> new ErrorResult("value", "Album ID must be a valid UUID", "ID_INVALID_UUID")))
- *                     .verify(value, Function.identity())
- *                     .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
- *         }
- *     }
- *
- *     // ❌ 禁止
- *     public class Album {
- *         private String title;
- *         public void setTitle(String title) {
- *             this.title = title;
- *         } // Setter禁止
- *     }
- * }
- * </pre>
+ * <p>
+ * 参照実装: {@code domain.model.aggregate.album.Album}（wither は private、業務的な意味を持つ
+ * public メソッドを提供）。
+ * </p>
  *
  * <h2>等価性</h2>
  * <p>

@@ -153,7 +153,7 @@
              privateメソッドは状況に応じて必要なため機械的必須化はしない -->
         <module name="JavadocVariable">
             <property name="id" value="DomainModelFieldJavadoc"/>
-            <property name="scope" value="private"/>
+            <property name="accessModifiers" value="public,protected,package,private"/>
         </module>
         <module name="JavadocType">
             <property name="id" value="DomainModelTypeJavadoc"/>
