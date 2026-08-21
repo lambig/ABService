@@ -22,6 +22,10 @@ dependencies {
     // @RolesAllowed による宣言的認可）
     implementation 'io.quarkus:quarkus-security'
 
+    // OpenAPI（JAX-RSの型情報からAPI定義を生成。Swagger UIは開発時のみ。管理系の認証要件は
+    // @RolesAllowed から自動付与する）
+    implementation 'io.quarkus:quarkus-smallrye-openapi'
+
     // Hibernate Reactive with Panache（リアクティブJPA実装）
     implementation 'io.quarkus:quarkus-hibernate-reactive-panache'
     implementation 'io.quarkus:quarkus-reactive-pg-client'
