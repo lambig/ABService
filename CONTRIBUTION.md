@@ -46,7 +46,7 @@
 - **データベース**: PostgreSQL
 - **マイグレーション**: Flyway
 - **データアクセス**: Blaze-Persistence
-- **認証・認可**: OIDC + Keycloak + JWT
+- **認証・認可**: APIキー（`Authorization: Bearer`）+ Quarkus Security の `@RolesAllowed`
 - **フロントエンド管理画面**: Svelte
 - **フロントエンド公開画面**: Svelte + Astro
 - **構成**: モノリポジトリ

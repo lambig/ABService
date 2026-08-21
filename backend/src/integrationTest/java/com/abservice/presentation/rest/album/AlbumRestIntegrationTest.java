@@ -1,5 +1,6 @@
 package com.abservice.presentation.rest.album;
 
+import static com.abservice.presentation.rest.AdminAuth.authorized;
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -35,7 +36,7 @@ class AlbumRestIntegrationTest {
     @Test
     @DisplayName("アルバムを作成すると下書き状態になり、公開向けAPIでのID詳細取得は404になる")
     void createThenGetIsNotFoundWhileUnpublished() {
-        final String albumId = given().contentType(ContentType.JSON)
+        final String albumId = authorized().contentType(ContentType.JSON)
                 .body(
                         "{\"title\":\"E2Eテストアルバム\",\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"E2Eアーティスト\","
                                 + "\"catalogNumber\":\"E2E-0001\",\"event\":{\"name\":\"コミックマーケット104\","
@@ -59,7 +60,7 @@ class AlbumRestIntegrationTest {
     @Test
     @DisplayName("タイトル空白は400 problem+json（検証エラー）を返す")
     void createValidationError() {
-        given().contentType(ContentType.JSON)
+        authorized().contentType(ContentType.JSON)
                 .body("{\"title\":\"   \",\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"アーティスト\"}").when()
                 .post("/api/v1/albums").then().statusCode(400).contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:VALIDATION_ERROR")).body("status", equalTo(400))
@@ -69,13 +70,13 @@ class AlbumRestIntegrationTest {
     @Test
     @DisplayName("アルバムを更新すると全項目置換され、トラックは変化しない（下書きのままなので公開向けGETは404）")
     void updateReplacesFieldsAndPreservesTracks() {
-        final String albumId = given().contentType(ContentType.JSON)
+        final String albumId = authorized().contentType(ContentType.JSON)
                 .body(
                         "{\"title\":\"更新前タイトル\",\"releaseDate\":\"2025-01-01\","
                                 + "\"artistDisplayName\":\"更新前アーティスト\"}")
                 .when().post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
 
-        given().contentType(ContentType.JSON)
+        authorized().contentType(ContentType.JSON)
                 .body(
                         "{\"title\":\"更新後タイトル\",\"releaseDate\":\"2026-01-01\","
                                 + "\"artistDisplayName\":\"更新後アーティスト\",\"catalogNumber\":\"UPD-0001\"}")
@@ -89,7 +90,7 @@ class AlbumRestIntegrationTest {
     @Test
     @DisplayName("存在しないIDの更新は404 problem+jsonを返す")
     void updateNotFound() {
-        given().contentType(ContentType.JSON)
+        authorized().contentType(ContentType.JSON)
                 .body("{\"title\":\"タイトル\",\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"アーティスト\"}").when()
                 .put("/api/v1/albums/" + UUID.randomUUID()).then().statusCode(404)
                 .contentType("application/problem+json")
@@ -99,11 +100,11 @@ class AlbumRestIntegrationTest {
     @Test
     @DisplayName("タイトル空白での更新は400 problem+json（検証エラー）を返す")
     void updateValidationError() {
-        final String albumId = given().contentType(ContentType.JSON)
+        final String albumId = authorized().contentType(ContentType.JSON)
                 .body("{\"title\":\"タイトル\",\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"アーティスト\"}").when()
                 .post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
 
-        given().contentType(ContentType.JSON)
+        authorized().contentType(ContentType.JSON)
                 .body("{\"title\":\"   \",\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"アーティスト\"}").when()
                 .put("/api/v1/albums/" + albumId).then().statusCode(400).contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:VALIDATION_ERROR"))
@@ -113,11 +114,11 @@ class AlbumRestIntegrationTest {
     @Test
     @DisplayName("アルバムを公開すると公開向けGETで参照できるようになる")
     void publishThenGetSucceeds() {
-        final String albumId = given().contentType(ContentType.JSON)
+        final String albumId = authorized().contentType(ContentType.JSON)
                 .body("{\"title\":\"公開確認アルバム\",\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"アーティスト\"}")
                 .when().post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
 
-        given().when().post("/api/v1/albums/" + albumId + "/publish").then().statusCode(200)
+        authorized().when().post("/api/v1/albums/" + albumId + "/publish").then().statusCode(200)
                 .body("albumId", equalTo(albumId)).body("published", equalTo(true));
 
         given().when().get("/api/v1/albums/" + albumId).then().statusCode(200).body("albumId", equalTo(albumId));
@@ -126,13 +127,13 @@ class AlbumRestIntegrationTest {
     @Test
     @DisplayName("公開済みアルバムを非公開化すると公開向けGETは404になり、参照記事がなければカスケード対象も空")
     void unpublishThenGetNotFound() {
-        final String albumId = given().contentType(ContentType.JSON)
+        final String albumId = authorized().contentType(ContentType.JSON)
                 .body("{\"title\":\"非公開化確認アルバム\",\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"アーティスト\"}")
                 .when().post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
 
-        given().when().post("/api/v1/albums/" + albumId + "/publish").then().statusCode(200);
+        authorized().when().post("/api/v1/albums/" + albumId + "/publish").then().statusCode(200);
 
-        given().when().post("/api/v1/albums/" + albumId + "/unpublish").then().statusCode(200)
+        authorized().when().post("/api/v1/albums/" + albumId + "/unpublish").then().statusCode(200)
                 .body("albumId", equalTo(albumId)).body("published", equalTo(false))
                 .body("cascadeUnpublishedArticles", empty());
 
@@ -142,7 +143,7 @@ class AlbumRestIntegrationTest {
     @Test
     @DisplayName("存在しないIDの公開は404 problem+jsonを返す")
     void publishNotFound() {
-        given().when().post("/api/v1/albums/" + UUID.randomUUID() + "/publish").then().statusCode(404)
+        authorized().when().post("/api/v1/albums/" + UUID.randomUUID() + "/publish").then().statusCode(404)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
     }
@@ -150,7 +151,7 @@ class AlbumRestIntegrationTest {
     @Test
     @DisplayName("存在しないIDの非公開化は404 problem+jsonを返す")
     void unpublishNotFound() {
-        given().when().post("/api/v1/albums/" + UUID.randomUUID() + "/unpublish").then().statusCode(404)
+        authorized().when().post("/api/v1/albums/" + UUID.randomUUID() + "/unpublish").then().statusCode(404)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
     }
@@ -158,11 +159,11 @@ class AlbumRestIntegrationTest {
     @Test
     @DisplayName("アルバムを削除すると以後のGETは404になる")
     void deleteThenGetNotFound() {
-        final String albumId = given().contentType(ContentType.JSON)
+        final String albumId = authorized().contentType(ContentType.JSON)
                 .body("{\"title\":\"削除対象\",\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"アーティスト\"}").when()
                 .post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
 
-        given().when().delete("/api/v1/albums/" + albumId).then().statusCode(204);
+        authorized().when().delete("/api/v1/albums/" + albumId).then().statusCode(204);
 
         given().when().get("/api/v1/albums/" + albumId).then().statusCode(404);
     }
@@ -170,13 +171,13 @@ class AlbumRestIntegrationTest {
     @Test
     @DisplayName("削除はべき等で、存在しないIDの削除も204を返す")
     void deleteIsIdempotent() {
-        final String albumId = given().contentType(ContentType.JSON)
+        final String albumId = authorized().contentType(ContentType.JSON)
                 .body("{\"title\":\"べき等確認\",\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"アーティスト\"}").when()
                 .post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
 
-        given().when().delete("/api/v1/albums/" + albumId).then().statusCode(204);
-        given().when().delete("/api/v1/albums/" + albumId).then().statusCode(204);
-        given().when().delete("/api/v1/albums/" + UUID.randomUUID()).then().statusCode(204);
+        authorized().when().delete("/api/v1/albums/" + albumId).then().statusCode(204);
+        authorized().when().delete("/api/v1/albums/" + albumId).then().statusCode(204);
+        authorized().when().delete("/api/v1/albums/" + UUID.randomUUID()).then().statusCode(204);
     }
 
     @Test
@@ -205,7 +206,7 @@ class AlbumRestIntegrationTest {
     }
 
     private static String createAlbum(String title) {
-        return given().contentType(ContentType.JSON)
+        return authorized().contentType(ContentType.JSON)
                 .body(
                         "{\"title\":\"" + title + "\",\"releaseDate\":\"2026-01-01\","
                                 + "\"artistDisplayName\":\"アーティスト\"}")

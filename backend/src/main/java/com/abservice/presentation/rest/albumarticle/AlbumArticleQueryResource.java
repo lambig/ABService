@@ -10,7 +10,9 @@ import com.abservice.application.query.albumarticle.model.AlbumArticleView;
 import com.abservice.presentation.rest.albumarticle.response.AlbumArticleListResponse;
 import com.abservice.presentation.rest.albumarticle.response.AlbumArticleResponse;
 import com.abservice.presentation.rest.exception.ProblemDetail;
+import com.abservice.presentation.rest.security.SecurityRoles;
 import io.smallrye.mutiny.Uni;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -27,10 +29,12 @@ import java.util.List;
  * <p>
  * アルバム記事の詳細照会（GET）と一覧照会（GET、ページネーション付き）を受け付ける。未存在は例外ではなく
  * {@link GetAlbumArticleResult.NotFound} として扱い、404 を RFC 9457 Problem Details
- * （{@code application/problem+json}）で返す。
+ * （{@code application/problem+json}）で返す。アルバム記事は公開サイトが直接参照しない管理用マスタのため、参照も管理者ロール
+ * （{@code Authorization: Bearer <APIキー>}）を要求する。
  * </p>
  */
 @Path("/api/v1/album-articles")
+@RolesAllowed(SecurityRoles.ADMIN)
 public class AlbumArticleQueryResource {
 
     private static final String PROBLEM_JSON = "application/problem+json";

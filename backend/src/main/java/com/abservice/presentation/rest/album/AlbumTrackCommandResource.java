@@ -18,7 +18,9 @@ import com.abservice.presentation.rest.album.response.AddTrackResponse;
 import com.abservice.presentation.rest.album.response.ReorderTracksResponse;
 import com.abservice.presentation.rest.album.response.ReorderTracksResponse.TrackOrderEntryResponse;
 import com.abservice.presentation.rest.album.response.UpdateTrackResponse;
+import com.abservice.presentation.rest.security.SecurityRoles;
 import io.smallrye.mutiny.Uni;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.PUT;
@@ -38,10 +40,12 @@ import jakarta.ws.rs.core.Response;
  * {@code tunes}はチューン専用の操作（#120の対象）で対象外）・削除（DELETE、対象トラックが
  * 存在しない場合は409。べき等ではない）・順序変更（PUT .../order）を受け付ける。検証・永続化はアプリケーション層に委譲し、
  * 検証失敗・対象不在・トラック番号重複は {@code DomainException} 経由で {@code DomainExceptionMapper}
- * が RFC 9457 Problem Details に変換する。
+ * が RFC 9457 Problem Details に変換する。全操作は管理者ロール
+ * （{@code Authorization: Bearer <APIキー>}）を要求する。
  * </p>
  */
 @Path("/api/v1/albums/{albumId}/tracks")
+@RolesAllowed(SecurityRoles.ADMIN)
 public class AlbumTrackCommandResource {
 
     private final AddTrackService addTrackService;

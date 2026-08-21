@@ -51,6 +51,19 @@ Terraform適用は`terraform plan`で差分を確認してから`apply`する運
 
 `AWS_DEPLOY_ROLE_ARN`未設定の間は`deploy.yml`のjobがskipされ、mainへのpushでも何も実行されない。上表のAction variables設定後、次回のmainへのpushから自動的に有効化される。
 
+## 管理者APIキー（#116）
+
+管理操作（Command系API・管理向けQuery API）は `Authorization: Bearer <APIキー>` を要求する。キーはTerraformが生成し、Parameter Store の `/<project>/<environment>/app/admin-api-key`（SecureString）に保存される。`deploy.sh` がこれを取得して backend コンテナへ `ADMIN_API_KEY` として渡すため、デプロイ側の追加設定は不要。
+
+管理画面や手動操作で値が必要な場合は Parameter Store から取得する（値はリポジトリに置かない）。
+
+```bash
+aws ssm get-parameter --name "/<project>/<environment>/app/admin-api-key" \
+  --with-decryption --query 'Parameter.Value' --output text --region ap-northeast-1
+```
+
+ローテーションは Parameter Store の値を更新し、backend を再デプロイ（再起動）して反映する。
+
 ## ロールバック（backendデプロイ）
 
 ECRのライフサイクルポリシーにより直近10件のタグ付きイメージが保持される。障害時は`.github/workflows/deploy.yml`を`workflow_dispatch`で手動起動し、`image_tag`に直前の正常なタグ（gitのshort SHA）を指定して再デプロイする（再ビルドは行わず、ECRの既存イメージをそのままEC2へpull・再起動するだけなので数十秒で完了する）。ロールバック後、mainブランチの履歴は`git revert`で追随させる（force-push・履歴書き換えはしない）。

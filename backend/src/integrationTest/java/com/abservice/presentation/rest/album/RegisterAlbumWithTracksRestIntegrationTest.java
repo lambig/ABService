@@ -1,6 +1,6 @@
 package com.abservice.presentation.rest.album;
 
-import static io.restassured.RestAssured.given;
+import static com.abservice.presentation.rest.AdminAuth.authorized;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 
@@ -25,7 +25,7 @@ class RegisterAlbumWithTracksRestIntegrationTest {
     @Test
     @DisplayName("トラックを含めて登録すると201でアルバムとトラック情報が返る")
     void registerWithTracksSucceeds() {
-        given().contentType(ContentType.JSON)
+        authorized().contentType(ContentType.JSON)
                 .body(
                         "{\"title\":\"ワンリクエスト登録アルバム\",\"releaseDate\":\"2026-01-01\","
                                 + "\"artistDisplayName\":\"アーティスト\",\"tracks\":["
@@ -40,7 +40,7 @@ class RegisterAlbumWithTracksRestIntegrationTest {
     @Test
     @DisplayName("トラックを指定しなければトラックなしで登録される")
     void registerWithoutTracksSucceeds() {
-        given().contentType(ContentType.JSON)
+        authorized().contentType(ContentType.JSON)
                 .body(
                         "{\"title\":\"トラックなし登録アルバム\",\"releaseDate\":\"2026-01-01\","
                                 + "\"artistDisplayName\":\"アーティスト\"}")
@@ -51,7 +51,7 @@ class RegisterAlbumWithTracksRestIntegrationTest {
     @Test
     @DisplayName("アルバムのタイトルが空白なら400 problem+json（検証エラー）を返す")
     void albumValidationError() {
-        given().contentType(ContentType.JSON)
+        authorized().contentType(ContentType.JSON)
                 .body(
                         "{\"title\":\"   \",\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"アーティスト\","
                                 + "\"tracks\":[{\"trackNo\":1,\"title\":\"1曲目\"}]}")
@@ -63,7 +63,7 @@ class RegisterAlbumWithTracksRestIntegrationTest {
     @Test
     @DisplayName("トラック番号が重複していると409 problem+jsonを返す")
     void duplicateTrackNoReturnsConflict() {
-        given().contentType(ContentType.JSON)
+        authorized().contentType(ContentType.JSON)
                 .body(
                         "{\"title\":\"トラック番号重複登録アルバム\",\"releaseDate\":\"2026-01-01\","
                                 + "\"artistDisplayName\":\"アーティスト\",\"tracks\":["
@@ -77,7 +77,7 @@ class RegisterAlbumWithTracksRestIntegrationTest {
     @Test
     @DisplayName("トラックのタイトルが未指定だと400 problem+json（検証エラー）を返す")
     void trackValidationError() {
-        given().contentType(ContentType.JSON)
+        authorized().contentType(ContentType.JSON)
                 .body(
                         "{\"title\":\"トラック検証エラー登録アルバム\",\"releaseDate\":\"2026-01-01\","
                                 + "\"artistDisplayName\":\"アーティスト\",\"tracks\":[{\"trackNo\":1}]}")
