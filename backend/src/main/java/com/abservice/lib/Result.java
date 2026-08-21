@@ -387,7 +387,7 @@ public sealed interface Result<T> {
     private static <U, R> Result<R> ap(Result<Function<U, R>> ff, Result<U> fa) {
         return switch (ff) {
             case Success<Function<U, R>> sf -> fa.map(sf.value());
-            case Failure<Function<U, R>> failure -> Result.failure(aggregateErrors(ff, fa));
+            case Failure<Function<U, R>> failure -> Result.failure(aggregateErrors(failure, fa));
         };
     }
 

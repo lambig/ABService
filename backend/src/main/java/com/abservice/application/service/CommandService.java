@@ -17,33 +17,12 @@ import io.smallrye.mutiny.Uni;
  * <li><strong>入出力の変換</strong>: DTOとドメインオブジェクトの変換</li>
  * </ol>
  *
- * <h2>使用例</h2>
+ * <h2>参照実装</h2>
  *
- * <pre>
- * {
- *     &#64;code
- *     public record UpdateAlbumTitleInput(String albumId, String newTitle) implements CommandService.Input {
- *     }
- *
- *     public record UpdateAlbumTitleOutput(String albumId, String updatedTitle) implements CommandService.Output {
- *     }
- *
- *     &#64;ApplicationScoped
- *     public class UpdateAlbumTitleService implements CommandService<UpdateAlbumTitleInput, UpdateAlbumTitleOutput> {
- *         private final AlbumRepository albumRepository;
- *
- *         &#64;WithTransaction
- *         @Override
- *         public Uni<UpdateAlbumTitleOutput> execute(UpdateAlbumTitleInput input) {
- *             return albumRepository.findById(Album.Id.of(input.albumId())).onItem().ifNull()
- *                     .failWith(() -> new AlbumNotFoundException(input.albumId())).onItem()
- *                     .transform(album -> album.updateTitle(new AlbumTitle(input.newTitle())))
- *                     .flatMap(album -> albumRepository.save(album)).onItem()
- *                     .transform(album -> new UpdateAlbumTitleOutput(album.id().value(), album.title().value()));
- *         }
- *     }
- * }
- * </pre>
+ * <p>
+ * {@code application.service.article} の Create/Update/Delete 各サービスと
+ * Input/Output。
+ * </p>
  *
  * <h2>原則</h2>
  * <ol>

@@ -1,9 +1,9 @@
 plugins {
     id 'java'
-    id 'io.quarkus' version '3.28.4'
+    id 'io.quarkus' version '3.38.3'
     id 'checkstyle'
     id 'pmd'
-    id 'com.diffplug.spotless' version '7.0.2'
+    id 'com.diffplug.spotless' version '8.10.0'
     id 'net.ltgt.errorprone' version '5.1.0'
 }
 
@@ -28,12 +28,12 @@ dependencies {
 
     // Amazon S3（アセット保存。開発は MinIO、本番は S3 を endpoint-override で切り替える）。
     // バージョン固定の理由: quarkiverse 拡張は Quarkus 本体と別のリリース列で、各リリースが特定の
-    // Quarkus バージョンを前提にビルドされる。3.11.0 は Quarkus 3.28.4（本プロジェクトの固定版）
-    // ターゲット。3.12.0 以降は Quarkus 3.29+ 前提のため上げられない。
+    // Quarkus バージョンを前提にビルドされる。3.21.2 は Quarkus 3.37.3 ターゲットで、本体の
+    // 3.38.3 に最も近い安定版。
     // 昇格トリガ: Quarkus 本体を上げるとき、同じ Quarkus 版をターゲットにする拡張版へ揃えて bump する。
-    implementation 'io.quarkiverse.amazonservices:quarkus-amazon-s3:3.11.0'
-    // 非同期 S3 クライアントの HTTP 実装（拡張が要求）。拡張の awssdk 2.34.9 に合わせる。
-    implementation 'software.amazon.awssdk:netty-nio-client:2.34.9'
+    implementation 'io.quarkiverse.amazonservices:quarkus-amazon-s3:3.21.2'
+    // 非同期 S3 クライアントの HTTP 実装（拡張が要求）。拡張の awssdk 2.49.1 に合わせる。
+    implementation 'software.amazon.awssdk:netty-nio-client:2.49.1'
 
     // Flyway（データベースマイグレーション）
     implementation 'io.quarkus:quarkus-flyway'
@@ -46,35 +46,36 @@ dependencies {
     implementation 'io.quarkus:quarkus-hibernate-validator'
 
     // UUID v7生成用（業務IDに使用）
-    implementation 'com.fasterxml.uuid:java-uuid-generator:5.1.0'
+    implementation 'com.fasterxml.uuid:java-uuid-generator:5.2.0'
 
     // JSpecify（nullability annotations）
     compileOnly 'org.jspecify:jspecify:1.0.0'
 
     // Lombok（Java 25対応版）- @Withによる不変更新パターン、@Getter/@Setter等に使用
-    compileOnly 'org.projectlombok:lombok:1.18.42'
-    annotationProcessor 'org.projectlombok:lombok:1.18.42'
+    compileOnly 'org.projectlombok:lombok:1.18.46'
+    annotationProcessor 'org.projectlombok:lombok:1.18.46'
 
     // Apache Commons
-    implementation 'org.apache.commons:commons-lang3:3.17.0'
-    implementation 'org.apache.commons:commons-collections4:4.5.0-M2'
+    implementation 'org.apache.commons:commons-lang3:3.20.0'
+    implementation 'org.apache.commons:commons-collections4:4.6.0'
 
     implementation 'io.github.lambig:toolbox-java:0.3.1'
 
     testImplementation 'io.quarkus:quarkus-junit5'
     testImplementation 'io.quarkus:quarkus-test-vertx'
     testImplementation 'io.rest-assured:rest-assured'
-    testImplementation 'org.assertj:assertj-core:3.27.1'
+    testImplementation 'org.assertj:assertj-core:3.27.7'
 
     // ArchUnit（アーキテクチャ制約の強制。レイヤー/依存/命名ルールをテストで検証）
-    testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.2'
+    testImplementation 'com.tngtech.archunit:archunit-junit5:1.5.0'
 
     // NullAway（コンパイル時 null 安全チェッカ。ErrorProne プラグインとして動作）。
     // バージョン固定の理由: NullAway は ErrorProne 内部 API に密結合するため両者を揃える。
-    // nullaway 0.12.7（最新）は error_prone_core 2.39.0 に対応。最新の 2.50.0 は API 変更で非互換。
-    // 昇格トリガ: NullAway が error_prone_core 2.50 系対応版を出したら両者を bump する。
-    errorprone 'com.google.errorprone:error_prone_core:2.39.0'
-    errorprone 'com.uber.nullaway:nullaway:0.12.7'
+    // nullaway 0.13.8 は error_prone_core 2.50.0 を前提にビルドされている（NullAway 側の
+    // gradle/libs.versions.toml が正）。
+    // 昇格トリガ: NullAway の新版が前提とする error_prone_core の版へ、両者を揃えて bump する。
+    errorprone 'com.google.errorprone:error_prone_core:2.50.0'
+    errorprone 'com.uber.nullaway:nullaway:0.13.8'
 }
 
 group = 'com.abservice'
@@ -141,7 +142,7 @@ compileTestJava {
 
 // Checkstyle: Java code style checker
 checkstyle {
-    toolVersion = '10.20.2'
+    toolVersion = '14.0.0'
     configFile = file("${projectDir}/config/checkstyle/checkstyle.xml")
     ignoreFailures = false  // Fail build on checkstyle violations
     maxWarnings = 0  // Don't allow any warnings
@@ -157,7 +158,7 @@ tasks.withType(Checkstyle).configureEach {
 
 // PMD: Static analysis with custom rules only
 pmd {
-    toolVersion = '7.16.0'
+    toolVersion = '7.26.0'
     ruleSetFiles = files("${projectDir}/config/pmd/ruleset.xml")
     ruleSets = []
     consoleOutput = true

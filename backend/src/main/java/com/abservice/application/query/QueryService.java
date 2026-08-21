@@ -41,33 +41,11 @@ import io.smallrye.mutiny.Uni;
  * </tr>
  * </table>
  *
- * <h2>使用例</h2>
+ * <h2>参照実装</h2>
  *
- * <pre>
- * {
- *     &#64;code
- *     public record FindAlbumsByLabelQuery(String labelName) implements QueryService.Query {
- *     }
- *
- *     public record AlbumListResult(List<AlbumDto> albums) implements QueryService.Result {
- *     }
- *
- *     &#64;ApplicationScoped
- *     public class AlbumQueryService implements QueryService<FindAlbumsByLabelQuery, AlbumListResult> {
- *         private final AlbumDataSource albumDataSource;
- *
- *         @Override
- *         public Uni<AlbumListResult> query(FindAlbumsByLabelQuery query) {
- *             return albumDataSource.findByLabelName(query.labelName()).onItem()
- *                     .transform(entities -> new AlbumListResult(entities.stream().map(this::toDto).toList()));
- *         }
- *
- *         private AlbumDto toDto(AlbumTableRecord entity) {
- *             return new AlbumDto(entity.getId(), entity.getTitle());
- *         }
- *     }
- * }
- * </pre>
+ * <p>
+ * {@code application.query.article} の Get/List 各サービスと Query/Result、Read Model。
+ * </p>
  *
  * <h2>原則</h2>
  * <ol>

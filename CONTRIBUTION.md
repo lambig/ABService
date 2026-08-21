@@ -42,23 +42,26 @@
 
 ### アーキテクチャ
 
-- **バックエンド**: Quarkus 3.28.4 (Java 25 - Amazon Corretto 25)
+- **バックエンド**: Quarkus (Java - Amazon Corretto)
 - **データベース**: PostgreSQL
 - **マイグレーション**: Flyway
-- **データアクセス**: Blaze-Persistence
+- **データアクセス**: Hibernate Reactive Panache（Mutiny）
 - **認証・認可**: APIキー（`Authorization: Bearer`）+ Quarkus Security の `@RolesAllowed`
 - **フロントエンド管理画面**: Svelte
 - **フロントエンド公開画面**: Svelte + Astro
 - **構成**: モノリポジトリ
 
-### 技術スタック固定化
+### 技術スタックの固定と昇格
 
-**重要**: 以下の技術スタックバージョンは固定されており、変更を禁止します：
+Java（Amazon Corretto）・Quarkus・Gradle は固定バージョンで運用し、**個別の作業の都合で勝手に変更しない**（ビルドが通るかどうかとは別に、拡張・静的解析ツールの対応バージョンが連鎖するため）。実際の版は `backend/gradle.properties`・`backend/build.gradle`・`backend/gradle/wrapper/gradle-wrapper.properties` が正。
 
-- **Java**: Amazon Corretto 25 (固定)
-- **Quarkus**: 3.28.4 (固定)
+一方で**固定は無期限ではない**。以下のいずれかに該当したら昇格を検討する（判断と昇格トリガの記録は [DECISIONS.md](docs/DECISIONS.md)、方針の策定は issue #158）。
 
-これらのバージョン変更に関する調査や提案は受け付けません。
+- 使用中の系列が保守対象から外れた（パッチが出なくなった）
+- 上流が対応を表明する範囲から外れた（例: JDK の対応上限を超えた）
+- 依存する拡張・ツールが上位バージョンを要求する
+
+昇格時は「Quarkus 本体・quarkiverse 拡張・AWS SDK・ErrorProne+NullAway」を揃えて上げ、`check`（静的解析・単体・実DB統合テスト）→ `quarkusBuild` → コンテナイメージビルドまで通すこと。
 
 詳細なアーキテクチャ設計については、[ARCHITECTURE.md](docs/ARCHITECTURE.md)を参照してください。
 

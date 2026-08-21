@@ -16,32 +16,13 @@ package com.abservice.domain.service;
  * <li><strong>外部システム連携</strong>: インフラ層へのインターフェース</li>
  * </ol>
  *
- * <h2>使用例</h2>
+ * <h2>参照実装</h2>
  *
- * <pre>
- * {
- *     &#64;code
- *     // 一意性チェック
- *     &#64;ApplicationScoped
- *     public class CatalogNumberUniquenessService implements DomainService {
- *         private final AlbumRepository albumRepository;
- *
- *         public Uni<Boolean> isCatalogNumberUnique(String catalogNumber, AlbumId excludeId) {
- *             return albumRepository.findByCatalogNumber(catalogNumber).onItem()
- *                     .transform(album -> album == null || album.id().equals(excludeId));
- *         }
- *     }
- *
- *     // 複数集約の協調
- *     @ApplicationScoped
- *     public class ArticleAlbumLinkService implements DomainService {
- *         public Uni<Void> linkAlbumToArticle(Article article, Album album) {
- *             article.setAlbumId(album.id()); // AlbumIdを渡す（型安全）
- *             return Uni.createFrom().voidItem();
- *         }
- *     }
- * }
- * </pre>
+ * <p>
+ * {@code domain.service.AlbumCreationService} /
+ * {@code domain.service.TrackAdditionService} /
+ * {@code domain.service.EventMatchingService}。
+ * </p>
  *
  * <h2>原則</h2>
  * <ol>

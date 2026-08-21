@@ -4,19 +4,13 @@ WebService/Site implementation for my own use
 
 ## 技術スタック
 
-- **Java**: Amazon Corretto 25
-- **Quarkus**: 3.28.4
-- **Gradle**: 9.1.0
-- **Lombok**: 1.18.42 (Java 25対応版)
-- **Node.js**: 18+
-- **Docker**: Latest
+- **バックエンド**: Quarkus（Reactive）/ Java（Amazon Corretto）/ Gradle
+- **データベース**: PostgreSQL（Flyway・Hibernate Reactive Panache）
+- **オブジェクトストレージ**: S3互換（本番はS3、開発はMinIO）
+- **フロントエンド**: Astro + Svelte（管理画面・公開画面とも静的ビルド）
+- **インフラ**: AWS（EC2 + CloudFront + RDS + S3）/ Docker Compose（ローカル）
 
-## 動作確認済み
-
-- ✅ ビルド: 成功
-- ✅ テスト: 成功
-- ✅ サーバー起動: 成功
-- ✅ Webアクセス: 成功
+固定バージョンの運用方針は [CONTRIBUTION.md](CONTRIBUTION.md) の「技術スタックの固定と昇格」、実際の版は `backend/gradle.properties` / `backend/build.gradle` / `backend/gradle/wrapper/gradle-wrapper.properties` が正。
 
 ## 設計と規約
 
@@ -108,6 +102,4 @@ git push --no-verify
 
 #### SpotBugsについて
 
-SpotBugs は現在このプロジェクトでは未導入です。
-- 最新版 4.10.2（2026-06）は Java 25 に対応済み（ASM 9.8 / BCEL 6.11）。Gradle plugin は 6.5.8。
-- 再導入（PMD 組込ルールセットと併せた errorprone/バグパターン検出）はロードマップのフェーズD で検討する。
+SpotBugs は現在このプロジェクトでは未導入。再導入（PMD 組込ルールセットと併せたバグパターン検出）の検討は [docs/STATUS_AND_ROADMAP.md](docs/STATUS_AND_ROADMAP.md) の残タスク。
