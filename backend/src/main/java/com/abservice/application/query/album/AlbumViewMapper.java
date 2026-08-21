@@ -39,7 +39,8 @@ final class AlbumViewMapper {
                 toDateString(entity.getEventDate()),
                 entity.getEventPlace(),
                 entity.getEventSpaceNumber(),
-                entity.getEventNote());
+                entity.getEventNote(),
+                entity.getPublishedAt());
     }
 
     private static @Nullable String toDateString(@Nullable LocalDate date) {

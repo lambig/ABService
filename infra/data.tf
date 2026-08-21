@@ -66,6 +66,20 @@ resource "aws_ssm_parameter" "db_password" {
   value = random_password.db.result
 }
 
+# --- アプリケーション認証（#116） ---
+
+# 管理操作（Command系・管理向けQuery）を保護する固定APIキー。値はTerraformが生成し、コード・tfvarsには置かない。
+resource "random_password" "admin_api_key" {
+  length  = 48
+  special = false
+}
+
+resource "aws_ssm_parameter" "admin_api_key" {
+  name  = "/${var.project_name}/${var.environment}/app/admin-api-key"
+  type  = "SecureString"
+  value = random_password.admin_api_key.result
+}
+
 # --- S3 ---
 
 resource "aws_s3_bucket" "frontend_public" {

@@ -18,6 +18,10 @@ dependencies {
     implementation 'io.quarkus:quarkus-rest-jackson'
     implementation 'io.quarkus:quarkus-arc'
 
+    // Quarkus Security（APIキー認証の HttpAuthenticationMechanism / IdentityProvider と
+    // @RolesAllowed による宣言的認可）
+    implementation 'io.quarkus:quarkus-security'
+
     // Hibernate Reactive with Panache（リアクティブJPA実装）
     implementation 'io.quarkus:quarkus-hibernate-reactive-panache'
     implementation 'io.quarkus:quarkus-reactive-pg-client'

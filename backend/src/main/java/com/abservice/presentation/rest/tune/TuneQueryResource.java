@@ -8,9 +8,11 @@ import com.abservice.application.query.tune.ListTunesResult;
 import com.abservice.application.query.tune.ListTunesService;
 import com.abservice.application.query.tune.model.TuneView;
 import com.abservice.presentation.rest.exception.ProblemDetail;
+import com.abservice.presentation.rest.security.SecurityRoles;
 import com.abservice.presentation.rest.tune.response.TuneListResponse;
 import com.abservice.presentation.rest.tune.response.TuneResponse;
 import io.smallrye.mutiny.Uni;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -27,10 +29,12 @@ import java.util.List;
  * <p>
  * チューンの詳細照会（GET）と一覧照会（GET、ページネーション付き）を受け付ける。未存在は例外ではなく
  * {@link GetTuneResult.NotFound} として扱い、404 を RFC 9457 Problem Details
- * （{@code application/problem+json}）で返す。
+ * （{@code application/problem+json}）で返す。チューンは公開サイトが直接参照しない管理用マスタのため、参照も管理者ロール
+ * （{@code Authorization: Bearer <APIキー>}）を要求する。
  * </p>
  */
 @Path("/api/v1/tunes")
+@RolesAllowed(SecurityRoles.ADMIN)
 public class TuneQueryResource {
 
     private static final String PROBLEM_JSON = "application/problem+json";

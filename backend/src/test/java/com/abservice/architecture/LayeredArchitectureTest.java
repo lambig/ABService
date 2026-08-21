@@ -235,6 +235,37 @@ class LayeredArchitectureTest {
     }
 
     /**
+     * Command REST リソース（{@code *CommandResource}）は {@code @RolesAllowed}
+     * で保護しなければならない。
+     *
+     * <p>
+     * 作成・更新・削除・公開/非公開といった書き込み操作を無認証で公開しないための強制。集約を追加した際に認可の付与を
+     * 忘れても検出できるよう、クラス名の規約（{@code *CommandResource}）を対象に判定する。
+     * </p>
+     */
+    @ArchTest
+    void commandResourcesShouldRequireAuthorization(JavaClasses classes) {
+        classes().that().resideInAPackage(PRESENTATION).and().haveSimpleNameEndingWith("CommandResource").should()
+                .beAnnotatedWith("jakarta.annotation.security.RolesAllowed")
+                .as("Command REST リソースは @RolesAllowed で保護する（書き込み操作を無認証で公開しない）").check(classes);
+    }
+
+    /**
+     * 管理向け Query REST リソース（{@code *AdminQueryResource}）は {@code @RolesAllowed}
+     * で保護しなければならない。
+     *
+     * <p>
+     * 管理向け Query は下書き（未公開）を含む全件を返すため、無認証で公開すると未公開コンテンツが漏洩する。
+     * </p>
+     */
+    @ArchTest
+    void adminQueryResourcesShouldRequireAuthorization(JavaClasses classes) {
+        classes().that().resideInAPackage(PRESENTATION).and().haveSimpleNameEndingWith("AdminQueryResource").should()
+                .beAnnotatedWith("jakarta.annotation.security.RolesAllowed")
+                .as("管理向け Query REST リソースは @RolesAllowed で保護する（下書きを無認証で公開しない）").check(classes);
+    }
+
+    /**
      * ApplicationService の {@code execute} / {@code query} は {@code Uni<...>}
      * を返さなければならない。
      *

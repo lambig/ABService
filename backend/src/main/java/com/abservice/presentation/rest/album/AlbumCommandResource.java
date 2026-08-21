@@ -27,7 +27,9 @@ import com.abservice.presentation.rest.album.response.PublishAlbumResponse;
 import com.abservice.presentation.rest.album.response.RegisterAlbumWithTracksResponse;
 import com.abservice.presentation.rest.album.response.UnpublishAlbumResponse;
 import com.abservice.presentation.rest.album.response.UpdateAlbumResponse;
+import com.abservice.presentation.rest.security.SecurityRoles;
 import io.smallrye.mutiny.Uni;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.PUT;
@@ -49,10 +51,12 @@ import org.jspecify.annotations.Nullable;
  * .../unpublish）・初期トラックを含めたワンリクエスト登録（POST .../with-tracks）を受け付ける。検証・永続化は
  * アプリケーション層に委譲し、検証失敗・対象不在は {@code DomainException} 経由で
  * {@code DomainExceptionMapper} が RFC 9457 Problem Details に変換する。非公開化時、当該アルバムを
- * 参照する公開中の記事があれば連動して非公開化する（カスケード非公開）。
+ * 参照する公開中の記事があれば連動して非公開化する（カスケード非公開）。全操作は管理者ロール
+ * （{@code Authorization: Bearer <APIキー>}）を要求する。
  * </p>
  */
 @Path("/api/v1/albums")
+@RolesAllowed(SecurityRoles.ADMIN)
 public class AlbumCommandResource {
 
     private final CreateAlbumService createAlbumService;

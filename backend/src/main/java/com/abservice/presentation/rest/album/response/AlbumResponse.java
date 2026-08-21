@@ -1,5 +1,6 @@
 package com.abservice.presentation.rest.album.response;
 
+import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -29,6 +30,8 @@ import org.jspecify.annotations.Nullable;
  *            初出イベントスペース番号（nullable）
  * @param eventNote
  *            初出イベント補足情報（nullable）
+ * @param publishedAt
+ *            公開日時（nullable。null は下書き。UTC）
  */
 public record AlbumResponse(
         String albumId,
@@ -42,5 +45,6 @@ public record AlbumResponse(
         @Nullable String eventDate,
         @Nullable String eventPlace,
         @Nullable String eventSpaceNumber,
-        @Nullable String eventNote) {
+        @Nullable String eventNote,
+        @Nullable Instant publishedAt) {
 }

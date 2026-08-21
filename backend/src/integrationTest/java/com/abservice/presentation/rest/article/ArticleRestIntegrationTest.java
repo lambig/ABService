@@ -1,5 +1,6 @@
 package com.abservice.presentation.rest.article;
 
+import static com.abservice.presentation.rest.AdminAuth.authorized;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
@@ -37,7 +38,7 @@ class ArticleRestIntegrationTest {
     @Test
     @DisplayName("記事を作成すると下書き状態になり、公開向けAPIでのID詳細取得は404になる")
     void createThenGetIsNotFoundWhileUnpublished() {
-        final String articleId = given().contentType(ContentType.JSON)
+        final String articleId = authorized().contentType(ContentType.JSON)
                 .body(
                         "{\"articleType\":\"NOTE\",\"title\":\"E2Eテスト記事\",\"body\":\"本文\",\"bodyFormat\":\"MARKDOWN\","
                                 + "\"introShort\":\"概要\"}")
@@ -60,7 +61,7 @@ class ArticleRestIntegrationTest {
     @Test
     @DisplayName("タイトル空白は400 problem+json（検証エラー）を返す")
     void createValidationError() {
-        given().contentType(ContentType.JSON).body("{\"articleType\":\"NOTE\",\"title\":\"   \"}").when()
+        authorized().contentType(ContentType.JSON).body("{\"articleType\":\"NOTE\",\"title\":\"   \"}").when()
                 .post("/api/v1/articles").then().statusCode(400).contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:VALIDATION_ERROR")).body("status", equalTo(400))
                 .body("errors", not(empty())).body("errors[0].field", equalTo("title"));
@@ -69,13 +70,13 @@ class ArticleRestIntegrationTest {
     @Test
     @DisplayName("記事を更新すると全項目置換され、公開状態は変化しない（下書きのままなので公開向けGETは404）")
     void updateReplacesFieldsAndPreservesPublicFlag() {
-        final String articleId = given().contentType(ContentType.JSON)
+        final String articleId = authorized().contentType(ContentType.JSON)
                 .body(
                         "{\"articleType\":\"NOTE\",\"title\":\"更新前タイトル\",\"body\":\"更新前本文\","
                                 + "\"bodyFormat\":\"MARKDOWN\",\"introShort\":\"更新前概要\"}")
                 .when().post("/api/v1/articles").then().statusCode(201).extract().path("articleId");
 
-        given().contentType(ContentType.JSON)
+        authorized().contentType(ContentType.JSON)
                 .body(
                         "{\"articleType\":\"NOTE\",\"title\":\"更新後タイトル\",\"body\":\"更新後本文\","
                                 + "\"bodyFormat\":\"PLAIN_TEXT\",\"introShort\":\"更新後概要\"}")
@@ -89,7 +90,7 @@ class ArticleRestIntegrationTest {
     @Test
     @DisplayName("存在しないIDの更新は404 problem+jsonを返す")
     void updateNotFound() {
-        given().contentType(ContentType.JSON).body("{\"articleType\":\"NOTE\",\"title\":\"タイトル\"}").when()
+        authorized().contentType(ContentType.JSON).body("{\"articleType\":\"NOTE\",\"title\":\"タイトル\"}").when()
                 .put("/api/v1/articles/" + UUID.randomUUID()).then().statusCode(404)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
@@ -98,11 +99,11 @@ class ArticleRestIntegrationTest {
     @Test
     @DisplayName("タイトル空白での更新は400 problem+json（検証エラー）を返す")
     void updateValidationError() {
-        final String articleId = given().contentType(ContentType.JSON)
+        final String articleId = authorized().contentType(ContentType.JSON)
                 .body("{\"articleType\":\"NOTE\",\"title\":\"タイトル\"}").when().post("/api/v1/articles").then()
                 .statusCode(201).extract().path("articleId");
 
-        given().contentType(ContentType.JSON).body("{\"articleType\":\"NOTE\",\"title\":\"   \"}").when()
+        authorized().contentType(ContentType.JSON).body("{\"articleType\":\"NOTE\",\"title\":\"   \"}").when()
                 .put("/api/v1/articles/" + articleId).then().statusCode(400)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:VALIDATION_ERROR"))
@@ -112,11 +113,11 @@ class ArticleRestIntegrationTest {
     @Test
     @DisplayName("記事を公開すると公開向けGETで参照できるようになる")
     void publishThenGetSucceeds() {
-        final String articleId = given().contentType(ContentType.JSON)
+        final String articleId = authorized().contentType(ContentType.JSON)
                 .body("{\"articleType\":\"NOTE\",\"title\":\"公開確認記事\"}").when().post("/api/v1/articles").then()
                 .statusCode(201).extract().path("articleId");
 
-        given().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(200)
+        authorized().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(200)
                 .body("articleId", equalTo(articleId)).body("publicFlag", equalTo(true));
 
         given().when().get("/api/v1/articles/" + articleId).then().statusCode(200)
@@ -126,13 +127,13 @@ class ArticleRestIntegrationTest {
     @Test
     @DisplayName("公開済み記事を非公開化すると公開向けGETは404になる")
     void unpublishThenGetNotFound() {
-        final String articleId = given().contentType(ContentType.JSON)
+        final String articleId = authorized().contentType(ContentType.JSON)
                 .body("{\"articleType\":\"NOTE\",\"title\":\"非公開化確認記事\"}").when().post("/api/v1/articles").then()
                 .statusCode(201).extract().path("articleId");
 
-        given().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(200);
+        authorized().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(200);
 
-        given().when().post("/api/v1/articles/" + articleId + "/unpublish").then().statusCode(200)
+        authorized().when().post("/api/v1/articles/" + articleId + "/unpublish").then().statusCode(200)
                 .body("articleId", equalTo(articleId)).body("publicFlag", equalTo(false));
 
         given().when().get("/api/v1/articles/" + articleId).then().statusCode(404);
@@ -141,7 +142,7 @@ class ArticleRestIntegrationTest {
     @Test
     @DisplayName("存在しないIDの公開は404 problem+jsonを返す")
     void publishNotFound() {
-        given().when().post("/api/v1/articles/" + UUID.randomUUID() + "/publish").then().statusCode(404)
+        authorized().when().post("/api/v1/articles/" + UUID.randomUUID() + "/publish").then().statusCode(404)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
     }
@@ -149,7 +150,7 @@ class ArticleRestIntegrationTest {
     @Test
     @DisplayName("存在しないIDの非公開化は404 problem+jsonを返す")
     void unpublishNotFound() {
-        given().when().post("/api/v1/articles/" + UUID.randomUUID() + "/unpublish").then().statusCode(404)
+        authorized().when().post("/api/v1/articles/" + UUID.randomUUID() + "/unpublish").then().statusCode(404)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
     }
@@ -158,11 +159,11 @@ class ArticleRestIntegrationTest {
     @DisplayName("ALBUM種別の記事にアルバムを紐付けられる（参照先が下書きでも紐付け自体は成功する）")
     void setAlbumSucceedsForAlbumTypeArticle() {
         final String albumId = createDraftAlbum("紐付け確認アルバム");
-        final String articleId = given().contentType(ContentType.JSON)
+        final String articleId = authorized().contentType(ContentType.JSON)
                 .body("{\"articleType\":\"ALBUM\",\"title\":\"紐付け確認記事\"}").when().post("/api/v1/articles").then()
                 .statusCode(201).extract().path("articleId");
 
-        given().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
+        authorized().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
                 .put("/api/v1/articles/" + articleId + "/album").then().statusCode(200)
                 .body("articleId", equalTo(articleId)).body("albumId", equalTo(albumId));
     }
@@ -171,11 +172,11 @@ class ArticleRestIntegrationTest {
     @DisplayName("NOTE種別の記事へのアルバム紐付けは409 problem+jsonを返す")
     void setAlbumFailsForNonAlbumTypeArticle() {
         final String albumId = createDraftAlbum("紐付け拒否確認アルバム");
-        final String articleId = given().contentType(ContentType.JSON)
+        final String articleId = authorized().contentType(ContentType.JSON)
                 .body("{\"articleType\":\"NOTE\",\"title\":\"紐付け拒否確認記事\"}").when().post("/api/v1/articles").then()
                 .statusCode(201).extract().path("articleId");
 
-        given().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
+        authorized().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
                 .put("/api/v1/articles/" + articleId + "/album").then().statusCode(409)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:BUSINESS_RULE_VIOLATION"));
@@ -184,11 +185,11 @@ class ArticleRestIntegrationTest {
     @Test
     @DisplayName("存在しないアルバムへの紐付けは404 problem+jsonを返す")
     void setAlbumNotFoundForUnknownAlbum() {
-        final String articleId = given().contentType(ContentType.JSON)
+        final String articleId = authorized().contentType(ContentType.JSON)
                 .body("{\"articleType\":\"ALBUM\",\"title\":\"存在しないアルバム紐付け確認記事\"}").when()
                 .post("/api/v1/articles").then().statusCode(201).extract().path("articleId");
 
-        given().contentType(ContentType.JSON).body("{\"albumId\":\"" + UUID.randomUUID() + "\"}").when()
+        authorized().contentType(ContentType.JSON).body("{\"albumId\":\"" + UUID.randomUUID() + "\"}").when()
                 .put("/api/v1/articles/" + articleId + "/album").then().statusCode(404)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
@@ -199,7 +200,7 @@ class ArticleRestIntegrationTest {
     void setAlbumNotFoundForUnknownArticle() {
         final String albumId = createDraftAlbum("記事不在確認アルバム");
 
-        given().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
+        authorized().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
                 .put("/api/v1/articles/" + UUID.randomUUID() + "/album").then().statusCode(404)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
@@ -209,25 +210,25 @@ class ArticleRestIntegrationTest {
     @DisplayName("下書きAlbumへ紐付けた記事は公開できないが、Album公開後は公開できる")
     void publishFailsUntilReferencedAlbumIsPublished() {
         final String albumId = createDraftAlbum("公開制御確認アルバム");
-        final String articleId = given().contentType(ContentType.JSON)
+        final String articleId = authorized().contentType(ContentType.JSON)
                 .body("{\"articleType\":\"ALBUM\",\"title\":\"公開制御確認記事\"}").when().post("/api/v1/articles").then()
                 .statusCode(201).extract().path("articleId");
 
-        given().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
+        authorized().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
                 .put("/api/v1/articles/" + articleId + "/album").then().statusCode(200);
 
-        given().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(409)
+        authorized().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(409)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:BUSINESS_RULE_VIOLATION"));
 
-        given().when().post("/api/v1/albums/" + albumId + "/publish").then().statusCode(200);
+        authorized().when().post("/api/v1/albums/" + albumId + "/publish").then().statusCode(200);
 
-        given().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(200)
+        authorized().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(200)
                 .body("publicFlag", equalTo(true));
     }
 
     private static String createDraftAlbum(String title) {
-        return given().contentType(ContentType.JSON)
+        return authorized().contentType(ContentType.JSON)
                 .body(
                         "{\"title\":\"" + title + "\",\"releaseDate\":\"2026-01-01\","
                                 + "\"artistDisplayName\":\"アーティスト\"}")
@@ -237,11 +238,11 @@ class ArticleRestIntegrationTest {
     @Test
     @DisplayName("記事を削除すると以後のGETは404になる")
     void deleteThenGetNotFound() {
-        final String articleId = given().contentType(ContentType.JSON)
+        final String articleId = authorized().contentType(ContentType.JSON)
                 .body("{\"articleType\":\"NOTE\",\"title\":\"削除対象\"}").when().post("/api/v1/articles").then()
                 .statusCode(201).extract().path("articleId");
 
-        given().when().delete("/api/v1/articles/" + articleId).then().statusCode(204);
+        authorized().when().delete("/api/v1/articles/" + articleId).then().statusCode(204);
 
         given().when().get("/api/v1/articles/" + articleId).then().statusCode(404);
     }
@@ -249,13 +250,13 @@ class ArticleRestIntegrationTest {
     @Test
     @DisplayName("削除はべき等で、存在しないIDの削除も204を返す")
     void deleteIsIdempotent() {
-        final String articleId = given().contentType(ContentType.JSON)
+        final String articleId = authorized().contentType(ContentType.JSON)
                 .body("{\"articleType\":\"NOTE\",\"title\":\"べき等確認\"}").when().post("/api/v1/articles").then()
                 .statusCode(201).extract().path("articleId");
 
-        given().when().delete("/api/v1/articles/" + articleId).then().statusCode(204);
-        given().when().delete("/api/v1/articles/" + articleId).then().statusCode(204);
-        given().when().delete("/api/v1/articles/" + UUID.randomUUID()).then().statusCode(204);
+        authorized().when().delete("/api/v1/articles/" + articleId).then().statusCode(204);
+        authorized().when().delete("/api/v1/articles/" + articleId).then().statusCode(204);
+        authorized().when().delete("/api/v1/articles/" + UUID.randomUUID()).then().statusCode(204);
     }
 
     @Test
@@ -284,7 +285,7 @@ class ArticleRestIntegrationTest {
     }
 
     private static String createArticle(String title) {
-        return given().contentType(ContentType.JSON)
+        return authorized().contentType(ContentType.JSON)
                 .body("{\"articleType\":\"NOTE\",\"title\":\"" + title + "\"}").when().post("/api/v1/articles")
                 .then().statusCode(201).extract().path("articleId");
     }

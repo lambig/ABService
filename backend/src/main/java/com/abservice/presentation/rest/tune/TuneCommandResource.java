@@ -11,8 +11,10 @@ import com.abservice.application.service.tune.UpdateTuneService;
 import com.abservice.presentation.rest.tune.request.CreateTuneRequest;
 import com.abservice.presentation.rest.tune.request.UpdateTuneRequest;
 import com.abservice.presentation.rest.tune.response.CreateTuneResponse;
+import com.abservice.presentation.rest.security.SecurityRoles;
 import com.abservice.presentation.rest.tune.response.UpdateTuneResponse;
 import io.smallrye.mutiny.Uni;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.PUT;
@@ -29,10 +31,12 @@ import jakarta.ws.rs.core.Response;
  * <p>
  * チューンの作成（POST）・更新（PUT、全項目置換）・削除（DELETE、べき等）を受け付ける。検証・永続化は
  * アプリケーション層に委譲し、検証失敗・対象不在は {@code DomainException} 経由で
- * {@code DomainExceptionMapper} が RFC 9457 Problem Details に変換する。
+ * {@code DomainExceptionMapper} が RFC 9457 Problem Details に変換する。全操作は管理者ロール
+ * （{@code Authorization: Bearer <APIキー>}）を要求する。
  * </p>
  */
 @Path("/api/v1/tunes")
+@RolesAllowed(SecurityRoles.ADMIN)
 public class TuneCommandResource {
 
     private final CreateTuneService createTuneService;

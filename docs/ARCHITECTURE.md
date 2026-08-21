@@ -13,9 +13,7 @@ ABServiceは、モノリポジトリ構成で構築されたWebサービスで�
 - **データアクセス**: Blaze-Persistence (JPA拡張)
 - **マイグレーション**: Flyway
 - **認証・認可**:
-  - Quarkus OIDC (Keycloak統合)
-  - Quarkus Security (RBAC)
-  - SmallRye JWT
+  - Quarkus Security（自作の APIキー認証メカニズム + `@RolesAllowed`）
 - **API**: RESTEasy Reactive
 - **設定管理**: Quarkus Configuration
 - **テスト**: JUnit 5 + REST Assured
@@ -28,7 +26,6 @@ ABServiceは、モノリポジトリ構成で構築されたWebサービスで�
 ### インフラ・開発環境
 - **コンテナ**: Docker & Docker Compose
 - **データベース**: PostgreSQL
-- **認証サーバー**: Keycloak (開発環境)
 
 ## システム構成
 
@@ -55,22 +52,24 @@ ABServiceは、モノリポジトリ構成で構築されたWebサービスで�
 ## 認証・認可アーキテクチャ
 
 ### 認証方式
-- **外部IDプロバイダー**: Keycloak
-- **プロトコル**: OpenID Connect (OIDC)
-- **トークン**: JWT (アクセストークン + リフレッシュトークン)
-- **セッション**: ステートレス（JWTベース）
+- **方式**: 固定APIキー。クライアントは `Authorization: Bearer <APIキー>` を付与する（個人利用が前提のため OIDC/Keycloak は採用しない。将来複数ユーザー・ロール管理が必要になった時点で再検討する）
+- **実装**: `presentation/rest/security` の `ApiKeyAuthenticationMechanism`（Quarkus Security の `HttpAuthenticationMechanism`）がヘッダからキーを抽出し、`ApiKeyIdentityProvider` が設定値 `abservice.auth.admin-api-key` と定数時間比較（`MessageDigest.isEqual`）して管理者ロールの `SecurityIdentity` を発行する
+- **キーの供給**: 環境変数 `ADMIN_API_KEY`。本番は Parameter Store（SecureString）の値をデプロイスクリプトが注入し、prod プロファイルでは未設定なら起動に失敗する
+- **セッション**: ステートレス（サーバー側セッションを持たない）
+- **スキーム選択の理由**: Bearer に揃えることで、将来 OIDC のアクセストークンへ差し替えてもクライアント契約が変わらない
 
 ### 認可方式
-- **ロールベースアクセス制御 (RBAC)**: ユーザーロールによる権限管理
-- **スコープベース認可**: リソースアクセス権限の細かい制御
-- **アノテーション**: `@RolesAllowed`, `@PermitAll`, `@DenyAll`
+- **ロール**: 管理者（`admin`）の1種のみ。`SecurityRoles.ADMIN` を唯一の定義とする
+- **アノテーション**: リソースクラスへ `@RolesAllowed(SecurityRoles.ADMIN)` を付与する
+- **認証必須**: 全集約の `*CommandResource`（作成・更新・削除・公開/非公開）、管理向けQuery（`/api/v1/admin/**`）、公開サイトが参照しないマスタ系Query（`/api/v1/tunes`・`/api/v1/album-articles`）
+- **認証不要**: 公開向けQuery（`/api/v1/albums`・`/api/v1/articles`）。`Audience.PUBLIC` として公開中のものだけを返し、下書きは未存在として扱う
+- **強制**: ArchUnit で `*CommandResource` / `*AdminQueryResource` への `@RolesAllowed` 付与を必須にする
 
 ### セキュリティフロー
-1. ユーザーがフロントエンドにアクセス
-2. 未認証の場合はKeycloakにリダイレクト
-3. Keycloakで認証後、JWTトークンを取得
-4. フロントエンドがJWTトークンをバックエンドAPIに送信
-5. バックエンドがJWTトークンを検証し、認可を実行
+1. クライアント（管理画面・運用者）が `Authorization: Bearer <APIキー>` を付けてバックエンドAPIを呼ぶ
+2. 認証メカニズムがキーを抽出し、IdentityProvider が設定値と照合して管理者ロールを付与する
+3. `@RolesAllowed` が付いたエンドポイントはロールを検査し、公開向けQueryは匿名のまま処理する
+4. 未認証・キー不正は 401（`WWW-Authenticate: Bearer realm="abservice"` 付き）、権限不足は 403 を、いずれも RFC 9457 Problem Details（`urn:abservice:error:UNAUTHORIZED` / `FORBIDDEN`）で返す
 
 ## データアクセス層
 

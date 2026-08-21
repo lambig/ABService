@@ -6,7 +6,9 @@ import com.abservice.application.query.article.GetArticleResult;
 import com.abservice.application.query.article.GetArticleService;
 import com.abservice.application.query.article.ListArticlesQuery;
 import com.abservice.application.query.article.ListArticlesService;
+import com.abservice.presentation.rest.security.SecurityRoles;
 import io.smallrye.mutiny.Uni;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -17,17 +19,19 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 /**
- * 記事集約の公開向け Query REST リソース
+ * 記事集約の管理向け Query REST リソース
  *
  * <p>
- * 記事の詳細照会（GET）と一覧照会（GET、ページネーション付き）を認証不要で受け付ける。公開中の記事のみを対象とし、下書きは
- * 未存在として扱う（下書きを含む照会は {@link ArticleAdminQueryResource}）。未存在は例外ではなく
- * {@link GetArticleResult.NotFound} として扱い、404 を RFC 9457 Problem Details
- * （{@code application/problem+json}）で返す。
+ * 下書き（未公開）を含めた全記事の詳細照会（GET）と一覧照会（GET、ページネーション付き）を受け付ける。管理画面が公開前の記事を
+ * 編集・確認するための経路であり、管理者ロール（{@code Authorization: Bearer <APIキー>}）を要求する。応答表現は
+ * 公開向け（{@link ArticleQueryResource}）と同一で、{@code publicFlag} が false
+ * のものが下書き。未存在は 例外ではなく {@link GetArticleResult.NotFound} として扱い、404 を RFC 9457
+ * Problem Details （{@code application/problem+json}）で返す。
  * </p>
  */
-@Path("/api/v1/articles")
-public class ArticleQueryResource {
+@Path("/api/v1/admin/articles")
+@RolesAllowed(SecurityRoles.ADMIN)
+public class ArticleAdminQueryResource {
 
     private final GetArticleService getArticleService;
     private final ListArticlesService listArticlesService;
@@ -38,13 +42,13 @@ public class ArticleQueryResource {
      * @param listArticlesService
      *            記事一覧照会ユースケース
      */
-    public ArticleQueryResource(GetArticleService getArticleService, ListArticlesService listArticlesService) {
+    public ArticleAdminQueryResource(GetArticleService getArticleService, ListArticlesService listArticlesService) {
         this.getArticleService = getArticleService;
         this.listArticlesService = listArticlesService;
     }
 
     /**
-     * 公開中の記事詳細を照会します。
+     * 下書きを含む記事詳細を照会します。
      *
      * @param id
      *            記事のドメインID
@@ -57,12 +61,12 @@ public class ArticleQueryResource {
         return getArticleService.query(
                 new GetArticleQuery(
                         id,
-                        Audience.PUBLIC))
+                        Audience.ADMIN))
                 .map(result -> ArticleQueryResponses.toResponse(result, id));
     }
 
     /**
-     * 公開中の記事一覧を照会します（ページネーション付き）。
+     * 下書きを含む記事一覧を照会します（ページネーション付き）。
      *
      * @param page
      *            ページ番号（0始まり。デフォルト0）
@@ -79,7 +83,7 @@ public class ArticleQueryResource {
                 new ListArticlesQuery(
                         page,
                         size,
-                        Audience.PUBLIC))
+                        Audience.ADMIN))
                 .map(ArticleQueryResponses::toListResponse);
     }
 }

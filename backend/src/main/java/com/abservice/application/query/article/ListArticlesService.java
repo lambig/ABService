@@ -1,9 +1,9 @@
 package com.abservice.application.query.article;
 
-import com.abservice.infrastructure.persistence.datasource.ArticleDataSource;
-import com.abservice.infrastructure.persistence.datasource.Visibility;
-import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
+import com.abservice.application.query.AudienceVisibility;
 import com.abservice.application.query.QueryService;
+import com.abservice.infrastructure.persistence.datasource.ArticleDataSource;
+import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.tuples.Tuple3;
@@ -17,8 +17,8 @@ import lombok.AllArgsConstructor;
  * <p>
  * CQRS の Read 側ユースケース。ドメイン・Repository を経由せず、{@link ArticleDataSource} が返す
  * {@code PanacheQuery} の {@code list()}/{@code count()}/{@code pageCount()}
- * をそのまま活用し、 独自の COUNT クエリやページ数計算式を書かない。本サービスは認証を伴わない公開向けQueryのため、
- * 非公開（下書き）記事は一覧に含めません。下書きを含めた閲覧は認証必須の別経路で提供します（#116）。
+ * をそのまま活用し、 独自の COUNT クエリやページ数計算式を書かない。対象範囲はクエリの {@code audience}
+ * が決め、公開向け（{@code PUBLIC}）では非公開（下書き）記事を一覧に含めず、管理向け（{@code ADMIN}） では下書きも含めます。
  * </p>
  */
 @ApplicationScoped
@@ -38,7 +38,7 @@ public class ListArticlesService implements QueryService<ListArticlesQuery, List
         final var panacheQuery = dataSource.pagedQuery(
                 page,
                 size,
-                Visibility.PUBLIC_ONLY);
+                AudienceVisibility.of(query.audience()));
         return Uni.combine().all()
                 .unis(
                         panacheQuery.list(),

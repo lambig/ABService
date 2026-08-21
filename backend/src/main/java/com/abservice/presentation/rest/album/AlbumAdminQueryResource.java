@@ -6,7 +6,9 @@ import com.abservice.application.query.album.GetAlbumResult;
 import com.abservice.application.query.album.GetAlbumService;
 import com.abservice.application.query.album.ListAlbumsQuery;
 import com.abservice.application.query.album.ListAlbumsService;
+import com.abservice.presentation.rest.security.SecurityRoles;
 import io.smallrye.mutiny.Uni;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -17,17 +19,19 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 /**
- * アルバム集約の公開向け Query REST リソース
+ * アルバム集約の管理向け Query REST リソース
  *
  * <p>
- * アルバムの詳細照会（GET）と一覧照会（GET、ページネーション付き）を認証不要で受け付ける。公開中のアルバムのみを対象とし、
- * 下書きは未存在として扱う（下書きを含む照会は {@link AlbumAdminQueryResource}）。未存在は例外ではなく
- * {@link GetAlbumResult.NotFound} として扱い、404 を RFC 9457 Problem Details
- * （{@code application/problem+json}）で返す。
+ * 下書き（未公開）を含めた全アルバムの詳細照会（GET）と一覧照会（GET、ページネーション付き）を受け付ける。管理画面が公開前の
+ * アルバムを編集・確認するための経路であり、管理者ロール（{@code Authorization: Bearer <APIキー>}）を要求する。
+ * 応答表現は公開向け（{@link AlbumQueryResource}）と同一で、{@code publishedAt} が null のものが下書き。
+ * 未存在は例外ではなく {@link GetAlbumResult.NotFound} として扱い、404 を RFC 9457 Problem
+ * Details （{@code application/problem+json}）で返す。
  * </p>
  */
-@Path("/api/v1/albums")
-public class AlbumQueryResource {
+@Path("/api/v1/admin/albums")
+@RolesAllowed(SecurityRoles.ADMIN)
+public class AlbumAdminQueryResource {
 
     private final GetAlbumService getAlbumService;
     private final ListAlbumsService listAlbumsService;
@@ -38,13 +42,13 @@ public class AlbumQueryResource {
      * @param listAlbumsService
      *            アルバム一覧照会ユースケース
      */
-    public AlbumQueryResource(GetAlbumService getAlbumService, ListAlbumsService listAlbumsService) {
+    public AlbumAdminQueryResource(GetAlbumService getAlbumService, ListAlbumsService listAlbumsService) {
         this.getAlbumService = getAlbumService;
         this.listAlbumsService = listAlbumsService;
     }
 
     /**
-     * 公開中のアルバム詳細を照会します。
+     * 下書きを含むアルバム詳細を照会します。
      *
      * @param id
      *            アルバムのドメインID
@@ -57,12 +61,12 @@ public class AlbumQueryResource {
         return getAlbumService.query(
                 new GetAlbumQuery(
                         id,
-                        Audience.PUBLIC))
+                        Audience.ADMIN))
                 .map(result -> AlbumQueryResponses.toResponse(result, id));
     }
 
     /**
-     * 公開中のアルバム一覧を照会します（ページネーション付き）。
+     * 下書きを含むアルバム一覧を照会します（ページネーション付き）。
      *
      * @param page
      *            ページ番号（0始まり。デフォルト0）
@@ -79,7 +83,7 @@ public class AlbumQueryResource {
                 new ListAlbumsQuery(
                         page,
                         size,
-                        Audience.PUBLIC))
+                        Audience.ADMIN))
                 .map(AlbumQueryResponses::toListResponse);
     }
 }
