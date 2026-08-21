@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -47,6 +48,49 @@ class AlbumRestIntegrationTest {
 
         given().when().get("/api/v1/albums/" + albumId).then().statusCode(404)
                 .contentType("application/problem+json").body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("カバー画像のアセットキーを登録すると配信URLとして返る")
+    void createWithCoverImageKeyReturnsDeliveryUrl() {
+        final String albumId = authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"title\":\"カバー画像付きアルバム\",\"releaseDate\":\"2026-01-01\","
+                                + "\"artistDisplayName\":\"E2Eアーティスト\","
+                                + "\"coverImageKey\":\"01a0233d-d25a-7c3b-924f-236ee154fecc.png\"}")
+                .when().post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
+
+        authorized().when().post("/api/v1/albums/" + albumId + "/publish").then().statusCode(200);
+
+        given().when().get("/api/v1/albums/" + albumId).then().statusCode(200)
+                .body("coverImageUrl", equalTo("/assets/01a0233d-d25a-7c3b-924f-236ee154fecc.png"));
+    }
+
+    @Test
+    @DisplayName("カバー画像のキーに配信URLを渡すと400 problem+jsonを返す")
+    void createWithDeliveryUrlAsCoverImageKeyIsRejected() {
+        authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"title\":\"不正キーのアルバム\",\"releaseDate\":\"2026-01-01\","
+                                + "\"artistDisplayName\":\"E2Eアーティスト\","
+                                + "\"coverImageKey\":\"/assets/01a0233d-d25a-7c3b-924f-236ee154fecc.png\"}")
+                .when().post("/api/v1/albums").then().statusCode(400)
+                .contentType("application/problem+json")
+                .body("type", equalTo("urn:abservice:error:VALIDATION_ERROR"))
+                .body("errors[0].code", equalTo("ASSET_KEY_INVALID_FORMAT"));
+    }
+
+    @Test
+    @DisplayName("カバー画像なしのアルバムは配信URLがnullで返る")
+    void albumWithoutCoverImageHasNullUrl() {
+        final String albumId = authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"title\":\"カバー画像なしアルバム\",\"releaseDate\":\"2026-01-01\","
+                                + "\"artistDisplayName\":\"E2Eアーティスト\"}")
+                .when().post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
+
+        authorized().when().get("/api/v1/admin/albums/" + albumId).then().statusCode(200)
+                .body("coverImageUrl", nullValue());
     }
 
     @Test

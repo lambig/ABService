@@ -12,6 +12,7 @@ import com.abservice.domain.model.vo.album.Isdn;
 import com.abservice.domain.model.vo.album.Publication;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
+import com.abservice.domain.model.vo.common.AssetKey;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.Credit;
@@ -60,6 +61,9 @@ public final class AlbumMapper {
                         .orElse(null),
                 Optional.ofNullable(entity.getIsdn())
                         .map(Isdn::new)
+                        .orElse(null),
+                Optional.ofNullable(entity.getCoverImageKey())
+                        .map(AssetKey::new)
                         .orElse(null),
                 buildPublication(entity),
                 buildTracks(entity));
@@ -129,6 +133,10 @@ public final class AlbumMapper {
                 .setIsdn(
                         Optional.ofNullable(album.isdn())
                                 .map(Isdn::value)
+                                .orElse(null))
+                .setCoverImageKey(
+                        Optional.ofNullable(album.coverImageKey())
+                                .map(AssetKey::value)
                                 .orElse(null));
     }
 

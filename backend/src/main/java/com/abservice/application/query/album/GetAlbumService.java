@@ -9,6 +9,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Optional;
 import lombok.AllArgsConstructor;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -27,16 +28,20 @@ public class GetAlbumService implements QueryService<GetAlbumQuery, GetAlbumResu
 
     private final AlbumDataSource dataSource;
 
+    /** アセットの配信ベースパス（カバー画像の配信URL組み立てに使う） */
+    @ConfigProperty(name = "abservice.assets.public-base-path")
+    private final String assetBasePath;
+
     @WithSession
     @Override
     public Uni<GetAlbumResult> query(GetAlbumQuery query) {
         return dataSource.findByDomainId(query.albumId(), AudienceVisibility.of(query.audience()))
-                .map(GetAlbumService::toResult);
+                .map(entity -> toResult(entity, assetBasePath));
     }
 
-    static GetAlbumResult toResult(@Nullable AlbumTableRecord entity) {
+    static GetAlbumResult toResult(@Nullable AlbumTableRecord entity, String assetBasePath) {
         return Optional.ofNullable(entity)
-                .map(AlbumViewMapper::toView)
+                .map(found -> AlbumViewMapper.toView(found, assetBasePath))
                 .<GetAlbumResult>map(GetAlbumResult.Found::new)
                 .orElseGet(GetAlbumResult.NotFound::new);
     }

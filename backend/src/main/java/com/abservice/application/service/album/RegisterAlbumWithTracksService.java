@@ -56,6 +56,7 @@ public class RegisterAlbumWithTracksService
                 input.artistSortKey(),
                 input.catalogNumber(),
                 input.isdn(),
+                input.coverImageKey(),
                 toEventFields(input.event()))
                 .flatMap(album -> addTracks(album, tracksOf(input)))
                 .flatMap(albumRepository::save)

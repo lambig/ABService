@@ -68,6 +68,7 @@ class AlbumRepositoryImplTest {
                         testArtistCredit,
                         null,
                         null,
+                        null,
                         null);
 
         // Save the album
@@ -113,6 +114,7 @@ class AlbumRepositoryImplTest {
                         testArtistCredit,
                         null,
                         null,
+                        null,
                         null)
                 .addTrack(track1).addTrack(track2);
 
@@ -144,6 +146,7 @@ class AlbumRepositoryImplTest {
                         new AlbumTitle("Original Title"),
                         testReleaseDate,
                         testArtistCredit,
+                        null,
                         null,
                         null,
                         null)
@@ -199,6 +202,7 @@ class AlbumRepositoryImplTest {
                         new AlbumTitle("Album"),
                         testReleaseDate,
                         testArtistCredit,
+                        null,
                         null,
                         null,
                         null)
@@ -260,6 +264,7 @@ class AlbumRepositoryImplTest {
                         testArtistCredit,
                         null,
                         null,
+                        null,
                         null)
                 .addTrack(track1).addTrack(track2);
 
@@ -302,6 +307,7 @@ class AlbumRepositoryImplTest {
                 testArtistCredit,
                 null,
                 new CatalogNumber("TEST-001"),
+                null,
                 null);
 
         asserter.assertThat(() -> repository.save(album), saved -> {
@@ -322,7 +328,8 @@ class AlbumRepositoryImplTest {
                 testArtistCredit,
                 null,
                 null,
-                new Isdn("2784702901978"));
+                new Isdn("2784702901978"),
+                null);
 
         asserter.assertThat(() -> repository.save(album), saved -> {
             assertThat(saved.isdn()).isNotNull();
@@ -350,6 +357,7 @@ class AlbumRepositoryImplTest {
                 testArtistCredit,
                 eventReleasedAt,
                 null,
+                null,
                 null);
 
         asserter.assertThat(() -> repository.save(album), saved -> {
@@ -372,6 +380,7 @@ class AlbumRepositoryImplTest {
                         testArtistCredit,
                         null,
                         null,
+                        null,
                         null);
 
         // Save original
@@ -385,6 +394,7 @@ class AlbumRepositoryImplTest {
                 new AlbumTitle("Updated Title"),
                 testReleaseDate,
                 testArtistCredit,
+                null,
                 null,
                 null,
                 null,
@@ -410,6 +420,7 @@ class AlbumRepositoryImplTest {
                         testArtistCredit,
                         null,
                         null,
+                        null,
                         null);
 
         // Save
@@ -433,6 +444,7 @@ class AlbumRepositoryImplTest {
                         new AlbumTitle("Existing Album"),
                         testReleaseDate,
                         testArtistCredit,
+                        null,
                         null,
                         null,
                         null);
@@ -461,12 +473,14 @@ class AlbumRepositoryImplTest {
                         testArtistCredit,
                         null,
                         null,
+                        null,
                         null);
         final var album2 = Album
                 .create(
                         new AlbumTitle("Count Album 2"),
                         testReleaseDate,
                         testArtistCredit,
+                        null,
                         null,
                         null,
                         null);
@@ -490,6 +504,7 @@ class AlbumRepositoryImplTest {
                 title,
                 testReleaseDate,
                 testArtistCredit,
+                null,
                 null,
                 null,
                 null);
@@ -517,6 +532,7 @@ class AlbumRepositoryImplTest {
                 testArtistCredit,
                 null,
                 catalogNumber,
+                null,
                 null);
 
         // Save

@@ -32,6 +32,8 @@ import org.jspecify.annotations.Nullable;
  *            初出イベント補足情報（nullable）
  * @param publishedAt
  *            公開日時（nullable。null は下書き。UTC）
+ * @param coverImageUrl
+ *            カバー画像の配信URL（nullable。サイト相対。登録時に渡すのは配信URLではなくアセットキー）
  */
 public record AlbumResponse(
         String albumId,
@@ -46,5 +48,6 @@ public record AlbumResponse(
         @Nullable String eventPlace,
         @Nullable String eventSpaceNumber,
         @Nullable String eventNote,
-        @Nullable Instant publishedAt) {
+        @Nullable Instant publishedAt,
+        @Nullable String coverImageUrl) {
 }

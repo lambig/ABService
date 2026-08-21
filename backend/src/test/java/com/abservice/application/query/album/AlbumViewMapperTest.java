@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 @DisplayName("AlbumViewMapper（Entity→Read Model 変換）のテスト")
 class AlbumViewMapperTest {
 
+    private static final String ASSET_BASE_PATH = "/assets";
+
     @Test
     @DisplayName("全項目が Read Model に写像される")
     void toViewShouldMapAllFields() {
@@ -35,9 +37,10 @@ class AlbumViewMapperTest {
         entity.setEventPlace("東京ビッグサイト");
         entity.setEventSpaceNumber("東ホ-01a");
         entity.setEventNote("新譜あります");
+        entity.setCoverImageKey("01a0233d-d25a-7c3b-924f-236ee154fecc.png");
 
         // Act
-        final var view = AlbumViewMapper.toView(entity);
+        final var view = AlbumViewMapper.toView(entity, ASSET_BASE_PATH);
 
         // Assert
         assertThat(view.albumId()).isEqualTo("0192f8a0-0000-7000-8000-000000000000");
@@ -52,6 +55,7 @@ class AlbumViewMapperTest {
         assertThat(view.eventPlace()).isEqualTo("東京ビッグサイト");
         assertThat(view.eventSpaceNumber()).isEqualTo("東ホ-01a");
         assertThat(view.eventNote()).isEqualTo("新譜あります");
+        assertThat(view.coverImageUrl()).isEqualTo("/assets/01a0233d-d25a-7c3b-924f-236ee154fecc.png");
     }
 
     @Test
@@ -69,7 +73,7 @@ class AlbumViewMapperTest {
         entity.setArtistDisplayName("アーティスト名");
 
         // Act
-        final var view = AlbumViewMapper.toView(entity);
+        final var view = AlbumViewMapper.toView(entity, ASSET_BASE_PATH);
 
         // Assert
         assertThat(view.artistSortKey()).isNull();
@@ -80,5 +84,6 @@ class AlbumViewMapperTest {
         assertThat(view.eventPlace()).isNull();
         assertThat(view.eventSpaceNumber()).isNull();
         assertThat(view.eventNote()).isNull();
+        assertThat(view.coverImageUrl()).isNull();
     }
 }

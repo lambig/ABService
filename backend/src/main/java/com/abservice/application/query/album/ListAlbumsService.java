@@ -10,6 +10,7 @@ import io.smallrye.mutiny.tuples.Tuple3;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import lombok.AllArgsConstructor;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
  * アルバム一覧照会サービス（ページネーション付き）
@@ -30,6 +31,10 @@ public class ListAlbumsService implements QueryService<ListAlbumsQuery, ListAlbu
 
     private final AlbumDataSource dataSource;
 
+    /** アセットの配信ベースパス（カバー画像の配信URL組み立てに使う） */
+    @ConfigProperty(name = "abservice.assets.public-base-path")
+    private final String assetBasePath;
+
     @WithSession
     @Override
     public Uni<ListAlbumsResult> query(ListAlbumsQuery query) {
@@ -49,15 +54,17 @@ public class ListAlbumsService implements QueryService<ListAlbumsQuery, ListAlbu
                         tuple -> toResult(
                                 tuple,
                                 page,
-                                size));
+                                size,
+                                assetBasePath));
     }
 
     static ListAlbumsResult toResult(
             Tuple3<List<AlbumTableRecord>, Long, Integer> tuple,
             int page,
-            int size) {
+            int size,
+            String assetBasePath) {
         return new ListAlbumsResult(
-                tuple.getItem1().stream().map(AlbumViewMapper::toView).toList(),
+                tuple.getItem1().stream().map(entity -> AlbumViewMapper.toView(entity, assetBasePath)).toList(),
                 page,
                 size,
                 tuple.getItem2(),

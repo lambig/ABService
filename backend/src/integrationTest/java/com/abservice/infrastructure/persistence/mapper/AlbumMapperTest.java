@@ -9,6 +9,7 @@ import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
+import com.abservice.domain.model.vo.common.AssetKey;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.Credit;
@@ -180,7 +181,8 @@ class AlbumMapperTest {
                         "West B-02",
                         "Mapped Note"),
                 CatalogNumber.of("MAPPED-CAT-001"),
-                Isdn.of("2794123456780"))
+                Isdn.of("2794123456780"),
+                AssetKey.of("01a0233d-d25a-7c3b-924f-236ee154fecc.png"))
                 .addTrack(
                         Track.create(
                                 1,
@@ -223,6 +225,7 @@ class AlbumMapperTest {
                 ArtistCredit.of("Mapped Artist"),
                 null,
                 null,
+                null,
                 null)
                 .publish(publishedAt);
 
@@ -240,6 +243,7 @@ class AlbumMapperTest {
                         3,
                         3),
                 ArtistCredit.of("Mapped Artist"),
+                null,
                 null,
                 null,
                 null)

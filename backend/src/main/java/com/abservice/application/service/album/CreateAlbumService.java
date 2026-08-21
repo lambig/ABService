@@ -48,6 +48,7 @@ public class CreateAlbumService implements CommandService<CreateAlbumInput, Crea
                 input.artistSortKey(),
                 input.catalogNumber(),
                 input.isdn(),
+                input.coverImageKey(),
                 toEventFields(input.event()))
                 .flatMap(albumRepository::save)
                 .map(CreateAlbumService::toOutput);
