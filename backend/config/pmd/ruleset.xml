@@ -9,8 +9,10 @@
         カスタムルールと必要な組み込みルールのみを個別に定義する。
     </description>
 
-    <!-- 不要なローカル変数・代入を禁止する（#33）。値は直接 return / 式で表現する。 -->
-    <rule ref="category/java/codestyle.xml/UnnecessaryLocalBeforeReturn"/>
+    <!-- 不要なローカル変数・代入を禁止する（#33）。値は直接 return / throw / 式で表現する。
+         VariableCanBeInlined は UnnecessaryLocalBeforeReturn（PMD 7.17.0 で非推奨）の後継で、
+         return に加えて throw も対象にする。 -->
+    <rule ref="category/java/codestyle.xml/VariableCanBeInlined"/>
     <rule ref="category/java/bestpractices.xml/UnusedLocalVariable"/>
     <rule ref="category/java/bestpractices.xml/UnusedAssignment"/>
 
@@ -394,7 +396,7 @@
           class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
         <description>
             宣言後に読み取りが1回のみのローカル変数を禁止し、インライン化を強制する。
-            UnnecessaryLocalBeforeReturn は「T x = e; return x;」（直接 return）のみを捕捉するが、
+            VariableCanBeInlined は「T x = e; return x;」「T x = e; throw x;」のみを捕捉するが、
             本ルールは new/メソッド引数での1回使用など全ての単一使用ローカルを覆う（上位集合）。
             誤検知回避のため、宣言と使用の間にラムダ/ループ（for / foreach / while / do）の
             境界がある場合のみ対象外とする。すなわち「宣言の外側にあるラムダ/ループの本体内で
