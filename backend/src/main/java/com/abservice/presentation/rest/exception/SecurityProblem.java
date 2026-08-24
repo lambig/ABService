@@ -15,9 +15,6 @@ import java.util.List;
  */
 final class SecurityProblem {
 
-    /** application/problem+json（RFC 9457） */
-    private static final String PROBLEM_JSON = "application/problem+json";
-
     /** 401 応答に付与する認証要求。realm はサービス名固定 */
     private static final String CHALLENGE = "Bearer realm=\"abservice\"";
 
@@ -34,7 +31,7 @@ final class SecurityProblem {
     static Response unauthorized(String detail) {
         return Response.status(Response.Status.UNAUTHORIZED)
                 .header(HttpHeaders.WWW_AUTHENTICATE, CHALLENGE)
-                .type(MediaType.valueOf(PROBLEM_JSON))
+                .type(MediaType.valueOf(ProblemDetail.MEDIA_TYPE))
                 .entity(
                         ProblemDetail.of(
                                 "UNAUTHORIZED",
@@ -54,7 +51,7 @@ final class SecurityProblem {
      */
     static Response forbidden(String detail) {
         return Response.status(Response.Status.FORBIDDEN)
-                .type(MediaType.valueOf(PROBLEM_JSON))
+                .type(MediaType.valueOf(ProblemDetail.MEDIA_TYPE))
                 .entity(
                         ProblemDetail.of(
                                 "FORBIDDEN",

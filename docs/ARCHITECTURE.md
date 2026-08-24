@@ -55,9 +55,10 @@
 
 - **バージョニング**: URLパス（`/api/v1/...`）
 - **CQRS の分割**: 集約ごとに Command リソースと Query リソースを分ける。公開向けQueryは公開中のものだけを返し、下書きを含む照会は `/api/v1/admin/**` に分ける
-- **エラー応答**: 全て RFC 9457 Problem Details（`application/problem+json`）。値検証400 / 未存在404 / ビジネス違反409 の対応づけは [CODING_GUIDELINES.md](CODING_GUIDELINES.md) §6
+- **エラー応答**: 全て RFC 9457 Problem Details（`application/problem+json`）。値検証400 / 未存在404 / ビジネス違反409 の対応づけは [CODING_GUIDELINES.md](CODING_GUIDELINES.md) §6。専用マッパーを持たない例外も同形式で返し、想定外の500は内部情報を載せずログと突き合わせる識別子だけを返す
 - **ドメインオブジェクトを公開しない**: Request/Response DTO を境界に置く
 - **CORS**: 本番はフロントエンドとAPIが同一オリジン（単一ドメインのパスベースルーティング）になるため無効。開発・テストのみ有効にし、フロントエンドの開発サーバのオリジンを許可する。別オリジン構成へ変える場合は有効化フラグと許可オリジンを対で指定する
+- **観測性**: ヘルスチェック（`/q/health/{live,ready}`。readiness はDB接続確認を含む）とメトリクス（`/q/metrics`、Prometheus形式）は公開APIのパスに混ぜず `/q/*` に置く。判断の理由は [DECISIONS.md](DECISIONS.md) 10
 - **API定義**: OpenAPI 文書は JAX-RS と DTO の型情報から生成し、エンドポイントごとの注釈は置かない（契約の正は実装）。型から導けないAPI全体のメタ情報と認証方式のみ宣言し、管理操作の認証要件は `@RolesAllowed` から自動付与する。Swagger UI は開発時のみで、CloudFront は `/api/*` だけを backend へ流すため `/q/*` は本番で外部に露出しない
 
 ## アセット（画像）のアップロードと配信

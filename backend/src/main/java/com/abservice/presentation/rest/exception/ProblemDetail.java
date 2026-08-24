@@ -33,6 +33,9 @@ public record ProblemDetail(
         @Nullable String detail,
         List<FieldError> errors) {
 
+    /** application/problem+json（RFC 9457） */
+    public static final String MEDIA_TYPE = "application/problem+json";
+
     private static final String TYPE_PREFIX = "urn:abservice:error:";
 
     /**

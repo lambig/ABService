@@ -26,6 +26,16 @@ dependencies {
     // @RolesAllowed から自動付与する）
     implementation 'io.quarkus:quarkus-smallrye-openapi'
 
+    // ヘルスチェック（MicroProfile Health。/q/health/{live,ready}）。DB接続確認は datasource 拡張が
+    // readiness へ自動登録するため、アプリ側の HealthCheck 実装は持たない
+    implementation 'io.quarkus:quarkus-smallrye-health'
+
+    // メトリクス（Prometheus 形式で /q/metrics に公開。収集・監視の設定は #168）
+    implementation 'io.quarkus:quarkus-micrometer-registry-prometheus'
+
+    // 構造化ロギング（prod のみ JSON 1行/レコード。dev・test は可読なプレーン出力）
+    implementation 'io.quarkus:quarkus-logging-json'
+
     // Hibernate Reactive with Panache（リアクティブJPA実装）
     implementation 'io.quarkus:quarkus-hibernate-reactive-panache'
     implementation 'io.quarkus:quarkus-reactive-pg-client'
