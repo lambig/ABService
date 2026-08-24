@@ -1,10 +1,13 @@
-package com.abservice.domain.model.aggregate.article;
+package com.abservice.domain.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.aggregate.album.Album;
+import com.abservice.domain.model.aggregate.article.Article;
+import com.abservice.domain.service.ArticlePublicationService.AlbumAttachment;
+import com.abservice.domain.service.ArticlePublicationService.ArticlePublication;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.article.AlbumReferenceLostReason;
 import com.abservice.domain.model.vo.article.ArticleTitle;
@@ -16,8 +19,8 @@ import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-@DisplayName("記事を公開する試み（規則の単体評価と遷移）のテスト")
-class ArticlePublicationTest {
+@DisplayName("公開・紐付けの操作オブジェクト（規則の単体評価と遷移）のテスト")
+class ArticlePublicationServiceTest {
 
     private static final BusinessDateTime NOW = BusinessDateTime.of(Instant.parse("2026-01-01T00:00:00Z"));
 

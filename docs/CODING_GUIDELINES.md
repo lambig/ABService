@@ -118,10 +118,11 @@ why not コメントは大文字+ハイフンの語＋コロンのプレフィ�
 - **`require*` は検証**。満たさなければ失敗させる意図を名前に出す。取得を伴う必要がなければ戻り値も返さない
 - **判定の名前は判定している内容と一致させる**。分岐の理由が増えたら名前を広げる（例: 公開状態だけを見ていたメソッドに参照失効の判定を足したなら、名前は「公開状態の確認」ではなくなる）
 - **集約をまたぐ操作は「試み」をオブジェクトにする**。参照先を伴って構築し、規則の判定（`asValidated`）と規則を満たすときだけの遷移を自身に持たせる。規則は値だけで評価できる `Policy` としてその内側に閉じ、呼び出し側が検証対象を組み立てない。参照先を引く責務（I/O）はドメインサービスが持ち、操作オブジェクトを組み立てて実行する
+- **操作オブジェクトはドメインサービスのネスト型に置く**。永続化されず識別子も持たず、そのサービスの中でだけ意味を持つアドホックなモデルであり、アプリケーション全体のモデル（集約・VO）と同じ場所に置かない
 - **「検証してから遷移を呼ぶ」順序を呼び出し側に持たせない**。参照先の状態に依存する遷移は `@CrossAggregateTransition` を付け、`@CrossAggregateOperation` の操作オブジェクト以外から呼べないことを ArchUnit で強制する（参照先を渡さなければ構築できないため、順序を守り忘れる経路が構造上なくなる）
 - コマンドサービスは取得・保存・出力の合成に徹し、集約単体で決まる制約（記事種別など）はコマンドサービスかドメインモデルに残す
 
-参照実装: `domain.model.aggregate.article.ArticlePublication` / `AlbumAttachment`（規則と遷移）、`domain.service.ArticlePublicationService`（参照先の取得と組み立て）、`domain.service.AlbumExistenceService`（存在確認のみ）。
+参照実装: `domain.service.ArticlePublicationService`（参照先の取得と、ネストした操作オブジェクト `ArticlePublication` / `AlbumAttachment` による規則と遷移）、`domain.service.AlbumExistenceService`（存在確認のみ）。
 
 ---
 
