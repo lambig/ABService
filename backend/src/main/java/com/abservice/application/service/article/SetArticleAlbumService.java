@@ -7,7 +7,7 @@ import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.repository.article.ArticleRepository;
-import com.abservice.domain.service.ArticlePublicationService;
+import com.abservice.domain.service.ArticleAlbumAttachmentService;
 import com.abservice.domain.service.BusinessDateTimeProvider;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -20,7 +20,7 @@ import lombok.AllArgsConstructor;
  *
  * <p>
  * {@link Article#setAlbumId(Album.Id, com.abservice.domain.model.vo.common.BusinessDateTime)}
- * を呼び出すユースケースです。紐付けという操作そのものは{@link ArticlePublicationService}が担います（参照先アルバムの
+ * を呼び出すユースケースです。紐付けという操作そのものは{@link ArticleAlbumAttachmentService}が担います（参照先アルバムの
  * 状態に依存するため記事単体では可否を判定できない）。対象記事の種別が{@link ArticleType#ALBUM}でない場合は記事単体で
  * 決まる制約のため本サービスで{@link BusinessRuleViolationException}（409）とします。
  * </p>
@@ -30,7 +30,7 @@ import lombok.AllArgsConstructor;
 public class SetArticleAlbumService implements CommandService<SetArticleAlbumInput, SetArticleAlbumOutput> {
 
     private final ArticleRepository articleRepository;
-    private final ArticlePublicationService articlePublicationService;
+    private final ArticleAlbumAttachmentService articleAlbumAttachmentService;
     private final BusinessDateTimeProvider businessDateTimeProvider;
 
     @WithTransaction
@@ -48,7 +48,7 @@ public class SetArticleAlbumService implements CommandService<SetArticleAlbumInp
     private Uni<Article> attachAlbum(Article article, Album.Id albumId) {
         return businessDateTimeProvider.now()
                 .flatMap(
-                        now -> articlePublicationService.attachAlbum(
+                        now -> articleAlbumAttachmentService.attachAlbum(
                                 article,
                                 albumId,
                                 now));

@@ -6,8 +6,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
-import com.abservice.domain.service.ArticlePublicationService.AlbumAttachment;
-import com.abservice.domain.service.ArticlePublicationService.ArticlePublication;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.article.AlbumReferenceLostReason;
 import com.abservice.domain.model.vo.article.ArticleTitle;
@@ -15,11 +13,13 @@ import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.domain.service.ArticleAlbumAttachmentService.AlbumAttachment;
+import com.abservice.domain.service.ArticlePublicationService.ArticlePublication;
 import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-@DisplayName("公開・紐付けの操作オブジェクト（規則の単体評価と遷移）のテスト")
+@DisplayName("記事公開の操作オブジェクト（規則の単体評価と遷移）のテスト")
 class ArticlePublicationServiceTest {
 
     private static final BusinessDateTime NOW = BusinessDateTime.of(Instant.parse("2026-01-01T00:00:00Z"));
@@ -77,35 +77,6 @@ class ArticlePublicationServiceTest {
                 .anySatisfy(error -> assertThat(error.code()).isEqualTo("ARTICLE_ALBUM_REFERENCE_LOST"));
     }
 
-    @Test
-    @DisplayName("下書きの記事には非公開のアルバムを紐付けられる")
-    void draftArticleAcceptsUnpublishedAlbum() {
-        final var attachment = new AlbumAttachment(article(ArticleType.ALBUM), album());
-
-        assertThat(attachment.asValidated().errors()).isEmpty();
-        assertThat(attachment.attach(NOW).albumReference().activeAlbumId()).isPresent();
-    }
-
-    @Test
-    @DisplayName("公開中の記事には非公開のアルバムを紐付けられない")
-    void publishedArticleRejectsUnpublishedAlbum() {
-        final var attachment = new AlbumAttachment(publishedArticle(), album());
-
-        assertThat(attachment.asValidated().errors())
-                .singleElement()
-                .satisfies(error -> assertThat(error.code()).isEqualTo("ARTICLE_PUBLISHED_ALBUM_NOT_PUBLISHED"));
-        assertThatThrownBy(() -> attachment.attach(NOW))
-                .isInstanceOf(BusinessRuleViolationException.class);
-    }
-
-    @Test
-    @DisplayName("公開中の記事に公開中のアルバムは紐付けられる")
-    void publishedArticleAcceptsPublishedAlbum() {
-        final var attachment = new AlbumAttachment(publishedArticle(), publishedAlbum());
-
-        assertThat(attachment.asValidated().errors()).isEmpty();
-    }
-
     private static Album album() {
         return Album.create(
                 AlbumTitle.of("公開整合テストアルバム"),
@@ -131,10 +102,6 @@ class ArticlePublicationServiceTest {
                 ArticleTitle.of("公開整合テスト記事"),
                 null,
                 null);
-    }
-
-    private static Article publishedArticle() {
-        return new ArticlePublication(article(ArticleType.ALBUM), null).publish(NOW);
     }
 
     private static Article articleReferencing(Album album) {

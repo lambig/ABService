@@ -161,3 +161,21 @@
 **トレードオフ**: 失効情報は1件しか持たないため、同じ記事が複数回参照を失うと直前の経緯だけが残る。横断的な「システムからのお知らせ」を持つ仕組み（#174）を入れるなら、そこへ移す判断があり得る。
 
 **実体**: `domain/model/vo/article/AlbumReference`（sealed）と `AlbumReferenceLostReason`、`application/service/album/DeleteAlbumService`、`application/service/article/PublishArticleService`、`V33`。
+
+---
+
+## 13. 集約をまたぐ操作は「試み」のオブジェクトにし、遷移を構造で閉じる
+
+**判断**: 参照先集約の状態に依存する操作（記事の公開、記事へのアルバム紐付け）は、次の形で表す。
+
+- **操作オブジェクト**: 参照先を伴って構築され、規則の評価（`asValidated`）と、規則を満たすときだけの遷移を自身が持つ。規則は値だけで評価できる `Policy` としてその内側に閉じる
+- **置き場所**: 操作オブジェクトはドメインサービスのネスト型。永続化されず識別子も持たない、そのサービスの中でだけ意味を持つアドホックなモデルであり、集約・VO と同じ場所には置かない
+- **ドメインサービス**: 参照先を引き（I/O）、操作オブジェクトを組み立てて実行する。操作ごとに1サービスとし、名前と操作を1対1にする
+- **強制**: 遷移メソッドに `@CrossAggregateTransition`、操作オブジェクトに `@CrossAggregateOperation` を付け、遷移が操作オブジェクト以外から呼ばれないことを ArchUnit で検査する（呼び出しとメソッド参照の両方）
+- コマンドサービスは取得・保存・出力の合成に徹し、「検証してから遷移を呼ぶ」順序の知識を持たない
+
+**なぜ**: 検証と遷移が別々の呼び出しだと、順序を守るのは呼び出し側の規律に依存し、別のユースケースが遷移だけを呼べば不変条件が素通りする。参照先を渡さなければ操作オブジェクトを構築できない形にすれば、「参照先を見ずに遷移する」経路が構築の時点で存在しなくなる。規則を I/O から分離すると、判定は Uni にも DB にも依存せず単体で評価でき、照会側から「公開できる状態か」を問うような再利用にも開ける。ドメインサービスを操作ごとに分けるのは、1サービスに複数の操作を持たせると名前が実体を説明しなくなるため。
+
+**トレードオフ**: 操作ごとにサービスとネスト型が増える。参照先を引く数行は各サービスに重複する（共有したい手順が3箇所目に現れた時点で括り出す）。ArchUnit の検査はアノテーションの付け忘れを検出できないため、新しい「参照先に依存する遷移」を追加する際は付与が要る。
+
+**実体**: `domain/service/ArticlePublicationService`（`ArticlePublication`）、`domain/service/ArticleAlbumAttachmentService`（`AlbumAttachment`）、`domain/model/CrossAggregateTransition` と `CrossAggregateOperation`、`architecture/AggregateConstructionArchTest`。

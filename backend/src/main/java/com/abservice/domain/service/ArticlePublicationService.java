@@ -1,7 +1,5 @@
 package com.abservice.domain.service;
 
-import static java.util.function.Predicate.not;
-
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.CrossAggregateOperation;
 import com.abservice.domain.model.aggregate.album.Album;
@@ -19,12 +17,11 @@ import lombok.AllArgsConstructor;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 記事の公開とアルバム紐付けを担うドメインサービス
+ * 記事の公開を担うドメインサービス
  *
  * <p>
- * {@link Article} は {@link Album} をIDでしか参照しないため、公開してよいか・紐付けてよいかを単体では判定できない。
- * 本サービスは参照先を引き、操作オブジェクト（{@link ArticlePublication} /
- * {@link AlbumAttachment}）を組み立てて 実行する。
+ * {@link Article} は {@link Album} をIDでしか参照しないため、公開してよいかを単体では判定できない。本サービスは
+ * 参照先を引き、操作オブジェクト（{@link ArticlePublication}）を組み立てて実行する。
  * </p>
  *
  * <p>
@@ -118,59 +115,6 @@ public class ArticlePublicationService implements DomainService {
     }
 
     /**
-     * 記事へアルバムを紐付ける試み
-     *
-     * @param article
-     *            紐付け対象の記事
-     * @param album
-     *            紐付け先のアルバム
-     */
-    @CrossAggregateOperation
-    public record AlbumAttachment(Article article, Album album) {
-
-        /** 公開中の記事には非公開のアルバムを紐付けられない */
-        private static final ErrorResult UNPUBLISHED_ALBUM_ERROR = new ErrorResult(
-                "albumId",
-                "Cannot attach an unpublished album to a published article",
-                "ARTICLE_PUBLISHED_ALBUM_NOT_PUBLISHED");
-
-        /**
-         * 紐付けてよいかを評価します（例外を投げず、結果を {@link Result} で返す）。
-         *
-         * @return 紐付けてよければ自身の {@code Success}、規則を満たさなければ検証エラーの {@code Failure}
-         */
-        public Result<AlbumAttachment> asValidated() {
-            return policy().verify(this, Function.identity());
-        }
-
-        /**
-         * 規則を満たすときだけアルバムを紐付けます。
-         *
-         * @param currentDateTime
-         *            現在日時
-         * @return 紐付け後の記事
-         */
-        public Article attach(BusinessDateTime currentDateTime) {
-            return asValidated()
-                    .map(validated -> validated.article().setAlbumId(validated.album().id(), currentDateTime))
-                    .resolve(BusinessRuleViolationException::fromErrors);
-        }
-
-        private static Policy<AlbumAttachment> policy() {
-            return Policy.of(
-                    attachment -> unpublishedAlbum(attachment).isEmpty(),
-                    UNPUBLISHED_ALBUM_ERROR);
-        }
-
-        private static Optional<Album> unpublishedAlbum(@Nullable AlbumAttachment attachment) {
-            return Optional.ofNullable(attachment)
-                    .filter(candidate -> candidate.article().isPublic())
-                    .map(AlbumAttachment::album)
-                    .filter(not(Album::isPublished));
-        }
-    }
-
-    /**
      * 記事を公開します。
      *
      * @param article
@@ -184,27 +128,6 @@ public class ArticlePublicationService implements DomainService {
         return referencedAlbum(article)
                 .map(album -> new ArticlePublication(article, album.orElse(null)))
                 .map(publication -> publication.publish(currentDateTime));
-    }
-
-    /**
-     * 記事にアルバムを紐付けます。
-     *
-     * @param article
-     *            紐付け対象の記事
-     * @param albumId
-     *            紐付け先のアルバムID
-     * @param currentDateTime
-     *            現在日時
-     * @return 紐付け後の記事。未存在なら {@code EntityNotFoundException}、規則を満たさない場合は
-     *         {@link BusinessRuleViolationException} で失敗する
-     */
-    public Uni<Article> attachAlbum(
-            Article article,
-            Album.Id albumId,
-            BusinessDateTime currentDateTime) {
-        return albumExistenceService.findExisting(albumId)
-                .map(album -> new AlbumAttachment(article, album))
-                .map(attachment -> attachment.attach(currentDateTime));
     }
 
     private Uni<Optional<Album>> referencedAlbum(Article article) {
