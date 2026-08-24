@@ -26,6 +26,12 @@ import org.jspecify.annotations.Nullable;
  *            業務上の更新日時（nullable。UTC）
  * @param publicFlag
  *            公開フラグ
+ * @param formerAlbumId
+ *            失効した参照先アルバムのID（nullable。参照が失効している場合のみ）
+ * @param albumReferenceLostAt
+ *            アルバム参照が失効した日時（nullable。UTC）
+ * @param albumReferenceLostReason
+ *            失効の理由コード（nullable。表示文言はクライアントが決める）
  */
 public record ArticleResponse(
         String articleId,
@@ -37,5 +43,8 @@ public record ArticleResponse(
         @Nullable String introShort,
         @Nullable Instant publishedAt,
         @Nullable Instant updatedAtBusiness,
-        boolean publicFlag) {
+        boolean publicFlag,
+        @Nullable String formerAlbumId,
+        @Nullable Instant albumReferenceLostAt,
+        @Nullable String albumReferenceLostReason) {
 }

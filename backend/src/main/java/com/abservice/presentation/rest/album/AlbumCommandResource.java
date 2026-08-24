@@ -5,6 +5,7 @@ import com.abservice.application.service.album.CreateAlbumInput.EventInput;
 import com.abservice.application.service.album.CreateAlbumOutput;
 import com.abservice.application.service.album.CreateAlbumService;
 import com.abservice.application.service.album.DeleteAlbumInput;
+import com.abservice.application.service.album.DeleteAlbumOutput;
 import com.abservice.application.service.album.DeleteAlbumService;
 import com.abservice.application.service.album.PublishAlbumInput;
 import com.abservice.application.service.album.PublishAlbumOutput;
@@ -23,6 +24,7 @@ import com.abservice.presentation.rest.album.request.CreateAlbumRequest.EventReq
 import com.abservice.presentation.rest.album.request.RegisterAlbumWithTracksRequest;
 import com.abservice.presentation.rest.album.request.UpdateAlbumRequest;
 import com.abservice.presentation.rest.album.response.CreateAlbumResponse;
+import com.abservice.presentation.rest.album.response.DeleteAlbumResponse;
 import com.abservice.presentation.rest.album.response.PublishAlbumResponse;
 import com.abservice.presentation.rest.album.response.RegisterAlbumWithTracksResponse;
 import com.abservice.presentation.rest.album.response.UnpublishAlbumResponse;
@@ -205,17 +207,39 @@ public class AlbumCommandResource {
     }
 
     /**
-     * アルバムを削除します（べき等。対象アルバムの存在有無を問わず204を返す）。
+     * アルバムを削除します（べき等。対象アルバムの存在有無を問わず200を返す）。
+     *
+     * <p>
+     * 当該アルバムを参照していた記事は参照が失効し、公開中だったものは非公開へ戻ります。影響を受けた記事は応答に含めます。
+     * </p>
      *
      * @param id
      *            削除対象のアルバムID
-     * @return 204 No Content
+     * @return 200 OK と削除に伴う影響
      */
     @DELETE
     @Path("/{id}")
+    @Produces(MediaType.APPLICATION_JSON)
     public Uni<Response> delete(@PathParam("id") String id) {
         return deleteAlbumService.execute(new DeleteAlbumInput(id))
-                .replaceWith(Response.noContent().build());
+                .map(AlbumCommandResource::toDeleteResponse);
+    }
+
+    private static Response toDeleteResponse(DeleteAlbumOutput output) {
+        return Response.ok(
+                new DeleteAlbumResponse(
+                        output.affectedArticles().stream()
+                                .map(AlbumCommandResource::toAffectedArticle)
+                                .toList()))
+                .build();
+    }
+
+    private static DeleteAlbumResponse.AffectedArticle toAffectedArticle(
+            DeleteAlbumOutput.AffectedArticle affected) {
+        return new DeleteAlbumResponse.AffectedArticle(
+                affected.articleId(),
+                affected.title(),
+                affected.unpublished());
     }
 
     /**

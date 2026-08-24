@@ -80,6 +80,9 @@ final class ArticleQueryResponses {
                 view.introShort(),
                 view.publishedAt(),
                 view.updatedAtBusiness(),
-                view.publicFlag());
+                view.publicFlag(),
+                view.formerAlbumId(),
+                view.albumReferenceLostAt(),
+                view.albumReferenceLostReason());
     }
 }

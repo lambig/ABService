@@ -231,21 +231,22 @@ class AlbumRestIntegrationTest {
                 .body("{\"title\":\"削除対象\",\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"アーティスト\"}").when()
                 .post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
 
-        authorized().when().delete("/api/v1/albums/" + albumId).then().statusCode(204);
+        authorized().when().delete("/api/v1/albums/" + albumId).then().statusCode(200)
+                .body("affectedArticles", empty());
 
         given().when().get("/api/v1/albums/" + albumId).then().statusCode(404);
     }
 
     @Test
-    @DisplayName("削除はべき等で、存在しないIDの削除も204を返す")
+    @DisplayName("削除はべき等で、存在しないIDの削除も200を返す")
     void deleteIsIdempotent() {
         final String albumId = authorized().contentType(ContentType.JSON)
                 .body("{\"title\":\"べき等確認\",\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"アーティスト\"}").when()
                 .post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
 
-        authorized().when().delete("/api/v1/albums/" + albumId).then().statusCode(204);
-        authorized().when().delete("/api/v1/albums/" + albumId).then().statusCode(204);
-        authorized().when().delete("/api/v1/albums/" + UUID.randomUUID()).then().statusCode(204);
+        authorized().when().delete("/api/v1/albums/" + albumId).then().statusCode(200);
+        authorized().when().delete("/api/v1/albums/" + albumId).then().statusCode(200);
+        authorized().when().delete("/api/v1/albums/" + UUID.randomUUID()).then().statusCode(200);
     }
 
     @Test

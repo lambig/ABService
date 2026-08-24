@@ -36,6 +36,9 @@ final class ArticleViewMapper {
                 entity.getPublishedAt(),
                 entity.getUpdatedAtBusiness(),
                 Optional.ofNullable(entity.getIsPublic())
-                        .orElse(false));
+                        .orElse(false),
+                entity.getFormerAlbumId(),
+                entity.getAlbumReferenceLostAt(),
+                entity.getAlbumReferenceLostReason());
     }
 }

@@ -5,6 +5,7 @@ import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
+import com.abservice.domain.model.vo.article.AlbumReference;
 import com.abservice.domain.repository.article.ArticleRepository;
 import com.abservice.domain.service.AlbumExistenceService;
 import com.abservice.domain.service.BusinessDateTimeProvider;
@@ -12,7 +13,6 @@ import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Objects;
-import java.util.Optional;
 import lombok.AllArgsConstructor;
 
 /**
@@ -56,11 +56,19 @@ public class PublishArticleService implements CommandService<PublishArticleInput
     }
 
     private Uni<Article> verifyReferencedAlbumIsPublished(Article article) {
-        return Optional.ofNullable(article.albumId())
-                .map(
-                        albumId -> albumExistenceService.findPublic(albumId)
-                                .replaceWith(article))
-                .orElseGet(() -> Uni.createFrom().item(article));
+        return switch (article.albumReference()) {
+            case AlbumReference.Referenced referenced -> albumExistenceService.findPublic(referenced.albumId())
+                    .replaceWith(article);
+            case AlbumReference.Lost lost -> Uni.createFrom()
+                    .failure(() -> albumReferenceLost(lost));
+            case AlbumReference.None ignored -> Uni.createFrom().item(article);
+        };
+    }
+
+    private static BusinessRuleViolationException albumReferenceLost(AlbumReference.Lost lost) {
+        return new BusinessRuleViolationException(
+                "Cannot publish an article whose referenced album (%s) no longer exists"
+                        .formatted(lost.formerAlbumId().value()));
     }
 
     private static PublishArticleOutput toOutput(Article article) {

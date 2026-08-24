@@ -36,6 +36,12 @@ import org.jspecify.annotations.Nullable;
  *            業務上の更新日時（nullable。UTC の {@link Instant}）
  * @param publicFlag
  *            公開フラグ
+ * @param formerAlbumId
+ *            失効した参照先アルバムのID（nullable。参照が失効している場合のみ）
+ * @param albumReferenceLostAt
+ *            アルバム参照が失効した日時（nullable。UTC の {@link Instant}）
+ * @param albumReferenceLostReason
+ *            失効の理由コード（nullable。表示文言は利用側が決める）
  */
 public record ArticleView(
         String articleId,
@@ -47,5 +53,8 @@ public record ArticleView(
         @Nullable String introShort,
         @Nullable Instant publishedAt,
         @Nullable Instant updatedAtBusiness,
-        boolean publicFlag) {
+        boolean publicFlag,
+        @Nullable String formerAlbumId,
+        @Nullable Instant albumReferenceLostAt,
+        @Nullable String albumReferenceLostReason) {
 }
