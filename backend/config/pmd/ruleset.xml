@@ -9,6 +9,17 @@
         カスタムルールと必要な組み込みルールのみを個別に定義する。
     </description>
 
+    <!-- 本ファイルを変更した後の検証手順:
+         PMD 自身のインクリメンタル解析キャッシュ（build/tmp/pmdMain/incremental.cache ほか
+         pmdTest / pmdIntegrationTest）はソースファイルの内容ハッシュだけをキーにしており、
+         ルールセットの変更を検知しない。そのため編集直後の実行では、内容を触っていない
+         ファイルについて変更前の「違反なし」がそのまま再利用される（Gradle の rerun-tasks
+         オプションでも no-daemon でも同じ）。違反件数を実測するときは、対象キャッシュを
+         削除してから rerun-tasks で再実行する。
+         なお本ファイルの XML コメント内にハイフン2連を書くと ruleset のパースが失敗し、
+         PMD はルール0件のまま「成功」する（品質ゲートが無言で無効化される）。 -->
+
+
     <!-- 不要なローカル変数・代入を禁止する（#33）。値は直接 return / throw / 式で表現する。
          VariableCanBeInlined は UnnecessaryLocalBeforeReturn（PMD 7.17.0 で非推奨）の後継で、
          return に加えて throw も対象にする。 -->

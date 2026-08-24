@@ -98,6 +98,20 @@ why not コメントは大文字+ハイフンの語＋コロンのプレフィ�
 
 ---
 
+## 9. 述語合成と文字列整形
+
+静的解析が強制するのは「禁止」までで、「何で置き換えるか」は本書が持つ。置き換え先は `io.github.lambig:toolbox-java`（述語合成 DSL と `TextEscape` を同梱）に揃え、同等物を自作しない。
+
+- **述語・条件**: 中置論理演算子（`&&` / `||` / `!`）は Checkstyle が禁止する（§1）。置き換えは `Predicates.and` / `Predicates.or` を static import して `and(...)` / `or(...)`、否定は JDK の `Predicate.not`。射影フィールドの比較は `By.having(getter).thatEqualsTo(value)`（内部が `Objects.deepEquals` のため null 安全）。`Objects.equals` の直書きは避ける（static import しようとしても、継承した `Object.equals(Object)` が非修飾呼び出しをシャドウしてコンパイルできない）
+- **型判別**: `instanceof` / キャスト / `switch(this)` は smell。sealed 兄弟型の narrowing は `DomainObject.asType(Class<R>)` に集約し、`Optional.map(asType(X.class))` の形で使う（instanceof の唯一の集約点）
+- **取り出し**: 「検査してから `get` / `resolve` で取り出す」は `Optional.get` と同じ smell。applicative（`Result.ap` / `Result.zip`）で `map` を通す。合成の primitive が足りなければライブラリ側へ追加する
+- **文字列整形**: `substring` と `+` の連結で組まない。`TextEscape.escape("${a}-${b}")` でテンプレートは1本・ビルダは1回、`.where(key, value)` で束縛し `.compile()` は最後に1回だけ呼ぶ。**条件分岐は `where` へ渡す値の中で吸収する**（条件ごとに escape / compile を作らない）
+- point-free・カリー化を優先する（型を先に固定する `asType(型)`、`having(g).that(p)`）
+
+参照実装: 述語合成は各 `Policy` と VO の `equivalentTo`、文字列整形は `domain.model.vo.album.Isdn`。
+
+---
+
 ## 参考資料
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - 構成・境界・経路の決定

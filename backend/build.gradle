@@ -100,6 +100,9 @@ java {
     targetCompatibility = JavaVersion.VERSION_25
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)
+        // JDK 配布版は実行環境（`amazoncorretto` イメージ）と揃える。CI の actions/setup-java も
+        // distribution: corretto。ベンダーを宣言しないと開発機ごとに別配布版が使われる。
+        vendor = JvmVendorSpec.AMAZON
     }
 }
 
