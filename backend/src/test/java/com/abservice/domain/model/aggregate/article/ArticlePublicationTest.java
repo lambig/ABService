@@ -1,7 +1,9 @@
 package com.abservice.domain.model.aggregate.article;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.article.AlbumReferenceLostReason;
@@ -14,18 +16,18 @@ import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-@DisplayName("記事とアルバムの公開整合の規則（Policy単体での評価）のテスト")
-class ArticlePublicationPolicyTest {
+@DisplayName("記事を公開する試み（規則の単体評価と遷移）のテスト")
+class ArticlePublicationTest {
 
     private static final BusinessDateTime NOW = BusinessDateTime.of(Instant.parse("2026-01-01T00:00:00Z"));
 
     @Test
     @DisplayName("参照を持たない記事は公開できる")
     void articleWithoutReferenceIsPublishable() {
-        final var result = ArticlePublicationPolicy.publishable()
-                .check(new ArticlePublicationPolicy.PublicationTarget(article(ArticleType.NOTE), null));
+        final var publication = new ArticlePublication(article(ArticleType.NOTE), null);
 
-        assertThat(result.errors()).isEmpty();
+        assertThat(publication.asValidated().errors()).isEmpty();
+        assertThat(publication.publish(NOW).isPublic()).isTrue();
     }
 
     @Test
@@ -33,13 +35,10 @@ class ArticlePublicationPolicyTest {
     void articleReferencingPublishedAlbumIsPublishable() {
         final var album = publishedAlbum();
 
-        final var result = ArticlePublicationPolicy.publishable()
-                .check(
-                        new ArticlePublicationPolicy.PublicationTarget(
-                                articleReferencing(album),
-                                album));
+        final var publication = new ArticlePublication(articleReferencing(album), album);
 
-        assertThat(result.errors()).isEmpty();
+        assertThat(publication.asValidated().errors()).isEmpty();
+        assertThat(publication.publish(NOW).isPublic()).isTrue();
     }
 
     @Test
@@ -47,27 +46,21 @@ class ArticlePublicationPolicyTest {
     void articleReferencingUnpublishedAlbumIsNotPublishable() {
         final var album = album();
 
-        final var result = ArticlePublicationPolicy.publishable()
-                .check(
-                        new ArticlePublicationPolicy.PublicationTarget(
-                                articleReferencing(album),
-                                album));
+        final var publication = new ArticlePublication(articleReferencing(album), album);
 
-        assertThat(result.errors())
+        assertThat(publication.asValidated().errors())
                 .singleElement()
                 .satisfies(error -> assertThat(error.code()).isEqualTo("ARTICLE_REFERENCED_ALBUM_NOT_PUBLISHED"));
+        assertThatThrownBy(() -> publication.publish(NOW))
+                .isInstanceOf(BusinessRuleViolationException.class);
     }
 
     @Test
     @DisplayName("参照先を引けなかった記事は公開できない")
     void articleWithMissingReferencedAlbumIsNotPublishable() {
-        final var result = ArticlePublicationPolicy.publishable()
-                .check(
-                        new ArticlePublicationPolicy.PublicationTarget(
-                                articleReferencing(publishedAlbum()),
-                                null));
+        final var publication = new ArticlePublication(articleReferencing(publishedAlbum()), null);
 
-        assertThat(result.errors())
+        assertThat(publication.asValidated().errors())
                 .singleElement()
                 .satisfies(error -> assertThat(error.code()).isEqualTo("ARTICLE_REFERENCED_ALBUM_NOT_PUBLISHED"));
     }
@@ -75,52 +68,39 @@ class ArticlePublicationPolicyTest {
     @Test
     @DisplayName("参照が失効した記事は公開できない")
     void articleWithLostReferenceIsNotPublishable() {
-        final var result = ArticlePublicationPolicy.publishable()
-                .check(
-                        new ArticlePublicationPolicy.PublicationTarget(
-                                articleWithLostReference(),
-                                null));
+        final var publication = new ArticlePublication(articleWithLostReference(), null);
 
-        assertThat(result.errors())
+        assertThat(publication.asValidated().errors())
                 .anySatisfy(error -> assertThat(error.code()).isEqualTo("ARTICLE_ALBUM_REFERENCE_LOST"));
     }
 
     @Test
     @DisplayName("下書きの記事には非公開のアルバムを紐付けられる")
     void draftArticleAcceptsUnpublishedAlbum() {
-        final var result = ArticlePublicationPolicy.attachable()
-                .check(
-                        new ArticlePublicationPolicy.AttachmentTarget(
-                                article(ArticleType.ALBUM),
-                                album()));
+        final var attachment = new AlbumAttachment(article(ArticleType.ALBUM), album());
 
-        assertThat(result.errors()).isEmpty();
+        assertThat(attachment.asValidated().errors()).isEmpty();
+        assertThat(attachment.attach(NOW).albumReference().activeAlbumId()).isPresent();
     }
 
     @Test
     @DisplayName("公開中の記事には非公開のアルバムを紐付けられない")
     void publishedArticleRejectsUnpublishedAlbum() {
-        final var result = ArticlePublicationPolicy.attachable()
-                .check(
-                        new ArticlePublicationPolicy.AttachmentTarget(
-                                publishedArticle(),
-                                album()));
+        final var attachment = new AlbumAttachment(publishedArticle(), album());
 
-        assertThat(result.errors())
+        assertThat(attachment.asValidated().errors())
                 .singleElement()
                 .satisfies(error -> assertThat(error.code()).isEqualTo("ARTICLE_PUBLISHED_ALBUM_NOT_PUBLISHED"));
+        assertThatThrownBy(() -> attachment.attach(NOW))
+                .isInstanceOf(BusinessRuleViolationException.class);
     }
 
     @Test
     @DisplayName("公開中の記事に公開中のアルバムは紐付けられる")
     void publishedArticleAcceptsPublishedAlbum() {
-        final var result = ArticlePublicationPolicy.attachable()
-                .check(
-                        new ArticlePublicationPolicy.AttachmentTarget(
-                                publishedArticle(),
-                                publishedAlbum()));
+        final var attachment = new AlbumAttachment(publishedArticle(), publishedAlbum());
 
-        assertThat(result.errors()).isEmpty();
+        assertThat(attachment.asValidated().errors()).isEmpty();
     }
 
     private static Album album() {
@@ -151,11 +131,11 @@ class ArticlePublicationPolicyTest {
     }
 
     private static Article publishedArticle() {
-        return article(ArticleType.ALBUM).publish(NOW);
+        return new ArticlePublication(article(ArticleType.ALBUM), null).publish(NOW);
     }
 
     private static Article articleReferencing(Album album) {
-        return article(ArticleType.ALBUM).setAlbumId(album.id(), NOW);
+        return new AlbumAttachment(article(ArticleType.ALBUM), album).attach(NOW);
     }
 
     private static Article articleWithLostReference() {

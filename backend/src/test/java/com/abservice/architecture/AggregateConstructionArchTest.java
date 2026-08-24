@@ -7,8 +7,8 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.constructors;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 
 import com.abservice.domain.model.AggregateFactory;
+import com.abservice.domain.model.CrossAggregateOperation;
 import com.abservice.domain.model.CrossAggregateTransition;
-import com.abservice.domain.service.DomainService;
 import com.tngtech.archunit.core.domain.JavaAccess;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
@@ -55,12 +55,13 @@ class AggregateConstructionArchTest {
     }
 
     @ArchTest
-    void crossAggregateTransitionsShouldOnlyBeCalledByDomainServices(JavaClasses classes) {
+    void crossAggregateTransitionsShouldOnlyBeCalledByOperationObjects(JavaClasses classes) {
         methods().that().areAnnotatedWith(CrossAggregateTransition.class)
-                .should(onlyBeReachedFromDomainServices())
+                .should(onlyBeReachedFromCrossAggregateOperations())
                 .as(
-                        "参照先集約の状態に依存する遷移（@CrossAggregateTransition）は、参照先を引いて規則を適用する"
-                                + "ドメインサービスからのみ呼び出せる（順序の知識を呼び出し側に持たせない、#176）")
+                        "参照先集約の状態に依存する遷移（@CrossAggregateTransition）は、参照先を伴って構築される"
+                                + "操作オブジェクト（@CrossAggregateOperation）からのみ呼び出せる"
+                                + "（参照先を見ずに遷移する経路を構築の時点で無くす、#176）")
                 .check(classes);
     }
 
@@ -68,19 +69,19 @@ class AggregateConstructionArchTest {
      * METHOD-REFERENCE: onlyBeCalled() はメソッド参照（Foo::bar）を呼び出しとして数えないため、参照経由で
      * 迂回できてしまう。呼び出しと参照の両方を含む getAccessesToSelf() を origin として検査する。
      */
-    private static ArchCondition<JavaMethod> onlyBeReachedFromDomainServices() {
-        return new ArchCondition<>("only be reached from domain services") {
+    private static ArchCondition<JavaMethod> onlyBeReachedFromCrossAggregateOperations() {
+        return new ArchCondition<>("only be reached from cross-aggregate operation objects") {
             @Override
             public void check(JavaMethod method, ConditionEvents events) {
                 method.getAccessesToSelf().stream()
-                        .filter(not(AggregateConstructionArchTest::originatesInDomainService))
+                        .filter(not(AggregateConstructionArchTest::originatesInOperationObject))
                         .forEach(access -> events.add(violation(method, access)));
             }
         };
     }
 
-    private static boolean originatesInDomainService(JavaAccess<?> access) {
-        return access.getOriginOwner().isAssignableTo(DomainService.class);
+    private static boolean originatesInOperationObject(JavaAccess<?> access) {
+        return access.getOriginOwner().isAnnotatedWith(CrossAggregateOperation.class);
     }
 
     private static ConditionEvent violation(JavaMethod method, JavaAccess<?> access) {

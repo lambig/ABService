@@ -2,8 +2,9 @@ package com.abservice.domain.service;
 
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.aggregate.album.Album;
+import com.abservice.domain.model.aggregate.article.AlbumAttachment;
 import com.abservice.domain.model.aggregate.article.Article;
-import com.abservice.domain.model.aggregate.article.ArticlePublicationPolicy;
+import com.abservice.domain.model.aggregate.article.ArticlePublication;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -15,13 +16,8 @@ import lombok.AllArgsConstructor;
  *
  * <p>
  * {@link Article} は {@link Album} をIDでしか参照しないため、公開してよいか・紐付けてよいかを単体では判定できない。
- * 参照先を引いて {@link ArticlePublicationPolicy} へ渡し、規則を満たす場合にのみ状態遷移させる操作を本サービスが持つ。
- * </p>
- *
- * <p>
- * 遷移メソッド（{@code Article#publish} / {@code Article#setAlbumId}）は
- * {@code @CrossAggregateTransition} が付いており、ArchUnit
- * が「ドメインサービスからのみ呼び出せる」ことを強制する。 判定を経ずに公開する経路は、呼び出し側の規律ではなく構造で閉じている。
+ * 本サービスは参照先を引いて操作オブジェクト（{@link ArticlePublication} /
+ * {@link AlbumAttachment}）を組み立て、 実行する。規則の判定と遷移は操作オブジェクトが持ち、本サービスは取得と組み立てを担う。
  * </p>
  */
 @ApplicationScoped
@@ -42,11 +38,8 @@ public class ArticlePublicationService implements DomainService {
      */
     public Uni<Article> publish(Article article, BusinessDateTime currentDateTime) {
         return referencedAlbum(article)
-                .map(
-                        album -> publishVerified(
-                                article,
-                                album,
-                                currentDateTime));
+                .map(album -> new ArticlePublication(article, album.orElse(null)))
+                .map(publication -> publication.publish(currentDateTime));
     }
 
     /**
@@ -66,11 +59,8 @@ public class ArticlePublicationService implements DomainService {
             Album.Id albumId,
             BusinessDateTime currentDateTime) {
         return albumExistenceService.findExisting(albumId)
-                .map(
-                        album -> attachVerified(
-                                article,
-                                album,
-                                currentDateTime));
+                .map(album -> new AlbumAttachment(article, album))
+                .map(attachment -> attachment.attach(currentDateTime));
     }
 
     private Uni<Optional<Album>> referencedAlbum(Article article) {
@@ -82,29 +72,5 @@ public class ArticlePublicationService implements DomainService {
     private Uni<Optional<Album>> findExistingAsOptional(Album.Id albumId) {
         return albumExistenceService.findExisting(albumId)
                 .map(Optional::of);
-    }
-
-    private static Article publishVerified(
-            Article article,
-            Optional<Album> referencedAlbum,
-            BusinessDateTime currentDateTime) {
-        return ArticlePublicationPolicy.publishable()
-                .verify(
-                        new ArticlePublicationPolicy.PublicationTarget(
-                                article,
-                                referencedAlbum.orElse(null)),
-                        target -> target.article().publish(currentDateTime))
-                .resolve(BusinessRuleViolationException::fromErrors);
-    }
-
-    private static Article attachVerified(
-            Article article,
-            Album album,
-            BusinessDateTime currentDateTime) {
-        return ArticlePublicationPolicy.attachable()
-                .verify(
-                        new ArticlePublicationPolicy.AttachmentTarget(article, album),
-                        target -> target.article().setAlbumId(target.album().id(), currentDateTime))
-                .resolve(BusinessRuleViolationException::fromErrors);
     }
 }
