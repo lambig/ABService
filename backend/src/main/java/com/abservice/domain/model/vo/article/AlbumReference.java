@@ -33,13 +33,13 @@ public sealed interface AlbumReference extends ValueObject<AlbumReference> {
             return Optional.empty();
         }
 
+        /*
+         * NO-COMPONENTS: 成分を持たないため、同じ状態であることは record の等価性と一致する。
+         * 他のバリアントが値透過なのは偶然であり、比較方法は各バリアントで個別に定める。
+         */
         @Override
         public boolean equivalentTo(AlbumReference other) {
-            return switch (other) {
-                case None ignored -> true;
-                case Referenced ignored -> false;
-                case Lost ignored -> false;
-            };
+            return equals(other);
         }
     }
 
