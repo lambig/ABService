@@ -64,6 +64,12 @@ aws ssm get-parameter --name "/<project>/<environment>/app/admin-api-key" \
 
 ローテーションは Parameter Store の値を更新し、backend を再デプロイ（再起動）して反映する。
 
+## DB接続情報（#117）
+
+RDSの接続先とパスワードはTerraformが Parameter Store へ保存する（`/<project>/<environment>/db/host` `.../port` `.../name` `.../username`、パスワードのみ SecureString の `.../password`）。`deploy.sh` がこれらを取得して backend コンテナへ `DB_URL` / `DB_REACTIVE_URL` / `DB_USERNAME` / `DB_PASSWORD` として渡す。
+
+backend の prod プロファイルはこれらに既定値を持たないため、注入が漏れた状態ではローカル向けの値にフォールバックせず起動に失敗する。
+
 ## アセット配信（#136）
 
 画像アセットは管理画面が backend から署名付きURLを受け取り、S3（`aws_s3_bucket.assets`）へ直接 PUT する。実体は backend／CloudFront を経由しないため、サイズ上限はアプリ側の検証（`abservice.assets.max-bytes`）だけで決まる。
