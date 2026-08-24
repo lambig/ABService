@@ -2,6 +2,7 @@ package com.abservice.application.query.album;
 
 import com.abservice.application.query.AudienceVisibility;
 import com.abservice.application.query.QueryService;
+import com.abservice.application.query.SortKeys;
 import com.abservice.application.query.album.model.AlbumView;
 import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;
 import com.abservice.infrastructure.persistence.datasource.AlbumExternalAudioRow;
@@ -47,7 +48,12 @@ public class ListAlbumsService implements QueryService<ListAlbumsQuery, ListAlbu
         final var panacheQuery = dataSource.pagedQuery(
                 page,
                 size,
-                AudienceVisibility.of(query.audience()));
+                AudienceVisibility.of(query.audience()),
+                SortKeys.resolve(
+                        AlbumSortKey.values(),
+                        query.sort(),
+                        query.direction(),
+                        query.audience()));
         return Uni.combine().all()
                 .unis(
                         panacheQuery.list(),

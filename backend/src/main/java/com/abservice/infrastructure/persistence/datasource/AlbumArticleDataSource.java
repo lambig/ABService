@@ -1,11 +1,11 @@
 package com.abservice.infrastructure.persistence.datasource;
 
+import com.abservice.application.query.SortSpec;
 import com.abservice.infrastructure.persistence.entity.AlbumArticleTableRecord;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
 import io.quarkus.hibernate.reactive.panache.PanacheQuery;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import io.quarkus.panache.common.Page;
-import io.quarkus.panache.common.Sort;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.hibernate.reactive.mutiny.Mutiny;
@@ -171,10 +171,15 @@ public class AlbumArticleDataSource implements PanacheRepositoryBase<AlbumArticl
      *            ページ番号（0始まり）
      * @param size
      *            1ページの件数
+     * @param sort
+     *            解決済みの並び順
      * @return ページングクエリ
      */
-    public PanacheQuery<AlbumArticleTableRecord> pagedQuery(int page, int size) {
-        return findAll(Sort.by("albumId"))
+    public PanacheQuery<AlbumArticleTableRecord> pagedQuery(
+            int page,
+            int size,
+            SortSpec sort) {
+        return findAll(SortOrders.of(sort))
                 .page(Page.of(page, size));
     }
 

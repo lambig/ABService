@@ -1,6 +1,8 @@
 package com.abservice.application.query.tune;
 
+import com.abservice.application.query.Audience;
 import com.abservice.application.query.QueryService;
+import com.abservice.application.query.SortKeys;
 import com.abservice.infrastructure.persistence.datasource.TuneDataSource;
 import com.abservice.infrastructure.persistence.entity.TuneTableRecord;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
@@ -33,7 +35,14 @@ public class ListTunesService implements QueryService<ListTunesQuery, ListTunesR
     public Uni<ListTunesResult> query(ListTunesQuery query) {
         final var page = clampPage(query.page());
         final var size = clampSize(query.size());
-        final var panacheQuery = dataSource.pagedQuery(page, size);
+        final var panacheQuery = dataSource.pagedQuery(
+                page,
+                size,
+                SortKeys.resolve(
+                        TuneSortKey.values(),
+                        query.sort(),
+                        query.direction(),
+                        Audience.ADMIN));
         return Uni.combine().all()
                 .unis(
                         panacheQuery.list(),

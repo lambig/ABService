@@ -1,10 +1,10 @@
 package com.abservice.infrastructure.persistence.datasource;
 
+import com.abservice.application.query.SortSpec;
 import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
 import io.quarkus.hibernate.reactive.panache.PanacheQuery;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import io.quarkus.panache.common.Page;
-import io.quarkus.panache.common.Sort;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.hibernate.reactive.mutiny.Mutiny;
@@ -181,18 +181,21 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleTableReco
      *            1ページの件数
      * @param visibility
      *            検索対象の公開状態スコープ
+     * @param sort
+     *            解決済みの並び順
      * @return ページングクエリ
      */
     public PanacheQuery<ArticleTableRecord> pagedQuery(
             int page,
             int size,
-            Visibility visibility) {
+            Visibility visibility,
+            SortSpec sort) {
         return (visibility == Visibility.PUBLIC_ONLY
                 ? find(
                         "isPublic = ?1",
-                        Sort.by("articleId"),
+                        SortOrders.of(sort),
                         true)
-                : findAll(Sort.by("articleId")))
+                : findAll(SortOrders.of(sort)))
                 .page(Page.of(page, size));
     }
 

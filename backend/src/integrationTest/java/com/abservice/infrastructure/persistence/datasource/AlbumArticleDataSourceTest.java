@@ -1,5 +1,6 @@
 package com.abservice.infrastructure.persistence.datasource;
 
+import com.abservice.application.query.SortSpec;
 import com.abservice.infrastructure.persistence.entity.AlbumAcquisitionChannelTableRecord;
 import com.abservice.infrastructure.persistence.entity.AlbumArticleTableRecord;
 import com.abservice.infrastructure.persistence.entity.AlbumDistributionTableRecord;
@@ -232,11 +233,17 @@ class AlbumArticleDataSourceTest {
         asserter.execute(() -> albumDataSource.persist(album3));
 
         asserter.execute(
-                () -> dataSource.pagedQuery(0, 1).count()
+                () -> dataSource.pagedQuery(
+                        0,
+                        1,
+                        SortSpec.defaultOrder()).count()
                         .invoke(total -> assertThat(total >= 3).isTrue()));
 
         asserter.execute(
-                () -> dataSource.pagedQuery(0, 2).list()
+                () -> dataSource.pagedQuery(
+                        0,
+                        2,
+                        SortSpec.defaultOrder()).list()
                         .invoke(page -> assertThat(page).hasSizeLessThanOrEqualTo(2)));
     }
 

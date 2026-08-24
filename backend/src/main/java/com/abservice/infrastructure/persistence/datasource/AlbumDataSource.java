@@ -1,12 +1,12 @@
 package com.abservice.infrastructure.persistence.datasource;
 
+import com.abservice.application.query.SortSpec;
 import com.abservice.infrastructure.persistence.entity.AlbumExternalAudioTableRecord;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
 import com.abservice.infrastructure.persistence.entity.TrackTableRecord;
 import io.quarkus.hibernate.reactive.panache.PanacheQuery;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import io.quarkus.panache.common.Page;
-import io.quarkus.panache.common.Sort;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -313,15 +313,18 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, 
      *            1ページの件数
      * @param visibility
      *            検索対象の公開状態スコープ
+     * @param sort
+     *            解決済みの並び順
      * @return ページングクエリ
      */
     public PanacheQuery<AlbumTableRecord> pagedQuery(
             int page,
             int size,
-            Visibility visibility) {
+            Visibility visibility,
+            SortSpec sort) {
         return (visibility == Visibility.PUBLIC_ONLY
-                ? find("publishedAt is not null", Sort.by("albumId"))
-                : findAll(Sort.by("albumId")))
+                ? find("publishedAt is not null", SortOrders.of(sort))
+                : findAll(SortOrders.of(sort)))
                 .page(Page.of(page, size));
     }
 

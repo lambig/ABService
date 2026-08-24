@@ -1,5 +1,6 @@
 package com.abservice.infrastructure.persistence.datasource;
 
+import com.abservice.application.query.SortSpec;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
 import com.abservice.infrastructure.persistence.entity.TrackTableRecord;
 import io.quarkus.test.TestReactiveTransaction;
@@ -230,14 +231,16 @@ class AlbumDataSourceTest {
                 () -> dataSource.pagedQuery(
                         0,
                         1,
-                        Visibility.ALL).count()
+                        Visibility.ALL,
+                        SortSpec.defaultOrder()).count()
                         .invoke(total -> assertThat(total >= 3).isTrue()));
 
         asserter.execute(
                 () -> dataSource.pagedQuery(
                         0,
                         2,
-                        Visibility.ALL).list()
+                        Visibility.ALL,
+                        SortSpec.defaultOrder()).list()
                         .invoke(page -> assertThat(page).hasSizeLessThanOrEqualTo(2)));
     }
 
@@ -256,7 +259,8 @@ class AlbumDataSourceTest {
                 () -> dataSource.pagedQuery(
                         0,
                         100,
-                        Visibility.PUBLIC_ONLY).list(),
+                        Visibility.PUBLIC_ONLY,
+                        SortSpec.defaultOrder()).list(),
                 found -> {
                     assertThat(found.stream().anyMatch(a -> a.getDomainId().equals(publishedEntity.getDomainId())))
                             .isTrue();

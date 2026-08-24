@@ -21,6 +21,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 
 /**
@@ -103,14 +104,25 @@ public class AlbumArticleQueryResource {
      *            ページ番号（0始まり。デフォルト0）
      * @param size
      *            1ページの件数（デフォルト20、最大100）
+     * @param sort
+     *            並び順のキー（未指定なら登録の新しい順）
+     * @param direction
+     *            並び順の向き（未指定ならキーごとの既定）
      * @return 200 とアルバム記事一覧
      */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public Uni<Response> list(
             @QueryParam("page") @DefaultValue("0") int page,
-            @QueryParam("size") @DefaultValue("20") int size) {
-        return listAlbumArticlesService.query(new ListAlbumArticlesQuery(page, size))
+            @QueryParam("size") @DefaultValue("20") int size,
+            @QueryParam("sort") @Nullable String sort,
+            @QueryParam("direction") @Nullable String direction) {
+        return listAlbumArticlesService.query(
+                new ListAlbumArticlesQuery(
+                        page,
+                        size,
+                        sort,
+                        direction))
                 .map(AlbumArticleQueryResource::toListResponse);
     }
 
