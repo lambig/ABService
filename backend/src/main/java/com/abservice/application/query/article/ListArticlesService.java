@@ -2,6 +2,7 @@ package com.abservice.application.query.article;
 
 import com.abservice.application.query.AudienceVisibility;
 import com.abservice.application.query.QueryService;
+import com.abservice.application.query.SortKeys;
 import com.abservice.infrastructure.persistence.datasource.ArticleDataSource;
 import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
@@ -38,7 +39,12 @@ public class ListArticlesService implements QueryService<ListArticlesQuery, List
         final var panacheQuery = dataSource.pagedQuery(
                 page,
                 size,
-                AudienceVisibility.of(query.audience()));
+                AudienceVisibility.of(query.audience()),
+                SortKeys.resolve(
+                        ArticleSortKey.values(),
+                        query.sort(),
+                        query.direction(),
+                        query.audience()));
         return Uni.combine().all()
                 .unis(
                         panacheQuery.list(),

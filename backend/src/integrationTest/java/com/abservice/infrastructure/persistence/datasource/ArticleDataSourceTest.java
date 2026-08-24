@@ -1,5 +1,6 @@
 package com.abservice.infrastructure.persistence.datasource;
 
+import com.abservice.application.query.SortSpec;
 import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
 import io.quarkus.test.TestReactiveTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -196,14 +197,16 @@ class ArticleDataSourceTest {
                 () -> dataSource.pagedQuery(
                         0,
                         1,
-                        Visibility.ALL).count()
+                        Visibility.ALL,
+                        SortSpec.defaultOrder()).count()
                         .invoke(total -> assertThat(total >= 3).isTrue()));
 
         asserter.execute(
                 () -> dataSource.pagedQuery(
                         0,
                         2,
-                        Visibility.ALL).list()
+                        Visibility.ALL,
+                        SortSpec.defaultOrder()).list()
                         .invoke(page -> assertThat(page).hasSizeLessThanOrEqualTo(2)));
     }
 
@@ -221,7 +224,8 @@ class ArticleDataSourceTest {
                 () -> dataSource.pagedQuery(
                         0,
                         100,
-                        Visibility.PUBLIC_ONLY).list(),
+                        Visibility.PUBLIC_ONLY,
+                        SortSpec.defaultOrder()).list(),
                 found -> {
                     assertThat(found.stream().anyMatch(a -> a.getDomainId().equals(publicEntity.getDomainId())))
                             .isTrue();

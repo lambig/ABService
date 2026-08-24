@@ -1,5 +1,6 @@
 package com.abservice.infrastructure.persistence.datasource;
 
+import com.abservice.application.query.SortSpec;
 import com.abservice.infrastructure.persistence.entity.TuneTableRecord;
 import io.quarkus.test.TestReactiveTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -142,11 +143,17 @@ class TuneDataSourceTest {
         asserter.execute(() -> dataSource.persist(entity3));
 
         asserter.execute(
-                () -> dataSource.pagedQuery(0, 1).count()
+                () -> dataSource.pagedQuery(
+                        0,
+                        1,
+                        SortSpec.defaultOrder()).count()
                         .invoke(total -> assertThat(total >= 3).isTrue()));
 
         asserter.execute(
-                () -> dataSource.pagedQuery(0, 2).list()
+                () -> dataSource.pagedQuery(
+                        0,
+                        2,
+                        SortSpec.defaultOrder()).list()
                         .invoke(page -> assertThat(page).hasSizeLessThanOrEqualTo(2)));
     }
 

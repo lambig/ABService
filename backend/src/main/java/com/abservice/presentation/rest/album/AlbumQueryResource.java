@@ -15,6 +15,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.jspecify.annotations.Nullable;
 
 /**
  * アルバム集約の公開向け Query REST リソース
@@ -68,18 +69,26 @@ public class AlbumQueryResource {
      *            ページ番号（0始まり。デフォルト0）
      * @param size
      *            1ページの件数（デフォルト20、最大100）
+     * @param sort
+     *            並び順のキー（未指定なら登録の新しい順）
+     * @param direction
+     *            並び順の向き（未指定ならキーごとの既定）
      * @return 200 とアルバム一覧
      */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public Uni<Response> list(
             @QueryParam("page") @DefaultValue("0") int page,
-            @QueryParam("size") @DefaultValue("20") int size) {
+            @QueryParam("size") @DefaultValue("20") int size,
+            @QueryParam("sort") @Nullable String sort,
+            @QueryParam("direction") @Nullable String direction) {
         return listAlbumsService.query(
                 new ListAlbumsQuery(
                         page,
                         size,
-                        Audience.PUBLIC))
+                        Audience.PUBLIC,
+                        sort,
+                        direction))
                 .map(AlbumQueryResponses::toListResponse);
     }
 }
