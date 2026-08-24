@@ -5,8 +5,8 @@ import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.repository.article.ArticleRepository;
+import com.abservice.domain.service.ArticlePublicationService;
 import com.abservice.domain.service.BusinessDateTimeProvider;
-import com.abservice.domain.service.PublicationConsistencyService;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -17,11 +17,10 @@ import lombok.AllArgsConstructor;
  * 記事公開コマンドサービス
  *
  * <p>
- * {@link Article#publish(com.abservice.domain.model.vo.common.BusinessDateTime)}
- * を呼び出すユースケースです。公開してよいかどうかの判定（アルバム参照の状態と参照先の公開状態）は集約をまたぐ不変条件のため
- * {@link PublicationConsistencyService} に委ね、本サービスは取得・適用・保存・出力の合成に徹します。未存在は
- * {@link EntityNotFoundException}（404）、公開できない状態は{@link BusinessRuleViolationException}（409）
- * になります。
+ * 公開という操作そのものは {@link ArticlePublicationService} が担います（参照先アルバムの状態に依存するため
+ * 記事単体では可否を判定できず、集約をまたぐ規則の適用と状態遷移を分離しない）。本サービスは取得・保存・出力の合成に徹し、
+ * 「検証してから公開する」という順序の知識を持ちません。未存在は{@link EntityNotFoundException}（404）、
+ * 規則違反は{@link BusinessRuleViolationException}（409）になります。
  * </p>
  */
 @ApplicationScoped
@@ -29,7 +28,7 @@ import lombok.AllArgsConstructor;
 public class PublishArticleService implements CommandService<PublishArticleInput, PublishArticleOutput> {
 
     private final ArticleRepository articleRepository;
-    private final PublicationConsistencyService publicationConsistencyService;
+    private final ArticlePublicationService articlePublicationService;
     private final BusinessDateTimeProvider businessDateTimeProvider;
 
     @WithTransaction
@@ -38,10 +37,7 @@ public class PublishArticleService implements CommandService<PublishArticleInput
         return input.asValidated()
                 .map(valid -> Article.Id.of(Objects.requireNonNull(valid.articleId())))
                 .flatMap(this::findExisting)
-                .flatMap(publicationConsistencyService::requirePublishable)
-                .flatMap(
-                        publishable -> businessDateTimeProvider.now()
-                                .map(publishable::publish))
+                .flatMap(this::publish)
                 .flatMap(articleRepository::save)
                 .map(PublishArticleService::toOutput);
     }
@@ -50,6 +46,11 @@ public class PublishArticleService implements CommandService<PublishArticleInput
         return articleRepository.findById(id)
                 .onItem().ifNull()
                 .failWith(() -> EntityNotFoundException.of("Article", id.value()));
+    }
+
+    private Uni<Article> publish(Article article) {
+        return businessDateTimeProvider.now()
+                .flatMap(now -> articlePublicationService.publish(article, now));
     }
 
     private static PublishArticleOutput toOutput(Article article) {
