@@ -4,6 +4,7 @@ import static java.util.function.Predicate.not;
 
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.AggregateFactory;
+import com.abservice.domain.model.CrossAggregateTransition;
 import com.abservice.domain.model.DomainConstructor;
 import com.abservice.domain.model.DomainFactory;
 import com.abservice.domain.model.EntityId;
@@ -286,6 +287,7 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
      *            現在日時
      * @return 更新されたArticle
      */
+    @CrossAggregateTransition
     public @NonNull Article publish(@NonNull BusinessDateTime currentDateTime) {
         return Article.factory(
                 id,
@@ -344,6 +346,7 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
      *            現在日時
      * @return 更新されたArticle
      */
+    @CrossAggregateTransition
     public @NonNull Article setAlbumId(Album.@NonNull Id newAlbumId, @NonNull BusinessDateTime currentDateTime) {
         Policy.<Article>of(
                 a -> a.articleType() == ArticleType.ALBUM,

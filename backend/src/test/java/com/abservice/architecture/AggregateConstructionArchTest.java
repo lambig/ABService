@@ -1,13 +1,19 @@
 package com.abservice.architecture;
 
 import static com.tngtech.archunit.core.domain.properties.CanBeAnnotated.Predicates.annotatedWith;
+import static java.util.function.Predicate.not;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.constructors;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 
 import com.abservice.domain.model.AggregateFactory;
+import com.abservice.domain.model.CrossAggregateOperation;
+import com.abservice.domain.model.CrossAggregateTransition;
+import com.tngtech.archunit.core.domain.JavaAccess;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaConstructor;
+import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -46,6 +52,44 @@ class AggregateConstructionArchTest {
                         "Aggregate/Entity の private な全項目コンストラクタは @AggregateFactory 付きメソッドからのみ呼び出せる"
                                 + "（ネストされた Stub 自身は制約を持たないdumbな入れ物のため対象外）")
                 .check(classes);
+    }
+
+    @ArchTest
+    void crossAggregateTransitionsShouldOnlyBeCalledByOperationObjects(JavaClasses classes) {
+        methods().that().areAnnotatedWith(CrossAggregateTransition.class)
+                .should(onlyBeReachedFromCrossAggregateOperations())
+                .as(
+                        "参照先集約の状態に依存する遷移（@CrossAggregateTransition）は、参照先を伴って構築される"
+                                + "操作オブジェクト（@CrossAggregateOperation）からのみ呼び出せる"
+                                + "（参照先を見ずに遷移する経路を構築の時点で無くす、#176）")
+                .check(classes);
+    }
+
+    /*
+     * METHOD-REFERENCE: onlyBeCalled() はメソッド参照（Foo::bar）を呼び出しとして数えないため、参照経由で
+     * 迂回できてしまう。呼び出しと参照の両方を含む getAccessesToSelf() を origin として検査する。
+     */
+    private static ArchCondition<JavaMethod> onlyBeReachedFromCrossAggregateOperations() {
+        return new ArchCondition<>("only be reached from cross-aggregate operation objects") {
+            @Override
+            public void check(JavaMethod method, ConditionEvents events) {
+                method.getAccessesToSelf().stream()
+                        .filter(not(AggregateConstructionArchTest::originatesInOperationObject))
+                        .forEach(access -> events.add(violation(method, access)));
+            }
+        };
+    }
+
+    private static boolean originatesInOperationObject(JavaAccess<?> access) {
+        return access.getOriginOwner().isAnnotatedWith(CrossAggregateOperation.class);
+    }
+
+    private static ConditionEvent violation(JavaMethod method, JavaAccess<?> access) {
+        return SimpleConditionEvent.violated(
+                method,
+                "%s は %s から呼ばれている（ドメインサービス以外）".formatted(
+                        method.getFullName(),
+                        access.getOriginOwner().getName()));
     }
 
     @ArchTest

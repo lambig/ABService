@@ -14,7 +14,7 @@ ABService のアーキテクチャ制約・コーディング規約は多層の�
 
 | 手段 | 実体 | 主な強制内容 |
 |---|---|---|
-| ArchUnit | `backend/src/test/java/com/abservice/architecture/`（`LayeredArchitectureTest` / `TestConventionsArchTest` / `AggregateConstructionArchTest`） | レイヤ依存方向、`@Entity` 配置/命名、`@Transactional` 禁止、Repository/ApplicationService の `Uni` 返却契約、domain の `java.time`/`Uni`/Provider 禁止、コンストラクタ可視性、フィールド final、`@DisplayName` 必須、Aggregate/Entity の private 全項目コンストラクタは `@AggregateFactory` 付きメソッド以外から呼べない（Always Valid、#101）、Command REST リソース（`*CommandResource`）と管理向け Query REST リソース（`*AdminQueryResource`）は `@RolesAllowed` 必須（#116） |
+| ArchUnit | `backend/src/test/java/com/abservice/architecture/`（`LayeredArchitectureTest` / `TestConventionsArchTest` / `AggregateConstructionArchTest`） | レイヤ依存方向、`@Entity` 配置/命名、`@Transactional` 禁止、Repository/ApplicationService の `Uni` 返却契約、domain の `java.time`/`Uni`/Provider 禁止、コンストラクタ可視性、フィールド final、`@DisplayName` 必須、Aggregate/Entity の private 全項目コンストラクタは `@AggregateFactory` 付きメソッド以外から呼べない（Always Valid、#101）、Command REST リソース（`*CommandResource`）と管理向け Query REST リソース（`*AdminQueryResource`）は `@RolesAllowed` 必須（#116）、参照先集約の状態に依存する遷移（`@CrossAggregateTransition`）は参照先を伴って構築される操作オブジェクト（`@CrossAggregateOperation`）以外から呼べない（呼び出し・メソッド参照の双方を検査、#176） |
 | Checkstyle | `backend/config/checkstyle/`（+ `suppressions.xml`・`checkstyle-xpath-suppressions.xml`） | domain の try-catch禁止、production全域の可変コレクション直接生成禁止（`infrastructure.persistence` 境界のみ例外）、中置論理演算子禁止、全ローカル final、JUnit assertion 禁止（AssertJ 統一）、`@SuppressWarnings` 理由必須、`domain.model` 配下はクラス・フィールド・publicメソッドへのJavadoc必須（`JavadocVariable`/`JavadocType`/`JavadocMethod`。privateメソッドは対象外）、production全域でインラインコメント（`//`）は大文字+ハイフン＋コロンのprefixを伴う"why not"のみ許可（`InlineCommentRequiresWhyNotPrefix`。一般的な理由=whyはPMD/ArchUnit側のJavadocへ、#99。詳細は§8）、Always Validパターンの全項目構築経路（`@DomainConstructor`/`@DomainFactory`）は`SuppressionXpathFilter`で`ParameterNumber`を抑止し個別の理由コメントを不要化（#103） |
 | PMD | `backend/config/pmd/ruleset.xml` | `if` 文全廃、VO/record の検証必須、FQN 禁止、`if` 値 return / `switch` 文禁止、可変コレクタ（`Collectors.toList/toSet/toMap`）・Collection/Map変異呼び出し禁止（型解決で判定、`infrastructure.persistence` 境界のみ例外） |
 | NullAway / ErrorProne | `backend/build.gradle` | `@NullMarked`（package-info）＋ `@Nullable` によるコンパイル時 null 安全。`main` 全体（`..persistence.entity..` は Hibernate populate 体のため対象外）を ERROR で強制。設計・除外方針は #44 |
@@ -109,6 +109,20 @@ why not コメントは大文字+ハイフンの語＋コロンのプレフィ�
 - point-free・カリー化を優先する（型を先に固定する `asType(型)`、`having(g).that(p)`）
 
 参照実装: 述語合成は各 `Policy` と VO の `equivalentTo`、文字列整形は `domain.model.vo.album.Isdn`。
+
+---
+
+## 10. 名前は処理と揃える（取得と検証を混ぜない）
+
+- **`find*` は取得**。呼び出し側が戻り値を使うことを意味する。戻り値を捨てて検証目的だけで呼ぶなら、それは取得ではない
+- **`require*` は検証**。満たさなければ失敗させる意図を名前に出す。取得を伴う必要がなければ戻り値も返さない
+- **判定の名前は判定している内容と一致させる**。分岐の理由が増えたら名前を広げる（例: 公開状態だけを見ていたメソッドに参照失効の判定を足したなら、名前は「公開状態の確認」ではなくなる）
+- **集約をまたぐ操作は「試み」をオブジェクトにする**。参照先を伴って構築し、規則の判定（`asValidated`）と規則を満たすときだけの遷移を自身に持たせる。規則は値だけで評価できる `Policy` としてその内側に閉じ、呼び出し側が検証対象を組み立てない。参照先を引く責務（I/O）はドメインサービスが持ち、操作オブジェクトを組み立てて実行する
+- **操作オブジェクトはドメインサービスのネスト型に置く**。永続化されず識別子も持たず、そのサービスの中でだけ意味を持つアドホックなモデルであり、アプリケーション全体のモデル（集約・VO）と同じ場所に置かない
+- **「検証してから遷移を呼ぶ」順序を呼び出し側に持たせない**。参照先の状態に依存する遷移は `@CrossAggregateTransition` を付け、`@CrossAggregateOperation` の操作オブジェクト以外から呼べないことを ArchUnit で強制する（参照先を渡さなければ構築できないため、順序を守り忘れる経路が構造上なくなる）
+- コマンドサービスは取得・保存・出力の合成に徹し、集約単体で決まる制約（記事種別など）はコマンドサービスかドメインモデルに残す
+
+参照実装: `domain.service.ArticlePublicationService`（参照先の取得と、ネストした操作オブジェクト `ArticlePublication` / `AlbumAttachment` による規則と遷移）、`domain.service.AlbumExistenceService`（存在確認のみ）。
 
 ---
 

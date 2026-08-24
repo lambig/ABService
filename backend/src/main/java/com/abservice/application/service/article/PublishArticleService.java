@@ -3,11 +3,9 @@ package com.abservice.application.service.article;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.exception.EntityNotFoundException;
-import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
-import com.abservice.domain.model.vo.article.AlbumReference;
 import com.abservice.domain.repository.article.ArticleRepository;
-import com.abservice.domain.service.AlbumExistenceService;
+import com.abservice.domain.service.ArticlePublicationService;
 import com.abservice.domain.service.BusinessDateTimeProvider;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -19,12 +17,10 @@ import lombok.AllArgsConstructor;
  * 記事公開コマンドサービス
  *
  * <p>
- * {@link Article#publish(com.abservice.domain.model.vo.common.BusinessDateTime)}
- * を呼び出すユースケースです。対象記事がアルバム記事（{@code albumId}が非null）の場合、
- * {@link AlbumExistenceService#findPublic(Album.Id)} を介して参照先の {@link Album}
- * が公開中であることを確認してから公開します（非公開Albumを参照する記事は公開できない、
- * 集約をまたぐ不変条件のためドメインサービスで検証）。未存在は{@link EntityNotFoundException}（404）、
- * 非公開は{@link BusinessRuleViolationException}（409）とします。
+ * 公開という操作そのものは {@link ArticlePublicationService} が担います（参照先アルバムの状態に依存するため
+ * 記事単体では可否を判定できず、集約をまたぐ規則の適用と状態遷移を分離しない）。本サービスは取得・保存・出力の合成に徹し、
+ * 「検証してから公開する」という順序の知識を持ちません。未存在は{@link EntityNotFoundException}（404）、
+ * 規則違反は{@link BusinessRuleViolationException}（409）になります。
  * </p>
  */
 @ApplicationScoped
@@ -32,7 +28,7 @@ import lombok.AllArgsConstructor;
 public class PublishArticleService implements CommandService<PublishArticleInput, PublishArticleOutput> {
 
     private final ArticleRepository articleRepository;
-    private final AlbumExistenceService albumExistenceService;
+    private final ArticlePublicationService articlePublicationService;
     private final BusinessDateTimeProvider businessDateTimeProvider;
 
     @WithTransaction
@@ -41,10 +37,7 @@ public class PublishArticleService implements CommandService<PublishArticleInput
         return input.asValidated()
                 .map(valid -> Article.Id.of(Objects.requireNonNull(valid.articleId())))
                 .flatMap(this::findExisting)
-                .flatMap(this::verifyReferencedAlbumIsPublished)
-                .flatMap(
-                        existing -> businessDateTimeProvider.now()
-                                .map(existing::publish))
+                .flatMap(this::publish)
                 .flatMap(articleRepository::save)
                 .map(PublishArticleService::toOutput);
     }
@@ -55,20 +48,9 @@ public class PublishArticleService implements CommandService<PublishArticleInput
                 .failWith(() -> EntityNotFoundException.of("Article", id.value()));
     }
 
-    private Uni<Article> verifyReferencedAlbumIsPublished(Article article) {
-        return switch (article.albumReference()) {
-            case AlbumReference.Referenced referenced -> albumExistenceService.findPublic(referenced.albumId())
-                    .replaceWith(article);
-            case AlbumReference.Lost lost -> Uni.createFrom()
-                    .failure(() -> albumReferenceLost(lost));
-            case AlbumReference.None ignored -> Uni.createFrom().item(article);
-        };
-    }
-
-    private static BusinessRuleViolationException albumReferenceLost(AlbumReference.Lost lost) {
-        return new BusinessRuleViolationException(
-                "Cannot publish an article whose referenced album (%s) no longer exists"
-                        .formatted(lost.formerAlbumId().value()));
+    private Uni<Article> publish(Article article) {
+        return businessDateTimeProvider.now()
+                .flatMap(now -> articlePublicationService.publish(article, now));
     }
 
     private static PublishArticleOutput toOutput(Article article) {

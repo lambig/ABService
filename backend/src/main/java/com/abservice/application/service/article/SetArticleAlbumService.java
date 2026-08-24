@@ -7,7 +7,7 @@ import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.repository.article.ArticleRepository;
-import com.abservice.domain.service.AlbumExistenceService;
+import com.abservice.domain.service.ArticleAlbumAttachmentService;
 import com.abservice.domain.service.BusinessDateTimeProvider;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -20,9 +20,9 @@ import lombok.AllArgsConstructor;
  *
  * <p>
  * {@link Article#setAlbumId(Album.Id, com.abservice.domain.model.vo.common.BusinessDateTime)}
- * を呼び出すユースケースです。参照先の{@link Album}が存在することを{@link AlbumExistenceService}
- * で確認してから紐付けます（Album公開状態は問わない。公開時の制約は{@code PublishArticleService}が担う）。
- * 対象記事の種別が{@link ArticleType#ALBUM}でない場合は{@link BusinessRuleViolationException}（409）とします。
+ * を呼び出すユースケースです。紐付けという操作そのものは{@link ArticleAlbumAttachmentService}が担います（参照先アルバムの
+ * 状態に依存するため記事単体では可否を判定できない）。対象記事の種別が{@link ArticleType#ALBUM}でない場合は記事単体で
+ * 決まる制約のため本サービスで{@link BusinessRuleViolationException}（409）とします。
  * </p>
  */
 @ApplicationScoped
@@ -30,7 +30,7 @@ import lombok.AllArgsConstructor;
 public class SetArticleAlbumService implements CommandService<SetArticleAlbumInput, SetArticleAlbumOutput> {
 
     private final ArticleRepository articleRepository;
-    private final AlbumExistenceService albumExistenceService;
+    private final ArticleAlbumAttachmentService articleAlbumAttachmentService;
     private final BusinessDateTimeProvider businessDateTimeProvider;
 
     @WithTransaction
@@ -40,12 +40,18 @@ public class SetArticleAlbumService implements CommandService<SetArticleAlbumInp
                 .map(SetArticleAlbumService::toIds)
                 .flatMap(
                         ids -> findExistingAlbumArticle(ids.articleId())
-                                .flatMap(
-                                        article -> albumExistenceService.findExisting(ids.albumId())
-                                                .replaceWith(businessDateTimeProvider.now())
-                                                .map(now -> article.setAlbumId(ids.albumId(), now)))
+                                .flatMap(article -> attachAlbum(article, ids.albumId()))
                                 .flatMap(articleRepository::save)
                                 .map(saved -> toOutput(saved, ids.albumId())));
+    }
+
+    private Uni<Article> attachAlbum(Article article, Album.Id albumId) {
+        return businessDateTimeProvider.now()
+                .flatMap(
+                        now -> articleAlbumAttachmentService.attachAlbum(
+                                article,
+                                albumId,
+                                now));
     }
 
     private record Ids(Article.Id articleId, Album.Id albumId) {
