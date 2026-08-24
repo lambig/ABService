@@ -125,3 +125,15 @@
 **なぜ**: 配信URLを保存すると、CDNのパス構成変更やドメインの差異（ローカル/本番）で保存データが無効になる。また実際のドメイン名をDBに持ち込まない方針とも整合する。OG画像など絶対URLが必要な用途は、公開サイトが自身のサイトURL設定から組み立てられる。
 
 **実体**: `domain/model/vo/common/AssetKey`、`application/query/album/AlbumViewMapper`、`abservice.assets.public-base-path`。
+
+---
+
+## 10. 観測性はアプリ固有の実装を持たず拡張の標準経路に載せる
+
+**判断**: ヘルスチェックは自前のリソースクラスを持たず `quarkus-smallrye-health` の `/q/health/{live,ready}` に委ね、readiness のDB接続確認も datasource 拡張の自動登録に任せる。メトリクスは micrometer が `/q/metrics` に Prometheus 形式で公開する。いずれも `/q/*` のため本番で外部から到達しない。ログは prod のみ JSON（1レコード1行）で標準出力へ出す。
+
+**なぜ**: 手書きの `/api/v1/health` は固定文字列を返すだけで、依存先が落ちても UP を返す（＝監視として機能しない）状態だった。拡張の自動登録に載せれば、データソースを増やしたときも検査対象が追随する。公開APIのパス（`/api/v1/**`）に監視用のエンドポイントを混ぜないことで、CloudFront が backend へ流す経路を `/api/*` に限ったまま監視を内側に閉じられる。ログのJSON化を prod 限定にするのは、収集側（CloudWatch Logs）が構造化を求める一方、開発中はプレーン出力の可読性が要るため。
+
+**トレードオフ**: 監視は稼働環境の内側からの到達を前提にする（外部からの合成監視には公開エンドポイントを使う）。収集・アラームはAWS設定を要するため #168 で扱う。
+
+**実体**: `build.gradle`（`quarkus-smallrye-health` / `quarkus-micrometer-registry-prometheus` / `quarkus-logging-json`）、`application.properties`（`%prod` のログ形式）、`docker-compose.prod.yml`（readiness を使う healthcheck）。

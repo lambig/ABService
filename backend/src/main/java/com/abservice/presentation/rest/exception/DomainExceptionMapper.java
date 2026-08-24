@@ -25,14 +25,11 @@ import java.util.List;
 @Provider
 public class DomainExceptionMapper implements ExceptionMapper<DomainException> {
 
-    /** application/problem+json（RFC 9457） */
-    private static final String PROBLEM_JSON = "application/problem+json";
-
     @Override
     public Response toResponse(DomainException exception) {
         final ProblemDetail problem = toProblem(exception);
         return Response.status(problem.status())
-                .type(MediaType.valueOf(PROBLEM_JSON))
+                .type(MediaType.valueOf(ProblemDetail.MEDIA_TYPE))
                 .entity(problem)
                 .build();
     }
