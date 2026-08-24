@@ -11,6 +11,8 @@ import com.abservice.domain.model.aggregate.Aggregate;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.entity.article.ArticleTag;
 import com.abservice.domain.model.policy.Policy;
+import com.abservice.domain.model.vo.article.AlbumReference;
+import com.abservice.domain.model.vo.article.AlbumReferenceLostReason;
 import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.model.vo.article.MarkupContent;
@@ -50,8 +52,9 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
     /** 記事種別 */
     @NonNull
     private final ArticleType articleType;
-    /** アルバム記事の場合のみ参照するAlbum ID */
-    private final Album.@Nullable Id albumId;
+    /** アルバムへの参照（参照なし・有効な参照・失効した参照のいずれか） */
+    @NonNull
+    private final AlbumReference albumReference;
     /** 記事タイトル */
     @NonNull
     private final ArticleTitle title;
@@ -74,13 +77,13 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
     private final List<ArticleTag> tags;
 
     @DomainConstructor
-    private Article(@NonNull Id id, @NonNull ArticleType articleType, Album.@Nullable Id albumId,
+    private Article(@NonNull Id id, @NonNull ArticleType articleType, @NonNull AlbumReference albumReference,
             @NonNull ArticleTitle title, @Nullable MarkupContent body, @Nullable String introShort,
             @Nullable BusinessDateTime publishedAt, @Nullable BusinessDateTime updatedAtBusiness,
             boolean publicFlag, @NonNull List<ArticleTag> tags) {
         this.id = id;
         this.articleType = articleType;
-        this.albumId = albumId;
+        this.albumReference = albumReference;
         this.title = title;
         this.body = body;
         this.introShort = introShort;
@@ -92,7 +95,7 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
 
     @DomainFactory
     private static @NonNull Article factory(@Nullable Id id, @Nullable ArticleType articleType,
-            Album.@Nullable Id albumId, @Nullable ArticleTitle title, @Nullable MarkupContent body,
+            @Nullable AlbumReference albumReference, @Nullable ArticleTitle title, @Nullable MarkupContent body,
             @Nullable String introShort, @Nullable BusinessDateTime publishedAt,
             @Nullable BusinessDateTime updatedAtBusiness, boolean publicFlag, @Nullable List<ArticleTag> tags) {
         return Policy.<Stub>all(
@@ -106,7 +109,7 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
                         new Stub(
                                 id,
                                 articleType,
-                                albumId,
+                                albumReference,
                                 title,
                                 body,
                                 introShort,
@@ -119,14 +122,15 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
     }
 
     @NullUnmarked
-    private record Stub(Id id, ArticleType articleType, Album.Id albumId, ArticleTitle title,
+    private record Stub(Id id, ArticleType articleType, AlbumReference albumReference, ArticleTitle title,
             MarkupContent body, String introShort, BusinessDateTime publishedAt,
             BusinessDateTime updatedAtBusiness, boolean publicFlag, List<ArticleTag> tags) {
 
         @AggregateFactory
         @NonNull
         Article asArticle() {
-            return new Article(Objects.requireNonNull(id), Objects.requireNonNull(articleType), albumId(),
+            return new Article(Objects.requireNonNull(id), Objects.requireNonNull(articleType),
+                    Objects.requireNonNullElseGet(albumReference(), AlbumReference::none),
                     Objects.requireNonNull(title), body(), introShort(), publishedAt(), updatedAtBusiness(),
                     publicFlag(), Objects.requireNonNull(tags));
         }
@@ -152,7 +156,7 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
         return Article.factory(
                 Id.generate(),
                 articleType,
-                albumId,
+                AlbumReference.of(albumId),
                 title,
                 body,
                 introShort,
@@ -169,8 +173,8 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
      *            記事ID
      * @param articleType
      *            記事種別
-     * @param albumId
-     *            アルバムID（nullable）
+     * @param albumReference
+     *            アルバム参照（参照なし・有効な参照・失効した参照のいずれか）
      * @param title
      *            タイトル
      * @param body
@@ -189,13 +193,13 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
      */
     @DomainFactory
     public static @NonNull Article reconstruct(@NonNull Id id, @NonNull ArticleType articleType,
-            Album.@Nullable Id albumId, @NonNull ArticleTitle title, @Nullable MarkupContent body,
+            @NonNull AlbumReference albumReference, @NonNull ArticleTitle title, @Nullable MarkupContent body,
             @Nullable String introShort, @Nullable BusinessDateTime publishedAt,
             @Nullable BusinessDateTime updatedAtBusiness, boolean publicFlag, @NonNull List<ArticleTag> tags) {
         return Article.factory(
                 id,
                 articleType,
-                albumId,
+                albumReference,
                 title,
                 body,
                 introShort,
@@ -218,7 +222,7 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
         return Article.factory(
                 id,
                 articleType,
-                albumId,
+                albumReference,
                 newTitle,
                 body,
                 introShort,
@@ -241,7 +245,7 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
         return Article.factory(
                 id,
                 articleType,
-                albumId,
+                albumReference,
                 title,
                 newBody,
                 introShort,
@@ -265,7 +269,7 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
         return Article.factory(
                 id,
                 articleType,
-                albumId,
+                albumReference,
                 title,
                 body,
                 newIntroShort,
@@ -286,7 +290,7 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
         return Article.factory(
                 id,
                 articleType,
-                albumId,
+                albumReference,
                 title,
                 body,
                 introShort,
@@ -312,7 +316,7 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
         return Article.factory(
                 id,
                 articleType,
-                albumId,
+                albumReference,
                 title,
                 body,
                 introShort,
@@ -350,7 +354,7 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
         return Article.factory(
                 id,
                 articleType,
-                newAlbumId,
+                AlbumReference.of(newAlbumId),
                 title,
                 body,
                 introShort,
@@ -374,9 +378,7 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
         return Article.factory(
                 id,
                 newArticleType,
-                newArticleType == ArticleType.ALBUM
-                        ? albumId
-                        : null,
+                resolveReferenceFor(newArticleType),
                 title,
                 body,
                 introShort,
@@ -384,6 +386,64 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
                 currentDateTime,
                 publicFlag,
                 tags);
+    }
+
+    /**
+     * 参照先アルバムの削除により、アルバム参照を失効させます。
+     *
+     * <p>
+     * 有効な参照を持つ場合のみ失効状態へ遷移し、旧アルバムID・失効日時・理由を残します。参照を持たない場合や既に失効している場合は
+     * 現在の状態を保ちます。記事種別は変更しません。
+     * </p>
+     *
+     * @param reason
+     *            失効の理由
+     * @param currentDateTime
+     *            現在日時
+     * @return 更新されたArticle
+     */
+    public @NonNull Article loseAlbumReference(@NonNull AlbumReferenceLostReason reason,
+            @NonNull BusinessDateTime currentDateTime) {
+        return albumReference.activeAlbumId()
+                .map(
+                        activeId -> withAlbumReference(
+                                new AlbumReference.Lost(
+                                        activeId,
+                                        currentDateTime,
+                                        reason),
+                                currentDateTime))
+                .orElse(this);
+    }
+
+    private @NonNull Article withAlbumReference(@NonNull AlbumReference newAlbumReference,
+            @NonNull BusinessDateTime currentDateTime) {
+        return Article.factory(
+                id,
+                articleType,
+                newAlbumReference,
+                title,
+                body,
+                introShort,
+                publishedAt,
+                currentDateTime,
+                publicFlag,
+                tags);
+    }
+
+    /*
+     * NULL-TOLERANT: 記事種別のnull検証はfactoryのPolicyが担うため、ここでnullを弾くと検証エラーが
+     * NullPointerExceptionに化ける。参照を落とす側（OTHER相当）へ寄せてfactoryへ渡す。
+     */
+    private @NonNull AlbumReference resolveReferenceFor(@Nullable ArticleType newArticleType) {
+        return switch (orReferenceDropping(newArticleType)) {
+            case ALBUM -> albumReference;
+            case NOTE, NEWS, EVENT, OTHER -> AlbumReference.none();
+        };
+    }
+
+    private static @NonNull ArticleType orReferenceDropping(@Nullable ArticleType articleType) {
+        return Optional.ofNullable(articleType)
+                .orElse(ArticleType.OTHER);
     }
 
     /**
@@ -412,7 +472,7 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
         return Article.factory(
                 id,
                 articleType,
-                albumId,
+                albumReference,
                 title,
                 body,
                 introShort,
@@ -439,7 +499,7 @@ public final class Article implements Aggregate<Article, Article.@NonNull Id> {
         return Article.factory(
                 id,
                 articleType,
-                albumId,
+                albumReference,
                 title,
                 body,
                 introShort,

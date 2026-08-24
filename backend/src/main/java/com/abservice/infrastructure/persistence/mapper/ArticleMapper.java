@@ -5,6 +5,8 @@ import static com.abservice.lib.Iterables.toList;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.entity.article.ArticleTag;
+import com.abservice.domain.model.vo.article.AlbumReference;
+import com.abservice.domain.model.vo.article.AlbumReferenceLostReason;
 import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.model.vo.article.MarkupContent;
@@ -16,6 +18,7 @@ import com.abservice.infrastructure.persistence.entity.ArticleTagLinkTableRecord
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -42,9 +45,7 @@ public final class ArticleMapper {
         return Article.reconstruct(
                 new Article.Id(entity.getDomainId()),
                 ArticleType.valueOf(entity.getArticleType()),
-                Optional.ofNullable(entity.getAlbumId())
-                        .map(Album.Id::new)
-                        .orElse(null),
+                toAlbumReference(entity),
                 ArticleTitle.of(entity.getTitle()),
                 createMarkupContent(entity.getBody(), entity.getBodyFormat()),
                 entity.getIntroShort(),
@@ -94,6 +95,32 @@ public final class ArticleMapper {
                 .setName(tag.getName());
     }
 
+    private static AlbumReference toAlbumReference(ArticleTableRecord entity) {
+        return lostAlbumReference(entity)
+                .orElseGet(
+                        () -> AlbumReference.of(
+                                Optional.ofNullable(entity.getAlbumId())
+                                        .map(Album.Id::new)
+                                        .orElse(null)));
+    }
+
+    private static Optional<AlbumReference> lostAlbumReference(ArticleTableRecord entity) {
+        return Optional.ofNullable(entity.getFormerAlbumId())
+                .map(Album.Id::new)
+                .flatMap(formerId -> toLost(entity, formerId));
+    }
+
+    private static Optional<AlbumReference> toLost(ArticleTableRecord entity, Album.Id formerAlbumId) {
+        return Optional.ofNullable(entity.getAlbumReferenceLostAt())
+                .map(BusinessDateTime::of)
+                .map(
+                        lostAt -> new AlbumReference.Lost(
+                                formerAlbumId,
+                                lostAt,
+                                AlbumReferenceLostReason.valueOf(
+                                        Objects.requireNonNull(entity.getAlbumReferenceLostReason()))));
+    }
+
     private static @Nullable BusinessDateTime toBusinessDateTime(@Nullable Instant instant) {
         return Optional.ofNullable(instant)
                 .map(BusinessDateTime::of)
@@ -119,8 +146,20 @@ public final class ArticleMapper {
                 .setDomainId(article.id().value())
                 .setArticleType(article.articleType().name())
                 .setAlbumId(
-                        Optional.ofNullable(article.albumId())
+                        article.albumReference().activeAlbumId()
                                 .map(Album.Id::value)
+                                .orElse(null))
+                .setFormerAlbumId(
+                        article.albumReference().lost()
+                                .map(lost -> lost.formerAlbumId().value())
+                                .orElse(null))
+                .setAlbumReferenceLostAt(
+                        article.albumReference().lost()
+                                .map(lost -> lost.lostAt().value())
+                                .orElse(null))
+                .setAlbumReferenceLostReason(
+                        article.albumReference().lost()
+                                .map(lost -> lost.reason().name())
                                 .orElse(null))
                 .setTitle(article.title().value())
                 .setBody(

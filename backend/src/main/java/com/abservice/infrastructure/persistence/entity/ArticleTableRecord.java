@@ -49,6 +49,15 @@ public class ArticleTableRecord extends AuditableTableRecord<ArticleTableRecord>
     @Column(name = "album_id")
     private String albumId;
 
+    @Column(name = "former_album_id")
+    private String formerAlbumId;
+
+    @Column(name = "album_reference_lost_at")
+    private Instant albumReferenceLostAt;
+
+    @Column(name = "album_reference_lost_reason", length = 50)
+    private String albumReferenceLostReason;
+
     @Column(name = "title", nullable = false, length = 500)
     private String title;
 

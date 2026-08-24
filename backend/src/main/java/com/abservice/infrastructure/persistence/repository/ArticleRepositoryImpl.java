@@ -83,6 +83,9 @@ public class ArticleRepositoryImpl implements ArticleRepository {
     private static ArticleTableRecord copyArticleScalarFields(ArticleTableRecord target, ArticleTableRecord source) {
         target.setArticleType(source.getArticleType());
         target.setAlbumId(source.getAlbumId());
+        target.setFormerAlbumId(source.getFormerAlbumId());
+        target.setAlbumReferenceLostAt(source.getAlbumReferenceLostAt());
+        target.setAlbumReferenceLostReason(source.getAlbumReferenceLostReason());
         target.setTitle(source.getTitle());
         target.setBody(source.getBody());
         target.setBodyFormat(source.getBodyFormat());

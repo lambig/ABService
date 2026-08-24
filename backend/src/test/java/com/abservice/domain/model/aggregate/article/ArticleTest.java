@@ -46,7 +46,7 @@ class ArticleTest {
             assertThat(article).isNotNull();
             assertThat(article.id()).isNotNull();
             assertThat(article.articleType()).isEqualTo(articleType);
-            assertThat(article.albumId()).isNull();
+            assertThat(article.albumReference().activeAlbumId()).isEmpty();
             assertThat(article.title()).isEqualTo(title);
             assertThat(article.body()).isEqualTo(body);
             assertThat(article.introShort()).isNull();
@@ -76,7 +76,7 @@ class ArticleTest {
 
             // Assert
             assertThat(article.articleType()).isEqualTo(ArticleType.ALBUM);
-            assertThat(article.albumId()).isEqualTo(albumId);
+            assertThat(article.albumReference().activeAlbumId()).contains(albumId);
             assertThat(article.introShort()).isEqualTo(introShort);
         }
 
@@ -256,7 +256,7 @@ class ArticleTest {
             final var updated = article.setAlbumId(albumId, currentDateTime);
 
             // Assert
-            assertThat(updated.albumId()).isEqualTo(albumId);
+            assertThat(updated.albumReference().activeAlbumId()).contains(albumId);
             assertThat(updated.updatedAtBusiness()).isNotNull();
         }
 
@@ -324,7 +324,7 @@ class ArticleTest {
 
             // Assert
             assertThat(updated.articleType()).isEqualTo(ArticleType.NOTE);
-            assertThat(updated.albumId()).isNull();
+            assertThat(updated.albumReference().activeAlbumId()).isEmpty();
         }
 
         @Test
