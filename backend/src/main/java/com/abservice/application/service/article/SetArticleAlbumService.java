@@ -7,8 +7,8 @@ import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.repository.article.ArticleRepository;
-import com.abservice.domain.service.AlbumExistenceService;
 import com.abservice.domain.service.BusinessDateTimeProvider;
+import com.abservice.domain.service.PublicationConsistencyService;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -20,9 +20,9 @@ import lombok.AllArgsConstructor;
  *
  * <p>
  * {@link Article#setAlbumId(Album.Id, com.abservice.domain.model.vo.common.BusinessDateTime)}
- * を呼び出すユースケースです。参照先の{@link Album}が存在することを{@link AlbumExistenceService}
- * で確認してから紐付けます（Album公開状態は問わない。公開時の制約は{@code PublishArticleService}が担う）。
- * 対象記事の種別が{@link ArticleType#ALBUM}でない場合は{@link BusinessRuleViolationException}（409）とします。
+ * を呼び出すユースケースです。紐付けてよいかどうかの判定（参照先の存在と、公開中の記事に対する参照先の公開状態）は集約をまたぐ
+ * 不変条件のため{@link PublicationConsistencyService}に委ねます。対象記事の種別が{@link ArticleType#ALBUM}
+ * でない場合は記事単体で決まる制約のため本サービスで{@link BusinessRuleViolationException}（409）とします。
  * </p>
  */
 @ApplicationScoped
@@ -30,7 +30,7 @@ import lombok.AllArgsConstructor;
 public class SetArticleAlbumService implements CommandService<SetArticleAlbumInput, SetArticleAlbumOutput> {
 
     private final ArticleRepository articleRepository;
-    private final AlbumExistenceService albumExistenceService;
+    private final PublicationConsistencyService publicationConsistencyService;
     private final BusinessDateTimeProvider businessDateTimeProvider;
 
     @WithTransaction
@@ -41,7 +41,8 @@ public class SetArticleAlbumService implements CommandService<SetArticleAlbumInp
                 .flatMap(
                         ids -> findExistingAlbumArticle(ids.articleId())
                                 .flatMap(
-                                        article -> albumExistenceService.findExisting(ids.albumId())
+                                        article -> publicationConsistencyService
+                                                .requireAttachable(article, ids.albumId())
                                                 .replaceWith(businessDateTimeProvider.now())
                                                 .map(now -> article.setAlbumId(ids.albumId(), now)))
                                 .flatMap(articleRepository::save)
