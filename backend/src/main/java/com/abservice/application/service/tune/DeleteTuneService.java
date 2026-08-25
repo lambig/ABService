@@ -4,6 +4,7 @@ import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.domain.repository.tune.TuneRepository;
+import com.abservice.domain.service.TuneDeletionService;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -17,12 +18,19 @@ import lombok.AllArgsConstructor;
  * （DELETEの一般的なべき等性に倣う）。ただしチューンIDの形式検証は行い、不正な形式は {@link ValidationException}
  * として扱います。
  * </p>
+ *
+ * <p>
+ * トラックから参照されているチューンは削除できません。可否の判定は参照の有無に依存しチューン集約単体では
+ * 決まらないため、{@link TuneDeletionService} が担います（違反は409）。
+ * </p>
  */
 @ApplicationScoped
 @AllArgsConstructor
 public class DeleteTuneService implements CommandService<DeleteTuneInput, DeleteTuneOutput> {
 
     private final TuneRepository tuneRepository;
+
+    private final TuneDeletionService tuneDeletionService;
 
     @WithTransaction
     @Override
@@ -31,6 +39,7 @@ public class DeleteTuneService implements CommandService<DeleteTuneInput, Delete
                 .item(
                         () -> Tune.Id.fromInput(input.tuneId())
                                 .resolve(ValidationException::new))
+                .flatMap(tuneDeletionService::deletable)
                 .flatMap(tuneRepository::deleteById)
                 .replaceWith(new DeleteTuneOutput());
     }

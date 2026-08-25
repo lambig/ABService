@@ -385,4 +385,26 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, 
     public Uni<Boolean> existsByAlbumId(String domainId) {
         return count("domainId", domainId).onItem().transform(count -> count > 0);
     }
+
+    /**
+     * 当該チューンを参照しているトラック内チューン構成があるか確認
+     *
+     * <p>
+     * {@code track_tune.tune_id} はチューン集約へのドメインID参照でDBの外部キーを持たないため、参照の有無は
+     * この問い合わせで確かめる。参照している側（アルバム集約内の{@code TrackTune}）を数えるので、アルバム側の データアクセスに置く。
+     * </p>
+     *
+     * @param tuneDomainId
+     *            チューンのドメインID
+     * @return 参照している構成が1件以上あればtrue
+     */
+    public Uni<Boolean> existsTrackTuneReferencing(String tuneDomainId) {
+        return sessionFactory.withSession(
+                session -> session
+                        .createQuery(
+                                "SELECT count(tt) FROM TrackTuneTableRecord tt WHERE tt.tuneId = :tuneId",
+                                Long.class)
+                        .setParameter("tuneId", tuneDomainId).getSingleResult())
+                .map(count -> count > 0);
+    }
 }
