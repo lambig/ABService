@@ -68,10 +68,9 @@ ABServiceでは以下のLinting/フォーマットツールを使用していま
 ```bash
 # コードを自動フォーマット
 ./gradlew spotlessApply
-
-# ビルド時に自動フォーマットが実行されます
-./gradlew build
 ```
+
+`build` は整形を当てません（検査は `check` の `spotlessCheck`）。ビルドが tracked ファイルを書き換えると、同じ入力で作業ツリーが変わり、`git bisect` や「作業ツリーが汚れているか」の判断に副作用が出るためです。整形が崩れているときは `spotlessApply` を明示的に実行します（コミット前は pre-commit の `spotlessCheck` が気付かせます）。
 
 #### Git Hooks
 

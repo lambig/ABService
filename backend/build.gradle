@@ -237,10 +237,11 @@ tasks.named('check') {
     dependsOn 'checkstyleMain', 'checkstyleTest', 'spotlessCheck'
 }
 
-// Ensure formatting is done before build
-tasks.named('build') {
-    dependsOn 'spotlessApply'
-}
+// build に spotlessApply を依存させない。build は IDE・スクリプト・git bisect の途中など
+// コミットとは無関係な場面でも走るため、tracked ファイルを書き換えると同じ入力で作業ツリーが変わり、
+// 「作業ツリーが汚れているか」がビルドの副作用で決まってしまう。整形は check の spotlessCheck で
+// 検査し、修正は明示的な spotlessApply で行う（Claude の編集は Stop フックが自動で当てる。
+// .claude/hooks/apply-format-on-stop.sh）。
 
 // ================================================================================
 // Integration Test Configuration
