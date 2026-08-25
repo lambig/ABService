@@ -86,10 +86,12 @@ schemaの正はマイグレーションであり、起動時に適用される�
 
 画像アセットは管理画面が backend から署名付きURLを受け取り、S3（`aws_s3_bucket.assets`）へ直接 PUT する。実体は backend／CloudFront を経由しないため、サイズ上限はアプリ側の検証（`abservice.assets.max-bytes`）だけで決まる。
 
-- 配信は CloudFront の `/assets/*` ビヘイビア経由（OAC で S3 を読み取り、バケットは非公開のまま）。オブジェクトキーの接頭辞を `assets/` に揃えているため `origin_path` は使わない
+- 署名付きURLの宛先は受け入れ前の接頭辞（`pending/`）で、配信対象（`assets/`）へは backend の確定処理がバケット内でコピーして移す。クライアントが配信キーへ書き込む経路は無い
+- 配信は CloudFront の `/assets/*` ビヘイビア経由（OAC で S3 を読み取り、バケットは非公開のまま）。オブジェクトキーの接頭辞を `assets/` に揃えているため `origin_path` は使わない。`pending/` は配信パスの外にあるため CloudFront から到達しない
 - 確定後のアセットはキーが一意（UUIDv7）で内容が変わらないため長期キャッシュ設定（`default_ttl` 1日 / `max_ttl` 1年）
+- 確定に至らなかった `pending/` の実体はライフサイクル（`aws_s3_bucket_lifecycle_configuration.assets`）で1日後に期限切れにする。バケットは versioning 有効なので旧バージョンと未完了マルチパートも同時に掃除する
 - クロスオリジンの PUT を許可するため、バケットに CORS（`allowed_methods = ["PUT"]`、オリジンはサイトのドメイン）を設定している
-- backend の実行ロールには assets バケットへの `GetObject` / `PutObject` / `DeleteObject` / `ListBucket` を付与済み（署名付きURLの発行に追加権限は不要）
+- backend の実行ロールには assets バケットへの `GetObject` / `PutObject` / `DeleteObject` / `ListBucket` を付与済み（署名付きURLの発行と確定時のコピーに追加権限は不要）
 
 ## ロールバック（backendデプロイ）
 

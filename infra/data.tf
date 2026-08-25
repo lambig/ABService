@@ -140,6 +140,35 @@ resource "aws_s3_bucket_versioning" "assets" {
   }
 }
 
+# 受け入れ前（pending/）の実体は、確定時にbackendが配信対象へコピーして削除する。確定まで至らなかった
+# アップロード（検査で拒否される前に離脱した等）はそのまま残るため、期限切れで自動的に消す。配信対象（assets/）は
+# 確定した実体を保持し続けるため、対象は pending/ に限る。
+resource "aws_s3_bucket_lifecycle_configuration" "assets" {
+  bucket = aws_s3_bucket.assets.id
+
+  rule {
+    id     = "expire-pending-uploads"
+    status = "Enabled"
+
+    filter {
+      prefix = "pending/"
+    }
+
+    expiration {
+      days = 1
+    }
+
+    # バケットはversioning有効のため、削除しただけでは旧バージョンが残る。
+    noncurrent_version_expiration {
+      noncurrent_days = 1
+    }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 1
+    }
+  }
+}
+
 # 管理画面はbackendが発行した署名付きURLへ直接PUTする（実体はbackendを経由しない）。
 # PUT先はCloudFrontではなくS3のエンドポイントになるため、サイトのオリジンからのクロスオリジンPUTを許可する。
 resource "aws_s3_bucket_cors_configuration" "assets" {

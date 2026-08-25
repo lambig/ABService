@@ -8,16 +8,22 @@ import java.util.Optional;
  *
  * <p>
  * アップロードはクライアントから保管先へ直接行われる（署名付きURL）ため、本ポートはバイト列を受け取らない。
- * アプリケーション層はURLの発行と、アップロード後の実体検査・破棄のみを要求する。
+ * アプリケーション層はURLの発行と、アップロード後の実体検査・確定・破棄のみを要求する。
+ * </p>
+ *
+ * <p>
+ * 保管場所は「受け入れ前（{@code pending}）」と「配信対象（{@code published}）」に分かれる。クライアントが
+ * 書き込めるのは受け入れ前だけで、配信対象へは{@link #publish}による確定でしか実体が入らない。これにより、検査した
+ * 実体と配信される実体が確定後にずれない。
  * </p>
  */
 public interface AssetStorage {
 
     /**
-     * 指定キーへのアップロードを許可する署名付きURLを発行します。
+     * 受け入れ前の場所へのアップロードを許可する署名付きURLを発行します。
      *
      * @param key
-     *            保管先のキー
+     *            アセットキー
      * @param contentType
      *            アップロードを許可する Content-Type（URLに束縛する）
      * @return 署名付きURLと有効期限
@@ -25,10 +31,10 @@ public interface AssetStorage {
     Uni<PresignedUpload> presignUpload(String key, String contentType);
 
     /**
-     * 保管済みアセットの先頭バイト列とメタ情報を読み出します。
+     * 受け入れ前のアセットの先頭バイト列とメタ情報を読み出します。
      *
      * @param key
-     *            保管先のキー
+     *            アセットキー
      * @param length
      *            読み出す先頭バイト数
      * @return 実体が存在すればその先頭バイト列とメタ情報、存在しなければ空
@@ -36,11 +42,24 @@ public interface AssetStorage {
     Uni<Optional<StoredAssetHead>> readHead(String key, int length);
 
     /**
-     * 保管済みアセットを削除します。存在しないキーの削除は成功として扱います。
+     * 検査に通った受け入れ前の実体を配信対象として確定します。
+     *
+     * <p>
+     * 実体は保管先の内部で複製し、受け入れ前の実体は残さない。配信対象のキーへ書き込める署名付きURLは発行しないため、 確定後に配信される実体は変わらない。
+     * </p>
      *
      * @param key
-     *            保管先のキー
+     *            アセットキー
      * @return 完了
      */
-    Uni<Void> delete(String key);
+    Uni<Void> publish(String key);
+
+    /**
+     * 受け入れ前のアセットを破棄します。存在しないキーの破棄は成功として扱います。
+     *
+     * @param key
+     *            アセットキー
+     * @return 完了
+     */
+    Uni<Void> discard(String key);
 }

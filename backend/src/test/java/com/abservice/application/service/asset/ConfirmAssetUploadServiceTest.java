@@ -33,7 +33,8 @@ class ConfirmAssetUploadServiceTest {
         assertThat(output.url()).isEqualTo(BASE_PATH + "/" + PNG_KEY);
         assertThat(output.contentType()).isEqualTo("image/png");
         assertThat(output.sizeBytes()).isEqualTo(512L);
-        assertThat(storage.deletedKeys()).isEmpty();
+        assertThat(storage.publishedKeys()).as("検査に通った実体は配信対象として確定する").containsExactly(PNG_KEY);
+        assertThat(storage.discardedKeys()).isEmpty();
     }
 
     @Test
@@ -47,7 +48,7 @@ class ConfirmAssetUploadServiceTest {
     }
 
     @Test
-    @DisplayName("上限を超えるサイズは検証エラーにし、実体を削除する")
+    @DisplayName("上限を超えるサイズは検証エラーにし、実体を破棄する")
     void rejectsAndDeletesTooLargeAsset() {
         final var storage = FakeAssetStorage.holding(PNG_HEAD, MAX_BYTES + 1);
 
@@ -56,11 +57,11 @@ class ConfirmAssetUploadServiceTest {
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("ASSET_TOO_LARGE");
 
-        assertThat(storage.deletedKeys()).containsExactly(PNG_KEY);
+        assertThat(storage.discardedKeys()).containsExactly(PNG_KEY);
     }
 
     @Test
-    @DisplayName("画像として認識できない実体は検証エラーにし、実体を削除する")
+    @DisplayName("画像として認識できない実体は検証エラーにし、実体を破棄する")
     void rejectsAndDeletesNonImageAsset() {
         final var storage = FakeAssetStorage.holding(
                 "not an image".getBytes(StandardCharsets.UTF_8),
@@ -71,7 +72,7 @@ class ConfirmAssetUploadServiceTest {
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("ASSET_CONTENT_MISMATCH");
 
-        assertThat(storage.deletedKeys()).containsExactly(PNG_KEY);
+        assertThat(storage.discardedKeys()).containsExactly(PNG_KEY);
     }
 
     @Test
@@ -84,7 +85,7 @@ class ConfirmAssetUploadServiceTest {
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("ASSET_CONTENT_MISMATCH");
 
-        assertThat(storage.deletedKeys()).containsExactly(PNG_KEY);
+        assertThat(storage.discardedKeys()).containsExactly(PNG_KEY);
     }
 
     private static ConfirmAssetUploadService service(FakeAssetStorage storage) {

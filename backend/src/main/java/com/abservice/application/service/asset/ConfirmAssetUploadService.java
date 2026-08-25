@@ -16,9 +16,14 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * アップロード確定ユースケース
  *
  * <p>
- * クライアントが署名付きURLへ実体を送り終えた後に呼ばれ、保管済み実体を検査してから公開配信URLを返す。検査は先頭バイト列の
- * 1回の範囲取得で行い、サイズ・形式（マジックバイト）・払い出したキーの拡張子との一致を確認する。検査に通らない実体は
- * 保管先から削除して検証エラーにするため、クライアントの申告値を信用せずに済む。
+ * クライアントが署名付きURLへ実体を送り終えた後に呼ばれ、受け入れ前の実体を検査してから配信対象として確定し、公開配信URLを
+ * 返す。検査は先頭バイト列の1回の範囲取得で行い、サイズ・形式（マジックバイト）・払い出したキーの拡張子との一致を確認する。
+ * 検査に通らない実体は破棄して検証エラーにするため、クライアントの申告値を信用せずに済む。
+ * </p>
+ *
+ * <p>
+ * 確定は受け入れ前の場所から配信対象へ実体を移す操作であり、クライアントが書き込めるのは受け入れ前だけ。署名付きURLの
+ * 有効期限内に同じURLへ再度アップロードされても、確定済みの配信実体は変わらない（検査した実体と配信される実体がずれない）。
  * </p>
  *
  * <p>
@@ -81,16 +86,17 @@ public class ConfirmAssetUploadService implements CommandService<ConfirmAssetUpl
             String assetKey,
             StoredAssetHead stored,
             AssetImageFormat format) {
-        return Uni.createFrom().item(
-                new ConfirmAssetUploadOutput(
-                        assetKey,
-                        publicBasePath + "/" + assetKey,
-                        format.contentType(),
-                        stored.totalBytes()));
+        return assetStorage.publish(assetKey)
+                .replaceWith(
+                        () -> new ConfirmAssetUploadOutput(
+                                assetKey,
+                                publicBasePath + "/" + assetKey,
+                                format.contentType(),
+                                stored.totalBytes()));
     }
 
     private Uni<ConfirmAssetUploadOutput> reject(String assetKey, ErrorResult error) {
-        return assetStorage.delete(assetKey)
+        return assetStorage.discard(assetKey)
                 .replaceWith(
                         Uni.createFrom().failure(
                                 new ValidationException(List.of(error))));
