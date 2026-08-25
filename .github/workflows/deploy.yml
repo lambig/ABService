@@ -1,13 +1,16 @@
 name: Deploy
 
+# 本番へ出せるのはCIが成功したcommitだけとする。mainへのpushを直接のトリガーにすると、CIが失敗する
+# commitでもデプロイが先に完了しうるため、CIの完了を受けて起動し、対象をそのCIが検査したSHAへ固定する。
 on:
-  push:
-    branches: [main]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
   workflow_dispatch:
     inputs:
       image_tag:
-        description: "既存ECRタグを指定して再デプロイする（ロールバック用）。空欄ならmainの最新コミットをビルドしてデプロイする"
-        required: false
+        description: "再デプロイする既存ECRタグ（ロールバック用。gitのshort SHA）。ビルドは行わない"
+        required: true
         type: string
 
 permissions:
@@ -24,11 +27,20 @@ jobs:
     name: Build, push, and deploy backend
     runs-on: ubuntu-latest
     # terraform apply（#129のドメイン準備待ち）でリポジトリ変数が設定されるまでは何もしない。
-    if: vars.AWS_DEPLOY_ROLE_ARN != ''
+    # CI経由の起動は、mainへのpushに対するCIが成功した場合だけに限る（PRのCIや失敗・中断は対象外）。
+    if: >-
+      vars.AWS_DEPLOY_ROLE_ARN != '' && (
+        github.event_name == 'workflow_dispatch' || (
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.head_branch == 'main' &&
+          github.event.workflow_run.event == 'push'))
 
     steps:
+      # CIが検査したSHAをそのまま対象にする（デプロイ時点のmain先端ではない）。
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -42,16 +54,28 @@ jobs:
 
       - name: Resolve image tag
         id: resolve
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          CI_RUN_ID: ${{ github.event.workflow_run.id }}
+          CI_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          if [ -n "${{ inputs.image_tag }}" ]; then
-            echo "tag=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ -z "$IMAGE_TAG" ]; then
+              echo "image_tag is required: manual deploy only redeploys an existing ECR image." >&2
+              echo "To ship a new commit, push it to main and let CI gate the deploy." >&2
+              exit 1
+            fi
+            echo "Redeploying existing image tag: $IMAGE_TAG"
+            echo "tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
             echo "build=false" >> "$GITHUB_OUTPUT"
           else
+            echo "Deploying commit $CI_HEAD_SHA verified by CI run $CI_RUN_ID"
             echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # 通常経路: mainへのpushをトリガーに新しいイメージをビルドしてpushする。
+      # 通常経路: CIが成功したcommitのイメージをビルドしてpushする。
       - name: Build and push image
         if: steps.resolve.outputs.build == 'true'
         env:
