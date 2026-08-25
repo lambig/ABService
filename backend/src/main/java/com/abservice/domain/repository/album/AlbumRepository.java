@@ -1,6 +1,7 @@
 package com.abservice.domain.repository.album;
 
 import com.abservice.domain.model.aggregate.album.Album;
+import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.domain.repository.Repository;
 import io.smallrye.mutiny.Uni;
 
@@ -73,4 +74,18 @@ public interface AlbumRepository extends Repository<Album, Album.Id> {
      */
     @Override
     Uni<List<Album>> findAll();
+
+    /**
+     * 当該チューンを参照しているトラック内チューン構成があるか確認する
+     *
+     * <p>
+     * チューンはアルバムから独立して存在するが、参照はアルバム集約の内側（{@code Track} の
+     * {@code TrackTune}）にある。参照している側を数える問いのため、アルバム側のリポジトリが担う。
+     * </p>
+     *
+     * @param tuneId
+     *            チューンID
+     * @return 参照している構成が1件以上あればtrue
+     */
+    Uni<Boolean> existsTrackTuneReferencing(Tune.Id tuneId);
 }

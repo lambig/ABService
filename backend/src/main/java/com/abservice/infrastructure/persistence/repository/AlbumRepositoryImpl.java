@@ -228,6 +228,14 @@ public class AlbumRepositoryImpl implements AlbumRepository {
                 .onItem().ifNotNull().transform(AlbumMapper::toDomain);
     }
 
+    @Override
+    public Uni<Boolean> existsTrackTuneReferencing(Tune.Id tuneId) {
+        return Optional.ofNullable(tuneId)
+                .map(Tune.Id::value)
+                .map(dataSource::existsTrackTuneReferencing)
+                .orElseGet(() -> Uni.createFrom().item(false));
+    }
+
     private Uni<AlbumTableRecord> lockedThenLoaded(String domainId) {
         return dataSource.lockByDomainId(domainId)
                 .onItem().ifNotNull().transformToUni(locked -> dataSource.findByIdWithTracks(locked.getDomainId()));
