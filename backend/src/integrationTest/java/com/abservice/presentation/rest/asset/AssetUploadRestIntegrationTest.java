@@ -12,10 +12,18 @@ import io.restassured.config.EncoderConfig;
 import io.restassured.http.ContentType;
 import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
+import jakarta.inject.Inject;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Optional;
+import java.util.concurrent.CompletionException;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.core.async.AsyncResponseTransformer;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
 /**
  * アセットアップロード REST エンドポイントの E2E 統合テスト
@@ -33,6 +41,21 @@ class AssetUploadRestIntegrationTest {
 
     private static final byte[] PNG_SIGNATURE = {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', (byte) 0x1A, '\n'};
 
+    @Inject
+    private S3AsyncClient s3;
+
+    @Inject
+    @ConfigProperty(name = "abservice.assets.bucket")
+    private String bucket;
+
+    @Inject
+    @ConfigProperty(name = "abservice.assets.public-base-path")
+    private String publicBasePath;
+
+    @Inject
+    @ConfigProperty(name = "abservice.assets.pending-prefix")
+    private String pendingPrefix;
+
     @Test
     @DisplayName("URL発行→PUT→確定で公開配信URLが得られる")
     void issueUploadConfirm() {
@@ -47,6 +70,52 @@ class AssetUploadRestIntegrationTest {
         authorized().when().post("/api/v1/assets/" + assetKey + "/confirm").then().statusCode(200)
                 .body("assetKey", equalTo(assetKey)).body("url", equalTo("/assets/" + assetKey))
                 .body("contentType", equalTo("image/png")).body("sizeBytes", equalTo(256));
+    }
+
+    @Test
+    @DisplayName("確定前の実体は配信対象の場所に無く、確定で配信対象へ移り受け入れ前の実体は残らない")
+    void confirmMovesContentFromPendingToPublished() {
+        final var issued = issueUploadUrl("image/png");
+        final String assetKey = issued.path("assetKey");
+
+        putContent(
+                issued.path("uploadUrl"),
+                "image/png",
+                pngBytes(256));
+
+        assertThat(objectBytes(pendingKey(assetKey))).as("確定前は受け入れ前に存在する").isPresent();
+        assertThat(objectBytes(publishedKey(assetKey))).as("確定前は配信対象に存在しない").isEmpty();
+
+        authorized().when().post("/api/v1/assets/" + assetKey + "/confirm").then().statusCode(200);
+
+        assertThat(objectBytes(publishedKey(assetKey))).as("確定後は配信対象に存在する").isPresent();
+        assertThat(objectBytes(pendingKey(assetKey))).as("確定後は受け入れ前に残らない").isEmpty();
+    }
+
+    @Test
+    @DisplayName("確定後に同じ署名付きURLへ再アップロードしても、配信される実体は変わらない")
+    void reuploadAfterConfirmDoesNotChangePublishedContent() {
+        final var issued = issueUploadUrl("image/png");
+        final String assetKey = issued.path("assetKey");
+        final String uploadUrl = issued.path("uploadUrl");
+
+        putContent(
+                uploadUrl,
+                "image/png",
+                pngBytes(256));
+        authorized().when().post("/api/v1/assets/" + assetKey + "/confirm").then().statusCode(200)
+                .body("sizeBytes", equalTo(256));
+
+        putContent(
+                uploadUrl,
+                "image/png",
+                pngBytes(512));
+
+        assertThat(objectBytes(publishedKey(assetKey)))
+                .as("確定済みの配信実体は差し替わらない")
+                .get()
+                .extracting(bytes -> bytes.length)
+                .isEqualTo(256);
     }
 
     @Test
@@ -160,5 +229,32 @@ class AssetUploadRestIntegrationTest {
 
     private static byte[] pngBytes(int totalBytes) {
         return Arrays.copyOf(PNG_SIGNATURE, totalBytes);
+    }
+
+    private String pendingKey(String assetKey) {
+        return pendingPrefix + "/" + assetKey;
+    }
+
+    private String publishedKey(String assetKey) {
+        return publicBasePath.replaceFirst("^/", "") + "/" + assetKey;
+    }
+
+    /**
+     * 保管先のオブジェクトを直接読み出します（配信経路を介さず、実体そのものを確かめるため）。
+     *
+     * @param key
+     *            オブジェクトキー（接頭辞を含む）
+     * @return 実体が存在すればそのバイト列、存在しなければ空
+     */
+    private Optional<byte[]> objectBytes(String key) {
+        try {
+            final var response = s3.getObject(
+                    GetObjectRequest.builder().bucket(bucket).key(key).build(),
+                    AsyncResponseTransformer.toBytes()).join();
+            return Optional.of(response.asByteArray());
+        } catch (CompletionException failure) {
+            assertThat(failure).hasCauseInstanceOf(NoSuchKeyException.class);
+            return Optional.empty();
+        }
     }
 }

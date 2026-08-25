@@ -15,7 +15,7 @@ import org.jspecify.annotations.Nullable;
  * アセット保管先のテスト代替
  *
  * <p>
- * 保管済み実体を1件だけ持ち、削除されたキーを記録する。DI・実ストレージを伴わない単体テストで用いる。
+ * 受け入れ前の実体を1件だけ持ち、確定・破棄されたキーを記録する。DI・実ストレージを伴わない単体テストで用いる。
  * </p>
  */
 final class FakeAssetStorage implements AssetStorage {
@@ -23,7 +23,8 @@ final class FakeAssetStorage implements AssetStorage {
     private static final Instant EXPIRES_AT = Instant.parse("2026-01-01T00:10:00Z");
 
     private final @Nullable StoredAssetHead stored;
-    private List<String> deletedKeys = List.of();
+    private List<String> discardedKeys = List.of();
+    private List<String> publishedKeys = List.of();
     private List<String> presignedKeys = List.of();
 
     private FakeAssetStorage(@Nullable StoredAssetHead stored) {
@@ -59,13 +60,23 @@ final class FakeAssetStorage implements AssetStorage {
     }
 
     @Override
-    public Uni<Void> delete(String key) {
-        deletedKeys = appended(deletedKeys, key);
+    public Uni<Void> publish(String key) {
+        publishedKeys = appended(publishedKeys, key);
         return Uni.createFrom().voidItem();
     }
 
-    List<String> deletedKeys() {
-        return deletedKeys;
+    @Override
+    public Uni<Void> discard(String key) {
+        discardedKeys = appended(discardedKeys, key);
+        return Uni.createFrom().voidItem();
+    }
+
+    List<String> discardedKeys() {
+        return discardedKeys;
+    }
+
+    List<String> publishedKeys() {
+        return publishedKeys;
     }
 
     List<String> presignedKeys() {
