@@ -33,7 +33,7 @@ import org.jspecify.annotations.Nullable;
 @AllArgsConstructor
 public class ArticlePublicationService implements DomainService {
 
-    private final AlbumExistenceService albumExistenceService;
+    private final AlbumAccessService albumAccessService;
 
     /**
      * 記事を公開する試み
@@ -137,7 +137,7 @@ public class ArticlePublicationService implements DomainService {
     }
 
     private Uni<Optional<Album>> findExistingAsOptional(Album.Id albumId) {
-        return albumExistenceService.findExisting(albumId)
+        return albumAccessService.findExistingAndClaimReference(albumId)
                 .map(Optional::of);
     }
 }

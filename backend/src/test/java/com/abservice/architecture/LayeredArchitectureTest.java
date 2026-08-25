@@ -7,14 +7,24 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noConstructors;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
+import static java.util.function.Predicate.not;
 
+import com.abservice.domain.repository.album.AlbumRepository;
 import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.JavaAccess;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
+import com.tngtech.archunit.lang.ArchCondition;
+import com.tngtech.archunit.lang.ConditionEvent;
+import com.tngtech.archunit.lang.ConditionEvents;
+import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.library.GeneralCodingRules;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * アーキテクチャ制約テスト（フェーズA: 基本ルール）
@@ -45,6 +55,11 @@ class LayeredArchitectureTest {
     private static final String PRESENTATION = "..presentation..";
     private static final String READ_DATASOURCE = "..infrastructure.persistence.datasource..";
     private static final String READ_ENTITY = "..infrastructure.persistence.entity..";
+    private static final List<String> ALBUM_LOOKUP_METHODS = List.of(
+            "findById",
+            "findByIdExclusively",
+            "findAllById",
+            "findAll");
 
     /**
      * レイヤー依存方向: ドメイン層は他のどのレイヤーにも依存してはならない。
@@ -279,5 +294,68 @@ class LayeredArchitectureTest {
         methods().that().haveNameMatching("execute|query").and().areDeclaredInClassesThat()
                 .resideInAPackage(APPLICATION).should().haveRawReturnType("io.smallrye.mutiny.Uni")
                 .as("ApplicationService の execute/query は Uni<...> を返す").allowEmptyShould(true).check(classes);
+    }
+
+    /**
+     * アルバムの取得は、編集権または参照の主張を伴う唯一の入口を通す（#178 A-2）。
+     *
+     * <p>
+     * 集約をまたぐ不変条件は、判定に使ったアルバムが書き込みまでの間に動かないことを前提にする。主張を伴わない取得が
+     * 業務コードから使えると、その前提を満たさない経路が増える。取得の口を {@code AlbumAccessService} に閉じることで、
+     * 主張の取り忘れをビルドで検出する。
+     * </p>
+     */
+    @ArchTest
+    void albumShouldOnlyBeObtainedThroughAClaim(JavaClasses classes) {
+        classes().that().resideOutsideOfPackage(INFRASTRUCTURE)
+                .and().doNotHaveSimpleName("AlbumAccessService")
+                .should(obtainAlbumOnlyThroughClaim())
+                .as(
+                        "アルバムの取得は AlbumAccessService（編集権・参照の主張を伴う唯一の入口）を通す"
+                                + "（主張を伴わない取得を業務コードから使わせない、#178 A-2）")
+                .allowEmptyShould(true).check(classes);
+    }
+
+    /*
+     * METHOD-REFERENCE: getAccessesFromSelf()
+     * はメソッド参照（Foo::bar）を含まないため、参照経由で迂回できてしまう。 呼び出しと参照の両方を集めて検査する。
+     */
+    private static ArchCondition<JavaClass> obtainAlbumOnlyThroughClaim() {
+        return new ArchCondition<>("obtain albums only through AlbumAccessService") {
+            @Override
+            public void check(JavaClass javaClass, ConditionEvents events) {
+                albumLookups(javaClass).forEach(access -> events.add(lookupViolation(javaClass, access)));
+            }
+        };
+    }
+
+    private static Stream<JavaAccess<?>> albumLookups(JavaClass javaClass) {
+        return javaClass.getCodeUnits().stream()
+                .flatMap(
+                        unit -> Stream.<JavaAccess<?>>concat(
+                                unit.getMethodCallsFromSelf().stream(),
+                                unit.getMethodReferencesFromSelf().stream()))
+                .filter(LayeredArchitectureTest::isAlbumLookup);
+    }
+
+    /*
+     * BRIDGE-METHOD: AlbumRepository が基底の findById を再宣言するため javac がブリッジメソッドを生成し、
+     * それ自身が findById を呼ぶ。リポジトリ内部の委譲は取得の入口を迂回していないので除外する。
+     */
+    private static boolean isAlbumLookup(JavaAccess<?> access) {
+        return Optional.of(access)
+                .filter(target -> target.getTargetOwner().isAssignableTo(AlbumRepository.class))
+                .filter(not(target -> target.getOriginOwner().isAssignableTo(AlbumRepository.class)))
+                .map(target -> target.getTarget().getName())
+                .filter(ALBUM_LOOKUP_METHODS::contains)
+                .isPresent();
+    }
+
+    private static ConditionEvent lookupViolation(JavaClass javaClass, JavaAccess<?> access) {
+        return SimpleConditionEvent.violated(
+                javaClass,
+                "%s が %s を直接使っている（AlbumAccessService の主張を伴う取得を通していない）".formatted(
+                        access.getOrigin().getFullName(),
+                        access.getTarget().getFullName()));
     }
 }

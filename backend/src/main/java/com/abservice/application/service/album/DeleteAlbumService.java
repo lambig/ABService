@@ -8,6 +8,7 @@ import com.abservice.domain.model.vo.article.AlbumReferenceLostReason;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.domain.repository.article.ArticleRepository;
+import com.abservice.domain.service.AlbumAccessService;
 import com.abservice.domain.service.BusinessDateTimeProvider;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -38,6 +39,7 @@ import lombok.AllArgsConstructor;
 public class DeleteAlbumService implements CommandService<DeleteAlbumInput, DeleteAlbumOutput> {
 
     private final AlbumRepository albumRepository;
+    private final AlbumAccessService albumAccessService;
     private final ArticleRepository articleRepository;
     private final BusinessDateTimeProvider businessDateTimeProvider;
 
@@ -52,10 +54,18 @@ public class DeleteAlbumService implements CommandService<DeleteAlbumInput, Dele
     }
 
     private Uni<DeleteAlbumOutput> deleteWithReferencingArticles(Album.Id albumId) {
-        return articleRepository.findByAlbumId(albumId)
-                .flatMap(this::loseAlbumReferences)
+        return albumAccessService.findAndClaimEditIfPresent(albumId)
+                .flatMap(this::detachReferencing)
                 .flatMap(affected -> deleteAlbum(albumId, affected))
                 .map(DeleteAlbumOutput::new);
+    }
+
+    private Uni<List<DeleteAlbumOutput.AffectedArticle>> detachReferencing(Optional<Album> claimed) {
+        return claimed
+                .map(Album::id)
+                .map(articleRepository::findByAlbumId)
+                .map(referencing -> referencing.flatMap(this::loseAlbumReferences))
+                .orElseGet(() -> Uni.createFrom().item(List.of()));
     }
 
     private Uni<List<DeleteAlbumOutput.AffectedArticle>> deleteAlbum(

@@ -33,7 +33,7 @@ import org.jspecify.annotations.Nullable;
 @AllArgsConstructor
 public class ArticleAlbumAttachmentService implements DomainService {
 
-    private final AlbumExistenceService albumExistenceService;
+    private final AlbumAccessService albumAccessService;
 
     /**
      * 記事へアルバムを紐付ける試み
@@ -104,7 +104,7 @@ public class ArticleAlbumAttachmentService implements DomainService {
             Article article,
             Album.Id albumId,
             BusinessDateTime currentDateTime) {
-        return albumExistenceService.findExisting(albumId)
+        return albumAccessService.findExistingAndClaimReference(albumId)
                 .map(album -> new AlbumAttachment(article, album))
                 .map(attachment -> attachment.attach(currentDateTime));
     }

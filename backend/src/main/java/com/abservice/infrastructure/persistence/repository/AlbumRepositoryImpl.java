@@ -223,6 +223,20 @@ public class AlbumRepositoryImpl implements AlbumRepository {
     }
 
     @Override
+    public Uni<Album> findByIdExclusively(Album.Id id) {
+        return Optional.ofNullable(id)
+                .map(Album.Id::value)
+                .map(this::lockedThenLoaded)
+                .orElseGet(() -> Uni.createFrom().nullItem())
+                .onItem().ifNotNull().transform(AlbumMapper::toDomain);
+    }
+
+    private Uni<AlbumTableRecord> lockedThenLoaded(String domainId) {
+        return dataSource.lockByDomainId(domainId)
+                .onItem().ifNotNull().transformToUni(locked -> dataSource.findByIdWithTracks(locked.getDomainId()));
+    }
+
+    @Override
     public Uni<List<Album>> findAllById(Iterable<Album.Id> ids) {
         return Optional.ofNullable(ids)
                 .map(toList(Album.Id::value))

@@ -6,7 +6,7 @@ import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.album.Track;
 import com.abservice.domain.repository.album.AlbumRepository;
-import com.abservice.domain.service.AlbumExistenceService;
+import com.abservice.domain.service.AlbumAccessService;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
@@ -31,7 +31,7 @@ import org.jspecify.annotations.Nullable;
 public class ReorderTracksService implements CommandService<ReorderTracksInput, ReorderTracksOutput> {
 
     private final AlbumRepository albumRepository;
-    private final AlbumExistenceService albumExistenceService;
+    private final AlbumAccessService albumAccessService;
 
     @WithTransaction
     @Override
@@ -44,7 +44,7 @@ public class ReorderTracksService implements CommandService<ReorderTracksInput, 
                                 Ids::new)
                                 .resolve(ValidationException::new))
                 .flatMap(
-                        ids -> albumExistenceService.findExisting(ids.albumId())
+                        ids -> albumAccessService.findExistingAndClaimEdit(ids.albumId())
                                 .map(album -> album.reorderTracks(ids.orderedTrackIds()))
                                 .flatMap(albumRepository::save)
                                 .map(ReorderTracksService::toOutput));

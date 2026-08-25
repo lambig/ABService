@@ -10,6 +10,7 @@ import io.quarkus.panache.common.Page;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.persistence.LockModeType;
 import org.hibernate.reactive.mutiny.Mutiny;
 import org.jspecify.annotations.Nullable;
 
@@ -107,6 +108,30 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, 
                 ? find("domainId = ?1 and publishedAt is not null", domainId)
                 : find("domainId", domainId))
                 .firstResult();
+    }
+
+    /**
+     * ドメインIDでアルバム行を排他ロックして取得する
+     *
+     * <p>
+     * ロックは現在のトランザクションが終わるまで保持され、同じ行を対象にする他のトランザクションを待たせる。集約の
+     * ロード（{@link #findByIdWithTracks}）は{@code LEFT JOIN FETCH}を伴い、外部結合のnullable側には
+     * {@code FOR UPDATE}を適用できないため、ロックの取得は結合を伴わないこのクエリで別途行う。子コレクションは
+     * いずれもLAZYのため、ここでは結合が生成されない。
+     * </p>
+     *
+     * @param domainId
+     *            アルバムのドメインID
+     * @return ロックしたアルバムエンティティ（未存在の場合はnull）
+     */
+    public Uni<AlbumTableRecord> lockByDomainId(String domainId) {
+        return sessionFactory.withSession(
+                session -> session
+                        .createQuery(
+                                "SELECT a FROM AlbumTableRecord a WHERE a.domainId = :domainId",
+                                AlbumTableRecord.class)
+                        .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                        .setParameter("domainId", domainId).getSingleResultOrNull());
     }
 
     /**
