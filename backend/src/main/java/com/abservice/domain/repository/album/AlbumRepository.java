@@ -4,6 +4,8 @@ import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.repository.Repository;
 import io.smallrye.mutiny.Uni;
 
+import java.util.List;
+
 /**
  * アルバムリポジトリ
  *
@@ -45,4 +47,30 @@ public interface AlbumRepository extends Repository<Album, Album.Id> {
      * @return アルバム、存在しない場合はnull
      */
     Uni<Album> findByIdExclusively(Album.Id id);
+
+    /**
+     * 複数のIDでアルバムを取得する（主張を伴わない取得）
+     *
+     * <p>
+     * {@link #findById} と同じ理由で業務コードからは使わず、ここで再宣言して検査可能にしている。
+     * </p>
+     *
+     * @param ids
+     *            アルバムIDのIterable
+     * @return 取得したアルバムのリスト
+     */
+    @Override
+    Uni<List<Album>> findAllById(Iterable<Album.Id> ids);
+
+    /**
+     * すべてのアルバムを取得する（主張を伴わない取得）
+     *
+     * <p>
+     * {@link #findById} と同じ理由で業務コードからは使わず、ここで再宣言して検査可能にしている。
+     * </p>
+     *
+     * @return すべてのアルバムのリスト
+     */
+    @Override
+    Uni<List<Album>> findAll();
 }
