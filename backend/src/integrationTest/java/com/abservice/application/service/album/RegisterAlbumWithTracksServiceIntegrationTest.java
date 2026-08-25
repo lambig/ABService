@@ -3,8 +3,7 @@ package com.abservice.application.service.album;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.abservice.domain.exception.BusinessRuleViolationException;
-import com.abservice.domain.model.vo.album.AlbumTitle;
-import com.abservice.infrastructure.persistence.repository.AlbumRepositoryImpl;
+import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;
 import io.quarkus.test.TestReactiveTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
@@ -18,7 +17,7 @@ import org.junit.jupiter.api.Test;
  *
  * <p>
  * REST契約（{@code RegisterAlbumWithTracksRestIntegrationTest}）では確認できない、トラック追加失敗時に
- * アルバム自体も永続化されない（トランザクション全体がロールバックされる）ことをリポジトリで直接確認する。
+ * アルバム自体も永続化されない（トランザクション全体がロールバックされる）ことを永続化層で直接確認する。
  * </p>
  */
 @QuarkusTest
@@ -28,7 +27,7 @@ class RegisterAlbumWithTracksServiceIntegrationTest {
     private RegisterAlbumWithTracksService registerAlbumWithTracksService;
 
     @Inject
-    private AlbumRepositoryImpl albumRepository;
+    private AlbumDataSource albumDataSource;
 
     @Test
     @TestReactiveTransaction
@@ -69,7 +68,7 @@ class RegisterAlbumWithTracksServiceIntegrationTest {
                 });
 
         asserter.assertThat(
-                () -> albumRepository.findByTitle(new AlbumTitle("ワンリクエスト登録確認アルバム")),
+                () -> albumDataSource.findByTitle("ワンリクエスト登録確認アルバム"),
                 found -> assertThat(found).hasSize(1));
     }
 
@@ -108,7 +107,7 @@ class RegisterAlbumWithTracksServiceIntegrationTest {
                 BusinessRuleViolationException.class);
 
         asserter.assertThat(
-                () -> albumRepository.findByTitle(new AlbumTitle("ロールバック確認アルバム")),
+                () -> albumDataSource.findByTitle("ロールバック確認アルバム"),
                 found -> assertThat(found).isEmpty());
     }
 }
