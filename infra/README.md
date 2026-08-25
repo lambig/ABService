@@ -1,6 +1,6 @@
 # infra（Terraform）
 
-ABService v1.0 の AWS インフラ定義。EC2（backend常時起動）+ CloudFront（WAFアタッチ）+ RDS（PostgreSQL）+ S3（frontend配信2バケット・アセット1バケット）+ ECR（backendコンテナイメージ配布先）を単一のTerraform構成として管理する。構成方針・確定事項は GitHub issue #126（および #132 トラッキング）を参照。
+ABService v1.0 の AWS インフラ定義。EC2（backend常時起動）+ CloudFront（WAFアタッチ）+ RDS（PostgreSQL）+ S3（frontend配信2バケット・アセット1バケット）+ ECR（backendコンテナイメージ配布先）を単一のTerraform構成として管理する。構成の確定事項はこのファイルが正で、判断の理由は [../docs/DECISIONS.md](../docs/DECISIONS.md)、境界と経路は [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) を参照。
 
 ## 前提
 

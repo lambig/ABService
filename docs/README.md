@@ -16,7 +16,7 @@
 
 | ドキュメント | 役割 |
 |---|---|
-| [STATUS_AND_ROADMAP.md](STATUS_AND_ROADMAP.md) | 実装がどこまで通っているかの現状。残タスクは持たない（内部品質の残作業は `roadmap-backlog` ラベル、本番リリースに向けた整備は milestone「リリース v1.0」と GitHub issue #132 が正） |
+| [STATUS_AND_ROADMAP.md](STATUS_AND_ROADMAP.md) | 実装がどこまで通っているかの現状。残タスクは持たない（残作業と進捗の正は GitHub milestone。本番リリースに向けた整備は「リリース v1.0」、それ以外は「v1.0以降」） |
 | [DECISIONS.md](DECISIONS.md) | 設計判断の記録。なぜその構造にしたか（実装から導けない部分だけ） |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | システム構成・認証方式・アセット経路など、コード単体からは見えない全体像 |
 | [CODING_GUIDELINES.md](CODING_GUIDELINES.md) | 設計上の意図と、静的解析で強制しているルールの索引 |
