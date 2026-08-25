@@ -179,3 +179,15 @@
 **トレードオフ**: 操作ごとにサービスとネスト型が増える。参照先を引く数行は各サービスに重複する（共有したい手順が3箇所目に現れた時点で括り出す）。ArchUnit の検査はアノテーションの付け忘れを検出できないため、新しい「参照先に依存する遷移」を追加する際は付与が要る。
 
 **実体**: `domain/service/ArticlePublicationService`（`ArticlePublication`）、`domain/service/ArticleAlbumAttachmentService`（`AlbumAttachment`）、`domain/model/CrossAggregateTransition` と `CrossAggregateOperation`、`architecture/AggregateConstructionArchTest`。
+
+---
+
+## 14. アルバムを参照する記事は 0..N 件とする
+
+**判断**: 1つのアルバムは複数の記事から参照されうる。`article.album_id` に一意制約は張らず、紐付け時にも「そのアルバムを参照する記事が他に無いこと」を求めない。アルバムの非公開化・削除に伴うカスケード（12）は、参照しているすべての記事へ適用する。
+
+**なぜ**: 記事はアルバムから独立したライフサイクルを持ち（12）、参照は記事がアルバムを話題にするという片方向の関係でしかない。同じアルバムについて告知と振り返りのように複数の記事を書くことを禁じる業務上の理由がない。「1アルバムにつき代表記事1件」を出したい要求は、参照の多重度ではなく表示側の選択で解ける。多重度を 0..1 にすると、記事を書き足すたびに既存記事の参照を外すことになり、外された側は理由のない失効参照を持つ。
+
+**トレードオフ**: 参照件数に上限がないため、カスケードの対象件数はアルバムごとに不定になる。同一トランザクション内で逐次保存するため、参照が極端に増えれば非公開化・削除の応答時間が伸びる。想定する規模では問題にならないが、増えるなら一括更新を検討する。
+
+**実体**: `ArticleRepository.findByAlbumId`（リスト取得）、`application/service/album/UnpublishAlbumService` と `DeleteAlbumService` のカスケード、`V14`（`article.album_id` は索引のみで一意制約を持たない）。

@@ -3,6 +3,7 @@ package com.abservice.presentation.rest.album;
 import static com.abservice.presentation.rest.AdminAuth.authorized;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
@@ -68,6 +69,33 @@ class AlbumDeleteReferenceRestIntegrationTest {
                 .body("albumId", nullValue())
                 .body("formerAlbumId", equalTo(albumId))
                 .body("albumReferenceLostReason", equalTo("ALBUM_DELETED"));
+    }
+
+    @Test
+    @DisplayName("同じアルバムを複数の記事が参照していても、すべての記事が非公開化され参照が失効する")
+    void deletingAlbumAffectsEveryReferencingArticle() {
+        final var albumId = createPublishedAlbum("複数参照テストアルバム");
+        final var publishedId = createPublishedAlbumArticle("複数参照テスト公開記事", albumId);
+        final var draftId = createAlbumArticle("複数参照テスト下書き記事", albumId);
+
+        authorized().when().delete("/api/v1/albums/" + albumId).then().statusCode(200)
+                .body("affectedArticles.size()", equalTo(2))
+                .body("affectedArticles.articleId", hasItems(publishedId, draftId))
+                .body(
+                        "affectedArticles.find { it.articleId == '%s' }.unpublished".formatted(publishedId),
+                        equalTo(true))
+                .body(
+                        "affectedArticles.find { it.articleId == '%s' }.unpublished".formatted(draftId),
+                        equalTo(false));
+
+        authorized().when().get("/api/v1/admin/articles/" + publishedId).then().statusCode(200)
+                .body("publicFlag", equalTo(false))
+                .body("albumId", nullValue())
+                .body("formerAlbumId", equalTo(albumId));
+
+        authorized().when().get("/api/v1/admin/articles/" + draftId).then().statusCode(200)
+                .body("albumId", nullValue())
+                .body("formerAlbumId", equalTo(albumId));
     }
 
     @Test

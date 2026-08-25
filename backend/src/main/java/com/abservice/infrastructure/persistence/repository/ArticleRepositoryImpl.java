@@ -231,12 +231,12 @@ public class ArticleRepositoryImpl implements ArticleRepository {
     }
 
     @Override
-    public Uni<Article> findByAlbumId(Album.Id albumId) {
+    public Uni<List<Article>> findByAlbumId(Album.Id albumId) {
         return Optional.ofNullable(albumId)
                 .map(Album.Id::value)
                 .map(dataSource::findByAlbumId)
-                .orElseGet(() -> Uni.createFrom().nullItem())
-                .onItem().ifNotNull().transform(ArticleMapper::toDomain);
+                .orElseGet(() -> Uni.createFrom().item(List.of()))
+                .map(toList(ArticleMapper::toDomain));
     }
 
     @Override

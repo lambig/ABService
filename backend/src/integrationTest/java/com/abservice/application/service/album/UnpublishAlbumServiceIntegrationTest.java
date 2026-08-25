@@ -19,14 +19,15 @@ import io.quarkus.test.vertx.UniAsserter;
 import jakarta.inject.Inject;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
  * UnpublishAlbumServiceのカスケード非公開化（当該アルバムを参照する公開中の記事も連動して非公開化する）の統合テスト
  *
  * <p>
- * アルバム記事（{@code albumId}を持つArticle）の作成はREST未提供のため、ここではリポジトリを直接使って
- * 前提データを組み立てる。単純なアルバム非公開化・404はREST経由で {@code AlbumRestIntegrationTest}が検証する。
+ * 1つのアルバムは複数の記事から参照されうるため、公開・下書きの組み合わせを直接組み立てられるよう、前提データは
+ * リポジトリ経由で用意する。単純なアルバム非公開化・404はREST経由で {@code AlbumRestIntegrationTest}が検証する。
  * </p>
  */
 @QuarkusTest
@@ -59,6 +60,15 @@ class UnpublishAlbumServiceIntegrationTest {
                 .publish(NOW);
     }
 
+    private static Article newArticleOf(Album album, String title) {
+        return Article.create(
+                ArticleType.ALBUM,
+                album.id(),
+                new ArticleTitle(title),
+                null,
+                null);
+    }
+
     @Test
     @TestReactiveTransaction
     @RunOnVertxContext
@@ -66,13 +76,7 @@ class UnpublishAlbumServiceIntegrationTest {
         final var album = newPublishedAlbum("Cascade Target Album");
         asserter.execute(() -> albumRepository.save(album));
 
-        final var article = Article.create(
-                ArticleType.ALBUM,
-                album.id(),
-                new ArticleTitle("Cascade Target Article"),
-                null,
-                null)
-                .publish(NOW);
+        final var article = newArticleOf(album, "Cascade Target Article").publish(NOW);
         asserter.execute(() -> articleRepository.save(article));
 
         asserter.assertThat(
@@ -86,6 +90,50 @@ class UnpublishAlbumServiceIntegrationTest {
 
         asserter.assertThat(
                 () -> articleRepository.findById(article.id()),
+                found -> assertThat(found.isPublic()).isFalse());
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldCascadeUnpublishEveryPublicArticleReferencingSameAlbum(UniAsserter asserter) {
+        final var album = newPublishedAlbum("Multi Cascade Target Album");
+        asserter.execute(() -> albumRepository.save(album));
+
+        final var first = newArticleOf(album, "First Cascade Target Article").publish(NOW);
+        final var second = newArticleOf(album, "Second Cascade Target Article").publish(NOW);
+        asserter.execute(() -> articleRepository.saveAll(List.of(first, second)));
+
+        asserter.assertThat(
+                () -> unpublishAlbumService.execute(new UnpublishAlbumInput(album.id().value())),
+                output -> assertThat(output.cascadeUnpublishedArticles())
+                        .extracting(UnpublishAlbumOutput.CascadeUnpublishedArticle::articleId)
+                        .containsExactlyInAnyOrder(first.id().value(), second.id().value()));
+
+        asserter.assertThat(
+                () -> articleRepository.findByAlbumId(album.id()),
+                found -> assertThat(found).extracting(Article::isPublic).containsOnly(false));
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldCascadeOnlyPublicArticleWhenDraftReferencesSameAlbum(UniAsserter asserter) {
+        final var album = newPublishedAlbum("Mixed State Reference Album");
+        asserter.execute(() -> albumRepository.save(album));
+
+        final var published = newArticleOf(album, "Published Article Of Mixed Album").publish(NOW);
+        final var draft = newArticleOf(album, "Draft Article Of Mixed Album");
+        asserter.execute(() -> articleRepository.saveAll(List.of(published, draft)));
+
+        asserter.assertThat(
+                () -> unpublishAlbumService.execute(new UnpublishAlbumInput(album.id().value())),
+                output -> assertThat(output.cascadeUnpublishedArticles())
+                        .extracting(UnpublishAlbumOutput.CascadeUnpublishedArticle::articleId)
+                        .containsExactly(published.id().value()));
+
+        asserter.assertThat(
+                () -> articleRepository.findById(draft.id()),
                 found -> assertThat(found.isPublic()).isFalse());
     }
 
@@ -108,12 +156,7 @@ class UnpublishAlbumServiceIntegrationTest {
         final var album = newPublishedAlbum("Draft Article Reference Album");
         asserter.execute(() -> albumRepository.save(album));
 
-        final var article = Article.create(
-                ArticleType.ALBUM,
-                album.id(),
-                new ArticleTitle("Still Draft Article"),
-                null,
-                null);
+        final var article = newArticleOf(album, "Still Draft Article");
         asserter.execute(() -> articleRepository.save(article));
 
         asserter.assertThat(

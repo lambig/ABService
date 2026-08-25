@@ -30,11 +30,16 @@ public interface ArticleRepository extends Repository<Article, Article.Id> {
     /**
      * アルバムIDで記事を検索
      *
+     * <p>
+     * 1つのアルバムは複数の記事から参照されうる（アルバムと記事は 1 : 0..N）。アルバムの非公開化・削除に伴う
+     * カスケードは、参照している記事すべてを対象にする。
+     * </p>
+     *
      * @param albumId
      *            アルバムID
-     * @return 該当する記事、存在しない場合はnull
+     * @return 該当する記事のリスト（該当なしの場合は空）
      */
-    Uni<Article> findByAlbumId(Album.Id albumId);
+    Uni<List<Article>> findByAlbumId(Album.Id albumId);
 
     /**
      * 公開フラグで記事を検索

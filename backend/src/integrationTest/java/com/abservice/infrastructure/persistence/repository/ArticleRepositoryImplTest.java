@@ -16,6 +16,7 @@ import io.quarkus.test.vertx.RunOnVertxContext;
 import io.quarkus.test.vertx.UniAsserter;
 import jakarta.inject.Inject;
 import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -302,10 +303,46 @@ class ArticleRepositoryImplTest {
         asserter.execute(() -> albumRepository.save(album));
         asserter.execute(() -> repository.save(article));
 
-        asserter.assertThat(() -> repository.findByAlbumId(album.id()), found -> {
-            assertThat(found).isNotNull();
-            assertThat(found.id()).isEqualTo(article.id());
-        });
+        asserter.assertThat(
+                () -> repository.findByAlbumId(album.id()),
+                found -> assertThat(found).extracting(Article::id).containsExactly(article.id()));
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldFindAllArticlesReferencingSameAlbum(UniAsserter asserter) {
+        final var album = Album.create(
+                new AlbumTitle("Multi Reference Album"),
+                BusinessDate.of(
+                        2024,
+                        1,
+                        1),
+                ArtistCredit.of("Test Artist"),
+                null,
+                null,
+                null,
+                null);
+        final var first = Article.create(
+                ArticleType.ALBUM,
+                album.id(),
+                new ArticleTitle("First Linked Article"),
+                null,
+                null);
+        final var second = Article.create(
+                ArticleType.ALBUM,
+                album.id(),
+                new ArticleTitle("Second Linked Article"),
+                null,
+                null);
+
+        asserter.execute(() -> albumRepository.save(album));
+        asserter.execute(() -> repository.saveAll(List.of(first, second)));
+
+        asserter.assertThat(
+                () -> repository.findByAlbumId(album.id()),
+                found -> assertThat(found).extracting(Article::id)
+                        .containsExactlyInAnyOrder(first.id(), second.id()));
     }
 
     @Test

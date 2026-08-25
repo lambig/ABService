@@ -3,6 +3,7 @@ package com.abservice.application.service.album;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
+import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.domain.repository.article.ArticleRepository;
 import com.abservice.domain.service.AlbumExistenceService;
@@ -12,9 +13,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import lombok.AllArgsConstructor;
-import org.jspecify.annotations.Nullable;
 
 /**
  * アルバム非公開化コマンドサービス
@@ -22,9 +21,9 @@ import org.jspecify.annotations.Nullable;
  * <p>
  * {@link Album#unpublish()} を呼び出すユースケースです。既に公開済みの記事が参照しているアルバムを
  * 非公開に戻すことは許可しますが、「公開中の記事が非公開アルバムを参照する」という不整合状態を作らないため、
- * 当該アルバムを参照する公開中の{@link Article}があれば同一トランザクション内で連動して非公開化します
- * （カスケード非公開）。連動して非公開化した記事は{@link UnpublishAlbumOutput#cascadeUnpublishedArticles()}
- * に含めて返します。
+ * 当該アルバムを参照する公開中の{@link Article}を同一トランザクション内ですべて連動して非公開化します
+ * （カスケード非公開）。1つのアルバムは複数の記事から参照されうるため、対象は1件とは限りません。連動して
+ * 非公開化した記事は{@link UnpublishAlbumOutput#cascadeUnpublishedArticles()}に含めて返します。
  * </p>
  */
 @ApplicationScoped
@@ -44,24 +43,26 @@ public class UnpublishAlbumService implements CommandService<UnpublishAlbumInput
                 .flatMap(albumExistenceService::findExisting)
                 .map(Album::unpublish)
                 .flatMap(albumRepository::save)
-                .flatMap(this::cascadeUnpublishReferencingArticle);
+                .flatMap(this::cascadeUnpublishReferencingArticles);
     }
 
-    private Uni<UnpublishAlbumOutput> cascadeUnpublishReferencingArticle(Album album) {
+    private Uni<UnpublishAlbumOutput> cascadeUnpublishReferencingArticles(Album album) {
         return articleRepository.findByAlbumId(album.id())
-                .flatMap(this::unpublishIfPublic)
+                .flatMap(this::unpublishPublicOnes)
                 .map(cascadeUnpublished -> toOutput(album, cascadeUnpublished));
     }
 
-    private Uni<List<Article>> unpublishIfPublic(@Nullable Article article) {
-        return Optional.ofNullable(article)
+    private Uni<List<Article>> unpublishPublicOnes(List<Article> referencing) {
+        return businessDateTimeProvider.now()
+                .map(now -> unpublished(referencing, now))
+                .flatMap(articleRepository::saveAll);
+    }
+
+    private static List<Article> unpublished(List<Article> referencing, BusinessDateTime now) {
+        return referencing.stream()
                 .filter(Article::isPublic)
-                .map(
-                        publicArticle -> businessDateTimeProvider.now()
-                                .map(publicArticle::unpublish)
-                                .flatMap(articleRepository::save)
-                                .map(List::of))
-                .orElseGet(() -> Uni.createFrom().item(List.of()));
+                .map(publicArticle -> publicArticle.unpublish(now))
+                .toList();
     }
 
     private static UnpublishAlbumOutput toOutput(Album album, List<Article> cascadeUnpublished) {
