@@ -128,10 +128,27 @@ class ArticleDataSourceTest {
 
         asserter.execute(() -> dataSource.persist(entity));
 
-        asserter.assertThat(() -> dataSource.findByAlbumId(albumId), found -> {
-            assertThat(found).isNotNull();
-            assertThat(found.getDomainId()).isEqualTo(entity.getDomainId());
-        });
+        asserter.assertThat(
+                () -> dataSource.findByAlbumId(albumId),
+                found -> assertThat(found).extracting(ArticleTableRecord::getDomainId)
+                        .containsExactly(entity.getDomainId()));
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldFindAllArticlesReferencingSameAlbum(UniAsserter asserter) {
+        final var albumId = UUID.randomUUID().toString();
+        final var first = newArticle("First Article Of Album").setAlbumId(albumId);
+        final var second = newArticle("Second Article Of Album").setAlbumId(albumId);
+
+        asserter.execute(() -> dataSource.persist(first));
+        asserter.execute(() -> dataSource.persist(second));
+
+        asserter.assertThat(
+                () -> dataSource.findByAlbumId(albumId),
+                found -> assertThat(found).extracting(ArticleTableRecord::getDomainId)
+                        .containsExactlyInAnyOrder(first.getDomainId(), second.getDomainId()));
     }
 
     @Test

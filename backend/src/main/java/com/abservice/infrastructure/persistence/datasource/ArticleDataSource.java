@@ -107,14 +107,18 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleTableReco
     /**
      * アルバムIDで記事を検索（タグを含む）
      *
+     * <p>
+     * 同一アルバムは複数の記事から参照されうる（{@code article.album_id} に一意制約はない）。
+     * </p>
+     *
      * @param albumId
      *            アルバムID (domain_id)
-     * @return 該当する記事（存在しない場合はnull）
+     * @return 該当する記事のリスト
      */
-    public Uni<ArticleTableRecord> findByAlbumId(String albumId) {
+    public Uni<List<ArticleTableRecord>> findByAlbumId(String albumId) {
         return sessionFactory.withSession(
                 session -> session.createQuery(EAGER_SELECT + "WHERE a.albumId = :albumId", ArticleTableRecord.class)
-                        .setParameter("albumId", albumId).getSingleResultOrNull());
+                        .setParameter("albumId", albumId).getResultList());
     }
 
     /**

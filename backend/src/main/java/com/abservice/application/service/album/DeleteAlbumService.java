@@ -15,7 +15,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Optional;
 import lombok.AllArgsConstructor;
-import org.jspecify.annotations.Nullable;
 
 /**
  * アルバム削除コマンドサービス
@@ -27,8 +26,9 @@ import org.jspecify.annotations.Nullable;
  * </p>
  *
  * <p>
- * アルバムは物理削除するため、当該アルバムを参照していた {@link Article} は参照先を失います。同一トランザクション内で
- * 参照を失効させ（旧アルバムID・失効日時・理由を記録）、公開中だった記事は非公開へ戻します。「公開中の記事が存在しない
+ * アルバムは物理削除するため、当該アルバムを参照していた {@link Article} は参照先を失います。1つのアルバムは
+ * 複数の記事から参照されうるため、参照していた記事すべてについて同一トランザクション内で参照を失効させ
+ * （旧アルバムID・失効日時・理由を記録）、公開中だった記事は非公開へ戻します。「公開中の記事が存在しない
  * アルバムを参照する」状態を作らないためで、非公開化のカスケード（{@link UnpublishAlbumService}）と同じ考え方です。
  * 影響を受けた記事は {@link DeleteAlbumOutput#affectedArticles()} に含めて返します。
  * </p>
@@ -48,12 +48,12 @@ public class DeleteAlbumService implements CommandService<DeleteAlbumInput, Dele
                 .item(
                         () -> Album.Id.fromInput(input.albumId())
                                 .resolve(ValidationException::new))
-                .flatMap(this::deleteWithReferencingArticle);
+                .flatMap(this::deleteWithReferencingArticles);
     }
 
-    private Uni<DeleteAlbumOutput> deleteWithReferencingArticle(Album.Id albumId) {
+    private Uni<DeleteAlbumOutput> deleteWithReferencingArticles(Album.Id albumId) {
         return articleRepository.findByAlbumId(albumId)
-                .flatMap(this::loseAlbumReference)
+                .flatMap(this::loseAlbumReferences)
                 .flatMap(affected -> deleteAlbum(albumId, affected))
                 .map(DeleteAlbumOutput::new);
     }
@@ -65,15 +65,17 @@ public class DeleteAlbumService implements CommandService<DeleteAlbumInput, Dele
                 .replaceWith(affected);
     }
 
-    private Uni<List<DeleteAlbumOutput.AffectedArticle>> loseAlbumReference(@Nullable Article article) {
-        return Optional.ofNullable(article)
-                .map(referencing -> businessDateTimeProvider.now().flatMap(now -> detach(referencing, now)))
-                .orElseGet(() -> Uni.createFrom().item(List.of()));
+    private Uni<List<DeleteAlbumOutput.AffectedArticle>> loseAlbumReferences(List<Article> referencing) {
+        return businessDateTimeProvider.now()
+                .map(now -> detachedAll(referencing, now))
+                .flatMap(articleRepository::saveAll)
+                .replaceWith(() -> toAffectedArticles(referencing));
     }
 
-    private Uni<List<DeleteAlbumOutput.AffectedArticle>> detach(Article article, BusinessDateTime now) {
-        return articleRepository.save(withoutAlbum(article, now))
-                .map(saved -> List.of(toAffectedArticle(saved, article.isPublic())));
+    private static List<Article> detachedAll(List<Article> referencing, BusinessDateTime now) {
+        return referencing.stream()
+                .map(article -> withoutAlbum(article, now))
+                .toList();
     }
 
     private static Article withoutAlbum(Article article, BusinessDateTime now) {
@@ -84,10 +86,16 @@ public class DeleteAlbumService implements CommandService<DeleteAlbumInput, Dele
                 .loseAlbumReference(AlbumReferenceLostReason.ALBUM_DELETED, now);
     }
 
-    private static DeleteAlbumOutput.AffectedArticle toAffectedArticle(Article article, boolean wasPublic) {
+    private static List<DeleteAlbumOutput.AffectedArticle> toAffectedArticles(List<Article> referencing) {
+        return referencing.stream()
+                .map(DeleteAlbumService::toAffectedArticle)
+                .toList();
+    }
+
+    private static DeleteAlbumOutput.AffectedArticle toAffectedArticle(Article article) {
         return new DeleteAlbumOutput.AffectedArticle(
                 article.id().value(),
                 article.title().value(),
-                wasPublic);
+                article.isPublic());
     }
 }
