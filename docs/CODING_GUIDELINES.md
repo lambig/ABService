@@ -81,7 +81,7 @@ VO の外部入力用の生成は、例外 throw の `of()`（内部生成）と
 
 ## 7. データベース
 
-- 共通監査列（7列）は `AuditableTableRecord` と各マイグレーションが正。運用ルールと理由は [DECISIONS.md](DECISIONS.md) §5。
+- 共通監査列（7列）は `AuditableTableRecord` と各マイグレーションが正。日時の時刻源はアプリケーション、actor 4列は未特定のまま運用する。運用ルールと理由は [DECISIONS.md](DECISIONS.md) §5。
 - ドメイン ID（UUIDv7 文字列）と DB 内部 ID（`Long`）の分離は `EntityId` と `*TableRecord` が正。理由は [DECISIONS.md](DECISIONS.md) §1。
 - ドメイン層の日付・日時は `BusinessDate` / `BusinessDateTime` を使う（`java.time` 直接使用は domain では ArchUnit で禁止）。インフラ層・変換処理では `LocalDate` 等の使用を許可する。
 

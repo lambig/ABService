@@ -17,10 +17,17 @@ import java.util.Optional;
  * <li>updated_at: レコード最終更新日時</li>
  * <li>created_by_service: 作成時のアプリケーションサービス名</li>
  * <li>updated_by_service: 更新時のアプリケーションサービス名</li>
- * <li>created_by_user: 作成者ユーザーID（外部サービスのユーザーID）</li>
- * <li>updated_by_user: 更新者ユーザーID（外部サービスのユーザーID）</li>
+ * <li>created_by_user: 作成者の識別子</li>
+ * <li>updated_by_user: 更新者の識別子</li>
  * <li>version: 楽観ロック用バージョン番号</li>
  * </ul>
+ * </p>
+ *
+ * <p>
+ * 日時2列の時刻源はアプリケーション（JVM）です。DBの{@code DEFAULT CURRENT_TIMESTAMP}は、マイグレーション
+ * など本クラスを経由しない挿入の保険として残しています。actor 4列は現時点では常に未設定（NULL）で、行ごとに 区別できる actor
+ * を持つ認証が入った時点で{@link #setCreationAuditInfo}／{@link #setUpdateAuditInfo}
+ * 経由で埋めます。理由は{@code docs/DECISIONS.md} 5。
  * </p>
  *
  * <p>
@@ -39,7 +46,7 @@ public abstract class AuditableTableRecord<T extends AuditableTableRecord<T>> {
     /**
      * レコード作成日時
      * <p>
-     * データベースのDEFAULT値により自動設定されるため、 アプリケーションコードで明示的に設定する必要はありません。
+     * 生成時のアプリケーション時刻で設定します（挿入時にこの値を送るため、DBのDEFAULTは適用されません）。
      * </p>
      */
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -48,7 +55,7 @@ public abstract class AuditableTableRecord<T extends AuditableTableRecord<T>> {
     /**
      * レコード最終更新日時
      * <p>
-     * {@link #preUpdate()} メソッドにより更新時に自動更新されます。
+     * {@link #preUpdate()} メソッドにより、更新時のアプリケーション時刻へ自動更新されます。
      * </p>
      */
     @Column(name = "updated_at", nullable = false)
@@ -57,7 +64,7 @@ public abstract class AuditableTableRecord<T extends AuditableTableRecord<T>> {
     /**
      * 作成時のアプリケーションサービス名
      * <p>
-     * 例: "album-service", "article-service" など
+     * 現時点では未設定（NULL）。埋める条件はクラスのJavadoc参照。
      * </p>
      */
     @Column(name = "created_by_service", length = 255)
@@ -66,25 +73,26 @@ public abstract class AuditableTableRecord<T extends AuditableTableRecord<T>> {
     /**
      * 更新時のアプリケーションサービス名
      * <p>
-     * 例: "album-service", "article-service" など
+     * 現時点では未設定（NULL）。埋める条件はクラスのJavadoc参照。
      * </p>
      */
     @Column(name = "updated_by_service", length = 255)
     private String updatedByService;
 
     /**
-     * 作成者ユーザーID（外部サービスのユーザーID）
+     * 作成者の識別子
      * <p>
-     * Cognitoなどの外部認証サービスから取得したユーザーIDを格納します。
+     * 現時点では未設定（NULL）。現行の認証は単一の管理者を表す固定 principal のみを発行するため、行ごとに区別できる
+     * 作成者が存在しない。埋める条件はクラスのJavadoc参照。
      * </p>
      */
     @Column(name = "created_by_user", length = 255)
     private String createdByUser;
 
     /**
-     * 更新者ユーザーID（外部サービスのユーザーID）
+     * 更新者の識別子
      * <p>
-     * Cognitoなどの外部認証サービスから取得したユーザーIDを格納します。
+     * 現時点では未設定（NULL）。理由と埋める条件は{@link #createdByUser}と同じ。
      * </p>
      */
     @Column(name = "updated_by_user", length = 255)

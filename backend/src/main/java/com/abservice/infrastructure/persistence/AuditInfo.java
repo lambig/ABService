@@ -8,10 +8,15 @@ import org.jspecify.annotations.Nullable;
  * エンティティの作成・更新時に誰が何のサービスから操作したかを記録するための情報を保持します。
  * </p>
  *
+ * <p>
+ * 現時点で本型を渡す呼び出し元はありません（{@link AuditableTableRecord} の actor 4列は未設定のまま運用する）。
+ * 行ごとに区別できる actor を持つ認証を入れる際の受け口として残しています。理由は{@code docs/DECISIONS.md} 5。
+ * </p>
+ *
  * @param serviceName
- *            操作を実行したアプリケーションサービス名（例: "album-service", "article-service"）
+ *            操作を実行したアプリケーションサービス名
  * @param userId
- *            操作を実行したユーザーID（外部サービスのユーザーID、例: Cognito User ID）
+ *            操作を実行した actor の識別子
  */
 public record AuditInfo(@Nullable String serviceName, @Nullable String userId) {
     /**

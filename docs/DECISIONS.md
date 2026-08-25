@@ -64,14 +64,20 @@
 **判断**: すべてのテーブルに `created_at` / `updated_at` / `created_by_service` / `updated_by_service` / `created_by_user` / `updated_by_user` / `version` を持たせる。
 
 **運用ルール**:
-- `created_at` / `updated_at` はDBのDEFAULTに任せ、アプリケーションから明示的に設定しない
+- `created_at` / `updated_at` の時刻源はアプリケーション（JVM）。DBの `DEFAULT CURRENT_TIMESTAMP` は、マイグレーションのようにアプリケーションを経由しない挿入の保険として残す
+- actor 4列（`*_by_service` / `*_by_user`）は**未特定のまま運用する**（NULL）。行ごとに区別できる actor を持つ認証を入れた時点で埋める
 - 業務的に意味を持つ日時（公開日時など）は監査列と混ぜず別カラムに持つ
-- ユーザーIDは外部サービスのIDを想定して `VARCHAR`
 - 楽観ロックはJPAの `@Version`（`version` 列）
 
 **なぜ**: 監査証跡と楽観ロックを、テーブルごとの設計判断にせず一律で持たせるため。業務日時を監査列に兼用すると「レコードの更新」と「業務上の変更」が区別できなくなるため分ける。
 
-**実体**: `infrastructure/persistence/entity/AuditableTableRecord`、`V12`（既存テーブルへの追加）。
+時刻源をアプリケーションに置くのは、`updated_at` をDB側で維持するには全テーブルにトリガが必要で、単一プロセスで書き込む構成では引き合わないため。挿入時にアプリが値を送るのでDBのDEFAULTは実際には適用されないが、経路が増えたときに NOT NULL 違反で落ちないよう残す。
+
+actor 列を埋めないのは、現行の認証が単一の管理者を表す固定 principal しか発行せず、埋めても全行が同じ値になり「誰が」の情報を持たないため。定数を入れると、後から実際の識別子が入り始めたときに解釈の混ざった列になる。**この状態を「監査証跡が完成している」とは記述しない**（列の存在＝追跡できる、ではない）。
+
+**トレードオフ**: リリース時点では「いつ」だけが追え、「誰が」は追えない。単一管理者の運用では実質的な損失は小さいが、複数の管理者を扱う時点で actor を埋める作業（認証側の識別子の決定と、書き込み経路への受け渡し）が必要になる。
+
+**実体**: `infrastructure/persistence/AuditableTableRecord`（日時の設定と `@PreUpdate`）、`AuditInfo`（actor を埋める際の受け口。現時点で呼び出し元なし）、`V12`（既存テーブルへの追加）。
 
 ---
 
