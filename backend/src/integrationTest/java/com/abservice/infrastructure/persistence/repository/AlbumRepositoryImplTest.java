@@ -497,58 +497,6 @@ class AlbumRepositoryImplTest {
     @Test
     @TestReactiveTransaction
     @RunOnVertxContext
-    void shouldFindByTitle(UniAsserter asserter) {
-        initTestData();
-
-        final var title = new AlbumTitle("Unique Title for Search");
-        final var album = Album.create(
-                title,
-                testReleaseDate,
-                testArtistCredit,
-                null,
-                null,
-                null,
-                null);
-
-        // Save
-        asserter.execute(() -> repository.save(album));
-
-        // Find by title
-        asserter.assertThat(() -> repository.findByTitle(title), found -> {
-            assertThat(found.size() >= 1).isTrue();
-            assertThat(found.stream().anyMatch(a -> a.title().value().equals("Unique Title for Search"))).isTrue();
-        });
-    }
-
-    @Test
-    @TestReactiveTransaction
-    @RunOnVertxContext
-    void shouldFindByCatalogNumber(UniAsserter asserter) {
-        initTestData();
-
-        final var catalogNumber = new CatalogNumber("UNIQUE-CAT-999");
-        final var album = Album.create(
-                new AlbumTitle("Album with Unique Catalog"),
-                testReleaseDate,
-                testArtistCredit,
-                null,
-                catalogNumber,
-                null,
-                null);
-
-        // Save
-        asserter.execute(() -> repository.save(album));
-
-        // Find by catalog number
-        asserter.assertThat(() -> repository.findByCatalogNumber(catalogNumber), found -> {
-            assertThat(found).isNotNull();
-            assertThat(found.catalogNumber()).isEqualTo(catalogNumber);
-        });
-    }
-
-    @Test
-    @TestReactiveTransaction
-    @RunOnVertxContext
     void shouldHandleNullInputs(UniAsserter asserter) {
         // Save null は @NullMarked 契約違反のためシステムエラー（同期スロー）
         assertThatThrownBy(() -> repository.save(null)).isInstanceOf(NullPointerException.class);

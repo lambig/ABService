@@ -8,8 +8,6 @@ import com.abservice.domain.model.aggregate.album.ExternalAudio;
 import com.abservice.domain.model.aggregate.album.Track;
 import com.abservice.domain.model.aggregate.album.TrackTune;
 import com.abservice.domain.model.aggregate.tune.Tune;
-import com.abservice.domain.model.vo.album.AlbumTitle;
-import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.Url;
@@ -28,7 +26,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.StringUtils;
 
 /**
  * AlbumRepository実装
@@ -223,6 +220,20 @@ public class AlbumRepositoryImpl implements AlbumRepository {
     }
 
     @Override
+    public Uni<Album> findByIdExclusively(Album.Id id) {
+        return Optional.ofNullable(id)
+                .map(Album.Id::value)
+                .map(this::lockedThenLoaded)
+                .orElseGet(() -> Uni.createFrom().nullItem())
+                .onItem().ifNotNull().transform(AlbumMapper::toDomain);
+    }
+
+    private Uni<AlbumTableRecord> lockedThenLoaded(String domainId) {
+        return dataSource.lockByDomainId(domainId)
+                .onItem().ifNotNull().transformToUni(locked -> dataSource.findByIdWithTracks(locked.getDomainId()));
+    }
+
+    @Override
     public Uni<List<Album>> findAllById(Iterable<Album.Id> ids) {
         return Optional.ofNullable(ids)
                 .map(toList(Album.Id::value))
@@ -279,45 +290,4 @@ public class AlbumRepositoryImpl implements AlbumRepository {
         return dataSource.count();
     }
 
-    @Override
-    public Uni<List<Album>> findByTitle(AlbumTitle title) {
-        return Optional.ofNullable(title)
-                .map(AlbumTitle::value)
-                .map(dataSource::findByTitle)
-                .orElseGet(() -> Uni.createFrom().item(List.of()))
-                .map(toList(AlbumMapper::toDomain));
-    }
-
-    @Override
-    public Uni<List<Album>> findByArtistName(String artistName) {
-        return Optional.ofNullable(artistName)
-                .filter(StringUtils::isNotBlank)
-                .map(dataSource::findByArtistDisplayName)
-                .orElseGet(() -> Uni.createFrom().item(List.of()))
-                .map(toList(AlbumMapper::toDomain));
-    }
-
-    @Override
-    public Uni<List<Album>> findByEventName(String eventName) {
-        return Optional.ofNullable(eventName)
-                .filter(StringUtils::isNotBlank)
-                .map(dataSource::findByEventName)
-                .orElseGet(() -> Uni.createFrom().item(List.of()))
-                .map(toList(AlbumMapper::toDomain));
-    }
-
-    @Override
-    public Uni<Album> findByCatalogNumber(CatalogNumber catalogNumber) {
-        return Optional.ofNullable(catalogNumber)
-                .map(CatalogNumber::value)
-                .map(dataSource::findByCatalogNumber)
-                .orElseGet(() -> Uni.createFrom().nullItem())
-                .onItem().ifNotNull().transform(AlbumMapper::toDomain);
-    }
-
-    @Override
-    public Uni<List<Album>> findByReleaseYear(int year) {
-        return dataSource.findByReleaseYear(year)
-                .map(toList(AlbumMapper::toDomain));
-    }
 }

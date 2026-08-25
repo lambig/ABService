@@ -6,7 +6,7 @@ import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.album.Track;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.repository.album.AlbumRepository;
-import com.abservice.domain.service.AlbumExistenceService;
+import com.abservice.domain.service.AlbumAccessService;
 import com.abservice.domain.service.TrackAdditionService;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
@@ -41,7 +41,7 @@ import org.jspecify.annotations.Nullable;
 public class AddTrackService implements CommandService<AddTrackInput, AddTrackOutput> {
 
     private final AlbumRepository albumRepository;
-    private final AlbumExistenceService albumExistenceService;
+    private final AlbumAccessService albumAccessService;
     private final TrackAdditionService trackAdditionService;
 
     @WithTransaction
@@ -51,7 +51,7 @@ public class AddTrackService implements CommandService<AddTrackInput, AddTrackOu
                 .item(
                         () -> Album.Id.fromInput(input.albumId())
                                 .resolve(ValidationException::new))
-                .flatMap(albumExistenceService::findExisting)
+                .flatMap(albumAccessService::findExistingAndClaimEdit)
                 .flatMap(
                         album -> trackAdditionService.addTrack(album, toTrackFields(input))
                                 .flatMap(

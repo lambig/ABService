@@ -3,7 +3,7 @@ package com.abservice.application.service.album;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.repository.album.AlbumRepository;
-import com.abservice.domain.service.AlbumExistenceService;
+import com.abservice.domain.service.AlbumAccessService;
 import com.abservice.domain.service.BusinessDateTimeProvider;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -25,7 +25,7 @@ import lombok.AllArgsConstructor;
 public class PublishAlbumService implements CommandService<PublishAlbumInput, PublishAlbumOutput> {
 
     private final AlbumRepository albumRepository;
-    private final AlbumExistenceService albumExistenceService;
+    private final AlbumAccessService albumAccessService;
     private final BusinessDateTimeProvider businessDateTimeProvider;
 
     @WithTransaction
@@ -33,7 +33,7 @@ public class PublishAlbumService implements CommandService<PublishAlbumInput, Pu
     public Uni<PublishAlbumOutput> execute(PublishAlbumInput input) {
         return input.asValidated()
                 .map(valid -> Album.Id.of(Objects.requireNonNull(valid.albumId())))
-                .flatMap(albumExistenceService::findExisting)
+                .flatMap(albumAccessService::findExistingAndClaimEdit)
                 .flatMap(
                         existing -> businessDateTimeProvider.now()
                                 .map(existing::publish))

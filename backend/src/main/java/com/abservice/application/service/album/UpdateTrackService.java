@@ -9,7 +9,7 @@ import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.repository.album.AlbumRepository;
-import com.abservice.domain.service.AlbumExistenceService;
+import com.abservice.domain.service.AlbumAccessService;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
@@ -38,7 +38,7 @@ import org.jspecify.annotations.Nullable;
 public class UpdateTrackService implements CommandService<UpdateTrackInput, UpdateTrackOutput> {
 
     private final AlbumRepository albumRepository;
-    private final AlbumExistenceService albumExistenceService;
+    private final AlbumAccessService albumAccessService;
 
     @WithTransaction
     @Override
@@ -47,7 +47,7 @@ public class UpdateTrackService implements CommandService<UpdateTrackInput, Upda
                 .item(
                         () -> Album.Id.fromInput(input.albumId())
                                 .resolve(ValidationException::new))
-                .flatMap(albumExistenceService::findExisting)
+                .flatMap(albumAccessService::findExistingAndClaimEdit)
                 .flatMap(
                         album -> Uni.createFrom()
                                 .item(

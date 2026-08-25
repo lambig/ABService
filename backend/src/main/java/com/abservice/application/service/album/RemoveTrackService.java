@@ -5,7 +5,7 @@ import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.album.Track;
 import com.abservice.domain.repository.album.AlbumRepository;
-import com.abservice.domain.service.AlbumExistenceService;
+import com.abservice.domain.service.AlbumAccessService;
 import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -26,7 +26,7 @@ import lombok.AllArgsConstructor;
 public class RemoveTrackService implements CommandService<RemoveTrackInput, RemoveTrackOutput> {
 
     private final AlbumRepository albumRepository;
-    private final AlbumExistenceService albumExistenceService;
+    private final AlbumAccessService albumAccessService;
 
     @WithTransaction
     @Override
@@ -39,7 +39,7 @@ public class RemoveTrackService implements CommandService<RemoveTrackInput, Remo
                                 Ids::new)
                                 .resolve(ValidationException::new))
                 .flatMap(
-                        ids -> albumExistenceService.findExisting(ids.albumId())
+                        ids -> albumAccessService.findExistingAndClaimEdit(ids.albumId())
                                 .map(album -> album.removeTrack(ids.trackId()))
                                 .flatMap(albumRepository::save)
                                 .map(saved -> toOutput(saved, ids.trackId())));

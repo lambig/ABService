@@ -6,7 +6,7 @@ import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.album.ExternalAudio;
 import com.abservice.domain.model.vo.common.ExternalAudioUrl;
 import com.abservice.domain.repository.album.AlbumRepository;
-import com.abservice.domain.service.AlbumExistenceService;
+import com.abservice.domain.service.AlbumAccessService;
 import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -28,7 +28,7 @@ import lombok.AllArgsConstructor;
 public class AddExternalAudioService implements CommandService<AddExternalAudioInput, AddExternalAudioOutput> {
 
     private final AlbumRepository albumRepository;
-    private final AlbumExistenceService albumExistenceService;
+    private final AlbumAccessService albumAccessService;
 
     @WithTransaction
     @Override
@@ -41,7 +41,7 @@ public class AddExternalAudioService implements CommandService<AddExternalAudioI
                                 Fields::new)
                                 .resolve(ValidationException::new))
                 .flatMap(
-                        fields -> albumExistenceService.findExisting(fields.albumId())
+                        fields -> albumAccessService.findExistingAndClaimEdit(fields.albumId())
                                 .map(album -> album.addExternalAudio(fields.url()))
                                 .flatMap(
                                         addition -> albumRepository.save(addition.album())

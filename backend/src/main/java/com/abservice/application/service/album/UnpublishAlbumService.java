@@ -6,7 +6,7 @@ import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.domain.repository.article.ArticleRepository;
-import com.abservice.domain.service.AlbumExistenceService;
+import com.abservice.domain.service.AlbumAccessService;
 import com.abservice.domain.service.BusinessDateTimeProvider;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -31,7 +31,7 @@ import lombok.AllArgsConstructor;
 public class UnpublishAlbumService implements CommandService<UnpublishAlbumInput, UnpublishAlbumOutput> {
 
     private final AlbumRepository albumRepository;
-    private final AlbumExistenceService albumExistenceService;
+    private final AlbumAccessService albumAccessService;
     private final ArticleRepository articleRepository;
     private final BusinessDateTimeProvider businessDateTimeProvider;
 
@@ -40,7 +40,7 @@ public class UnpublishAlbumService implements CommandService<UnpublishAlbumInput
     public Uni<UnpublishAlbumOutput> execute(UnpublishAlbumInput input) {
         return input.asValidated()
                 .map(valid -> Album.Id.of(Objects.requireNonNull(valid.albumId())))
-                .flatMap(albumExistenceService::findExisting)
+                .flatMap(albumAccessService::findExistingAndClaimEdit)
                 .map(Album::unpublish)
                 .flatMap(albumRepository::save)
                 .flatMap(this::cascadeUnpublishReferencingArticles);

@@ -12,6 +12,7 @@ import com.abservice.domain.model.vo.common.AssetKey;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.domain.repository.album.AlbumRepository;
+import com.abservice.domain.service.AlbumAccessService;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
@@ -47,6 +48,8 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
 
     private final AlbumRepository albumRepository;
 
+    private final AlbumAccessService albumAccessService;
+
     @WithTransaction
     @Override
     public Uni<UpdateAlbumOutput> execute(UpdateAlbumInput input) {
@@ -54,18 +57,12 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
                 .item(
                         () -> Album.Id.fromInput(input.albumId())
                                 .resolve(ValidationException::new))
-                .flatMap(this::findExisting)
+                .flatMap(albumAccessService::findExistingAndClaimEdit)
                 .map(
                         existing -> validateAndApply(existing, input)
                                 .resolve(ValidationException::new))
                 .flatMap(albumRepository::save)
                 .map(UpdateAlbumService::toOutput);
-    }
-
-    private Uni<Album> findExisting(Album.Id id) {
-        return albumRepository.findById(id)
-                .onItem().ifNull()
-                .failWith(() -> EntityNotFoundException.of("Album", id.value()));
     }
 
     static Result<Album> validateAndApply(Album existing, UpdateAlbumInput input) {
