@@ -26,7 +26,7 @@ detekt（Kotlin）カスタムルール26件相当は、Java に構文的対応�
 - **規約ベースのルールは実装を待たず先行導入する**。対象0件の間は `allowEmptyShould(true)` で不活性、最初の実装が入った瞬間から強制。「機能実装を待ってからルール化」はしない。
 - **値の生成は式のみ**（ternary / switch 式）。`if` は副作用・例外（`throw`）分岐に限る。sealed 型 + switch 式で網羅性を javac が担保。§6 のエラー表現と整合。
 - **NullAway / ErrorProne のバージョン固定（管理下の一時的負債・要追随）**: `error_prone_core 2.39.0` + `nullaway 0.12.7`（`net.ltgt.errorprone 5.1.0`）。ErrorProne 内部 API 密結合のため両者を揃える（最新 `error_prone_core 2.50.0` は非互換）。**昇格トリガ**: NullAway が 2.50 系対応版を出したら両者 bump。**退避路**: JSpecify アノテーションはツール非依存のため Checker Framework へ差し替え可能。
-- 追加ルールの検討状況は [STATUS_AND_ROADMAP.md](STATUS_AND_ROADMAP.md) の残タスク参照（SpotBugs/PMD 組込ルールセットの再導入）。
+- 追加ルールの検討状況は GitHub issue（`roadmap-backlog` ラベル）が正。SpotBugs / PMD 組込ルールセットの再導入は #193、カバレッジ計測は #192。
 
 ---
 
