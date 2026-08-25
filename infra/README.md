@@ -70,6 +70,18 @@ RDSの接続先とパスワードはTerraformが Parameter Store へ保存する
 
 backend の prod プロファイルはこれらに既定値を持たないため、注入が漏れた状態ではローカル向けの値にフォールバックせず起動に失敗する。
 
+## スキーマ移行（Flyway）
+
+schemaの正はマイグレーションであり、起動時に適用される（`quarkus.flyway.migrate-at-start`）。**暗黙のbaselineは無効**（`baseline-on-migrate=false`）なので、Flywayの履歴テーブルを持たない非空のDBへ接続すると起動に失敗する。これは「本来適用すべきマイグレーションが飛ばされる」状態を検出するための設計で、失敗は想定どおりの挙動。
+
+履歴を持たない既存DBを取り込む必要が生じた場合のみ、**一回限りの明示的な操作**としてbaselineする。
+
+1. 対象DBの現在のschemaが、どのマイグレーション版まで適用済みの状態と等価かを確定させる
+2. その版を `baselineVersion` として Flyway CLI で `baseline` を実行し、履歴テーブルを作る
+3. アプリを起動し、以降のマイグレーションが順に適用されることを確認する
+
+アプリの設定を一時的に `baseline-on-migrate=true` へ変えてこれを済ませることはしない（次回以降も暗黙baselineが効いてしまい、検出したい欠落を見逃す）。
+
 ## アセット配信（#136）
 
 画像アセットは管理画面が backend から署名付きURLを受け取り、S3（`aws_s3_bucket.assets`）へ直接 PUT する。実体は backend／CloudFront を経由しないため、サイズ上限はアプリ側の検証（`abservice.assets.max-bytes`）だけで決まる。
