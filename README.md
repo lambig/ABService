@@ -19,7 +19,7 @@ WebService/Site implementation for my own use
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - 構成・境界・経路（CloudFrontのパスベースルーティング、認証方式、アセットの経路）
 - [docs/DECISIONS.md](docs/DECISIONS.md) - 設計判断の記録（なぜその構造にしたか）
 - [docs/CODING_GUIDELINES.md](docs/CODING_GUIDELINES.md) - 設計上の意図と、静的解析で強制しているルールの索引
-- [docs/STATUS_AND_ROADMAP.md](docs/STATUS_AND_ROADMAP.md) - 開発状況と残タスク
+- [docs/STATUS_AND_ROADMAP.md](docs/STATUS_AND_ROADMAP.md) - 開発状況（残タスクは GitHub issue が正）
 - [backend/TEST_GUIDE.md](backend/TEST_GUIDE.md) - テスト分離規約
 - [docs/README.md](docs/README.md) - ドキュメント記述規約（何を文書に書き、何を書かないか）
 
@@ -101,4 +101,4 @@ git push --no-verify
 
 #### SpotBugsについて
 
-SpotBugs は現在このプロジェクトでは未導入。再導入（PMD 組込ルールセットと併せたバグパターン検出）の検討は [docs/STATUS_AND_ROADMAP.md](docs/STATUS_AND_ROADMAP.md) の残タスク。
+SpotBugs は現在このプロジェクトでは未導入。再導入（PMD 組込ルールセットと併せたバグパターン検出）の検討は issue #193。
