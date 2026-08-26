@@ -49,8 +49,15 @@ public final class ArticleCore {
     /** 記事タイトル */
     @NonNull
     private final ArticleTitle title;
-    /** 記事本文 */
-    @Nullable
+    /**
+     * 記事本文（Null Objectパターン。本文なしは {@code MarkupContent.EMPTY}）
+     *
+     * <p>
+     * 本文は「無い」ことがあり得ない項目のため、空であることは認めるが null は持たない。値が真に無いことがある項目
+     * （{@code publishedAt} / {@code updatedAtBusiness}）とは扱いを分ける。
+     * </p>
+     */
+    @NonNull
     private final MarkupContent body;
     /** お品書き・一覧表示用の短い紹介文 */
     @Nullable
@@ -86,7 +93,7 @@ public final class ArticleCore {
             "ARTICLE_TAG_ID_REQUIRED");
 
     @DomainConstructor
-    private ArticleCore(Article.@NonNull Id id, @NonNull ArticleTitle title, @Nullable MarkupContent body,
+    private ArticleCore(Article.@NonNull Id id, @NonNull ArticleTitle title, @NonNull MarkupContent body,
             @Nullable String introShort, @Nullable BusinessDateTime publishedAt,
             @Nullable BusinessDateTime updatedAtBusiness, boolean publicFlag, @NonNull List<ArticleTag> tags) {
         this.id = id;
@@ -131,7 +138,7 @@ public final class ArticleCore {
             return new ArticleCore(
                     Objects.requireNonNull(id),
                     Objects.requireNonNull(title),
-                    body(),
+                    Objects.requireNonNullElse(body(), MarkupContent.EMPTY),
                     introShort(),
                     publishedAt(),
                     updatedAtBusiness(),

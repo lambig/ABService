@@ -33,7 +33,9 @@ final class ArticleViewMapper {
                 reference.map(ArticleAlbumReferenceTableRecord::getAlbumId)
                         .orElse(null),
                 entity.getTitle(),
-                entity.getBody(),
+                // NULL-MEANS-EMPTY: 本文はnullを持たない。列がNULLの既存行は空として扱う（V36 以降はNULLを持たない）
+                Optional.ofNullable(entity.getBody())
+                        .orElse(""),
                 entity.getBodyFormat(),
                 entity.getIntroShort(),
                 entity.getPublishedAt(),

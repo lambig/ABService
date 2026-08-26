@@ -41,11 +41,10 @@ public sealed interface ArticleResponse permits AlbumArticleResponse, PlainArtic
     String title();
 
     /**
-     * 記事本文（nullable）
+     * 記事本文（空文字列は本文なし。nullは返さない）
      *
      * @return 本文
      */
-    @Nullable
     String body();
 
     /**

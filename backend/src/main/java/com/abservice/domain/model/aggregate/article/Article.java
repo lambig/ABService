@@ -90,9 +90,9 @@ public sealed interface Article extends Aggregate<Article, Article.@NonNull Id>
     /**
      * 記事本文を取得します。
      *
-     * @return 本文（nullable）
+     * @return 本文（本文なしは {@code MarkupContent.EMPTY}）
      */
-    default @Nullable MarkupContent body() {
+    default @NonNull MarkupContent body() {
         return core().body();
     }
 

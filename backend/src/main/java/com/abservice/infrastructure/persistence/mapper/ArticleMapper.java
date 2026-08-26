@@ -141,10 +141,13 @@ public final class ArticleMapper {
                 .orElse(null);
     }
 
-    private static @Nullable MarkupContent createMarkupContent(@Nullable String body, @Nullable String bodyFormat) {
+    /*
+     * NULL-MEANS-EMPTY: 本文は「無い」ことがあり得ない項目のため、列がNULLの既存行は空として扱う （V36 以降はNULLを持たない）。
+     */
+    private static MarkupContent createMarkupContent(@Nullable String body, @Nullable String bodyFormat) {
         return Optional.ofNullable(body)
                 .map(b -> new MarkupContent(b, MarkupFormat.orDefault(bodyFormat)))
-                .orElse(null);
+                .orElse(MarkupContent.EMPTY);
     }
 
     /**
@@ -160,14 +163,8 @@ public final class ArticleMapper {
                 .setDomainId(article.id().value())
                 .setArticleType(article.articleType().name())
                 .setTitle(article.title().value())
-                .setBody(
-                        Optional.ofNullable(body)
-                                .map(MarkupContent::content)
-                                .orElse(null))
-                .setBodyFormat(
-                        Optional.ofNullable(body)
-                                .map(b -> b.format().name())
-                                .orElse(MarkupFormat.PLAIN_TEXT.name()))
+                .setBody(body.content())
+                .setBodyFormat(body.format().name())
                 .setIntroShort(article.introShort())
                 .setPublishedAt(toInstant(article.publishedAt()))
                 .setUpdatedAtBusiness(toInstant(article.updatedAtBusiness()))

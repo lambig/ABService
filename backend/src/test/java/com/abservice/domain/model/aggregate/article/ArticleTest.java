@@ -170,8 +170,8 @@ class ArticleTest {
         }
 
         @Test
-        @DisplayName("本文をnullに変更できること")
-        void changeBodyWithNullShouldSucceed() {
+        @DisplayName("本文をnullに変更すると空の本文になること（本文はnullを持たない）")
+        void changeBodyWithNullShouldBecomeEmpty() {
             // Arrange
             final var article = createTestArticle();
             final var currentDateTime = BusinessDateTime.of(Instant.now());
@@ -180,7 +180,8 @@ class ArticleTest {
             final var updated = article.changeBody(null, currentDateTime);
 
             // Assert
-            assertThat(updated.body()).isNull();
+            assertThat(updated.body()).isEqualTo(MarkupContent.EMPTY);
+            assertThat(updated.body().isEmpty()).isTrue();
         }
     }
 

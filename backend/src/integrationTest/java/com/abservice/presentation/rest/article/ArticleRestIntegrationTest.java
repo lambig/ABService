@@ -143,7 +143,10 @@ class ArticleRestIntegrationTest {
                 .body("$", not(hasKey("albumReferenceLostReason")))
                 // 値が無いことを表す null はキーを出す（項目名を落とすのは種別が概念を持たない場合だけ）
                 .body("$", hasKey("introShort"))
-                .body("introShort", nullValue());
+                .body("introShort", nullValue())
+                // 本文は「無い」ことがあり得ない項目のため、指定しなくても空文字列で返る
+                .body("body", equalTo(""))
+                .body("bodyFormat", equalTo("PLAIN_TEXT"));
     }
 
     @Test

@@ -64,8 +64,8 @@ public class ArticleTableRecord extends AuditableTableRecord<ArticleTableRecord>
     @Column(name = "title", nullable = false, length = 500)
     private String title;
 
-    @Column(name = "body", columnDefinition = "TEXT")
-    private String body;
+    @Column(name = "body", nullable = false, columnDefinition = "TEXT")
+    private String body = "";
 
     @Column(name = "body_format", nullable = false, length = 20)
     private String bodyFormat = "PLAIN_TEXT";
