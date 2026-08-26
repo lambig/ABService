@@ -9,7 +9,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -95,13 +94,4 @@ public class AlbumTableRecord extends AuditableTableRecord<AlbumTableRecord> {
 
     @OneToMany(mappedBy = "album", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<AlbumExternalAudioTableRecord> externalAudios = new ArrayList<>();
-
-    @OneToOne(mappedBy = "album", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private AlbumArticleTableRecord albumArticle;
-
-    @OneToOne(mappedBy = "album", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private AlbumDistributionTableRecord albumDistribution;
-
-    @OneToMany(mappedBy = "album", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private List<AlbumAcquisitionChannelTableRecord> acquisitionChannels = new ArrayList<>();
 }
