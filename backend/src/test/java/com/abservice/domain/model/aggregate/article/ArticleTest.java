@@ -15,8 +15,8 @@ import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.entity.article.ArticleTag;
 import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.ArticleType;
-import com.abservice.domain.model.vo.article.MarkupContent;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.lib.Result;
 
 @DisplayName("Article集約のテスト")

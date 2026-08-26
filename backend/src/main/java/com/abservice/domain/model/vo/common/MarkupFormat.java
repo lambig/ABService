@@ -1,4 +1,4 @@
-package com.abservice.domain.model.vo.article;
+package com.abservice.domain.model.vo.common;
 
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -25,7 +25,7 @@ public enum MarkupFormat {
      *
      * <p>
      * 永続化データの復元など、既定値へのフォールバックが妥当な場面で使用します。外部入力の検証には
-     * {@link com.abservice.domain.model.vo.article.MarkupContent#fromInput}
+     * {@link com.abservice.domain.model.vo.common.MarkupContent#fromInput}
      * を使用してください。
      * </p>
      *

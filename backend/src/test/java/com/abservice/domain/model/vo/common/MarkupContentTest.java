@@ -1,4 +1,4 @@
-package com.abservice.domain.model.vo.article;
+package com.abservice.domain.model.vo.common;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

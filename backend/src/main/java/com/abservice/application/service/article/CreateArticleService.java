@@ -5,7 +5,7 @@ import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.ArticleType;
-import com.abservice.domain.model.vo.article.MarkupContent;
+import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.domain.repository.article.ArticleRepository;
 import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
