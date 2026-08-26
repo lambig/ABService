@@ -66,7 +66,7 @@ aws ssm get-parameter --name "/<project>/<environment>/app/admin-api-key" \
 
 ## DB接続情報（#117）
 
-RDSの接続先とパスワードはTerraformが Parameter Store へ保存する（`/<project>/<environment>/db/host` `.../port` `.../name` `.../username`、パスワードのみ SecureString の `.../password`）。`deploy.sh` がこれらを取得して backend コンテナへ `DB_URL` / `DB_REACTIVE_URL` / `DB_USERNAME` / `DB_PASSWORD` として渡す。
+RDSの接続先とパスワードはTerraformが Parameter Store へ保存する（`/<project>/<environment>/db/host` `.../port` `.../name` `.../username`、パスワードのみ SecureString の `.../password`）。`deploy.sh` がこれらを取得して backend コンテナへ `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USERNAME` / `DB_PASSWORD` として渡す。backend は JDBC（Flywayが使う）とreactiveの接続URLをこのホスト・ポート・DB名から組み立てるため、用途ごとのURLを個別に渡すことはしない（両者が別のデータベースを指し得る形を残さない）。
 
 backend の prod プロファイルはこれらに既定値を持たないため、注入が漏れた状態ではローカル向けの値にフォールバックせず起動に失敗する。
 
