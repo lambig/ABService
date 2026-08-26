@@ -211,6 +211,47 @@ class ArticleRestIntegrationTest {
                 .body("articleId", equalTo(articleId)).body("albumId", equalTo(albumId));
     }
 
+    /*
+     * REGRESSION: アルバム参照は article_album_reference の子行として持ち、子は @MapsId で親とIDを共有する。
+     * ALBUM から別種別へ変えると参照は落ちるため、子行が orphanRemoval で実際に削除されることを実DBで固定する
+     * （インスタンスの差し替えでは採番済みIDのまま insert が走る問題を踏んだ経路の裏返し）。
+     */
+    @Test
+    @DisplayName("ALBUM種別から他の種別へ変更するとアルバム参照が落ち、参照先からの検索対象から外れる")
+    void changeTypeFromAlbumDropsAlbumReference() {
+        final String albumId = createDraftAlbum("種別変更確認アルバム");
+        // 参照先が非公開のままでは記事を公開できないため（DECISIONS 12）、先にアルバムを公開する
+        authorized().when().post("/api/v1/albums/" + albumId + "/publish").then().statusCode(200);
+        final String articleId = authorized().contentType(ContentType.JSON)
+                .body("{\"articleType\":\"ALBUM\",\"title\":\"種別変更確認記事\"}").when().post("/api/v1/articles").then()
+                .statusCode(201).extract().path("articleId");
+
+        authorized().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
+                .put("/api/v1/articles/" + articleId + "/album").then().statusCode(200)
+                .body("albumId", equalTo(albumId));
+
+        authorized().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(200);
+
+        given().when().get("/api/v1/articles/" + articleId).then().statusCode(200)
+                .body("articleType", equalTo("ALBUM"))
+                .body("albumId", equalTo(albumId));
+
+        authorized().contentType(ContentType.JSON)
+                .body("{\"articleType\":\"NOTE\",\"title\":\"種別変更後タイトル\"}").when()
+                .put("/api/v1/articles/" + articleId).then().statusCode(200)
+                .body("articleType", equalTo("NOTE"));
+
+        // 参照を持てない種別になったため、参照に関わる項目名が応答から消える
+        given().when().get("/api/v1/articles/" + articleId).then().statusCode(200)
+                .body("articleType", equalTo("NOTE"))
+                .body("$", not(hasKey("albumId")))
+                .body("$", not(hasKey("formerAlbumId")));
+
+        // 子行が残っていれば、公開中のこの記事がアルバム非公開化のカスケード対象として拾われてしまう
+        authorized().when().post("/api/v1/albums/" + albumId + "/unpublish").then().statusCode(200)
+                .body("cascadeUnpublishedArticles", empty());
+    }
+
     @Test
     @DisplayName("NOTE種別の記事へのアルバム紐付けは409 problem+jsonを返す")
     void setAlbumFailsForNonAlbumTypeArticle() {

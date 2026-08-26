@@ -36,10 +36,10 @@ COMMENT ON COLUMN article_album_reference.album_reference_lost_at IS 'アルバ�
 COMMENT ON COLUMN article_album_reference.album_reference_lost_reason IS '失効の理由コード（ALBUM_DELETED）。表示文言は持たず利用側が解釈する';
 COMMENT ON COLUMN article_album_reference.created_at IS '作成日時';
 COMMENT ON COLUMN article_album_reference.updated_at IS '更新日時';
-COMMENT ON COLUMN article_album_reference.created_by_service IS '作成したサービス名';
-COMMENT ON COLUMN article_album_reference.updated_by_service IS '更新したサービス名';
-COMMENT ON COLUMN article_album_reference.created_by_user IS '作成したユーザーID';
-COMMENT ON COLUMN article_album_reference.updated_by_user IS '更新したユーザーID';
+COMMENT ON COLUMN article_album_reference.created_by_service IS '作成actorのサービス予約列（現状は常に未特定＝NULL）';
+COMMENT ON COLUMN article_album_reference.updated_by_service IS '更新actorのサービス予約列（現状は常に未特定＝NULL）';
+COMMENT ON COLUMN article_album_reference.created_by_user IS '作成actorのユーザー予約列（現状は常に未特定＝NULL）';
+COMMENT ON COLUMN article_album_reference.updated_by_user IS '更新actorのユーザー予約列（現状は常に未特定＝NULL）';
 COMMENT ON COLUMN article_album_reference.version IS 'バージョン番号（楽観ロック用）';
 
 INSERT INTO article_album_reference (article_id, album_id, former_album_id, album_reference_lost_at, album_reference_lost_reason)
