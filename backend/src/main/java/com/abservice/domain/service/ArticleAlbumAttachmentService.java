@@ -5,7 +5,7 @@ import static java.util.function.Predicate.not;
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.CrossAggregateOperation;
 import com.abservice.domain.model.aggregate.album.Album;
-import com.abservice.domain.model.aggregate.article.Article;
+import com.abservice.domain.model.aggregate.article.AlbumArticle;
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.lib.ErrorResult;
@@ -44,7 +44,7 @@ public class ArticleAlbumAttachmentService implements DomainService {
      *            紐付け先のアルバム
      */
     @CrossAggregateOperation
-    public record AlbumAttachment(Article article, Album album) {
+    public record AlbumAttachment(AlbumArticle article, Album album) {
 
         /** 公開中の記事には非公開のアルバムを紐付けられない */
         private static final ErrorResult UNPUBLISHED_ALBUM_ERROR = new ErrorResult(
@@ -68,7 +68,7 @@ public class ArticleAlbumAttachmentService implements DomainService {
          *            現在日時
          * @return 紐付け後の記事
          */
-        public Article attach(BusinessDateTime currentDateTime) {
+        public AlbumArticle attach(BusinessDateTime currentDateTime) {
             return asValidated()
                     .map(validated -> validated.article().setAlbumId(validated.album().id(), currentDateTime))
                     .resolve(BusinessRuleViolationException::fromErrors);
@@ -100,8 +100,8 @@ public class ArticleAlbumAttachmentService implements DomainService {
      * @return 紐付け後の記事。未存在なら {@code EntityNotFoundException}、規則を満たさない場合は
      *         {@link BusinessRuleViolationException} で失敗する
      */
-    public Uni<Article> attachAlbum(
-            Article article,
+    public Uni<AlbumArticle> attachAlbum(
+            AlbumArticle article,
             Album.Id albumId,
             BusinessDateTime currentDateTime) {
         return albumAccessService.findExistingAndClaimReference(albumId)

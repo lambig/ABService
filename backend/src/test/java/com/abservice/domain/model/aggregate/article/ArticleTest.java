@@ -46,7 +46,8 @@ class ArticleTest {
             assertThat(article).isNotNull();
             assertThat(article.id()).isNotNull();
             assertThat(article.articleType()).isEqualTo(articleType);
-            assertThat(article.albumReference().activeAlbumId()).isEmpty();
+            assertThat(article).isInstanceOf(NoteArticle.class);
+            assertThat(AlbumArticle.from(article)).isEmpty();
             assertThat(article.title()).isEqualTo(title);
             assertThat(article.body()).isEqualTo(body);
             assertThat(article.introShort()).isNull();
@@ -76,7 +77,12 @@ class ArticleTest {
 
             // Assert
             assertThat(article.articleType()).isEqualTo(ArticleType.ALBUM);
-            assertThat(article.albumReference().activeAlbumId()).contains(albumId);
+            assertThat(
+                    AlbumArticle.from(article)
+                            .orElseThrow()
+                            .albumReference()
+                            .activeAlbumId())
+                    .contains(albumId);
             assertThat(article.introShort()).isEqualTo(introShort);
         }
 
@@ -253,7 +259,9 @@ class ArticleTest {
             final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
-            final var updated = article.setAlbumId(albumId, currentDateTime);
+            final var updated = AlbumArticle.from(article)
+                    .orElseThrow()
+                    .setAlbumId(albumId, currentDateTime);
 
             // Assert
             assertThat(updated.albumReference().activeAlbumId()).contains(albumId);
@@ -261,8 +269,8 @@ class ArticleTest {
         }
 
         @Test
-        @DisplayName("アルバム記事以外にアルバムIDを設定しようとすると例外が発生すること")
-        void setAlbumIdForNonAlbumArticleShouldThrowException() {
+        @DisplayName("アルバム記事以外はアルバム参照を持つ型として取り出せないこと")
+        void nonAlbumArticleCannotBeNarrowedToAlbumArticle() {
             // Arrange
             final var article = Article
                     .create(
@@ -271,13 +279,9 @@ class ArticleTest {
                             ArticleTitle.of("Blog Post"),
                             MarkupContent.plainText("Body"),
                             null);
-            final var albumId = Album.Id.generate();
-            final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act & Assert
-            assertThatThrownBy(() -> {
-                article.setAlbumId(albumId, currentDateTime);
-            }).isInstanceOf(IllegalStateException.class).hasMessage("Cannot set album ID for non-ALBUM article type");
+            assertThat(AlbumArticle.from(article)).isEmpty();
         }
     }
 
@@ -324,7 +328,7 @@ class ArticleTest {
 
             // Assert
             assertThat(updated.articleType()).isEqualTo(ArticleType.NOTE);
-            assertThat(updated.albumReference().activeAlbumId()).isEmpty();
+            assertThat(AlbumArticle.from(updated)).isEmpty();
         }
 
         @Test

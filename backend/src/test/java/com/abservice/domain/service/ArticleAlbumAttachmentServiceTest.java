@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.aggregate.album.Album;
+import com.abservice.domain.model.aggregate.article.AlbumArticle;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.article.ArticleTitle;
@@ -72,16 +73,19 @@ class ArticleAlbumAttachmentServiceTest {
         return album().publish(NOW);
     }
 
-    private static Article article() {
-        return Article.create(
-                ArticleType.ALBUM,
-                null,
-                ArticleTitle.of("紐付け整合テスト記事"),
-                null,
-                null);
+    private static AlbumArticle article() {
+        return AlbumArticle.from(
+                Article.create(
+                        ArticleType.ALBUM,
+                        null,
+                        ArticleTitle.of("紐付け整合テスト記事"),
+                        null,
+                        null))
+                .orElseThrow();
     }
 
-    private static Article publishedArticle() {
-        return new ArticlePublication(article(), null).publish(NOW);
+    private static AlbumArticle publishedArticle() {
+        return AlbumArticle.from(new ArticlePublication(article(), null).publish(NOW))
+                .orElseThrow();
     }
 }

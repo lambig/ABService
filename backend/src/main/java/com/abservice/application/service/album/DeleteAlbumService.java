@@ -3,6 +3,7 @@ package com.abservice.application.service.album;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.album.Album;
+import com.abservice.domain.model.aggregate.article.AlbumArticle;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.vo.article.AlbumReferenceLostReason;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
@@ -88,12 +89,21 @@ public class DeleteAlbumService implements CommandService<DeleteAlbumInput, Dele
                 .toList();
     }
 
+    /*
+     * NARROWING: 参照を失効させられるのは AlbumArticle だけで、他の種別は参照という概念を持たない。
+     * 参照元として引かれた記事は本来すべて AlbumArticle だが、型で絞れなかった場合は非公開化までを反映して返す。
+     */
     private static Article withoutAlbum(Article article, BusinessDateTime now) {
-        return Optional.of(article)
+        final var unpublished = Optional.of(article)
                 .filter(Article::isPublic)
                 .map(published -> published.unpublish(now))
-                .orElse(article)
-                .loseAlbumReference(AlbumReferenceLostReason.ALBUM_DELETED, now);
+                .orElse(article);
+        return AlbumArticle.from(unpublished)
+                .<Article>map(
+                        albumArticle -> albumArticle.loseAlbumReference(
+                                AlbumReferenceLostReason.ALBUM_DELETED,
+                                now))
+                .orElse(unpublished);
     }
 
     private static List<DeleteAlbumOutput.AffectedArticle> toAffectedArticles(List<Article> referencing) {

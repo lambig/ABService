@@ -3,6 +3,7 @@ package com.abservice.infrastructure.persistence.mapper;
 import static com.abservice.lib.Iterables.toList;
 
 import com.abservice.domain.model.aggregate.album.Album;
+import com.abservice.domain.model.aggregate.article.AlbumArticle;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.entity.article.ArticleTag;
 import com.abservice.domain.model.vo.article.AlbumReference;
@@ -142,23 +143,24 @@ public final class ArticleMapper {
      */
     public static ArticleTableRecord toEntity(Article article) {
         final var body = article.body();
+        final var reference = albumReferenceOf(article);
         return new ArticleTableRecord()
                 .setDomainId(article.id().value())
                 .setArticleType(article.articleType().name())
                 .setAlbumId(
-                        article.albumReference().activeAlbumId()
+                        reference.flatMap(AlbumReference::activeAlbumId)
                                 .map(Album.Id::value)
                                 .orElse(null))
                 .setFormerAlbumId(
-                        article.albumReference().lost()
+                        reference.flatMap(AlbumReference::lost)
                                 .map(lost -> lost.formerAlbumId().value())
                                 .orElse(null))
                 .setAlbumReferenceLostAt(
-                        article.albumReference().lost()
+                        reference.flatMap(AlbumReference::lost)
                                 .map(lost -> lost.lostAt().value())
                                 .orElse(null))
                 .setAlbumReferenceLostReason(
-                        article.albumReference().lost()
+                        reference.flatMap(AlbumReference::lost)
                                 .map(lost -> lost.reason().name())
                                 .orElse(null))
                 .setTitle(article.title().value())
@@ -174,6 +176,14 @@ public final class ArticleMapper {
                 .setPublishedAt(toInstant(article.publishedAt()))
                 .setUpdatedAtBusiness(toInstant(article.updatedAtBusiness()))
                 .setIsPublic(article.publicFlag());
+    }
+
+    /*
+     * NARROWING: アルバム参照を持てるのは AlbumArticle だけで、他の種別は参照の列を持たない（すべてnullで保存する）。
+     */
+    private static Optional<AlbumReference> albumReferenceOf(Article article) {
+        return AlbumArticle.from(article)
+                .map(AlbumArticle::albumReference);
     }
 
     private static @Nullable Instant toInstant(@Nullable BusinessDateTime businessDateTime) {

@@ -3,6 +3,7 @@ package com.abservice.domain.service;
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.CrossAggregateOperation;
 import com.abservice.domain.model.aggregate.album.Album;
+import com.abservice.domain.model.aggregate.article.AlbumArticle;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.article.AlbumReference;
@@ -93,7 +94,8 @@ public class ArticlePublicationService implements DomainService {
         private static Optional<AlbumReference.Lost> lostReference(@Nullable ArticlePublication publication) {
             return Optional.ofNullable(publication)
                     .map(ArticlePublication::article)
-                    .map(Article::albumReference)
+                    .flatMap(AlbumArticle::from)
+                    .map(AlbumArticle::albumReference)
                     .flatMap(AlbumReference::lost);
         }
 
@@ -103,7 +105,9 @@ public class ArticlePublicationService implements DomainService {
         }
 
         private Optional<Album.Id> referenceWithoutPublishedAlbum() {
-            return article.albumReference().activeAlbumId()
+            return AlbumArticle.from(article)
+                    .map(AlbumArticle::albumReference)
+                    .flatMap(AlbumReference::activeAlbumId)
                     .filter(referencedId -> publishedAlbum(referencedId).isEmpty());
         }
 
@@ -131,7 +135,9 @@ public class ArticlePublicationService implements DomainService {
     }
 
     private Uni<Optional<Album>> referencedAlbum(Article article) {
-        return article.albumReference().activeAlbumId()
+        return AlbumArticle.from(article)
+                .map(AlbumArticle::albumReference)
+                .flatMap(AlbumReference::activeAlbumId)
                 .map(this::findExistingAsOptional)
                 .orElseGet(() -> Uni.createFrom().item(Optional.empty()));
     }

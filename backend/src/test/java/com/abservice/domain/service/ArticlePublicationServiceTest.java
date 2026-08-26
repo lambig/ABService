@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.aggregate.album.Album;
+import com.abservice.domain.model.aggregate.article.AlbumArticle;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.article.AlbumReferenceLostReason;
@@ -106,8 +107,13 @@ class ArticlePublicationServiceTest {
                 null);
     }
 
-    private static Article articleReferencing(Album album) {
-        return new AlbumAttachment(article(ArticleType.ALBUM), album).attach(NOW);
+    private static AlbumArticle albumArticle() {
+        return AlbumArticle.from(article(ArticleType.ALBUM))
+                .orElseThrow();
+    }
+
+    private static AlbumArticle articleReferencing(Album album) {
+        return new AlbumAttachment(albumArticle(), album).attach(NOW);
     }
 
     private static Article articleWithLostReference() {
