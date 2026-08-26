@@ -1,6 +1,7 @@
 package com.abservice.application.query.article;
 
 import com.abservice.application.query.article.model.ArticleView;
+import com.abservice.infrastructure.persistence.entity.ArticleAlbumReferenceTableRecord;
 import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
 import java.util.Optional;
 
@@ -25,10 +26,12 @@ final class ArticleViewMapper {
      * @return 記事の Read Model
      */
     static ArticleView toView(ArticleTableRecord entity) {
+        final var reference = Optional.ofNullable(entity.getAlbumReference());
         return new ArticleView(
                 entity.getDomainId(),
                 entity.getArticleType(),
-                entity.getAlbumId(),
+                reference.map(ArticleAlbumReferenceTableRecord::getAlbumId)
+                        .orElse(null),
                 entity.getTitle(),
                 entity.getBody(),
                 entity.getBodyFormat(),
@@ -37,8 +40,11 @@ final class ArticleViewMapper {
                 entity.getUpdatedAtBusiness(),
                 Optional.ofNullable(entity.getIsPublic())
                         .orElse(false),
-                entity.getFormerAlbumId(),
-                entity.getAlbumReferenceLostAt(),
-                entity.getAlbumReferenceLostReason());
+                reference.map(ArticleAlbumReferenceTableRecord::getFormerAlbumId)
+                        .orElse(null),
+                reference.map(ArticleAlbumReferenceTableRecord::getAlbumReferenceLostAt)
+                        .orElse(null),
+                reference.map(ArticleAlbumReferenceTableRecord::getAlbumReferenceLostReason)
+                        .orElse(null));
     }
 }

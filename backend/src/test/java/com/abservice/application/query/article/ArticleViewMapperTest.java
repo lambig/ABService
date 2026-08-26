@@ -2,6 +2,7 @@ package com.abservice.application.query.article;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.abservice.infrastructure.persistence.entity.ArticleAlbumReferenceTableRecord;
 import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
 import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
@@ -18,8 +19,11 @@ class ArticleViewMapperTest {
         final var updatedAt = Instant.parse("2026-02-01T00:00:00Z");
         final var entity = new ArticleTableRecord();
         entity.setDomainId("0192f8a0-0000-7000-8000-000000000000");
-        entity.setArticleType("NOTE");
-        entity.setAlbumId("0192f8a0-0000-7000-8000-000000000001");
+        entity.setArticleType("ALBUM");
+        entity.setAlbumReference(
+                new ArticleAlbumReferenceTableRecord()
+                        .setArticle(entity)
+                        .setAlbumId("0192f8a0-0000-7000-8000-000000000001"));
         entity.setTitle("記事タイトル");
         entity.setBody("本文");
         entity.setBodyFormat("MARKDOWN");
@@ -33,7 +37,7 @@ class ArticleViewMapperTest {
 
         // Assert
         assertThat(view.articleId()).isEqualTo("0192f8a0-0000-7000-8000-000000000000");
-        assertThat(view.articleType()).isEqualTo("NOTE");
+        assertThat(view.articleType()).isEqualTo("ALBUM");
         assertThat(view.albumId()).isEqualTo("0192f8a0-0000-7000-8000-000000000001");
         assertThat(view.title()).isEqualTo("記事タイトル");
         assertThat(view.body()).isEqualTo("本文");
