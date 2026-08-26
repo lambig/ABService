@@ -29,7 +29,7 @@
 
 **トレードオフ**: DBが参照整合を保証しないため、参照先を削除するとダングリング参照が起こり得る。参照チェックはユースケースの責務として個別に設計する（Album 削除に伴う記事の参照は 12 の方針で整備済み。Tune 削除は #151）。
 
-**実体**: `V14`（集約間のFK削除）、`Article.albumId` / `TrackTune.tuneId` などのID参照。
+**実体**: `V14`（集約間のFK削除）、`AlbumArticle.albumReference` / `TrackTune.tuneId` などのID参照。
 
 ---
 
@@ -166,7 +166,7 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **トレードオフ**: 失効情報は1件しか持たないため、同じ記事が複数回参照を失うと直前の経緯だけが残る。横断的な「システムからのお知らせ」を持つ仕組み（#174）を入れるなら、そこへ移す判断があり得る。
 
-**実体**: `domain/model/vo/article/AlbumReference`（sealed）と `AlbumReferenceLostReason`、`application/service/album/DeleteAlbumService`、`application/service/article/PublishArticleService`、`V33`。
+**実体**: `domain/model/vo/article/AlbumReference`（sealed）と `AlbumReferenceLostReason`、`domain/model/aggregate/article/AlbumArticle`（参照を持てる唯一の記事種別）、`application/service/album/DeleteAlbumService`、`application/service/article/PublishArticleService`、`V35`（`article_album_reference`）。
 
 ---
 
@@ -190,13 +190,13 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 ## 14. アルバムを参照する記事は 0..N 件とする
 
-**判断**: 1つのアルバムは複数の記事から参照されうる。`article.album_id` に一意制約は張らず、紐付け時にも「そのアルバムを参照する記事が他に無いこと」を求めない。アルバムの非公開化・削除に伴うカスケード（12）は、参照しているすべての記事へ適用する。
+**判断**: 1つのアルバムは複数の記事から参照されうる。参照先アルバムIDに一意制約は張らず、紐付け時にも「そのアルバムを参照する記事が他に無いこと」を求めない。アルバムの非公開化・削除に伴うカスケード（12）は、参照しているすべての記事へ適用する。
 
 **なぜ**: 記事はアルバムから独立したライフサイクルを持ち（12）、参照は記事がアルバムを話題にするという片方向の関係でしかない。同じアルバムについて告知と振り返りのように複数の記事を書くことを禁じる業務上の理由がない。「1アルバムにつき代表記事1件」を出したい要求は、参照の多重度ではなく表示側の選択で解ける。多重度を 0..1 にすると、記事を書き足すたびに既存記事の参照を外すことになり、外された側は理由のない失効参照を持つ。
 
 **トレードオフ**: 参照件数に上限がないため、カスケードの対象件数はアルバムごとに不定になる。同一トランザクション内で逐次保存するため、参照が極端に増えれば非公開化・削除の応答時間が伸びる。想定する規模では問題にならないが、増えるなら一括更新を検討する。
 
-**実体**: `ArticleRepository.findByAlbumId`（リスト取得）、`application/service/album/UnpublishAlbumService` と `DeleteAlbumService` のカスケード、`V14`（`article.album_id` は索引のみで一意制約を持たない）。
+**実体**: `ArticleRepository.findByAlbumId`（リスト取得）、`application/service/album/UnpublishAlbumService` と `DeleteAlbumService` のカスケード、`V35`（`article_album_reference.album_id` は索引のみで一意制約を持たない。一意なのは記事ごとの参照が0..1件であることだけ）。
 
 ---
 
