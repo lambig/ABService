@@ -4,8 +4,9 @@ services:
     container_name: abservice-backend
     restart: unless-stopped
     environment:
-      DB_URL: ${DB_URL}
-      DB_REACTIVE_URL: ${DB_REACTIVE_URL}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
       ADMIN_API_KEY: ${ADMIN_API_KEY}

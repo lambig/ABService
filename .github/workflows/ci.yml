@@ -36,7 +36,9 @@ jobs:
 
     env:
       # integrationTest の datasource（既定値と一致。明示して意図を残す）
-      DB_URL: jdbc:postgresql://localhost:5432/abservice
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_NAME: abservice
       DB_USERNAME: abservice
       DB_PASSWORD: abservice
 
