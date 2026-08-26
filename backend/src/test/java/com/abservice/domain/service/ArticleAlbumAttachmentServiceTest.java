@@ -12,6 +12,7 @@ import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.domain.service.ArticleAlbumAttachmentService.AlbumAttachment;
 import com.abservice.domain.service.ArticlePublicationService.ArticlePublication;
 import java.time.Instant;
@@ -60,6 +61,7 @@ class ArticleAlbumAttachmentServiceTest {
                         1,
                         1),
                 ArtistCredit.of("テストアーティスト"),
+                MarkupContent.EMPTY,
                 null,
                 null,
                 null,

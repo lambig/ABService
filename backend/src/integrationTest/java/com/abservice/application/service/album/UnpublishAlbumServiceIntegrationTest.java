@@ -10,6 +10,7 @@ import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.infrastructure.persistence.repository.AlbumRepositoryImpl;
 import com.abservice.infrastructure.persistence.repository.ArticleRepositoryImpl;
 import io.quarkus.test.TestReactiveTransaction;
@@ -53,6 +54,7 @@ class UnpublishAlbumServiceIntegrationTest {
                                 1,
                                 1)),
                 ArtistCredit.of("Cascade Test Artist"),
+                MarkupContent.EMPTY,
                 null,
                 null,
                 null,

@@ -10,6 +10,8 @@ import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.AssetKey;
 import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.domain.model.vo.common.MarkupContent;
+import com.abservice.domain.model.vo.common.MarkupFormat;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import org.junit.jupiter.api.DisplayName;
@@ -26,6 +28,7 @@ class UpdateAlbumServiceTest {
                         1,
                         1),
                 ArtistCredit.of("元のアーティスト"),
+                MarkupContent.EMPTY,
                 null,
                 null,
                 null,
@@ -46,6 +49,8 @@ class UpdateAlbumServiceTest {
                         "ABC-0001",
                         null,
                         "01a0233d-d25a-7c3b-924f-236ee154fecc.png",
+                        null,
+                        null,
                         null))
                 .resolve();
 
@@ -54,6 +59,77 @@ class UpdateAlbumServiceTest {
         assertThat(updated.artistCredit().displayName().value()).isEqualTo("新アーティスト");
         assertThat(updated.catalogNumber().value()).isEqualTo("ABC-0001");
         assertThat(updated.coverImageKey().value()).isEqualTo("01a0233d-d25a-7c3b-924f-236ee154fecc.png");
+    }
+
+    @Test
+    @DisplayName("概要説明は形式とともに置換される")
+    void descriptionIsReplacedWithFormat() {
+        final var updated = UpdateAlbumService.validateAndApply(
+                existingAlbum(),
+                new UpdateAlbumInput(
+                        null,
+                        "新タイトル",
+                        "2026-01-01",
+                        "新アーティスト",
+                        null,
+                        null,
+                        null,
+                        null,
+                        "## 概要\n\n新しい説明",
+                        "MARKDOWN",
+                        null))
+                .resolve();
+
+        assertThat(updated.description().content()).isEqualTo("## 概要\n\n新しい説明");
+        assertThat(updated.description().format()).isEqualTo(MarkupFormat.MARKDOWN);
+    }
+
+    @Test
+    @DisplayName("概要説明を省略した更新は既存の説明を外す（全項目置換）")
+    void omittedDescriptionIsCleared() {
+        final var existing = existingAlbum()
+                .changeDescription(MarkupContent.markdown("消される説明"));
+
+        final var updated = UpdateAlbumService.validateAndApply(
+                existing,
+                new UpdateAlbumInput(
+                        null,
+                        "新タイトル",
+                        "2026-01-01",
+                        "新アーティスト",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null))
+                .resolve();
+
+        assertThat(updated.description().isEmpty()).isTrue();
+    }
+
+    @Test
+    @DisplayName("概要説明のマークアップ形式が不正なら検証エラーを集約する")
+    void invalidDescriptionFormatAggregatesError() {
+        final var result = UpdateAlbumService.validateAndApply(
+                existingAlbum(),
+                new UpdateAlbumInput(
+                        null,
+                        "新タイトル",
+                        "2026-01-01",
+                        "新アーティスト",
+                        null,
+                        null,
+                        null,
+                        null,
+                        "説明",
+                        "MARKDOWNN",
+                        null));
+
+        assertThat(result).isInstanceOf(Result.Failure.class);
+        assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
+                .contains("MARKUP_FORMAT_INVALID");
     }
 
     @Test
@@ -69,6 +145,8 @@ class UpdateAlbumServiceTest {
                         "新タイトル",
                         "2026-01-01",
                         "新アーティスト",
+                        null,
+                        null,
                         null,
                         null,
                         null,
@@ -93,6 +171,8 @@ class UpdateAlbumServiceTest {
                         null,
                         null,
                         "/assets/01a0233d-d25a-7c3b-924f-236ee154fecc.png",
+                        null,
+                        null,
                         null));
 
         assertThat(result).isInstanceOf(Result.Failure.class);
@@ -122,6 +202,8 @@ class UpdateAlbumServiceTest {
                         null,
                         null,
                         null,
+                        null,
+                        null,
                         null))
                 .resolve();
 
@@ -139,6 +221,8 @@ class UpdateAlbumServiceTest {
                         "   ",
                         "not-a-date",
                         "   ",
+                        null,
+                        null,
                         null,
                         null,
                         null,
@@ -167,6 +251,8 @@ class UpdateAlbumServiceTest {
                         null,
                         "0000000000000",
                         null,
+                        null,
+                        null,
                         null));
 
         assertThat(result).isInstanceOf(Result.Failure.class);
@@ -187,6 +273,8 @@ class UpdateAlbumServiceTest {
                         null,
                         null,
                         "2784702901978",
+                        null,
+                        null,
                         null,
                         new EventInput(
                                 "コミックマーケット104",

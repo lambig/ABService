@@ -19,6 +19,8 @@ import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.domain.model.vo.common.ExternalAudioUrl;
+import com.abservice.domain.model.vo.common.MarkupContent;
+import com.abservice.domain.model.vo.common.MarkupFormat;
 import com.abservice.domain.model.vo.common.Url;
 import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.infrastructure.persistence.entity.AlbumExternalAudioTableRecord;
@@ -58,6 +60,7 @@ public final class AlbumMapper {
                 new AlbumTitle(entity.getTitle()),
                 BusinessDate.of(entity.getReleaseDate()),
                 buildArtistCredit(entity),
+                buildDescription(entity),
                 buildEventReleasedAt(entity),
                 Optional.ofNullable(entity.getCatalogNumber())
                         .map(CatalogNumber::new)
@@ -75,6 +78,15 @@ public final class AlbumMapper {
 
     private static ArtistCredit buildArtistCredit(AlbumTableRecord entity) {
         return ArtistCredit.of(entity.getArtistDisplayName(), entity.getArtistSortKey());
+    }
+
+    /*
+     * 説明本文がNULLの行は説明なしとして扱う。形式列はNOT NULLだが、既存行の既定値で埋まっているだけの 場合があるため本文の有無で判定する。
+     */
+    private static MarkupContent buildDescription(AlbumTableRecord entity) {
+        return Optional.ofNullable(entity.getDescription())
+                .map(content -> new MarkupContent(content, MarkupFormat.orDefault(entity.getDescriptionFormat())))
+                .orElse(MarkupContent.EMPTY);
     }
 
     private static List<Track> buildTracks(AlbumTableRecord entity) {
@@ -122,6 +134,7 @@ public final class AlbumMapper {
                 .setTitle(album.title().value())
                 .setReleaseDate(album.releaseDate().asLocalDate());
         setArtistCreditFields(albumEntity, album.artistCredit());
+        setDescriptionFields(albumEntity, album.description());
         Optional.ofNullable(album.eventReleasedAt())
                 .ifPresent(event -> populateEventFields(albumEntity, event));
         setCatalogFields(albumEntity, album);
@@ -134,6 +147,19 @@ public final class AlbumMapper {
     private static void setArtistCreditFields(AlbumTableRecord entity, ArtistCredit credit) {
         entity.setArtistDisplayName(credit.displayName().value())
                 .setArtistSortKey(credit.sortKey());
+    }
+
+    /*
+     * 説明が空へ戻った場合に既存の本文を確実に消すため、公開情報と同じく常に値を設定する。 形式列はNOT
+     * NULLのため、説明なしのときも形式は既定値を書き込む。
+     */
+    private static void setDescriptionFields(AlbumTableRecord entity, MarkupContent description) {
+        entity.setDescription(
+                Optional.of(description)
+                        .filter(not(MarkupContent::isEmpty))
+                        .map(MarkupContent::content)
+                        .orElse(null))
+                .setDescriptionFormat(description.format().name());
     }
 
     private static void setCatalogFields(AlbumTableRecord entity, Album album) {

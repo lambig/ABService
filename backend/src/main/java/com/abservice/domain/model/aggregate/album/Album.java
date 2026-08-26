@@ -34,6 +34,7 @@ import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.domain.model.vo.common.ExternalAudioUrl;
+import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import lombok.EqualsAndHashCode;
@@ -65,6 +66,15 @@ public final class Album implements Aggregate<Album, Album.Id> {
     /** アルバム全体のアーティスト名義 */
     @NonNull
     private final ArtistCredit artistCredit;
+    /**
+     * 作品の概要説明（Null Objectパターン。説明なしは {@code MarkupContent.EMPTY}）
+     *
+     * <p>
+     * この作品が何であるかを述べるストック情報であり、頒布の告知や制作の経緯といった時点の記述は記事側が持つ。
+     * </p>
+     */
+    @NonNull
+    private final MarkupContent description;
     /** イベント頒布情報 */
     @Nullable
     private final EventReleasedAt eventReleasedAt;
@@ -108,9 +118,16 @@ public final class Album implements Aggregate<Album, Album.Id> {
             "Publication cannot be null",
             "PUBLICATION_REQUIRED");
 
+    /** description必須違反時のエラー */
+    private static final ErrorResult DESCRIPTION_REQUIRED_ERROR = new ErrorResult(
+            "description",
+            "Description cannot be null",
+            "ALBUM_DESCRIPTION_REQUIRED");
+
     @DomainConstructor
     private Album(@NonNull Id id, @NonNull AlbumTitle title, @NonNull BusinessDate releaseDate,
-            @NonNull ArtistCredit artistCredit, @Nullable EventReleasedAt eventReleasedAt,
+            @NonNull ArtistCredit artistCredit, @NonNull MarkupContent description,
+            @Nullable EventReleasedAt eventReleasedAt,
             @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn, @Nullable AssetKey coverImageKey,
             @NonNull Publication publication, @NonNull List<Track> tracks,
             @NonNull List<ExternalAudio> externalAudios) {
@@ -118,6 +135,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
         this.title = title;
         this.releaseDate = releaseDate;
         this.artistCredit = artistCredit;
+        this.description = description;
         this.eventReleasedAt = eventReleasedAt;
         this.catalogNumber = catalogNumber;
         this.isdn = isdn;
@@ -130,6 +148,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
     @DomainFactory
     private static @NonNull Album factory(@Nullable Id id, @Nullable AlbumTitle title,
             @Nullable BusinessDate releaseDate, @Nullable ArtistCredit artistCredit,
+            @Nullable MarkupContent description,
             @Nullable EventReleasedAt eventReleasedAt, @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn,
             @Nullable AssetKey coverImageKey, @Nullable Publication publication, @Nullable List<Track> tracks,
             @Nullable List<ExternalAudio> externalAudios) {
@@ -142,13 +161,17 @@ public final class Album implements Aggregate<Album, Album.Id> {
                         ARTIST_CREDIT_REQUIRED_ERROR),
                 Policy.of(
                         self -> self.publication() != null,
-                        PUBLICATION_REQUIRED_ERROR))
+                        PUBLICATION_REQUIRED_ERROR),
+                Policy.of(
+                        self -> self.description() != null,
+                        DESCRIPTION_REQUIRED_ERROR))
                 .verify(
                         new Stub(
                                 id,
                                 title,
                                 releaseDate,
                                 artistCredit,
+                                description,
                                 eventReleasedAt,
                                 catalogNumber,
                                 isdn,
@@ -162,8 +185,9 @@ public final class Album implements Aggregate<Album, Album.Id> {
 
     @NullUnmarked
     private record Stub(Id id, AlbumTitle title, BusinessDate releaseDate, ArtistCredit artistCredit,
-            EventReleasedAt eventReleasedAt, CatalogNumber catalogNumber, Isdn isdn, AssetKey coverImageKey,
-            Publication publication, List<Track> tracks, List<ExternalAudio> externalAudios) {
+            MarkupContent description, EventReleasedAt eventReleasedAt, CatalogNumber catalogNumber, Isdn isdn,
+            AssetKey coverImageKey, Publication publication, List<Track> tracks,
+            List<ExternalAudio> externalAudios) {
 
         @AggregateFactory
         @NonNull
@@ -173,6 +197,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                     Objects.requireNonNull(title),
                     Objects.requireNonNull(releaseDate),
                     Objects.requireNonNull(artistCredit),
+                    Objects.requireNonNull(description),
                     eventReleasedAt(),
                     catalogNumber(),
                     isdn(),
@@ -192,6 +217,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
      *            リリース日
      * @param artistCredit
      *            アーティストクレジット
+     * @param description
+     *            概要説明（説明なしは {@code MarkupContent.EMPTY}）
      * @param eventReleasedAt
      *            イベント頒布情報（nullable）
      * @param catalogNumber
@@ -202,14 +229,17 @@ public final class Album implements Aggregate<Album, Album.Id> {
      *            カバー画像のアセットキー（nullable）
      * @return 新規Album
      */
+    @DomainFactory
     public static @NonNull Album create(@NonNull AlbumTitle title, @NonNull BusinessDate releaseDate,
-            @NonNull ArtistCredit artistCredit, @Nullable EventReleasedAt eventReleasedAt,
+            @NonNull ArtistCredit artistCredit, @NonNull MarkupContent description,
+            @Nullable EventReleasedAt eventReleasedAt,
             @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn, @Nullable AssetKey coverImageKey) {
         return Album.factory(
                 Id.generate(),
                 title,
                 releaseDate,
                 artistCredit,
+                description,
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
@@ -230,6 +260,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
      *            リリース日
      * @param artistCredit
      *            アーティストクレジット
+     * @param description
+     *            概要説明（説明なしは {@code MarkupContent.EMPTY}）
      * @param eventReleasedAt
      *            イベント頒布情報（nullable）
      * @param catalogNumber
@@ -249,6 +281,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
     @DomainFactory
     public static @NonNull Album reconstruct(@NonNull Id id, @NonNull AlbumTitle title,
             @NonNull BusinessDate releaseDate, @NonNull ArtistCredit artistCredit,
+            @NonNull MarkupContent description,
             @Nullable EventReleasedAt eventReleasedAt, @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn,
             @Nullable AssetKey coverImageKey, @NonNull Publication publication, @NonNull List<Track> tracks,
             @NonNull List<ExternalAudio> externalAudios) {
@@ -257,6 +290,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 title,
                 releaseDate,
                 artistCredit,
+                description,
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
@@ -279,6 +313,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 newTitle,
                 releaseDate,
                 artistCredit,
+                description,
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
@@ -301,6 +336,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 title,
                 newReleaseDate,
                 artistCredit,
+                description,
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
@@ -323,6 +359,30 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 title,
                 releaseDate,
                 newArtistCredit,
+                description,
+                eventReleasedAt,
+                catalogNumber,
+                isdn,
+                coverImageKey,
+                publication,
+                tracks,
+                externalAudios);
+    }
+
+    /**
+     * 概要説明を変更
+     *
+     * @param newDescription
+     *            新しい概要説明（説明なしにする場合は {@code MarkupContent.EMPTY}）
+     * @return 更新されたAlbum
+     */
+    public @NonNull Album changeDescription(@NonNull MarkupContent newDescription) {
+        return Album.factory(
+                id,
+                title,
+                releaseDate,
+                artistCredit,
+                newDescription,
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
@@ -345,6 +405,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 title,
                 releaseDate,
                 artistCredit,
+                description,
                 newEventReleasedAt,
                 catalogNumber,
                 isdn,
@@ -367,6 +428,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 title,
                 releaseDate,
                 artistCredit,
+                description,
                 eventReleasedAt,
                 newCatalogNumber,
                 isdn,
@@ -389,6 +451,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 title,
                 releaseDate,
                 artistCredit,
+                description,
                 eventReleasedAt,
                 catalogNumber,
                 newIsdn,
@@ -411,6 +474,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 title,
                 releaseDate,
                 artistCredit,
+                description,
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
@@ -437,6 +501,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 title,
                 releaseDate,
                 artistCredit,
+                description,
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
@@ -457,6 +522,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 title,
                 releaseDate,
                 artistCredit,
+                description,
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
@@ -504,6 +570,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 title,
                 releaseDate,
                 artistCredit,
+                description,
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
@@ -536,6 +603,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 title,
                 releaseDate,
                 artistCredit,
+                description,
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
@@ -585,6 +653,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                                 title,
                                 releaseDate,
                                 artistCredit,
+                                description,
                                 eventReleasedAt,
                                 catalogNumber,
                                 isdn,
@@ -608,6 +677,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 title,
                 releaseDate,
                 artistCredit,
+                description,
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
@@ -722,6 +792,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                         title,
                         releaseDate,
                         artistCredit,
+                        description,
                         eventReleasedAt,
                         catalogNumber,
                         isdn,
@@ -760,6 +831,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 title,
                 releaseDate,
                 artistCredit,
+                description,
                 eventReleasedAt,
                 catalogNumber,
                 isdn,
@@ -787,6 +859,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 title,
                 releaseDate,
                 artistCredit,
+                description,
                 eventReleasedAt,
                 catalogNumber,
                 isdn,

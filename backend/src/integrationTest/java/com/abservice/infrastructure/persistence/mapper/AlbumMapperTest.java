@@ -14,6 +14,8 @@ import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
+import com.abservice.domain.model.vo.common.MarkupContent;
+import com.abservice.domain.model.vo.common.MarkupFormat;
 import com.abservice.domain.model.vo.common.Url;
 import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
@@ -63,6 +65,8 @@ class AlbumMapperTest {
     @RunOnVertxContext
     void shouldMapEntityToDomainWithAllFields(UniAsserter asserter) {
         final var album = newAlbum("Full Fields Album")
+                .setDescription("全項目マッピング確認用の概要説明")
+                .setDescriptionFormat("MARKDOWN")
                 .setCatalogNumber("MAPPER-CAT-001")
                 .setIsdn("2784702901978")
                 .setEventName("Comiket 104")
@@ -105,6 +109,8 @@ class AlbumMapperTest {
                             1));
             assertThat(domain.artistCredit().displayName().value()).isEqualTo("Test Artist");
             assertThat(domain.artistCredit().sortKey()).isEqualTo("test-artist");
+            assertThat(domain.description().content()).isEqualTo("全項目マッピング確認用の概要説明");
+            assertThat(domain.description().format()).isEqualTo(MarkupFormat.MARKDOWN);
             assertThat(domain.catalogNumber().value()).isEqualTo("MAPPER-CAT-001");
             assertThat(domain.isdn().value()).isEqualTo("2784702901978");
             assertThat(domain.eventReleasedAt()).isNotNull();
@@ -171,6 +177,7 @@ class AlbumMapperTest {
                         3,
                         3),
                 ArtistCredit.of("Mapped Artist", "mapped-artist"),
+                MarkupContent.markdown("マッピング確認用の概要説明"),
                 EventReleasedAt.of(
                         "Mapped Event",
                         BusinessDate.of(
@@ -199,6 +206,8 @@ class AlbumMapperTest {
         assertThat(entity.getCatalogNumber()).isEqualTo("MAPPED-CAT-001");
         assertThat(entity.getIsdn()).isEqualTo("2794123456780");
         assertThat(entity.getEventName()).isEqualTo("Mapped Event");
+        assertThat(entity.getDescription()).isEqualTo("マッピング確認用の概要説明");
+        assertThat(entity.getDescriptionFormat()).isEqualTo("MARKDOWN");
         assertThat(entity.getPublishedAt()).isNull();
         assertThat(entity.getTracks()).hasSize(1);
         assertThat(entity.getTracks().get(0).getTitle()).isEqualTo("Mapped Track");
@@ -223,6 +232,7 @@ class AlbumMapperTest {
                         3,
                         3),
                 ArtistCredit.of("Mapped Artist"),
+                MarkupContent.EMPTY,
                 null,
                 null,
                 null,
@@ -235,6 +245,28 @@ class AlbumMapperTest {
     }
 
     @Test
+    void shouldClearDescriptionColumnWhenChangedToEmpty() {
+        final var album = Album.create(
+                AlbumTitle.of("Description Cleared Album"),
+                BusinessDate.of(
+                        2025,
+                        3,
+                        3),
+                ArtistCredit.of("Mapped Artist"),
+                MarkupContent.markdown("あとで消される概要説明"),
+                null,
+                null,
+                null,
+                null)
+                .changeDescription(MarkupContent.EMPTY);
+
+        final var entity = AlbumMapper.toEntity(album);
+
+        assertThat(entity.getDescription()).isNull();
+        assertThat(entity.getDescriptionFormat()).isEqualTo("PLAIN_TEXT");
+    }
+
+    @Test
     void shouldMapUnpublishedDomainToEntityWithNullPublishedAt() {
         final var album = Album.create(
                 AlbumTitle.of("Unpublished Domain Album"),
@@ -243,6 +275,7 @@ class AlbumMapperTest {
                         3,
                         3),
                 ArtistCredit.of("Mapped Artist"),
+                MarkupContent.EMPTY,
                 null,
                 null,
                 null,

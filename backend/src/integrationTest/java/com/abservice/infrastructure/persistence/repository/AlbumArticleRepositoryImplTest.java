@@ -9,6 +9,7 @@ import com.abservice.domain.model.vo.album.ChannelType;
 import com.abservice.domain.model.vo.album.LabelTag;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.domain.model.vo.common.Price;
 import com.abservice.domain.model.vo.common.Url;
 import io.quarkus.test.TestReactiveTransaction;
@@ -44,6 +45,7 @@ class AlbumArticleRepositoryImplTest {
                 new AlbumTitle(title),
                 BusinessDate.of(releaseDate),
                 ArtistCredit.of("Test Artist", "test-artist"),
+                MarkupContent.EMPTY,
                 null,
                 null,
                 null,

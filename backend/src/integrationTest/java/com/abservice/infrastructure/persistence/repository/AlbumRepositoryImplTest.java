@@ -10,6 +10,8 @@ import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
+import com.abservice.domain.model.vo.common.MarkupContent;
+import com.abservice.domain.model.vo.common.MarkupFormat;
 import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.TestReactiveTransaction;
@@ -66,6 +68,7 @@ class AlbumRepositoryImplTest {
                         new AlbumTitle("Test Album"),
                         testReleaseDate,
                         testArtistCredit,
+                        MarkupContent.EMPTY,
                         null,
                         null,
                         null,
@@ -112,6 +115,7 @@ class AlbumRepositoryImplTest {
                         new AlbumTitle("Album with Tracks"),
                         testReleaseDate,
                         testArtistCredit,
+                        MarkupContent.EMPTY,
                         null,
                         null,
                         null,
@@ -146,6 +150,7 @@ class AlbumRepositoryImplTest {
                         new AlbumTitle("Original Title"),
                         testReleaseDate,
                         testArtistCredit,
+                        MarkupContent.EMPTY,
                         null,
                         null,
                         null,
@@ -202,6 +207,7 @@ class AlbumRepositoryImplTest {
                         new AlbumTitle("Album"),
                         testReleaseDate,
                         testArtistCredit,
+                        MarkupContent.EMPTY,
                         null,
                         null,
                         null,
@@ -262,6 +268,7 @@ class AlbumRepositoryImplTest {
                         new AlbumTitle("Album"),
                         testReleaseDate,
                         testArtistCredit,
+                        MarkupContent.EMPTY,
                         null,
                         null,
                         null,
@@ -298,6 +305,53 @@ class AlbumRepositoryImplTest {
     @Test
     @TestReactiveTransaction
     @RunOnVertxContext
+    void shouldSaveAndRestoreAlbumDescription(UniAsserter asserter) {
+        initTestData();
+
+        final var album = Album.create(
+                new AlbumTitle("Album with Description"),
+                testReleaseDate,
+                testArtistCredit,
+                MarkupContent.markdown("## 概要\n\n往復確認用の説明"),
+                null,
+                null,
+                null,
+                null);
+
+        asserter.execute(() -> repository.save(album));
+
+        asserter.assertThat(() -> repository.findById(album.id()), found -> {
+            assertThat(found.description().content()).isEqualTo("## 概要\n\n往復確認用の説明");
+            assertThat(found.description().format()).isEqualTo(MarkupFormat.MARKDOWN);
+        });
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldSaveAlbumWithoutDescriptionAsEmpty(UniAsserter asserter) {
+        initTestData();
+
+        final var album = Album.create(
+                new AlbumTitle("Album without Description"),
+                testReleaseDate,
+                testArtistCredit,
+                MarkupContent.EMPTY,
+                null,
+                null,
+                null,
+                null);
+
+        asserter.execute(() -> repository.save(album));
+
+        asserter.assertThat(
+                () -> repository.findById(album.id()),
+                found -> assertThat(found.description().isEmpty()).isTrue());
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
     void shouldSaveAlbumWithCatalogNumber(UniAsserter asserter) {
         initTestData();
 
@@ -305,6 +359,7 @@ class AlbumRepositoryImplTest {
                 new AlbumTitle("Album with Catalog"),
                 testReleaseDate,
                 testArtistCredit,
+                MarkupContent.EMPTY,
                 null,
                 new CatalogNumber("TEST-001"),
                 null,
@@ -326,6 +381,7 @@ class AlbumRepositoryImplTest {
                 new AlbumTitle("Album with ISDN"),
                 testReleaseDate,
                 testArtistCredit,
+                MarkupContent.EMPTY,
                 null,
                 null,
                 new Isdn("2784702901978"),
@@ -355,6 +411,7 @@ class AlbumRepositoryImplTest {
                 new AlbumTitle("Album with Event"),
                 testReleaseDate,
                 testArtistCredit,
+                MarkupContent.EMPTY,
                 eventReleasedAt,
                 null,
                 null,
@@ -378,6 +435,7 @@ class AlbumRepositoryImplTest {
                         new AlbumTitle("Original Title"),
                         testReleaseDate,
                         testArtistCredit,
+                        MarkupContent.EMPTY,
                         null,
                         null,
                         null,
@@ -394,6 +452,7 @@ class AlbumRepositoryImplTest {
                 new AlbumTitle("Updated Title"),
                 testReleaseDate,
                 testArtistCredit,
+                MarkupContent.EMPTY,
                 null,
                 null,
                 null,
@@ -419,6 +478,7 @@ class AlbumRepositoryImplTest {
                         new AlbumTitle("Album to Delete"),
                         testReleaseDate,
                         testArtistCredit,
+                        MarkupContent.EMPTY,
                         null,
                         null,
                         null,
@@ -445,6 +505,7 @@ class AlbumRepositoryImplTest {
                         new AlbumTitle("Existing Album"),
                         testReleaseDate,
                         testArtistCredit,
+                        MarkupContent.EMPTY,
                         null,
                         null,
                         null,
@@ -472,6 +533,7 @@ class AlbumRepositoryImplTest {
                         new AlbumTitle("Count Album 1"),
                         testReleaseDate,
                         testArtistCredit,
+                        MarkupContent.EMPTY,
                         null,
                         null,
                         null,
@@ -481,6 +543,7 @@ class AlbumRepositoryImplTest {
                         new AlbumTitle("Count Album 2"),
                         testReleaseDate,
                         testArtistCredit,
+                        MarkupContent.EMPTY,
                         null,
                         null,
                         null,

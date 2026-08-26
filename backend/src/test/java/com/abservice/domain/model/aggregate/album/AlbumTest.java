@@ -21,6 +21,7 @@ import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.domain.model.vo.common.ExternalAudioUrl;
+import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.lib.Result;
 
 import java.time.Instant;
@@ -51,6 +52,7 @@ class AlbumTest {
                     title,
                     releaseDate,
                     artistCredit,
+                    MarkupContent.EMPTY,
                     null,
                     null,
                     null,
@@ -95,6 +97,7 @@ class AlbumTest {
                     title,
                     releaseDate,
                     artistCredit,
+                    MarkupContent.EMPTY,
                     eventReleasedAt,
                     catalogNumber,
                     isdn,
@@ -124,6 +127,7 @@ class AlbumTest {
                             null,
                             releaseDate,
                             artistCredit,
+                            MarkupContent.EMPTY,
                             null,
                             null,
                             null,
@@ -147,6 +151,7 @@ class AlbumTest {
                             title,
                             releaseDate,
                             null,
+                            MarkupContent.EMPTY,
                             null,
                             null,
                             null,
@@ -837,6 +842,7 @@ class AlbumTest {
                         1,
                         1),
                 ArtistCredit.of("Test Artist"),
+                MarkupContent.EMPTY,
                 null,
                 null,
                 null,

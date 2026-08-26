@@ -72,6 +72,12 @@ public class AlbumTableRecord extends AuditableTableRecord<AlbumTableRecord> {
     @Column(name = "event_note", columnDefinition = "TEXT")
     private String eventNote;
 
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+
+    @Column(name = "description_format", nullable = false, length = 20)
+    private String descriptionFormat = "PLAIN_TEXT";
+
     @Column(name = "catalog_number", length = 100)
     private String catalogNumber;
 

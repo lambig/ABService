@@ -11,6 +11,7 @@ import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.AssetKey;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
+import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.domain.service.AlbumAccessService;
 import com.abservice.lib.ErrorResult;
@@ -77,14 +78,28 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
                         resolveOptional(Isdn::fromInput, input.isdn()),
                         resolveEvent(input.event()),
                         OptionalFields::new),
-                resolveOptional(AssetKey::fromInput, input.coverImageKey()),
-                (base, optional, cover) -> existing.changeTitle(base.title())
+                Result.zip(
+                        resolveOptional(AssetKey::fromInput, input.coverImageKey()),
+                        resolveDescription(input.description(), input.descriptionFormat()),
+                        CoverAndDescription::new),
+                (base, optional, extra) -> existing.changeTitle(base.title())
                         .changeReleaseDate(base.releaseDate())
                         .changeArtistCredit(base.artistCredit())
+                        .changeDescription(extra.description())
                         .changeEventReleasedAt(optional.event().orElse(null))
                         .changeCatalogNumber(optional.catalogNumber().orElse(null))
                         .changeIsdn(optional.isdn().orElse(null))
-                        .changeCoverImageKey(cover.orElse(null)));
+                        .changeCoverImageKey(extra.coverImageKey().orElse(null)));
+    }
+
+    /** 説明なし（blank 入力）を表す検証結果。完全に使い回せる定数。 */
+    private static final Result<MarkupContent> EMPTY_DESCRIPTION = Result.success(MarkupContent.EMPTY);
+
+    private static Result<MarkupContent> resolveDescription(@Nullable String content, @Nullable String format) {
+        return Optional.ofNullable(content)
+                .filter(StringUtils::isNotBlank)
+                .map(c -> MarkupContent.fromInput(c, format))
+                .orElse(EMPTY_DESCRIPTION);
     }
 
     private record TitleDateArtist(AlbumTitle title, BusinessDate releaseDate, ArtistCredit artistCredit) {
@@ -94,6 +109,9 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
             Optional<CatalogNumber> catalogNumber,
             Optional<Isdn> isdn,
             Optional<EventReleasedAt> event) {
+    }
+
+    private record CoverAndDescription(Optional<AssetKey> coverImageKey, MarkupContent description) {
     }
 
     private static Result<BusinessDate> resolveReleaseDate(@Nullable String value) {

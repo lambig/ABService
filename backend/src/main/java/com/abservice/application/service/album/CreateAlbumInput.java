@@ -29,6 +29,11 @@ import org.jspecify.annotations.Nullable;
  *            ISDN（nullable。ハイフンは省略可）
  * @param coverImageKey
  *            カバー画像のアセットキー（nullable。アップロード確定APIが返す {@code assetKey}）
+ * @param description
+ *            作品の概要説明（nullable。空白のみは説明なしとして扱う）
+ * @param descriptionFormat
+ *            概要説明のマークアップ形式（{@code com.abservice.domain.model.vo.common.MarkupFormat}
+ *            の列挙子名。 {@code description} を指定する場合のみ必須）
  * @param event
  *            初出イベント情報（nullable）
  */
@@ -40,6 +45,8 @@ public record CreateAlbumInput(
         @Nullable String catalogNumber,
         @Nullable String isdn,
         @Nullable String coverImageKey,
+        @Nullable String description,
+        @Nullable String descriptionFormat,
         @Nullable EventInput event) implements CommandService.Input {
 
     /**

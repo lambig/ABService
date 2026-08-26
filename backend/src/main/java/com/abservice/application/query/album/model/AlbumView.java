@@ -30,6 +30,10 @@ import org.jspecify.annotations.Nullable;
  *            アーティスト表示名
  * @param artistSortKey
  *            アーティストソートキー（nullable）
+ * @param description
+ *            作品の概要説明（nullable。null は説明なし）
+ * @param descriptionFormat
+ *            概要説明のマークアップ形式（列挙子名）
  * @param catalogNumber
  *            カタログナンバー（nullable）
  * @param isdn
@@ -57,6 +61,8 @@ public record AlbumView(
         String releaseDate,
         String artistDisplayName,
         @Nullable String artistSortKey,
+        @Nullable String description,
+        String descriptionFormat,
         @Nullable String catalogNumber,
         @Nullable String isdn,
         @Nullable String eventName,

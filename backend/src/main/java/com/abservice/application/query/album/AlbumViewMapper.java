@@ -48,6 +48,8 @@ final class AlbumViewMapper {
                 entity.getReleaseDate().toString(),
                 entity.getArtistDisplayName(),
                 entity.getArtistSortKey(),
+                entity.getDescription(),
+                entity.getDescriptionFormat(),
                 entity.getCatalogNumber(),
                 entity.getIsdn(),
                 entity.getEventName(),

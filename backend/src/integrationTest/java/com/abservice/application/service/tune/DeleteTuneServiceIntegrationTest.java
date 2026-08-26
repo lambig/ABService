@@ -11,6 +11,7 @@ import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.domain.model.vo.tune.TuneKind;
 import com.abservice.domain.model.vo.tune.TuneTitle;
 import com.abservice.infrastructure.persistence.repository.AlbumRepositoryImpl;
@@ -149,6 +150,7 @@ class DeleteTuneServiceIntegrationTest {
                                 1,
                                 1)),
                 ArtistCredit.of("チューン参照テストアーティスト"),
+                MarkupContent.EMPTY,
                 null,
                 null,
                 null,
