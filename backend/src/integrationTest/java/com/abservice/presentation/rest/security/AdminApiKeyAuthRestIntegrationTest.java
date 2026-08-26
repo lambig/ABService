@@ -77,13 +77,11 @@ class AdminApiKeyAuthRestIntegrationTest {
     @DisplayName("マスタ系QueryはAPIキー無しでは401を返す")
     void masterDataQueryWithoutApiKeyIsUnauthorized() {
         given().when().get("/api/v1/tunes").then().statusCode(401);
-        given().when().get("/api/v1/album-articles").then().statusCode(401);
     }
 
     @Test
     @DisplayName("マスタ系QueryはAPIキーがあれば成功する")
     void masterDataQueryWithApiKeySucceeds() {
         authorized().when().get("/api/v1/tunes").then().statusCode(200);
-        authorized().when().get("/api/v1/album-articles").then().statusCode(200);
     }
 }

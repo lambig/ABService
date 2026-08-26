@@ -24,6 +24,11 @@ import org.jspecify.annotations.Nullable;
  * @param coverImageKey
  *            カバー画像のアセットキー（nullable。{@code POST
  *            /api/v1/assets/{assetKey}/confirm} が返す {@code assetKey}）
+ * @param description
+ *            作品の概要説明（nullable。空白のみは説明なしとして扱う）
+ * @param descriptionFormat
+ *            概要説明のマークアップ形式（PLAIN_TEXT / MARKDOWN / HTML。{@code description}
+ *            を指定する場合のみ必須）
  * @param event
  *            初出イベント情報（nullable）
  */
@@ -35,6 +40,8 @@ public record CreateAlbumRequest(
         @Nullable String catalogNumber,
         @Nullable String isdn,
         @Nullable String coverImageKey,
+        @Nullable String description,
+        @Nullable String descriptionFormat,
         @Nullable EventRequest event) {
 
     /**

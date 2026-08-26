@@ -6,10 +6,10 @@ import com.abservice.domain.model.entity.article.ArticleTag;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.ArticleType;
-import com.abservice.domain.model.vo.article.MarkupContent;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.domain.model.vo.common.MarkupContent;
 import io.quarkus.test.TestReactiveTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
@@ -289,6 +289,7 @@ class ArticleRepositoryImplTest {
                         1,
                         1),
                 ArtistCredit.of("Test Artist"),
+                MarkupContent.EMPTY,
                 null,
                 null,
                 null,
@@ -319,6 +320,7 @@ class ArticleRepositoryImplTest {
                         1,
                         1),
                 ArtistCredit.of("Test Artist"),
+                MarkupContent.EMPTY,
                 null,
                 null,
                 null,

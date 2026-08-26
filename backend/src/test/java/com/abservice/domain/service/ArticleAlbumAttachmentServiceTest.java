@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.aggregate.album.Album;
+import com.abservice.domain.model.aggregate.article.AlbumArticle;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.article.ArticleTitle;
@@ -12,6 +13,7 @@ import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.domain.service.ArticleAlbumAttachmentService.AlbumAttachment;
 import com.abservice.domain.service.ArticlePublicationService.ArticlePublication;
 import java.time.Instant;
@@ -60,6 +62,7 @@ class ArticleAlbumAttachmentServiceTest {
                         1,
                         1),
                 ArtistCredit.of("テストアーティスト"),
+                MarkupContent.EMPTY,
                 null,
                 null,
                 null,
@@ -70,16 +73,19 @@ class ArticleAlbumAttachmentServiceTest {
         return album().publish(NOW);
     }
 
-    private static Article article() {
-        return Article.create(
-                ArticleType.ALBUM,
-                null,
-                ArticleTitle.of("紐付け整合テスト記事"),
-                null,
-                null);
+    private static AlbumArticle article() {
+        return AlbumArticle.from(
+                Article.create(
+                        ArticleType.ALBUM,
+                        null,
+                        ArticleTitle.of("紐付け整合テスト記事"),
+                        null,
+                        null))
+                .orElseThrow();
     }
 
-    private static Article publishedArticle() {
-        return new ArticlePublication(article(), null).publish(NOW);
+    private static AlbumArticle publishedArticle() {
+        return AlbumArticle.from(new ArticlePublication(article(), null).publish(NOW))
+                .orElseThrow();
     }
 }

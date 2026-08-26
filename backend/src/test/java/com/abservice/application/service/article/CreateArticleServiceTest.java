@@ -2,7 +2,7 @@ package com.abservice.application.service.article;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.abservice.domain.model.vo.article.MarkupContent;
+import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import org.junit.jupiter.api.DisplayName;

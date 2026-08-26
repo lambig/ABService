@@ -12,6 +12,7 @@ import com.abservice.domain.repository.article.ArticleRepository;
 import com.abservice.infrastructure.persistence.datasource.ArticleDataSource;
 import com.abservice.infrastructure.persistence.datasource.ArticleTagDataSource;
 import com.abservice.infrastructure.persistence.datasource.Visibility;
+import com.abservice.infrastructure.persistence.entity.ArticleAlbumReferenceTableRecord;
 import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
 import com.abservice.infrastructure.persistence.entity.ArticleTagTableRecord;
 import com.abservice.infrastructure.persistence.entity.ArticleTagLinkTableRecord;
@@ -82,10 +83,7 @@ public class ArticleRepositoryImpl implements ArticleRepository {
 
     private static ArticleTableRecord copyArticleScalarFields(ArticleTableRecord target, ArticleTableRecord source) {
         target.setArticleType(source.getArticleType());
-        target.setAlbumId(source.getAlbumId());
-        target.setFormerAlbumId(source.getFormerAlbumId());
-        target.setAlbumReferenceLostAt(source.getAlbumReferenceLostAt());
-        target.setAlbumReferenceLostReason(source.getAlbumReferenceLostReason());
+        copyAlbumReference(target, source);
         target.setTitle(source.getTitle());
         target.setBody(source.getBody());
         target.setBodyFormat(source.getBodyFormat());
@@ -94,6 +92,33 @@ public class ArticleRepositoryImpl implements ArticleRepository {
         target.setUpdatedAtBusiness(source.getUpdatedAtBusiness());
         target.setIsPublic(source.getIsPublic());
         return target;
+    }
+
+    /*
+     * MAPS-ID: 子は @MapsId で親のIDを共有するため、既存行があるときにインスタンスを差し替えると 採番済みIDのまま insert
+     * が走る。既存行は値だけを写し、無いときにだけ新しい行を載せる。 参照が無くなった場合は切り離して orphanRemoval に削除させる。
+     */
+    private static void copyAlbumReference(ArticleTableRecord target, ArticleTableRecord source) {
+        Optional.ofNullable(source.getAlbumReference())
+                .ifPresentOrElse(
+                        newReference -> applyAlbumReference(target, newReference),
+                        () -> target.setAlbumReference(null));
+    }
+
+    private static void applyAlbumReference(ArticleTableRecord target,
+            ArticleAlbumReferenceTableRecord newReference) {
+        Optional.ofNullable(target.getAlbumReference())
+                .ifPresentOrElse(
+                        existing -> copyAlbumReferenceFields(existing, newReference),
+                        () -> target.setAlbumReference(newReference.setArticle(target)));
+    }
+
+    private static void copyAlbumReferenceFields(ArticleAlbumReferenceTableRecord target,
+            ArticleAlbumReferenceTableRecord source) {
+        target.setAlbumId(source.getAlbumId())
+                .setFormerAlbumId(source.getFormerAlbumId())
+                .setAlbumReferenceLostAt(source.getAlbumReferenceLostAt())
+                .setAlbumReferenceLostReason(source.getAlbumReferenceLostReason());
     }
 
     private Uni<List<ArticleTagTableRecord>> ensureTagEntities(List<ArticleTag> tags) {

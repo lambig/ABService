@@ -6,6 +6,7 @@ import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
 import com.abservice.infrastructure.persistence.repository.AlbumRepositoryImpl;
@@ -93,6 +94,7 @@ class AuditColumnsIntegrationTest {
                                 1,
                                 1)),
                 ArtistCredit.of("監査列テストアーティスト"),
+                MarkupContent.EMPTY,
                 null,
                 null,
                 null,

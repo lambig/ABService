@@ -6,45 +6,82 @@ import org.jspecify.annotations.Nullable;
 /**
  * 記事詳細レスポンス（REST の公開出力契約）
  *
- * @param articleId
- *            記事ID（UUIDv7形式の文字列）
- * @param articleType
- *            記事種別（列挙子名）
- * @param albumId
- *            アルバムID（nullable）
- * @param title
- *            記事タイトル
- * @param body
- *            記事本文（nullable）
- * @param bodyFormat
- *            本文のマークアップ形式（列挙子名）
- * @param introShort
- *            一覧表示用のショート紹介文（nullable）
- * @param publishedAt
- *            公開日時（nullable。UTC）
- * @param updatedAtBusiness
- *            業務上の更新日時（nullable。UTC）
- * @param publicFlag
- *            公開フラグ
- * @param formerAlbumId
- *            失効した参照先アルバムのID（nullable。参照が失効している場合のみ）
- * @param albumReferenceLostAt
- *            アルバム参照が失効した日時（nullable。UTC）
- * @param albumReferenceLostReason
- *            失効の理由コード（nullable。表示文言はクライアントが決める）
+ * <p>
+ * 項目名が種別によって変わる部分だけを型で分ける。値が無いことを表す {@code null}（未記入・未公開・失効していない）は キーを出したうえで
+ * {@code null} を返し、種別がその概念を持たないことは<strong>キーを出さない</strong>ことで表す。 両者を
+ * {@code null} の有無で区別できるようにするため、キーの有無を種別で切り替える。
+ * </p>
+ *
+ * <p>
+ * 項目名の集合が同一の種別に別の型は与えない。アルバムへの参照を持てるのは {@code ALBUM} だけのため、分かれるのは
+ * {@link AlbumArticleResponse} と {@link PlainArticleResponse} の2つになる。
+ * </p>
  */
-public record ArticleResponse(
-        String articleId,
-        String articleType,
-        @Nullable String albumId,
-        String title,
-        @Nullable String body,
-        String bodyFormat,
-        @Nullable String introShort,
-        @Nullable Instant publishedAt,
-        @Nullable Instant updatedAtBusiness,
-        boolean publicFlag,
-        @Nullable String formerAlbumId,
-        @Nullable Instant albumReferenceLostAt,
-        @Nullable String albumReferenceLostReason) {
+public sealed interface ArticleResponse permits AlbumArticleResponse, PlainArticleResponse {
+
+    /**
+     * 記事ID（UUIDv7形式の文字列）
+     *
+     * @return 記事ID
+     */
+    String articleId();
+
+    /**
+     * 記事種別（列挙子名）
+     *
+     * @return 記事種別
+     */
+    String articleType();
+
+    /**
+     * 記事タイトル
+     *
+     * @return タイトル
+     */
+    String title();
+
+    /**
+     * 記事本文（空文字列は本文なし。nullは返さない）
+     *
+     * @return 本文
+     */
+    String body();
+
+    /**
+     * 本文のマークアップ形式（列挙子名）
+     *
+     * @return マークアップ形式
+     */
+    String bodyFormat();
+
+    /**
+     * 一覧表示用のショート紹介文（nullable）
+     *
+     * @return ショート紹介文
+     */
+    @Nullable
+    String introShort();
+
+    /**
+     * 公開日時（nullable。UTC）
+     *
+     * @return 公開日時
+     */
+    @Nullable
+    Instant publishedAt();
+
+    /**
+     * 業務上の更新日時（nullable。UTC）
+     *
+     * @return 更新日時
+     */
+    @Nullable
+    Instant updatedAtBusiness();
+
+    /**
+     * 公開フラグ
+     *
+     * @return 公開中なら true
+     */
+    boolean publicFlag();
 }

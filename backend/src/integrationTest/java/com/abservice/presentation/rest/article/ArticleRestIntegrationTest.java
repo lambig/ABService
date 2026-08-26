@@ -4,7 +4,9 @@ import static com.abservice.presentation.rest.AdminAuth.authorized;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.quarkus.test.junit.QuarkusTest;
@@ -125,6 +127,47 @@ class ArticleRestIntegrationTest {
     }
 
     @Test
+    @DisplayName("アルバム参照を持てない種別の詳細応答には、参照に関わる項目名自体が現れない")
+    void plainArticleResponseOmitsAlbumReferenceKeys() {
+        final String articleId = authorized().contentType(ContentType.JSON)
+                .body("{\"articleType\":\"NOTE\",\"title\":\"キー省略確認記事\"}").when().post("/api/v1/articles").then()
+                .statusCode(201).extract().path("articleId");
+
+        authorized().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(200);
+
+        given().when().get("/api/v1/articles/" + articleId).then().statusCode(200)
+                .body("articleType", equalTo("NOTE"))
+                .body("$", not(hasKey("albumId")))
+                .body("$", not(hasKey("formerAlbumId")))
+                .body("$", not(hasKey("albumReferenceLostAt")))
+                .body("$", not(hasKey("albumReferenceLostReason")))
+                // 値が無いことを表す null はキーを出す（項目名を落とすのは種別が概念を持たない場合だけ）
+                .body("$", hasKey("introShort"))
+                .body("introShort", nullValue())
+                // 本文は「無い」ことがあり得ない項目のため、指定しなくても空文字列で返る
+                .body("body", equalTo(""))
+                .body("bodyFormat", equalTo("PLAIN_TEXT"));
+    }
+
+    @Test
+    @DisplayName("アルバム記事の詳細応答は、参照が無くても参照に関わる項目名を持つ")
+    void albumArticleResponseKeepsAlbumReferenceKeys() {
+        final String articleId = authorized().contentType(ContentType.JSON)
+                .body("{\"articleType\":\"ALBUM\",\"title\":\"キー保持確認記事\"}").when().post("/api/v1/articles").then()
+                .statusCode(201).extract().path("articleId");
+
+        authorized().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(200);
+
+        given().when().get("/api/v1/articles/" + articleId).then().statusCode(200)
+                .body("articleType", equalTo("ALBUM"))
+                .body("$", hasKey("albumId"))
+                .body("albumId", nullValue())
+                .body("$", hasKey("formerAlbumId"))
+                .body("$", hasKey("albumReferenceLostAt"))
+                .body("$", hasKey("albumReferenceLostReason"));
+    }
+
+    @Test
     @DisplayName("公開済み記事を非公開化すると公開向けGETは404になる")
     void unpublishThenGetNotFound() {
         final String articleId = authorized().contentType(ContentType.JSON)
@@ -166,6 +209,47 @@ class ArticleRestIntegrationTest {
         authorized().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
                 .put("/api/v1/articles/" + articleId + "/album").then().statusCode(200)
                 .body("articleId", equalTo(articleId)).body("albumId", equalTo(albumId));
+    }
+
+    /*
+     * REGRESSION: アルバム参照は article_album_reference の子行として持ち、子は @MapsId で親とIDを共有する。
+     * ALBUM から別種別へ変えると参照は落ちるため、子行が orphanRemoval で実際に削除されることを実DBで固定する
+     * （インスタンスの差し替えでは採番済みIDのまま insert が走る問題を踏んだ経路の裏返し）。
+     */
+    @Test
+    @DisplayName("ALBUM種別から他の種別へ変更するとアルバム参照が落ち、参照先からの検索対象から外れる")
+    void changeTypeFromAlbumDropsAlbumReference() {
+        final String albumId = createDraftAlbum("種別変更確認アルバム");
+        // 参照先が非公開のままでは記事を公開できないため（DECISIONS 12）、先にアルバムを公開する
+        authorized().when().post("/api/v1/albums/" + albumId + "/publish").then().statusCode(200);
+        final String articleId = authorized().contentType(ContentType.JSON)
+                .body("{\"articleType\":\"ALBUM\",\"title\":\"種別変更確認記事\"}").when().post("/api/v1/articles").then()
+                .statusCode(201).extract().path("articleId");
+
+        authorized().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
+                .put("/api/v1/articles/" + articleId + "/album").then().statusCode(200)
+                .body("albumId", equalTo(albumId));
+
+        authorized().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(200);
+
+        given().when().get("/api/v1/articles/" + articleId).then().statusCode(200)
+                .body("articleType", equalTo("ALBUM"))
+                .body("albumId", equalTo(albumId));
+
+        authorized().contentType(ContentType.JSON)
+                .body("{\"articleType\":\"NOTE\",\"title\":\"種別変更後タイトル\"}").when()
+                .put("/api/v1/articles/" + articleId).then().statusCode(200)
+                .body("articleType", equalTo("NOTE"));
+
+        // 参照を持てない種別になったため、参照に関わる項目名が応答から消える
+        given().when().get("/api/v1/articles/" + articleId).then().statusCode(200)
+                .body("articleType", equalTo("NOTE"))
+                .body("$", not(hasKey("albumId")))
+                .body("$", not(hasKey("formerAlbumId")));
+
+        // 子行が残っていれば、公開中のこの記事がアルバム非公開化のカスケード対象として拾われてしまう
+        authorized().when().post("/api/v1/albums/" + albumId + "/unpublish").then().statusCode(200)
+                .body("cascadeUnpublishedArticles", empty());
     }
 
     @Test

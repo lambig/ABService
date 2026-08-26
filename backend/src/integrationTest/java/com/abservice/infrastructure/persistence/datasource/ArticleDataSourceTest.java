@@ -1,6 +1,7 @@
 package com.abservice.infrastructure.persistence.datasource;
 
 import com.abservice.application.query.SortSpec;
+import com.abservice.infrastructure.persistence.entity.ArticleAlbumReferenceTableRecord;
 import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
 import io.quarkus.test.TestReactiveTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -35,6 +36,15 @@ class ArticleDataSourceTest {
                 .setTitle(title)
                 .setBodyFormat("PLAIN_TEXT")
                 .setIsPublic(false);
+    }
+
+    private static ArticleTableRecord newAlbumArticle(String title, String albumId) {
+        final var entity = newArticle(title)
+                .setArticleType("ALBUM");
+        return entity.setAlbumReference(
+                new ArticleAlbumReferenceTableRecord()
+                        .setArticle(entity)
+                        .setAlbumId(albumId));
     }
 
     @Test
@@ -124,7 +134,7 @@ class ArticleDataSourceTest {
     @RunOnVertxContext
     void shouldFindByAlbumId(UniAsserter asserter) {
         final var albumId = UUID.randomUUID().toString();
-        final var entity = newArticle("Album Linked Article").setAlbumId(albumId);
+        final var entity = newAlbumArticle("Album Linked Article", albumId);
 
         asserter.execute(() -> dataSource.persist(entity));
 
@@ -139,8 +149,8 @@ class ArticleDataSourceTest {
     @RunOnVertxContext
     void shouldFindAllArticlesReferencingSameAlbum(UniAsserter asserter) {
         final var albumId = UUID.randomUUID().toString();
-        final var first = newArticle("First Article Of Album").setAlbumId(albumId);
-        final var second = newArticle("Second Article Of Album").setAlbumId(albumId);
+        final var first = newAlbumArticle("First Article Of Album", albumId);
+        final var second = newAlbumArticle("Second Article Of Album", albumId);
 
         asserter.execute(() -> dataSource.persist(first));
         asserter.execute(() -> dataSource.persist(second));

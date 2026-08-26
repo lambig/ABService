@@ -25,7 +25,8 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleTableReco
 
     private static final String EAGER_SELECT = "SELECT DISTINCT a FROM ArticleTableRecord a "
             + "LEFT JOIN FETCH a.articleTagLinks link "
-            + "LEFT JOIN FETCH link.articleTag ";
+            + "LEFT JOIN FETCH link.articleTag "
+            + "LEFT JOIN FETCH a.albumReference ";
 
     private static final String WHERE_DOMAIN_ID = "WHERE a.domainId = :domainId";
 
@@ -117,7 +118,10 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleTableReco
      */
     public Uni<List<ArticleTableRecord>> findByAlbumId(String albumId) {
         return sessionFactory.withSession(
-                session -> session.createQuery(EAGER_SELECT + "WHERE a.albumId = :albumId", ArticleTableRecord.class)
+                session -> session
+                        .createQuery(
+                                EAGER_SELECT + "WHERE a.albumReference.albumId = :albumId",
+                                ArticleTableRecord.class)
                         .setParameter("albumId", albumId).getResultList());
     }
 

@@ -25,7 +25,7 @@ import org.jspecify.annotations.Nullable;
  * @param title
  *            記事タイトル
  * @param body
- *            記事本文（nullable）
+ *            記事本文（空文字列は本文なし。nullは持たない）
  * @param bodyFormat
  *            本文のマークアップ形式（列挙子名）
  * @param introShort
@@ -48,7 +48,7 @@ public record ArticleView(
         String articleType,
         @Nullable String albumId,
         String title,
-        @Nullable String body,
+        String body,
         String bodyFormat,
         @Nullable String introShort,
         @Nullable Instant publishedAt,

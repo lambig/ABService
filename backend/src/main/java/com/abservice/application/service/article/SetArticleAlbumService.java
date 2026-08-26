@@ -4,6 +4,7 @@ import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.domain.model.aggregate.album.Album;
+import com.abservice.domain.model.aggregate.article.AlbumArticle;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.repository.article.ArticleRepository;
@@ -45,7 +46,7 @@ public class SetArticleAlbumService implements CommandService<SetArticleAlbumInp
                                 .map(saved -> toOutput(saved, ids.albumId())));
     }
 
-    private Uni<Article> attachAlbum(Article article, Album.Id albumId) {
+    private Uni<AlbumArticle> attachAlbum(AlbumArticle article, Album.Id albumId) {
         return businessDateTimeProvider.now()
                 .flatMap(
                         now -> articleAlbumAttachmentService.attachAlbum(
@@ -63,20 +64,25 @@ public class SetArticleAlbumService implements CommandService<SetArticleAlbumInp
                 Album.Id.of(Objects.requireNonNull(valid.albumId())));
     }
 
-    private Uni<Article> findExistingAlbumArticle(Article.Id id) {
+    private Uni<AlbumArticle> findExistingAlbumArticle(Article.Id id) {
         return articleRepository.findById(id)
                 .onItem().ifNull()
                 .failWith(() -> EntityNotFoundException.of("Article", id.value()))
                 .flatMap(SetArticleAlbumService::requireAlbumType);
     }
 
-    private static Uni<Article> requireAlbumType(Article article) {
-        return article.articleType() == ArticleType.ALBUM
-                ? Uni.createFrom().item(article)
-                : Uni.createFrom()
-                        .failure(
-                                new BusinessRuleViolationException(
-                                        "ALBUM種別の記事のみアルバムを紐付けられます"));
+    /*
+     * NARROWING: アルバムを参照できるのは AlbumArticle だけで、他の種別は参照という概念自体を持たない。
+     * 型で絞れなかった場合を業務違反として返す。
+     */
+    private static Uni<AlbumArticle> requireAlbumType(Article article) {
+        return AlbumArticle.from(article)
+                .map(Uni.createFrom()::item)
+                .orElseGet(
+                        () -> Uni.createFrom()
+                                .failure(
+                                        new BusinessRuleViolationException(
+                                                "ALBUM種別の記事のみアルバムを紐付けられます")));
     }
 
     private static SetArticleAlbumOutput toOutput(Article article, Album.Id albumId) {

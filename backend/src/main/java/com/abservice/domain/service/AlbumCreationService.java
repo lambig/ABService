@@ -10,6 +10,7 @@ import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.AssetKey;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
+import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.lib.Result;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -54,6 +55,10 @@ public class AlbumCreationService implements DomainService {
      *            ISDN（nullable）
      * @param coverImageKey
      *            カバー画像のアセットキー（nullable。アップロード基盤が返す{@code assetKey}）
+     * @param description
+     *            概要説明（nullable。空白のみは説明なしとして扱う）
+     * @param descriptionFormat
+     *            概要説明のマークアップ形式（{@code description}を指定する場合のみ必須）
      * @param event
      *            初出イベント情報（nullable）
      * @return 検証・生成されたAlbum。検証失敗時は{@link ValidationException}で失敗する
@@ -67,6 +72,8 @@ public class AlbumCreationService implements DomainService {
             @Nullable String catalogNumber,
             @Nullable String isdn,
             @Nullable String coverImageKey,
+            @Nullable String description,
+            @Nullable String descriptionFormat,
             @Nullable EventFields event) {
         return Uni.createFrom()
                 .item(
@@ -78,6 +85,8 @@ public class AlbumCreationService implements DomainService {
                                 catalogNumber,
                                 isdn,
                                 coverImageKey,
+                                description,
+                                descriptionFormat,
                                 event)
                                 .resolve(ValidationException::new));
     }
@@ -91,6 +100,8 @@ public class AlbumCreationService implements DomainService {
             @Nullable String catalogNumber,
             @Nullable String isdn,
             @Nullable String coverImageKey,
+            @Nullable String description,
+            @Nullable String descriptionFormat,
             @Nullable EventFields event) {
         return Result.zip(
                 Result.zip(
@@ -103,15 +114,29 @@ public class AlbumCreationService implements DomainService {
                         resolveOptional(Isdn::fromInput, isdn),
                         resolveEvent(event),
                         OptionalFields::new),
-                resolveOptional(AssetKey::fromInput, coverImageKey),
-                (base, optional, cover) -> Album.create(
+                Result.zip(
+                        resolveOptional(AssetKey::fromInput, coverImageKey),
+                        resolveDescription(description, descriptionFormat),
+                        CoverAndDescription::new),
+                (base, optional, extra) -> Album.create(
                         base.title(),
                         base.releaseDate(),
                         base.artistCredit(),
+                        extra.description(),
                         optional.event().orElse(null),
                         optional.catalogNumber().orElse(null),
                         optional.isdn().orElse(null),
-                        cover.orElse(null)));
+                        extra.coverImageKey().orElse(null)));
+    }
+
+    /** 説明なし（blank 入力）を表す検証結果。完全に使い回せる定数。 */
+    private static final Result<MarkupContent> EMPTY_DESCRIPTION = Result.success(MarkupContent.EMPTY);
+
+    private static Result<MarkupContent> resolveDescription(@Nullable String content, @Nullable String format) {
+        return Optional.ofNullable(content)
+                .filter(StringUtils::isNotBlank)
+                .map(c -> MarkupContent.fromInput(c, format))
+                .orElse(EMPTY_DESCRIPTION);
     }
 
     /**
@@ -148,6 +173,9 @@ public class AlbumCreationService implements DomainService {
             Optional<CatalogNumber> catalogNumber,
             Optional<Isdn> isdn,
             Optional<EventReleasedAt> event) {
+    }
+
+    private record CoverAndDescription(Optional<AssetKey> coverImageKey, MarkupContent description) {
     }
 
     private static Result<Optional<EventReleasedAt>> resolveEvent(@Nullable EventFields event) {

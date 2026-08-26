@@ -8,9 +8,11 @@
 
 ## 現状
 
-Article / Tune / Album / AlbumArticle の4集約で domain → application → REST → 統合テストの Create/Get/Update/Delete/List が通っている。Album のトラック、アセット（画像）アップロード、APIキー認証・認可、公開/非公開制御も実装済み。フロントエンド（`frontend-admin` / `frontend-public`）はテンプレート状態で、作り直しは #122 / #123。
+Article / Tune / Album の3集約で domain → application → REST → 統合テストの Create/Get/Update/Delete/List が通っている。Album のトラック、アセット（画像）アップロード、APIキー認証・認可、公開/非公開制御も実装済み。記事は種別ごとのサブタイプに分かれ、アルバムへの参照を持てるのは `AlbumArticle`（`ALBUM` 種別）のみ。フロントエンド（`frontend-admin` / `frontend-public`）はテンプレート状態で、作り直しは #122 / #123。
 
-子コレクションへの追加系ユースケースのうち、REST を公開していないものが残る（`AlbumArticle` の `acquisitionChannels`、記事タグ）。#120 で扱う。
+子コレクションへの追加系ユースケースのうち、記事タグは REST を公開していない。#120 で扱う。
+
+頒布情報・入手経路は実装を持たない。帰属が（作品 × 発表）であり、発表を第一級の概念にする設計とセットで作る（#201）。
 
 ---
 

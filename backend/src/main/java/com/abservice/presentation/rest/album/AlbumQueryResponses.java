@@ -77,6 +77,8 @@ final class AlbumQueryResponses {
                 view.releaseDate(),
                 view.artistDisplayName(),
                 view.artistSortKey(),
+                view.description(),
+                view.descriptionFormat(),
                 view.catalogNumber(),
                 view.isdn(),
                 view.eventName(),

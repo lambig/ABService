@@ -44,6 +44,8 @@ class RegisterAlbumWithTracksServiceIntegrationTest {
                                 null,
                                 null,
                                 null,
+                                null,
+                                null,
                                 List.of(
                                         new RegisterAlbumWithTracksInput.TrackInput(
                                                 1,
@@ -82,6 +84,8 @@ class RegisterAlbumWithTracksServiceIntegrationTest {
                                 "ロールバック確認アルバム",
                                 "2026-01-01",
                                 "アーティスト",
+                                null,
+                                null,
                                 null,
                                 null,
                                 null,
