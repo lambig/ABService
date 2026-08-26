@@ -4,7 +4,9 @@ import static com.abservice.presentation.rest.AdminAuth.authorized;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.quarkus.test.junit.QuarkusTest;
@@ -122,6 +124,44 @@ class ArticleRestIntegrationTest {
 
         given().when().get("/api/v1/articles/" + articleId).then().statusCode(200)
                 .body("articleId", equalTo(articleId));
+    }
+
+    @Test
+    @DisplayName("アルバム参照を持てない種別の詳細応答には、参照に関わる項目名自体が現れない")
+    void plainArticleResponseOmitsAlbumReferenceKeys() {
+        final String articleId = authorized().contentType(ContentType.JSON)
+                .body("{\"articleType\":\"NOTE\",\"title\":\"キー省略確認記事\"}").when().post("/api/v1/articles").then()
+                .statusCode(201).extract().path("articleId");
+
+        authorized().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(200);
+
+        given().when().get("/api/v1/articles/" + articleId).then().statusCode(200)
+                .body("articleType", equalTo("NOTE"))
+                .body("$", not(hasKey("albumId")))
+                .body("$", not(hasKey("formerAlbumId")))
+                .body("$", not(hasKey("albumReferenceLostAt")))
+                .body("$", not(hasKey("albumReferenceLostReason")))
+                // 値が無いことを表す null はキーを出す（項目名を落とすのは種別が概念を持たない場合だけ）
+                .body("$", hasKey("introShort"))
+                .body("introShort", nullValue());
+    }
+
+    @Test
+    @DisplayName("アルバム記事の詳細応答は、参照が無くても参照に関わる項目名を持つ")
+    void albumArticleResponseKeepsAlbumReferenceKeys() {
+        final String articleId = authorized().contentType(ContentType.JSON)
+                .body("{\"articleType\":\"ALBUM\",\"title\":\"キー保持確認記事\"}").when().post("/api/v1/articles").then()
+                .statusCode(201).extract().path("articleId");
+
+        authorized().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(200);
+
+        given().when().get("/api/v1/articles/" + articleId).then().statusCode(200)
+                .body("articleType", equalTo("ALBUM"))
+                .body("$", hasKey("albumId"))
+                .body("albumId", nullValue())
+                .body("$", hasKey("formerAlbumId"))
+                .body("$", hasKey("albumReferenceLostAt"))
+                .body("$", hasKey("albumReferenceLostReason"));
     }
 
     @Test

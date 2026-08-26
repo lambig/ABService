@@ -3,8 +3,11 @@ package com.abservice.presentation.rest.article;
 import com.abservice.application.query.article.GetArticleResult;
 import com.abservice.application.query.article.ListArticlesResult;
 import com.abservice.application.query.article.model.ArticleView;
+import com.abservice.domain.model.vo.article.ArticleType;
+import com.abservice.presentation.rest.article.response.AlbumArticleResponse;
 import com.abservice.presentation.rest.article.response.ArticleListResponse;
 import com.abservice.presentation.rest.article.response.ArticleResponse;
+import com.abservice.presentation.rest.article.response.PlainArticleResponse;
 import com.abservice.presentation.rest.exception.ProblemDetail;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -69,11 +72,21 @@ final class ArticleQueryResponses {
                 List.of());
     }
 
+    /*
+     * KEY-BY-TYPE: アルバム参照に関わる項目名は ALBUM 種別にしか現れない。値が無いことを表す null と、
+     * 種別がその概念を持たないことを区別するため、キーの有無を種別で切り替える。
+     */
     private static ArticleResponse toArticleResponse(ArticleView view) {
-        return new ArticleResponse(
+        return switch (ArticleType.valueOf(view.articleType())) {
+            case ALBUM -> toAlbumArticleResponse(view);
+            case NOTE, NEWS, EVENT, OTHER -> toPlainArticleResponse(view);
+        };
+    }
+
+    private static AlbumArticleResponse toAlbumArticleResponse(ArticleView view) {
+        return new AlbumArticleResponse(
                 view.articleId(),
                 view.articleType(),
-                view.albumId(),
                 view.title(),
                 view.body(),
                 view.bodyFormat(),
@@ -81,8 +94,22 @@ final class ArticleQueryResponses {
                 view.publishedAt(),
                 view.updatedAtBusiness(),
                 view.publicFlag(),
+                view.albumId(),
                 view.formerAlbumId(),
                 view.albumReferenceLostAt(),
                 view.albumReferenceLostReason());
+    }
+
+    private static PlainArticleResponse toPlainArticleResponse(ArticleView view) {
+        return new PlainArticleResponse(
+                view.articleId(),
+                view.articleType(),
+                view.title(),
+                view.body(),
+                view.bodyFormat(),
+                view.introShort(),
+                view.publishedAt(),
+                view.updatedAtBusiness(),
+                view.publicFlag());
     }
 }
