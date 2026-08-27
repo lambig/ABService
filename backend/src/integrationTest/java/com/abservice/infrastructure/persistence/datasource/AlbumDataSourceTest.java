@@ -46,8 +46,7 @@ class AlbumDataSourceTest {
         return new TrackTableRecord()
                 .setDomainId(UUID.randomUUID().toString())
                 .setTrackNo(trackNo)
-                .setTitle(title)
-                .setIsLive(false);
+                .setTitle(title);
     }
 
     @Test

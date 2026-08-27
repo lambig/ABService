@@ -17,9 +17,6 @@ class UpdateTrackServiceTest {
         final var track = Track.create(
                 1,
                 new TrackTitle("旧タイトル"),
-                null,
-                null,
-                null,
                 null);
         return track.addTune(
                 TrackTune.create(
@@ -42,10 +39,7 @@ class UpdateTrackServiceTest {
                         2,
                         "新タイトル",
                         "アーティスト名",
-                        null,
-                        "2026-01-01",
-                        "会場",
-                        true),
+                        null),
                 existing);
 
         assertThat(result).isInstanceOf(Result.Success.class);
@@ -54,7 +48,6 @@ class UpdateTrackServiceTest {
         assertThat(updated.trackNo()).isEqualTo(2);
         assertThat(updated.title().value()).isEqualTo("新タイトル");
         assertThat(updated.artistCredit().displayName().value()).isEqualTo("アーティスト名");
-        assertThat(updated.recordingDate().asLocalDate().toString()).isEqualTo("2026-01-01");
         assertThat(updated.getTunes()).hasSize(1);
         assertThat(updated.getTunes().getFirst()).isEqualTo(existing.getTunes().getFirst());
     }
@@ -71,37 +64,11 @@ class UpdateTrackServiceTest {
                         null,
                         "   ",
                         null,
-                        null,
-                        null,
-                        null,
                         null),
                 existing);
 
         assertThat(result).isInstanceOf(Result.Failure.class);
         assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
                 .contains("TRACK_NO_REQUIRED", "TRACK_TITLE_REQUIRED");
-    }
-
-    @Test
-    @DisplayName("録音日の形式が不正ならエラー")
-    void invalidRecordingDateFails() {
-        final var existing = existingTrackWithTune();
-
-        final var result = UpdateTrackService.validate(
-                new UpdateTrackInput(
-                        "album-id",
-                        existing.id().value(),
-                        1,
-                        "新タイトル",
-                        null,
-                        null,
-                        "not-a-date",
-                        null,
-                        null),
-                existing);
-
-        assertThat(result).isInstanceOf(Result.Failure.class);
-        assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
-                .contains("TRACK_RECORDING_DATE_INVALID");
     }
 }

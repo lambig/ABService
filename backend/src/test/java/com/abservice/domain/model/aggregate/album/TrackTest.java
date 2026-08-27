@@ -11,7 +11,6 @@ import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
-import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.Url;
 
@@ -29,17 +28,12 @@ class TrackTest {
             final var trackNo = 1;
             final var title = TrackTitle.of("Track 1");
             final var artistCredit = ArtistCredit.of("Test Artist");
-            final var recordingDate = BusinessDate.of(
-                    2024,
-                    1,
-                    15);
 
             // Act
             final var track = Track.create(
                     trackNo,
                     title,
-                    artistCredit,
-                    recordingDate);
+                    artistCredit);
 
             // Assert
             assertThat(track).isNotNull();
@@ -47,43 +41,7 @@ class TrackTest {
             assertThat(track.trackNo()).isEqualTo(trackNo);
             assertThat(track.title()).isEqualTo(title);
             assertThat(track.artistCredit()).isEqualTo(artistCredit);
-            assertThat(track.recordingDate()).isEqualTo(recordingDate);
-            assertThat(track.recordingPlace()).isNull();
-            assertThat(track.isLive()).isNull();
             assertThat(track.getTunes().isEmpty()).isTrue();
-        }
-
-        @Test
-        @DisplayName("すべてのフィールドを指定して生成できること")
-        void createWithAllFieldsShouldSucceed() {
-            // Arrange
-            final var trackNo = 2;
-            final var title = TrackTitle.of("Track 2");
-            final var artistCredit = ArtistCredit.of("Full Artist");
-            final var recordingDate = BusinessDate.of(
-                    2024,
-                    5,
-                    1);
-            final var recordingPlace = "Studio ABC";
-            final var isLive = false;
-
-            // Act
-            final var track = Track.create(
-                    trackNo,
-                    title,
-                    artistCredit,
-                    recordingDate,
-                    recordingPlace,
-                    isLive);
-
-            // Assert
-            assertThat(track).isNotNull();
-            assertThat(track.trackNo()).isEqualTo(trackNo);
-            assertThat(track.title()).isEqualTo(title);
-            assertThat(track.artistCredit()).isEqualTo(artistCredit);
-            assertThat(track.recordingDate()).isEqualTo(recordingDate);
-            assertThat(track.recordingPlace()).isEqualTo(recordingPlace);
-            assertThat(track.isLive()).isEqualTo(isLive);
         }
 
         @Test
@@ -92,18 +50,13 @@ class TrackTest {
             // Arrange
             final var trackNo = 1;
             final var artistCredit = ArtistCredit.of("Artist");
-            final var recordingDate = BusinessDate.of(
-                    2024,
-                    1,
-                    15);
 
             // Act & Assert
             assertThatThrownBy(() -> {
                 Track.create(
                         trackNo,
                         null,
-                        artistCredit,
-                        recordingDate);
+                        artistCredit);
             }).isInstanceOf(IllegalArgumentException.class).hasMessage("Track title cannot be null");
         }
 
@@ -113,17 +66,12 @@ class TrackTest {
             // Arrange
             final var trackNo = 1;
             final var title = TrackTitle.of("Track 1");
-            final var recordingDate = BusinessDate.of(
-                    2024,
-                    1,
-                    15);
 
             // Act
             final var track = Track.create(
                     trackNo,
                     title,
-                    null,
-                    recordingDate);
+                    null);
 
             // Assert
             assertThat(track).isNotNull();
@@ -143,11 +91,7 @@ class TrackTest {
                     .create(
                             1,
                             TrackTitle.of("Original"),
-                            ArtistCredit.of("Artist"),
-                            BusinessDate.of(
-                                    2024,
-                                    1,
-                                    1));
+                            ArtistCredit.of("Artist"));
             final var newTitle = TrackTitle.of("Updated");
 
             // Act
@@ -167,11 +111,7 @@ class TrackTest {
                     .create(
                             1,
                             TrackTitle.of("Original"),
-                            ArtistCredit.of("Artist"),
-                            BusinessDate.of(
-                                    2024,
-                                    1,
-                                    1));
+                            ArtistCredit.of("Artist"));
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -192,11 +132,7 @@ class TrackTest {
                     .create(
                             1,
                             TrackTitle.of("Track"),
-                            ArtistCredit.of("Original Artist"),
-                            BusinessDate.of(
-                                    2024,
-                                    1,
-                                    1));
+                            ArtistCredit.of("Original Artist"));
             final var newCredit = ArtistCredit.of("New Artist");
 
             // Act
@@ -214,167 +150,13 @@ class TrackTest {
                     .create(
                             1,
                             TrackTitle.of("Track"),
-                            ArtistCredit.of("Original Artist"),
-                            BusinessDate.of(
-                                    2024,
-                                    1,
-                                    1));
+                            ArtistCredit.of("Original Artist"));
 
             // Act
             final var updated = track.changeArtistCredit(null);
 
             // Assert
             assertThat(updated.artistCredit()).isNull();
-        }
-    }
-
-    @Nested
-    @DisplayName("録音日変更テスト")
-    class ChangeRecordingDateTest {
-
-        @Test
-        @DisplayName("録音日を変更できること")
-        void changeRecordingDateShouldSucceed() {
-            // Arrange
-            final var track = Track
-                    .create(
-                            1,
-                            TrackTitle.of("Track"),
-                            ArtistCredit.of("Artist"),
-                            BusinessDate.of(
-                                    2024,
-                                    1,
-                                    1));
-            final var newDate = BusinessDate.of(
-                    2024,
-                    12,
-                    31);
-
-            // Act
-            final var updated = track.changeRecordingDate(newDate);
-
-            // Assert
-            assertThat(updated.recordingDate()).isEqualTo(newDate);
-        }
-
-        @Test
-        @DisplayName("録音日をnullに変更できること")
-        void changeRecordingDateToNullShouldSucceed() {
-            // Arrange
-            final var track = Track
-                    .create(
-                            1,
-                            TrackTitle.of("Track"),
-                            ArtistCredit.of("Artist"),
-                            BusinessDate.of(
-                                    2024,
-                                    1,
-                                    1));
-
-            // Act
-            final var updated = track.changeRecordingDate(null);
-
-            // Assert
-            assertThat(updated.recordingDate()).isNull();
-        }
-    }
-
-    @Nested
-    @DisplayName("録音場所変更テスト")
-    class ChangeRecordingPlaceTest {
-
-        @Test
-        @DisplayName("録音場所を変更できること")
-        void changeRecordingPlaceShouldSucceed() {
-            // Arrange
-            final var track = Track.create(
-                    1,
-                    TrackTitle.of("Track"),
-                    ArtistCredit.of("Artist"),
-                    BusinessDate.of(
-                            2024,
-                            1,
-                            1),
-                    "Studio A",
-                    false);
-            final var newPlace = "Studio B";
-
-            // Act
-            final var updated = track.changeRecordingPlace(newPlace);
-
-            // Assert
-            assertThat(updated.recordingPlace()).isEqualTo(newPlace);
-        }
-
-        @Test
-        @DisplayName("録音場所をnullに変更できること")
-        void changeRecordingPlaceToNullShouldSucceed() {
-            // Arrange
-            final var track = Track.create(
-                    1,
-                    TrackTitle.of("Track"),
-                    ArtistCredit.of("Artist"),
-                    BusinessDate.of(
-                            2024,
-                            1,
-                            1),
-                    "Studio A",
-                    false);
-
-            // Act
-            final var updated = track.changeRecordingPlace(null);
-
-            // Assert
-            assertThat(updated.recordingPlace()).isNull();
-        }
-    }
-
-    @Nested
-    @DisplayName("ライブフラグ変更テスト")
-    class ChangeIsLiveTest {
-
-        @Test
-        @DisplayName("ライブフラグを変更できること")
-        void changeIsLiveShouldSucceed() {
-            // Arrange
-            final var track = Track.create(
-                    1,
-                    TrackTitle.of("Track"),
-                    ArtistCredit.of("Artist"),
-                    BusinessDate.of(
-                            2024,
-                            1,
-                            1),
-                    "Studio",
-                    false);
-
-            // Act
-            final var updated = track.changeIsLive(true);
-
-            // Assert
-            assertThat(updated.isLive()).isTrue();
-        }
-
-        @Test
-        @DisplayName("ライブフラグをnullに変更できること")
-        void changeIsLiveToNullShouldSucceed() {
-            // Arrange
-            final var track = Track.create(
-                    1,
-                    TrackTitle.of("Track"),
-                    ArtistCredit.of("Artist"),
-                    BusinessDate.of(
-                            2024,
-                            1,
-                            1),
-                    "Studio",
-                    true);
-
-            // Act
-            final var updated = track.changeIsLive(null);
-
-            // Assert
-            assertThat(updated.isLive()).isNull();
         }
     }
 
@@ -390,11 +172,7 @@ class TrackTest {
                     .create(
                             1,
                             TrackTitle.of("Track"),
-                            ArtistCredit.of("Artist"),
-                            BusinessDate.of(
-                                    2024,
-                                    1,
-                                    1));
+                            ArtistCredit.of("Artist"));
             final var tuneId = Tune.Id.generate();
             final var trackTune = TrackTune.create(
                     1,
@@ -419,11 +197,7 @@ class TrackTest {
                     .create(
                             1,
                             TrackTitle.of("Track"),
-                            ArtistCredit.of("Artist"),
-                            BusinessDate.of(
-                                    2024,
-                                    1,
-                                    1));
+                            ArtistCredit.of("Artist"));
             final var tune1 = TrackTune.create(
                     1,
                     Tune.Id.generate(),
@@ -454,11 +228,7 @@ class TrackTest {
                     .create(
                             1,
                             TrackTitle.of("Track"),
-                            ArtistCredit.of("Artist"),
-                            BusinessDate.of(
-                                    2024,
-                                    1,
-                                    1));
+                            ArtistCredit.of("Artist"));
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -474,11 +244,7 @@ class TrackTest {
                     .create(
                             1,
                             TrackTitle.of("Track"),
-                            ArtistCredit.of("Artist"),
-                            BusinessDate.of(
-                                    2024,
-                                    1,
-                                    1));
+                            ArtistCredit.of("Artist"));
             final var tune1 = TrackTune.create(
                     1,
                     Tune.Id.generate(),
@@ -513,11 +279,7 @@ class TrackTest {
                     .create(
                             1,
                             TrackTitle.of("Track"),
-                            ArtistCredit.of("Artist"),
-                            BusinessDate.of(
-                                    2024,
-                                    1,
-                                    1));
+                            ArtistCredit.of("Artist"));
             final var tune = TrackTune.create(
                     1,
                     Tune.Id.generate(),
@@ -541,11 +303,7 @@ class TrackTest {
                     .create(
                             1,
                             TrackTitle.of("Track"),
-                            ArtistCredit.of("Artist"),
-                            BusinessDate.of(
-                                    2024,
-                                    1,
-                                    1));
+                            ArtistCredit.of("Artist"));
             final var tune1 = TrackTune.create(
                     1,
                     Tune.Id.generate(),
@@ -584,11 +342,7 @@ class TrackTest {
                     .create(
                             1,
                             TrackTitle.of("Track"),
-                            ArtistCredit.of("Artist"),
-                            BusinessDate.of(
-                                    2024,
-                                    1,
-                                    1));
+                            ArtistCredit.of("Artist"));
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -604,11 +358,7 @@ class TrackTest {
                     .create(
                             1,
                             TrackTitle.of("Track"),
-                            ArtistCredit.of("Artist"),
-                            BusinessDate.of(
-                                    2024,
-                                    1,
-                                    1));
+                            ArtistCredit.of("Artist"));
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -629,11 +379,7 @@ class TrackTest {
                     .create(
                             1,
                             TrackTitle.of("Track"),
-                            ArtistCredit.of("Artist"),
-                            BusinessDate.of(
-                                    2024,
-                                    1,
-                                    1));
+                            ArtistCredit.of("Artist"));
             final var tuneId = Tune.Id.generate();
             final var originalTune = TrackTune.create(
                     1,
@@ -666,11 +412,7 @@ class TrackTest {
                     .create(
                             1,
                             TrackTitle.of("Track"),
-                            ArtistCredit.of("Artist"),
-                            BusinessDate.of(
-                                    2024,
-                                    1,
-                                    1));
+                            ArtistCredit.of("Artist"));
             final var tune1 = TrackTune.create(
                     1,
                     Tune.Id.generate(),
@@ -708,11 +450,7 @@ class TrackTest {
                     .create(
                             1,
                             TrackTitle.of("Track"),
-                            ArtistCredit.of("Artist"),
-                            BusinessDate.of(
-                                    2024,
-                                    1,
-                                    1));
+                            ArtistCredit.of("Artist"));
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -732,11 +470,7 @@ class TrackTest {
                     .create(
                             1,
                             TrackTitle.of("Track"),
-                            ArtistCredit.of("Artist"),
-                            BusinessDate.of(
-                                    2024,
-                                    1,
-                                    1));
+                            ArtistCredit.of("Artist"));
 
             // Act & Assert
             assertThatThrownBy(() -> {
@@ -761,11 +495,7 @@ class TrackTest {
                     .create(
                             1,
                             TrackTitle.of("Track"),
-                            ArtistCredit.of("Artist"),
-                            BusinessDate.of(
-                                    2024,
-                                    1,
-                                    1));
+                            ArtistCredit.of("Artist"));
             final var tune = TrackTune.create(
                     1,
                     Tune.Id.generate(),

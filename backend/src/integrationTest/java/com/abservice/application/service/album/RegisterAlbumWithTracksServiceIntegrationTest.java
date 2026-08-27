@@ -51,16 +51,10 @@ class RegisterAlbumWithTracksServiceIntegrationTest {
                                                 1,
                                                 "1曲目",
                                                 null,
-                                                null,
-                                                null,
-                                                null,
                                                 null),
                                         new RegisterAlbumWithTracksInput.TrackInput(
                                                 2,
                                                 "2曲目",
-                                                null,
-                                                null,
-                                                null,
                                                 null,
                                                 null)))),
                 output -> {
@@ -96,16 +90,10 @@ class RegisterAlbumWithTracksServiceIntegrationTest {
                                                 1,
                                                 "1曲目",
                                                 null,
-                                                null,
-                                                null,
-                                                null,
                                                 null),
                                         new RegisterAlbumWithTracksInput.TrackInput(
                                                 1,
                                                 "重複する1曲目",
-                                                null,
-                                                null,
-                                                null,
                                                 null,
                                                 null)))),
                 BusinessRuleViolationException.class);

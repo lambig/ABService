@@ -18,7 +18,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -61,15 +60,6 @@ public class TrackTableRecord extends AuditableTableRecord<TrackTableRecord> {
 
     @Column(name = "artist_sort_key", length = 255)
     private String artistSortKey;
-
-    @Column(name = "recording_date")
-    private LocalDate recordingDate;
-
-    @Column(name = "recording_place", length = 255)
-    private String recordingPlace;
-
-    @Column(name = "is_live")
-    private Boolean isLive;
 
     @OneToMany(mappedBy = "track", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<TrackTuneTableRecord> trackTunes = new ArrayList<>();

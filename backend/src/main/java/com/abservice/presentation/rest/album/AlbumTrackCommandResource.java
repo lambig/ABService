@@ -97,10 +97,7 @@ public class AlbumTrackCommandResource {
                 request.trackNo(),
                 request.title(),
                 request.artistDisplayName(),
-                request.artistSortKey(),
-                request.recordingDate(),
-                request.recordingPlace(),
-                request.isLive());
+                request.artistSortKey());
     }
 
     private static Response toCreated(AddTrackOutput output) {
@@ -154,10 +151,7 @@ public class AlbumTrackCommandResource {
                 request.trackNo(),
                 request.title(),
                 request.artistDisplayName(),
-                request.artistSortKey(),
-                request.recordingDate(),
-                request.recordingPlace(),
-                request.isLive());
+                request.artistSortKey());
     }
 
     private static Response toOk(UpdateTrackOutput output) {

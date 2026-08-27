@@ -710,9 +710,6 @@ public final class Album implements Aggregate<Album, Album.Id> {
                                 trackNo.getAndIncrement(),
                                 track.title(),
                                 track.artistCredit(),
-                                track.recordingDate(),
-                                track.recordingPlace(),
-                                track.isLive(),
                                 track.getTunes()))
                 .toList();
     }

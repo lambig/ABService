@@ -98,17 +98,11 @@ class AlbumRepositoryImplTest {
         final var track1 = Track.create(
                 1,
                 new TrackTitle("Track 1"),
-                null,
-                null,
-                null,
-                false);
+                null);
         final var track2 = Track.create(
                 2,
                 new TrackTitle("Track 2"),
-                null,
-                null,
-                null,
-                false);
+                null);
 
         final var album = Album
                 .create(
@@ -141,10 +135,7 @@ class AlbumRepositoryImplTest {
         final var track = Track.create(
                 1,
                 new TrackTitle("Track 1"),
-                null,
-                null,
-                null,
-                false);
+                null);
         final var album = Album
                 .create(
                         new AlbumTitle("Original Title"),
@@ -191,17 +182,11 @@ class AlbumRepositoryImplTest {
         final var track1 = Track.create(
                 1,
                 new TrackTitle("Track 1"),
-                null,
-                null,
-                null,
-                false);
+                null);
         final var track2 = Track.create(
                 2,
                 new TrackTitle("Track 2"),
-                null,
-                null,
-                null,
-                false);
+                null);
         final var album = Album
                 .create(
                         new AlbumTitle("Album"),
@@ -252,17 +237,11 @@ class AlbumRepositoryImplTest {
         final var track1 = Track.create(
                 1,
                 new TrackTitle("Track 1"),
-                null,
-                null,
-                null,
-                false);
+                null);
         final var track2 = Track.create(
                 2,
                 new TrackTitle("Track 2"),
-                null,
-                null,
-                null,
-                false);
+                null);
         final var album = Album
                 .create(
                         new AlbumTitle("Album"),

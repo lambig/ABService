@@ -374,10 +374,7 @@ public class AlbumCommandResource {
                                 t.trackNo(),
                                 t.title(),
                                 t.artistDisplayName(),
-                                t.artistSortKey(),
-                                t.recordingDate(),
-                                t.recordingPlace(),
-                                t.isLive()))
+                                t.artistSortKey()))
                 .orElse(null);
     }
 

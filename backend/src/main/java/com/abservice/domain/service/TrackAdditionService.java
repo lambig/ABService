@@ -4,7 +4,6 @@ import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.album.Track;
 import com.abservice.domain.model.vo.common.ArtistCredit;
-import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.lib.Result;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -22,11 +21,6 @@ import org.jspecify.annotations.Nullable;
  * com.abservice.application.service.album.RegisterAlbumWithTracksService}）ため、
  * 特定のCommandServiceに属さないドメインサービスとして切り出しています。トラック番号の重複はAlbum集約自身が検証します
  * （{@link com.abservice.domain.exception.BusinessRuleViolationException}）。
- * </p>
- *
- * <p>
- * {@link BusinessDate} 文字列の解釈（ISO-8601パース）はドメイン層が {@code java.time} に直接依存しないための
- * 境界層の責務のため、{@code recordingDate} は呼び出し側で解決済みの {@link Result} を渡してください。
  * </p>
  */
 @ApplicationScoped
@@ -52,11 +46,6 @@ public class TrackAdditionService implements DomainService {
     /**
      * 追加するトラックの入力値
      *
-     * <p>
-     * {@code recordingDate} は呼び出し側で文字列から解決済みの{@link Result}を渡してください
-     * （{@link #addTrack}と同じ理由）。
-     * </p>
-     *
      * @param trackNo
      *            トラック番号
      * @param title
@@ -65,21 +54,12 @@ public class TrackAdditionService implements DomainService {
      *            アーティスト表示名（nullable。未指定時はAlbumのartistCreditを継承）
      * @param artistSortKey
      *            アーティストソートキー（nullable）
-     * @param recordingDate
-     *            録音日（呼び出し側で文字列から解決済みのResult。未指定時は{@code Result.success(Optional.empty())}）
-     * @param recordingPlace
-     *            録音場所（nullable）
-     * @param isLive
-     *            ライブ録音フラグ（nullable）
      */
     public record TrackFields(
             @Nullable Integer trackNo,
             @Nullable String title,
             @Nullable String artistDisplayName,
-            @Nullable String artistSortKey,
-            Result<Optional<BusinessDate>> recordingDate,
-            @Nullable String recordingPlace,
-            @Nullable Boolean isLive) {
+            @Nullable String artistSortKey) {
     }
 
     /**
@@ -94,21 +74,12 @@ public class TrackAdditionService implements DomainService {
     }
 
     static Result<Track> validate(TrackFields fields) {
-        return Result.zip(
-                resolveArtistCredit(fields.artistDisplayName(), fields.artistSortKey()),
-                fields.recordingDate(),
-                OptionalFields::new)
+        return resolveArtistCredit(fields.artistDisplayName(), fields.artistSortKey())
                 .flatMap(
-                        optional -> Track.fromInput(
+                        artistCredit -> Track.fromInput(
                                 fields.trackNo(),
                                 fields.title(),
-                                optional.artistCredit().orElse(null),
-                                optional.recordingDate().orElse(null),
-                                fields.recordingPlace(),
-                                fields.isLive()));
-    }
-
-    private record OptionalFields(Optional<ArtistCredit> artistCredit, Optional<BusinessDate> recordingDate) {
+                                artistCredit.orElse(null)));
     }
 
     private static Result<Optional<ArtistCredit>> resolveArtistCredit(

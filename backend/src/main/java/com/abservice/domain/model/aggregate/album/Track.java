@@ -23,7 +23,6 @@ import com.abservice.domain.model.entity.DomainEntity;
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
-import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.Url;
 import com.abservice.lib.ErrorResult;
@@ -37,7 +36,7 @@ import org.jspecify.annotations.NullUnmarked;
  * トラック（集約内エンティティ）
  *
  * <p>
- * アルバム内の1トラックの録音を表します。 録音違い（スタジオ版/ライブ版など）は別Trackとして扱います。
+ * アルバムを構成する1トラックを表します。同じチューン構成であっても、改訂（revise）したものは別Trackとして扱います。
  * </p>
  */
 @Getter
@@ -57,15 +56,6 @@ public final class Track implements DomainEntity<Track, Track.Id> {
     /** nullの場合はAlbumのartistCreditを継承 */
     @Nullable
     private final ArtistCredit artistCredit;
-    /** 録音日 */
-    @Nullable
-    private final BusinessDate recordingDate;
-    /** 録音場所 */
-    @Nullable
-    private final String recordingPlace;
-    /** ライブ録音フラグ */
-    @Nullable
-    private final Boolean isLive;
     /** トラック内のチューンのリスト */
     @NonNull
     private final List<TrackTune> tunes;
@@ -84,22 +74,17 @@ public final class Track implements DomainEntity<Track, Track.Id> {
 
     @DomainConstructor
     private Track(@NonNull Id id, @NonNull Integer trackNo, @NonNull TrackTitle title,
-            @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate,
-            @Nullable String recordingPlace, @Nullable Boolean isLive, @NonNull List<TrackTune> tunes) {
+            @Nullable ArtistCredit artistCredit, @NonNull List<TrackTune> tunes) {
         this.id = id;
         this.trackNo = trackNo;
         this.title = title;
         this.artistCredit = artistCredit;
-        this.recordingDate = recordingDate;
-        this.recordingPlace = recordingPlace;
-        this.isLive = isLive;
         this.tunes = tunes;
     }
 
     @DomainFactory
     private static @NonNull Track factory(@Nullable Id id, @Nullable Integer trackNo, @Nullable TrackTitle title,
-            @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate,
-            @Nullable String recordingPlace, @Nullable Boolean isLive, @Nullable List<TrackTune> tunes) {
+            @Nullable ArtistCredit artistCredit, @Nullable List<TrackTune> tunes) {
         return Policy.<Stub>all(
                 Policy.of(
                         self -> self.trackNo() != null,
@@ -113,17 +98,13 @@ public final class Track implements DomainEntity<Track, Track.Id> {
                                 trackNo,
                                 title,
                                 artistCredit,
-                                recordingDate,
-                                recordingPlace,
-                                isLive,
                                 tunes),
                         Stub::asTrack)
                 .resolve(Policy::illegalArgument);
     }
 
     @NullUnmarked
-    private record Stub(Id id, Integer trackNo, TrackTitle title, ArtistCredit artistCredit,
-            BusinessDate recordingDate, String recordingPlace, Boolean isLive, List<TrackTune> tunes) {
+    private record Stub(Id id, Integer trackNo, TrackTitle title, ArtistCredit artistCredit, List<TrackTune> tunes) {
 
         @AggregateFactory
         @NonNull
@@ -133,9 +114,6 @@ public final class Track implements DomainEntity<Track, Track.Id> {
                     Objects.requireNonNull(trackNo),
                     Objects.requireNonNull(title),
                     artistCredit(),
-                    recordingDate(),
-                    recordingPlace(),
-                    isLive(),
                     Objects.requireNonNull(tunes));
         }
     }
@@ -149,26 +127,16 @@ public final class Track implements DomainEntity<Track, Track.Id> {
      *            トラックタイトル
      * @param artistCredit
      *            アーティストクレジット（nullable）
-     * @param recordingDate
-     *            録音日
-     * @param recordingPlace
-     *            録音場所
-     * @param isLive
-     *            ライブフラグ
      * @return 新規Track
      */
     @DomainFactory
     public static @NonNull Track create(@NonNull Integer trackNo, @NonNull TrackTitle title,
-            @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate, @Nullable String recordingPlace,
-            @Nullable Boolean isLive) {
+            @Nullable ArtistCredit artistCredit) {
         return Track.factory(
                 Id.generate(),
                 trackNo,
                 title,
                 artistCredit,
-                recordingDate,
-                recordingPlace,
-                isLive,
                 Collections.emptyList());
     }
 
@@ -176,9 +144,8 @@ public final class Track implements DomainEntity<Track, Track.Id> {
      * 外部入力からトラックを生成します。
      *
      * <p>
-     * 例外をスローせず、検証結果を {@link Result} で返します。{@code trackNo}・{@code title}の必須検証のみを担い、
-     * {@code recordingDate}の文字列解釈のような境界層固有の解釈は本メソッドの対象外です（呼び出し側で解決済みの
-     * ドメイン値を渡してください）。信頼できる内部生成には {@link #create} を使用してください。
+     * 例外をスローせず、検証結果を {@link Result} で返します。{@code trackNo}・{@code title}の必須検証のみを
+     * 担います。信頼できる内部生成には {@link #create} を使用してください。
      * </p>
      *
      * @param trackNo
@@ -187,17 +154,10 @@ public final class Track implements DomainEntity<Track, Track.Id> {
      *            トラックタイトルを表す文字列
      * @param artistCredit
      *            アーティストクレジット（nullable）
-     * @param recordingDate
-     *            録音日（nullable）
-     * @param recordingPlace
-     *            録音場所（nullable）
-     * @param isLive
-     *            ライブフラグ（nullable）
      * @return 成功時は {@code Track}、失敗時はエラー
      */
     public static Result<Track> fromInput(@Nullable Integer trackNo, @Nullable String title,
-            @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate,
-            @Nullable String recordingPlace, @Nullable Boolean isLive) {
+            @Nullable ArtistCredit artistCredit) {
         return Result.zip(
                 Policy.<Integer>of(
                         Objects::nonNull,
@@ -210,34 +170,7 @@ public final class Track implements DomainEntity<Track, Track.Id> {
                 (validTrackNo, validTitle) -> Track.create(
                         validTrackNo,
                         validTitle,
-                        artistCredit,
-                        recordingDate,
-                        recordingPlace,
-                        isLive));
-    }
-
-    /**
-     * 新規トラックを生成（簡略版）
-     *
-     * @param trackNo
-     *            トラック番号
-     * @param title
-     *            トラックタイトル
-     * @param artistCredit
-     *            アーティストクレジット（nullable）
-     * @param recordingDate
-     *            録音日（nullable）
-     * @return 新規Track
-     */
-    public static @NonNull Track create(@NonNull Integer trackNo, @NonNull TrackTitle title,
-            @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate) {
-        return create(
-                trackNo,
-                title,
-                artistCredit,
-                recordingDate,
-                null,
-                null);
+                        artistCredit));
     }
 
     /**
@@ -251,28 +184,18 @@ public final class Track implements DomainEntity<Track, Track.Id> {
      *            トラックタイトル
      * @param artistCredit
      *            アーティストクレジット（nullable）
-     * @param recordingDate
-     *            録音日
-     * @param recordingPlace
-     *            録音場所
-     * @param isLive
-     *            ライブフラグ
      * @param tunes
      *            チューンリスト
      * @return 再構成されたTrack
      */
     @DomainFactory
     public static @NonNull Track reconstruct(@NonNull Id id, @NonNull Integer trackNo, @NonNull TrackTitle title,
-            @Nullable ArtistCredit artistCredit, @Nullable BusinessDate recordingDate, @Nullable String recordingPlace,
-            @Nullable Boolean isLive, @NonNull List<TrackTune> tunes) {
+            @Nullable ArtistCredit artistCredit, @NonNull List<TrackTune> tunes) {
         return Track.factory(
                 id,
                 trackNo,
                 title,
                 artistCredit,
-                recordingDate,
-                recordingPlace,
-                isLive,
                 tunes);
     }
 
@@ -289,9 +212,6 @@ public final class Track implements DomainEntity<Track, Track.Id> {
                 trackNo,
                 newTitle,
                 artistCredit,
-                recordingDate,
-                recordingPlace,
-                isLive,
                 tunes);
     }
 
@@ -308,66 +228,6 @@ public final class Track implements DomainEntity<Track, Track.Id> {
                 trackNo,
                 title,
                 newArtistCredit,
-                recordingDate,
-                recordingPlace,
-                isLive,
-                tunes);
-    }
-
-    /**
-     * 録音日を変更
-     *
-     * @param newRecordingDate
-     *            新しい録音日
-     * @return 更新されたTrack
-     */
-    public @NonNull Track changeRecordingDate(@Nullable BusinessDate newRecordingDate) {
-        return Track.factory(
-                id,
-                trackNo,
-                title,
-                artistCredit,
-                newRecordingDate,
-                recordingPlace,
-                isLive,
-                tunes);
-    }
-
-    /**
-     * 録音場所を変更
-     *
-     * @param newRecordingPlace
-     *            新しい録音場所
-     * @return 更新されたTrack
-     */
-    public @NonNull Track changeRecordingPlace(@Nullable String newRecordingPlace) {
-        return Track.factory(
-                id,
-                trackNo,
-                title,
-                artistCredit,
-                recordingDate,
-                newRecordingPlace,
-                isLive,
-                tunes);
-    }
-
-    /**
-     * ライブフラグを変更
-     *
-     * @param newIsLive
-     *            新しいライブフラグ
-     * @return 更新されたTrack
-     */
-    public @NonNull Track changeIsLive(@Nullable Boolean newIsLive) {
-        return Track.factory(
-                id,
-                trackNo,
-                title,
-                artistCredit,
-                recordingDate,
-                recordingPlace,
-                newIsLive,
                 tunes);
     }
 
@@ -400,9 +260,6 @@ public final class Track implements DomainEntity<Track, Track.Id> {
                 trackNo,
                 title,
                 artistCredit,
-                recordingDate,
-                recordingPlace,
-                isLive,
                 Stream.concat(tunes.stream(), Stream.of(validatedTune)).toList());
     }
 
@@ -429,9 +286,6 @@ public final class Track implements DomainEntity<Track, Track.Id> {
                 trackNo,
                 title,
                 artistCredit,
-                recordingDate,
-                recordingPlace,
-                isLive,
                 tunes.stream().filter(not(t -> t.hasId(validatedSeq))).toList());
     }
 
@@ -439,7 +293,7 @@ public final class Track implements DomainEntity<Track, Track.Id> {
      * チューンの上書き情報（クレジット上書き・リンクURL）を更新
      *
      * <p>
-     * {@code tuneId}は録音実績の一部として生成後は不変のため対象外とする。誤認識していたチューンの 再識別・訂正は
+     * {@code tuneId}はトラックが表す構成の事実の一部として生成後は不変のため対象外とする。誤認識していたチューンの 再識別・訂正は
      * {@link #removeTune(Integer)} と {@link #addTune(TrackTune)} の組み合わせで表現する。
      * </p>
      *
@@ -480,9 +334,6 @@ public final class Track implements DomainEntity<Track, Track.Id> {
                                 trackNo,
                                 title,
                                 artistCredit,
-                                recordingDate,
-                                recordingPlace,
-                                isLive,
                                 newTunes))
                 .get();
     }
