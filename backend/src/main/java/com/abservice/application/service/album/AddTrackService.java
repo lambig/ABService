@@ -51,7 +51,8 @@ public class AddTrackService implements CommandService<AddTrackInput, AddTrackOu
                 input.trackNo(),
                 input.title(),
                 input.artistDisplayName(),
-                input.artistSortKey());
+                input.artistSortKey(),
+                TrackTuneInput.toFields(input.tunes()));
     }
 
     private static AddTrackOutput toOutput(Album album, Track track) {

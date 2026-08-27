@@ -103,7 +103,8 @@ public class RegisterAlbumWithTracksService
                 t.trackNo(),
                 t.title(),
                 t.artistDisplayName(),
-                t.artistSortKey());
+                t.artistSortKey(),
+                TrackTuneInput.toFields(t.tunes()));
     }
 
     private static AlbumCreationService.@Nullable EventFields toEventFields(

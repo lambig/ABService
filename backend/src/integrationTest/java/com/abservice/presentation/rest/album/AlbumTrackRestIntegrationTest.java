@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
  *
  * <p>
  * {@code POST /api/v1/albums/{albumId}/tracks}（追加）→ {@code PUT
- * .../tracks/{trackId}}（更新、{@code tunes}を除く全項目置換）→ {@code PUT
+ * .../tracks/{trackId}}（更新、{@code tunes}を含む全項目置換）→ {@code PUT
  * .../tracks/order}（順序変更）→ {@code DELETE .../tracks/{trackId}}（削除）の疎通と、
  * トラック番号重複・対象不在時の 409／404、検証エラー時の 400 を RFC 9457 Problem Details 込みで確認する。実
  * DB（Flyway migrate-at-start）で動作する。
@@ -71,7 +71,48 @@ class AlbumTrackRestIntegrationTest {
     }
 
     @Test
-    @DisplayName("トラックを更新すると全項目（tunes除く）が置換される")
+    @DisplayName("チューン構成を含めてトラックを追加すると201が返る")
+    void addTrackWithTunesSucceeds() {
+        final String albumId = createAlbum("チューン構成つきトラック追加確認アルバム");
+
+        authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"trackNo\":1,\"title\":\"1曲目\",\"tunes\":["
+                                + "{\"seq\":1,\"tuneTitle\":\"チューン1\",\"composerCreditOverride\":\"Trad.\"},"
+                                + "{\"seq\":2,\"tuneTitle\":\"チューン2\"}]}")
+                .when().post("/api/v1/albums/" + albumId + "/tracks").then().statusCode(201)
+                .body("albumId", equalTo(albumId)).body("trackNo", equalTo(1)).body("title", equalTo("1曲目"));
+    }
+
+    @Test
+    @DisplayName("チューン構成のseqが重複するトラック追加は400 problem+json（検証エラー）を返す")
+    void addTrackWithDuplicatedTuneSeqReturnsValidationError() {
+        final String albumId = createAlbum("チューン構成seq重複確認アルバム");
+
+        authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"trackNo\":1,\"title\":\"1曲目\",\"tunes\":["
+                                + "{\"seq\":1,\"tuneTitle\":\"チューン1\"},"
+                                + "{\"seq\":1,\"tuneTitle\":\"チューン2\"}]}")
+                .when().post("/api/v1/albums/" + albumId + "/tracks").then().statusCode(400)
+                .contentType("application/problem+json")
+                .body("type", equalTo("urn:abservice:error:VALIDATION_ERROR"));
+    }
+
+    @Test
+    @DisplayName("チューン構成のseqが0以下のトラック追加は400 problem+json（検証エラー）を返す")
+    void addTrackWithNonPositiveTuneSeqReturnsValidationError() {
+        final String albumId = createAlbum("チューン構成seq非正確認アルバム");
+
+        authorized().contentType(ContentType.JSON)
+                .body("{\"trackNo\":1,\"title\":\"1曲目\",\"tunes\":[{\"seq\":0,\"tuneTitle\":\"チューン1\"}]}")
+                .when().post("/api/v1/albums/" + albumId + "/tracks").then().statusCode(400)
+                .contentType("application/problem+json")
+                .body("type", equalTo("urn:abservice:error:VALIDATION_ERROR"));
+    }
+
+    @Test
+    @DisplayName("トラックを更新するとチューン構成を含む全項目が置換される")
     void updateTrackReplacesFields() {
         final String albumId = createAlbum("トラック更新確認アルバム");
         final String trackId = addTrack(

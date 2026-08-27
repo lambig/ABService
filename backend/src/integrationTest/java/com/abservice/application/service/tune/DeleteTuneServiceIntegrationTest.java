@@ -108,6 +108,7 @@ class DeleteTuneServiceIntegrationTest {
                                                         tune.id(),
                                                         null,
                                                         null,
+                                                        null,
                                                         null))))
                 .flatMap(albumRepository::save);
     }

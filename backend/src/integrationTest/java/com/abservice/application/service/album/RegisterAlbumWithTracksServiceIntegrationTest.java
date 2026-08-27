@@ -3,7 +3,9 @@ package com.abservice.application.service.album;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.abservice.domain.exception.BusinessRuleViolationException;
+import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;
+import com.abservice.infrastructure.persistence.repository.AlbumRepositoryImpl;
 import io.quarkus.test.TestReactiveTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
@@ -29,6 +31,9 @@ class RegisterAlbumWithTracksServiceIntegrationTest {
     @Inject
     private AlbumDataSource albumDataSource;
 
+    @Inject
+    private AlbumRepositoryImpl albumRepository;
+
     @Test
     @TestReactiveTransaction
     @RunOnVertxContext
@@ -51,10 +56,12 @@ class RegisterAlbumWithTracksServiceIntegrationTest {
                                                 1,
                                                 "1曲目",
                                                 null,
+                                                null,
                                                 null),
                                         new RegisterAlbumWithTracksInput.TrackInput(
                                                 2,
                                                 "2曲目",
+                                                null,
                                                 null,
                                                 null)))),
                 output -> {
@@ -66,6 +73,61 @@ class RegisterAlbumWithTracksServiceIntegrationTest {
         asserter.assertThat(
                 () -> albumDataSource.findByTitle("ワンリクエスト登録確認アルバム"),
                 found -> assertThat(found).hasSize(1));
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldRegisterAlbumWithTrackTunesInOneTransaction(UniAsserter asserter) {
+        asserter.assertThat(
+                () -> registerAlbumWithTracksService.execute(
+                        new RegisterAlbumWithTracksInput(
+                                "チューン構成つき登録アルバム",
+                                "2026-01-01",
+                                "アーティスト",
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                List.of(
+                                        new RegisterAlbumWithTracksInput.TrackInput(
+                                                1,
+                                                "1曲目",
+                                                null,
+                                                null,
+                                                List.of(
+                                                        new TrackTuneInput(
+                                                                1,
+                                                                "チューン1",
+                                                                "Trad.",
+                                                                null,
+                                                                null),
+                                                        new TrackTuneInput(
+                                                                2,
+                                                                "チューン2",
+                                                                null,
+                                                                null,
+                                                                null)))))),
+                output -> assertThat(output.tracks()).hasSize(1));
+
+        asserter.assertThat(
+                () -> albumDataSource.findByTitle("チューン構成つき登録アルバム"),
+                found -> assertThat(found).hasSize(1));
+
+        asserter.assertThat(
+                () -> albumDataSource.findByTitle("チューン構成つき登録アルバム")
+                        .flatMap(found -> albumRepository.findById(Album.Id.of(found.getFirst().getDomainId()))),
+                album -> {
+                    final var tunes = album.getTracks().getFirst().getTunes();
+                    assertThat(tunes).hasSize(2);
+                    assertThat(tunes.getFirst().seq()).isEqualTo(1);
+                    assertThat(tunes.getFirst().tuneTitle().value()).isEqualTo("チューン1");
+                    assertThat(tunes.getFirst().composerCreditOverride().value()).isEqualTo("Trad.");
+                    assertThat(tunes.getLast().tuneTitle().value()).isEqualTo("チューン2");
+                });
     }
 
     @Test
@@ -90,10 +152,12 @@ class RegisterAlbumWithTracksServiceIntegrationTest {
                                                 1,
                                                 "1曲目",
                                                 null,
+                                                null,
                                                 null),
                                         new RegisterAlbumWithTracksInput.TrackInput(
                                                 1,
                                                 "重複する1曲目",
+                                                null,
                                                 null,
                                                 null)))),
                 BusinessRuleViolationException.class);

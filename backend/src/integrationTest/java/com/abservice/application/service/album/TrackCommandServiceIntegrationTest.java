@@ -9,6 +9,7 @@ import com.abservice.domain.model.aggregate.album.Track;
 import com.abservice.domain.model.aggregate.album.TrackTune;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.TrackTitle;
+import com.abservice.domain.model.vo.album.TrackTuneTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.MarkupContent;
@@ -86,6 +87,7 @@ class TrackCommandServiceIntegrationTest {
                                 1,
                                 "1曲目",
                                 null,
+                                null,
                                 null)),
                 output -> {
                     assertThat(output.albumId()).isEqualTo(album.id().value());
@@ -113,6 +115,7 @@ class TrackCommandServiceIntegrationTest {
                                 1,
                                 "重複トラック",
                                 null,
+                                null,
                                 null)),
                 BusinessRuleViolationException.class);
     }
@@ -128,6 +131,7 @@ class TrackCommandServiceIntegrationTest {
                                 1,
                                 "1曲目",
                                 null,
+                                null,
                                 null)),
                 EntityNotFoundException.class);
     }
@@ -135,7 +139,7 @@ class TrackCommandServiceIntegrationTest {
     @Test
     @TestReactiveTransaction
     @RunOnVertxContext
-    void shouldUpdateTrackWhilePreservingExistingTunes(UniAsserter asserter) {
+    void shouldUpdateTrackAndReplaceTunes(UniAsserter asserter) {
         final var trackWithoutTune = newTrack(1, "更新前タイトル");
         final var albumWithoutTune = newAlbum("Update Track Album").addTrack(trackWithoutTune);
         asserter.execute(() -> albumRepository.save(albumWithoutTune));
@@ -144,6 +148,7 @@ class TrackCommandServiceIntegrationTest {
                 TrackTune.create(
                         1,
                         null,
+                        TrackTuneTitle.of("更新前チューン"),
                         null,
                         null,
                         null));
@@ -158,7 +163,20 @@ class TrackCommandServiceIntegrationTest {
                                 2,
                                 "更新後タイトル",
                                 "更新後アーティスト",
-                                null)),
+                                null,
+                                List.of(
+                                        new TrackTuneInput(
+                                                1,
+                                                "更新後チューン1",
+                                                "Trad.",
+                                                null,
+                                                null),
+                                        new TrackTuneInput(
+                                                2,
+                                                "更新後チューン2",
+                                                null,
+                                                null,
+                                                null)))),
                 output -> {
                     assertThat(output.trackNo()).isEqualTo(2);
                     assertThat(output.title()).isEqualTo("更新後タイトル");
@@ -169,8 +187,10 @@ class TrackCommandServiceIntegrationTest {
                 found -> {
                     final var updated = found.getTrack(existingTrack.id());
                     assertThat(updated.trackNo()).isEqualTo(2);
-                    assertThat(updated.getTunes()).hasSize(1);
-                    assertThat(updated.getTunes().getFirst()).isEqualTo(existingTrack.getTunes().getFirst());
+                    assertThat(updated.getTunes()).hasSize(2);
+                    assertThat(updated.getTunes().getFirst().tuneTitle().value()).isEqualTo("更新後チューン1");
+                    assertThat(updated.getTunes().getFirst().composerCreditOverride().value()).isEqualTo("Trad.");
+                    assertThat(updated.getTunes().getLast().tuneTitle().value()).isEqualTo("更新後チューン2");
                 });
     }
 
@@ -188,6 +208,7 @@ class TrackCommandServiceIntegrationTest {
                                 Track.Id.generate().value(),
                                 1,
                                 "タイトル",
+                                null,
                                 null,
                                 null)),
                 BusinessRuleViolationException.class);
@@ -241,6 +262,7 @@ class TrackCommandServiceIntegrationTest {
         final var track1 = track1WithoutTune.addTune(
                 TrackTune.create(
                         1,
+                        null,
                         null,
                         null,
                         null,

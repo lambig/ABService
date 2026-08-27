@@ -8,6 +8,7 @@ import com.abservice.domain.model.aggregate.album.ExternalAudio;
 import com.abservice.domain.model.aggregate.album.Track;
 import com.abservice.domain.model.aggregate.album.TrackTune;
 import com.abservice.domain.model.aggregate.tune.Tune;
+import com.abservice.domain.model.vo.album.TrackTuneTitle;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.Url;
 import com.abservice.domain.repository.album.AlbumRepository;
@@ -47,27 +48,62 @@ public class AlbumRepositoryImpl implements AlbumRepository {
         final var entity = AlbumMapper.toEntity(aggregate);
         return dataSource.findByIdWithTracks(entity.getDomainId())
                 .onItem().ifNotNull().transformToUni(
-                        existingEntity -> {
-                            reconcileTracks(existingEntity, aggregate.tracks());
-                            reconcileExternalAudios(existingEntity, aggregate.externalAudios());
-                            return dataSource.persistAndFlush(
-                                    existingEntity
-                                            .setTitle(entity.getTitle())
-                                            .setReleaseDate(entity.getReleaseDate())
-                                            .setArtistDisplayName(entity.getArtistDisplayName())
-                                            .setArtistSortKey(entity.getArtistSortKey())
-                                            .setEventName(entity.getEventName())
-                                            .setEventDate(entity.getEventDate())
-                                            .setEventPlace(entity.getEventPlace())
-                                            .setEventSpaceNumber(entity.getEventSpaceNumber())
-                                            .setEventNote(entity.getEventNote())
-                                            .setCatalogNumber(entity.getCatalogNumber())
-                                            .setIsdn(entity.getIsdn())
-                                            .setCoverImageKey(entity.getCoverImageKey())
-                                            .setPublishedAt(entity.getPublishedAt()));
-                        })
-                .onItem().ifNull().switchTo(() -> dataSource.persistAlbumWithRelations(entity))
+                        existingEntity -> updateExisting(
+                                existingEntity,
+                                entity,
+                                aggregate))
+                .onItem().ifNull().switchTo(
+                        () -> dataSource.persistAlbumWithRelations(entity)
+                                .flatMap(saved -> applyTrackTunes(saved, aggregate.tracks())))
                 .map(AlbumMapper::toDomain);
+    }
+
+    private Uni<AlbumTableRecord> updateExisting(
+            AlbumTableRecord existingEntity,
+            AlbumTableRecord entity,
+            Album aggregate) {
+        reconcileTracks(existingEntity, aggregate.tracks());
+        reconcileExternalAudios(existingEntity, aggregate.externalAudios());
+        return dataSource.persistAndFlush(
+                existingEntity
+                        .setTitle(entity.getTitle())
+                        .setReleaseDate(entity.getReleaseDate())
+                        .setArtistDisplayName(entity.getArtistDisplayName())
+                        .setArtistSortKey(entity.getArtistSortKey())
+                        .setEventName(entity.getEventName())
+                        .setEventDate(entity.getEventDate())
+                        .setEventPlace(entity.getEventPlace())
+                        .setEventSpaceNumber(entity.getEventSpaceNumber())
+                        .setEventNote(entity.getEventNote())
+                        .setCatalogNumber(entity.getCatalogNumber())
+                        .setIsdn(entity.getIsdn())
+                        .setCoverImageKey(entity.getCoverImageKey())
+                        .setPublishedAt(entity.getPublishedAt()))
+                .flatMap(saved -> applyTrackTunes(saved, aggregate.tracks()));
+    }
+
+    /**
+     * トラックの主キーが確定した後に、各トラックのチューン構成を反映する。
+     *
+     * <p>
+     * チューン構成の複合IDはトラックIDを含むため、新規トラックでは flush 前に組み立てられない （{@code @MapsId}
+     * は明示設定された複合IDを埋め直さないため、cascade に任せると null が insert
+     * される）。トラックを永続化して主キーが確定してから反映する。
+     * </p>
+     *
+     * @param album
+     *            永続化済みのアルバムエンティティ（管理下）
+     * @param desiredTracks
+     *            アルバム集約が保持する望ましいトラック一覧
+     * @return 反映後のアルバムエンティティ
+     */
+    private Uni<AlbumTableRecord> applyTrackTunes(AlbumTableRecord album, List<Track> desiredTracks) {
+        final var existingByDomainId = album.getTracks().stream()
+                .collect(Collectors.toMap(TrackTableRecord::getDomainId, Function.identity()));
+        desiredTracks.forEach(
+                track -> Optional.ofNullable(existingByDomainId.get(track.id().value()))
+                        .ifPresent(entity -> reconcileTrackTunes(entity, track.tunes())));
+        return dataSource.persistAndFlush(album);
     }
 
     /**
@@ -98,10 +134,7 @@ public class AlbumRepositoryImpl implements AlbumRepository {
         desiredTracks.forEach(
                 track -> Optional.ofNullable(existingByDomainId.get(track.id().value()))
                         .ifPresentOrElse(
-                                existing -> {
-                                    copyTrackScalarFields(existing, track);
-                                    reconcileTrackTunes(existing, track.tunes());
-                                },
+                                existing -> copyTrackScalarFields(existing, track),
                                 () -> album.getTracks().add(AlbumMapper.trackToEntity(track, album))));
     }
 
@@ -181,6 +214,10 @@ public class AlbumRepositoryImpl implements AlbumRepository {
         target.setTuneId(
                 Optional.ofNullable(source.tuneId())
                         .map(Tune.Id::value)
+                        .orElse(null));
+        target.setTuneTitle(
+                Optional.ofNullable(source.tuneTitle())
+                        .map(TrackTuneTitle::value)
                         .orElse(null));
         target.setComposerCreditOverride(
                 Optional.ofNullable(source.composerCreditOverride())

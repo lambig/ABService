@@ -22,6 +22,7 @@ import com.abservice.application.service.album.UpdateAlbumService;
 import com.abservice.presentation.rest.album.request.CreateAlbumRequest;
 import com.abservice.presentation.rest.album.request.CreateAlbumRequest.EventRequest;
 import com.abservice.presentation.rest.album.request.RegisterAlbumWithTracksRequest;
+import com.abservice.presentation.rest.album.request.TrackTuneRequest;
 import com.abservice.presentation.rest.album.request.UpdateAlbumRequest;
 import com.abservice.presentation.rest.album.response.CreateAlbumResponse;
 import com.abservice.presentation.rest.album.response.DeleteAlbumResponse;
@@ -374,7 +375,8 @@ public class AlbumCommandResource {
                                 t.trackNo(),
                                 t.title(),
                                 t.artistDisplayName(),
-                                t.artistSortKey()))
+                                t.artistSortKey(),
+                                TrackTuneRequest.toInputs(t.tunes())))
                 .orElse(null);
     }
 
