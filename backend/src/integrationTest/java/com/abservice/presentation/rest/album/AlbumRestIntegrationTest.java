@@ -5,6 +5,7 @@ import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 
@@ -265,6 +266,39 @@ class AlbumRestIntegrationTest {
 
         final List<String> ids = response.path("items.albumId");
         assertThat(ids).doesNotContainAnyElementsOf(createdIds);
+    }
+
+    @Test
+    @DisplayName("公開向け詳細は曲目をチューン構成つきで返す")
+    void publicDetailReturnsTracksWithTunes() {
+        final String albumId = createAlbum("曲目確認アルバム");
+        authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"trackNo\":1,\"title\":\"1曲目\",\"artistDisplayName\":\"トラックアーティスト\","
+                                + "\"tunes\":["
+                                + "{\"seq\":1,\"tuneTitle\":\"チューン1\",\"composerCreditOverride\":\"Trad.\"},"
+                                + "{\"seq\":2,\"tuneTitle\":\"チューン2\"}]}")
+                .when().post("/api/v1/albums/" + albumId + "/tracks").then().statusCode(201);
+        authorized().when().post("/api/v1/albums/" + albumId + "/publish").then().statusCode(200);
+
+        given().when().get("/api/v1/albums/" + albumId).then().statusCode(200)
+                .body("tracks[0].trackNo", equalTo(1)).body("tracks[0].title", equalTo("1曲目"))
+                .body("tracks[0].artistDisplayName", equalTo("トラックアーティスト"))
+                .body("tracks[0].tunes[0].seq", equalTo(1))
+                .body("tracks[0].tunes[0].tuneTitle", equalTo("チューン1"))
+                .body("tracks[0].tunes[0].composerCreditOverride", equalTo("Trad."))
+                .body("tracks[0].tunes[1].tuneTitle", equalTo("チューン2"))
+                .body("tracks[0].tunes[1].composerCreditOverride", nullValue());
+    }
+
+    @Test
+    @DisplayName("一覧は曲目の項目自体を返さない")
+    void listDoesNotReturnTracks() {
+        final String albumId = createAlbum("一覧曲目非返却確認アルバム");
+        authorized().when().post("/api/v1/albums/" + albumId + "/publish").then().statusCode(200);
+
+        given().when().get("/api/v1/albums?page=0&size=100").then().statusCode(200)
+                .body("items[0]", not(hasKey("tracks")));
     }
 
     @Test

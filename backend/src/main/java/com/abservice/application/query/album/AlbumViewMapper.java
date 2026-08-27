@@ -2,12 +2,18 @@ package com.abservice.application.query.album;
 
 import com.abservice.application.query.album.model.AlbumView;
 import com.abservice.application.query.album.model.AlbumView.ExternalAudioView;
+import com.abservice.application.query.album.model.AlbumView.TrackTuneView;
+import com.abservice.application.query.album.model.AlbumView.TrackView;
 import com.abservice.infrastructure.persistence.datasource.AlbumExternalAudioRow;
+import com.abservice.infrastructure.persistence.datasource.AlbumTrackRow;
+import com.abservice.infrastructure.persistence.datasource.AlbumTrackTuneRow;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -36,12 +42,15 @@ final class AlbumViewMapper {
      *            アセットの配信ベースパス（{@code abservice.assets.public-base-path}）
      * @param externalAudios
      *            当該アルバムの外部音源（別クエリで取得した投影）
+     * @param tracks
+     *            当該アルバムのトラック（詳細照会のみ。一覧照会では空を渡す）
      * @return アルバムの Read Model
      */
     static AlbumView toView(
             AlbumTableRecord entity,
             String assetBasePath,
-            List<AlbumExternalAudioRow> externalAudios) {
+            List<AlbumExternalAudioRow> externalAudios,
+            List<TrackView> tracks) {
         return new AlbumView(
                 entity.getDomainId(),
                 entity.getTitle(),
@@ -59,7 +68,61 @@ final class AlbumViewMapper {
                 entity.getEventNote(),
                 entity.getPublishedAt(),
                 toCoverImageUrl(entity.getCoverImageKey(), assetBasePath),
-                toExternalAudioViews(externalAudios));
+                toExternalAudioViews(externalAudios),
+                tracks);
+    }
+
+    /**
+     * トラックとチューン構成の投影を Read Model へ組み立てます。
+     *
+     * <p>
+     * チューン構成は所属トラックのドメインIDで突き合わせます（トラック件数分のクエリを避け、まとめて引いた 結果を振り分けるため）。
+     * </p>
+     *
+     * @param tracks
+     *            トラックの投影（トラック番号の昇順）
+     * @param trackTunes
+     *            チューン構成の投影（所属トラックを問わない全件）
+     * @return トラックの Read Model のリスト
+     */
+    static List<TrackView> toTrackViews(List<AlbumTrackRow> tracks, List<AlbumTrackTuneRow> trackTunes) {
+        return toTrackViewsWith(tracks, groupByTrackId(trackTunes));
+    }
+
+    private static Map<String, List<AlbumTrackTuneRow>> groupByTrackId(List<AlbumTrackTuneRow> trackTunes) {
+        return trackTunes.stream().collect(Collectors.groupingBy(AlbumTrackTuneRow::trackId));
+    }
+
+    private static List<TrackView> toTrackViewsWith(
+            List<AlbumTrackRow> tracks,
+            Map<String, List<AlbumTrackTuneRow>> tunesByTrackId) {
+        return tracks.stream()
+                .sorted(Comparator.comparing(AlbumTrackRow::trackNo))
+                .map(track -> toTrackView(track, tunesByTrackId.getOrDefault(track.trackId(), List.of())))
+                .toList();
+    }
+
+    private static TrackView toTrackView(AlbumTrackRow track, List<AlbumTrackTuneRow> tunes) {
+        return new TrackView(
+                track.trackId(),
+                track.trackNo(),
+                track.title(),
+                track.artistDisplayName(),
+                track.artistSortKey(),
+                toTrackTuneViews(tunes));
+    }
+
+    private static List<TrackTuneView> toTrackTuneViews(List<AlbumTrackTuneRow> tunes) {
+        return tunes.stream()
+                .sorted(Comparator.comparing(AlbumTrackTuneRow::seq))
+                .map(
+                        tune -> new TrackTuneView(
+                                tune.seq(),
+                                tune.tuneTitle(),
+                                tune.composerCreditOverride(),
+                                tune.arrangerCreditOverride(),
+                                tune.linkUrl()))
+                .toList();
     }
 
     private static List<ExternalAudioView> toExternalAudioViews(List<AlbumExternalAudioRow> externalAudios) {

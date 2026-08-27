@@ -35,7 +35,8 @@ class GetAlbumServiceTest {
                                 1L,
                                 "0192f8a0-0000-7000-8000-0000000000a1",
                                 1,
-                                "https://soundcloud.com/example/first")));
+                                "https://soundcloud.com/example/first")),
+                List.of());
 
         assertThat(result).isInstanceOf(GetAlbumResult.Found.class);
         assertThat(((GetAlbumResult.Found) result).album().title()).isEqualTo("タイトル");
@@ -49,6 +50,7 @@ class GetAlbumServiceTest {
                 GetAlbumService.toResult(
                         null,
                         ASSET_BASE_PATH,
+                        List.of(),
                         List.of()))
                 .isInstanceOf(GetAlbumResult.NotFound.class);
     }

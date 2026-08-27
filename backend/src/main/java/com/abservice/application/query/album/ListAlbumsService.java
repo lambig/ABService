@@ -130,7 +130,8 @@ public class ListAlbumsService implements QueryService<ListAlbumsQuery, ListAlbu
                         entity -> AlbumViewMapper.toView(
                                 entity,
                                 assetBasePath,
-                                externalAudiosByAlbumId.getOrDefault(entity.getAlbumId(), List.of())))
+                                externalAudiosByAlbumId.getOrDefault(entity.getAlbumId(), List.of()),
+                                List.of()))
                 .toList();
     }
 
