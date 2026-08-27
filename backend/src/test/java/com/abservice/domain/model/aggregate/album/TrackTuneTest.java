@@ -116,6 +116,30 @@ class TrackTuneTest {
                         null);
             }).isInstanceOf(IllegalArgumentException.class).hasMessage("Seq cannot be null");
         }
+
+        @Test
+        @DisplayName("seqが0以下の場合は例外が発生すること")
+        void createWithNonPositiveSeqShouldThrowException() {
+            // Act & Assert
+            assertThatThrownBy(() -> {
+                TrackTune.create(
+                        0,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null);
+            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Seq must be a positive integer");
+            assertThatThrownBy(() -> {
+                TrackTune.create(
+                        -1,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null);
+            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Seq must be a positive integer");
+        }
     }
 
     @Nested
@@ -178,6 +202,23 @@ class TrackTuneTest {
             assertThat(result).isInstanceOf(Result.Failure.class);
             assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
                     .contains("SEQ_REQUIRED");
+        }
+
+        @Test
+        @DisplayName("seqが0以下ならエラーになること")
+        void nonPositiveSeqFails() {
+            // Act
+            final var result = TrackTune.fromInput(
+                    0,
+                    "The Butterfly",
+                    null,
+                    null,
+                    null);
+
+            // Assert
+            assertThat(result).isInstanceOf(Result.Failure.class);
+            assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
+                    .containsExactly("SEQ_NOT_POSITIVE");
         }
 
         @Test

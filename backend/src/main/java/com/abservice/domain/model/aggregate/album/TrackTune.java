@@ -63,6 +63,12 @@ public final class TrackTune implements DomainEntity<TrackTune, Integer> {
             "Seq cannot be null",
             "SEQ_REQUIRED");
 
+    /** seqが正の整数でない場合のエラー */
+    private static final ErrorResult SEQ_NOT_POSITIVE_ERROR = new ErrorResult(
+            "seq",
+            "Seq must be a positive integer",
+            "SEQ_NOT_POSITIVE");
+
     private TrackTune(Integer seq, Tune.@Nullable Id tuneId, @Nullable TrackTuneTitle tuneTitle,
             @Nullable Credit composerCreditOverride, @Nullable Credit arrangerCreditOverride,
             @Nullable Url linkUrl) {
@@ -77,9 +83,13 @@ public final class TrackTune implements DomainEntity<TrackTune, Integer> {
     private static TrackTune factory(@Nullable Integer seq, Tune.@Nullable Id tuneId,
             @Nullable TrackTuneTitle tuneTitle, @Nullable Credit composerCreditOverride,
             @Nullable Credit arrangerCreditOverride, @Nullable Url linkUrl) {
-        return Policy.<Stub>of(
-                self -> self.seq() != null,
-                SEQ_REQUIRED_ERROR)
+        return Policy.<Stub>all(
+                Policy.of(
+                        self -> self.seq() != null,
+                        SEQ_REQUIRED_ERROR),
+                Policy.of(
+                        self -> isPositiveOrAbsent(self.seq()),
+                        SEQ_NOT_POSITIVE_ERROR))
                 .verify(
                         new Stub(
                                 seq,
@@ -201,10 +211,7 @@ public final class TrackTune implements DomainEntity<TrackTune, Integer> {
             @Nullable String composerCreditOverride, @Nullable String arrangerCreditOverride,
             @Nullable String linkUrl) {
         return Result.zip(
-                Policy.<Integer>of(
-                        Objects::nonNull,
-                        SEQ_REQUIRED_ERROR)
-                        .verify(seq, Function.identity()),
+                seqPolicy().verify(seq, Function.identity()),
                 Result.zip(
                         optional(TrackTuneTitle::fromInput, tuneTitle),
                         optional(Credit::fromInput, composerCreditOverride),
@@ -222,6 +229,33 @@ public final class TrackTune implements DomainEntity<TrackTune, Integer> {
 
     private record OptionalFields(Optional<TrackTuneTitle> tuneTitle, Optional<Credit> composerCreditOverride,
             Optional<Credit> arrangerCreditOverride) {
+    }
+
+    private static Policy<Integer> seqPolicy() {
+        return Policy.all(
+                Policy.of(
+                        Objects::nonNull,
+                        SEQ_REQUIRED_ERROR),
+                Policy.of(
+                        TrackTune::isPositiveOrAbsent,
+                        SEQ_NOT_POSITIVE_ERROR));
+    }
+
+    /**
+     * 未指定（null）か正の整数かを判定する。
+     *
+     * <p>
+     * 必須検証と値域検証を独立に評価してエラーを集約するため、未指定は本判定では違反にしない。
+     * </p>
+     *
+     * @param seq
+     *            シーケンス番号（nullable）
+     * @return 未指定または正の整数ならtrue
+     */
+    private static boolean isPositiveOrAbsent(@Nullable Integer seq) {
+        return Optional.ofNullable(seq)
+                .map(value -> value > 0)
+                .orElse(true);
     }
 
     private static <T> Result<Optional<T>> optional(Function<String, Result<T>> fromInput, @Nullable String value) {

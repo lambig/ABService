@@ -126,6 +126,28 @@ class TrackAdditionServiceTest {
     }
 
     @Test
+    @DisplayName("チューン構成のseqが0以下ならエラーになる")
+    void nonPositiveTuneSeqFails() {
+        final var result = TrackAdditionService.validate(
+                new TrackFields(
+                        1,
+                        "トラックタイトル",
+                        null,
+                        null,
+                        List.of(
+                                new TuneFields(
+                                        0,
+                                        "チューン1",
+                                        null,
+                                        null,
+                                        null))));
+
+        assertThat(result).isInstanceOf(Result.Failure.class);
+        assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
+                .contains("SEQ_NOT_POSITIVE");
+    }
+
+    @Test
     @DisplayName("チューン構成の各行のエラーは集約される")
     void tuneRowErrorsAreAggregated() {
         final var result = TrackAdditionService.validate(

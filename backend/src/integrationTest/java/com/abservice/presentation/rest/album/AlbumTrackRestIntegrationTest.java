@@ -100,6 +100,18 @@ class AlbumTrackRestIntegrationTest {
     }
 
     @Test
+    @DisplayName("チューン構成のseqが0以下のトラック追加は400 problem+json（検証エラー）を返す")
+    void addTrackWithNonPositiveTuneSeqReturnsValidationError() {
+        final String albumId = createAlbum("チューン構成seq非正確認アルバム");
+
+        authorized().contentType(ContentType.JSON)
+                .body("{\"trackNo\":1,\"title\":\"1曲目\",\"tunes\":[{\"seq\":0,\"tuneTitle\":\"チューン1\"}]}")
+                .when().post("/api/v1/albums/" + albumId + "/tracks").then().statusCode(400)
+                .contentType("application/problem+json")
+                .body("type", equalTo("urn:abservice:error:VALIDATION_ERROR"));
+    }
+
+    @Test
     @DisplayName("トラックを更新するとチューン構成を含む全項目が置換される")
     void updateTrackReplacesFields() {
         final String albumId = createAlbum("トラック更新確認アルバム");
