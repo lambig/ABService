@@ -179,6 +179,7 @@ class TrackTest {
                     tuneId,
                     null,
                     null,
+                    null,
                     null);
 
             // Act
@@ -203,10 +204,12 @@ class TrackTest {
                     Tune.Id.generate(),
                     null,
                     null,
+                    null,
                     null);
             final var tune2 = TrackTune.create(
                     2,
                     Tune.Id.generate(),
+                    null,
                     null,
                     null,
                     null);
@@ -250,10 +253,12 @@ class TrackTest {
                     Tune.Id.generate(),
                     null,
                     null,
+                    null,
                     null);
             final var tune2 = TrackTune.create(
                     1,
                     Tune.Id.generate(),
+                    null,
                     null,
                     null,
                     null);
@@ -285,6 +290,7 @@ class TrackTest {
                     Tune.Id.generate(),
                     null,
                     null,
+                    null,
                     null);
             final var trackWithTune = track.addTune(tune);
 
@@ -309,16 +315,19 @@ class TrackTest {
                     Tune.Id.generate(),
                     null,
                     null,
+                    null,
                     null);
             final var tune2 = TrackTune.create(
                     2,
                     Tune.Id.generate(),
                     null,
                     null,
+                    null,
                     null);
             final var tune3 = TrackTune.create(
                     3,
                     Tune.Id.generate(),
+                    null,
                     null,
                     null,
                     null);
@@ -386,6 +395,7 @@ class TrackTest {
                     tuneId,
                     null,
                     null,
+                    null,
                     null);
             final var trackWithTune = track.addTune(originalTune);
 
@@ -418,10 +428,12 @@ class TrackTest {
                     Tune.Id.generate(),
                     null,
                     null,
+                    null,
                     null);
             final var tune2 = TrackTune.create(
                     2,
                     Tune.Id.generate(),
+                    null,
                     null,
                     null,
                     null);
@@ -501,6 +513,7 @@ class TrackTest {
                     Tune.Id.generate(),
                     null,
                     null,
+                    null,
                     null);
             final var trackWithTune = track.addTune(tune);
 
@@ -513,6 +526,7 @@ class TrackTest {
                         TrackTune.create(
                                 2,
                                 Tune.Id.generate(),
+                                null,
                                 null,
                                 null,
                                 null));

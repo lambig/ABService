@@ -339,6 +339,48 @@ public final class Track implements DomainEntity<Track, Track.Id> {
     }
 
     /**
+     * チューン構成を丸ごと置き換える
+     *
+     * <p>
+     * トラックの更新（PUT風の全項目置換）が、入力の持つチューン構成をそのまま反映するための操作です。 {@code seq}
+     * はトラック内で一意である必要があります。個別の追加・削除・更新は {@link #addTune(TrackTune)} /
+     * {@link #removeTune(Integer)} / {@link #updateTune} で表現します。
+     * </p>
+     *
+     * @param newTunes
+     *            新しいチューン構成の一覧
+     * @return 更新されたTrack
+     */
+    public @NonNull Track replaceTunes(@NonNull List<TrackTune> newTunes) {
+        final var validatedTunes = Policy.<List<TrackTune>>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "tunes",
+                        "Tunes cannot be null",
+                        "TUNES_REQUIRED"))
+                .verify(newTunes, Function.identity())
+                .resolve(Policy::illegalArgument);
+        Policy.<List<TrackTune>>of(
+                Track::hasUniqueSeqs,
+                () -> new ErrorResult(
+                        "seq",
+                        "Tune seq must be unique in this track",
+                        "TUNE_SEQ_DUPLICATE"))
+                .verify(validatedTunes, Function.identity())
+                .resolve(BusinessRuleViolationException::fromErrors);
+        return Track.factory(
+                id,
+                trackNo,
+                title,
+                artistCredit,
+                List.copyOf(validatedTunes));
+    }
+
+    private static boolean hasUniqueSeqs(List<TrackTune> tunes) {
+        return tunes.stream().map(TrackTune::seq).distinct().count() == tunes.size();
+    }
+
+    /**
      * チューンリストを取得（不変）
      *
      * @return チューンリストの不変コピー

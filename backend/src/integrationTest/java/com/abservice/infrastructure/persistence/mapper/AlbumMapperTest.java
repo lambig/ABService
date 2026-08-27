@@ -8,6 +8,7 @@ import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
 import com.abservice.domain.model.vo.album.TrackTitle;
+import com.abservice.domain.model.vo.album.TrackTuneTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.AssetKey;
 import com.abservice.domain.model.vo.common.BusinessDate;
@@ -300,6 +301,7 @@ class AlbumMapperTest {
                                     final var trackTune = TrackTune.create(
                                             1,
                                             tuneId,
+                                            TrackTuneTitle.of("The Butterfly"),
                                             Credit.of("Composer Override"),
                                             Credit.of("Arranger Override"),
                                             Url.of("https://example.com/tune"));

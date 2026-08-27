@@ -12,6 +12,7 @@ import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
 import com.abservice.domain.model.vo.album.Publication;
 import com.abservice.domain.model.vo.album.TrackTitle;
+import com.abservice.domain.model.vo.album.TrackTuneTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.AssetKey;
 import com.abservice.domain.model.vo.common.BusinessDate;
@@ -306,22 +307,12 @@ public final class AlbumMapper {
                 .setTitle(track.title().value());
         Optional.ofNullable(track.artistCredit())
                 .ifPresent(ac -> setTrackArtistCredit(trackEntity, ac));
-        setTrackTunesField(trackEntity, track);
         return trackEntity;
     }
 
     private static void setTrackArtistCredit(TrackTableRecord entity, ArtistCredit credit) {
         entity.setArtistDisplayName(credit.displayName().value())
                 .setArtistSortKey(credit.sortKey());
-    }
-
-    private static void setTrackTunesField(TrackTableRecord entity, Track track) {
-        Optional.ofNullable(track.tunes())
-                .filter(not(List::isEmpty))
-                .map(toList(trackTune -> trackTuneToEntity(trackTune, entity)))
-                // MUTABLE-COLLECTION: setTracksFieldと同じ理由（#90）
-                .map(ArrayList::new)
-                .ifPresent(entity::setTrackTunes);
     }
 
     /**
@@ -336,6 +327,9 @@ public final class AlbumMapper {
                 entity.getId().getSeq(),
                 Optional.ofNullable(entity.getTuneId())
                         .map(Tune.Id::new)
+                        .orElse(null),
+                Optional.ofNullable(entity.getTuneTitle())
+                        .map(TrackTuneTitle::new)
                         .orElse(null),
                 Optional.ofNullable(entity.getComposerCreditOverride())
                         .map(Credit::new)
@@ -364,6 +358,10 @@ public final class AlbumMapper {
                 .setTuneId(
                         Optional.ofNullable(trackTune.tuneId())
                                 .map(Tune.Id::value)
+                                .orElse(null))
+                .setTuneTitle(
+                        Optional.ofNullable(trackTune.tuneTitle())
+                                .map(TrackTuneTitle::value)
                                 .orElse(null))
                 .setComposerCreditOverride(
                         Optional.ofNullable(trackTune.composerCreditOverride())

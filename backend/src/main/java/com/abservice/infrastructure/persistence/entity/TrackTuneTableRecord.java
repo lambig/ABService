@@ -41,6 +41,9 @@ public class TrackTuneTableRecord extends AuditableTableRecord<TrackTuneTableRec
     @Column(name = "tune_id")
     private String tuneId;
 
+    @Column(name = "tune_title", length = 255)
+    private String tuneTitle;
+
     @Column(name = "composer_credit_override", length = 255)
     private String composerCreditOverride;
 

@@ -4,16 +4,19 @@ import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.album.Track;
+import com.abservice.domain.model.aggregate.album.TrackTune;
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.domain.service.AlbumAccessService;
+import com.abservice.domain.service.TrackAdditionService;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -25,9 +28,10 @@ import org.jspecify.annotations.Nullable;
  * トラック更新コマンドサービス
  *
  * <p>
- * {@link Album#updateTrack(Track)} を呼び出すユースケースです。既存トラックの{@code tunes}
- * （チューン構成、#120の対象）はPUT風の全項目置換対象外のため、既存の値をそのまま維持します。トラック番号の重複は
- * Album集約自身が検証します（{@link com.abservice.domain.exception.BusinessRuleViolationException}、409）。
+ * {@link Album#updateTrack(Track)} を呼び出すユースケースです。{@code tunes}（チューン構成）を含む
+ * PUT風の全項目置換で、チューン構成は入力の内容へ置き換わります（入力が未指定なら構成なしになります）。
+ * トラック番号の重複はAlbum集約自身が検証します
+ * （{@link com.abservice.domain.exception.BusinessRuleViolationException}、409）。
  * </p>
  */
 @ApplicationScoped
@@ -62,17 +66,23 @@ public class UpdateTrackService implements CommandService<UpdateTrackInput, Upda
     }
 
     static Result<Track> validate(UpdateTrackInput input, Track existing) {
-        return resolveArtistCredit(input.artistDisplayName(), input.artistSortKey())
+        return Result.zip(
+                resolveArtistCredit(input.artistDisplayName(), input.artistSortKey()),
+                TrackAdditionService.resolveTunes(TrackTuneInput.toFields(input.tunes())),
+                ResolvedFields::new)
                 .flatMap(
-                        artistCredit -> Result.zip(
+                        resolved -> Result.zip(
                                 trackNoPolicy().verify(input.trackNo(), Function.identity()),
                                 TrackTitle.fromInput(input.title()),
                                 (trackNo, title) -> Track.reconstruct(
                                         existing.id(),
                                         trackNo,
                                         title,
-                                        artistCredit.orElse(null),
-                                        existing.getTunes())));
+                                        resolved.artistCredit().orElse(null),
+                                        resolved.tunes())));
+    }
+
+    private record ResolvedFields(Optional<ArtistCredit> artistCredit, List<TrackTune> tunes) {
     }
 
     private static Policy<Integer> trackNoPolicy() {

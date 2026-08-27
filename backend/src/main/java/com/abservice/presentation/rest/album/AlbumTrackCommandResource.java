@@ -13,6 +13,7 @@ import com.abservice.application.service.album.UpdateTrackOutput;
 import com.abservice.application.service.album.UpdateTrackService;
 import com.abservice.presentation.rest.album.request.AddTrackRequest;
 import com.abservice.presentation.rest.album.request.ReorderTracksRequest;
+import com.abservice.presentation.rest.album.request.TrackTuneRequest;
 import com.abservice.presentation.rest.album.request.UpdateTrackRequest;
 import com.abservice.presentation.rest.album.response.AddTrackResponse;
 import com.abservice.presentation.rest.album.response.ReorderTracksResponse;
@@ -97,7 +98,8 @@ public class AlbumTrackCommandResource {
                 request.trackNo(),
                 request.title(),
                 request.artistDisplayName(),
-                request.artistSortKey());
+                request.artistSortKey(),
+                TrackTuneRequest.toInputs(request.tunes()));
     }
 
     private static Response toCreated(AddTrackOutput output) {
@@ -151,7 +153,8 @@ public class AlbumTrackCommandResource {
                 request.trackNo(),
                 request.title(),
                 request.artistDisplayName(),
-                request.artistSortKey());
+                request.artistSortKey(),
+                TrackTuneRequest.toInputs(request.tunes()));
     }
 
     private static Response toOk(UpdateTrackOutput output) {

@@ -22,7 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * トラック（録音単位）テーブルレコード
+ * トラック（アルバムを構成するトラック）テーブルレコード
  * <p>
  * テーブル: track
  * </p>

@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Stream;
 import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.NonNull;
 
@@ -254,6 +255,36 @@ public sealed interface Result<T> {
      */
     static <T> Result<T> success(T value) {
         return new Success<>(value);
+    }
+
+    /**
+     * Resultのリストを1つのResultへ合成します。 すべて成功の場合は値のリストを返し、1つでも失敗があれば
+     * <b>すべてのエラーを集約</b>して失敗を返します。
+     *
+     * <p>
+     * 同種の要素が並ぶ入力（子コレクションの各行など）を、行ごとに検証してからまとめて1つの結果にする用途に 使用します。要素数が決まっている異種の値の合成には
+     * {@link #zip} を使用してください。
+     * </p>
+     *
+     * @param results
+     *            合成するResultのリスト
+     * @return すべて成功なら値のリスト、失敗があればエラーを集約したFailure
+     * @param <T>
+     *            要素の型
+     */
+    static <T> Result<List<T>> all(List<? extends Result<T>> results) {
+        final var errors = results.stream()
+                .flatMap(result -> result.errors().stream())
+                .toList();
+        return errors.isEmpty()
+                ? success(
+                        results.stream()
+                                .flatMap(
+                                        result -> result instanceof Success<T> success
+                                                ? Stream.of(success.value())
+                                                : Stream.<T>empty())
+                                .toList())
+                : failure(errors);
     }
 
     /**

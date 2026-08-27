@@ -83,11 +83,14 @@ public record RegisterAlbumWithTracksInput(
      *            アーティスト表示名（nullable。未指定時はAlbumのartistCreditを継承）
      * @param artistSortKey
      *            アーティストソートキー（nullable）
+     * @param tunes
+     *            チューン構成（nullable。未指定は構成なしとして扱う）
      */
     public record TrackInput(
             @Nullable Integer trackNo,
             @Nullable String title,
             @Nullable String artistDisplayName,
-            @Nullable String artistSortKey) {
+            @Nullable String artistSortKey,
+            @Nullable List<TrackTuneInput> tunes) {
     }
 }
