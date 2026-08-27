@@ -33,7 +33,7 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>
  * {@link BusinessDate} は文字列からの直接生成を提供しないため（パース方式の解釈は境界層の責務）、リリース日・
- * 初出イベント開催日・各トラックの録音日のISO-8601文字列の解釈は本サービスが担います。
+ * 初出イベント開催日のISO-8601文字列の解釈は本サービスが担います。
  * </p>
  */
 @ApplicationScoped
@@ -103,13 +103,7 @@ public class RegisterAlbumWithTracksService
                 t.trackNo(),
                 t.title(),
                 t.artistDisplayName(),
-                t.artistSortKey(),
-                resolveOptionalDate(
-                        t.recordingDate(),
-                        "recordingDate",
-                        "TRACK_RECORDING_DATE_INVALID"),
-                t.recordingPlace(),
-                t.isLive());
+                t.artistSortKey());
     }
 
     private static AlbumCreationService.@Nullable EventFields toEventFields(

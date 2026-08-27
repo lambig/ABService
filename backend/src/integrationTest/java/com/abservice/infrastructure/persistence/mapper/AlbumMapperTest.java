@@ -86,14 +86,7 @@ class AlbumMapperTest {
                                 .setTrackNo(1)
                                 .setTitle("Track One")
                                 .setArtistDisplayName("Track Artist")
-                                .setArtistSortKey("track-artist")
-                                .setRecordingDate(
-                                        LocalDate.of(
-                                                2024,
-                                                6,
-                                                1))
-                                .setRecordingPlace("Studio A")
-                                .setIsLive(false));
+                                .setArtistSortKey("track-artist"));
 
         asserter.execute(() -> dataSource.persistAlbumWithRelations(album));
 
@@ -123,8 +116,6 @@ class AlbumMapperTest {
             assertThat(track.title().value()).isEqualTo("Track One");
             assertThat(track.trackNo()).isEqualTo(1);
             assertThat(track.artistCredit().displayName().value()).isEqualTo("Track Artist");
-            assertThat(track.recordingPlace()).isEqualTo("Studio A");
-            assertThat(track.isLive()).isFalse();
             assertThat(track.tunes()).isEmpty();
         });
     }
@@ -194,10 +185,7 @@ class AlbumMapperTest {
                         Track.create(
                                 1,
                                 TrackTitle.of("Mapped Track"),
-                                ArtistCredit.of("Mapped Track Artist"),
-                                null,
-                                null,
-                                true));
+                                ArtistCredit.of("Mapped Track Artist")));
 
         final var entity = AlbumMapper.toEntity(album);
 
@@ -299,8 +287,7 @@ class AlbumMapperTest {
                                 .setDomainId(UUID.randomUUID().toString())
                                 .setAlbum(album)
                                 .setTrackNo(1)
-                                .setTitle("TrackTune Host Track")
-                                .setIsLive(false));
+                                .setTitle("TrackTune Host Track"));
 
         asserter.execute(() -> dataSource.persistAlbumWithRelations(album));
 
@@ -341,7 +328,6 @@ class AlbumMapperTest {
                                             .setDomainId(trackEntity.getDomainId())
                                             .setTrackNo(trackEntity.getTrackNo())
                                             .setTitle(trackEntity.getTitle())
-                                            .setIsLive(trackEntity.getIsLive())
                                             .setTrackTunes(List.of(trackTuneEntity));
                                     final var albumCopy = new AlbumTableRecord()
                                             .setDomainId(found.getDomainId())

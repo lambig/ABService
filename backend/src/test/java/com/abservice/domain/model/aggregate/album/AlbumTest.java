@@ -420,9 +420,6 @@ class AlbumTest {
                     1,
                     TrackTitle.of("Updated Title"),
                     originalTrack.artistCredit(),
-                    originalTrack.recordingDate(),
-                    originalTrack.recordingPlace(),
-                    originalTrack.isLive(),
                     originalTrack.tunes());
 
             // Act
@@ -475,9 +472,6 @@ class AlbumTest {
                     1, // 重複するトラック番号
                     track2.title(),
                     track2.artistCredit(),
-                    track2.recordingDate(),
-                    track2.recordingPlace(),
-                    track2.isLive(),
                     track2.tunes());
 
             // Act & Assert
@@ -853,7 +847,6 @@ class AlbumTest {
         return Track.create(
                 trackNo,
                 TrackTitle.of(title),
-                ArtistCredit.of("Test Artist"),
-                null);
+                ArtistCredit.of("Test Artist"));
     }
 }

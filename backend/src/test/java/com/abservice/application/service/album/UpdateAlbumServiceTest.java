@@ -188,8 +188,7 @@ class UpdateAlbumServiceTest {
                         Track.create(
                                 1,
                                 TrackTitle.of("既存トラック"),
-                                ArtistCredit.of("既存アーティスト"),
-                                null));
+                                ArtistCredit.of("既存アーティスト")));
 
         final var updated = UpdateAlbumService.validateAndApply(
                 existing,

@@ -8,7 +8,6 @@ import com.abservice.domain.model.aggregate.album.ExternalAudio;
 import com.abservice.domain.model.aggregate.album.Track;
 import com.abservice.domain.model.aggregate.album.TrackTune;
 import com.abservice.domain.model.aggregate.tune.Tune;
-import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.Url;
 import com.abservice.domain.repository.album.AlbumRepository;
@@ -145,12 +144,6 @@ public class AlbumRepositoryImpl implements AlbumRepository {
     private static void copyTrackScalarFields(TrackTableRecord target, Track source) {
         target.setTrackNo(source.trackNo());
         target.setTitle(source.title().value());
-        target.setRecordingDate(
-                Optional.ofNullable(source.recordingDate())
-                        .map(BusinessDate::asLocalDate)
-                        .orElse(null));
-        target.setRecordingPlace(source.recordingPlace());
-        target.setIsLive(source.isLive());
         Optional.ofNullable(source.artistCredit())
                 .ifPresentOrElse(
                         ac -> target.setArtistDisplayName(ac.displayName().value())

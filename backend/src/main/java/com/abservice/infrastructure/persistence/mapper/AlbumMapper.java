@@ -274,11 +274,6 @@ public final class AlbumMapper {
                 entity.getTrackNo(),
                 new TrackTitle(entity.getTitle()),
                 buildTrackArtistCredit(entity),
-                Optional.ofNullable(entity.getRecordingDate())
-                        .map(BusinessDate::of)
-                        .orElse(null),
-                entity.getRecordingPlace(),
-                entity.getIsLive(),
                 buildTrackTunes(entity));
     }
 
@@ -308,13 +303,7 @@ public final class AlbumMapper {
                 .setDomainId(track.id().value())
                 .setAlbum(albumEntity)
                 .setTrackNo(track.trackNo())
-                .setTitle(track.title().value())
-                .setRecordingDate(
-                        Optional.ofNullable(track.recordingDate())
-                                .map(BusinessDate::asLocalDate)
-                                .orElse(null))
-                .setRecordingPlace(track.recordingPlace())
-                .setIsLive(track.isLive());
+                .setTitle(track.title().value());
         Optional.ofNullable(track.artistCredit())
                 .ifPresent(ac -> setTrackArtistCredit(trackEntity, ac));
         setTrackTunesField(trackEntity, track);

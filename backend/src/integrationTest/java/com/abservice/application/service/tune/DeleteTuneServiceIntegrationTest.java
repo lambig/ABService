@@ -137,7 +137,6 @@ class DeleteTuneServiceIntegrationTest {
                         Track.create(
                                 1,
                                 new TrackTitle("参照するトラック"),
-                                null,
                                 null));
     }
 

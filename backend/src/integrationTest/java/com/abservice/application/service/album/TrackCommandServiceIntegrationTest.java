@@ -69,9 +69,6 @@ class TrackCommandServiceIntegrationTest {
         return Track.create(
                 trackNo,
                 TrackTitle.of(title),
-                null,
-                null,
-                null,
                 null);
     }
 
@@ -88,9 +85,6 @@ class TrackCommandServiceIntegrationTest {
                                 album.id().value(),
                                 1,
                                 "1曲目",
-                                null,
-                                null,
-                                null,
                                 null,
                                 null)),
                 output -> {
@@ -119,9 +113,6 @@ class TrackCommandServiceIntegrationTest {
                                 1,
                                 "重複トラック",
                                 null,
-                                null,
-                                null,
-                                null,
                                 null)),
                 BusinessRuleViolationException.class);
     }
@@ -136,9 +127,6 @@ class TrackCommandServiceIntegrationTest {
                                 Album.Id.generate().value(),
                                 1,
                                 "1曲目",
-                                null,
-                                null,
-                                null,
                                 null,
                                 null)),
                 EntityNotFoundException.class);
@@ -170,9 +158,6 @@ class TrackCommandServiceIntegrationTest {
                                 2,
                                 "更新後タイトル",
                                 "更新後アーティスト",
-                                null,
-                                null,
-                                null,
                                 null)),
                 output -> {
                     assertThat(output.trackNo()).isEqualTo(2);
@@ -203,9 +188,6 @@ class TrackCommandServiceIntegrationTest {
                                 Track.Id.generate().value(),
                                 1,
                                 "タイトル",
-                                null,
-                                null,
-                                null,
                                 null,
                                 null)),
                 BusinessRuleViolationException.class);
