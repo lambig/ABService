@@ -250,6 +250,66 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, 
     }
 
     /**
+     * アルバムのトラックを投影で取得する
+     *
+     * <p>
+     * アルバム本体とは別クエリで読む（複数の {@code @OneToMany} を1クエリで JOIN FETCH すると
+     * multiple-bag-fetch 制約に抵触するため）。チューン構成はさらに {@link #findTrackTunesByTrackIds}
+     * で取得する。
+     * </p>
+     *
+     * @param albumId
+     *            アルバムの内部ID
+     * @return 該当するトラックの投影のリスト（トラック番号の昇順）
+     */
+    public Uni<List<AlbumTrackRow>> findTracksByAlbumId(Long albumId) {
+        return sessionFactory.withSession(
+                session -> session
+                        .createQuery(
+                                "SELECT new com.abservice.infrastructure.persistence.datasource"
+                                        + ".AlbumTrackRow("
+                                        + "t.domainId, t.trackNo, t.title, t.artistDisplayName, t.artistSortKey) "
+                                        + "FROM TrackTableRecord t "
+                                        + "WHERE t.album.albumId = :albumId "
+                                        + "ORDER BY t.trackNo",
+                                AlbumTrackRow.class)
+                        .setParameter("albumId", albumId).getResultList());
+    }
+
+    /**
+     * トラック内のチューン構成を投影で取得する
+     *
+     * <p>
+     * トラック群をまとめて1クエリで引き、トラックごとに振り分ける（トラック件数分のクエリを発行しない）。
+     * </p>
+     *
+     * @param trackIds
+     *            トラックのドメインID群
+     * @return 該当するチューン構成の投影のリスト（トラック・登場順の昇順）
+     */
+    public Uni<List<AlbumTrackTuneRow>> findTrackTunesByTrackIds(Collection<String> trackIds) {
+        return Optional.of(trackIds)
+                .filter(Predicate.not(Collection::isEmpty))
+                .map(this::queryTrackTunesByTrackIds)
+                .orElseGet(() -> Uni.createFrom().item(List.of()));
+    }
+
+    private Uni<List<AlbumTrackTuneRow>> queryTrackTunesByTrackIds(Collection<String> trackIds) {
+        return sessionFactory.withSession(
+                session -> session
+                        .createQuery(
+                                "SELECT new com.abservice.infrastructure.persistence.datasource"
+                                        + ".AlbumTrackTuneRow("
+                                        + "tt.track.domainId, tt.id.seq, tt.tuneTitle, "
+                                        + "tt.composerCreditOverride, tt.arrangerCreditOverride, tt.linkUrl) "
+                                        + "FROM TrackTuneTableRecord tt "
+                                        + "WHERE tt.track.domainId IN (:trackIds) "
+                                        + "ORDER BY tt.track.domainId, tt.id.seq",
+                                AlbumTrackTuneRow.class)
+                        .setParameter("trackIds", trackIds).getResultList());
+    }
+
+    /**
      * タイトルでアルバムを検索
      *
      * @param title

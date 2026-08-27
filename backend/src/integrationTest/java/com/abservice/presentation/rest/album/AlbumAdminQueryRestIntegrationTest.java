@@ -67,6 +67,22 @@ class AlbumAdminQueryRestIntegrationTest {
     }
 
     @Test
+    @DisplayName("管理向け詳細は下書きのまま曲目をチューン構成つきで返す")
+    void adminDetailReturnsTracksWithTunes() {
+        final var albumId = createDraftAlbum("管理Query曲目");
+        authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"trackNo\":1,\"title\":\"1曲目\",\"tunes\":["
+                                + "{\"seq\":1,\"tuneTitle\":\"チューン1\",\"arrangerCreditOverride\":\"Arranger\"}]}")
+                .when().post("/api/v1/albums/" + albumId + "/tracks").then().statusCode(201);
+
+        authorized().when().get("/api/v1/admin/albums/" + albumId).then().statusCode(200)
+                .body("publishedAt", nullValue()).body("tracks[0].title", equalTo("1曲目"))
+                .body("tracks[0].tunes[0].tuneTitle", equalTo("チューン1"))
+                .body("tracks[0].tunes[0].arrangerCreditOverride", equalTo("Arranger"));
+    }
+
+    @Test
     @DisplayName("存在しないIDの管理向け詳細は404 problem+jsonを返す")
     void adminDetailNotFound() {
         authorized().when().get("/api/v1/admin/albums/01234567-89ab-7def-0123-456789abcdef").then().statusCode(404)

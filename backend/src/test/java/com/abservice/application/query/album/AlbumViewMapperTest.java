@@ -4,7 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 
 import com.abservice.application.query.album.model.AlbumView.ExternalAudioView;
+import com.abservice.application.query.album.model.AlbumView.TrackTuneView;
+import com.abservice.application.query.album.model.AlbumView.TrackView;
 import com.abservice.infrastructure.persistence.datasource.AlbumExternalAudioRow;
+import com.abservice.infrastructure.persistence.datasource.AlbumTrackRow;
+import com.abservice.infrastructure.persistence.datasource.AlbumTrackTuneRow;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
 import java.time.LocalDate;
 import java.util.List;
@@ -57,7 +61,8 @@ class AlbumViewMapperTest {
                                 1L,
                                 "0192f8a0-0000-7000-8000-0000000000a1",
                                 1,
-                                "https://soundcloud.com/example/first")));
+                                "https://soundcloud.com/example/first")),
+                List.of());
 
         // Assert
         assertThat(view.albumId()).isEqualTo("0192f8a0-0000-7000-8000-000000000000");
@@ -107,6 +112,7 @@ class AlbumViewMapperTest {
         final var view = AlbumViewMapper.toView(
                 entity,
                 ASSET_BASE_PATH,
+                List.of(),
                 List.of());
 
         // Assert
@@ -120,5 +126,73 @@ class AlbumViewMapperTest {
         assertThat(view.eventNote()).isNull();
         assertThat(view.coverImageUrl()).isNull();
         assertThat(view.externalAudios()).isEmpty();
+        assertThat(view.tracks()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("トラックはトラック番号の昇順、チューン構成は登場順の昇順で写像する")
+    void toTrackViewsShouldSortByTrackNoAndSeq() {
+        // Arrange
+        final var firstTrackId = "0192f8a0-0000-7000-8000-0000000000b1";
+        final var secondTrackId = "0192f8a0-0000-7000-8000-0000000000b2";
+
+        // Act
+        final var tracks = AlbumViewMapper.toTrackViews(
+                List.of(
+                        new AlbumTrackRow(
+                                secondTrackId,
+                                2,
+                                "2曲目",
+                                null,
+                                null),
+                        new AlbumTrackRow(
+                                firstTrackId,
+                                1,
+                                "1曲目",
+                                "トラックアーティスト",
+                                "track-artist")),
+                List.of(
+                        new AlbumTrackTuneRow(
+                                firstTrackId,
+                                2,
+                                "チューン2",
+                                null,
+                                null,
+                                null),
+                        new AlbumTrackTuneRow(
+                                firstTrackId,
+                                1,
+                                "チューン1",
+                                "Trad.",
+                                "Arranger",
+                                "https://example.com/tune")));
+
+        // Assert
+        assertThat(tracks).extracting(TrackView::trackNo, TrackView::title)
+                .containsExactly(
+                        tuple(1, "1曲目"),
+                        tuple(2, "2曲目"));
+        assertThat(tracks.getFirst().artistDisplayName()).isEqualTo("トラックアーティスト");
+        assertThat(tracks.getFirst().tunes())
+                .extracting(
+                        TrackTuneView::seq,
+                        TrackTuneView::tuneTitle,
+                        TrackTuneView::composerCreditOverride,
+                        TrackTuneView::arrangerCreditOverride,
+                        TrackTuneView::linkUrl)
+                .containsExactly(
+                        tuple(
+                                1,
+                                "チューン1",
+                                "Trad.",
+                                "Arranger",
+                                "https://example.com/tune"),
+                        tuple(
+                                2,
+                                "チューン2",
+                                null,
+                                null,
+                                null));
+        assertThat(tracks.getLast().tunes()).isEmpty();
     }
 }
