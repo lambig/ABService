@@ -97,9 +97,16 @@ class AlbumAdminQueryRestIntegrationTest {
                                 + "\"artistSortKey\":\"とらっくあーてぃすと\"}")
                 .when().post("/api/v1/albums/" + albumId + "/tracks").then().statusCode(201);
 
+        authorized().contentType(ContentType.JSON)
+                .body("{\"url\":\"https://soundcloud.com/example/admin-key-check\"}")
+                .when().post("/api/v1/albums/" + albumId + "/external-audios").then().statusCode(201);
+
         authorized().when().get("/api/v1/admin/albums/" + albumId).then().statusCode(200)
                 .body("artistSortKey", equalTo("てすとあーてぃすと"))
-                .body("tracks[0].artistSortKey", equalTo("とらっくあーてぃすと"));
+                .body("tracks[0].artistSortKey", equalTo("とらっくあーてぃすと"))
+                // 編集対象を同定するためのIDは管理向けにだけ現れる
+                .body("tracks[0]", hasKey("trackId"))
+                .body("externalAudios[0]", hasKey("externalAudioId"));
     }
 
     @Test

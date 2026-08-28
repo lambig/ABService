@@ -7,8 +7,8 @@ import org.jspecify.annotations.Nullable;
  * 管理向けトラック1件（REST の公開出力契約）
  *
  * <p>
- * 編集フォームが扱う項目を持つ。公開向け（{@link PublicTrackResponse}）との違いはアーティストソートキーを返すことで、
- * これは編集者が入力する値のため管理向けにだけ現れる。
+ * 編集フォームが扱う項目を持つ。公開向け（{@link PublicTrackResponse}）との違いはトラックIDとアーティストソートキーを
+ * 返すことで、前者は編集対象を同定するため、後者は編集者が入力する値のため、いずれも管理向けにだけ現れる。
  * </p>
  *
  * @param trackId

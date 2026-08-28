@@ -290,8 +290,9 @@ class AlbumRestIntegrationTest {
                 .body("tracks[0].tunes[0].composerCreditOverride", equalTo("Trad."))
                 .body("tracks[0].tunes[1].tuneTitle", equalTo("チューン2"))
                 .body("tracks[0].tunes[1].composerCreditOverride", nullValue())
-                // トラックのソートキーも編集のための値のため、公開向けには現れない
-                .body("tracks[0]", not(hasKey("artistSortKey")));
+                // ソートキーは編集のための値、トラックIDは編集対象を同定するための値のため、公開向けには現れない
+                .body("tracks[0]", not(hasKey("artistSortKey")))
+                .body("tracks[0]", not(hasKey("trackId")));
     }
 
     @Test
@@ -316,6 +317,9 @@ class AlbumRestIntegrationTest {
     @DisplayName("公開向け詳細は概要説明と外部音源を返し、編集のための項目名は返さない")
     void publicDetailOmitsEditingOnlyKeys() {
         final String albumId = createAlbum("詳細項目確認アルバム");
+        authorized().contentType(ContentType.JSON)
+                .body("{\"url\":\"https://soundcloud.com/example/detail-key-check\"}")
+                .when().post("/api/v1/albums/" + albumId + "/external-audios").then().statusCode(201);
         authorized().when().post("/api/v1/albums/" + albumId + "/publish").then().statusCode(200);
 
         given().when().get("/api/v1/albums/" + albumId).then().statusCode(200)
@@ -323,6 +327,9 @@ class AlbumRestIntegrationTest {
                 .body("$", hasKey("descriptionFormat"))
                 .body("$", hasKey("externalAudios"))
                 .body("$", not(hasKey("artistSortKey")))
+                .body("externalAudios[0].url", equalTo("https://soundcloud.com/example/detail-key-check"))
+                // 外部音源IDは管理画面が削除・並び替えの対象を同定するための値のため、公開向けには現れない
+                .body("externalAudios[0]", not(hasKey("externalAudioId")))
                 .body("publishedAt", notNullValue());
     }
 

@@ -6,11 +6,12 @@ import com.abservice.application.query.album.model.AlbumView;
 import com.abservice.presentation.rest.album.response.AdminAlbumDetailResponse;
 import com.abservice.presentation.rest.album.response.AdminAlbumListResponse;
 import com.abservice.presentation.rest.album.response.AdminAlbumResponse;
+import com.abservice.presentation.rest.album.response.AdminExternalAudioResponse;
 import com.abservice.presentation.rest.album.response.AdminTrackResponse;
-import com.abservice.presentation.rest.album.response.ExternalAudioResponse;
 import com.abservice.presentation.rest.album.response.PublicAlbumDetailResponse;
 import com.abservice.presentation.rest.album.response.PublicAlbumListResponse;
 import com.abservice.presentation.rest.album.response.PublicAlbumResponse;
+import com.abservice.presentation.rest.album.response.PublicExternalAudioResponse;
 import com.abservice.presentation.rest.album.response.PublicTrackResponse;
 import com.abservice.presentation.rest.album.response.TrackTuneResponse;
 import com.abservice.presentation.rest.exception.ProblemDetail;
@@ -146,7 +147,7 @@ final class AlbumQueryResponses {
                 view.eventNote(),
                 publicPublishedAt(view),
                 view.coverImageUrl(),
-                toExternalAudioResponses(view),
+                toPublicExternalAudioResponses(view),
                 toPublicTrackResponses(view));
     }
 
@@ -185,7 +186,7 @@ final class AlbumQueryResponses {
                 view.eventNote(),
                 view.publishedAt(),
                 view.coverImageUrl(),
-                toExternalAudioResponses(view),
+                toAdminExternalAudioResponses(view),
                 toAdminTrackResponses(view));
     }
 
@@ -220,7 +221,6 @@ final class AlbumQueryResponses {
         return view.tracks().stream()
                 .map(
                         track -> new PublicTrackResponse(
-                                track.trackId(),
                                 track.trackNo(),
                                 track.title(),
                                 track.artistDisplayName(),
@@ -253,10 +253,19 @@ final class AlbumQueryResponses {
                 .toList();
     }
 
-    private static List<ExternalAudioResponse> toExternalAudioResponses(AlbumView view) {
+    private static List<PublicExternalAudioResponse> toPublicExternalAudioResponses(AlbumView view) {
         return view.externalAudios().stream()
                 .map(
-                        audio -> new ExternalAudioResponse(
+                        audio -> new PublicExternalAudioResponse(
+                                audio.displayOrder(),
+                                audio.url()))
+                .toList();
+    }
+
+    private static List<AdminExternalAudioResponse> toAdminExternalAudioResponses(AlbumView view) {
+        return view.externalAudios().stream()
+                .map(
+                        audio -> new AdminExternalAudioResponse(
                                 audio.externalAudioId(),
                                 audio.displayOrder(),
                                 audio.url()))

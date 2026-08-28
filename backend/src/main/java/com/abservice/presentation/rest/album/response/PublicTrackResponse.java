@@ -8,11 +8,10 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>
  * 公開サイトが曲目に出すのはトラック番号・タイトル・アーティスト名義と、セット内のチューン構成だけ。アーティストソートキーは
- * 並べ替えのための値で公開サイトは表示にも並びにも使わないため、項目名自体を持たない。
+ * 並べ替えのための値で公開サイトは表示にも並びにも使わないため、項目名自体を持たない。トラックIDも同様で、編集対象を
+ * 同定するための値であり、アルバム内の識別はトラック番号で足りる。
  * </p>
  *
- * @param trackId
- *            トラックID（UUIDv7形式の文字列）
  * @param trackNo
  *            アルバム内のトラック番号
  * @param title
@@ -23,7 +22,6 @@ import org.jspecify.annotations.Nullable;
  *            チューン構成の一覧。登場順の昇順
  */
 public record PublicTrackResponse(
-        String trackId,
         int trackNo,
         String title,
         @Nullable String artistDisplayName,

@@ -67,6 +67,6 @@ public record PublicAlbumDetailResponse(
         @Nullable String eventNote,
         Instant publishedAt,
         @Nullable String coverImageUrl,
-        List<ExternalAudioResponse> externalAudios,
+        List<PublicExternalAudioResponse> externalAudios,
         List<PublicTrackResponse> tracks) {
 }

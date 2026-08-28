@@ -66,6 +66,6 @@ public record AdminAlbumDetailResponse(
         @Nullable String eventNote,
         @Nullable Instant publishedAt,
         @Nullable String coverImageUrl,
-        List<ExternalAudioResponse> externalAudios,
+        List<AdminExternalAudioResponse> externalAudios,
         List<AdminTrackResponse> tracks) {
 }
