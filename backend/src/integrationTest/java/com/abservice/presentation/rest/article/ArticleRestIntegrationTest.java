@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -127,8 +128,8 @@ class ArticleRestIntegrationTest {
     }
 
     @Test
-    @DisplayName("アルバム参照を持てない種別の詳細応答には、参照に関わる項目名自体が現れない")
-    void plainArticleResponseOmitsAlbumReferenceKeys() {
+    @DisplayName("アルバム参照を持てない種別の公開向け詳細には、参照に関わる項目名自体が現れない")
+    void publicPlainArticleDetailOmitsAlbumReferenceKeys() {
         final String articleId = authorized().contentType(ContentType.JSON)
                 .body("{\"articleType\":\"NOTE\",\"title\":\"キー省略確認記事\"}").when().post("/api/v1/articles").then()
                 .statusCode(201).extract().path("articleId");
@@ -141,17 +142,14 @@ class ArticleRestIntegrationTest {
                 .body("$", not(hasKey("formerAlbumId")))
                 .body("$", not(hasKey("albumReferenceLostAt")))
                 .body("$", not(hasKey("albumReferenceLostReason")))
-                // 値が無いことを表す null はキーを出す（項目名を落とすのは種別が概念を持たない場合だけ）
-                .body("$", hasKey("introShort"))
-                .body("introShort", nullValue())
                 // 本文は「無い」ことがあり得ない項目のため、指定しなくても空文字列で返る
                 .body("body", equalTo(""))
                 .body("bodyFormat", equalTo("PLAIN_TEXT"));
     }
 
     @Test
-    @DisplayName("アルバム記事の詳細応答は、参照が無くても参照に関わる項目名を持つ")
-    void albumArticleResponseKeepsAlbumReferenceKeys() {
+    @DisplayName("アルバム記事の公開向け詳細は参照先への導線だけを持ち、失効に関わる項目名は持たない")
+    void publicAlbumArticleDetailKeepsOnlyAlbumId() {
         final String articleId = authorized().contentType(ContentType.JSON)
                 .body("{\"articleType\":\"ALBUM\",\"title\":\"キー保持確認記事\"}").when().post("/api/v1/articles").then()
                 .statusCode(201).extract().path("articleId");
@@ -160,11 +158,54 @@ class ArticleRestIntegrationTest {
 
         given().when().get("/api/v1/articles/" + articleId).then().statusCode(200)
                 .body("articleType", equalTo("ALBUM"))
+                // 参照を持たないことは値が無いこととして表すため、キーは出す
                 .body("$", hasKey("albumId"))
                 .body("albumId", nullValue())
-                .body("$", hasKey("formerAlbumId"))
-                .body("$", hasKey("albumReferenceLostAt"))
-                .body("$", hasKey("albumReferenceLostReason"));
+                // 公開中の記事の参照は失効し得ない（非公開化してから失効する）ため、項目名自体を出さない
+                .body("$", not(hasKey("formerAlbumId")))
+                .body("$", not(hasKey("albumReferenceLostAt")))
+                .body("$", not(hasKey("albumReferenceLostReason")));
+    }
+
+    @Test
+    @DisplayName("公開向け詳細には、管理画面のための項目名が現れない")
+    void publicArticleDetailOmitsAdminOnlyKeys() {
+        final String articleId = authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"articleType\":\"NOTE\",\"title\":\"公開契約確認記事\",\"body\":\"本文\","
+                                + "\"bodyFormat\":\"MARKDOWN\",\"introShort\":\"概要\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("articleId");
+
+        authorized().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(200);
+
+        given().when().get("/api/v1/articles/" + articleId).then().statusCode(200)
+                // 公開APIは公開中のものしか返さないため、公開状態を表す項目名を持たない
+                .body("$", not(hasKey("publicFlag")))
+                // 業務上の更新日時は編集の作業順を見るためのもので、公開サイトは使わない
+                .body("$", not(hasKey("updatedAtBusiness")))
+                // ショート紹介文はトップ・一覧のカードで使う
+                .body("$", not(hasKey("introShort")))
+                .body("body", equalTo("本文"))
+                .body("publishedAt", notNullValue());
+    }
+
+    @Test
+    @DisplayName("公開向け一覧は本文を返さず、カードが使うショート紹介文を返す")
+    void publicArticleListReturnsCardFields() {
+        final String articleId = authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"articleType\":\"NOTE\",\"title\":\"一覧契約確認記事\",\"body\":\"本文\","
+                                + "\"bodyFormat\":\"MARKDOWN\",\"introShort\":\"カード用概要\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("articleId");
+
+        authorized().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(200);
+
+        final String item = "items.find { it.articleId == '" + articleId + "' }";
+        given().when().get("/api/v1/articles?page=0&size=100").then().statusCode(200)
+                .body(item + ".introShort", equalTo("カード用概要"))
+                .body(item, not(hasKey("body")))
+                .body(item, not(hasKey("bodyFormat")))
+                .body(item, not(hasKey("publicFlag")));
     }
 
     @Test
@@ -244,8 +285,7 @@ class ArticleRestIntegrationTest {
         // 参照を持てない種別になったため、参照に関わる項目名が応答から消える
         given().when().get("/api/v1/articles/" + articleId).then().statusCode(200)
                 .body("articleType", equalTo("NOTE"))
-                .body("$", not(hasKey("albumId")))
-                .body("$", not(hasKey("formerAlbumId")));
+                .body("$", not(hasKey("albumId")));
 
         // 子行が残っていれば、公開中のこの記事がアルバム非公開化のカスケード対象として拾われてしまう
         authorized().when().post("/api/v1/albums/" + albumId + "/unpublish").then().statusCode(200)

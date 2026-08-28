@@ -24,10 +24,10 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>
  * 下書き（未公開）を含めた全記事の詳細照会（GET）と一覧照会（GET、ページネーション付き）を受け付ける。管理画面が公開前の記事を
- * 編集・確認するための経路であり、管理者ロール（{@code Authorization: Bearer <APIキー>}）を要求する。応答表現は
- * 公開向け（{@link ArticleQueryResource}）と同一で、{@code publicFlag} が false
- * のものが下書き。未存在は 例外ではなく {@link GetArticleResult.NotFound} として扱い、404 を RFC 9457
- * Problem Details （{@code application/problem+json}）で返す。
+ * 編集・確認するための経路であり、管理者ロール（{@code Authorization: Bearer <APIキー>}）を要求する。応答は
+ * 管理画面が使う項目を持ち、公開向け（{@link ArticleQueryResource}）とは項目が異なる。{@code publicFlag} が
+ * false のものが下書き。未存在は例外ではなく {@link GetArticleResult.NotFound} として扱い、404 を RFC
+ * 9457 Problem Details （{@code application/problem+json}）で返す。
  * </p>
  */
 @Path("/api/v1/admin/articles")
@@ -63,7 +63,7 @@ public class ArticleAdminQueryResource {
                 new GetArticleQuery(
                         id,
                         Audience.ADMIN))
-                .map(result -> ArticleQueryResponses.toResponse(result, id));
+                .map(result -> ArticleQueryResponses.toAdminResponse(result, id));
     }
 
     /**
@@ -93,6 +93,6 @@ public class ArticleAdminQueryResource {
                         Audience.ADMIN,
                         sort,
                         direction))
-                .map(ArticleQueryResponses::toListResponse);
+                .map(ArticleQueryResponses::toAdminListResponse);
     }
 }

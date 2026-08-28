@@ -22,7 +22,8 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>
  * 記事の詳細照会（GET）と一覧照会（GET、ページネーション付き）を認証不要で受け付ける。公開中の記事のみを対象とし、下書きは
- * 未存在として扱う（下書きを含む照会は {@link ArticleAdminQueryResource}）。未存在は例外ではなく
+ * 未存在として扱う（下書きを含む照会は {@link ArticleAdminQueryResource}）。応答は公開サイトが使う項目だけを持ち、
+ * 公開側で起こり得ないこと（下書き・参照の失効）のための項目名は出さない。未存在は例外ではなく
  * {@link GetArticleResult.NotFound} として扱い、404 を RFC 9457 Problem Details
  * （{@code application/problem+json}）で返す。
  * </p>
@@ -59,7 +60,7 @@ public class ArticleQueryResource {
                 new GetArticleQuery(
                         id,
                         Audience.PUBLIC))
-                .map(result -> ArticleQueryResponses.toResponse(result, id));
+                .map(result -> ArticleQueryResponses.toPublicResponse(result, id));
     }
 
     /**
@@ -89,6 +90,6 @@ public class ArticleQueryResource {
                         Audience.PUBLIC,
                         sort,
                         direction))
-                .map(ArticleQueryResponses::toListResponse);
+                .map(ArticleQueryResponses::toPublicListResponse);
     }
 }

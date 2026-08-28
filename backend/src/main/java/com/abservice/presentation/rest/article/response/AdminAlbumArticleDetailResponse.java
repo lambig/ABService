@@ -4,7 +4,7 @@ import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
 /**
- * アルバム紹介記事の詳細レスポンス（REST の公開出力契約）
+ * 管理向けアルバム紹介記事の詳細レスポンス（REST の公開出力契約）
  *
  * <p>
  * アルバムへの参照に関わる4項目を持つ唯一の種別。参照の状態（なし・有効・失効）は値の組み合わせで表す。
@@ -23,7 +23,7 @@ import org.jspecify.annotations.Nullable;
  * @param introShort
  *            一覧表示用のショート紹介文（nullable）
  * @param publishedAt
- *            公開日時（nullable。UTC）
+ *            公開日時（nullable。null は下書き。UTC）
  * @param updatedAtBusiness
  *            業務上の更新日時（nullable。UTC）
  * @param publicFlag
@@ -37,7 +37,7 @@ import org.jspecify.annotations.Nullable;
  * @param albumReferenceLostReason
  *            失効の理由コード（nullable。表示文言はクライアントが決める）
  */
-public record AlbumArticleResponse(
+public record AdminAlbumArticleDetailResponse(
         String articleId,
         String articleType,
         String title,
@@ -50,5 +50,5 @@ public record AlbumArticleResponse(
         @Nullable String albumId,
         @Nullable String formerAlbumId,
         @Nullable Instant albumReferenceLostAt,
-        @Nullable String albumReferenceLostReason) implements ArticleResponse {
+        @Nullable String albumReferenceLostReason) implements AdminArticleDetailResponse {
 }
