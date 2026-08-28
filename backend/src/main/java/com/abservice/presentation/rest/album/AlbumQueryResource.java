@@ -22,9 +22,9 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>
  * アルバムの詳細照会（GET）と一覧照会（GET、ページネーション付き）を認証不要で受け付ける。公開中のアルバムのみを対象とし、
- * 下書きは未存在として扱う（下書きを含む照会は {@link AlbumAdminQueryResource}）。未存在は例外ではなく
- * {@link GetAlbumResult.NotFound} として扱い、404 を RFC 9457 Problem Details
- * （{@code application/problem+json}）で返す。
+ * 下書きは未存在として扱う（下書きを含む照会は {@link AlbumAdminQueryResource}）。応答は公開サイトが使う項目だけを
+ * 持ち、編集のための項目（アーティストソートキー）は出さない。未存在は例外ではなく {@link GetAlbumResult.NotFound}
+ * として扱い、404 を RFC 9457 Problem Details （{@code application/problem+json}）で返す。
  * </p>
  */
 @Path("/api/v1/albums")
@@ -59,7 +59,7 @@ public class AlbumQueryResource {
                 new GetAlbumQuery(
                         id,
                         Audience.PUBLIC))
-                .map(result -> AlbumQueryResponses.toResponse(result, id));
+                .map(result -> AlbumQueryResponses.toPublicResponse(result, id));
     }
 
     /**
@@ -89,6 +89,6 @@ public class AlbumQueryResource {
                         Audience.PUBLIC,
                         sort,
                         direction))
-                .map(AlbumQueryResponses::toListResponse);
+                .map(AlbumQueryResponses::toPublicListResponse);
     }
 }

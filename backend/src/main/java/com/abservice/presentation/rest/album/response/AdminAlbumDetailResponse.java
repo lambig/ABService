@@ -5,7 +5,12 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
- * アルバム詳細レスポンス（REST の公開出力契約）
+ * 管理向けアルバム詳細レスポンス（REST の公開出力契約）
+ *
+ * <p>
+ * 管理画面の編集フォームが扱う項目をすべて持つ。公開向け（{@link PublicAlbumDetailResponse}）との違いは、
+ * 編集者が入力するアーティストソートキーを返すことと、下書きを表す {@code publishedAt} の null を返し得ることである。
+ * </p>
  *
  * @param albumId
  *            アルバムID（UUIDv7形式の文字列）
@@ -41,8 +46,10 @@ import org.jspecify.annotations.Nullable;
  *            カバー画像の配信URL（nullable。サイト相対。登録時に渡すのは配信URLではなくアセットキー）
  * @param externalAudios
  *            外部音源（外部サービスの埋め込み元URL）の一覧。表示順の昇順
+ * @param tracks
+ *            曲目（トラック）の一覧。トラック番号の昇順
  */
-public record AlbumResponse(
+public record AdminAlbumDetailResponse(
         String albumId,
         String title,
         String releaseDate,
@@ -59,18 +66,6 @@ public record AlbumResponse(
         @Nullable String eventNote,
         @Nullable Instant publishedAt,
         @Nullable String coverImageUrl,
-        List<ExternalAudioResponse> externalAudios) {
-
-    /**
-     * 外部音源1件（REST の公開出力契約）
-     *
-     * @param externalAudioId
-     *            外部音源ID（UUIDv7形式の文字列）
-     * @param displayOrder
-     *            アルバム内での表示順（1, 2, 3, ...）
-     * @param url
-     *            埋め込み元URL
-     */
-    public record ExternalAudioResponse(String externalAudioId, int displayOrder, String url) {
-    }
+        List<AdminExternalAudioResponse> externalAudios,
+        List<AdminTrackResponse> tracks) {
 }

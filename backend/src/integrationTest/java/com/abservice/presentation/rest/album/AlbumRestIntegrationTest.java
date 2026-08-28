@@ -7,6 +7,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 import io.quarkus.test.junit.QuarkusTest;
@@ -288,17 +289,48 @@ class AlbumRestIntegrationTest {
                 .body("tracks[0].tunes[0].tuneTitle", equalTo("チューン1"))
                 .body("tracks[0].tunes[0].composerCreditOverride", equalTo("Trad."))
                 .body("tracks[0].tunes[1].tuneTitle", equalTo("チューン2"))
-                .body("tracks[0].tunes[1].composerCreditOverride", nullValue());
+                .body("tracks[0].tunes[1].composerCreditOverride", nullValue())
+                // ソートキーは編集のための値、トラックIDは編集対象を同定するための値のため、公開向けには現れない
+                .body("tracks[0]", not(hasKey("artistSortKey")))
+                .body("tracks[0]", not(hasKey("trackId")));
     }
 
     @Test
-    @DisplayName("一覧は曲目の項目自体を返さない")
-    void listDoesNotReturnTracks() {
-        final String albumId = createAlbum("一覧曲目非返却確認アルバム");
+    @DisplayName("公開向け一覧は作品を選ぶための項目だけを返す")
+    void publicListReturnsOnlySelectionFields() {
+        final String albumId = createAlbum("一覧項目確認アルバム");
         authorized().when().post("/api/v1/albums/" + albumId + "/publish").then().statusCode(200);
 
+        final String item = "items.find { it.albumId == '" + albumId + "' }";
         given().when().get("/api/v1/albums?page=0&size=100").then().statusCode(200)
-                .body("items[0]", not(hasKey("tracks")));
+                .body(item + ".title", equalTo("一覧項目確認アルバム"))
+                // 曲目・概要説明・外部音源は詳細で返す。概要説明は長さに制限がなくカードが崩れる
+                .body(item, not(hasKey("tracks")))
+                .body(item, not(hasKey("description")))
+                .body(item, not(hasKey("descriptionFormat")))
+                .body(item, not(hasKey("externalAudios")))
+                // ソートキーは編集のための値で、公開サイトは表示にも並びにも使わない
+                .body(item, not(hasKey("artistSortKey")));
+    }
+
+    @Test
+    @DisplayName("公開向け詳細は概要説明と外部音源を返し、編集のための項目名は返さない")
+    void publicDetailOmitsEditingOnlyKeys() {
+        final String albumId = createAlbum("詳細項目確認アルバム");
+        authorized().contentType(ContentType.JSON)
+                .body("{\"url\":\"https://soundcloud.com/example/detail-key-check\"}")
+                .when().post("/api/v1/albums/" + albumId + "/external-audios").then().statusCode(201);
+        authorized().when().post("/api/v1/albums/" + albumId + "/publish").then().statusCode(200);
+
+        given().when().get("/api/v1/albums/" + albumId).then().statusCode(200)
+                .body("$", hasKey("description"))
+                .body("$", hasKey("descriptionFormat"))
+                .body("$", hasKey("externalAudios"))
+                .body("$", not(hasKey("artistSortKey")))
+                .body("externalAudios[0].url", equalTo("https://soundcloud.com/example/detail-key-check"))
+                // 外部音源IDは管理画面が削除・並び替えの対象を同定するための値のため、公開向けには現れない
+                .body("externalAudios[0]", not(hasKey("externalAudioId")))
+                .body("publishedAt", notNullValue());
     }
 
     @Test

@@ -3,10 +3,10 @@ package com.abservice.presentation.rest.album.response;
 import java.util.List;
 
 /**
- * アルバム一覧レスポンス（REST の公開出力契約）
+ * 公開向けアルバム一覧レスポンス（REST の公開出力契約）
  *
  * @param items
- *            このページ分のアルバム詳細レスポンス
+ *            このページ分のアルバム（一覧表示用の項目のみ）
  * @param page
  *            ページ番号（0始まり）
  * @param size
@@ -16,8 +16,8 @@ import java.util.List;
  * @param totalPages
  *            総ページ数
  */
-public record AlbumListResponse(
-        List<AlbumResponse> items,
+public record PublicAlbumListResponse(
+        List<PublicAlbumResponse> items,
         int page,
         int size,
         long totalElements,

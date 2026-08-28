@@ -25,9 +25,9 @@ import org.jspecify.annotations.Nullable;
  * <p>
  * 下書き（未公開）を含めた全アルバムの詳細照会（GET）と一覧照会（GET、ページネーション付き）を受け付ける。管理画面が公開前の
  * アルバムを編集・確認するための経路であり、管理者ロール（{@code Authorization: Bearer <APIキー>}）を要求する。
- * 応答表現は公開向け（{@link AlbumQueryResource}）と同一で、{@code publishedAt} が null のものが下書き。
- * 未存在は例外ではなく {@link GetAlbumResult.NotFound} として扱い、404 を RFC 9457 Problem
- * Details （{@code application/problem+json}）で返す。
+ * 応答は編集フォームが使う項目を持ち、公開向け（{@link AlbumQueryResource}）とは項目が異なる。{@code publishedAt}
+ * が null のものが下書き。未存在は例外ではなく {@link GetAlbumResult.NotFound} として扱い、404 を RFC
+ * 9457 Problem Details （{@code application/problem+json}）で返す。
  * </p>
  */
 @Path("/api/v1/admin/albums")
@@ -63,7 +63,7 @@ public class AlbumAdminQueryResource {
                 new GetAlbumQuery(
                         id,
                         Audience.ADMIN))
-                .map(result -> AlbumQueryResponses.toResponse(result, id));
+                .map(result -> AlbumQueryResponses.toAdminResponse(result, id));
     }
 
     /**
@@ -93,6 +93,6 @@ public class AlbumAdminQueryResource {
                         Audience.ADMIN,
                         sort,
                         direction))
-                .map(AlbumQueryResponses::toListResponse);
+                .map(AlbumQueryResponses::toAdminListResponse);
     }
 }

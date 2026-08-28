@@ -79,8 +79,8 @@ class AlbumListSortRestIntegrationTest {
     }
 
     @Test
-    @DisplayName("管理向けのキーを公開向けAPIに指定すると400 problem+jsonを返す")
-    void adminOnlyKeyIsRejectedOnPublicApi() {
+    @DisplayName("監査列のキーは公開向けAPIでは使えない")
+    void auditColumnKeyIsRejectedOnPublicApi() {
         given().queryParam("sort", "updatedAt").when().get("/api/v1/albums").then().statusCode(400)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:VALIDATION_ERROR"))
@@ -88,10 +88,19 @@ class AlbumListSortRestIntegrationTest {
                 .body("errors[0].code", equalTo("SORT_KEY_NOT_USABLE"));
     }
 
+    /*
+     * 監査列は記録のための列であり、業務文脈の並び順には使わない（#197）。管理向けにも開けないことを固定する。
+     */
     @Test
-    @DisplayName("管理向けAPIでは更新日時で並べられる")
-    void adminOnlyKeyIsAcceptedOnAdminApi() {
-        authorized().queryParam("sort", "updatedAt").when().get("/api/v1/admin/albums").then().statusCode(200);
+    @DisplayName("監査列のキーは管理向けAPIでも使えない")
+    void auditColumnKeyIsRejectedOnAdminApi() {
+        authorized().queryParam("sort", "updatedAt").when().get("/api/v1/admin/albums").then().statusCode(400)
+                .contentType("application/problem+json")
+                .body("errors[0].field", equalTo("sort"))
+                .body("errors[0].code", equalTo("SORT_KEY_NOT_USABLE"));
+
+        authorized().queryParam("sort", "createdAt").when().get("/api/v1/admin/albums").then().statusCode(400)
+                .body("errors[0].code", equalTo("SORT_KEY_NOT_USABLE"));
     }
 
     @Test
