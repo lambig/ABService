@@ -5,6 +5,7 @@ import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.entity.DomainEntity;
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.lib.ErrorResult;
+import com.abservice.lib.Result;
 import java.util.Objects;
 import java.util.function.Function;
 import lombok.EqualsAndHashCode;
@@ -32,20 +33,34 @@ public final class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@No
     @NonNull
     private final String name;
 
+    /** タグ名の最大長（{@code article_tag.name} カラムの上限に一致） */
+    private static final int MAX_NAME_LENGTH = 100;
+
     private ArticleTag(@NonNull Id id, @NonNull String name) {
         this.id = id;
         this.name = name;
     }
 
     private static @NonNull ArticleTag factory(@Nullable Id id, @Nullable String name) {
-        return Policy.<Stub>of(
-                self -> StringUtils.isNotBlank(self.name()),
-                () -> new ErrorResult(
-                        "name",
-                        "Tag name cannot be blank",
-                        "TAG_NAME_REQUIRED"))
-                .verify(new Stub(id, name), Stub::asArticleTag)
+        return namePolicy()
+                .verify(name, validName -> new Stub(id, validName).asArticleTag())
                 .resolve(Policy::illegalArgument);
+    }
+
+    private static Policy<String> namePolicy() {
+        return Policy.all(
+                Policy.of(
+                        StringUtils::isNotBlank,
+                        () -> new ErrorResult(
+                                "name",
+                                "Tag name cannot be blank",
+                                "TAG_NAME_REQUIRED")),
+                Policy.of(
+                        (String value) -> StringUtils.length(value) <= MAX_NAME_LENGTH,
+                        () -> new ErrorResult(
+                                "name",
+                                "タグ名は" + MAX_NAME_LENGTH + "文字以内です",
+                                "TAG_NAME_TOO_LONG")));
     }
 
     @NullUnmarked
@@ -70,6 +85,22 @@ public final class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@No
     }
 
     /**
+     * 外部入力（文字列）から新規タグを生成します。
+     *
+     * <p>
+     * 例外をスローせず、検証結果を {@link Result} で返します。未指定や最大長超過は {@code Failure} として返します。
+     * 信頼できる内部生成には {@link #create(String)} を使用してください。
+     * </p>
+     *
+     * @param name
+     *            タグ名を表す文字列
+     * @return 成功時は {@code ArticleTag}、失敗時はエラー
+     */
+    public static Result<ArticleTag> fromInput(@Nullable String name) {
+        return namePolicy().verify(name, ArticleTag::create);
+    }
+
+    /**
      * 永続化層からの再構成
      *
      * @param id
@@ -90,7 +121,13 @@ public final class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@No
      */
     public record Id(@NonNull String value) implements EntityId<ArticleTag> {
         public Id {
-            Policy.<String>all(
+            idPolicy(value)
+                    .verify(value, Function.identity())
+                    .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
+        }
+
+        private static Policy<String> idPolicy(@Nullable String value) {
+            return Policy.all(
                     Policy.of(
                             StringUtils::isNotBlank,
                             () -> new ErrorResult(
@@ -102,9 +139,7 @@ public final class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@No
                             () -> new ErrorResult(
                                     "value",
                                     "ArticleTag ID must be a valid UUID: " + value,
-                                    "ID_INVALID_UUID")))
-                    .verify(value, Function.identity())
-                    .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
+                                    "ID_INVALID_UUID")));
         }
 
         /**
@@ -125,6 +160,23 @@ public final class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@No
          */
         public static @NonNull Id of(@NonNull String value) {
             return new Id(value);
+        }
+
+        /**
+         * 外部入力（文字列）からArticleTag.Idを生成します。
+         *
+         * <p>
+         * 例外をスローせず、検証結果を {@link Result} で返します。信頼できる内部生成には {@link #of(String)}
+         * を使用してください。
+         * </p>
+         *
+         * @param value
+         *            ID値を表す文字列
+         * @return 成功時は {@code Id}、失敗時はエラー
+         */
+        public static Result<Id> fromInput(@Nullable String value) {
+            return idPolicy(value)
+                    .verify(value, Id::new);
         }
     }
 

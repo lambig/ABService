@@ -1,6 +1,7 @@
 package com.abservice.presentation.rest.article.response;
 
 import java.time.Instant;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -85,4 +86,15 @@ public sealed interface AdminArticleDetailResponse
      * @return 公開中なら true
      */
     boolean publicFlag();
+
+    /**
+     * 記事に付いたタグの一覧（名前の昇順）
+     *
+     * <p>
+     * 管理画面はタグを外す対象を同定するため、名前に加えてタグIDを返す。
+     * </p>
+     *
+     * @return タグの一覧
+     */
+    List<AdminArticleTagResponse> tags();
 }

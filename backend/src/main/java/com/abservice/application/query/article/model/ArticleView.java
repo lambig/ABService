@@ -1,6 +1,7 @@
 package com.abservice.application.query.article.model;
 
 import java.time.Instant;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -13,7 +14,7 @@ import org.jspecify.annotations.Nullable;
  * </p>
  *
  * <p>
- * タグは記事タグ連携（#39）が未実装のため本 DTO には含めません（連携実装時に追加）。
+ * タグを埋めるのは詳細照会だけです。一覧照会では空になります（一覧はタグを出さず、タグを引く JOIN も発行しません）。
  * </p>
  *
  * @param articleId
@@ -42,6 +43,8 @@ import org.jspecify.annotations.Nullable;
  *            アルバム参照が失効した日時（nullable。UTC の {@link Instant}）
  * @param albumReferenceLostReason
  *            失効の理由コード（nullable。表示文言は利用側が決める）
+ * @param tags
+ *            記事に付いたタグの一覧。名前の昇順（詳細照会のみ。一覧照会では空）
  */
 public record ArticleView(
         String articleId,
@@ -56,5 +59,6 @@ public record ArticleView(
         boolean publicFlag,
         @Nullable String formerAlbumId,
         @Nullable Instant albumReferenceLostAt,
-        @Nullable String albumReferenceLostReason) {
+        @Nullable String albumReferenceLostReason,
+        List<ArticleTagView> tags) {
 }

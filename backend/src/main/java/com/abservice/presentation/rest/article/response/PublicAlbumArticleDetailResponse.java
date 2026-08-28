@@ -1,6 +1,7 @@
 package com.abservice.presentation.rest.article.response;
 
 import java.time.Instant;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -25,6 +26,8 @@ import org.jspecify.annotations.Nullable;
  *            公開日時（UTC。公開向けは公開中のものだけを返すため常に値を持つ）
  * @param albumId
  *            参照先アルバムのID（nullable。参照を持たない場合）
+ * @param tags
+ *            記事に付いたタグ名の一覧（名前の昇順）
  */
 public record PublicAlbumArticleDetailResponse(
         String articleId,
@@ -33,5 +36,6 @@ public record PublicAlbumArticleDetailResponse(
         String body,
         String bodyFormat,
         Instant publishedAt,
-        @Nullable String albumId) implements PublicArticleDetailResponse {
+        @Nullable String albumId,
+        List<String> tags) implements PublicArticleDetailResponse {
 }

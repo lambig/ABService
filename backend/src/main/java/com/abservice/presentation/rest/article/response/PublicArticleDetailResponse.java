@@ -1,6 +1,7 @@
 package com.abservice.presentation.rest.article.response;
 
 import java.time.Instant;
+import java.util.List;
 
 /**
  * 公開向け記事詳細レスポンス（REST の公開出力契約）
@@ -60,4 +61,15 @@ public sealed interface PublicArticleDetailResponse
      * @return 公開日時
      */
     Instant publishedAt();
+
+    /**
+     * 記事に付いたタグ名の一覧（名前の昇順）
+     *
+     * <p>
+     * 公開サイトはタグ名を並べるだけで、タグを同定する用途を持たないためタグIDは返さない。
+     * </p>
+     *
+     * @return タグ名の一覧
+     */
+    List<String> tags();
 }

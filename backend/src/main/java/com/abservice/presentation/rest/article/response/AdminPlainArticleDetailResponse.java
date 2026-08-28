@@ -1,6 +1,7 @@
 package com.abservice.presentation.rest.article.response;
 
 import java.time.Instant;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -29,6 +30,8 @@ import org.jspecify.annotations.Nullable;
  *            業務上の更新日時（nullable。UTC）
  * @param publicFlag
  *            公開フラグ
+ * @param tags
+ *            記事に付いたタグの一覧（名前の昇順）
  */
 public record AdminPlainArticleDetailResponse(
         String articleId,
@@ -39,5 +42,6 @@ public record AdminPlainArticleDetailResponse(
         @Nullable String introShort,
         @Nullable Instant publishedAt,
         @Nullable Instant updatedAtBusiness,
-        boolean publicFlag) implements AdminArticleDetailResponse {
+        boolean publicFlag,
+        List<AdminArticleTagResponse> tags) implements AdminArticleDetailResponse {
 }

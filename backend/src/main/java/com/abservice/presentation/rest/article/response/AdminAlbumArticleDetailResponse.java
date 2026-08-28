@@ -1,6 +1,7 @@
 package com.abservice.presentation.rest.article.response;
 
 import java.time.Instant;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -36,6 +37,8 @@ import org.jspecify.annotations.Nullable;
  *            アルバム参照が失効した日時（nullable。UTC）
  * @param albumReferenceLostReason
  *            失効の理由コード（nullable。表示文言はクライアントが決める）
+ * @param tags
+ *            記事に付いたタグの一覧（名前の昇順）
  */
 public record AdminAlbumArticleDetailResponse(
         String articleId,
@@ -50,5 +53,6 @@ public record AdminAlbumArticleDetailResponse(
         @Nullable String albumId,
         @Nullable String formerAlbumId,
         @Nullable Instant albumReferenceLostAt,
-        @Nullable String albumReferenceLostReason) implements AdminArticleDetailResponse {
+        @Nullable String albumReferenceLostReason,
+        List<AdminArticleTagResponse> tags) implements AdminArticleDetailResponse {
 }
