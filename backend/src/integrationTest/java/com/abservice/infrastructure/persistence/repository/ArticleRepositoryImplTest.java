@@ -44,7 +44,8 @@ class ArticleRepositoryImplTest {
                 null,
                 new ArticleTitle("Tagged Article"),
                 null,
-                null)
+                null,
+                businessNow())
                 .addTag(tag1, businessNow())
                 .addTag(tag2, businessNow());
 
@@ -70,7 +71,8 @@ class ArticleRepositoryImplTest {
                 null,
                 new ArticleTitle("No Tags Article"),
                 null,
-                null);
+                null,
+                businessNow());
 
         asserter.execute(() -> repository.save(article));
 
@@ -90,7 +92,8 @@ class ArticleRepositoryImplTest {
                 null,
                 new ArticleTitle("Reconcile Tags Article"),
                 null,
-                null)
+                null,
+                businessNow())
                 .addTag(keepTag, businessNow())
                 .addTag(removeTag, businessNow());
 
@@ -126,14 +129,16 @@ class ArticleRepositoryImplTest {
                 null,
                 new ArticleTitle("Shared Tag Article 1"),
                 null,
-                null)
+                null,
+                businessNow())
                 .addTag(sharedTag, businessNow());
         final var article2 = Article.create(
                 ArticleType.NOTE,
                 null,
                 new ArticleTitle("Shared Tag Article 2"),
                 null,
-                null)
+                null,
+                businessNow())
                 .addTag(sharedTag, businessNow());
 
         asserter.execute(() -> repository.save(article1));
@@ -160,7 +165,8 @@ class ArticleRepositoryImplTest {
                 null,
                 new ArticleTitle("Test Article"),
                 MarkupContent.markdown("Test Body"),
-                "Test Intro");
+                "Test Intro",
+                businessNow());
 
         asserter.assertThat(() -> repository.save(article), saved -> {
             assertThat(saved).isNotNull();
@@ -186,7 +192,8 @@ class ArticleRepositoryImplTest {
                 null,
                 new ArticleTitle("Original Title"),
                 null,
-                null);
+                null,
+                businessNow());
 
         asserter.assertThat(
                 () -> repository.save(article),
@@ -209,7 +216,8 @@ class ArticleRepositoryImplTest {
                 null,
                 new ArticleTitle("Article to Delete"),
                 null,
-                null);
+                null,
+                businessNow());
 
         asserter.assertThat(() -> repository.save(article), saved -> assertThat(saved).isNotNull());
 
@@ -227,7 +235,8 @@ class ArticleRepositoryImplTest {
                 null,
                 new ArticleTitle("Existing Article"),
                 null,
-                null);
+                null,
+                businessNow());
 
         asserter.execute(() -> repository.save(article));
 
@@ -246,13 +255,15 @@ class ArticleRepositoryImplTest {
                 null,
                 new ArticleTitle("Count Article 1"),
                 null,
-                null);
+                null,
+                businessNow());
         final var article2 = Article.create(
                 ArticleType.NOTE,
                 null,
                 new ArticleTitle("Count Article 2"),
                 null,
-                null);
+                null,
+                businessNow());
 
         asserter.execute(() -> repository.save(article1));
         asserter.execute(() -> repository.save(article2));
@@ -269,7 +280,8 @@ class ArticleRepositoryImplTest {
                 null,
                 new ArticleTitle("News Search Article"),
                 null,
-                null);
+                null,
+                businessNow());
 
         asserter.execute(() -> repository.save(article));
 
@@ -299,7 +311,8 @@ class ArticleRepositoryImplTest {
                 album.id(),
                 new ArticleTitle("Album Linked Article"),
                 null,
-                null);
+                null,
+                businessNow());
 
         asserter.execute(() -> albumRepository.save(album));
         asserter.execute(() -> repository.save(article));
@@ -330,13 +343,15 @@ class ArticleRepositoryImplTest {
                 album.id(),
                 new ArticleTitle("First Linked Article"),
                 null,
-                null);
+                null,
+                businessNow());
         final var second = Article.create(
                 ArticleType.ALBUM,
                 album.id(),
                 new ArticleTitle("Second Linked Article"),
                 null,
-                null);
+                null,
+                businessNow());
 
         asserter.execute(() -> albumRepository.save(album));
         asserter.execute(() -> repository.saveAll(List.of(first, second)));
@@ -356,7 +371,8 @@ class ArticleRepositoryImplTest {
                 null,
                 new ArticleTitle("Published Search Article"),
                 null,
-                null)
+                null,
+                businessNow())
                 .publish(businessNow());
 
         asserter.execute(() -> repository.save(article));
@@ -375,7 +391,8 @@ class ArticleRepositoryImplTest {
                 null,
                 new ArticleTitle("Published Range Article"),
                 null,
-                null)
+                null,
+                businessNow())
                 .publish(businessNow());
 
         asserter.execute(() -> repository.save(article));
@@ -397,7 +414,8 @@ class ArticleRepositoryImplTest {
                 null,
                 new ArticleTitle("UniqueKeywordForSearch Article"),
                 null,
-                null);
+                null,
+                businessNow());
 
         asserter.execute(() -> repository.save(article));
 

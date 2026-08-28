@@ -313,16 +313,20 @@ public sealed interface Article extends Aggregate<Article, Article.@NonNull Id>
      *            本文（nullable）
      * @param introShort
      *            ショート紹介文（nullable）
+     * @param currentDateTime
+     *            現在日時
      * @return 新規Article
      */
     static @NonNull Article create(@NonNull ArticleType articleType, Album.@Nullable Id albumId,
-            @NonNull ArticleTitle title, @Nullable MarkupContent body, @Nullable String introShort) {
+            @NonNull ArticleTitle title, @Nullable MarkupContent body, @Nullable String introShort,
+            @NonNull BusinessDateTime currentDateTime) {
         return Article.of(
                 articleType,
                 ArticleCore.create(
                         title,
                         body,
-                        introShort),
+                        introShort,
+                        currentDateTime),
                 AlbumReference.of(albumId));
     }
 

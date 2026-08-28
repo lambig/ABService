@@ -2,6 +2,8 @@ package com.abservice.presentation.rest.article;
 
 import static com.abservice.presentation.rest.AdminAuth.authorized;
 import static io.restassured.RestAssured.given;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasKey;
@@ -10,6 +12,7 @@ import static org.hamcrest.Matchers.nullValue;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -111,6 +114,52 @@ class ArticleAdminQueryRestIntegrationTest {
     }
 
     @Test
+    @DisplayName("管理向け一覧は参照先アルバムで絞り込める")
+    void adminListFiltersByAlbumId() {
+        final var albumId = createDraftAlbum("管理Query絞り込みアルバム");
+        final var linkedId = createAlbumArticle("管理Query絞り込み対象記事", albumId);
+        final var unlinkedId = createDraftArticle("管理Query絞り込み対象外記事");
+
+        authorized().queryParam("albumId", albumId).queryParam("size", 100)
+                .when().get("/api/v1/admin/articles").then().statusCode(200)
+                .body("items.articleId", hasItem(linkedId))
+                .body("items.articleId", not(hasItem(unlinkedId)));
+    }
+
+    @Test
+    @DisplayName("参照を持たないアルバムでの絞り込みは空の一覧を返す")
+    void adminListReturnsEmptyForAlbumWithoutArticles() {
+        final var albumId = createDraftAlbum("管理Query参照なしアルバム");
+
+        authorized().queryParam("albumId", albumId)
+                .when().get("/api/v1/admin/articles").then().statusCode(200)
+                .body("totalElements", equalTo(0))
+                .body("items", empty());
+    }
+
+    @Test
+    @DisplayName("管理向け一覧は業務上の更新日時で並べられる")
+    void adminListSortsByBusinessUpdatedAt() {
+        final var older = createDraftArticle("管理Query更新順記事1");
+        final var newer = createDraftArticle("管理Query更新順記事2");
+
+        final List<String> ids = authorized().queryParam("sort", "updatedAtBusiness").queryParam("size", 100)
+                .when().get("/api/v1/admin/articles").then().statusCode(200)
+                .extract().path("items.articleId");
+
+        assertThat(ids.indexOf(newer)).isLessThan(ids.indexOf(older));
+    }
+
+    @Test
+    @DisplayName("業務上の更新日時は公開向けの並び順には使えない")
+    void businessUpdatedAtIsNotUsableOnPublicApi() {
+        given().queryParam("sort", "updatedAtBusiness").when().get("/api/v1/articles").then().statusCode(400)
+                .contentType("application/problem+json")
+                .body("errors[0].field", equalTo("sort"))
+                .body("errors[0].code", equalTo("SORT_KEY_NOT_USABLE"));
+    }
+
+    @Test
     @DisplayName("存在しないIDの管理向け詳細は404 problem+jsonを返す")
     void adminDetailNotFound() {
         authorized().when().get("/api/v1/admin/articles/01234567-89ab-7def-0123-456789abcdef").then().statusCode(404)
@@ -122,5 +171,22 @@ class ArticleAdminQueryRestIntegrationTest {
         return authorized().contentType(ContentType.JSON)
                 .body("{\"articleType\":\"NOTE\",\"title\":\"" + title + "\"}").when().post("/api/v1/articles")
                 .then().statusCode(201).extract().path("articleId");
+    }
+
+    private static String createDraftAlbum(String title) {
+        return authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"title\":\"" + title + "\",\"releaseDate\":\"2026-01-01\","
+                                + "\"artistDisplayName\":\"テストアーティスト\"}")
+                .when().post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
+    }
+
+    private static String createAlbumArticle(String title, String albumId) {
+        final String articleId = authorized().contentType(ContentType.JSON)
+                .body("{\"articleType\":\"ALBUM\",\"title\":\"" + title + "\"}").when().post("/api/v1/articles")
+                .then().statusCode(201).extract().path("articleId");
+        authorized().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}")
+                .when().put("/api/v1/articles/" + articleId + "/album").then().statusCode(200);
+        return articleId;
     }
 }

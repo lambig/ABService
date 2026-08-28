@@ -22,11 +22,15 @@ import org.jspecify.annotations.Nullable;
  *            並び順のキー（nullable。未指定なら登録の新しい順）
  * @param direction
  *            並び順の向き（nullable。未指定ならキーごとの既定）
+ * @param albumId
+ *            参照先アルバムでの絞り込み（nullable。未指定なら絞り込まない）。管理画面がカスケードの影響範囲を引くためのもので、
+ *            公開向けのエンドポイントはこの項目を受け取らない
  */
 public record ListArticlesQuery(
         int page,
         int size,
         Audience audience,
         @Nullable String sort,
-        @Nullable String direction) implements QueryService.Query {
+        @Nullable String direction,
+        @Nullable String albumId) implements QueryService.Query {
 }

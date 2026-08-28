@@ -89,7 +89,8 @@ public class ArticleQueryResource {
                         size,
                         Audience.PUBLIC,
                         sort,
-                        direction))
+                        direction,
+                        null))
                 .map(ArticleQueryResponses::toPublicListResponse);
     }
 }

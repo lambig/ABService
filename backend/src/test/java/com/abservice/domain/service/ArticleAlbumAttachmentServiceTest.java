@@ -80,7 +80,8 @@ class ArticleAlbumAttachmentServiceTest {
                         null,
                         ArticleTitle.of("紐付け整合テスト記事"),
                         null,
-                        null))
+                        null,
+                        NOW))
                 .orElseThrow();
     }
 

@@ -75,7 +75,8 @@ class PublishArticleServiceIntegrationTest {
                 album.id(),
                 new ArticleTitle("Album Intro Article"),
                 null,
-                null);
+                null,
+                NOW);
         asserter.execute(() -> articleRepository.save(article));
 
         asserter.assertFailedWith(
@@ -95,7 +96,8 @@ class PublishArticleServiceIntegrationTest {
                 album.id(),
                 new ArticleTitle("Album Intro Article"),
                 null,
-                null);
+                null,
+                NOW);
         asserter.execute(() -> articleRepository.save(article));
 
         asserter.assertThat(
@@ -112,7 +114,8 @@ class PublishArticleServiceIntegrationTest {
                 null,
                 new ArticleTitle("Plain Note Article"),
                 null,
-                null);
+                null,
+                NOW);
         asserter.execute(() -> articleRepository.save(article));
 
         asserter.assertThat(

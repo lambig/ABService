@@ -12,6 +12,9 @@ import org.hibernate.reactive.mutiny.Mutiny;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Article DataSource (DAO)
@@ -31,6 +34,11 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleTableReco
     private static final String WHERE_DOMAIN_ID = "WHERE a.domainId = :domainId";
 
     private static final String WHERE_DOMAIN_ID_PUBLIC = WHERE_DOMAIN_ID + " AND a.isPublic = true";
+
+    /** 一覧の絞り込み条件（Panache のクエリ断片。エンティティ別名を伴わない） */
+    private static final String WHERE_PUBLIC = "isPublic = true";
+
+    private static final String WHERE_ALBUM = "albumReference.albumId = :albumId";
 
     private final Mutiny.SessionFactory sessionFactory;
 
@@ -191,20 +199,45 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleTableReco
      *            検索対象の公開状態スコープ
      * @param sort
      *            解決済みの並び順
+     * @param albumId
+     *            参照先アルバムでの絞り込み（nullable。未指定なら絞り込まない）
      * @return ページングクエリ
      */
     public PanacheQuery<ArticleTableRecord> pagedQuery(
             int page,
             int size,
             Visibility visibility,
-            SortSpec sort) {
-        return (visibility == Visibility.PUBLIC_ONLY
-                ? find(
-                        "isPublic = ?1",
-                        SortOrders.of(sort),
-                        true)
-                : findAll(SortOrders.of(sort)))
+            SortSpec sort,
+            @Nullable String albumId) {
+        return Optional.ofNullable(albumId)
+                .map(
+                        id -> byAlbum(
+                                visibility,
+                                sort,
+                                id))
+                .orElseGet(() -> byVisibility(visibility, sort))
                 .page(Page.of(page, size));
+    }
+
+    private PanacheQuery<ArticleTableRecord> byAlbum(
+            Visibility visibility,
+            SortSpec sort,
+            String albumId) {
+        return visibility == Visibility.PUBLIC_ONLY
+                ? find(
+                        WHERE_PUBLIC + " AND " + WHERE_ALBUM,
+                        SortOrders.of(sort),
+                        Map.of("albumId", albumId))
+                : find(
+                        WHERE_ALBUM,
+                        SortOrders.of(sort),
+                        Map.of("albumId", albumId));
+    }
+
+    private PanacheQuery<ArticleTableRecord> byVisibility(Visibility visibility, SortSpec sort) {
+        return visibility == Visibility.PUBLIC_ONLY
+                ? find(WHERE_PUBLIC, SortOrders.of(sort))
+                : findAll(SortOrders.of(sort));
     }
 
     /**

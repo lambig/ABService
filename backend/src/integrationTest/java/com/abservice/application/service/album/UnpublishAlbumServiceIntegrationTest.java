@@ -68,7 +68,8 @@ class UnpublishAlbumServiceIntegrationTest {
                 album.id(),
                 new ArticleTitle(title),
                 null,
-                null);
+                null,
+                NOW);
     }
 
     @Test

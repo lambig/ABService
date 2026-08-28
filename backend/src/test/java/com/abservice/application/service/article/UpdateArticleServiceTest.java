@@ -25,7 +25,8 @@ class UpdateArticleServiceTest {
                 null,
                 ArticleTitle.of("元のタイトル"),
                 MarkupContent.markdown("元の本文"),
-                "元の概要");
+                "元の概要",
+                NOW);
     }
 
     @Test
