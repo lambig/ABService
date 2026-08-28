@@ -226,6 +226,7 @@ class ArticleDataSourceTest {
                         1,
                         Visibility.ALL,
                         SortSpec.defaultOrder(),
+                        null,
                         null).count()
                         .invoke(total -> assertThat(total >= 3).isTrue()));
 
@@ -235,6 +236,7 @@ class ArticleDataSourceTest {
                         2,
                         Visibility.ALL,
                         SortSpec.defaultOrder(),
+                        null,
                         null).list()
                         .invoke(page -> assertThat(page).hasSizeLessThanOrEqualTo(2)));
     }
@@ -255,6 +257,7 @@ class ArticleDataSourceTest {
                         100,
                         Visibility.PUBLIC_ONLY,
                         SortSpec.defaultOrder(),
+                        null,
                         null).list(),
                 found -> {
                     assertThat(found.stream().anyMatch(a -> a.getDomainId().equals(publicEntity.getDomainId())))

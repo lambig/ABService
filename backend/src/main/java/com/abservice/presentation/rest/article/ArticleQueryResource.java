@@ -90,6 +90,7 @@ public class ArticleQueryResource {
                         Audience.PUBLIC,
                         sort,
                         direction,
+                        null,
                         null))
                 .map(ArticleQueryResponses::toPublicListResponse);
     }

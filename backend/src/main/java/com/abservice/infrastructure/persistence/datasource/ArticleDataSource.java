@@ -14,6 +14,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -39,6 +41,8 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleTableReco
     private static final String WHERE_PUBLIC = "isPublic = true";
 
     private static final String WHERE_ALBUM = "albumReference.albumId = :albumId";
+
+    private static final String WHERE_PUBLIC_FLAG = "isPublic = :publicFlag";
 
     private final Mutiny.SessionFactory sessionFactory;
 
@@ -201,6 +205,8 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleTableReco
      *            解決済みの並び順
      * @param albumId
      *            参照先アルバムでの絞り込み（nullable。未指定なら絞り込まない）
+     * @param publicFlag
+     *            公開状態での絞り込み（nullable。未指定なら絞り込まない）
      * @return ページングクエリ
      */
     public PanacheQuery<ArticleTableRecord> pagedQuery(
@@ -208,36 +214,54 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleTableReco
             int size,
             Visibility visibility,
             SortSpec sort,
-            @Nullable String albumId) {
-        return Optional.ofNullable(albumId)
+            @Nullable String albumId,
+            @Nullable Boolean publicFlag) {
+        return conditionsOf(
+                visibility,
+                albumId,
+                publicFlag).stream()
+                .reduce((left, right) -> left + " AND " + right)
                 .map(
-                        id -> byAlbum(
-                                visibility,
-                                sort,
-                                id))
-                .orElseGet(() -> byVisibility(visibility, sort))
+                        where -> find(
+                                where,
+                                SortOrders.of(sort),
+                                parametersOf(albumId, publicFlag)))
+                .orElseGet(() -> findAll(SortOrders.of(sort)))
                 .page(Page.of(page, size));
     }
 
-    private PanacheQuery<ArticleTableRecord> byAlbum(
+    private static List<String> conditionsOf(
             Visibility visibility,
-            SortSpec sort,
-            String albumId) {
-        return visibility == Visibility.PUBLIC_ONLY
-                ? find(
-                        WHERE_PUBLIC + " AND " + WHERE_ALBUM,
-                        SortOrders.of(sort),
-                        Map.of("albumId", albumId))
-                : find(
-                        WHERE_ALBUM,
-                        SortOrders.of(sort),
-                        Map.of("albumId", albumId));
+            @Nullable String albumId,
+            @Nullable Boolean publicFlag) {
+        return Stream.of(
+                conditionIf(visibility == Visibility.PUBLIC_ONLY, WHERE_PUBLIC),
+                conditionIf(albumId != null, WHERE_ALBUM),
+                conditionIf(publicFlag != null, WHERE_PUBLIC_FLAG))
+                .flatMap(Optional::stream)
+                .toList();
     }
 
-    private PanacheQuery<ArticleTableRecord> byVisibility(Visibility visibility, SortSpec sort) {
-        return visibility == Visibility.PUBLIC_ONLY
-                ? find(WHERE_PUBLIC, SortOrders.of(sort))
-                : findAll(SortOrders.of(sort));
+    private static Optional<String> conditionIf(boolean applies, String condition) {
+        return applies
+                ? Optional.of(condition)
+                : Optional.empty();
+    }
+
+    private static Map<String, Object> parametersOf(@Nullable String albumId, @Nullable Boolean publicFlag) {
+        return Stream.of(
+                parameterIf("albumId", albumId),
+                parameterIf("publicFlag", publicFlag))
+                .flatMap(Optional::stream)
+                .collect(
+                        Collectors.toMap(
+                                Map.Entry::getKey,
+                                Map.Entry::getValue));
+    }
+
+    private static Optional<Map.Entry<String, Object>> parameterIf(String name, @Nullable Object value) {
+        return Optional.ofNullable(value)
+                .map(present -> Map.entry(name, present));
     }
 
     /**

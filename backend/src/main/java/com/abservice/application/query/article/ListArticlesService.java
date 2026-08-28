@@ -23,8 +23,9 @@ import lombok.AllArgsConstructor;
  * </p>
  *
  * <p>
- * 参照先アルバムでの絞り込みは、指定されたときだけ条件に加わります。この絞り込みを使うのは管理画面（カスケードの影響範囲の
- * 事前確認）であり、公開向けのエンドポイントは値を渡しません。
+ * 参照先アルバムでの絞り込みと公開状態での絞り込みは、指定されたときだけ条件に加わります。これらを使うのは管理画面
+ * （カスケードの影響範囲の事前確認）であり、公開向けのエンドポイントは値を渡しません。削除は参照記事すべてを、非公開化は
+ * そのうち公開中のものだけを対象にするため、後者は公開状態の絞り込みと組み合わせて引きます。
  * </p>
  */
 @ApplicationScoped
@@ -50,7 +51,8 @@ public class ListArticlesService implements QueryService<ListArticlesQuery, List
                         query.sort(),
                         query.direction(),
                         query.audience()),
-                query.albumId());
+                query.albumId(),
+                query.publicFlag());
         return Uni.combine().all()
                 .unis(
                         panacheQuery.list(),
