@@ -40,7 +40,8 @@ class ArticleTest {
                     null,
                     title,
                     body,
-                    null);
+                    null,
+                    BusinessDateTime.of(Instant.now()));
 
             // Assert
             assertThat(article).isNotNull();
@@ -52,7 +53,8 @@ class ArticleTest {
             assertThat(article.body()).isEqualTo(body);
             assertThat(article.introShort()).isNull();
             assertThat(article.publishedAt()).isNull();
-            assertThat(article.updatedAtBusiness()).isNull();
+            // 記事を書き起こすことも業務上の更新の一つのため、作成時点で値を持つ
+            assertThat(article.updatedAtBusiness()).isNotNull();
             assertThat(article.publicFlag()).isFalse();
             assertThat(article.getTags().isEmpty()).isTrue();
         }
@@ -73,7 +75,8 @@ class ArticleTest {
                     albumId,
                     title,
                     body,
-                    introShort);
+                    introShort,
+                    BusinessDateTime.of(Instant.now()));
 
             // Assert
             assertThat(article.articleType()).isEqualTo(ArticleType.ALBUM);
@@ -96,7 +99,8 @@ class ArticleTest {
                         null,
                         ArticleTitle.of("Title"),
                         MarkupContent.plainText("Body"),
-                        null);
+                        null,
+                        BusinessDateTime.of(Instant.now()));
             }).isInstanceOf(IllegalArgumentException.class).hasMessage("Article type cannot be null");
         }
 
@@ -110,7 +114,8 @@ class ArticleTest {
                         null,
                         null,
                         MarkupContent.plainText("Body"),
-                        null);
+                        null,
+                        BusinessDateTime.of(Instant.now()));
             }).isInstanceOf(IllegalArgumentException.class).hasMessage("Article title cannot be null");
         }
     }
@@ -255,7 +260,8 @@ class ArticleTest {
                             null,
                             ArticleTitle.of("Album Article"),
                             MarkupContent.plainText("Body"),
-                            null);
+                            null,
+                            BusinessDateTime.of(Instant.now()));
             final var albumId = Album.Id.generate();
             final var currentDateTime = BusinessDateTime.of(Instant.now());
 
@@ -279,7 +285,8 @@ class ArticleTest {
                             null,
                             ArticleTitle.of("Blog Post"),
                             MarkupContent.plainText("Body"),
-                            null);
+                            null,
+                            BusinessDateTime.of(Instant.now()));
 
             // Act & Assert
             assertThat(AlbumArticle.from(article)).isEmpty();
@@ -299,7 +306,8 @@ class ArticleTest {
                     null,
                     ArticleTitle.of("Title"),
                     MarkupContent.plainText("Body"),
-                    null);
+                    null,
+                    BusinessDateTime.of(Instant.now()));
             final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
@@ -321,7 +329,8 @@ class ArticleTest {
                             albumId,
                             ArticleTitle.of("Album Article"),
                             MarkupContent.plainText("Body"),
-                            null);
+                            null,
+                            BusinessDateTime.of(Instant.now()));
             final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
@@ -601,7 +610,8 @@ class ArticleTest {
                 null,
                 ArticleTitle.of("Test Article"),
                 MarkupContent.markdown("Test article body content"),
-                null);
+                null,
+                BusinessDateTime.of(Instant.now()));
     }
 
     private ArticleTag createTestTag(String name) {

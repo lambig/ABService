@@ -104,7 +104,8 @@ class ArticlePublicationServiceTest {
                 null,
                 ArticleTitle.of("公開整合テスト記事"),
                 null,
-                null);
+                null,
+                NOW);
     }
 
     private static AlbumArticle albumArticle() {

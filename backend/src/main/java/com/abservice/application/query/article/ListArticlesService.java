@@ -21,6 +21,12 @@ import lombok.AllArgsConstructor;
  * をそのまま活用し、 独自の COUNT クエリやページ数計算式を書かない。対象範囲はクエリの {@code audience}
  * が決め、公開向け（{@code PUBLIC}）では非公開（下書き）記事を一覧に含めず、管理向け（{@code ADMIN}） では下書きも含めます。
  * </p>
+ *
+ * <p>
+ * 参照先アルバムでの絞り込みと公開状態での絞り込みは、指定されたときだけ条件に加わります。これらを使うのは管理画面
+ * （カスケードの影響範囲の事前確認）であり、公開向けのエンドポイントは値を渡しません。削除は参照記事すべてを、非公開化は
+ * そのうち公開中のものだけを対象にするため、後者は公開状態の絞り込みと組み合わせて引きます。
+ * </p>
  */
 @ApplicationScoped
 @AllArgsConstructor
@@ -44,7 +50,9 @@ public class ListArticlesService implements QueryService<ListArticlesQuery, List
                         ArticleSortKey.values(),
                         query.sort(),
                         query.direction(),
-                        query.audience()));
+                        query.audience()),
+                query.albumId(),
+                query.publicFlag());
         return Uni.combine().all()
                 .unis(
                         panacheQuery.list(),

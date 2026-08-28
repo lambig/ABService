@@ -12,6 +12,11 @@ import org.hibernate.reactive.mutiny.Mutiny;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Article DataSource (DAO)
@@ -31,6 +36,13 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleTableReco
     private static final String WHERE_DOMAIN_ID = "WHERE a.domainId = :domainId";
 
     private static final String WHERE_DOMAIN_ID_PUBLIC = WHERE_DOMAIN_ID + " AND a.isPublic = true";
+
+    /** 一覧の絞り込み条件（Panache のクエリ断片。エンティティ別名を伴わない） */
+    private static final String WHERE_PUBLIC = "isPublic = true";
+
+    private static final String WHERE_ALBUM = "albumReference.albumId = :albumId";
+
+    private static final String WHERE_PUBLIC_FLAG = "isPublic = :publicFlag";
 
     private final Mutiny.SessionFactory sessionFactory;
 
@@ -191,20 +203,65 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleTableReco
      *            検索対象の公開状態スコープ
      * @param sort
      *            解決済みの並び順
+     * @param albumId
+     *            参照先アルバムでの絞り込み（nullable。未指定なら絞り込まない）
+     * @param publicFlag
+     *            公開状態での絞り込み（nullable。未指定なら絞り込まない）
      * @return ページングクエリ
      */
     public PanacheQuery<ArticleTableRecord> pagedQuery(
             int page,
             int size,
             Visibility visibility,
-            SortSpec sort) {
-        return (visibility == Visibility.PUBLIC_ONLY
-                ? find(
-                        "isPublic = ?1",
-                        SortOrders.of(sort),
-                        true)
-                : findAll(SortOrders.of(sort)))
+            SortSpec sort,
+            @Nullable String albumId,
+            @Nullable Boolean publicFlag) {
+        return conditionsOf(
+                visibility,
+                albumId,
+                publicFlag).stream()
+                .reduce((left, right) -> left + " AND " + right)
+                .map(
+                        where -> find(
+                                where,
+                                SortOrders.of(sort),
+                                parametersOf(albumId, publicFlag)))
+                .orElseGet(() -> findAll(SortOrders.of(sort)))
                 .page(Page.of(page, size));
+    }
+
+    private static List<String> conditionsOf(
+            Visibility visibility,
+            @Nullable String albumId,
+            @Nullable Boolean publicFlag) {
+        return Stream.of(
+                conditionIf(visibility == Visibility.PUBLIC_ONLY, WHERE_PUBLIC),
+                conditionIf(albumId != null, WHERE_ALBUM),
+                conditionIf(publicFlag != null, WHERE_PUBLIC_FLAG))
+                .flatMap(Optional::stream)
+                .toList();
+    }
+
+    private static Optional<String> conditionIf(boolean applies, String condition) {
+        return applies
+                ? Optional.of(condition)
+                : Optional.empty();
+    }
+
+    private static Map<String, Object> parametersOf(@Nullable String albumId, @Nullable Boolean publicFlag) {
+        return Stream.of(
+                parameterIf("albumId", albumId),
+                parameterIf("publicFlag", publicFlag))
+                .flatMap(Optional::stream)
+                .collect(
+                        Collectors.toMap(
+                                Map.Entry::getKey,
+                                Map.Entry::getValue));
+    }
+
+    private static Optional<Map.Entry<String, Object>> parameterIf(String name, @Nullable Object value) {
+        return Optional.ofNullable(value)
+                .map(present -> Map.entry(name, present));
     }
 
     /**

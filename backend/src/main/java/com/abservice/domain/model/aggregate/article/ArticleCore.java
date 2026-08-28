@@ -150,23 +150,30 @@ public final class ArticleCore {
     /**
      * 新規記事の共通状態を生成します。
      *
+     * <p>
+     * 業務上の更新日時には作成日時を入れる。記事を書き起こすことも業務上の更新の一つであり、null のままにすると
+     * 作成しただけの記事が作業順の並びで末尾に固まって見つけられなくなる。
+     * </p>
+     *
      * @param title
      *            タイトル
      * @param body
      *            本文（nullable）
      * @param introShort
      *            ショート紹介文（nullable）
+     * @param currentDateTime
+     *            現在日時
      * @return 未公開・タグなしの共通状態
      */
     static @NonNull ArticleCore create(@NonNull ArticleTitle title, @Nullable MarkupContent body,
-            @Nullable String introShort) {
+            @Nullable String introShort, @NonNull BusinessDateTime currentDateTime) {
         return ArticleCore.factory(
                 Article.Id.generate(),
                 title,
                 body,
                 introShort,
                 null,
-                null,
+                currentDateTime,
                 false,
                 Collections.emptyList());
     }

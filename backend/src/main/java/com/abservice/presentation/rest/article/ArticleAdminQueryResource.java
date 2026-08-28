@@ -77,6 +77,10 @@ public class ArticleAdminQueryResource {
      *            並び順のキー（未指定なら登録の新しい順）
      * @param direction
      *            並び順の向き（未指定ならキーごとの既定）
+     * @param albumId
+     *            参照先アルバムでの絞り込み（未指定なら絞り込まない）
+     * @param publicFlag
+     *            公開状態での絞り込み（未指定なら絞り込まない）
      * @return 200 と記事一覧
      */
     @GET
@@ -85,14 +89,18 @@ public class ArticleAdminQueryResource {
             @QueryParam("page") @DefaultValue("0") int page,
             @QueryParam("size") @DefaultValue("20") int size,
             @QueryParam("sort") @Nullable String sort,
-            @QueryParam("direction") @Nullable String direction) {
+            @QueryParam("direction") @Nullable String direction,
+            @QueryParam("albumId") @Nullable String albumId,
+            @QueryParam("publicFlag") @Nullable Boolean publicFlag) {
         return listArticlesService.query(
                 new ListArticlesQuery(
                         page,
                         size,
                         Audience.ADMIN,
                         sort,
-                        direction))
+                        direction,
+                        albumId,
+                        publicFlag))
                 .map(ArticleQueryResponses::toAdminListResponse);
     }
 }

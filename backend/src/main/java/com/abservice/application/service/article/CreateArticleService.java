@@ -5,8 +5,10 @@ import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.ArticleType;
+import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.domain.repository.article.ArticleRepository;
+import com.abservice.domain.service.BusinessDateTimeProvider;
 import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -35,19 +37,20 @@ import org.jspecify.annotations.Nullable;
 public class CreateArticleService implements CommandService<CreateArticleInput, CreateArticleOutput> {
 
     private final ArticleRepository articleRepository;
+    private final BusinessDateTimeProvider businessDateTimeProvider;
 
     @WithTransaction
     @Override
     public Uni<CreateArticleOutput> execute(CreateArticleInput input) {
-        return Uni.createFrom()
-                .item(
-                        () -> validate(input)
+        return businessDateTimeProvider.now()
+                .map(
+                        now -> validate(input, now)
                                 .resolve(ValidationException::new))
                 .flatMap(articleRepository::save)
                 .map(CreateArticleService::toOutput);
     }
 
-    static Result<Article> validate(CreateArticleInput input) {
+    static Result<Article> validate(CreateArticleInput input, BusinessDateTime now) {
         return Result.zip(
                 ArticleTitle.fromInput(input.title()),
                 ArticleType.fromInput(input.articleType()),
@@ -57,7 +60,8 @@ public class CreateArticleService implements CommandService<CreateArticleInput, 
                         null,
                         title,
                         body,
-                        input.introShort()));
+                        input.introShort(),
+                        now));
     }
 
     /** 本文なし（blank 入力）を表す検証結果。完全に使い回せる定数。 */
