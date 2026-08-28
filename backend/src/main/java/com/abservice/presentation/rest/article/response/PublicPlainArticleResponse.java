@@ -20,12 +20,12 @@ import org.jspecify.annotations.Nullable;
  * @param introShort
  *            一覧表示用のショート紹介文（nullable）
  * @param publishedAt
- *            公開日時（UTC。実際には null にならない）
+ *            公開日時（UTC。公開向けは公開中のものだけを返すため常に値を持つ）
  */
 public record PublicPlainArticleResponse(
         String articleId,
         String articleType,
         String title,
         @Nullable String introShort,
-        @Nullable Instant publishedAt) implements PublicArticleResponse {
+        Instant publishedAt) implements PublicArticleResponse {
 }

@@ -1,7 +1,6 @@
 package com.abservice.presentation.rest.article.response;
 
 import java.time.Instant;
-import org.jspecify.annotations.Nullable;
 
 /**
  * 公開向けの、アルバムへの参照を持たない記事の詳細レスポンス（REST の公開出力契約）
@@ -22,7 +21,7 @@ import org.jspecify.annotations.Nullable;
  * @param bodyFormat
  *            本文のマークアップ形式（列挙子名）
  * @param publishedAt
- *            公開日時（UTC。実際には null にならない）
+ *            公開日時（UTC。公開向けは公開中のものだけを返すため常に値を持つ）
  */
 public record PublicPlainArticleDetailResponse(
         String articleId,
@@ -30,5 +29,5 @@ public record PublicPlainArticleDetailResponse(
         String title,
         String body,
         String bodyFormat,
-        @Nullable Instant publishedAt) implements PublicArticleDetailResponse {
+        Instant publishedAt) implements PublicArticleDetailResponse {
 }

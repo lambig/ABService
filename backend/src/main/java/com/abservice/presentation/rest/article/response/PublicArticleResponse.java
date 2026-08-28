@@ -49,10 +49,9 @@ public sealed interface PublicArticleResponse permits PublicAlbumArticleResponse
     String introShort();
 
     /**
-     * 公開日時（UTC。公開向けは公開中のものだけを返すため、実際には null にならない）
+     * 公開日時（UTC。公開向けは公開中のものだけを返すため常に値を持つ）
      *
      * @return 公開日時
      */
-    @Nullable
     Instant publishedAt();
 }

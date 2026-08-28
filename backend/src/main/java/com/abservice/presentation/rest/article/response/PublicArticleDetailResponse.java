@@ -1,7 +1,6 @@
 package com.abservice.presentation.rest.article.response;
 
 import java.time.Instant;
-import org.jspecify.annotations.Nullable;
 
 /**
  * 公開向け記事詳細レスポンス（REST の公開出力契約）
@@ -56,10 +55,9 @@ public sealed interface PublicArticleDetailResponse
     String bodyFormat();
 
     /**
-     * 公開日時（UTC。公開向けは公開中のものだけを返すため、実際には null にならない）
+     * 公開日時（UTC。公開向けは公開中のものだけを返すため常に値を持つ）
      *
      * @return 公開日時
      */
-    @Nullable
     Instant publishedAt();
 }

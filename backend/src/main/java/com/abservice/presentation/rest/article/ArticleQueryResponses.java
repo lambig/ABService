@@ -19,7 +19,9 @@ import com.abservice.presentation.rest.article.response.PublicPlainArticleRespon
 import com.abservice.presentation.rest.exception.ProblemDetail;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 
 /**
@@ -142,7 +144,7 @@ final class ArticleQueryResponses {
                     view.title(),
                     view.body(),
                     view.bodyFormat(),
-                    view.publishedAt(),
+                    publicPublishedAt(view),
                     view.albumId());
             case NOTE, NEWS, EVENT, OTHER -> new PublicPlainArticleDetailResponse(
                     view.articleId(),
@@ -150,7 +152,7 @@ final class ArticleQueryResponses {
                     view.title(),
                     view.body(),
                     view.bodyFormat(),
-                    view.publishedAt());
+                    publicPublishedAt(view));
         };
     }
 
@@ -161,14 +163,14 @@ final class ArticleQueryResponses {
                     view.articleType(),
                     view.title(),
                     view.introShort(),
-                    view.publishedAt(),
+                    publicPublishedAt(view),
                     view.albumId());
             case NOTE, NEWS, EVENT, OTHER -> new PublicPlainArticleResponse(
                     view.articleId(),
                     view.articleType(),
                     view.title(),
                     view.introShort(),
-                    view.publishedAt());
+                    publicPublishedAt(view));
         };
     }
 
@@ -199,6 +201,16 @@ final class ArticleQueryResponses {
                     view.updatedAtBusiness(),
                     view.publicFlag());
         };
+    }
+
+    /*
+     * CONTRACT: 公開向けの応答は公開日時を必ず持つ。共有の Read Model は下書きを含むため nullable だが、公開向けの
+     * 照会は公開中のものだけを返すため、この境界で非nullへ絞る。破れていた場合に null を公開契約として返すのではなく、 ここで検出する。
+     */
+    private static Instant publicPublishedAt(ArticleView view) {
+        return Objects.requireNonNull(
+                view.publishedAt(),
+                "公開向けの照会結果は公開中のものに限るため、publishedAt は値を持つ");
     }
 
     private static AdminArticleResponse toAdminArticleResponse(ArticleView view) {
