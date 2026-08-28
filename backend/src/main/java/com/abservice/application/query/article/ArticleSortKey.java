@@ -9,8 +9,8 @@ import java.util.Set;
  * 記事一覧で選べる並び順のキー
  *
  * <p>
- * 公開向けは公開日時に限り、管理向けには作業順（更新日時・登録日時）を加える。管理向けは下書きを含み公開日時が null
- * になりうるため、値を持たない行は向きに依らず末尾に置く（並びの組み立ては読み取り側が行う）。
+ * 並べるのは業務上の意味を持つ項目に限る。監査列（登録日時・更新日時）は記録のための列であり、業務文脈の並び順には使わない。
+ * 管理向けは下書きを含み公開日時が null になりうるため、値を持たない行は向きに依らず末尾に置く（並びの組み立ては 読み取り側が行う）。
  * </p>
  */
 public enum ArticleSortKey implements SortKey {
@@ -20,21 +20,7 @@ public enum ArticleSortKey implements SortKey {
             "publishedAt",
             "publishedAt",
             SortDirection.DESC,
-            Set.of(Audience.PUBLIC, Audience.ADMIN)),
-
-    /** 更新日時（管理向けのみ） */
-    UPDATED_AT(
-            "updatedAt",
-            "updatedAt",
-            SortDirection.DESC,
-            Set.of(Audience.ADMIN)),
-
-    /** 登録日時（管理向けのみ） */
-    CREATED_AT(
-            "createdAt",
-            "createdAt",
-            SortDirection.DESC,
-            Set.of(Audience.ADMIN));
+            Set.of(Audience.PUBLIC, Audience.ADMIN));
 
     private final String parameterValue;
     private final String property;

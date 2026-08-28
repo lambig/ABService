@@ -278,9 +278,11 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **なぜ**: 2種類の `null` が同じ形で現れると、クライアントは「値が未設定なのか、その種別には存在しない概念なのか」を区別できない。前者は表示上の空欄、後者は項目そのものを描画しないという別の扱いになる。一律の null 除去は両者を同じ「キーなし」へ潰すため、区別が失われる。
 
-**トレードオフ**: 種別ごとにレスポンス型が分かれるため、クライアントは種別で分岐する。項目名の集合が同一の種別には別の型を与えない（`NOTE` / `NEWS` / `EVENT` / `OTHER` は1つの型が担う）ことで、型の数を項目名の違いの数に留める。
+**「概念を持たない」の範囲**: 種別だけでなく、**その契約がその概念を返す責務を持つか**でも決まる。公開向けの契約は下書き（公開状態）と参照の失効という概念を持たない。公開APIは公開中のものしか返さず、失効した参照を持つ記事は公開できないため、いずれも構造上成立しないからである。一覧の契約は記事・作品を選ぶための表示に責務を限る（#197）ため、本文・概要説明・曲目という概念を持たない。したがってレスポンス型は種別に加えて「公開／管理 × 一覧／詳細」でも分け、返す責務を持たない項目は項目名自体を出さない。
 
-**実体**: `presentation/rest/article/response/ArticleResponse`（sealed）と `AlbumArticleResponse` / `PlainArticleResponse`、`domain/model/aggregate/article/ArticleCore` の `body`（非null）、`V36`。
+**トレードオフ**: 種別と契約ごとにレスポンス型が分かれるため、クライアントは種別で分岐し、型の数は増える。項目名の集合が同一のものに別の型を与えない（`NOTE` / `NEWS` / `EVENT` / `OTHER` は1つの型が担い、種別差のない管理向け一覧は1つの型で足りる）ことで、型の数を項目名の違いの数に留める。
+
+**実体**: `presentation/rest/article/response` の `PublicArticleDetailResponse` / `PublicArticleResponse` / `AdminArticleDetailResponse`（いずれも sealed）と `AdminArticleResponse`、`presentation/rest/album/response/AlbumDetailResponse` と `AlbumResponse`、`domain/model/aggregate/article/ArticleCore` の `body`（非null）、`V36`。
 
 ---
 

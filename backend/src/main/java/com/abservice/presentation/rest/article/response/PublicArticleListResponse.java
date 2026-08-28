@@ -3,10 +3,10 @@ package com.abservice.presentation.rest.article.response;
 import java.util.List;
 
 /**
- * 記事一覧レスポンス（REST の公開出力契約）
+ * 公開向け記事一覧レスポンス（REST の公開出力契約）
  *
  * @param items
- *            このページ分の記事詳細レスポンス
+ *            このページ分の記事（一覧表示用の項目のみ）
  * @param page
  *            ページ番号（0始まり）
  * @param size
@@ -16,8 +16,8 @@ import java.util.List;
  * @param totalPages
  *            総ページ数
  */
-public record ArticleListResponse(
-        List<ArticleResponse> items,
+public record PublicArticleListResponse(
+        List<PublicArticleResponse> items,
         int page,
         int size,
         long totalElements,

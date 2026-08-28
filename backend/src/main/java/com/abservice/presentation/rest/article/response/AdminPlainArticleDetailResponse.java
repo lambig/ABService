@@ -4,11 +4,11 @@ import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
 /**
- * アルバムへの参照を持たない記事の詳細レスポンス（REST の公開出力契約）
+ * 管理向けの、アルバムへの参照を持たない記事の詳細レスポンス（REST の公開出力契約）
  *
  * <p>
  * {@code NOTE} / {@code NEWS} / {@code EVENT} / {@code OTHER}
- * が対象。いずれも項目名の集合が同一のため、 種別ごとに型を分けない。アルバム参照に関わる項目名はここに現れない（その概念を持たないため）。
+ * が対象。いずれも項目名の集合が同一のため、種別ごとに型を分けない。アルバム参照に関わる項目名はここに現れない （その概念を持たないため）。
  * </p>
  *
  * @param articleId
@@ -24,13 +24,13 @@ import org.jspecify.annotations.Nullable;
  * @param introShort
  *            一覧表示用のショート紹介文（nullable）
  * @param publishedAt
- *            公開日時（nullable。UTC）
+ *            公開日時（nullable。null は下書き。UTC）
  * @param updatedAtBusiness
  *            業務上の更新日時（nullable。UTC）
  * @param publicFlag
  *            公開フラグ
  */
-public record PlainArticleResponse(
+public record AdminPlainArticleDetailResponse(
         String articleId,
         String articleType,
         String title,
@@ -39,5 +39,5 @@ public record PlainArticleResponse(
         @Nullable String introShort,
         @Nullable Instant publishedAt,
         @Nullable Instant updatedAtBusiness,
-        boolean publicFlag) implements ArticleResponse {
+        boolean publicFlag) implements AdminArticleDetailResponse {
 }
