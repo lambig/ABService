@@ -282,7 +282,7 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **トレードオフ**: 種別と契約ごとにレスポンス型が分かれるため、クライアントは種別で分岐し、型の数は増える。項目名の集合が同一のものに別の型を与えない（`NOTE` / `NEWS` / `EVENT` / `OTHER` は1つの型が担い、種別差のない管理向け一覧は1つの型で足りる）ことで、型の数を項目名の違いの数に留める。
 
-**実体**: `presentation/rest/article/response` の `PublicArticleDetailResponse` / `PublicArticleResponse` / `AdminArticleDetailResponse`（いずれも sealed）と `AdminArticleResponse`、`presentation/rest/album/response/AlbumDetailResponse` と `AlbumResponse`、`domain/model/aggregate/article/ArticleCore` の `body`（非null）、`V36`。
+**実体**: `presentation/rest/article/response` の `PublicArticleDetailResponse` / `PublicArticleResponse` / `AdminArticleDetailResponse`（いずれも sealed）と `AdminArticleResponse`、`presentation/rest/album/response` の `PublicAlbumDetailResponse` / `PublicAlbumResponse` / `AdminAlbumDetailResponse` / `AdminAlbumResponse`、`domain/model/aggregate/article/ArticleCore` の `body`（非null）、`V36`。
 
 ---
 

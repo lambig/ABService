@@ -9,8 +9,9 @@ import java.util.Set;
  * アルバム一覧で選べる並び順のキー
  *
  * <p>
- * 公開向けは作品としての並び（リリース日・公開日時・カタログナンバー）に限り、管理向けには作業順（更新日時・登録日時）を加える。
- * カタログナンバーはリリース日と実質的に同じ順序になるが、同一リリース日の作品を番号で並べたい場合に使う。
+ * 並べるのは作品としての意味を持つ項目（リリース日・公開日時・カタログナンバー）に限る。監査列（登録日時・更新日時）は
+ * 記録のための列であり、業務文脈の並び順には使わない。カタログナンバーはリリース日と実質的に同じ順序になるが、
+ * 同一リリース日の作品を番号で並べたい場合に使う。
  * </p>
  */
 public enum AlbumSortKey implements SortKey {
@@ -34,21 +35,7 @@ public enum AlbumSortKey implements SortKey {
             "catalogNumber",
             "catalogNumber",
             SortDirection.DESC,
-            Set.of(Audience.PUBLIC, Audience.ADMIN)),
-
-    /** 更新日時（管理向けのみ） */
-    UPDATED_AT(
-            "updatedAt",
-            "updatedAt",
-            SortDirection.DESC,
-            Set.of(Audience.ADMIN)),
-
-    /** 登録日時（管理向けのみ） */
-    CREATED_AT(
-            "createdAt",
-            "createdAt",
-            SortDirection.DESC,
-            Set.of(Audience.ADMIN));
+            Set.of(Audience.PUBLIC, Audience.ADMIN));
 
     private final String parameterValue;
     private final String property;

@@ -4,6 +4,7 @@ import static com.abservice.presentation.rest.AdminAuth.authorized;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -80,6 +81,39 @@ class AlbumAdminQueryRestIntegrationTest {
                 .body("publishedAt", nullValue()).body("tracks[0].title", equalTo("1曲目"))
                 .body("tracks[0].tunes[0].tuneTitle", equalTo("チューン1"))
                 .body("tracks[0].tunes[0].arrangerCreditOverride", equalTo("Arranger"));
+    }
+
+    @Test
+    @DisplayName("管理向け詳細は編集フォームが使うソートキーを返す")
+    void adminDetailKeepsEditingOnlyKeys() {
+        final String albumId = authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"title\":\"管理Query編集項目\",\"releaseDate\":\"2026-01-01\","
+                                + "\"artistDisplayName\":\"テストアーティスト\",\"artistSortKey\":\"てすとあーてぃすと\"}")
+                .when().post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
+        authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"trackNo\":1,\"title\":\"1曲目\",\"artistDisplayName\":\"トラックアーティスト\","
+                                + "\"artistSortKey\":\"とらっくあーてぃすと\"}")
+                .when().post("/api/v1/albums/" + albumId + "/tracks").then().statusCode(201);
+
+        authorized().when().get("/api/v1/admin/albums/" + albumId).then().statusCode(200)
+                .body("artistSortKey", equalTo("てすとあーてぃすと"))
+                .body("tracks[0].artistSortKey", equalTo("とらっくあーてぃすと"));
+    }
+
+    @Test
+    @DisplayName("管理向け一覧は作品を選ぶための項目だけを返す")
+    void adminListReturnsOnlySelectionFields() {
+        final var albumId = createDraftAlbum("管理Query一覧項目");
+
+        final var item = "items.find { it.albumId == '" + albumId + "' }";
+        authorized().when().get("/api/v1/admin/albums?page=0&size=100").then().statusCode(200)
+                .body(item + ".publishedAt", nullValue())
+                .body(item, not(hasKey("tracks")))
+                .body(item, not(hasKey("description")))
+                .body(item, not(hasKey("externalAudios")))
+                .body(item, not(hasKey("artistSortKey")));
     }
 
     @Test

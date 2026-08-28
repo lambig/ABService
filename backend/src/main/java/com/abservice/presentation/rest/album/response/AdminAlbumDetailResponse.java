@@ -1,16 +1,15 @@
 package com.abservice.presentation.rest.album.response;
 
-import com.abservice.presentation.rest.album.response.AlbumResponse.ExternalAudioResponse;
 import java.time.Instant;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
- * アルバム詳細レスポンス（REST の公開出力契約）
+ * 管理向けアルバム詳細レスポンス（REST の公開出力契約）
  *
  * <p>
- * 一覧（{@link AlbumResponse}）との違いは曲目（{@code tracks}）を持つことです。一覧は作品を選ぶための
- * 表示に留め曲目を返さないため、項目名自体を持たせません（`docs/DECISIONS.md` 20）。
+ * 管理画面の編集フォームが扱う項目をすべて持つ。公開向け（{@link PublicAlbumDetailResponse}）との違いは、
+ * 編集者が入力するアーティストソートキーを返すことと、下書きを表す {@code publishedAt} の null を返し得ることである。
  * </p>
  *
  * @param albumId
@@ -50,7 +49,7 @@ import org.jspecify.annotations.Nullable;
  * @param tracks
  *            曲目（トラック）の一覧。トラック番号の昇順
  */
-public record AlbumDetailResponse(
+public record AdminAlbumDetailResponse(
         String albumId,
         String title,
         String releaseDate,
@@ -68,56 +67,5 @@ public record AlbumDetailResponse(
         @Nullable Instant publishedAt,
         @Nullable String coverImageUrl,
         List<ExternalAudioResponse> externalAudios,
-        List<TrackResponse> tracks) {
-
-    /**
-     * トラック1件（REST の公開出力契約）
-     *
-     * @param trackId
-     *            トラックID（UUIDv7形式の文字列）
-     * @param trackNo
-     *            アルバム内のトラック番号
-     * @param title
-     *            トラックタイトル
-     * @param artistDisplayName
-     *            トラック個別のアーティスト表示名（nullable。null はアルバムの名義を継承）
-     * @param artistSortKey
-     *            トラック個別のアーティストソートキー（nullable）
-     * @param tunes
-     *            チューン構成の一覧。登場順の昇順
-     */
-    public record TrackResponse(
-            String trackId,
-            int trackNo,
-            String title,
-            @Nullable String artistDisplayName,
-            @Nullable String artistSortKey,
-            List<TrackTuneResponse> tunes) {
-    }
-
-    /**
-     * トラック内のチューン構成1件（REST の公開出力契約）
-     *
-     * <p>
-     * チューンIDは返しません。{@code Tune} マスタとの同定を行わないため、常に値を持たない項目になります。
-     * </p>
-     *
-     * @param seq
-     *            トラック内での登場順（1, 2, 3, ...）
-     * @param tuneTitle
-     *            チューン名（nullable）
-     * @param composerCreditOverride
-     *            作曲者クレジット（nullable）
-     * @param arrangerCreditOverride
-     *            アレンジャークレジット（nullable）
-     * @param linkUrl
-     *            リンクURL（nullable）
-     */
-    public record TrackTuneResponse(
-            int seq,
-            @Nullable String tuneTitle,
-            @Nullable String composerCreditOverride,
-            @Nullable String arrangerCreditOverride,
-            @Nullable String linkUrl) {
-    }
+        List<AdminTrackResponse> tracks) {
 }

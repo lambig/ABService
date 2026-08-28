@@ -5,7 +5,16 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
- * アルバム詳細レスポンス（REST の公開出力契約）
+ * 公開向けアルバム詳細レスポンス（REST の公開出力契約）
+ *
+ * <p>
+ * 公開アルバムページは作品の事実詳細をまとめるストック情報であり、概要説明・外部音源・曲目をここで返す。一覧
+ * （{@link PublicAlbumResponse}）は作品を選ぶための表示に留めるため、これらの項目名を持たない。
+ * </p>
+ *
+ * <p>
+ * アーティストソートキーは並べ替えのための値で、公開サイトは表示にも並びにも使わないため項目名自体を持たない。
+ * </p>
  *
  * @param albumId
  *            アルバムID（UUIDv7形式の文字列）
@@ -15,8 +24,6 @@ import org.jspecify.annotations.Nullable;
  *            リリース日（ISO-8601形式の文字列）
  * @param artistDisplayName
  *            アーティスト表示名
- * @param artistSortKey
- *            アーティストソートキー（nullable）
  * @param description
  *            作品の概要説明（nullable。null は説明なし）
  * @param descriptionFormat
@@ -36,18 +43,19 @@ import org.jspecify.annotations.Nullable;
  * @param eventNote
  *            初出イベント補足情報（nullable）
  * @param publishedAt
- *            公開日時（nullable。null は下書き。UTC）
+ *            公開日時（UTC。公開向けは公開中のものだけを返すため常に値を持つ）
  * @param coverImageUrl
- *            カバー画像の配信URL（nullable。サイト相対。登録時に渡すのは配信URLではなくアセットキー）
+ *            カバー画像の配信URL（nullable。サイト相対）
  * @param externalAudios
  *            外部音源（外部サービスの埋め込み元URL）の一覧。表示順の昇順
+ * @param tracks
+ *            曲目（トラック）の一覧。トラック番号の昇順
  */
-public record AlbumResponse(
+public record PublicAlbumDetailResponse(
         String albumId,
         String title,
         String releaseDate,
         String artistDisplayName,
-        @Nullable String artistSortKey,
         @Nullable String description,
         String descriptionFormat,
         @Nullable String catalogNumber,
@@ -57,20 +65,8 @@ public record AlbumResponse(
         @Nullable String eventPlace,
         @Nullable String eventSpaceNumber,
         @Nullable String eventNote,
-        @Nullable Instant publishedAt,
+        Instant publishedAt,
         @Nullable String coverImageUrl,
-        List<ExternalAudioResponse> externalAudios) {
-
-    /**
-     * 外部音源1件（REST の公開出力契約）
-     *
-     * @param externalAudioId
-     *            外部音源ID（UUIDv7形式の文字列）
-     * @param displayOrder
-     *            アルバム内での表示順（1, 2, 3, ...）
-     * @param url
-     *            埋め込み元URL
-     */
-    public record ExternalAudioResponse(String externalAudioId, int displayOrder, String url) {
-    }
+        List<ExternalAudioResponse> externalAudios,
+        List<PublicTrackResponse> tracks) {
 }
