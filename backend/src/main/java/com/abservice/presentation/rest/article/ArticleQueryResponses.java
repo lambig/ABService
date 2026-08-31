@@ -2,12 +2,14 @@ package com.abservice.presentation.rest.article;
 
 import com.abservice.application.query.article.GetArticleResult;
 import com.abservice.application.query.article.ListArticlesResult;
+import com.abservice.application.query.article.model.ArticleTagView;
 import com.abservice.application.query.article.model.ArticleView;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.presentation.rest.article.response.AdminAlbumArticleDetailResponse;
 import com.abservice.presentation.rest.article.response.AdminArticleDetailResponse;
 import com.abservice.presentation.rest.article.response.AdminArticleListResponse;
 import com.abservice.presentation.rest.article.response.AdminArticleResponse;
+import com.abservice.presentation.rest.article.response.AdminArticleTagResponse;
 import com.abservice.presentation.rest.article.response.AdminPlainArticleDetailResponse;
 import com.abservice.presentation.rest.article.response.PublicAlbumArticleDetailResponse;
 import com.abservice.presentation.rest.article.response.PublicAlbumArticleResponse;
@@ -145,14 +147,16 @@ final class ArticleQueryResponses {
                     view.body(),
                     view.bodyFormat(),
                     publicPublishedAt(view),
-                    view.albumId());
+                    view.albumId(),
+                    toTagNames(view));
             case NOTE, NEWS, EVENT, OTHER -> new PublicPlainArticleDetailResponse(
                     view.articleId(),
                     view.articleType(),
                     view.title(),
                     view.body(),
                     view.bodyFormat(),
-                    publicPublishedAt(view));
+                    publicPublishedAt(view),
+                    toTagNames(view));
         };
     }
 
@@ -189,7 +193,8 @@ final class ArticleQueryResponses {
                     view.albumId(),
                     view.formerAlbumId(),
                     view.albumReferenceLostAt(),
-                    view.albumReferenceLostReason());
+                    view.albumReferenceLostReason(),
+                    toTagResponses(view));
             case NOTE, NEWS, EVENT, OTHER -> new AdminPlainArticleDetailResponse(
                     view.articleId(),
                     view.articleType(),
@@ -199,7 +204,8 @@ final class ArticleQueryResponses {
                     view.introShort(),
                     view.publishedAt(),
                     view.updatedAtBusiness(),
-                    view.publicFlag());
+                    view.publicFlag(),
+                    toTagResponses(view));
         };
     }
 
@@ -211,6 +217,18 @@ final class ArticleQueryResponses {
         return Objects.requireNonNull(
                 view.publishedAt(),
                 "公開向けの照会結果は公開中のものに限るため、publishedAt は値を持つ");
+    }
+
+    private static List<String> toTagNames(ArticleView view) {
+        return view.tags().stream()
+                .map(ArticleTagView::name)
+                .toList();
+    }
+
+    private static List<AdminArticleTagResponse> toTagResponses(ArticleView view) {
+        return view.tags().stream()
+                .map(tag -> new AdminArticleTagResponse(tag.tagId(), tag.name()))
+                .toList();
     }
 
     private static AdminArticleResponse toAdminArticleResponse(ArticleView view) {

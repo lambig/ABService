@@ -1,6 +1,7 @@
 package com.abservice.presentation.rest.article.response;
 
 import java.time.Instant;
+import java.util.List;
 
 /**
  * 公開向けの、アルバムへの参照を持たない記事の詳細レスポンス（REST の公開出力契約）
@@ -22,6 +23,8 @@ import java.time.Instant;
  *            本文のマークアップ形式（列挙子名）
  * @param publishedAt
  *            公開日時（UTC。公開向けは公開中のものだけを返すため常に値を持つ）
+ * @param tags
+ *            記事に付いたタグ名の一覧（名前の昇順）
  */
 public record PublicPlainArticleDetailResponse(
         String articleId,
@@ -29,5 +32,6 @@ public record PublicPlainArticleDetailResponse(
         String title,
         String body,
         String bodyFormat,
-        Instant publishedAt) implements PublicArticleDetailResponse {
+        Instant publishedAt,
+        List<String> tags) implements PublicArticleDetailResponse {
 }

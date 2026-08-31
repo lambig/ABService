@@ -36,7 +36,7 @@ public class GetArticleService implements QueryService<GetArticleQuery, GetArtic
 
     static GetArticleResult toResult(@Nullable ArticleTableRecord entity) {
         return Optional.ofNullable(entity)
-                .map(ArticleViewMapper::toView)
+                .map(ArticleViewMapper::toDetailView)
                 .<GetArticleResult>map(GetArticleResult.Found::new)
                 .orElseGet(GetArticleResult.NotFound::new);
     }
