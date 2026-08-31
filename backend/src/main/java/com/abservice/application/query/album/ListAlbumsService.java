@@ -13,9 +13,12 @@ import io.smallrye.mutiny.tuples.Tuple3;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jspecify.annotations.Nullable;
 
 /**
  * アルバム一覧照会サービス（ページネーション付き）
@@ -28,7 +31,8 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * </p>
  *
  * <p>
- * タイトル・カタログナンバーでの絞り込みは、指定されたときだけ条件に加わります。いまこれを使うのは記事編集画面
+ * タイトル・カタログナンバーでの絞り込みは、指定されたときだけ条件に加わります（空文字・空白のみは未指定として
+ * 扱う。{@link #keywordOrNull}）。いまこれを使うのは記事編集画面
  * （紐付け先アルバムを検索して選ぶ）であり、公開向けのエンドポイントは値を渡しません。要求元によらず同じ絞り込みが
  * 使える形にしてあるため、公開サイトに作品検索を置く判断が出た場合はエンドポイント側で受け取るだけで足ります。
  * </p>
@@ -60,8 +64,8 @@ public class ListAlbumsService implements QueryService<ListAlbumsQuery, ListAlbu
                         query.sort(),
                         query.direction(),
                         query.audience()),
-                query.title(),
-                query.catalogNumber());
+                keywordOrNull(query.title()),
+                keywordOrNull(query.catalogNumber()));
         return Uni.combine().all()
                 .unis(
                         panacheQuery.list(),
@@ -151,5 +155,24 @@ public class ListAlbumsService implements QueryService<ListAlbumsQuery, ListAlbu
         return size < 1
                 ? DEFAULT_SIZE
                 : Math.min(size, MAX_SIZE);
+    }
+
+    /**
+     * 空文字・空白のみの検索語を未指定として扱う。
+     *
+     * <p>
+     * 検索フォームの各値を常にクエリパラメータへ載せる実装では、未入力が空文字として届く。これをそのまま条件にすると {@code like '%%'}
+     * が積に加わり、対象の列が null の行だけが結果から落ちる（SQL の {@code NULL LIKE '%%'} は真ではなく NULL
+     * のため）。カタログナンバーは未付与がありうるので、絞り込んでいないつもりでカタログナンバーを 持たないアルバムが消えることになる。
+     * </p>
+     *
+     * @param keyword
+     *            クエリパラメータで指定された検索語（nullable）
+     * @return 語として意味を持つ場合はその値、未指定・空文字・空白のみなら null
+     */
+    static @Nullable String keywordOrNull(@Nullable String keyword) {
+        return Optional.ofNullable(keyword)
+                .filter(Predicate.not(String::isBlank))
+                .orElse(null);
     }
 }

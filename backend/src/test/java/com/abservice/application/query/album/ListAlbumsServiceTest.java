@@ -10,7 +10,7 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-@DisplayName("ListAlbumsService（クランプ・結果組み立て）のテスト")
+@DisplayName("ListAlbumsService（クランプ・検索語の正規化・結果組み立て）のテスト")
 class ListAlbumsServiceTest {
 
     @Test
@@ -42,6 +42,21 @@ class ListAlbumsServiceTest {
     @DisplayName("sizeは範囲内ならそのまま")
     void clampSizeWithinRangeStaysSame() {
         assertThat(ListAlbumsService.clampSize(50)).isEqualTo(50);
+    }
+
+    @Test
+    @DisplayName("検索語は未指定・空文字・空白のみをいずれも未指定として扱う")
+    void keywordOrNullTreatsBlankAsUnspecified() {
+        assertThat(ListAlbumsService.keywordOrNull(null)).isNull();
+        assertThat(ListAlbumsService.keywordOrNull("")).isNull();
+        assertThat(ListAlbumsService.keywordOrNull("   ")).isNull();
+    }
+
+    @Test
+    @DisplayName("検索語は語として意味を持つならそのまま（前後の空白も落とさない）")
+    void keywordOrNullKeepsMeaningfulValue() {
+        assertThat(ListAlbumsService.keywordOrNull("Session")).isEqualTo("Session");
+        assertThat(ListAlbumsService.keywordOrNull(" Session ")).isEqualTo(" Session ");
     }
 
     @Test

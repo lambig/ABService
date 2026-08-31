@@ -375,6 +375,27 @@ class AlbumRestIntegrationTest {
     }
 
     @Test
+    @DisplayName("空文字・空白のみの検索パラメータは未指定として扱われ、カタログナンバーを持たないアルバムも落ちない")
+    void adminListTreatsBlankSearchParametersAsUnspecified() {
+        final String marker = marker();
+        final String withoutCatalog = createAlbum("Blank" + marker + "NoCatalog");
+        final String withCatalog = createAlbumWithCatalogNumber("Blank" + marker + "WithCatalog", "CAT-" + marker);
+
+        // catalogNumber が空文字だと like '%%' が積に加わり、列が null の行だけが落ちる
+        authorized().queryParam("size", 100).queryParam("title", "Blank" + marker)
+                .queryParam("catalogNumber", "")
+                .when().get("/api/v1/admin/albums").then().statusCode(200)
+                .body("items.albumId", hasItem(withoutCatalog))
+                .body("items.albumId", hasItem(withCatalog));
+
+        authorized().queryParam("size", 100).queryParam("title", "Blank" + marker)
+                .queryParam("catalogNumber", "   ")
+                .when().get("/api/v1/admin/albums").then().statusCode(200)
+                .body("items.albumId", hasItem(withoutCatalog))
+                .body("items.albumId", hasItem(withCatalog));
+    }
+
+    @Test
     @DisplayName("公開向け一覧は検索パラメータを受け取らず、絞り込まれない")
     void publicListIgnoresSearchParameters() {
         final String marker = marker();
