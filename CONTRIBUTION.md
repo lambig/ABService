@@ -82,7 +82,7 @@ ABService/
 ### 必要な環境
 
 - Java 25 (Amazon Corretto 25 - 固定)
-- Node.js 18+
+- Node.js（版は `.nvmrc` が正。Active LTS の最新メジャーに固定する。`nvm use` で従う）
 - Docker & Docker Compose
 - Git
 
