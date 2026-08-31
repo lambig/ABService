@@ -161,13 +161,13 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 ## 12. 参照先を失った参照は「失効」として型に残す
 
-**判断**: Album は物理削除する（論理削除や削除済みアルバムテーブルは持たない）。参照していた Article は残し、参照を「失効」状態へ遷移させる。失効した参照は旧アルバムID・失効日時・理由コードを保持し、参照の状態（なし / 有効 / 失効）は sealed 型で判別する。削除時、公開中だった記事は同一トランザクションで非公開へ戻し、影響を受けた記事を応答に含める。失効した参照を持つアルバム記事は公開できない。記事種別（`ArticleType`）はシステムから変更しない。
+**判断**: Album は物理削除する（論理削除や削除済みアルバムテーブルは持たない）。参照していた Article は残し、参照を「失効」状態へ遷移させる。失効した参照は旧アルバムID・失効日時・理由コードを保持し、参照の状態（なし / 有効 / 失効）は sealed 型で判別する。削除時、公開中だった記事は同一トランザクションで非公開へ戻し、影響を受けた記事を応答に含める。失効した参照を持つアルバム記事は公開できない。記事種別（`ArticleType`）はシステムから変更しない。人が明示的に外す「解除」は失効とは別の操作とし、参照なしへ戻す（理由を残さない。失効した参照からも解除できる）。
 
-**なぜ**: 削除済みを別テーブルへ退避すると実質的に論理削除になり、公開判定と参照解決が二重になる。一方で参照を単に null へ戻すと「なぜ参照が無いのか」が失われ、編集者が張り直しの判断をできない。状態を型で持てば、公開ユースケースの分岐が網羅性検査の対象になり、「参照先のない公開記事」を作る経路が構造的に閉じる。種別を書き換えないのは、種別が人の記述であってシステムの推論結果ではないため（#89 の区別と同じ趣旨）。
+**なぜ**: 削除済みを別テーブルへ退避すると実質的に論理削除になり、公開判定と参照解決が二重になる。一方で参照を単に null へ戻すと「なぜ参照が無いのか」が失われ、編集者が張り直しの判断をできない。状態を型で持てば、公開ユースケースの分岐が網羅性検査の対象になり、「参照先のない公開記事」を作る経路が構造的に閉じる。種別を書き換えないのは、種別が人の記述であってシステムの推論結果ではないため（#89 の区別と同じ趣旨）。理由を残す必要があるのはシステムが外した場合に限る。人が外した場合は残す対象がなく、解除が失効を上書きできるのは、失効の記録を人が片付ける経路でもあるため。
 
 **トレードオフ**: 失効情報は1件しか持たないため、同じ記事が複数回参照を失うと直前の経緯だけが残る。横断的な「システムからのお知らせ」を持つ仕組み（#174）を入れるなら、そこへ移す判断があり得る。
 
-**実体**: `domain/model/vo/article/AlbumReference`（sealed）と `AlbumReferenceLostReason`、`domain/model/aggregate/article/AlbumArticle`（参照を持てる唯一の記事種別）、`application/service/album/DeleteAlbumService`、`application/service/article/PublishArticleService`、`V35`（`article_album_reference`）。
+**実体**: `domain/model/vo/article/AlbumReference`（sealed）と `AlbumReferenceLostReason`、`domain/model/aggregate/article/AlbumArticle`（参照を持てる唯一の記事種別）、`application/service/album/DeleteAlbumService`、`application/service/article/PublishArticleService`、`application/service/article/RemoveArticleAlbumService`（解除）、`V35`（`article_album_reference`）。
 
 ---
 

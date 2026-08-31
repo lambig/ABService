@@ -29,6 +29,11 @@ import org.jspecify.annotations.Nullable;
  * が null のものが下書き。未存在は例外ではなく {@link GetAlbumResult.NotFound} として扱い、404 を RFC
  * 9457 Problem Details （{@code application/problem+json}）で返す。
  * </p>
+ *
+ * <p>
+ * 一覧はタイトル・カタログナンバーでの絞り込みを受け付ける。記事編集画面が紐付け先アルバムを検索して選ぶための経路で、
+ * 公開向け（{@link AlbumQueryResource}）は同じ絞り込みを持たない。
+ * </p>
  */
 @Path("/api/v1/admin/albums")
 @RolesAllowed(SecurityRoles.ADMIN)
@@ -77,6 +82,10 @@ public class AlbumAdminQueryResource {
      *            並び順のキー（未指定なら登録の新しい順）
      * @param direction
      *            並び順の向き（未指定ならキーごとの既定）
+     * @param title
+     *            タイトルでの絞り込み（未指定なら絞り込まない）。部分一致で大文字小文字を問わない
+     * @param catalogNumber
+     *            カタログナンバーでの絞り込み（未指定なら絞り込まない）。{@code title} と併せて指定した場合は積で絞り込む
      * @return 200 とアルバム一覧
      */
     @GET
@@ -85,14 +94,18 @@ public class AlbumAdminQueryResource {
             @QueryParam("page") @DefaultValue("0") int page,
             @QueryParam("size") @DefaultValue("20") int size,
             @QueryParam("sort") @Nullable String sort,
-            @QueryParam("direction") @Nullable String direction) {
+            @QueryParam("direction") @Nullable String direction,
+            @QueryParam("title") @Nullable String title,
+            @QueryParam("catalogNumber") @Nullable String catalogNumber) {
         return listAlbumsService.query(
                 new ListAlbumsQuery(
                         page,
                         size,
                         Audience.ADMIN,
                         sort,
-                        direction))
+                        direction,
+                        title,
+                        catalogNumber))
                 .map(AlbumQueryResponses::toAdminListResponse);
     }
 }

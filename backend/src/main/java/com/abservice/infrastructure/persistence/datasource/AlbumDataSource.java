@@ -17,9 +17,13 @@ import org.jspecify.annotations.Nullable;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Album DataSource (DAO)
@@ -30,6 +34,16 @@ import java.util.function.Predicate;
  */
 @ApplicationScoped
 public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, Long> {
+
+    /** 一覧の絞り込み条件（Panache のクエリ断片。エンティティ別名を伴わない） */
+    private static final String WHERE_PUBLISHED = "publishedAt is not null";
+
+    private static final String WHERE_TITLE = "lower(title) like lower(:title) escape '\\'";
+
+    private static final String WHERE_CATALOG_NUMBER = "lower(catalogNumber) like lower(:catalogNumber) escape '\\'";
+
+    /** LIKE のワイルドカードとして解釈させたくない文字（利用者が打った語の一部として扱う） */
+    private static final Pattern LIKE_WILDCARDS = Pattern.compile("([\\\\%_])");
 
     private final Mutiny.SessionFactory sessionFactory;
 
@@ -392,6 +406,12 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, 
      * {@code publishedAt}が非nullのアルバムのみを対象にする。
      * </p>
      *
+     * <p>
+     * タイトル・カタログナンバーでの絞り込みは、指定されたときだけ条件に加わる。いずれも部分一致で大文字小文字を問わず、
+     * 両方を指定した場合は積（AND）で絞り込む。利用者が打った語に含まれる {@code %} / {@code _} / {@code \}
+     * はワイルドカードではなく文字そのものとして扱う（{@link #likeContains}）。
+     * </p>
+     *
      * @param page
      *            ページ番号（0始まり）
      * @param size
@@ -400,17 +420,85 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, 
      *            検索対象の公開状態スコープ
      * @param sort
      *            解決済みの並び順
+     * @param title
+     *            タイトルでの絞り込み（nullable。未指定なら絞り込まない）
+     * @param catalogNumber
+     *            カタログナンバーでの絞り込み（nullable。未指定なら絞り込まない）
      * @return ページングクエリ
      */
     public PanacheQuery<AlbumTableRecord> pagedQuery(
             int page,
             int size,
             Visibility visibility,
-            SortSpec sort) {
-        return (visibility == Visibility.PUBLIC_ONLY
-                ? find("publishedAt is not null", SortOrders.of(sort))
-                : findAll(SortOrders.of(sort)))
+            SortSpec sort,
+            @Nullable String title,
+            @Nullable String catalogNumber) {
+        return conditionsOf(
+                visibility,
+                title,
+                catalogNumber).stream()
+                .reduce((left, right) -> left + " AND " + right)
+                .map(
+                        where -> find(
+                                where,
+                                SortOrders.of(sort),
+                                parametersOf(title, catalogNumber)))
+                .orElseGet(() -> findAll(SortOrders.of(sort)))
                 .page(Page.of(page, size));
+    }
+
+    private static List<String> conditionsOf(
+            Visibility visibility,
+            @Nullable String title,
+            @Nullable String catalogNumber) {
+        return Stream.of(
+                conditionIf(visibility == Visibility.PUBLIC_ONLY, WHERE_PUBLISHED),
+                conditionIf(title != null, WHERE_TITLE),
+                conditionIf(catalogNumber != null, WHERE_CATALOG_NUMBER))
+                .flatMap(Optional::stream)
+                .toList();
+    }
+
+    private static Optional<String> conditionIf(boolean applies, String condition) {
+        return applies
+                ? Optional.of(condition)
+                : Optional.empty();
+    }
+
+    private static Map<String, Object> parametersOf(@Nullable String title, @Nullable String catalogNumber) {
+        return Stream.of(
+                parameterIf("title", title),
+                parameterIf("catalogNumber", catalogNumber))
+                .flatMap(Optional::stream)
+                .collect(
+                        Collectors.toMap(
+                                Map.Entry::getKey,
+                                Map.Entry::getValue));
+    }
+
+    private static Optional<Map.Entry<String, Object>> parameterIf(String name, @Nullable String keyword) {
+        return Optional.ofNullable(keyword)
+                .map(present -> Map.entry(name, likeContains(present)));
+    }
+
+    /**
+     * 部分一致の LIKE パターンへ変換する。
+     *
+     * <p>
+     * 語そのものに含まれる {@code \} / {@code %} / {@code _} を {@code \} でエスケープしてから前後を
+     * {@code %} で囲む。エスケープしないと、利用者が打った {@code _} が任意の1文字に化けて意図より広く当たる。
+     * </p>
+     *
+     * @param keyword
+     *            利用者が打った語
+     * @return LIKE のパターン
+     */
+    static String likeContains(String keyword) {
+        return "%"
+                + LIKE_WILDCARDS
+                        .matcher(keyword)
+                        .replaceAll("\\\\$1")
+                + "%";
     }
 
     /**

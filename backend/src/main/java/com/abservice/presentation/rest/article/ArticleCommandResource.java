@@ -8,6 +8,8 @@ import com.abservice.application.service.article.DeleteArticleService;
 import com.abservice.application.service.article.PublishArticleInput;
 import com.abservice.application.service.article.PublishArticleOutput;
 import com.abservice.application.service.article.PublishArticleService;
+import com.abservice.application.service.article.RemoveArticleAlbumInput;
+import com.abservice.application.service.article.RemoveArticleAlbumService;
 import com.abservice.application.service.article.SetArticleAlbumInput;
 import com.abservice.application.service.article.SetArticleAlbumOutput;
 import com.abservice.application.service.article.SetArticleAlbumService;
@@ -43,9 +45,10 @@ import jakarta.ws.rs.core.Response;
  *
  * <p>
  * 記事の作成（POST）・更新（PUT、全項目置換）・削除（DELETE、べき等）・公開（POST .../publish）・非公開化（POST
- * .../unpublish）・アルバム紐付け（PUT .../album）を受け付ける。検証・永続化は アプリケーション層に委譲し、 検証失敗・対象不在は
- * {@code DomainException} 経由で {@code DomainExceptionMapper} が RFC 9457 Problem
- * Details に変換する（アルバム記事の公開時、参照先アルバムが非公開の場合や、ALBUM種別以外の記事への アルバム紐付けは
+ * .../unpublish）・アルバム紐付け（PUT .../album）・紐付け解除（DELETE .../album、べき等）を
+ * 受け付ける。検証・永続化は アプリケーション層に委譲し、 検証失敗・対象不在は {@code DomainException} 経由で
+ * {@code DomainExceptionMapper} が RFC 9457 Problem Details
+ * に変換する（アルバム記事の公開時、参照先アルバムが非公開の場合や、ALBUM種別以外の記事への アルバム紐付けは
  * {@code BusinessRuleViolationException} 経由で 409）。全操作は管理者ロール
  * （{@code Authorization: Bearer <APIキー>}）を要求する。
  * </p>
@@ -60,6 +63,7 @@ public class ArticleCommandResource {
     private final PublishArticleService publishArticleService;
     private final UnpublishArticleService unpublishArticleService;
     private final SetArticleAlbumService setArticleAlbumService;
+    private final RemoveArticleAlbumService removeArticleAlbumService;
 
     /**
      * @param createArticleService
@@ -74,6 +78,8 @@ public class ArticleCommandResource {
      *            記事非公開化ユースケース
      * @param setArticleAlbumService
      *            記事へのAlbum参照設定ユースケース
+     * @param removeArticleAlbumService
+     *            記事のAlbum参照解除ユースケース
      */
     public ArticleCommandResource(
             CreateArticleService createArticleService,
@@ -81,13 +87,15 @@ public class ArticleCommandResource {
             DeleteArticleService deleteArticleService,
             PublishArticleService publishArticleService,
             UnpublishArticleService unpublishArticleService,
-            SetArticleAlbumService setArticleAlbumService) {
+            SetArticleAlbumService setArticleAlbumService,
+            RemoveArticleAlbumService removeArticleAlbumService) {
         this.createArticleService = createArticleService;
         this.updateArticleService = updateArticleService;
         this.deleteArticleService = deleteArticleService;
         this.publishArticleService = publishArticleService;
         this.unpublishArticleService = unpublishArticleService;
         this.setArticleAlbumService = setArticleAlbumService;
+        this.removeArticleAlbumService = removeArticleAlbumService;
     }
 
     /**
@@ -252,6 +260,25 @@ public class ArticleCommandResource {
     public Uni<Response> setAlbum(@PathParam("id") String id, SetArticleAlbumRequest request) {
         return setArticleAlbumService.execute(new SetArticleAlbumInput(id, request.albumId()))
                 .map(ArticleCommandResource::toOk);
+    }
+
+    /**
+     * 記事のアルバム紐付けを解除します（ALBUM種別の記事のみ）。
+     *
+     * <p>
+     * 紐付けを持たない記事・参照が失効している記事に対してもべき等に成功します。参照先アルバムの削除に伴う失効とは別に、
+     * 人が明示的に外す操作のため理由は残しません。
+     * </p>
+     *
+     * @param id
+     *            解除対象の記事ID
+     * @return 204 No Content
+     */
+    @DELETE
+    @Path("/{id}/album")
+    public Uni<Response> removeAlbum(@PathParam("id") String id) {
+        return removeArticleAlbumService.execute(new RemoveArticleAlbumInput(id))
+                .replaceWith(Response.noContent().build());
     }
 
     private static Response toOk(SetArticleAlbumOutput output) {

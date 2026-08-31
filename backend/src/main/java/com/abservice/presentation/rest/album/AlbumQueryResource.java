@@ -82,13 +82,19 @@ public class AlbumQueryResource {
             @QueryParam("size") @DefaultValue("20") int size,
             @QueryParam("sort") @Nullable String sort,
             @QueryParam("direction") @Nullable String direction) {
+        /*
+         * AUDIENCE-SCOPED: タイトル・カタログナンバーの絞り込みは管理向けの経路だけが受け取る。公開サイトに
+         * 作品検索を置く判断はまだないため、公開向けは絞り込みを渡さない。Query 側は要求元によらず同じ形のため、 置く判断が出たらここで受け取るだけでよい。
+         */
         return listAlbumsService.query(
                 new ListAlbumsQuery(
                         page,
                         size,
                         Audience.PUBLIC,
                         sort,
-                        direction))
+                        direction,
+                        null,
+                        null))
                 .map(AlbumQueryResponses::toPublicListResponse);
     }
 }

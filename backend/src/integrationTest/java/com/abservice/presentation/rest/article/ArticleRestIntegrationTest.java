@@ -351,6 +351,58 @@ class ArticleRestIntegrationTest {
                 .body("publicFlag", equalTo(true));
     }
 
+    @Test
+    @DisplayName("紐付けたアルバムを解除でき、以後は参照なしとして返る")
+    void removeAlbumClearsReference() {
+        final String albumId = createDraftAlbum("解除確認アルバム");
+        final String articleId = authorized().contentType(ContentType.JSON)
+                .body("{\"articleType\":\"ALBUM\",\"title\":\"解除確認記事\"}").when().post("/api/v1/articles").then()
+                .statusCode(201).extract().path("articleId");
+
+        authorized().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
+                .put("/api/v1/articles/" + articleId + "/album").then().statusCode(200)
+                .body("albumId", equalTo(albumId));
+
+        authorized().when().delete("/api/v1/articles/" + articleId + "/album").then().statusCode(204);
+
+        // 種別は ALBUM のままで、参照だけが外れる（種別変更による参照落ちとは別の経路）
+        authorized().when().get("/api/v1/admin/articles/" + articleId).then().statusCode(200)
+                .body("articleType", equalTo("ALBUM"))
+                .body("$", hasKey("albumId"))
+                .body("albumId", nullValue());
+    }
+
+    @Test
+    @DisplayName("紐付けを持たない記事の解除もべき等に成功する")
+    void removeAlbumIsIdempotentWithoutReference() {
+        final String articleId = authorized().contentType(ContentType.JSON)
+                .body("{\"articleType\":\"ALBUM\",\"title\":\"未紐付け解除確認記事\"}").when().post("/api/v1/articles")
+                .then().statusCode(201).extract().path("articleId");
+
+        authorized().when().delete("/api/v1/articles/" + articleId + "/album").then().statusCode(204);
+        authorized().when().delete("/api/v1/articles/" + articleId + "/album").then().statusCode(204);
+    }
+
+    @Test
+    @DisplayName("NOTE種別の記事への解除は409 problem+jsonを返す")
+    void removeAlbumFailsForNonAlbumTypeArticle() {
+        final String articleId = authorized().contentType(ContentType.JSON)
+                .body("{\"articleType\":\"NOTE\",\"title\":\"解除拒否確認記事\"}").when().post("/api/v1/articles").then()
+                .statusCode(201).extract().path("articleId");
+
+        authorized().when().delete("/api/v1/articles/" + articleId + "/album").then().statusCode(409)
+                .contentType("application/problem+json")
+                .body("type", equalTo("urn:abservice:error:BUSINESS_RULE_VIOLATION"));
+    }
+
+    @Test
+    @DisplayName("存在しない記事への解除は404 problem+jsonを返す")
+    void removeAlbumNotFoundForUnknownArticle() {
+        authorized().when().delete("/api/v1/articles/" + UUID.randomUUID() + "/album").then().statusCode(404)
+                .contentType("application/problem+json")
+                .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
+    }
+
     private static String createDraftAlbum(String title) {
         return authorized().contentType(ContentType.JSON)
                 .body(

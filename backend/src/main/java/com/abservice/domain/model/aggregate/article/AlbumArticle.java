@@ -160,6 +160,26 @@ public final class AlbumArticle implements Article {
                 .orElse(this);
     }
 
+    /**
+     * アルバム参照を解除します。
+     *
+     * <p>
+     * 人が明示的に外す操作のため、外した理由は残しません。参照先アルバムの削除に伴う失効
+     * （{@link #loseAlbumReference}）は「なぜ参照が無いのか」を残す必要がありますが、人が外した場合は
+     * 残す対象がないためです。有効な参照からも失効した参照からも参照なしへ戻り、失効の記録を人が片付ける経路も兼ねます。
+     * もともと参照を持たない場合は現在の状態を保ちます（外す対象がなく、記事から見た結果が変わらないため）。
+     * </p>
+     *
+     * @param currentDateTime
+     *            現在日時
+     * @return 更新されたアルバム紹介記事
+     */
+    public @NonNull AlbumArticle detachAlbum(@NonNull BusinessDateTime currentDateTime) {
+        return albumReference.equivalentTo(AlbumReference.none())
+                ? this
+                : withAlbumReference(AlbumReference.none(), currentDateTime);
+    }
+
     private @NonNull AlbumArticle withAlbumReference(@NonNull AlbumReference newAlbumReference,
             @NonNull BusinessDateTime currentDateTime) {
         return AlbumArticle.factory(

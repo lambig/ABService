@@ -26,6 +26,12 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * をそのまま活用し、 独自の COUNT クエリやページ数計算式を書かない。対象範囲はクエリの {@code audience}
  * が決め、公開向け（{@code PUBLIC}）では下書き（未公開）アルバムを一覧に含めず、管理向け（{@code ADMIN}） では下書きも含めます。
  * </p>
+ *
+ * <p>
+ * タイトル・カタログナンバーでの絞り込みは、指定されたときだけ条件に加わります。いまこれを使うのは記事編集画面
+ * （紐付け先アルバムを検索して選ぶ）であり、公開向けのエンドポイントは値を渡しません。要求元によらず同じ絞り込みが
+ * 使える形にしてあるため、公開サイトに作品検索を置く判断が出た場合はエンドポイント側で受け取るだけで足ります。
+ * </p>
  */
 @ApplicationScoped
 @AllArgsConstructor
@@ -53,7 +59,9 @@ public class ListAlbumsService implements QueryService<ListAlbumsQuery, ListAlbu
                         AlbumSortKey.values(),
                         query.sort(),
                         query.direction(),
-                        query.audience()));
+                        query.audience()),
+                query.title(),
+                query.catalogNumber());
         return Uni.combine().all()
                 .unis(
                         panacheQuery.list(),
