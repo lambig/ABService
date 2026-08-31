@@ -9,16 +9,19 @@ import org.jspecify.annotations.Nullable;
  * <p>
  * 記事本文やコンテンツのマークアップ形式を表す列挙型です。
  * </p>
+ *
+ * <p>
+ * HTML は持ちません。入力形式は Markdown（およびプレーンテキスト）に一本化し、描画側は生HTMLをパースする経路を
+ * 持たないためです（{@code docs/DECISIONS.md} 24）。選べる形式として残すと、公開ページで実行可能なものが
+ * 描画される余地が契約に残ります。
+ * </p>
  */
 public enum MarkupFormat {
     /** プレーンテキスト（マークアップなし） */
     PLAIN_TEXT,
 
     /** Markdown形式 */
-    MARKDOWN,
-
-    /** HTML形式 */
-    HTML;
+    MARKDOWN;
 
     /**
      * 列挙子名からマークアップ形式を解決します。未指定（{@code null}）の場合は {@link #PLAIN_TEXT} を既定値とします。
