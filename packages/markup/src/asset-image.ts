@@ -1,6 +1,9 @@
 import type { Element, Root } from 'hast';
 import type { Node, Parent } from 'unist';
-import { SKIP, visit } from 'unist-util-visit';
+import { CONTINUE, SKIP, visit } from 'unist-util-visit';
+
+/** 走査を続けるか、取り除いた位置から続けるかの指示 */
+type VisitResult = typeof CONTINUE | [typeof SKIP, number];
 
 /**
  * 画像の `src` を配信ベースパス配下に限る。
@@ -17,10 +20,11 @@ export function rehypeRestrictImageSource(
 ): (tree: Root) => undefined {
   const allowedPrefix = withTrailingSlash(assetBasePath);
   return (tree: Root): undefined => {
-    visit(tree, isImage, (node, index, parent) =>
-      isAllowedSource(node, allowedPrefix)
-        ? undefined
-        : dropFromParent(index, parent));
+    visit(tree, isImage, (node, index, parent) => {
+      return isAllowedSource(node, allowedPrefix)
+        ? CONTINUE
+        : dropFromParent(index, parent);
+    });
   };
 }
 
@@ -44,7 +48,7 @@ function isImage(node: Node): node is Element {
  * @returns 配下であれば true
  */
 function isAllowedSource(node: Element, allowedPrefix: string): boolean {
-  return [node.properties?.['src']]
+  return [node.properties['src']]
     .filter((src): src is string => typeof src === 'string')
     .some((src) => src.startsWith(allowedPrefix));
 }
@@ -52,14 +56,14 @@ function isAllowedSource(node: Element, allowedPrefix: string): boolean {
 function dropFromParent(
   index: number | undefined,
   parent: Parent | undefined,
-): [typeof SKIP, number] | undefined {
+): VisitResult {
   return [{ index, parent }]
     .filter(hasPosition)
-    .map(({ index: at, parent: from }) => {
+    .map(({ index: at, parent: from }): VisitResult => {
       from.children.splice(at, 1);
-      return [SKIP, at] as [typeof SKIP, number];
+      return [SKIP, at];
     })
-    .at(0);
+    .at(0) ?? CONTINUE;
 }
 
 function hasPosition(candidate: {

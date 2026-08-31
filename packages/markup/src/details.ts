@@ -1,7 +1,7 @@
 import type { Paragraph, Root } from 'mdast';
 import type { ContainerDirective, Directives } from 'mdast-util-directive';
 import type { Node, Parent } from 'unist';
-import { SKIP, visit } from 'unist-util-visit';
+import { CONTINUE, SKIP, visit } from 'unist-util-visit';
 
 /**
  * 折りたたみとして通す唯一のディレクティブ名。
@@ -18,6 +18,9 @@ const DIRECTIVE_TYPES: ReadonlySet<string> = new Set([
   'textDirective',
 ]);
 
+/** 走査を続けるか、取り除いた位置から続けるかの指示 */
+type VisitResult = typeof CONTINUE | [typeof SKIP, number];
+
 /**
  * ディレクティブを `<details>` へ変換し、それ以外のディレクティブは出力から落とす。
  *
@@ -28,10 +31,11 @@ const DIRECTIVE_TYPES: ReadonlySet<string> = new Set([
  */
 export function remarkDetailsDirective(): (tree: Root) => undefined {
   return (tree: Root): undefined => {
-    visit(tree, isDirective, (node, index, parent) =>
-      isDetailsContainer(node)
+    visit(tree, isDirective, (node, index, parent) => {
+      return isDetailsContainer(node)
         ? markAsDetails(node)
-        : dropFromParent(index, parent));
+        : dropFromParent(index, parent);
+    });
   };
 }
 
@@ -48,12 +52,12 @@ function isDetailsContainer(node: Directives): node is ContainerDirective {
  *
  * @param node
  *            details コンテナディレクティブ
- * @returns 子孫の走査を続けるため常に undefined
+ * @returns 子孫の走査を続ける指示
  */
-function markAsDetails(node: ContainerDirective): undefined {
+function markAsDetails(node: ContainerDirective): VisitResult {
   node.data = { ...node.data, hName: DETAILS };
   labelOf(node).forEach(markAsSummary);
-  return undefined;
+  return CONTINUE;
 }
 
 /**
@@ -88,19 +92,19 @@ function markAsSummary(label: Paragraph): void {
  *            親の children における位置
  * @param parent
  *            親ノード
- * @returns 取り除いた位置から走査を続ける指示。位置が取れない場合は指示なし
+ * @returns 取り除いた位置から走査を続ける指示。位置が取れない場合はそのまま続ける
  */
 function dropFromParent(
   index: number | undefined,
   parent: Parent | undefined,
-): [typeof SKIP, number] | undefined {
+): VisitResult {
   return [{ index, parent }]
     .filter(hasPosition)
-    .map(({ index: at, parent: from }) => {
+    .map(({ index: at, parent: from }): VisitResult => {
       from.children.splice(at, 1);
-      return [SKIP, at] as [typeof SKIP, number];
+      return [SKIP, at];
     })
-    .at(0);
+    .at(0) ?? CONTINUE;
 }
 
 function hasPosition(candidate: {
