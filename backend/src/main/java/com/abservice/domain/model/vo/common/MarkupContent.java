@@ -89,20 +89,6 @@ public record MarkupContent(@NonNull String content, MarkupFormat format) implem
     }
 
     /**
-     * HTMLコンテンツを作成
-     *
-     * @param content
-     *            HTMLテキスト（nullの場合は空文字列として扱う）
-     * @return MarkupContentインスタンス
-     */
-    public static MarkupContent html(String content) {
-        return new MarkupContent(
-                Optional.ofNullable(content)
-                        .orElse(""),
-                MarkupFormat.HTML);
-    }
-
-    /**
      * 外部入力（文字列）からマークアップコンテンツを生成します。
      *
      * <p>

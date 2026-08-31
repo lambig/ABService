@@ -40,18 +40,6 @@ class MarkupContentTest {
         }
 
         @Test
-        @DisplayName("HTMLを生成できること")
-        void createHtmlShouldSucceed() {
-            // Arrange & Act
-            final var content = MarkupContent.html("<h1>Title</h1><p>Paragraph</p>");
-
-            // Assert
-            assertThat(content).isNotNull();
-            assertThat(content.content()).isEqualTo("<h1>Title</h1><p>Paragraph</p>");
-            assertThat(content.format()).isEqualTo(MarkupFormat.HTML);
-        }
-
-        @Test
         @DisplayName("nullコンテンツは空文字列として生成されること")
         void createWithNullContentShouldConvertToEmpty() {
             // Arrange & Act
@@ -173,7 +161,7 @@ class MarkupContentTest {
         void differentFormatShouldNotBeEquivalent() {
             // Arrange
             final var content1 = MarkupContent.markdown("Test");
-            final var content2 = MarkupContent.html("Test");
+            final var content2 = MarkupContent.plainText("Test");
 
             // Act & Assert
             assertThat(content1.equivalentTo(content2)).isFalse();
@@ -223,10 +211,22 @@ class MarkupContentTest {
         @DisplayName("形式の前後空白を許容する")
         void surroundingWhitespaceInFormatIsTrimmed() {
             // Act
-            final Result<MarkupContent> result = MarkupContent.fromInput("x", "  HTML  ");
+            final Result<MarkupContent> result = MarkupContent.fromInput("x", "  MARKDOWN  ");
 
             // Assert
-            assertThat(result.resolve().format()).isEqualTo(MarkupFormat.HTML);
+            assertThat(result.resolve().format()).isEqualTo(MarkupFormat.MARKDOWN);
+        }
+
+        @Test
+        @DisplayName("HTMLは形式として受け付けない")
+        void htmlFormatShouldFailAsInvalid() {
+            // Act
+            final Result<MarkupContent> result = MarkupContent.fromInput("<p>x</p>", "HTML");
+
+            // Assert
+            assertThat(result).isInstanceOf(Result.Failure.class);
+            assertThat(((Result.Failure<MarkupContent>) result).errors()).singleElement()
+                    .satisfies(e -> assertThat(e.code()).isEqualTo("MARKUP_FORMAT_INVALID"));
         }
 
         @Test

@@ -355,7 +355,7 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **トレードオフ**: ディレクティブ記法は非標準で、GitHub など他所ではただのテキストとして見える（入力者は単一の管理者で、プレビューは管理画面で見るため実運用の影響は小さい）。共有パッケージが1つ増え、管理画面には本文用の画像アップロード導線が要る。
 
-**実体**: `domain/model/vo/common/MarkupFormat` / `MarkupContent`（`HTML` の廃止は #227）、描画の共有パッケージは #228、利用側は #122 / #123、CSP の `img-src` は #118。
+**実体**: `domain/model/vo/common/MarkupFormat` / `MarkupContent`、`V40`（マークアップ形式の CHECK 制約）、描画は `packages/markup`（`renderMarkup` とディレクティブ・画像のプラグイン）。利用側は #122 / #123、CSP の `img-src` は #118。
 
 ---
 

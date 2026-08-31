@@ -26,7 +26,7 @@ import org.jspecify.annotations.Nullable;
  * @param description
  *            作品の概要説明（nullable。未指定は説明なしへの置換）
  * @param descriptionFormat
- *            概要説明のマークアップ形式（PLAIN_TEXT / MARKDOWN / HTML。{@code description}
+ *            概要説明のマークアップ形式（PLAIN_TEXT / MARKDOWN。{@code description}
  *            を指定する場合のみ必須）
  * @param event
  *            初出イベント情報（nullable）
