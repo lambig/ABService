@@ -4,6 +4,7 @@
   "description": "ABService - Web Service implementation",
   "private": true,
   "workspaces": [
+    "packages/*",
     "frontend-admin",
     "frontend-public"
   ],
