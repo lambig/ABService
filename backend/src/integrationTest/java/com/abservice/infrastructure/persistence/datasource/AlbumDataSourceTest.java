@@ -231,7 +231,9 @@ class AlbumDataSourceTest {
                         0,
                         1,
                         Visibility.ALL,
-                        SortSpec.defaultOrder()).count()
+                        SortSpec.defaultOrder(),
+                        null,
+                        null).count()
                         .invoke(total -> assertThat(total >= 3).isTrue()));
 
         asserter.execute(
@@ -239,7 +241,9 @@ class AlbumDataSourceTest {
                         0,
                         2,
                         Visibility.ALL,
-                        SortSpec.defaultOrder()).list()
+                        SortSpec.defaultOrder(),
+                        null,
+                        null).list()
                         .invoke(page -> assertThat(page).hasSizeLessThanOrEqualTo(2)));
     }
 
@@ -259,13 +263,126 @@ class AlbumDataSourceTest {
                         0,
                         100,
                         Visibility.PUBLIC_ONLY,
-                        SortSpec.defaultOrder()).list(),
+                        SortSpec.defaultOrder(),
+                        null,
+                        null).list(),
                 found -> {
                     assertThat(found.stream().anyMatch(a -> a.getDomainId().equals(publishedEntity.getDomainId())))
                             .isTrue();
                     assertThat(found.stream().anyMatch(a -> a.getDomainId().equals(draftEntity.getDomainId())))
                             .isFalse();
                 });
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldFilterByTitlePartiallyIgnoringCaseWithPagedQuery(UniAsserter asserter) {
+        final var target = newAlbum("Filtered Session Album");
+        final var other = newAlbum("Unrelated Album");
+
+        asserter.execute(() -> dataSource.persist(target));
+        asserter.execute(() -> dataSource.persist(other));
+
+        asserter.assertThat(
+                () -> dataSource.pagedQuery(
+                        0,
+                        100,
+                        Visibility.ALL,
+                        SortSpec.defaultOrder(),
+                        "session",
+                        null).list(),
+                found -> {
+                    assertThat(contains(found, target)).isTrue();
+                    assertThat(contains(found, other)).isFalse();
+                });
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldFilterByCatalogNumberWithPagedQuery(UniAsserter asserter) {
+        final var target = newAlbum("Catalog Filter Album").setCatalogNumber("ABS-0101");
+        final var other = newAlbum("Catalog Filter Other Album").setCatalogNumber("ABS-0202");
+
+        asserter.execute(() -> dataSource.persist(target));
+        asserter.execute(() -> dataSource.persist(other));
+
+        asserter.assertThat(
+                () -> dataSource.pagedQuery(
+                        0,
+                        100,
+                        Visibility.ALL,
+                        SortSpec.defaultOrder(),
+                        null,
+                        "abs-0101").list(),
+                found -> {
+                    assertThat(contains(found, target)).isTrue();
+                    assertThat(contains(found, other)).isFalse();
+                });
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldCombineTitleAndCatalogNumberFiltersWithAnd(UniAsserter asserter) {
+        final var both = newAlbum("Combined Filter Album").setCatalogNumber("ABS-0303");
+        final var titleOnly = newAlbum("Combined Filter Album").setCatalogNumber("ABS-0404");
+
+        asserter.execute(() -> dataSource.persist(both));
+        asserter.execute(() -> dataSource.persist(titleOnly));
+
+        asserter.assertThat(
+                () -> dataSource.pagedQuery(
+                        0,
+                        100,
+                        Visibility.ALL,
+                        SortSpec.defaultOrder(),
+                        "combined filter",
+                        "ABS-0303").list(),
+                found -> {
+                    assertThat(contains(found, both)).isTrue();
+                    assertThat(contains(found, titleOnly)).isFalse();
+                });
+    }
+
+    /**
+     * 利用者が打った語に含まれる LIKE のワイルドカードを、文字そのものとして扱うことを確かめる。
+     *
+     * <p>
+     * エスケープしないと {@code _} が任意の1文字に化け、{@code ABS-0505} を狙った検索が {@code ABS_0505}
+     * 以外にも当たる。
+     * </p>
+     *
+     * @param asserter
+     *            リアクティブなアサーション
+     */
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldTreatLikeWildcardsAsLiteralInFilters(UniAsserter asserter) {
+        final var underscored = newAlbum("Wildcard Album").setCatalogNumber("ABS_0505");
+        final var hyphenated = newAlbum("Wildcard Album").setCatalogNumber("ABS-0505");
+
+        asserter.execute(() -> dataSource.persist(underscored));
+        asserter.execute(() -> dataSource.persist(hyphenated));
+
+        asserter.assertThat(
+                () -> dataSource.pagedQuery(
+                        0,
+                        100,
+                        Visibility.ALL,
+                        SortSpec.defaultOrder(),
+                        null,
+                        "ABS_0505").list(),
+                found -> {
+                    assertThat(contains(found, underscored)).isTrue();
+                    assertThat(contains(found, hyphenated)).isFalse();
+                });
+    }
+
+    private static boolean contains(List<AlbumTableRecord> found, AlbumTableRecord expected) {
+        return found.stream().anyMatch(a -> a.getDomainId().equals(expected.getDomainId()));
     }
 
     @Test

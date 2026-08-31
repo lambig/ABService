@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.entity.article.ArticleTag;
+import com.abservice.domain.model.vo.article.AlbumReferenceLostReason;
 import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
@@ -290,6 +291,75 @@ class ArticleTest {
 
             // Act & Assert
             assertThat(AlbumArticle.from(article)).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("アルバム参照解除テスト")
+    class DetachAlbumTest {
+
+        @Test
+        @DisplayName("有効なアルバム参照を解除できること")
+        void detachAlbumWithActiveReferenceShouldClearReference() {
+            // Arrange
+            final var referencing = albumArticle()
+                    .setAlbumId(
+                            Album.Id.generate(),
+                            BusinessDateTime.of(Instant.now()));
+
+            // Act
+            final var detached = referencing.detachAlbum(BusinessDateTime.of(Instant.now()));
+
+            // Assert
+            assertThat(detached.albumReference().activeAlbumId()).isEmpty();
+            assertThat(detached.albumReference().lost()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("失効した参照も解除できること（失効の記録が残らないこと）")
+        void detachAlbumWithLostReferenceShouldClearReference() {
+            // Arrange
+            final var lost = albumArticle()
+                    .setAlbumId(
+                            Album.Id.generate(),
+                            BusinessDateTime.of(Instant.now()))
+                    .loseAlbumReference(
+                            AlbumReferenceLostReason.ALBUM_DELETED,
+                            BusinessDateTime.of(Instant.now()));
+
+            // Act
+            final var detached = lost.detachAlbum(BusinessDateTime.of(Instant.now()));
+
+            // Assert
+            assertThat(detached.albumReference().lost()).isEmpty();
+            assertThat(detached.albumReference().activeAlbumId()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("参照を持たない記事は解除しても状態を保つこと")
+        void detachAlbumWithoutReferenceShouldKeepState() {
+            // Arrange
+            final var article = albumArticle();
+
+            // Act
+            final var detached = article.detachAlbum(BusinessDateTime.of(Instant.now()));
+
+            // Assert
+            assertThat(detached.albumReference().activeAlbumId()).isEmpty();
+            assertThat(detached.updatedAtBusiness()).isEqualTo(article.updatedAtBusiness());
+        }
+
+        private static AlbumArticle albumArticle() {
+            return AlbumArticle
+                    .from(
+                            Article.create(
+                                    ArticleType.ALBUM,
+                                    null,
+                                    ArticleTitle.of("Album Article"),
+                                    MarkupContent.plainText("Body"),
+                                    null,
+                                    BusinessDateTime.of(Instant.now())))
+                    .orElseThrow();
         }
     }
 

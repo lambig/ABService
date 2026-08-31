@@ -5,6 +5,7 @@ import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
@@ -340,11 +341,93 @@ class AlbumRestIntegrationTest {
                 .body("size", equalTo(20));
     }
 
+    @Test
+    @DisplayName("管理向け一覧をタイトルで絞り込める（部分一致・大文字小文字を問わない）")
+    void adminListFiltersByTitle() {
+        final String marker = marker();
+        final String targetId = createAlbum("Filter" + marker + "Target");
+        final String otherId = createAlbum("Filter" + marker + "Other");
+
+        authorized().queryParam("size", 100).queryParam("title", "FILTER" + marker + "TARGET")
+                .when().get("/api/v1/admin/albums").then().statusCode(200)
+                .body("items.albumId", hasItem(targetId))
+                .body("items.albumId", not(hasItem(otherId)));
+    }
+
+    @Test
+    @DisplayName("管理向け一覧をカタログナンバーで絞り込め、タイトルと併せると積で絞り込まれる")
+    void adminListFiltersByCatalogNumber() {
+        final String marker = marker();
+        final String targetId = createAlbumWithCatalogNumber("Catalog" + marker + "Target", "CAT-" + marker);
+        final String otherId = createAlbumWithCatalogNumber("Catalog" + marker + "Other", "OTHER-" + marker);
+
+        authorized().queryParam("size", 100).queryParam("catalogNumber", "cat-" + marker)
+                .when().get("/api/v1/admin/albums").then().statusCode(200)
+                .body("items.albumId", hasItem(targetId))
+                .body("items.albumId", not(hasItem(otherId)));
+
+        // タイトルは両方に当たるが、カタログナンバーとの積で1件へ絞られる
+        authorized().queryParam("size", 100).queryParam("title", "Catalog" + marker)
+                .queryParam("catalogNumber", "cat-" + marker)
+                .when().get("/api/v1/admin/albums").then().statusCode(200)
+                .body("items.albumId", hasItem(targetId))
+                .body("items.albumId", not(hasItem(otherId)));
+    }
+
+    @Test
+    @DisplayName("空文字・空白のみの検索パラメータは未指定として扱われ、カタログナンバーを持たないアルバムも落ちない")
+    void adminListTreatsBlankSearchParametersAsUnspecified() {
+        final String marker = marker();
+        final String withoutCatalog = createAlbum("Blank" + marker + "NoCatalog");
+        final String withCatalog = createAlbumWithCatalogNumber("Blank" + marker + "WithCatalog", "CAT-" + marker);
+
+        // catalogNumber が空文字だと like '%%' が積に加わり、列が null の行だけが落ちる
+        authorized().queryParam("size", 100).queryParam("title", "Blank" + marker)
+                .queryParam("catalogNumber", "")
+                .when().get("/api/v1/admin/albums").then().statusCode(200)
+                .body("items.albumId", hasItem(withoutCatalog))
+                .body("items.albumId", hasItem(withCatalog));
+
+        authorized().queryParam("size", 100).queryParam("title", "Blank" + marker)
+                .queryParam("catalogNumber", "   ")
+                .when().get("/api/v1/admin/albums").then().statusCode(200)
+                .body("items.albumId", hasItem(withoutCatalog))
+                .body("items.albumId", hasItem(withCatalog));
+    }
+
+    @Test
+    @DisplayName("公開向け一覧は検索パラメータを受け取らず、絞り込まれない")
+    void publicListIgnoresSearchParameters() {
+        final String marker = marker();
+        final String targetId = createAlbum("Public" + marker + "Target");
+        final String otherId = createAlbum("Public" + marker + "Other");
+        authorized().when().post("/api/v1/albums/" + targetId + "/publish").then().statusCode(200);
+        authorized().when().post("/api/v1/albums/" + otherId + "/publish").then().statusCode(200);
+
+        given().queryParam("size", 100).queryParam("title", "Public" + marker + "Target")
+                .when().get("/api/v1/albums").then().statusCode(200)
+                .body("items.albumId", hasItem(targetId))
+                .body("items.albumId", hasItem(otherId));
+    }
+
+    /** テスト間・実行間でタイトルとカタログナンバーが衝突しないようにする識別子 */
+    private static String marker() {
+        return UUID.randomUUID().toString().substring(0, 8);
+    }
+
     private static String createAlbum(String title) {
         return authorized().contentType(ContentType.JSON)
                 .body(
                         "{\"title\":\"" + title + "\",\"releaseDate\":\"2026-01-01\","
                                 + "\"artistDisplayName\":\"アーティスト\"}")
+                .when().post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
+    }
+
+    private static String createAlbumWithCatalogNumber(String title, String catalogNumber) {
+        return authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"title\":\"" + title + "\",\"releaseDate\":\"2026-01-01\","
+                                + "\"artistDisplayName\":\"アーティスト\",\"catalogNumber\":\"" + catalogNumber + "\"}")
                 .when().post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
     }
 }
