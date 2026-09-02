@@ -30,6 +30,9 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
     <meta property="og:title" content={title} />
     <meta property="og:url" content={canonicalUrl} />
     {description ? <meta property="og:description" content={description} /> : null}
+
+    {/* ページごとのリンクプレビュー（アルバム詳細のプレイヤーカード・カバー画像） */}
+    <slot name="head" />
   </head>
 
   <body class="bg-background text-foreground min-h-screen">

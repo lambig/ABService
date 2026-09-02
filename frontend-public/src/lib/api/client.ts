@@ -37,11 +37,15 @@ const fetchPublic = async <T>(path: string): Promise<T> => {
   return body as T;
 };
 
+/*
+ * 作品の並びはカタログナンバーの降順で固定する（#197）。並び替えの UI は置かないため、
+ * 取得側でキーを決める。降順はバックエンドのキーごとの既定に一致する。
+ */
 const fetchAlbumPage = (page: number): Promise<Schemas['PublicAlbumListResponse']> =>
-  fetchPublic(`/api/v1/albums?page=${String(page)}&size=${String(PAGE_SIZE)}`);
+  fetchPublic(`/api/v1/albums?page=${String(page)}&size=${String(PAGE_SIZE)}&sort=catalogNumber`);
 
 /**
- * 公開中のアルバムを全件取得する（発表の新しい順はバックエンドの既定に従う）。
+ * 公開中のアルバムを全件取得する（カタログナンバーの降順）。
  *
  * <p>
  * 1ページ目の総ページ数から残りを決め、まとめて取得する。件数が上限を超えても取りこぼさない。
