@@ -1,47 +1,43 @@
 {
   "name": "abservice-frontend-public",
   "version": "1.0.0",
-  "description": "ABService Public Frontend - Svelte + Astro Public Interface",
+  "description": "ABService public site",
   "type": "module",
+  "private": true,
   "scripts": {
     "dev": "astro dev",
-    "start": "astro dev",
-    "build": "astro check && astro build",
+    "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro",
-    "check": "astro check",
-    "check:watch": "astro check --watch",
+    "typecheck": "astro check",
     "lint": "prettier --check . && eslint .",
-    "format": "prettier --write .",
-    "test": "npm run test:integration && npm run test:unit",
-    "test:integration": "playwright test",
-    "test:unit": "vitest",
-    "test:unit:watch": "vitest --watch"
+    "format": "prettier --write ."
   },
   "dependencies": {
-    "@astrojs/check": "^0.3.4",
-    "@astrojs/svelte": "^4.0.0",
-    "@astrojs/tailwind": "^4.0.0",
-    "@tailwindcss/forms": "^0.5.7",
-    "@tailwindcss/typography": "^0.5.10",
-    "astro": "^3.0.0",
-    "lucide-svelte": "^0.294.0",
-    "svelte": "^4.0.5"
+    "@astrojs/svelte": "^9.0.0",
+    "@lucide/svelte": "^1.0.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "astro": "^7.0.0",
+    "bits-ui": "^2.0.0",
+    "clsx": "^2.1.1",
+    "svelte": "^5.0.0",
+    "tailwind-merge": "^3.0.0",
+    "tailwind-variants": "^3.3.0",
+    "tailwindcss": "^4.0.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.40.0",
-    "@typescript-eslint/eslint-plugin": "^6.0.0",
-    "@typescript-eslint/parser": "^6.0.0",
-    "autoprefixer": "^10.4.16",
-    "eslint": "^8.28.0",
-    "eslint-config-prettier": "^9.0.0",
-    "eslint-plugin-astro": "^0.28.0",
-    "postcss": "^8.4.31",
+    "@astrojs/check": "^0.9.0",
+    "@eslint/js": "^10.0.0",
+    "eslint": "^10.0.0",
+    "eslint-plugin-astro": "^3.0.0",
+    "eslint-plugin-functional": "^10.0.0",
+    "eslint-plugin-svelte": "^3.0.0",
     "prettier": "^3.0.0",
-    "prettier-plugin-astro": "^0.12.0",
-    "tailwindcss": "^3.3.5",
+    "prettier-plugin-astro": "^0.14.0",
+    "prettier-plugin-svelte": "^4.0.0",
+    "prettier-plugin-tailwindcss": "^0.8.0",
+    "shadcn-svelte": "^1.0.0",
     "typescript": "^5.0.0",
-    "vitest": "^0.34.6"
+    "typescript-eslint": "^8.0.0"
   },
   "engines": {
     "node": "24.20.0",
@@ -52,14 +48,6 @@
     "url": "git+https://github.com/lambig/ABService.git",
     "directory": "frontend-public"
   },
-  "keywords": [
-    "astro",
-    "svelte",
-    "public",
-    "website",
-    "typescript",
-    "tailwindcss"
-  ],
   "author": "Lambig",
   "license": "MIT"
 }
