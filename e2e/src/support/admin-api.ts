@@ -1,4 +1,4 @@
-import { stack } from './config';
+import { stack } from './config.ts';
 
 /**
  * 管理API経由でデータを投入する。

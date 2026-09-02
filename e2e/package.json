@@ -5,8 +5,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "playwright test",
-    "test:headed": "playwright test --headed",
+    "test": "node scripts/prepare-stack.mjs && playwright test",
+    "test:headed": "node scripts/prepare-stack.mjs && playwright test --headed",
     "report": "playwright show-report",
     "lint": "prettier --check . && eslint .",
     "format": "prettier --write .",

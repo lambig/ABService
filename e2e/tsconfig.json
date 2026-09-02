@@ -8,6 +8,8 @@
     "noUncheckedIndexedAccess": true,
     "verbatimModuleSyntax": true,
     "esModuleInterop": true,
+    // 補助スクリプト（.mjs）が Node から直接読むため、import は拡張子まで書く
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "noEmit": true,
     "types": ["node"]

@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-import { stack } from './src/support/config';
+import { stack } from './src/support/config.ts';
 
 /**
  * 実スタック（実 backend + 実 PostgreSQL + MinIO）に対して動かす（#164）。API のモックはしない。

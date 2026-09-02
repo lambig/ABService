@@ -1,13 +1,13 @@
-import { seedPublishedAlbum } from '../support/admin-api';
-import { stack } from '../support/config';
-import { capture, clickWithEvidence } from '../support/evidence';
-import { expect, test } from '../support/fixtures';
+import { SHOWCASE_CATALOG_NUMBER } from '../support/build-fixtures.ts';
+import { stack } from '../support/config.ts';
+import { capture, clickWithEvidence } from '../support/evidence.ts';
+import { expect, test } from '../support/fixtures.ts';
 
 /**
  * 基盤が組み上がっていることを確かめる最小のシナリオ。
  *
  * 画面ごとのジャーニーは対象の画面と同じ変更で足す（#164）。ここで見るのは、公開サイトが配信されること、
- * 管理API経由のシードが効くこと、証跡の撮影が動くことの3つ。
+ * ビルド前のシードが効くこと、証跡の撮影が動くことの3つ。
  */
 
 test.describe('公開サイトの基盤', () => {
@@ -34,36 +34,31 @@ test.describe('公開サイトの基盤', () => {
   });
 });
 
-test.describe('管理API経由のシード', () => {
-  test('投入した作品が公開の照会に現れる', async ({ request }) => {
-    const suffix = String(Date.now());
-    const albumId = await seedPublishedAlbum({
-      title: `シード確認アルバム ${suffix}`,
-      releaseDate: '2026-05-05',
-      artistDisplayName: 'シード確認アーティスト',
-      artistSortKey: 'しーどかくにんああてぃすと',
-      catalogNumber: `SEED-${suffix}`,
-      tracks: [
-        {
-          trackNo: 1,
-          title: 'シード確認トラック',
-          tunes: [{ seq: 1, tuneTitle: 'シード確認チューン', composerCreditOverride: 'Trad.' }],
-        },
-      ],
-      externalAudioUrls: ['https://soundcloud.com/example/seed'],
-    });
-
-    const response = await request.get(`${stack.backendBaseUrl}/api/v1/albums/${albumId}`);
+test.describe('ビルド前のシード', () => {
+  test('画面確認用の作品が、トラックと外部音源まで揃って公開されている', async ({ request }) => {
+    const response = await request.get(
+      `${stack.backendBaseUrl}/api/v1/albums?size=100&sort=catalogNumber`,
+    );
 
     await expect(response).toBeOK();
-    const album = (await response.json()) as {
-      catalogNumber: string;
+    const page = (await response.json()) as {
+      items: readonly { catalogNumber: string | null; albumId: string }[];
+    };
+
+    const showcase = page.items.find((item) => item.catalogNumber === SHOWCASE_CATALOG_NUMBER);
+    expect(showcase).toBeDefined();
+
+    const detail = await request.get(
+      `${stack.backendBaseUrl}/api/v1/albums/${showcase?.albumId ?? ''}`,
+    );
+    await expect(detail).toBeOK();
+
+    const album = (await detail.json()) as {
       tracks: readonly { tunes: readonly { tuneTitle: string }[] }[];
       externalAudios: readonly { url: string }[];
     };
 
-    expect(album.catalogNumber).toBe(`SEED-${suffix}`);
-    expect(album.tracks[0]?.tunes[0]?.tuneTitle).toBe('シード確認チューン');
+    expect(album.tracks[0]?.tunes[0]?.tuneTitle).toBe('E2E 確認チューン');
     expect(album.externalAudios).toHaveLength(1);
   });
 });
