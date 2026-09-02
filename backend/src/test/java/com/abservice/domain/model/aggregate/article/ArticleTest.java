@@ -16,6 +16,7 @@ import com.abservice.domain.model.entity.article.ArticleTag;
 import com.abservice.domain.model.vo.article.AlbumReferenceLostReason;
 import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.ArticleType;
+import com.abservice.domain.model.vo.article.IntroShort;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.lib.Result;
@@ -52,7 +53,7 @@ class ArticleTest {
             assertThat(AlbumArticle.from(article)).isEmpty();
             assertThat(article.title()).isEqualTo(title);
             assertThat(article.body()).isEqualTo(body);
-            assertThat(article.introShort()).isNull();
+            assertThat(article.introShort()).isEqualTo(IntroShort.EMPTY);
             assertThat(article.publishedAt()).isNull();
             // 記事を書き起こすことも業務上の更新の一つのため、作成時点で値を持つ
             assertThat(article.updatedAtBusiness()).isNotNull();
@@ -68,7 +69,7 @@ class ArticleTest {
             final var albumId = Album.Id.generate();
             final var title = ArticleTitle.of("Album Review");
             final var body = MarkupContent.markdown("This is an album review.");
-            final var introShort = "Short intro";
+            final var introShort = IntroShort.of("Short intro");
 
             // Act
             final var article = Article.create(

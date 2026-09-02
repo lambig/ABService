@@ -57,11 +57,10 @@ public sealed interface AdminArticleDetailResponse
     String bodyFormat();
 
     /**
-     * 一覧表示用のショート紹介文（nullable）
+     * 一覧表示用のショート紹介文（空文字列は紹介文なし。nullは返さない）
      *
      * @return ショート紹介文
      */
-    @Nullable
     String introShort();
 
     /**

@@ -61,7 +61,9 @@ final class ArticleViewMapper {
                 Optional.ofNullable(entity.getBody())
                         .orElse(""),
                 entity.getBodyFormat(),
-                entity.getIntroShort(),
+                // NULL-MEANS-EMPTY: ショート紹介文はnullを持たない。列がNULLの既存行は空として扱う（V42 以降はNULLを持たない）
+                Optional.ofNullable(entity.getIntroShort())
+                        .orElse(""),
                 entity.getPublishedAt(),
                 entity.getUpdatedAtBusiness(),
                 Optional.ofNullable(entity.getIsPublic())

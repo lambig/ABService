@@ -11,6 +11,7 @@ import com.abservice.domain.model.vo.article.AlbumReference;
 import com.abservice.domain.model.vo.article.AlbumReferenceLostReason;
 import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.ArticleType;
+import com.abservice.domain.model.vo.article.IntroShort;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.domain.model.vo.common.MarkupFormat;
@@ -51,7 +52,7 @@ public final class ArticleMapper {
                 toAlbumReference(entity),
                 ArticleTitle.of(entity.getTitle()),
                 createMarkupContent(entity.getBody(), entity.getBodyFormat()),
-                entity.getIntroShort(),
+                createIntroShort(entity.getIntroShort()),
                 toBusinessDateTime(entity.getPublishedAt()),
                 toBusinessDateTime(entity.getUpdatedAtBusiness()),
                 Optional.ofNullable(entity.getIsPublic())
@@ -150,6 +151,16 @@ public final class ArticleMapper {
                 .orElse(MarkupContent.EMPTY);
     }
 
+    /*
+     * NULL-MEANS-EMPTY: ショート紹介文は「無い」ことがあり得ない項目のため、列がNULLの既存行は空として扱う （V42
+     * 以降はNULLを持たない）。
+     */
+    private static IntroShort createIntroShort(@Nullable String introShort) {
+        return Optional.ofNullable(introShort)
+                .map(IntroShort::of)
+                .orElse(IntroShort.EMPTY);
+    }
+
     /**
      * DomainモデルからEntityへ変換
      *
@@ -165,7 +176,7 @@ public final class ArticleMapper {
                 .setTitle(article.title().value())
                 .setBody(body.content())
                 .setBodyFormat(body.format().name())
-                .setIntroShort(article.introShort())
+                .setIntroShort(article.introShort().value())
                 .setPublishedAt(toInstant(article.publishedAt()))
                 .setUpdatedAtBusiness(toInstant(article.updatedAtBusiness()))
                 .setIsPublic(article.publicFlag());

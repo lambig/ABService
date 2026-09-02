@@ -70,8 +70,8 @@ public class ArticleTableRecord extends AuditableTableRecord<ArticleTableRecord>
     @Column(name = "body_format", nullable = false, length = 20)
     private String bodyFormat = "PLAIN_TEXT";
 
-    @Column(name = "intro_short", columnDefinition = "TEXT")
-    private String introShort;
+    @Column(name = "intro_short", nullable = false, length = 120)
+    private String introShort = "";
 
     @Column(name = "published_at")
     private Instant publishedAt;

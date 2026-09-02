@@ -6,6 +6,7 @@ import com.abservice.domain.model.entity.article.ArticleTag;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.ArticleType;
+import com.abservice.domain.model.vo.article.IntroShort;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
@@ -165,7 +166,7 @@ class ArticleRepositoryImplTest {
                 null,
                 new ArticleTitle("Test Article"),
                 MarkupContent.markdown("Test Body"),
-                "Test Intro",
+                IntroShort.of("Test Intro"),
                 businessNow());
 
         asserter.assertThat(() -> repository.save(article), saved -> {
@@ -173,7 +174,7 @@ class ArticleRepositoryImplTest {
             assertThat(saved.id()).isEqualTo(article.id());
             assertThat(saved.title().value()).isEqualTo("Test Article");
             assertThat(saved.body().content()).isEqualTo("Test Body");
-            assertThat(saved.introShort()).isEqualTo("Test Intro");
+            assertThat(saved.introShort().value()).isEqualTo("Test Intro");
         });
 
         asserter.assertThat(() -> repository.findById(article.id()), found -> {

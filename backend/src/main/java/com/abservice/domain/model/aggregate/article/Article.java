@@ -10,6 +10,7 @@ import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.article.AlbumReference;
 import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.ArticleType;
+import com.abservice.domain.model.vo.article.IntroShort;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.lib.ErrorResult;
@@ -99,9 +100,9 @@ public sealed interface Article extends Aggregate<Article, Article.@NonNull Id>
     /**
      * ショート紹介文を取得します。
      *
-     * @return ショート紹介文（nullable）
+     * @return ショート紹介文（紹介文なしは {@code IntroShort.EMPTY}）
      */
-    default @Nullable String introShort() {
+    default @NonNull IntroShort introShort() {
         return core().introShort();
     }
 
@@ -180,12 +181,12 @@ public sealed interface Article extends Aggregate<Article, Article.@NonNull Id>
      * ショート紹介文を変更
      *
      * @param newIntroShort
-     *            新しいショート紹介文（nullable）
+     *            新しいショート紹介文（nullは紹介文なしとして扱う）
      * @param currentDateTime
      *            現在日時
      * @return 更新されたArticle
      */
-    default @NonNull Article changeIntroShort(@Nullable String newIntroShort,
+    default @NonNull Article changeIntroShort(@Nullable IntroShort newIntroShort,
             @NonNull BusinessDateTime currentDateTime) {
         return withCore(core().changeIntroShort(newIntroShort, currentDateTime));
     }
@@ -312,13 +313,13 @@ public sealed interface Article extends Aggregate<Article, Article.@NonNull Id>
      * @param body
      *            本文（nullable）
      * @param introShort
-     *            ショート紹介文（nullable）
+     *            ショート紹介文（nullは紹介文なしとして扱う）
      * @param currentDateTime
      *            現在日時
      * @return 新規Article
      */
     static @NonNull Article create(@NonNull ArticleType articleType, Album.@Nullable Id albumId,
-            @NonNull ArticleTitle title, @Nullable MarkupContent body, @Nullable String introShort,
+            @NonNull ArticleTitle title, @Nullable MarkupContent body, @Nullable IntroShort introShort,
             @NonNull BusinessDateTime currentDateTime) {
         return Article.of(
                 articleType,
@@ -344,7 +345,7 @@ public sealed interface Article extends Aggregate<Article, Article.@NonNull Id>
      * @param body
      *            本文（nullable）
      * @param introShort
-     *            ショート紹介文（nullable）
+     *            ショート紹介文（nullは紹介文なしとして扱う）
      * @param publishedAt
      *            公開日（nullable）
      * @param updatedAtBusiness
@@ -358,7 +359,7 @@ public sealed interface Article extends Aggregate<Article, Article.@NonNull Id>
     @DomainFactory
     static @NonNull Article reconstruct(Article.@NonNull Id id, @NonNull ArticleType articleType,
             @NonNull AlbumReference albumReference, @NonNull ArticleTitle title, @Nullable MarkupContent body,
-            @Nullable String introShort, @Nullable BusinessDateTime publishedAt,
+            @Nullable IntroShort introShort, @Nullable BusinessDateTime publishedAt,
             @Nullable BusinessDateTime updatedAtBusiness, boolean publicFlag, @NonNull List<ArticleTag> tags) {
         return Article.of(
                 articleType,

@@ -63,9 +63,9 @@ class ArticleViewMapperTest {
 
         // Assert
         assertThat(view.albumId()).isNull();
-        // 本文はnullを持たない。列がNULLの既存行は空として写像される
+        // 本文とショート紹介文はnullを持たない。列がNULLの既存行は空として写像される
         assertThat(view.body()).isEmpty();
-        assertThat(view.introShort()).isNull();
+        assertThat(view.introShort()).isEmpty();
         assertThat(view.publishedAt()).isNull();
         assertThat(view.updatedAtBusiness()).isNull();
     }

@@ -6,6 +6,7 @@ import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.entity.article.ArticleTag;
 import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.ArticleType;
+import com.abservice.domain.model.vo.article.IntroShort;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.lib.ErrorResult;
@@ -25,7 +26,7 @@ class UpdateArticleServiceTest {
                 null,
                 ArticleTitle.of("元のタイトル"),
                 MarkupContent.markdown("元の本文"),
-                "元の概要",
+                IntroShort.of("元の概要"),
                 NOW);
     }
 
@@ -45,7 +46,7 @@ class UpdateArticleServiceTest {
 
         assertThat(updated.title().value()).isEqualTo("新タイトル");
         assertThat(updated.body().content()).isEqualTo("新本文");
-        assertThat(updated.introShort()).isEqualTo("新概要");
+        assertThat(updated.introShort().value()).isEqualTo("新概要");
     }
 
     @Test
