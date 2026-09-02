@@ -1,0 +1,42 @@
+---
+import ProperNoun from '$components/ProperNoun.astro';
+import type { PublicAlbum } from '$lib/api/client';
+import { formatReleaseDate } from '$lib/format';
+
+interface Props {
+  readonly album: PublicAlbum;
+}
+
+const { album } = Astro.props;
+---
+
+<a
+  class="border-border hover:bg-muted/50 flex gap-4 rounded-md border p-4 transition-colors"
+  href={`/albums/${album.albumId}`}
+>
+  {
+    album.coverImageUrl ? (
+      <img
+        class="size-24 shrink-0 rounded object-cover"
+        src={album.coverImageUrl}
+        alt=""
+        loading="lazy"
+        decoding="async"
+      />
+    ) : (
+      <div class="bg-muted size-24 shrink-0 rounded" aria-hidden="true" />
+    )
+  }
+
+  <div class="min-w-0 space-y-1">
+    <h2 class="truncate font-medium">
+      <ProperNoun>{album.title}</ProperNoun>
+    </h2>
+    <p class="text-muted-foreground truncate text-sm">
+      <ProperNoun>{album.artistDisplayName}</ProperNoun>
+    </p>
+    <p class="text-muted-foreground text-sm">
+      <time datetime={album.releaseDate}>{formatReleaseDate(album.releaseDate)}</time>
+    </p>
+  </div>
+</a>

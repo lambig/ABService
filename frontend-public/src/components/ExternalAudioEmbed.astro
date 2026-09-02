@@ -1,0 +1,39 @@
+---
+import type { PublicExternalAudio } from '$lib/api/client';
+
+interface Props {
+  readonly audio: PublicExternalAudio;
+  /** 埋め込みが何の試聴かを支援技術へ伝えるための作品名 */
+  readonly albumTitle: string;
+}
+
+const { audio, albumTitle } = Astro.props;
+
+/*
+ * 音源は自前配信せず外部サービスの埋め込みに委ねる（DECISIONS 7）。埋め込み元のホストは
+ * バックエンドの ExternalAudioUrl が許可リストで縛るため、ここでは受け取った URL を渡すだけでよい。
+ * 配信側で frame-src を許可する設定は #240。
+ */
+const embedUrl = `https://w.soundcloud.com/player/?url=${encodeURIComponent(audio.url)}&auto_play=false&show_user=true&visual=false`;
+---
+
+<figure class="space-y-2">
+  {/* 埋め込みが表示できない環境でも、下のリンクから音源へ辿れる */}
+  <iframe
+    class="border-border w-full rounded-md border"
+    src={embedUrl}
+    title={`${albumTitle} の試聴`}
+    height="166"
+    loading="lazy"
+    referrerpolicy="strict-origin-when-cross-origin"
+    allow="autoplay"></iframe>
+
+  <figcaption class="text-muted-foreground text-sm">
+    <a
+      class="underline underline-offset-4"
+      href={audio.url}
+      target="_blank"
+      rel="noopener noreferrer">SoundCloud で開く</a
+    >
+  </figcaption>
+</figure>

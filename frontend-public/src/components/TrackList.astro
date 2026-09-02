@@ -1,0 +1,31 @@
+---
+import ProperNoun from '$components/ProperNoun.astro';
+import type { PublicTrack } from '$lib/api/client';
+
+interface Props {
+  readonly tracks: readonly PublicTrack[];
+}
+
+const { tracks } = Astro.props;
+---
+
+<ol class="divide-border divide-y">
+  {
+    tracks.map((track) => (
+      <li class="flex gap-4 py-2">
+        <span class="text-muted-foreground w-6 shrink-0 text-right tabular-nums">
+          {track.trackNo}
+        </span>
+        <div class="min-w-0">
+          <ProperNoun>{track.title}</ProperNoun>
+          {track.artistDisplayName ? (
+            <span class="text-muted-foreground text-sm">
+              {' / '}
+              <ProperNoun>{track.artistDisplayName}</ProperNoun>
+            </span>
+          ) : null}
+        </div>
+      </li>
+    ))
+  }
+</ol>

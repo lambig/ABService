@@ -10,9 +10,11 @@
     "preview": "astro preview",
     "typecheck": "astro check",
     "lint": "prettier --check . && eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "generate:api-types": "openapi-typescript ../backend/build/openapi/openapi.yaml -o src/lib/api/schema.d.ts"
   },
   "dependencies": {
+    "abservice-markup": "*",
     "@astrojs/svelte": "^9.0.0",
     "@lucide/svelte": "^1.0.0",
     "@tailwindcss/vite": "^4.0.0",
@@ -31,6 +33,7 @@
     "eslint-plugin-astro": "^3.0.0",
     "eslint-plugin-functional": "^10.0.0",
     "eslint-plugin-svelte": "^3.0.0",
+    "openapi-typescript": "^7.0.0",
     "prettier": "^3.0.0",
     "prettier-plugin-astro": "^0.14.0",
     "prettier-plugin-svelte": "^4.0.0",
