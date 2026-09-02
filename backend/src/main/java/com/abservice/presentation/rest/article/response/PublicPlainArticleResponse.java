@@ -1,6 +1,8 @@
 package com.abservice.presentation.rest.article.response;
 
 import java.time.Instant;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.media.SchemaProperty;
 
 /**
  * 公開向けの、アルバムへの参照を持たない記事の一覧レスポンス（REST の公開出力契約）
@@ -21,6 +23,7 @@ import java.time.Instant;
  * @param publishedAt
  *            公開日時（UTC。公開向けは公開中のものだけを返すため常に値を持つ）
  */
+@Schema(properties = @SchemaProperty(name = "articleType", enumeration = {"NOTE", "NEWS", "EVENT", "OTHER"}))
 public record PublicPlainArticleResponse(
         String articleId,
         String articleType,

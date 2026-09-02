@@ -6,6 +6,8 @@ import com.abservice.application.query.article.GetArticleResult;
 import com.abservice.application.query.article.GetArticleService;
 import com.abservice.application.query.article.ListArticlesQuery;
 import com.abservice.application.query.article.ListArticlesService;
+import com.abservice.presentation.rest.article.response.AdminArticleDetailResponse;
+import com.abservice.presentation.rest.article.response.AdminArticleListResponse;
 import com.abservice.presentation.rest.security.SecurityRoles;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
@@ -16,7 +18,6 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -26,8 +27,9 @@ import org.jspecify.annotations.Nullable;
  * 下書き（未公開）を含めた全記事の詳細照会（GET）と一覧照会（GET、ページネーション付き）を受け付ける。管理画面が公開前の記事を
  * 編集・確認するための経路であり、管理者ロール（{@code Authorization: Bearer <APIキー>}）を要求する。応答は
  * 管理画面が使う項目を持ち、公開向け（{@link ArticleQueryResource}）とは項目が異なる。{@code publicFlag} が
- * false のものが下書き。未存在は例外ではなく {@link GetArticleResult.NotFound} として扱い、404 を RFC
- * 9457 Problem Details （{@code application/problem+json}）で返す。
+ * false のものが下書き。照会結果の {@link GetArticleResult.NotFound} は
+ * {@link ArticleQueryResponses} が {@code EntityNotFoundException} へ変換し、404 を
+ * RFC 9457 Problem Details （{@code application/problem+json}）で返す。
  * </p>
  */
 @Path("/api/v1/admin/articles")
@@ -53,12 +55,12 @@ public class ArticleAdminQueryResource {
      *
      * @param id
      *            記事のドメインID
-     * @return 200 と記事詳細、未存在時は 404 の Problem Details
+     * @return 記事詳細（未存在時は 404 の Problem Details）
      */
     @GET
     @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> get(@PathParam("id") String id) {
+    public Uni<AdminArticleDetailResponse> get(@PathParam("id") String id) {
         return getArticleService.query(
                 new GetArticleQuery(
                         id,
@@ -81,11 +83,11 @@ public class ArticleAdminQueryResource {
      *            参照先アルバムでの絞り込み（未指定なら絞り込まない）
      * @param publicFlag
      *            公開状態での絞り込み（未指定なら絞り込まない）
-     * @return 200 と記事一覧
+     * @return 記事一覧
      */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> list(
+    public Uni<AdminArticleListResponse> list(
             @QueryParam("page") @DefaultValue("0") int page,
             @QueryParam("size") @DefaultValue("20") int size,
             @QueryParam("sort") @Nullable String sort,

@@ -1,6 +1,8 @@
 package com.abservice.presentation.rest.article.response;
 
 import java.time.Instant;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.media.SchemaProperty;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -24,6 +26,7 @@ import org.jspecify.annotations.Nullable;
  * @param albumId
  *            参照先アルバムのID（nullable。参照を持たない場合）
  */
+@Schema(properties = @SchemaProperty(name = "articleType", enumeration = "ALBUM"))
 public record PublicAlbumArticleResponse(
         String articleId,
         String articleType,

@@ -12,7 +12,6 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 
 /**
  * 記事タグの管理向け Query REST リソース
@@ -40,21 +39,19 @@ public class ArticleTagAdminQueryResource {
     /**
      * タグ語彙の全件を名前の昇順で照会します。
      *
-     * @return 200 とタグ一覧
+     * @return タグ一覧
      */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> list() {
+    public Uni<AdminArticleTagListResponse> list() {
         return listArticleTagsService.query(new ListArticleTagsQuery())
                 .map(ArticleTagAdminQueryResource::toResponse);
     }
 
-    private static Response toResponse(ListArticleTagsResult result) {
-        return Response.ok(
-                new AdminArticleTagListResponse(
-                        result.items().stream()
-                                .map(view -> new AdminArticleTagResponse(view.tagId(), view.name()))
-                                .toList()))
-                .build();
+    private static AdminArticleTagListResponse toResponse(ListArticleTagsResult result) {
+        return new AdminArticleTagListResponse(
+                result.items().stream()
+                        .map(view -> new AdminArticleTagResponse(view.tagId(), view.name()))
+                        .toList());
     }
 }

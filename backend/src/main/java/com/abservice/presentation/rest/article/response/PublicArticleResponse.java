@@ -1,6 +1,8 @@
 package com.abservice.presentation.rest.article.response;
 
 import java.time.Instant;
+import org.eclipse.microprofile.openapi.annotations.media.DiscriminatorMapping;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 /**
  * 公開向け記事一覧の1件分レスポンス（REST の公開出力契約）
@@ -16,6 +18,13 @@ import java.time.Instant;
  * の2つになる。
  * </p>
  */
+@Schema(oneOf = {PublicAlbumArticleResponse.class,
+        PublicPlainArticleResponse.class}, discriminatorProperty = "articleType", discriminatorMapping = {
+                @DiscriminatorMapping(value = "ALBUM", schema = PublicAlbumArticleResponse.class),
+                @DiscriminatorMapping(value = "NOTE", schema = PublicPlainArticleResponse.class),
+                @DiscriminatorMapping(value = "NEWS", schema = PublicPlainArticleResponse.class),
+                @DiscriminatorMapping(value = "EVENT", schema = PublicPlainArticleResponse.class),
+                @DiscriminatorMapping(value = "OTHER", schema = PublicPlainArticleResponse.class)})
 public sealed interface PublicArticleResponse permits PublicAlbumArticleResponse, PublicPlainArticleResponse {
 
     /**
