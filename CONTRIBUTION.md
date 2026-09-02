@@ -70,8 +70,11 @@ Java（Amazon Corretto）・Quarkus・Gradle は固定バージョンで運用�
 ```
 ABService/
 ├── backend/                 # Quarkusバックエンド
-├── frontend-admin/          # Svelte管理画面
-├── frontend-public/         # Svelte + Astro公開画面
+├── frontend-admin/          # 管理画面（#122 で作り直す。npm のワークスペースからは外れている）
+├── frontend-public/         # 公開サイト（Astro + Svelte）
+├── packages/markup/         # マークアップ描画（公開サイトと管理画面が共有する）
+├── e2e/                     # E2Eテストとレビュー証跡（アプリを跨ぐため、どちらにも属させない）
+├── infra/                   # AWS構成（Terraform）
 ├── docker/                  # Docker設定
 ├── docs/                    # ドキュメント
 └── scripts/                 # 開発用スクリプト
@@ -141,6 +144,37 @@ ABService/
 - テストカバレッジ
 - パフォーマンスへの影響
 - セキュリティ要件の遵守
+
+### 画面の変更には証跡を添える
+
+画面の変更は差分を読んでも見えない。E2E（`e2e/`）が撮った画像を PR 本文へ貼る。
+
+```bash
+docker compose up -d postgres minio
+npm run dev:backend          # 別のシェルで起動したままにする
+npm run test:e2e             # e2e/evidence/ に画像が出る
+npm run evidence:publish -- --pr <PR番号>
+```
+
+`evidence:publish` は画像を `evidence` ブランチの `pr-<番号>/` へ置き、PR 本文へ貼る Markdown を出力する。**main には証跡を入れない**（リポジトリの履歴とサイズを膨らませないため）。
+
+動画と trace は CI のアーティファクト（`e2e-artifacts`）から取る。GitHub でインライン再生できる形にできるのは Web UI からの添付だけのため、動画はリポジトリに置かない。
+
+### 証跡の掃除
+
+閉じた PR の分を不定期にまとめて捨てる。マージのたびに消す運用は取らない（PR のやり取りが1往復増えるため）。
+
+```bash
+git fetch origin evidence
+git worktree add .git/evidence-worktree -B evidence origin/evidence
+rm -rf .git/evidence-worktree/pr-<番号>
+git -C .git/evidence-worktree add -A
+git -C .git/evidence-worktree commit -m "evidence: 閉じた PR の証跡を捨てる"
+git -C .git/evidence-worktree push origin evidence
+git worktree remove --force .git/evidence-worktree
+```
+
+溜まって重くなったら、ブランチごと作り直す（孤立ブランチのため、過去のオブジェクトも残らない）。
 
 ## 質問・相談
 

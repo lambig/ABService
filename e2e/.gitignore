@@ -1,0 +1,4 @@
+# 実行のたびに作り直される。公開するものだけ evidence ブランチへ送る（scripts/publish-evidence.mjs）
+evidence/
+test-results/
+playwright-report/
