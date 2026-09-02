@@ -72,8 +72,9 @@ const buildSite = () => {
 
 /*
  * OWN-STATIC-SERVER: `astro preview` は常にデーモンとして起動してすぐ終了するため、プロセスの生存で
- * 準備完了を判断する webServer から使えない。配信先は S3 + CloudFront（#125）で、実体は素の静的配信の
- * ため、ここでも同じ形で配る。
+ * 準備完了を判断する webServer から使えない。組み上がったファイルを返すだけで足りるため、ここに置く。
+ * 将来の本番配信も素の静的配信になる見込み（#125）で、Astro 独自の機能を持つ開発用サーバより実際に近い。
+ * E2E そのものは配信先の環境に依存しない（ローカルと CI の中で完結する）。
  */
 const resolveFile = (pathname) => {
   const withinDist = join(distDir, normalize(pathname).replace(/^(\.\.[/\\])+/u, ''));
