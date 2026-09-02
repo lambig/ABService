@@ -71,6 +71,19 @@ class ArticleRestIntegrationTest {
     }
 
     @Test
+    @DisplayName("ショート紹介文の長さ超過は400 problem+json（検証エラー）を返す")
+    void createWithTooLongIntroShortIsValidationError() {
+        authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"articleType\":\"NOTE\",\"title\":\"紹介文長さ確認記事\",\"introShort\":\""
+                                + "あ".repeat(121) + "\"}")
+                .when().post("/api/v1/articles").then().statusCode(400).contentType("application/problem+json")
+                .body("type", equalTo("urn:abservice:error:VALIDATION_ERROR"))
+                .body("errors[0].field", equalTo("introShort"))
+                .body("errors[0].code", equalTo("ARTICLE_INTRO_SHORT_TOO_LONG"));
+    }
+
+    @Test
     @DisplayName("記事を更新すると全項目置換され、公開状態は変化しない（下書きのままなので公開向けGETは404）")
     void updateReplacesFieldsAndPreservesPublicFlag() {
         final String articleId = authorized().contentType(ContentType.JSON)

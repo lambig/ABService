@@ -77,9 +77,9 @@ class ArticleAdminQueryRestIntegrationTest {
         authorized().when().get("/api/v1/admin/articles/" + articleId).then().statusCode(200)
                 .body("body", equalTo(""))
                 .body("bodyFormat", equalTo("PLAIN_TEXT"))
+                // 本文とショート紹介文は「無い」ことがあり得ない項目のため、空は null ではなく空文字列で表す
+                .body("introShort", equalTo(""))
                 // 値が無いことを表す null はキーを出す（項目名を落とすのは概念を持たない場合だけ）
-                .body("$", hasKey("introShort"))
-                .body("introShort", nullValue())
                 .body("$", hasKey("publishedAt"))
                 .body("publishedAt", nullValue())
                 .body("$", hasKey("updatedAtBusiness"));

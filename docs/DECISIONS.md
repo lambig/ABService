@@ -278,7 +278,7 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **判断**: 項目の値が無いことを表すときはキーを出して `null` を返し、その種別がその項目の概念を持たないときは**項目名自体を出さない**。後者はレスポンス型を分けることで実現し、`@JsonInclude(NON_NULL)` のような一律の null 除去は採らない。
 
-「無い」ことがあり得ない項目は `null` を持たず、空を表す Null Object で表現する（本文は `MarkupContent.EMPTY`）。真に無いことがある項目（公開日時・業務上の更新日時）は `null` のままとする。
+「無い」ことがあり得ない項目は `null` を持たず、空を表す Null Object で表現する（本文は `MarkupContent.EMPTY`、ショート紹介文は `IntroShort.EMPTY`）。真に無いことがある項目（公開日時・業務上の更新日時）は `null` のままとする。
 
 **なぜ**: 2種類の `null` が同じ形で現れると、クライアントは「値が未設定なのか、その種別には存在しない概念なのか」を区別できない。前者は表示上の空欄、後者は項目そのものを描画しないという別の扱いになる。一律の null 除去は両者を同じ「キーなし」へ潰すため、区別が失われる。
 
@@ -286,7 +286,7 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **トレードオフ**: 種別と契約ごとにレスポンス型が分かれるため、クライアントは種別で分岐し、型の数は増える。項目名の集合が同一のものに別の型を与えない（`NOTE` / `NEWS` / `EVENT` / `OTHER` は1つの型が担い、種別差のない管理向け一覧は1つの型で足りる）ことで、型の数を項目名の違いの数に留める。
 
-**実体**: `presentation/rest/article/response` の `PublicArticleDetailResponse` / `PublicArticleResponse` / `AdminArticleDetailResponse`（いずれも sealed）と `AdminArticleResponse`、`presentation/rest/album/response` の `PublicAlbumDetailResponse` / `PublicAlbumResponse` / `AdminAlbumDetailResponse` / `AdminAlbumResponse`、`domain/model/aggregate/article/ArticleCore` の `body`（非null）、`V36`。
+**実体**: `presentation/rest/article/response` の `PublicArticleDetailResponse` / `PublicArticleResponse` / `AdminArticleDetailResponse`（いずれも sealed）と `AdminArticleResponse`、`presentation/rest/album/response` の `PublicAlbumDetailResponse` / `PublicAlbumResponse` / `AdminAlbumDetailResponse` / `AdminAlbumResponse`、`domain/model/aggregate/article/ArticleCore` の `body` と `introShort`（いずれも非null）、`domain/model/vo/article/IntroShort`、`V36` / `V42`。
 
 ---
 

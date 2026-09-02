@@ -407,6 +407,51 @@ class ResultTest {
             assertThat(combined).isInstanceOf(Result.Failure.class);
             assertThat(((Result.Failure<String>) combined).errors()).containsExactly(errorA, errorC);
         }
+
+        @Test
+        @DisplayName("4引数: すべて成功でcombinerを適用する")
+        void zip4ShouldCombineAllSuccess() {
+            // Arrange
+            final Result<String> a = Result.success("a");
+            final Result<String> b = Result.success("b");
+            final Result<String> c = Result.success("c");
+            final Result<String> d = Result.success("d");
+
+            // Act
+            final Result<String> combined = Result.zip(
+                    a,
+                    b,
+                    c,
+                    d,
+                    (w, x, y, z) -> w + x + y + z);
+
+            // Assert
+            assertThat(combined.resolve()).isEqualTo("abcd");
+        }
+
+        @Test
+        @DisplayName("4引数: 複数失敗なら全エラーを順序どおり集約する")
+        void zip4ShouldAccumulateAllErrorsInOrder() {
+            // Arrange
+            final ErrorResult errorB = new ErrorResult("b", "invalid b");
+            final ErrorResult errorD = new ErrorResult("d", "invalid d");
+            final Result<String> a = Result.success("a");
+            final Result<String> b = Result.failure(errorB);
+            final Result<String> c = Result.success("c");
+            final Result<String> d = Result.failure(errorD);
+
+            // Act
+            final Result<String> combined = Result.zip(
+                    a,
+                    b,
+                    c,
+                    d,
+                    (w, x, y, z) -> w + x + y + z);
+
+            // Assert
+            assertThat(combined).isInstanceOf(Result.Failure.class);
+            assertThat(((Result.Failure<String>) combined).errors()).containsExactly(errorB, errorD);
+        }
     }
 
     @Nested

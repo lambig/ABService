@@ -2,6 +2,7 @@ package com.abservice.application.service.article;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.abservice.domain.model.vo.article.IntroShort;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.lib.ErrorResult;
@@ -95,5 +96,38 @@ class CreateArticleServiceTest {
 
         assertThat(result).isInstanceOf(Result.Success.class);
         assertThat(result.resolve().body()).isEqualTo(MarkupContent.EMPTY);
+    }
+
+    @Test
+    @DisplayName("ショート紹介文が空白なら成功し紹介文はEMPTY")
+    void blankIntroShortSucceedsAsEmpty() {
+        final var result = CreateArticleService.validate(
+                new CreateArticleInput(
+                        "NOTE",
+                        "タイトル",
+                        null,
+                        null,
+                        "   "),
+                NOW);
+
+        assertThat(result).isInstanceOf(Result.Success.class);
+        assertThat(result.resolve().introShort()).isEqualTo(IntroShort.EMPTY);
+    }
+
+    @Test
+    @DisplayName("ショート紹介文の長さ超過は他の項目のエラーと集約する")
+    void tooLongIntroShortAggregatesWithOtherErrors() {
+        final var result = CreateArticleService.validate(
+                new CreateArticleInput(
+                        "NOTE",
+                        "   ",
+                        null,
+                        null,
+                        "a".repeat(121)),
+                NOW);
+
+        assertThat(result).isInstanceOf(Result.Failure.class);
+        assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
+                .contains("ARTICLE_TITLE_REQUIRED", "ARTICLE_INTRO_SHORT_TOO_LONG");
     }
 }

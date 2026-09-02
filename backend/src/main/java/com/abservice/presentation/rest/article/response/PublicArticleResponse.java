@@ -1,7 +1,6 @@
 package com.abservice.presentation.rest.article.response;
 
 import java.time.Instant;
-import org.jspecify.annotations.Nullable;
 
 /**
  * 公開向け記事一覧の1件分レスポンス（REST の公開出力契約）
@@ -41,11 +40,10 @@ public sealed interface PublicArticleResponse permits PublicAlbumArticleResponse
     String title();
 
     /**
-     * 一覧表示用のショート紹介文（nullable）
+     * 一覧表示用のショート紹介文（空文字列は紹介文なし。nullは返さない）
      *
      * @return ショート紹介文
      */
-    @Nullable
     String introShort();
 
     /**

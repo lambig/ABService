@@ -9,6 +9,7 @@ import com.abservice.domain.model.DomainFactory;
 import com.abservice.domain.model.entity.article.ArticleTag;
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.article.ArticleTitle;
+import com.abservice.domain.model.vo.article.IntroShort;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.lib.ErrorResult;
@@ -59,9 +60,9 @@ public final class ArticleCore {
      */
     @NonNull
     private final MarkupContent body;
-    /** お品書き・一覧表示用の短い紹介文 */
-    @Nullable
-    private final String introShort;
+    /** お品書き・一覧表示用の短い紹介文（Null Objectパターン。紹介文なしは {@code IntroShort.EMPTY}） */
+    @NonNull
+    private final IntroShort introShort;
     /** 公開日 */
     @Nullable
     private final BusinessDateTime publishedAt;
@@ -94,7 +95,7 @@ public final class ArticleCore {
 
     @DomainConstructor
     private ArticleCore(Article.@NonNull Id id, @NonNull ArticleTitle title, @NonNull MarkupContent body,
-            @Nullable String introShort, @Nullable BusinessDateTime publishedAt,
+            @NonNull IntroShort introShort, @Nullable BusinessDateTime publishedAt,
             @Nullable BusinessDateTime updatedAtBusiness, boolean publicFlag, @NonNull List<ArticleTag> tags) {
         this.id = id;
         this.title = title;
@@ -108,7 +109,7 @@ public final class ArticleCore {
 
     @DomainFactory
     static @NonNull ArticleCore factory(Article.@Nullable Id id, @Nullable ArticleTitle title,
-            @Nullable MarkupContent body, @Nullable String introShort, @Nullable BusinessDateTime publishedAt,
+            @Nullable MarkupContent body, @Nullable IntroShort introShort, @Nullable BusinessDateTime publishedAt,
             @Nullable BusinessDateTime updatedAtBusiness, boolean publicFlag, @Nullable List<ArticleTag> tags) {
         return Policy.<Stub>of(
                 self -> self.title() != null,
@@ -128,7 +129,7 @@ public final class ArticleCore {
     }
 
     @NullUnmarked
-    private record Stub(Article.Id id, ArticleTitle title, MarkupContent body, String introShort,
+    private record Stub(Article.Id id, ArticleTitle title, MarkupContent body, IntroShort introShort,
             BusinessDateTime publishedAt, BusinessDateTime updatedAtBusiness, boolean publicFlag,
             List<ArticleTag> tags) {
 
@@ -139,7 +140,7 @@ public final class ArticleCore {
                     Objects.requireNonNull(id),
                     Objects.requireNonNull(title),
                     Objects.requireNonNullElse(body(), MarkupContent.EMPTY),
-                    introShort(),
+                    Objects.requireNonNullElse(introShort(), IntroShort.EMPTY),
                     publishedAt(),
                     updatedAtBusiness(),
                     publicFlag(),
@@ -160,13 +161,13 @@ public final class ArticleCore {
      * @param body
      *            本文（nullable）
      * @param introShort
-     *            ショート紹介文（nullable）
+     *            ショート紹介文（nullは紹介文なしとして扱う）
      * @param currentDateTime
      *            現在日時
      * @return 未公開・タグなしの共通状態
      */
     static @NonNull ArticleCore create(@NonNull ArticleTitle title, @Nullable MarkupContent body,
-            @Nullable String introShort, @NonNull BusinessDateTime currentDateTime) {
+            @Nullable IntroShort introShort, @NonNull BusinessDateTime currentDateTime) {
         return ArticleCore.factory(
                 Article.Id.generate(),
                 title,
@@ -188,7 +189,7 @@ public final class ArticleCore {
      * @param body
      *            本文（nullable）
      * @param introShort
-     *            ショート紹介文（nullable）
+     *            ショート紹介文（nullは紹介文なしとして扱う）
      * @param publishedAt
      *            公開日（nullable）
      * @param updatedAtBusiness
@@ -201,7 +202,7 @@ public final class ArticleCore {
      */
     @DomainFactory
     static @NonNull ArticleCore reconstruct(Article.@NonNull Id id, @NonNull ArticleTitle title,
-            @Nullable MarkupContent body, @Nullable String introShort, @Nullable BusinessDateTime publishedAt,
+            @Nullable MarkupContent body, @Nullable IntroShort introShort, @Nullable BusinessDateTime publishedAt,
             @Nullable BusinessDateTime updatedAtBusiness, boolean publicFlag, @NonNull List<ArticleTag> tags) {
         return ArticleCore.factory(
                 id,
@@ -241,7 +242,7 @@ public final class ArticleCore {
     }
 
     @NonNull
-    ArticleCore changeIntroShort(@Nullable String newIntroShort, @NonNull BusinessDateTime currentDateTime) {
+    ArticleCore changeIntroShort(@Nullable IntroShort newIntroShort, @NonNull BusinessDateTime currentDateTime) {
         return ArticleCore.factory(
                 id,
                 title,

@@ -6,6 +6,7 @@ import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.ArticleType;
+import com.abservice.domain.model.vo.article.IntroShort;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.domain.repository.article.ArticleRepository;
@@ -79,10 +80,11 @@ public class UpdateArticleService implements CommandService<UpdateArticleInput, 
                 ArticleTitle.fromInput(input.title()),
                 ArticleType.fromInput(input.articleType()),
                 resolveBody(input.body(), input.bodyFormat()),
-                (title, type, body) -> existing.changeArticleType(type, now)
+                IntroShort.fromInput(input.introShort()),
+                (title, type, body, introShort) -> existing.changeArticleType(type, now)
                         .changeTitle(title, now)
                         .changeBody(body, now)
-                        .changeIntroShort(input.introShort(), now));
+                        .changeIntroShort(introShort, now));
     }
 
     /** 本文なし（blank 入力）を表す検証結果。完全に使い回せる定数。 */

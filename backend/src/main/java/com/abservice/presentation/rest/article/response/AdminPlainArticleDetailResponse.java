@@ -23,7 +23,7 @@ import org.jspecify.annotations.Nullable;
  * @param bodyFormat
  *            本文のマークアップ形式（列挙子名）
  * @param introShort
- *            一覧表示用のショート紹介文（nullable）
+ *            一覧表示用のショート紹介文（空文字列は紹介文なし）
  * @param publishedAt
  *            公開日時（nullable。null は下書き。UTC）
  * @param updatedAtBusiness
@@ -39,7 +39,7 @@ public record AdminPlainArticleDetailResponse(
         String title,
         String body,
         String bodyFormat,
-        @Nullable String introShort,
+        String introShort,
         @Nullable Instant publishedAt,
         @Nullable Instant updatedAtBusiness,
         boolean publicFlag,

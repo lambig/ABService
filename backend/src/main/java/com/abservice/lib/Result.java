@@ -384,6 +384,48 @@ public sealed interface Result<T> {
     }
 
     /**
+     * 4つのResultを合成します。 すべて成功の場合は combiner を適用して成功を返し、
+     * 1つでも失敗があれば<b>すべてのエラーを集約</b>して失敗を返します。
+     *
+     * @param a
+     *            1つ目のResult
+     * @param b
+     *            2つ目のResult
+     * @param c
+     *            3つ目のResult
+     * @param d
+     *            4つ目のResult
+     * @param combiner
+     *            全成功値から結果を生成する関数
+     * @return 合成結果（成功、または全エラーを集約した失敗）
+     * @param <A>
+     *            1つ目の値の型
+     * @param <B>
+     *            2つ目の値の型
+     * @param <C>
+     *            3つ目の値の型
+     * @param <D>
+     *            4つ目の値の型
+     * @param <R>
+     *            合成後の値の型
+     */
+    static <A, B, C, D, R> Result<R> zip(Result<A> a, Result<B> b, Result<C> c, Result<D> d,
+            QuadFunction<? super A, ? super B, ? super C, ? super D, ? extends R> combiner) {
+        return ap(
+                ap(
+                        ap(
+                                a.map(
+                                        av -> bv -> cv -> dv -> combiner.apply(
+                                                av,
+                                                bv,
+                                                cv,
+                                                dv)),
+                                b),
+                        c),
+                d);
+    }
+
+    /**
      * 複数のResultから失敗エラーを引数順に集約してリストにまとめます。 zip のエラー集約用の内部ヘルパです。
      *
      * @param results
@@ -451,5 +493,42 @@ public sealed interface Result<T> {
                 A a,
                 B b,
                 C c);
+    }
+
+    /**
+     * 4引数版の関数インターフェース（{@link #zip(Result, Result, Result, Result, QuadFunction)}
+     * 用）。
+     *
+     * @param <A>
+     *            1つ目の引数の型
+     * @param <B>
+     *            2つ目の引数の型
+     * @param <C>
+     *            3つ目の引数の型
+     * @param <D>
+     *            4つ目の引数の型
+     * @param <R>
+     *            戻り値の型
+     */
+    @FunctionalInterface
+    interface QuadFunction<A, B, C, D, R> {
+        /**
+         * 4つの引数を受け取り結果を生成します。
+         *
+         * @param a
+         *            1つ目の引数
+         * @param b
+         *            2つ目の引数
+         * @param c
+         *            3つ目の引数
+         * @param d
+         *            4つ目の引数
+         * @return 生成結果
+         */
+        R apply(
+                A a,
+                B b,
+                C c,
+                D d);
     }
 }

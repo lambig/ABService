@@ -5,6 +5,7 @@ import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.ArticleType;
+import com.abservice.domain.model.vo.article.IntroShort;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.domain.repository.article.ArticleRepository;
@@ -55,12 +56,13 @@ public class CreateArticleService implements CommandService<CreateArticleInput, 
                 ArticleTitle.fromInput(input.title()),
                 ArticleType.fromInput(input.articleType()),
                 resolveBody(input.body(), input.bodyFormat()),
-                (title, type, body) -> Article.create(
+                IntroShort.fromInput(input.introShort()),
+                (title, type, body, introShort) -> Article.create(
                         type,
                         null,
                         title,
                         body,
-                        input.introShort(),
+                        introShort,
                         now));
     }
 
