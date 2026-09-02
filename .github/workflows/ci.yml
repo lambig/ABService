@@ -158,10 +158,14 @@ jobs:
 
       # 公開サイトの組み立てが backend を叩くため、テストの前に起動しておく（起動待ちは E2E 側が行う）。
       # 成果物は uber-jar（backend/gradle.properties）で、名前に版が入るため glob で拾う。
+      #
+      # プロファイルは dev を指定する。素で起動すると prod になり、本番向けに必須化した値
+      # （アセットのバケット・S3 の資格情報など）を要求する。E2E で見たいのは画面であって本番構成では
+      # ないため、ローカルと同じ既定値（docker compose の PostgreSQL と MinIO）で動かす。
       - name: Start backend
         run: |
           jar="$(ls backend/build/*-runner.jar)"
-          nohup java -jar "$jar" > backend.log 2>&1 &
+          nohup java -Dquarkus.profile=dev -jar "$jar" > backend.log 2>&1 &
           echo "started: $jar"
 
       - name: Run E2E
