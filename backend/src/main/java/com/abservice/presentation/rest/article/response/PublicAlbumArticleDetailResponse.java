@@ -2,6 +2,8 @@ package com.abservice.presentation.rest.article.response;
 
 import java.time.Instant;
 import java.util.List;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.media.SchemaProperty;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -29,6 +31,7 @@ import org.jspecify.annotations.Nullable;
  * @param tags
  *            記事に付いたタグ名の一覧（名前の昇順）
  */
+@Schema(properties = @SchemaProperty(name = "articleType", enumeration = "ALBUM"))
 public record PublicAlbumArticleDetailResponse(
         String articleId,
         String articleType,

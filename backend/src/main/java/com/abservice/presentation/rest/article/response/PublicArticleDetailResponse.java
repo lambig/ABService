@@ -2,6 +2,7 @@ package com.abservice.presentation.rest.article.response;
 
 import java.time.Instant;
 import java.util.List;
+import org.eclipse.microprofile.openapi.annotations.media.DiscriminatorMapping;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 /**
@@ -19,7 +20,12 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
  * </p>
  */
 @Schema(oneOf = {PublicAlbumArticleDetailResponse.class,
-        PublicPlainArticleDetailResponse.class}, discriminatorProperty = "articleType")
+        PublicPlainArticleDetailResponse.class}, discriminatorProperty = "articleType", discriminatorMapping = {
+                @DiscriminatorMapping(value = "ALBUM", schema = PublicAlbumArticleDetailResponse.class),
+                @DiscriminatorMapping(value = "NOTE", schema = PublicPlainArticleDetailResponse.class),
+                @DiscriminatorMapping(value = "NEWS", schema = PublicPlainArticleDetailResponse.class),
+                @DiscriminatorMapping(value = "EVENT", schema = PublicPlainArticleDetailResponse.class),
+                @DiscriminatorMapping(value = "OTHER", schema = PublicPlainArticleDetailResponse.class)})
 public sealed interface PublicArticleDetailResponse
         permits PublicAlbumArticleDetailResponse, PublicPlainArticleDetailResponse {
 
