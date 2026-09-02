@@ -156,11 +156,13 @@ jobs:
       - name: Build backend
         run: backend/gradlew -p backend --no-daemon --console=plain quarkusBuild
 
-      # 公開サイトの組み立てが backend を叩くため、テストの前に起動しておく（起動待ちは E2E 側が行う）
+      # 公開サイトの組み立てが backend を叩くため、テストの前に起動しておく（起動待ちは E2E 側が行う）。
+      # 成果物は uber-jar（backend/gradle.properties）で、名前に版が入るため glob で拾う。
       - name: Start backend
         run: |
-          nohup java -jar backend/build/quarkus-app/quarkus-run.jar > backend.log 2>&1 &
-          echo started
+          jar="$(ls backend/build/*-runner.jar)"
+          nohup java -jar "$jar" > backend.log 2>&1 &
+          echo "started: $jar"
 
       - name: Run E2E
         run: npm run test:e2e
