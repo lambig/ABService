@@ -7,7 +7,7 @@ import com.abservice.application.query.tune.ListTunesQuery;
 import com.abservice.application.query.tune.ListTunesResult;
 import com.abservice.application.query.tune.ListTunesService;
 import com.abservice.application.query.tune.model.TuneView;
-import com.abservice.presentation.rest.exception.ProblemDetail;
+import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.presentation.rest.security.SecurityRoles;
 import com.abservice.presentation.rest.tune.response.TuneListResponse;
 import com.abservice.presentation.rest.tune.response.TuneResponse;
@@ -20,25 +20,24 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 import org.jspecify.annotations.Nullable;
-import java.util.List;
 
 /**
  * チューン集約の Query REST リソース
  *
  * <p>
- * チューンの詳細照会（GET）と一覧照会（GET、ページネーション付き）を受け付ける。未存在は例外ではなく
- * {@link GetTuneResult.NotFound} として扱い、404 を RFC 9457 Problem Details
- * （{@code application/problem+json}）で返す。チューンは公開サイトが直接参照しない管理用マスタのため、参照も管理者ロール
- * （{@code Authorization: Bearer <APIキー>}）を要求する。
+ * チューンの詳細照会（GET）と一覧照会（GET、ページネーション付き）を受け付ける。照会結果の
+ * {@link GetTuneResult.NotFound} は {@link EntityNotFoundException} へ変換し、404 を
+ * RFC 9457 Problem Details
+ * （{@code application/problem+json}）で返す。チューンは公開サイトが直接参照しない管理用マスタのため、
+ * 参照も管理者ロール（{@code Authorization: Bearer <APIキー>}）を要求する。
  * </p>
  */
 @Path("/api/v1/tunes")
 @RolesAllowed(SecurityRoles.ADMIN)
 public class TuneQueryResource {
 
-    private static final String PROBLEM_JSON = "application/problem+json";
+    private static final String ENTITY_NAME = "Tune";
 
     private final GetTuneService getTuneService;
     private final ListTunesService listTunesService;
@@ -59,31 +58,21 @@ public class TuneQueryResource {
      *
      * @param id
      *            チューンのドメインID
-     * @return 200 とチューン詳細、未存在時は 404 の Problem Details
+     * @return チューン詳細（未存在時は 404 の Problem Details）
      */
     @GET
     @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> get(@PathParam("id") String id) {
+    public Uni<TuneResponse> get(@PathParam("id") String id) {
         return getTuneService.query(new GetTuneQuery(id))
-                .map(result -> toResponse(result, id));
+                .map(result -> toDetail(result, id));
     }
 
-    private static Response toResponse(GetTuneResult result, String id) {
+    private static TuneResponse toDetail(GetTuneResult result, String id) {
         return switch (result) {
-            case GetTuneResult.Found(var tune) -> Response.ok(toTuneResponse(tune)).build();
-            case GetTuneResult.NotFound() -> Response.status(Response.Status.NOT_FOUND)
-                    .type(MediaType.valueOf(PROBLEM_JSON)).entity(notFoundProblem(id)).build();
+            case GetTuneResult.Found(var tune) -> toTuneResponse(tune);
+            case GetTuneResult.NotFound() -> throw EntityNotFoundException.of(ENTITY_NAME, id);
         };
-    }
-
-    private static ProblemDetail notFoundProblem(String id) {
-        return ProblemDetail.of(
-                "ENTITY_NOT_FOUND",
-                "Resource not found",
-                Response.Status.NOT_FOUND.getStatusCode(),
-                "Tune not found: id=" + id,
-                List.of());
     }
 
     private static TuneResponse toTuneResponse(TuneView view) {
@@ -111,11 +100,11 @@ public class TuneQueryResource {
      *            並び順のキー（未指定なら登録の新しい順）
      * @param direction
      *            並び順の向き（未指定ならキーごとの既定）
-     * @return 200 とチューン一覧
+     * @return チューン一覧
      */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> list(
+    public Uni<TuneListResponse> list(
             @QueryParam("page") @DefaultValue("0") int page,
             @QueryParam("size") @DefaultValue("20") int size,
             @QueryParam("sort") @Nullable String sort,
@@ -129,14 +118,12 @@ public class TuneQueryResource {
                 .map(TuneQueryResource::toListResponse);
     }
 
-    private static Response toListResponse(ListTunesResult result) {
-        return Response.ok(
-                new TuneListResponse(
-                        result.items().stream().map(TuneQueryResource::toTuneResponse).toList(),
-                        result.page(),
-                        result.size(),
-                        result.totalElements(),
-                        result.totalPages()))
-                .build();
+    private static TuneListResponse toListResponse(ListTunesResult result) {
+        return new TuneListResponse(
+                result.items().stream().map(TuneQueryResource::toTuneResponse).toList(),
+                result.page(),
+                result.size(),
+                result.totalElements(),
+                result.totalPages());
     }
 }

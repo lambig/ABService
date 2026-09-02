@@ -11,7 +11,6 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 
 /**
  * サイト文言の Query REST リソース
@@ -42,17 +41,13 @@ public class SiteContentQueryResource {
     /**
      * サイト文言を全件照会します。
      *
-     * @return 200 とサイト文言の一覧（キーの昇順）
+     * @return サイト文言の一覧（キーの昇順）
      */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> list() {
+    public Uni<SiteContentListResponse> list() {
         return listSiteContentsService.query(new ListSiteContentsQuery())
-                .map(SiteContentQueryResource::toOk);
-    }
-
-    private static Response toOk(ListSiteContentsResult result) {
-        return Response.ok(toListResponse(result)).build();
+                .map(SiteContentQueryResource::toListResponse);
     }
 
     private static SiteContentListResponse toListResponse(ListSiteContentsResult result) {

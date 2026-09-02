@@ -4,6 +4,7 @@ import com.abservice.application.query.article.GetArticleResult;
 import com.abservice.application.query.article.ListArticlesResult;
 import com.abservice.application.query.article.model.ArticleTagView;
 import com.abservice.application.query.article.model.ArticleView;
+import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.presentation.rest.article.response.AdminAlbumArticleDetailResponse;
 import com.abservice.presentation.rest.article.response.AdminArticleDetailResponse;
@@ -18,9 +19,6 @@ import com.abservice.presentation.rest.article.response.PublicArticleListRespons
 import com.abservice.presentation.rest.article.response.PublicArticleResponse;
 import com.abservice.presentation.rest.article.response.PublicPlainArticleDetailResponse;
 import com.abservice.presentation.rest.article.response.PublicPlainArticleResponse;
-import com.abservice.presentation.rest.exception.ProblemDetail;
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -31,8 +29,14 @@ import java.util.function.Function;
  *
  * <p>
  * 公開向け（{@link ArticleQueryResource}）と管理向け（{@link ArticleAdminQueryResource}）は
- * 対象範囲だけでなく応答表現も異なるため、要求元ごとに変換を持つ。未存在（404）の表現と Read Model の種別による
+ * 対象範囲だけでなく応答表現も異なるため、要求元ごとに変換を持つ。未存在の扱いと Read Model の種別による
  * 振り分けは共通のため、本クラスに集約する。
+ * </p>
+ *
+ * <p>
+ * 未存在は {@link EntityNotFoundException} を投げ、HTTP への変換は
+ * {@code presentation.rest.exception.DomainExceptionMapper}
+ * に委ねる。応答本体の型を返すことで、API 定義の レスポンススキーマが実装から生成される。
  * </p>
  *
  * <p>
@@ -41,7 +45,7 @@ import java.util.function.Function;
  */
 final class ArticleQueryResponses {
 
-    private static final String PROBLEM_JSON = "application/problem+json";
+    private static final String ENTITY_NAME = "Article";
 
     private ArticleQueryResponses() {
     }
@@ -53,10 +57,12 @@ final class ArticleQueryResponses {
      *            詳細照会結果
      * @param id
      *            照会した記事のドメインID
-     * @return 200 と記事詳細、未存在時は 404 の Problem Details
+     * @return 記事詳細
+     * @throws EntityNotFoundException
+     *             公開中の記事が存在しない場合
      */
-    static Response toPublicResponse(GetArticleResult result, String id) {
-        return toResponse(
+    static PublicArticleDetailResponse toPublicResponse(GetArticleResult result, String id) {
+        return toDetail(
                 result,
                 id,
                 ArticleQueryResponses::toPublicArticleDetailResponse);
@@ -69,10 +75,12 @@ final class ArticleQueryResponses {
      *            詳細照会結果
      * @param id
      *            照会した記事のドメインID
-     * @return 200 と記事詳細、未存在時は 404 の Problem Details
+     * @return 記事詳細
+     * @throws EntityNotFoundException
+     *             記事が存在しない場合
      */
-    static Response toAdminResponse(GetArticleResult result, String id) {
-        return toResponse(
+    static AdminArticleDetailResponse toAdminResponse(GetArticleResult result, String id) {
+        return toDetail(
                 result,
                 id,
                 ArticleQueryResponses::toAdminArticleDetailResponse);
@@ -83,17 +91,15 @@ final class ArticleQueryResponses {
      *
      * @param result
      *            一覧照会結果
-     * @return 200 と記事一覧
+     * @return 記事一覧
      */
-    static Response toPublicListResponse(ListArticlesResult result) {
-        return Response.ok(
-                new PublicArticleListResponse(
-                        result.items().stream().map(ArticleQueryResponses::toPublicArticleResponse).toList(),
-                        result.page(),
-                        result.size(),
-                        result.totalElements(),
-                        result.totalPages()))
-                .build();
+    static PublicArticleListResponse toPublicListResponse(ListArticlesResult result) {
+        return new PublicArticleListResponse(
+                result.items().stream().map(ArticleQueryResponses::toPublicArticleResponse).toList(),
+                result.page(),
+                result.size(),
+                result.totalElements(),
+                result.totalPages());
     }
 
     /**
@@ -101,37 +107,25 @@ final class ArticleQueryResponses {
      *
      * @param result
      *            一覧照会結果
-     * @return 200 と記事一覧
+     * @return 記事一覧
      */
-    static Response toAdminListResponse(ListArticlesResult result) {
-        return Response.ok(
-                new AdminArticleListResponse(
-                        result.items().stream().map(ArticleQueryResponses::toAdminArticleResponse).toList(),
-                        result.page(),
-                        result.size(),
-                        result.totalElements(),
-                        result.totalPages()))
-                .build();
+    static AdminArticleListResponse toAdminListResponse(ListArticlesResult result) {
+        return new AdminArticleListResponse(
+                result.items().stream().map(ArticleQueryResponses::toAdminArticleResponse).toList(),
+                result.page(),
+                result.size(),
+                result.totalElements(),
+                result.totalPages());
     }
 
-    private static <T> Response toResponse(
+    private static <T> T toDetail(
             GetArticleResult result,
             String id,
             Function<ArticleView, T> toDetailResponse) {
         return switch (result) {
-            case GetArticleResult.Found(var article) -> Response.ok(toDetailResponse.apply(article)).build();
-            case GetArticleResult.NotFound() -> Response.status(Response.Status.NOT_FOUND)
-                    .type(MediaType.valueOf(PROBLEM_JSON)).entity(notFoundProblem(id)).build();
+            case GetArticleResult.Found(var article) -> toDetailResponse.apply(article);
+            case GetArticleResult.NotFound() -> throw EntityNotFoundException.of(ENTITY_NAME, id);
         };
-    }
-
-    private static ProblemDetail notFoundProblem(String id) {
-        return ProblemDetail.of(
-                "ENTITY_NOT_FOUND",
-                "Resource not found",
-                Response.Status.NOT_FOUND.getStatusCode(),
-                "Article not found: id=" + id,
-                List.of());
     }
 
     /*

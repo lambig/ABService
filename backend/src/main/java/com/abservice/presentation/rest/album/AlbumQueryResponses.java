@@ -3,6 +3,7 @@ package com.abservice.presentation.rest.album;
 import com.abservice.application.query.album.GetAlbumResult;
 import com.abservice.application.query.album.ListAlbumsResult;
 import com.abservice.application.query.album.model.AlbumView;
+import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.presentation.rest.album.response.AdminAlbumDetailResponse;
 import com.abservice.presentation.rest.album.response.AdminAlbumListResponse;
 import com.abservice.presentation.rest.album.response.AdminAlbumResponse;
@@ -14,9 +15,6 @@ import com.abservice.presentation.rest.album.response.PublicAlbumResponse;
 import com.abservice.presentation.rest.album.response.PublicExternalAudioResponse;
 import com.abservice.presentation.rest.album.response.PublicTrackResponse;
 import com.abservice.presentation.rest.album.response.TrackTuneResponse;
-import com.abservice.presentation.rest.exception.ProblemDetail;
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -27,7 +25,13 @@ import java.util.function.Function;
  *
  * <p>
  * 公開向け（{@link AlbumQueryResource}）と管理向け（{@link AlbumAdminQueryResource}）は対象範囲だけでなく
- * 応答表現も異なるため、要求元ごとに変換を持つ。未存在（404）の表現は共通のため、本クラスに集約する。
+ * 応答表現も異なるため、要求元ごとに変換を持つ。未存在の扱いは共通のため、本クラスに集約する。
+ * </p>
+ *
+ * <p>
+ * 未存在は {@link EntityNotFoundException} を投げ、HTTP への変換は
+ * {@code presentation.rest.exception.DomainExceptionMapper}
+ * に委ねる。応答本体の型を返すことで、API 定義の レスポンススキーマが実装から生成される。
  * </p>
  *
  * <p>
@@ -37,7 +41,7 @@ import java.util.function.Function;
  */
 final class AlbumQueryResponses {
 
-    private static final String PROBLEM_JSON = "application/problem+json";
+    private static final String ENTITY_NAME = "Album";
 
     private AlbumQueryResponses() {
     }
@@ -49,10 +53,12 @@ final class AlbumQueryResponses {
      *            詳細照会結果
      * @param id
      *            照会したアルバムのドメインID
-     * @return 200 とアルバム詳細、未存在時は 404 の Problem Details
+     * @return アルバム詳細
+     * @throws EntityNotFoundException
+     *             公開中のアルバムが存在しない場合
      */
-    static Response toPublicResponse(GetAlbumResult result, String id) {
-        return toResponse(
+    static PublicAlbumDetailResponse toPublicResponse(GetAlbumResult result, String id) {
+        return toDetail(
                 result,
                 id,
                 AlbumQueryResponses::toPublicAlbumDetailResponse);
@@ -65,10 +71,12 @@ final class AlbumQueryResponses {
      *            詳細照会結果
      * @param id
      *            照会したアルバムのドメインID
-     * @return 200 とアルバム詳細、未存在時は 404 の Problem Details
+     * @return アルバム詳細
+     * @throws EntityNotFoundException
+     *             アルバムが存在しない場合
      */
-    static Response toAdminResponse(GetAlbumResult result, String id) {
-        return toResponse(
+    static AdminAlbumDetailResponse toAdminResponse(GetAlbumResult result, String id) {
+        return toDetail(
                 result,
                 id,
                 AlbumQueryResponses::toAdminAlbumDetailResponse);
@@ -79,17 +87,15 @@ final class AlbumQueryResponses {
      *
      * @param result
      *            一覧照会結果
-     * @return 200 とアルバム一覧
+     * @return アルバム一覧
      */
-    static Response toPublicListResponse(ListAlbumsResult result) {
-        return Response.ok(
-                new PublicAlbumListResponse(
-                        result.items().stream().map(AlbumQueryResponses::toPublicAlbumResponse).toList(),
-                        result.page(),
-                        result.size(),
-                        result.totalElements(),
-                        result.totalPages()))
-                .build();
+    static PublicAlbumListResponse toPublicListResponse(ListAlbumsResult result) {
+        return new PublicAlbumListResponse(
+                result.items().stream().map(AlbumQueryResponses::toPublicAlbumResponse).toList(),
+                result.page(),
+                result.size(),
+                result.totalElements(),
+                result.totalPages());
     }
 
     /**
@@ -97,37 +103,25 @@ final class AlbumQueryResponses {
      *
      * @param result
      *            一覧照会結果
-     * @return 200 とアルバム一覧
+     * @return アルバム一覧
      */
-    static Response toAdminListResponse(ListAlbumsResult result) {
-        return Response.ok(
-                new AdminAlbumListResponse(
-                        result.items().stream().map(AlbumQueryResponses::toAdminAlbumResponse).toList(),
-                        result.page(),
-                        result.size(),
-                        result.totalElements(),
-                        result.totalPages()))
-                .build();
+    static AdminAlbumListResponse toAdminListResponse(ListAlbumsResult result) {
+        return new AdminAlbumListResponse(
+                result.items().stream().map(AlbumQueryResponses::toAdminAlbumResponse).toList(),
+                result.page(),
+                result.size(),
+                result.totalElements(),
+                result.totalPages());
     }
 
-    private static <T> Response toResponse(
+    private static <T> T toDetail(
             GetAlbumResult result,
             String id,
             Function<AlbumView, T> toDetailResponse) {
         return switch (result) {
-            case GetAlbumResult.Found(var album) -> Response.ok(toDetailResponse.apply(album)).build();
-            case GetAlbumResult.NotFound() -> Response.status(Response.Status.NOT_FOUND)
-                    .type(MediaType.valueOf(PROBLEM_JSON)).entity(notFoundProblem(id)).build();
+            case GetAlbumResult.Found(var album) -> toDetailResponse.apply(album);
+            case GetAlbumResult.NotFound() -> throw EntityNotFoundException.of(ENTITY_NAME, id);
         };
-    }
-
-    private static ProblemDetail notFoundProblem(String id) {
-        return ProblemDetail.of(
-                "ENTITY_NOT_FOUND",
-                "Resource not found",
-                Response.Status.NOT_FOUND.getStatusCode(),
-                "Album not found: id=" + id,
-                List.of());
     }
 
     private static PublicAlbumDetailResponse toPublicAlbumDetailResponse(AlbumView view) {

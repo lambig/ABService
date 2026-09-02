@@ -10,6 +10,10 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
 import java.util.List;
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponses;
 
 /**
  * {@link DomainException} を RFC 9457 Problem
@@ -21,8 +25,19 @@ import java.util.List;
  * {@link BusinessRuleViolationException}→409、その他の {@link DomainException}→500
  * に対応づける。
  * </p>
+ *
+ * <p>
+ * このマッパーが返し得る状態コードと応答本体の型は {@code @APIResponses} が宣言する。API
+ * 定義（OpenAPI）の各オペレーションへの反映は {@code presentation.rest.openapi}
+ * のフィルタが行い、エンドポイントごとに 同じ宣言を繰り返さない。
+ * </p>
  */
 @Provider
+@APIResponses({
+        @APIResponse(responseCode = "400", content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+        @APIResponse(responseCode = "404", content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+        @APIResponse(responseCode = "409", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+})
 public class DomainExceptionMapper implements ExceptionMapper<DomainException> {
 
     @Override

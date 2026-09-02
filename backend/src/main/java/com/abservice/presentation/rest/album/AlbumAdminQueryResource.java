@@ -6,6 +6,8 @@ import com.abservice.application.query.album.GetAlbumResult;
 import com.abservice.application.query.album.GetAlbumService;
 import com.abservice.application.query.album.ListAlbumsQuery;
 import com.abservice.application.query.album.ListAlbumsService;
+import com.abservice.presentation.rest.album.response.AdminAlbumDetailResponse;
+import com.abservice.presentation.rest.album.response.AdminAlbumListResponse;
 import com.abservice.presentation.rest.security.SecurityRoles;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
@@ -16,7 +18,6 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -26,7 +27,8 @@ import org.jspecify.annotations.Nullable;
  * 下書き（未公開）を含めた全アルバムの詳細照会（GET）と一覧照会（GET、ページネーション付き）を受け付ける。管理画面が公開前の
  * アルバムを編集・確認するための経路であり、管理者ロール（{@code Authorization: Bearer <APIキー>}）を要求する。
  * 応答は編集フォームが使う項目を持ち、公開向け（{@link AlbumQueryResource}）とは項目が異なる。{@code publishedAt}
- * が null のものが下書き。未存在は例外ではなく {@link GetAlbumResult.NotFound} として扱い、404 を RFC
+ * が null のものが下書き。照会結果の {@link GetAlbumResult.NotFound} は
+ * {@link AlbumQueryResponses} が {@code EntityNotFoundException} へ変換し、404 を RFC
  * 9457 Problem Details （{@code application/problem+json}）で返す。
  * </p>
  *
@@ -58,12 +60,12 @@ public class AlbumAdminQueryResource {
      *
      * @param id
      *            アルバムのドメインID
-     * @return 200 とアルバム詳細、未存在時は 404 の Problem Details
+     * @return アルバム詳細（未存在時は 404 の Problem Details）
      */
     @GET
     @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> get(@PathParam("id") String id) {
+    public Uni<AdminAlbumDetailResponse> get(@PathParam("id") String id) {
         return getAlbumService.query(
                 new GetAlbumQuery(
                         id,
@@ -86,11 +88,11 @@ public class AlbumAdminQueryResource {
      *            タイトルでの絞り込み（未指定・空文字・空白のみなら絞り込まない）。部分一致で大文字小文字を問わない
      * @param catalogNumber
      *            カタログナンバーでの絞り込み（{@code title} と同じ扱い）。併せて指定した場合は積で絞り込む
-     * @return 200 とアルバム一覧
+     * @return アルバム一覧
      */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> list(
+    public Uni<AdminAlbumListResponse> list(
             @QueryParam("page") @DefaultValue("0") int page,
             @QueryParam("size") @DefaultValue("20") int size,
             @QueryParam("sort") @Nullable String sort,

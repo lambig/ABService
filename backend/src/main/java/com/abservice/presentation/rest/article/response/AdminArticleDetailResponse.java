@@ -2,6 +2,7 @@ package com.abservice.presentation.rest.article.response;
 
 import java.time.Instant;
 import java.util.List;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -18,6 +19,8 @@ import org.jspecify.annotations.Nullable;
  * {@link AdminPlainArticleDetailResponse} の2つになる。
  * </p>
  */
+@Schema(oneOf = {AdminAlbumArticleDetailResponse.class,
+        AdminPlainArticleDetailResponse.class}, discriminatorProperty = "articleType")
 public sealed interface AdminArticleDetailResponse
         permits AdminAlbumArticleDetailResponse, AdminPlainArticleDetailResponse {
 
