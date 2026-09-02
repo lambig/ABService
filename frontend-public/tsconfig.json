@@ -1,26 +1,14 @@
 {
-	"extends": "astro/tsconfigs/strict",
-	"compilerOptions": {
-		"allowJs": true,
-		"checkJs": false,
-		"esModuleInterop": true,
-		"forceConsistentCasingInFileNames": true,
-		"resolveJsonModule": true,
-		"skipLibCheck": true,
-		"sourceMap": true,
-		"strict": true,
-		"moduleResolution": "bundler",
-		"allowImportingTsExtensions": true,
-		"noEmit": true,
-		"baseUrl": ".",
-		"paths": {
-			"@/*": ["./src/*"],
-			"@components/*": ["./src/components/*"],
-			"@layouts/*": ["./src/layouts/*"],
-			"@utils/*": ["./src/utils/*"],
-			"@types/*": ["./src/types/*"]
-		}
-	},
-	"include": ["src/**/*", "astro.config.mjs"],
-	"exclude": ["node_modules", "dist"]
+  "extends": "astro/tsconfigs/strict",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "$lib": ["./src/lib"],
+      "$lib/*": ["./src/lib/*"]
+    },
+    "verbatimModuleSyntax": true,
+    "noUncheckedIndexedAccess": true
+  },
+  "include": [".astro/types.d.ts", "**/*"],
+  "exclude": ["dist", "node_modules"]
 }

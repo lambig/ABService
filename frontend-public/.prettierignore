@@ -1,0 +1,6 @@
+dist
+.astro
+node_modules
+
+# shadcn-svelte が置くコンポーネント。上流の生成物のため整形せず、`add` で入れ直したときに差分を作らない
+src/lib/components/ui

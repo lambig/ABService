@@ -1,0 +1,50 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  /** ページのタイトル。ブラウザのタブと OG に出る */
+  readonly title: string;
+  /** ページの説明。検索結果と OG に出る */
+  readonly description?: string;
+}
+
+const { title, description } = Astro.props;
+
+/*
+ * 正規URLと OG の絶対URLは site（環境変数で与える）を基準に組む。ドメインをコードへ書かないため、
+ * ここでは Astro.site 以外から絶対URLを作らない。
+ */
+const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
+---
+
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="canonical" href={canonicalUrl} />
+    <title>{title}</title>
+    {description ? <meta name="description" content={description} /> : null}
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:url" content={canonicalUrl} />
+    {description ? <meta property="og:description" content={description} /> : null}
+  </head>
+
+  <body class="bg-background text-foreground min-h-screen">
+    <div class="mx-auto flex min-h-screen max-w-5xl flex-col px-4">
+      <header class="py-6">
+        <slot name="header" />
+      </header>
+
+      <main class="flex-1">
+        <slot />
+      </main>
+
+      <footer class="text-muted-foreground border-border border-t py-6 text-sm">
+        <slot name="footer" />
+      </footer>
+    </div>
+  </body>
+</html>

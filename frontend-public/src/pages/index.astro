@@ -1,157 +1,29 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import { apiClient } from '../utils/api';
-import type { CircleMember } from '../types';
+import BaseLayout from '../layouts/BaseLayout.astro';
 
-// Fetch active circle members for display
-let members: CircleMember[] = [];
-try {
-	members = await apiClient.getActiveCircleMembers();
-} catch (error) {
-	console.error('Failed to fetch circle members:', error);
-}
+/*
+ * トップの中身（サイトの文言・アルバム・記事の導線）は後続の作業で入れる。ここが持つのは、
+ * レイアウトとトークンが効いていることを確かめられる骨組みだけ。
+ *
+ * サイト名や紹介文は SiteContent（管理画面から登録する）を引いて描くため、リポジトリに文言を置かない。
+ */
 ---
 
-<Layout title="ABService - Welcome">
-	<main class="min-h-screen">
-		<!-- Hero Section -->
-		<section class="bg-gradient-to-br from-primary-600 to-primary-800 text-white">
-			<div class="container mx-auto px-4 py-20">
-				<div class="max-w-4xl mx-auto text-center">
-					<h1 class="text-5xl font-bold mb-6">
-						Welcome to ABService
-					</h1>
-					<p class="text-xl mb-8 text-primary-100">
-						ポートフォリオの編集・管理を担うサークルメンバーによる共同プロジェクト
-					</p>
-					<div class="flex flex-col sm:flex-row gap-4 justify-center">
-						<a
-							href="/features"
-							class="bg-white text-primary-600 px-8 py-3 rounded-lg font-semibold hover:bg-primary-50 transition-colors"
-						>
-							Learn More
-						</a>
-						<a
-							href="/contact"
-							class="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-primary-600 transition-colors"
-						>
-							Get Started
-						</a>
-					</div>
-				</div>
-			</div>
-		</section>
+<BaseLayout title="ABService">
+  <nav slot="header" aria-label="主要な導線">
+    <ul class="flex gap-4 text-sm">
+      <li>
+        <a class="hover:text-muted-foreground underline-offset-4 hover:underline" href="/albums"
+          >アルバム</a
+        >
+      </li>
+      <li>
+        <a class="hover:text-muted-foreground underline-offset-4 hover:underline" href="/articles"
+          >記事</a
+        >
+      </li>
+    </ul>
+  </nav>
 
-		<!-- Team Section -->
-		{#if members.length > 0}
-			<section class="py-20 bg-white">
-				<div class="container mx-auto px-4">
-					<div class="max-w-6xl mx-auto">
-						<div class="text-center mb-16">
-							<h2 class="text-4xl font-bold text-gray-900 mb-4">
-								Our Team
-							</h2>
-							<p class="text-xl text-gray-600">
-								ポートフォリオの編集・管理を担うサークルメンバーをご紹介します
-							</p>
-						</div>
-
-						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-							{#each members as member}
-								<div class="bg-white rounded-lg shadow-md p-6 text-center border border-gray-200">
-									{#if member.avatarUrl}
-										<img
-											src={member.avatarUrl}
-											alt={member.displayName}
-											class="w-20 h-20 rounded-full mx-auto mb-4 object-cover"
-										/>
-									{:else}
-										<div class="w-20 h-20 rounded-full bg-gray-300 mx-auto mb-4 flex items-center justify-center">
-											<span class="text-gray-600 font-medium text-xl">
-												{member.displayName.charAt(0).toUpperCase()}
-											</span>
-										</div>
-									{/if}
-									<h3 class="text-lg font-semibold text-gray-900 mb-2">{member.displayName}</h3>
-									<p class="text-sm text-gray-500 mb-2">@{member.username}</p>
-									<p class="text-sm text-blue-600 font-medium mb-3">{member.roleName}</p>
-									{#if member.bio}
-										<p class="text-sm text-gray-600">{member.bio}</p>
-									{/if}
-								</div>
-							{/each}
-						</div>
-					</div>
-				</div>
-			</section>
-		{/if}
-
-		<!-- Features Section -->
-		<section class="py-20 bg-gray-50">
-			<div class="container mx-auto px-4">
-				<div class="max-w-6xl mx-auto">
-					<div class="text-center mb-16">
-						<h2 class="text-4xl font-bold text-gray-900 mb-4">
-							Why Choose ABService?
-						</h2>
-						<p class="text-xl text-gray-600">
-							ポートフォリオの編集・管理に最適化された機能をご紹介します
-						</p>
-					</div>
-
-					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-						<div class="text-center p-6">
-							<div class="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-								<svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-								</svg>
-							</div>
-							<h3 class="text-xl font-semibold text-gray-900 mb-2">高速パフォーマンス</h3>
-							<p class="text-gray-600">最適化されたパフォーマンスで、スムーズなポートフォリオ編集体験を提供します。</p>
-						</div>
-
-						<div class="text-center p-6">
-							<div class="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-								<svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-								</svg>
-							</div>
-							<h3 class="text-xl font-semibold text-gray-900 mb-2">セキュア & 信頼性</h3>
-							<p class="text-gray-600">エンタープライズグレードのセキュリティで、安心してポートフォリオを管理できます。</p>
-						</div>
-
-						<div class="text-center p-6">
-							<div class="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-								<svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a2 2 0 002-2V5z"></path>
-								</svg>
-							</div>
-							<h3 class="text-xl font-semibold text-gray-900 mb-2">使いやすさ</h3>
-							<p class="text-gray-600">初心者から上級者まで、直感的なインターフェースで簡単にポートフォリオを編集できます。</p>
-						</div>
-					</div>
-				</div>
-			</div>
-		</section>
-
-		<!-- CTA Section -->
-		<section class="py-20 bg-gray-900 text-white">
-			<div class="container mx-auto px-4">
-				<div class="max-w-4xl mx-auto text-center">
-					<h2 class="text-4xl font-bold mb-6">
-						Ready to Get Started?
-					</h2>
-					<p class="text-xl mb-8 text-gray-300">
-						ABServiceでポートフォリオの編集・管理を始めましょう
-					</p>
-					<a
-						href="/signup"
-						class="bg-primary-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-primary-700 transition-colors inline-block"
-					>
-						Start Your Free Trial
-					</a>
-				</div>
-			</div>
-		</section>
-	</main>
-</Layout>
+  <p class="text-muted-foreground py-12">準備中</p>
+</BaseLayout>
