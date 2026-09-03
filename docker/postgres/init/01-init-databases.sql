@@ -18,5 +18,20 @@ GRANT ALL PRIVILEGES ON DATABASE abservice TO abservice;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
+-- テスト用のデータベース（#252）
+-- 統合テストと E2E は開発用（abservice）と別の場所へ書く。テストの初期化が開発中のデータを消さず、
+-- 逆に開発中に作ったデータがテストの母集団へ混ざることもない。中身は実行のたびに作り直される。
+CREATE DATABASE abservice_test;
+GRANT ALL PRIVILEGES ON DATABASE abservice_test TO abservice;
+\c abservice_test;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+CREATE DATABASE abservice_e2e;
+GRANT ALL PRIVILEGES ON DATABASE abservice_e2e TO abservice;
+\c abservice_e2e;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 -- Set timezone
 SET timezone = 'UTC';
