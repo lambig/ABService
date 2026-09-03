@@ -1,0 +1,50 @@
+---
+import type { PageHref } from '$lib/pagination';
+
+/**
+ * ページ送り。
+ *
+ * ページ番号を全部並べると、件数が増えたときに導線そのものが読めなくなる。前後と現在地だけを出し、
+ * たどれることを保つ（#197 の「全件を辿れる」）。1ページに収まるときは何も出さない。
+ */
+interface Props {
+  readonly currentPage: number;
+  readonly totalPages: number;
+  readonly hrefOf: PageHref;
+}
+
+const { currentPage, totalPages, hrefOf } = Astro.props;
+
+/*
+ * 判定は式にせずここへ出す。テンプレートの中の `<` は、Astro のパーサがタグの開始として読む。
+ */
+const hasMultiplePages = totalPages > 1;
+const hasPrevious = currentPage > 1;
+const hasNext = totalPages > currentPage;
+---
+
+{
+  hasMultiplePages ? (
+    <nav class="flex items-center justify-between py-6 text-sm" aria-label="ページ送り">
+      {hasPrevious ? (
+        <a class="underline underline-offset-4" href={hrefOf(currentPage - 1)} rel="prev">
+          前のページ
+        </a>
+      ) : (
+        <span class="text-muted-foreground">前のページ</span>
+      )}
+
+      <span class="text-muted-foreground tabular-nums">
+        {currentPage} / {totalPages}
+      </span>
+
+      {hasNext ? (
+        <a class="underline underline-offset-4" href={hrefOf(currentPage + 1)} rel="next">
+          次のページ
+        </a>
+      ) : (
+        <span class="text-muted-foreground">次のページ</span>
+      )}
+    </nav>
+  ) : null
+}

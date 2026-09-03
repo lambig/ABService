@@ -1,0 +1,98 @@
+---
+import AlbumPreviewMeta from '$components/AlbumPreviewMeta.astro';
+import AlbumReference from '$components/AlbumReference.astro';
+import SiteNav from '$components/SiteNav.astro';
+import {
+  getAlbum,
+  getArticle,
+  listArticles,
+  type PublicAlbumDetail,
+  type PublicArticleDetail,
+} from '$lib/api/client';
+import { articleTypeLabel, referencedAlbumId } from '$lib/article';
+import { formatPublishedDate } from '$lib/format';
+import { renderBody } from '$lib/markup';
+import BaseLayout from '$layouts/BaseLayout.astro';
+
+/*
+ * 公開中の記事の分だけページを作る。参照先アルバムはここで引く（一覧検索では揃えない。#197）。
+ */
+export const getStaticPaths = async () => {
+  const articles = await listArticles();
+  const details = await Promise.all(articles.map((article) => getArticle(article.articleId)));
+  return Promise.all(
+    details.map(async (article) => {
+      const albumId = referencedAlbumId(article);
+      const album = albumId === null ? null : await getAlbum(albumId);
+      return {
+        params: { articleId: article.articleId },
+        props: { article, album },
+      };
+    }),
+  );
+};
+
+interface Props {
+  readonly article: PublicArticleDetail;
+  /** 参照先アルバム。ALBUM 種別で参照を持つときだけ値がある */
+  readonly album: PublicAlbumDetail | null;
+}
+
+const { article, album } = Astro.props;
+
+/*
+ * 本文は Markdown（DECISIONS 24）。プレーンテキストの場合はそのまま出す（Astro がエスケープする）。
+ * 本文なしは空文字で来る。
+ */
+const bodyHtml = article.bodyFormat === 'MARKDOWN' ? renderBody(article.body) : null;
+
+/*
+ * ショート紹介文は一覧のためのもので、詳細には出さない（#197）。メタ説明にも渡さない。作品の概要説明と
+ * 同じ理由で、長さと記法が本文に依存するため。
+ */
+---
+
+<BaseLayout title={article.title}>
+  {album === null ? null : <AlbumPreviewMeta album={album} slot="head" />}
+
+  <SiteNav slot="header" />
+
+  <article class="space-y-8 py-6">
+    <header class="space-y-2">
+      <p class="text-muted-foreground text-sm">{articleTypeLabel(article.articleType)}</p>
+
+      <h1 class="text-2xl font-medium">{article.title}</h1>
+
+      <p class="text-muted-foreground text-sm">
+        <time datetime={article.publishedAt}>{formatPublishedDate(article.publishedAt)}</time>
+      </p>
+
+      {
+        article.tags.length === 0 ? null : (
+          <ul class="text-muted-foreground flex flex-wrap gap-2 text-sm">
+            {article.tags.map((tag) => (
+              <li class="border-border rounded-full border px-2 py-0.5">{tag}</li>
+            ))}
+          </ul>
+        )
+      }
+    </header>
+
+    {
+      article.body === '' ? null : bodyHtml === null ? (
+        <p class="whitespace-pre-wrap">{article.body}</p>
+      ) : (
+        <div class="prose-body" set:html={bodyHtml} />
+      )
+    }
+
+    {
+      album === null ? null : (
+        <section class="space-y-4">
+          <h2 class="text-lg font-medium">この記事の作品</h2>
+          <AlbumReference album={album} />
+        </section>
+      )
+    }
+  </article>
+</BaseLayout>

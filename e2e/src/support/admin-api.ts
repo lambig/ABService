@@ -49,9 +49,9 @@ const adminHeaders = {
   'Content-Type': 'application/json',
 } as const;
 
-const postAdmin = async (path: string, body: unknown): Promise<unknown> => {
+const sendAdmin = async (method: 'POST' | 'PUT', path: string, body: unknown): Promise<unknown> => {
   const response = await fetch(`${stack.backendBaseUrl}${path}`, {
-    method: 'POST',
+    method,
     headers: adminHeaders,
     body: JSON.stringify(body),
   });
@@ -59,9 +59,13 @@ const postAdmin = async (path: string, body: unknown): Promise<unknown> => {
   return response.ok
     ? (JSON.parse(text) as unknown)
     : Promise.reject(
-        new Error(`POST ${path} が失敗しました（HTTP ${String(response.status)}）: ${text}`),
+        new Error(`${method} ${path} が失敗しました（HTTP ${String(response.status)}）: ${text}`),
       );
 };
+
+const postAdmin = (path: string, body: unknown): Promise<unknown> => sendAdmin('POST', path, body);
+
+const putAdmin = (path: string, body: unknown): Promise<unknown> => sendAdmin('PUT', path, body);
 
 const getAdmin = async (path: string): Promise<unknown> => {
   const response = await fetch(`${stack.backendBaseUrl}${path}`, { headers: adminHeaders });
@@ -182,4 +186,134 @@ export const findAlbumByCatalogNumber = async (
   );
   const { items } = body as { items: readonly AdminAlbum[] };
   return items.find((item) => item.catalogNumber === catalogNumber);
+};
+
+/** 作る記事の指定。省略した項目は API の既定に従う */
+export interface ArticleSeed {
+  readonly articleType: 'ALBUM' | 'NOTE' | 'NEWS' | 'EVENT' | 'OTHER';
+  readonly title: string;
+  readonly body?: string;
+  readonly bodyFormat?: 'MARKDOWN' | 'PLAIN_TEXT';
+  readonly introShort?: string;
+  /** 参照先の作品のドメインID。参照を持てるのは ALBUM 種別だけ */
+  readonly albumId?: string;
+  /** 付けるタグ名。同じ名前のタグが無ければ作られる */
+  readonly tags?: readonly string[];
+}
+
+const articleIdOf = (created: unknown): string => {
+  const articleId = (created as { articleId?: unknown }).articleId;
+  return typeof articleId === 'string'
+    ? articleId
+    : (() => {
+        throw new Error(`記事の作成応答に articleId がありません: ${JSON.stringify(created)}`);
+      })();
+};
+
+/**
+ * 記事を作り、作品への参照とタグを付ける（下書きのまま）。
+ *
+ * @returns 作った記事のドメインID
+ */
+export const seedDraftArticle = async (article: ArticleSeed): Promise<string> => {
+  const created = await postAdmin('/api/v1/articles', {
+    articleType: article.articleType,
+    title: article.title,
+    body: article.body,
+    bodyFormat: article.bodyFormat,
+    introShort: article.introShort,
+  });
+
+  const articleId = articleIdOf(created);
+
+  /* 参照の設定は全項目置換の PUT（作成時のリクエストは参照を持たない） */
+  await Promise.all(
+    article.albumId === undefined
+      ? []
+      : [putAdmin(`/api/v1/articles/${articleId}/album`, { albumId: article.albumId })],
+  );
+
+  /*
+   * SEQUENTIAL-ORDER: タグは名前で追加し、無ければ作られる。並列に投げると同じ名前を同時に作る
+   * 経路へ入るため、1件ずつ送る。
+   */
+  for (const name of article.tags ?? []) {
+    await postAdmin(`/api/v1/articles/${articleId}/tags`, { name });
+  }
+
+  return articleId;
+};
+
+/**
+ * 下書きの記事を公開する。
+ *
+ * @param articleId
+ *            公開する記事のドメインID
+ */
+export const publishArticle = async (articleId: string): Promise<void> => {
+  await postAdmin(`/api/v1/articles/${articleId}/publish`, {});
+};
+
+/**
+ * 記事を削除する。
+ *
+ * <p>
+ * 記事は子を持たないため削除できる（作品はトラックの外部キーで塞がっている。#251）。フィクスチャを
+ * 毎回同じ内容へ揃えるために使う。
+ * </p>
+ *
+ * @param articleId
+ *            削除する記事のドメインID
+ */
+export const deleteArticle = async (articleId: string): Promise<void> => {
+  const response = await fetch(`${stack.backendBaseUrl}/api/v1/articles/${articleId}`, {
+    method: 'DELETE',
+    headers: adminHeaders,
+  });
+  return response.ok
+    ? undefined
+    : Promise.reject(
+        new Error(
+          `DELETE /api/v1/articles/${articleId} が失敗しました（HTTP ${String(response.status)}）`,
+        ),
+      );
+};
+
+/** 管理向け一覧の1件。同定に使う項目だけを持つ */
+export interface AdminArticle {
+  readonly articleId: string;
+  readonly title: string;
+}
+
+interface AdminArticlePage {
+  readonly items: readonly AdminArticle[];
+  readonly totalPages: number;
+}
+
+const fetchAdminArticlePage = async (page: number): Promise<AdminArticlePage> =>
+  (await getAdmin(`/api/v1/admin/articles?page=${String(page)}&size=100`)) as AdminArticlePage;
+
+/**
+ * タイトルで記事を引く（下書きを含む）。
+ *
+ * <p>
+ * 公開の一覧には下書きが出ないため管理APIを通す。管理の記事一覧はタイトルでの絞り込みを持たない
+ * （作品の一覧とは非対称。検索が要るのは記事編集画面から作品を選ぶ経路だけのため）ので、全ページ
+ * たぐって完全一致で選ぶ。
+ * </p>
+ *
+ * @param title
+ *            同定に使うタイトル
+ * @returns 見つかった記事。無ければ undefined
+ */
+export const findArticleByTitle = async (title: string): Promise<AdminArticle | undefined> => {
+  const firstPage = await fetchAdminArticlePage(0);
+  const remainingPages = await Promise.all(
+    Array.from({ length: Math.max(firstPage.totalPages - 1, 0) }, (_unused, index) =>
+      fetchAdminArticlePage(index + 1),
+    ),
+  );
+  return [firstPage, ...remainingPages]
+    .flatMap((page) => page.items)
+    .find((item) => item.title === title);
 };

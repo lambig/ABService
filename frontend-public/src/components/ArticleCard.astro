@@ -1,0 +1,43 @@
+---
+import type { PublicArticle } from '$lib/api/client';
+
+/**
+ * 記事1件のカード。
+ *
+ * トップと記事一覧が同じ描画を使う（#197。一覧がトップを参照する形は作らない）。出すのはタイトルと
+ * ショート紹介文、そして ALBUM 種別のときだけ参照先アルバムのカバー画像。
+ */
+interface Props {
+  readonly article: PublicArticle;
+  /** 参照先アルバムのカバー画像。ALBUM 種別で参照と画像の両方があるときだけ渡る */
+  readonly coverImageUrl?: string | null;
+}
+
+const { article, coverImageUrl = null } = Astro.props;
+---
+
+<a
+  class="border-border hover:bg-muted/50 flex gap-4 rounded-md border p-4 transition-colors"
+  href={`/articles/${article.articleId}`}
+>
+  {
+    coverImageUrl === null ? null : (
+      <img
+        class="size-24 shrink-0 rounded object-cover"
+        src={coverImageUrl}
+        alt=""
+        loading="lazy"
+        decoding="async"
+      />
+    )
+  }
+
+  <div class="min-w-0 space-y-1">
+    <h2 class="font-medium">{article.title}</h2>
+    {
+      article.introShort === '' ? null : (
+        <p class="text-muted-foreground line-clamp-2 text-sm">{article.introShort}</p>
+      )
+    }
+  </div>
+</a>

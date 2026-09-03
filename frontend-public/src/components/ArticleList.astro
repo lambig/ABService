@@ -1,0 +1,44 @@
+---
+import ArticleCard from '$components/ArticleCard.astro';
+import { getAlbum, type PublicArticle } from '$lib/api/client';
+import { referencedAlbumId } from '$lib/article';
+
+/**
+ * 記事カードの並び。
+ *
+ * トップと記事一覧が同じ見えかたになるよう、カードの取り回しはここへ置く。
+ */
+interface Props {
+  readonly articles: readonly PublicArticle[];
+}
+
+const { articles } = Astro.props;
+
+/*
+ * ALBUM 種別のカードは参照先アルバムのカバー画像を出す（#197）。アルバムの情報は記事の一覧検索では
+ * 揃えず、参照を持つ記事の分だけ引く。
+ */
+const coverImages = new Map(
+  await Promise.all(
+    articles.map(async (article) => {
+      const albumId = referencedAlbumId(article);
+      const coverImageUrl = albumId === null ? null : (await getAlbum(albumId)).coverImageUrl;
+      return [article.articleId, coverImageUrl] as const;
+    }),
+  ),
+);
+---
+
+{
+  articles.length === 0 ? (
+    <p class="text-muted-foreground py-12">公開中の記事はありません。</p>
+  ) : (
+    <ul class="grid gap-4">
+      {articles.map((article) => (
+        <li>
+          <ArticleCard article={article} coverImageUrl={coverImages.get(article.articleId)} />
+        </li>
+      ))}
+    </ul>
+  )
+}
