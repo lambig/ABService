@@ -9,6 +9,8 @@ import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * CORS 設定の統合テスト
@@ -24,14 +26,18 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @DisplayName("CORS 設定の統合テスト")
 class CorsRestIntegrationTest {
 
-    private static final String ALLOWED_ORIGIN = "http://localhost:5173";
+    /** 公開サイトの開発サーバ。管理画面（4322）と対で許可する */
+    private static final String ALLOWED_ORIGIN = "http://localhost:4321";
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(strings = {"http://localhost:4321", // 公開サイト
+            "http://localhost:4322" // 管理画面
+    })
     @DisplayName("許可オリジンからのプリフライトは許可ヘッダを返す")
-    void preflightFromAllowedOriginIsAllowed() {
-        given().header("Origin", ALLOWED_ORIGIN).header("Access-Control-Request-Method", "GET").when()
+    void preflightFromAllowedOriginIsAllowed(String origin) {
+        given().header("Origin", origin).header("Access-Control-Request-Method", "GET").when()
                 .options("/api/v1/albums").then().statusCode(200)
-                .header("Access-Control-Allow-Origin", equalTo(ALLOWED_ORIGIN));
+                .header("Access-Control-Allow-Origin", equalTo(origin));
     }
 
     @Test
