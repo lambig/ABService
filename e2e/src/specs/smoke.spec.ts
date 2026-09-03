@@ -18,13 +18,13 @@ test.describe('公開サイトの基盤', () => {
     await capture(page, '01-top');
 
     /*
-     * 導線のラベルは画面の実装で変わるため、名前ではなく位置で選ぶ。ここで確かめたいのは
-     * 「証跡を撮って操作できること」であって、文言ではない。遷移先の中身は #123 の画面が
-     * 揃ってから、そのシナリオで見る。
+     * 導線のラベルは画面の実装で変わるため、名前ではなく行き先で選ぶ。ここで確かめたいのは
+     * 「証跡を撮って操作できること」であって、文言ではない。導線にはトップ自身も載る（#197）ため、
+     * 移動が起きる先を選ぶ。遷移先の中身は #123 の画面のシナリオで見る。
      */
     const firstNavLink = page
       .getByRole('navigation', { name: '主要な導線' })
-      .getByRole('link')
+      .locator('a[href]:not([href="/"])')
       .first();
     await expect(firstNavLink).toBeVisible();
 
