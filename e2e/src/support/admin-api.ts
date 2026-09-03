@@ -63,6 +63,16 @@ const postAdmin = async (path: string, body: unknown): Promise<unknown> => {
       );
 };
 
+const getAdmin = async (path: string): Promise<unknown> => {
+  const response = await fetch(`${stack.backendBaseUrl}${path}`, { headers: adminHeaders });
+  const text = await response.text();
+  return response.ok
+    ? (JSON.parse(text) as unknown)
+    : Promise.reject(
+        new Error(`GET ${path} が失敗しました（HTTP ${String(response.status)}）: ${text}`),
+      );
+};
+
 const albumIdOf = (created: unknown): string => {
   const albumId = (created as { albumId?: unknown }).albumId;
   return typeof albumId === 'string'
@@ -73,11 +83,11 @@ const albumIdOf = (created: unknown): string => {
 };
 
 /**
- * 作品を作り、トラックと外部音源を付けて公開する。
+ * 作品を作り、トラックと外部音源を付ける（下書きのまま）。
  *
  * @returns 作った作品のドメインID
  */
-export const seedPublishedAlbum = async (album: AlbumSeed): Promise<string> => {
+export const seedDraftAlbum = async (album: AlbumSeed): Promise<string> => {
   const created = await postAdmin('/api/v1/albums/with-tracks', {
     title: album.title,
     releaseDate: album.releaseDate,
@@ -111,7 +121,53 @@ export const seedPublishedAlbum = async (album: AlbumSeed): Promise<string> => {
     await postAdmin(`/api/v1/albums/${albumId}/external-audios`, { url });
   }
 
-  await postAdmin(`/api/v1/albums/${albumId}/publish`, {});
-
   return albumId;
+};
+
+/**
+ * 下書きの作品を公開する。
+ *
+ * @param albumId
+ *            公開する作品のドメインID
+ */
+export const publishAlbum = async (albumId: string): Promise<void> => {
+  await postAdmin(`/api/v1/albums/${albumId}/publish`, {});
+};
+
+/**
+ * 作品を作り、トラックと外部音源を付けて公開する。
+ *
+ * @returns 作った作品のドメインID
+ */
+export const seedPublishedAlbum = async (album: AlbumSeed): Promise<string> => {
+  const albumId = await seedDraftAlbum(album);
+  await publishAlbum(albumId);
+  return albumId;
+};
+
+/** 管理向け一覧の1件。同定に使う項目だけを持つ */
+interface AdminAlbumListItem {
+  readonly albumId: string;
+  readonly catalogNumber: string | null;
+}
+
+/**
+ * カタログナンバーで作品を引く（下書きを含む）。
+ *
+ * <p>
+ * 公開の一覧には下書きが出ないため、管理APIを通す。絞り込みは部分一致のため、完全一致で選び直す。
+ * </p>
+ *
+ * @param catalogNumber
+ *            同定に使うカタログナンバー
+ * @returns 見つかった作品のドメインID。無ければ undefined
+ */
+export const findAlbumIdByCatalogNumber = async (
+  catalogNumber: string,
+): Promise<string | undefined> => {
+  const body = await getAdmin(
+    `/api/v1/admin/albums?size=100&catalogNumber=${encodeURIComponent(catalogNumber)}`,
+  );
+  const { items } = body as { items: readonly AdminAlbumListItem[] };
+  return items.find((item) => item.catalogNumber === catalogNumber)?.albumId;
 };

@@ -1,4 +1,4 @@
-import { SHOWCASE_CATALOG_NUMBER } from '../support/build-fixtures.ts';
+import { showcase } from '../support/build-fixtures.ts';
 import { stack } from '../support/config.ts';
 import { capture, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
@@ -45,11 +45,11 @@ test.describe('ビルド前のシード', () => {
       items: readonly { catalogNumber: string | null; albumId: string }[];
     };
 
-    const showcase = page.items.find((item) => item.catalogNumber === SHOWCASE_CATALOG_NUMBER);
-    expect(showcase).toBeDefined();
+    const seeded = page.items.find((item) => item.catalogNumber === showcase.catalogNumber);
+    expect(seeded).toBeDefined();
 
     const detail = await request.get(
-      `${stack.backendBaseUrl}/api/v1/albums/${showcase?.albumId ?? ''}`,
+      `${stack.backendBaseUrl}/api/v1/albums/${seeded?.albumId ?? ''}`,
     );
     await expect(detail).toBeOK();
 
@@ -58,7 +58,7 @@ test.describe('ビルド前のシード', () => {
       externalAudios: readonly { url: string }[];
     };
 
-    expect(album.tracks[0]?.tunes[0]?.tuneTitle).toBe('E2E 確認チューン');
+    expect(album.tracks[0]?.tunes[0]?.tuneTitle).toBe(showcase.tuneTitle);
     expect(album.externalAudios).toHaveLength(1);
   });
 });
