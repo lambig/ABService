@@ -5,7 +5,8 @@
   "private": true,
   "workspaces": [
     "packages/*",
-    "frontend-public"
+    "frontend-public",
+    "e2e"
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:public\"",
@@ -17,13 +18,18 @@
     "test": "npm run test:backend && npm run test:markup",
     "test:backend": "cd backend && ./gradlew test",
     "test:markup": "npm run test -w abservice-markup",
-    "lint": "npm run lint:markup && npm run lint:public",
+    "test:e2e": "npm run test -w abservice-e2e",
+    "lint": "npm run lint:markup && npm run lint:public && npm run lint:e2e",
     "lint:markup": "npm run lint -w abservice-markup",
     "lint:public": "npm run lint -w abservice-frontend-public",
+    "lint:e2e": "npm run lint -w abservice-e2e",
     "typecheck:markup": "npm run typecheck -w abservice-markup",
     "typecheck:public": "npm run typecheck -w abservice-frontend-public",
-    "format": "npm run format:public",
+    "typecheck:e2e": "npm run typecheck -w abservice-e2e",
+    "format": "npm run format:public && npm run format:e2e",
     "format:public": "npm run format -w abservice-frontend-public",
+    "format:e2e": "npm run format -w abservice-e2e",
+    "evidence:publish": "npm run evidence:publish -w abservice-e2e --",
     "docker:up": "docker-compose up -d",
     "docker:up:dev": "docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d",
     "docker:down": "docker-compose down",

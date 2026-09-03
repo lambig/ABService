@@ -80,3 +80,110 @@ jobs:
             backend/build/reports/checkstyle/
           if-no-files-found: ignore
           retention-days: 7
+
+  e2e:
+    name: E2E (Playwright / 実スタック)
+    runs-on: ubuntu-latest
+
+    # backend-check と同じ構成の PostgreSQL。E2E も実DBに対して動かす（#164）
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: abservice
+          POSTGRES_USER: abservice
+          POSTGRES_PASSWORD: abservice
+          POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U abservice -d abservice"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_NAME: abservice
+      DB_USERNAME: abservice
+      DB_PASSWORD: abservice
+      # E2E のシードは管理APIを通す。開発既定と同じ鍵を使う
+      ADMIN_API_KEY: dev-admin-api-key
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25 (Corretto)
+        uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Ensure gradlew is executable
+        run: chmod +x backend/gradlew
+
+      - name: Start MinIO (object storage)
+        run: docker compose up -d --wait minio
+
+      - name: Create asset bucket
+        run: docker compose run --rm minio-init
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ブラウザは実行ごとに落とすと重い。Playwright のバージョンで鍵を作る
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        run: npm exec -w abservice-e2e -- playwright install --with-deps chromium
+
+      - name: Build backend
+        run: backend/gradlew -p backend --no-daemon --console=plain quarkusBuild
+
+      # 公開サイトの組み立てが backend を叩くため、テストの前に起動しておく（起動待ちは E2E 側が行う）。
+      # 成果物は uber-jar（backend/gradle.properties）で、名前に版が入るため glob で拾う。
+      #
+      # プロファイルは dev を指定する。素で起動すると prod になり、本番向けに必須化した値
+      # （アセットのバケット・S3 の資格情報など）を要求する。E2E で見たいのは画面であって本番構成では
+      # ないため、ローカルと同じ既定値（docker compose の PostgreSQL と MinIO）で動かす。
+      - name: Start backend
+        run: |
+          jar="$(ls backend/build/*-runner.jar)"
+          nohup java -Dquarkus.profile=dev -jar "$jar" > backend.log 2>&1 &
+          echo "started: $jar"
+
+      - name: Run E2E
+        run: npm run test:e2e
+
+      - name: Show backend log
+        if: ${{ failure() }}
+        run: cat backend.log
+
+      # trace と動画はレビューの証跡でもある（#164）。画像は evidence ブランチへ別途公開する
+      - name: Upload Playwright artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: |
+            e2e/test-results/
+            e2e/playwright-report/
+            e2e/evidence/
+          if-no-files-found: ignore
+          retention-days: 7

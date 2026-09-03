@@ -1,0 +1,37 @@
+{
+  "name": "abservice-e2e",
+  "version": "1.0.0",
+  "description": "ABService end-to-end tests and review evidence",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node scripts/prepare-stack.mjs && playwright test",
+    "test:headed": "node scripts/prepare-stack.mjs && playwright test --headed",
+    "report": "playwright show-report",
+    "lint": "prettier --check . && eslint .",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "evidence:publish": "node scripts/publish-evidence.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "@playwright/test": "^1.62.0",
+    "@types/node": "^24.0.0",
+    "eslint": "^10.0.0",
+    "eslint-plugin-functional": "^10.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.0.0"
+  },
+  "engines": {
+    "node": "24.20.0",
+    "npm": "11.19.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lambig/ABService.git",
+    "directory": "e2e"
+  },
+  "author": "Lambig",
+  "license": "MIT"
+}
