@@ -1,0 +1,224 @@
+@import 'tailwindcss';
+
+/*
+ * トークンの値は frontend-public と同じものを持つ（DECISIONS 25）。管理画面と公開サイトで
+ * 見た目の語彙を分けない。共有パッケージへの切り出しは #248。
+ */
+
+/*
+ * ============================================================================
+ * shadcn-svelte のコンポーネントが前提とする variant / utility
+ * ============================================================================
+ * 出所は shadcn-svelte が同梱する `dist/tailwind.css`。CLI の init はこれを取り込むが、
+ * 本プロジェクトは init を対話でしか通せないため（--preset は独自プリセットのコード用）、
+ * 同じ内容をここに置く。`add` で入れたコンポーネントはこれらの variant を参照する。
+ */
+
+@theme inline {
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--bits-accordion-content-height, var(--accordion-panel-height, auto));
+    }
+  }
+
+  @keyframes accordion-up {
+    from {
+      height: var(--bits-accordion-content-height, var(--accordion-panel-height, auto));
+    }
+    to {
+      height: 0;
+    }
+  }
+}
+
+@custom-variant data-open {
+  &:where([data-state='open']),
+  &:where([data-open]:not([data-open='false'])) {
+    @slot;
+  }
+}
+
+@custom-variant data-closed {
+  &:where([data-state='closed']),
+  &:where([data-closed]:not([data-closed='false'])) {
+    @slot;
+  }
+}
+
+@custom-variant data-checked {
+  &:where([data-state='checked']),
+  &:where([data-checked]:not([data-checked='false'])) {
+    @slot;
+  }
+}
+
+@custom-variant data-unchecked {
+  &:where([data-state='unchecked']),
+  &:where([data-unchecked]:not([data-unchecked='false'])) {
+    @slot;
+  }
+}
+
+@custom-variant data-disabled {
+  &:where([data-disabled='true']),
+  &:where([data-disabled]:not([data-disabled='false'])) {
+    @slot;
+  }
+}
+
+@custom-variant data-active {
+  &:where([data-state='active']),
+  &:where([data-active]:not([data-active='false'])) {
+    @slot;
+  }
+}
+
+@custom-variant data-horizontal {
+  &:where([data-orientation='horizontal']) {
+    @slot;
+  }
+}
+
+@custom-variant data-vertical {
+  &:where([data-orientation='vertical']) {
+    @slot;
+  }
+}
+
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/*
+ * ============================================================================
+ * デザイントークン（DECISIONS 25）
+ * ============================================================================
+ * 色・タイポグラフィ・角丸の定義はこのファイルに閉じる。コンポーネントはトークン経由で参照し、
+ * パレットを直に書かない。見た目を変えるときに触るのはここだけになる。
+ */
+
+@theme {
+  /*
+   * Tailwind 既定のパレットとフォントを落とす。`bg-blue-500` のような直指定はクラスが生成されず、
+   * 書いても効かない状態になる（規律をレビューの目に委ねない）。
+   * 色を持たない `transparent` / `currentColor` は、境界線や継承の表現に要るため残す。
+   */
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --font-*: initial;
+  /*
+   * 本文は OS のUIフォントに委ね、Webフォントを読み込まない。外部から取得すると配信元の可用性と
+   * CSP の font-src を受け入れることになり、閲覧者ごとに描画開始が遅れる。日本語は各OSの標準に任せる。
+   */
+  --font-sans:
+    system-ui, -apple-system, 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  --radius-*: initial;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* 役割名から実体の色へ。役割の側をコンポーネントが参照する */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+/*
+ * 配色は無彩色で置く。作品（アルバムのカバー画像・埋め込みプレイヤー）が画面の色を担うため、
+ * 器の側は色を主張しない。確定した配色はここの値を差し替えて与える。
+ */
+:root {
+  --radius: 0.5rem;
+
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0.21 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0 0);
+  --primary: oklch(0.24 0 0);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.96 0 0);
+  --secondary-foreground: oklch(0.24 0 0);
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: oklch(0.52 0 0);
+  --accent: oklch(0.94 0 0);
+  --accent-foreground: oklch(0.24 0 0);
+  --destructive: oklch(0.58 0.22 27);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.9 0 0);
+  --input: oklch(0.9 0 0);
+  --ring: oklch(0.62 0 0);
+}
+
+/*
+ * ダークの組。閲覧者の OS 設定に従い、サイト内での切り替え機構は持たない（DECISIONS 25）。
+ * shadcn-svelte の慣習である `.dark` クラスは使わないため、`dark:` は Tailwind 既定の
+ * prefers-color-scheme のまま扱う。
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: oklch(0.17 0 0);
+    --foreground: oklch(0.95 0 0);
+    --card: oklch(0.21 0 0);
+    --card-foreground: oklch(0.95 0 0);
+    --popover: oklch(0.21 0 0);
+    --popover-foreground: oklch(0.95 0 0);
+    --primary: oklch(0.93 0 0);
+    --primary-foreground: oklch(0.2 0 0);
+    --secondary: oklch(0.27 0 0);
+    --secondary-foreground: oklch(0.95 0 0);
+    --muted: oklch(0.27 0 0);
+    --muted-foreground: oklch(0.71 0 0);
+    --accent: oklch(0.32 0 0);
+    --accent-foreground: oklch(0.95 0 0);
+    --destructive: oklch(0.7 0.19 25);
+    --destructive-foreground: oklch(0.2 0 0);
+    --border: oklch(0.3 0 0);
+    --input: oklch(0.33 0 0);
+    --ring: oklch(0.56 0 0);
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+  }
+}

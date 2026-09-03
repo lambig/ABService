@@ -1,0 +1,40 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  /** 画面の名前。ブラウザのタブに出る */
+  readonly title: string;
+}
+
+const { title } = Astro.props;
+
+/*
+ * 管理画面はサイト名や紹介文（SiteContent。#230）を引かない。あれは公開サイトの見えかたを決める
+ * ものであり、運用者が使う画面の見出しではない。名前はリポジトリ側に置く。
+ */
+const APPLICATION_NAME = 'ABService 管理';
+---
+
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {/* 検索の対象にしない。運用者しか使わない画面で、公開の導線を持たない */}
+    <meta name="robots" content="noindex, nofollow" />
+    <title>{`${title} ― ${APPLICATION_NAME}`}</title>
+  </head>
+
+  <body class="bg-background text-foreground min-h-screen">
+    <div class="mx-auto flex min-h-screen max-w-5xl flex-col px-4">
+      <header class="border-border flex items-baseline gap-3 border-b py-6">
+        <p class="text-lg font-medium">{APPLICATION_NAME}</p>
+        <p class="text-muted-foreground text-sm">{title}</p>
+      </header>
+
+      <main class="flex-1 py-6">
+        <slot />
+      </main>
+    </div>
+  </body>
+</html>

@@ -70,7 +70,7 @@ Java（Amazon Corretto）・Quarkus・Gradle は固定バージョンで運用�
 ```
 ABService/
 ├── backend/                 # Quarkusバックエンド
-├── frontend-admin/          # 管理画面（#122 で作り直す。npm のワークスペースからは外れている）
+├── frontend-admin/          # 管理画面（Astro + Svelte）
 ├── frontend-public/         # 公開サイト（Astro + Svelte）
 ├── packages/markup/         # マークアップ描画（公開サイトと管理画面が共有する）
 ├── e2e/                     # E2Eテストとレビュー証跡（アプリを跨ぐため、どちらにも属させない）
