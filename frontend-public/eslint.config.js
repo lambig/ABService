@@ -53,9 +53,19 @@ const conventionRules = {
       paths: [
         {
           name: 'svelte',
-          importNames: ['createEventDispatcher', 'beforeUpdate', 'afterUpdate'],
+          importNames: ['createEventDispatcher'],
           message:
-            'Svelte 4 までの API です。イベントはコールバックの props で、更新後の処理は $effect で表してください。',
+            'Svelte 4 までの API です。親への通知はコールバックの props で表してください（README の Svelte 節）。',
+        },
+        {
+          name: 'svelte',
+          importNames: ['beforeUpdate'],
+          message: 'Svelte 4 までの API です。更新前の処理は $effect.pre で表してください。',
+        },
+        {
+          name: 'svelte',
+          importNames: ['afterUpdate'],
+          message: 'Svelte 4 までの API です。更新後の処理は $effect で表してください。',
         },
       ],
     },
@@ -100,19 +110,26 @@ export default tseslint.config(
 
   js.configs.recommended,
   ...astro.configs.recommended,
-  ...svelte.configs.recommended,
 
+  /*
+   * 型情報を使う検査。tsconfig の include が `.svelte` も拾うため、コンポーネントにも同じ水準で効かせる。
+   *
+   * PARSER-ORDER: この設定は対象のファイルへ TypeScript のパーサを置く。`.svelte` を読めるのは
+   * svelte のパーサだけのため、Svelte の設定より前に置いて上書きさせる。
+   */
   {
-    // 型情報を使う検査は TypeScript のファイルに効かせる
-    files: ['**/*.ts'],
+    files: ['**/*.ts', '**/*.svelte', '**/*.svelte.ts'],
     extends: [tseslint.configs.strictTypeChecked],
     languageOptions: {
       parserOptions: {
         projectService: true,
         tsconfigRootDir: import.meta.dirname,
+        extraFileExtensions: ['.svelte'],
       },
     },
   },
+
+  ...svelte.configs.recommended,
 
   {
     files: ['**/*.ts', '**/*.astro', '**/*.svelte'],
@@ -128,10 +145,7 @@ export default tseslint.config(
     languageOptions: {
       /* コンポーネントはブラウザで動く。document や console を未定義と見なさない */
       globals: globals.browser,
-      /*
-       * `<script lang="ts">` の中身は、Svelte のパーサから TypeScript のパーサへ渡さないと読めない。
-       * 型情報を使う検査までは効かせない（.svelte は tsconfig の対象外のため）。
-       */
+      /* `<script lang="ts">` の中身は、Svelte のパーサから TypeScript のパーサへ渡さないと読めない */
       parserOptions: {
         parser: tseslint.parser,
       },

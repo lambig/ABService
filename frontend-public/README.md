@@ -45,7 +45,9 @@ npm run dev -w abservice-frontend-public
 
 ## Svelte
 
-コンポーネントは runes で書く。`svelte.config.js` で `compilerOptions.runes` を有効にしてあり、Svelte 4 の記法（`export let` / `$:` / `$$props`）はビルドで落ちる。runes モードでもコンパイルが通ってしまう `<slot>` と `on:` のイベントディレクティブは、eslint の `svelte/valid-compile` が落とす。
+コンポーネントは runes で書く。`svelte.config.js` が `src/` 配下を runes モードで組むため、Svelte 4 の記法（`export let` / `$:` / `$$props`）はビルドで落ちる。runes モードでもコンパイルが通ってしまう `<slot>` と `on:` のイベントディレクティブは、eslint の `svelte/valid-compile` が落とす。
+
+強制の範囲は `src/` 配下に限る。コンパイラの設定として置くと `node_modules` の Svelte コンポーネントにも及び、依存が Svelte 4 の記法を含むだけでビルドできなくなる。依存の実装方式はこちらの規約とは関係がない。
 
 - props は `$props()`、状態は `$state`、導出は `$derived`
 - 子の受け渡しはスニペット（`{@render ...}`）
