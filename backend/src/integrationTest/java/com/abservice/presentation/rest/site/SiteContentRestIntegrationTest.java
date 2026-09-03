@@ -6,11 +6,13 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 
+import com.abservice.test.CleanDatabase;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * サイト文言 REST エンドポイントの E2E 統合テスト
@@ -26,6 +28,7 @@ import org.junit.jupiter.api.Test;
  * </p>
  */
 @QuarkusTest
+@ExtendWith(CleanDatabase.class)
 @DisplayName("サイト文言 REST エンドポイントの統合テスト")
 class SiteContentRestIntegrationTest {
 

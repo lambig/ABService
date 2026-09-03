@@ -5,8 +5,13 @@
  * CI では環境変数で上書きする。
  */
 export const stack = {
-  /** バックエンドの起点。シードと起動待ちに使う */
-  backendBaseUrl: process.env['E2E_BACKEND_BASE_URL'] ?? 'http://localhost:8080',
+  /**
+   * バックエンドの起点。シードと起動待ちに使う。
+   *
+   * 開発用（8080）とは別のポートに置く。E2E 用の backend は専用のデータベースを clean してから
+   * 起動するため（#252）、開発用と同じポートにすると、E2E を回すたびに開発用を止めることになる。
+   */
+  backendBaseUrl: process.env['E2E_BACKEND_BASE_URL'] ?? 'http://localhost:8090',
 
   /** 公開サイトの起点。Playwright の baseURL と、配信の listen 先の両方がここから決まる */
   siteBaseUrl: process.env['E2E_SITE_BASE_URL'] ?? 'http://localhost:4321',

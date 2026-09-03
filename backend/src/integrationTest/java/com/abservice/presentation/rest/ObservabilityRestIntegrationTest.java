@@ -5,9 +5,11 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 
+import com.abservice.test.CleanDatabase;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * ヘルスチェック・メトリクス・未捕捉例外の統合テスト
@@ -19,6 +21,7 @@ import org.junit.jupiter.api.Test;
  * </p>
  */
 @QuarkusTest
+@ExtendWith(CleanDatabase.class)
 @DisplayName("観測性エンドポイントの統合テスト")
 class ObservabilityRestIntegrationTest {
 

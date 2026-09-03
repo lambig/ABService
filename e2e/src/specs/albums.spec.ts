@@ -45,18 +45,16 @@ test.describe('作品の一覧', () => {
     await capture(page, '05-album-detail');
   });
 
-  test('カタログナンバーの降順に並ぶ', async ({ page }) => {
+  test('カタログナンバーの降順に、公開中の作品だけが並ぶ', async ({ page }) => {
     await page.goto('/albums');
 
     const titles = await page.getByRole('heading', { level: 2 }).allInnerTexts();
 
     /*
-     * 開発DBには他の作品も入っているため、全体の並びではなくシードした2件の前後だけを見る。
-     * E2E-0002 が E2E-0001 より前に来れば降順が効いている。
+     * E2E は専用のデータベースを見る（#252）。母集団はシードしたものだけのため、並びを全体で確かめる。
+     * 下書き（E2E-0003）はここに現れない。
      */
-    expect(titles).toContain(quiet.title);
-    expect(titles).toContain(showcase.title);
-    expect(titles.indexOf(quiet.title)).toBeLessThan(titles.indexOf(showcase.title));
+    expect(titles).toEqual([quiet.title, showcase.title]);
   });
 
   test('下書きは一覧に出ない', async ({ page }) => {

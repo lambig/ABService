@@ -3,11 +3,13 @@ package com.abservice.presentation.rest.article;
 import static com.abservice.presentation.rest.AdminAuth.authorized;
 import static org.hamcrest.Matchers.equalTo;
 
+import com.abservice.test.CleanDatabase;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * 記事へのアルバム紐付けの公開整合の統合テスト
@@ -18,6 +20,7 @@ import org.junit.jupiter.api.Test;
  * </p>
  */
 @QuarkusTest
+@ExtendWith(CleanDatabase.class)
 @DisplayName("記事へのアルバム紐付けの公開整合の統合テスト")
 class ArticleAlbumAttachRestIntegrationTest {
 

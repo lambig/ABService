@@ -5,11 +5,13 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 
+import com.abservice.test.CleanDatabase;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * アルバム集約内の外部音源 REST エンドポイントの E2E 統合テスト
@@ -23,6 +25,7 @@ import org.junit.jupiter.api.Test;
  * </p>
  */
 @QuarkusTest
+@ExtendWith(CleanDatabase.class)
 @DisplayName("アルバム集約内の外部音源 REST エンドポイントの統合テスト")
 class AlbumExternalAudioRestIntegrationTest {
 

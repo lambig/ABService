@@ -83,9 +83,21 @@ docker-compose down -v
 
 ### PostgreSQL
 - **ポート**: 5432
-- **データベース**: abservice, keycloak
+- **データベース**: abservice（開発）, abservice_test（統合テスト）, abservice_e2e（E2E）, keycloak
 - **ユーザー**: abservice / keycloak
 - **パスワード**: abservice / keycloak
+
+テストは開発用と別のデータベースへ書く（#252）。統合テストは実行のたびに `abservice_test` を空にし、
+E2E 用の backend（`npm run dev:backend:e2e`）は起動のたびに `abservice_e2e` を空にする。開発中に
+作ったデータがテストで消えることも、テストの残骸が E2E の母集団へ混ざることもない。
+
+テスト用のデータベースは初期化スクリプト（`docker/postgres/init/01-init-databases.sql`）が作る。
+このスクリプトはデータ領域が空のときだけ走るため、**既にボリュームがある環境では手で作る**。
+
+```bash
+docker-compose exec -T postgres psql -U abservice -d abservice -c "CREATE DATABASE abservice_test"
+docker-compose exec -T postgres psql -U abservice -d abservice -c "CREATE DATABASE abservice_e2e"
+```
 
 ### Keycloak
 - **ポート**: 8180

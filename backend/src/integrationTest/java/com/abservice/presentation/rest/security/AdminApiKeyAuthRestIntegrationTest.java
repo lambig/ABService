@@ -6,10 +6,12 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 
+import com.abservice.test.CleanDatabase;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * 管理者APIキー認証の E2E 統合テスト
@@ -21,6 +23,7 @@ import org.junit.jupiter.api.Test;
  * </p>
  */
 @QuarkusTest
+@ExtendWith(CleanDatabase.class)
 @DisplayName("管理者APIキー認証の統合テスト")
 class AdminApiKeyAuthRestIntegrationTest {
 
