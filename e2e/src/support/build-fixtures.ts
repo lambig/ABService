@@ -1,10 +1,14 @@
 import {
+  deleteArticle,
   findAlbumByCatalogNumber,
+  findArticleByTitle,
   publishAlbum,
+  publishArticle,
   seedDraftAlbum,
+  seedDraftArticle,
   unpublishAlbum,
 } from './admin-api.ts';
-import type { AdminAlbum, AlbumSeed } from './admin-api.ts';
+import type { AlbumSeed, ArticleSeed } from './admin-api.ts';
 
 /**
  * 公開サイトを組む前に入れておくデータ。
@@ -15,9 +19,9 @@ import type { AdminAlbum, AlbumSeed } from './admin-api.ts';
  * </p>
  *
  * <p>
- * 投入は冪等にする。ローカルでは同じ DB へ繰り返し実行するため、毎回作ると同じ作品が並んで証跡が
- * 読みにくくなる。カタログナンバーで存在を見て、無いときだけ作る。あわせて公開状態は毎回揃える。
- * 作成と公開の間で中断すると下書きのまま残り、以後の実行が自力で直せなくなるため。
+ * 投入は冪等にする。ローカルでは同じ DB へ繰り返し実行するため、毎回足すと同じものが並んで証跡が
+ * 読みにくくなる。作品はカタログナンバーで存在を見て無いときだけ作り、公開状態だけを毎回揃える
+ * （削除が塞がっている。#251）。記事は削除できるため、あれば消してから作り直し、内容まで揃える。
  * </p>
  *
  * <p>
@@ -83,6 +87,31 @@ export const draft = {
   releaseDate: '2026-08-17',
 } as const;
 
+/** 作品を紹介する記事。参照先への導線とタグを確かめる */
+export const albumArticle = {
+  title: 'E2E 作品紹介記事',
+  introShort: 'E2E で一覧のカードを確かめるためのショート紹介文。',
+  tags: ['E2E タグA', 'E2E タグB'],
+  /** Markdown として描画されることを、要素ごとに確かめるための断片 */
+  body: {
+    heading: '記事の見出し',
+    lead: 'E2E で記事の本文を確かめる。',
+  },
+} as const;
+
+/** 作品への参照を持たない記事 */
+export const plainArticle = {
+  title: 'E2E ノート記事',
+  introShort: '作品を参照しない記事のショート紹介文。',
+  /** Markdown として解釈されないことを見るため、記法の見た目を含める */
+  body: 'プレーンテキストの本文。**強調** は記法にならない。',
+} as const;
+
+/** 下書きのまま置く記事。公開の一覧・詳細のどちらにも出てはいけない */
+export const draftArticle = {
+  title: 'E2E 下書き記事',
+} as const;
+
 const showcaseSeed: AlbumSeed = {
   title: showcase.title,
   releaseDate: showcase.releaseDate,
@@ -138,6 +167,29 @@ const draftSeed: AlbumSeed = {
   catalogNumber: draft.catalogNumber,
 };
 
+const albumArticleSeed = (albumId: string): ArticleSeed => ({
+  articleType: 'ALBUM',
+  title: albumArticle.title,
+  body: [`## ${albumArticle.body.heading}`, '', albumArticle.body.lead, ''].join('\n'),
+  bodyFormat: 'MARKDOWN',
+  introShort: albumArticle.introShort,
+  albumId,
+  tags: albumArticle.tags,
+});
+
+const plainArticleSeed: ArticleSeed = {
+  articleType: 'NOTE',
+  title: plainArticle.title,
+  body: plainArticle.body,
+  bodyFormat: 'PLAIN_TEXT',
+  introShort: plainArticle.introShort,
+};
+
+const draftArticleSeed: ArticleSeed = {
+  articleType: 'NEWS',
+  title: draftArticle.title,
+};
+
 /** 公開まで済ませるか、下書きで置くか */
 type SeedState = 'PUBLISHED' | 'DRAFT';
 
@@ -145,23 +197,27 @@ type SeedState = 'PUBLISHED' | 'DRAFT';
  * 既存の作品の公開状態を指定へ揃える。
  *
  * <p>
- * 作成と公開は別のリクエストのため、間で中断すると公開予定の作品が下書きのまま残る。状態だけは毎回
+ * 作成と公開は別のリクエストのため、間で中断すると公開予定のものが下書きのまま残る。状態だけは毎回
  * 揃えることで、次の実行が自力で直せるようにする。
  * </p>
  *
  * <p>
  * 内容（タイトル・イベント・曲目など）は揃えない。フィクスチャの値を変えたときは作り直しが要るが、
- * トラックを持つ作品の削除が塞がっている（#251）。解消後に、専用データを削除して作り直す形へ移す。
+ * トラックを持つ作品の削除が塞がっている（#251）。解消後に、記事と同じ作り直しへ移す。
  * </p>
  */
-const alignPublishState = async (album: AdminAlbum, state: SeedState): Promise<void> => {
-  const current: SeedState = album.publishedAt === null ? 'DRAFT' : 'PUBLISHED';
+const alignAlbumPublishState = async (
+  publishedAt: string | null,
+  albumId: string,
+  state: SeedState,
+): Promise<void> => {
+  const current: SeedState = publishedAt === null ? 'DRAFT' : 'PUBLISHED';
 
   return current === state
     ? undefined
     : state === 'PUBLISHED'
-      ? publishAlbum(album.albumId)
-      : unpublishAlbum(album.albumId);
+      ? publishAlbum(albumId)
+      : unpublishAlbum(albumId);
 };
 
 const ensureAlbum = async (
@@ -175,19 +231,47 @@ const ensureAlbum = async (
     ? seedDraftAlbum(seed).then((albumId) =>
         state === 'PUBLISHED' ? publishAlbum(albumId) : undefined,
       )
-    : alignPublishState(existing, state);
+    : alignAlbumPublishState(existing.publishedAt, existing.albumId, state);
+};
+
+/**
+ * 記事を作り直す。
+ *
+ * <p>
+ * 記事は子を持たないため削除できる。あれば消してから作ることで、内容まで毎回同じ状態になる。作品への
+ * 参照やタグの付与は作成とは別のリクエストのため、途中で中断すると欠けたまま残る。存在するだけで
+ * 成功扱いにすると、その欠けた記事を以後の実行が直せない。
+ * </p>
+ */
+const ensureArticle = async (seed: ArticleSeed, state: SeedState): Promise<void> => {
+  const existing = await findArticleByTitle(seed.title);
+  await (existing === undefined ? Promise.resolve() : deleteArticle(existing.articleId));
+
+  const articleId = await seedDraftArticle(seed);
+  return state === 'PUBLISHED' ? publishArticle(articleId) : undefined;
 };
 
 /**
  * 画面確認用のデータを揃える。
  *
  * <p>
- * SEQUENTIAL-ORDER: 一覧はカタログナンバーの降順で並ぶ（#197）。同定は番号で行うため投入の順序は
- * 結果に効かないが、失敗したときにどれを作れなかったのかを追えるよう1件ずつ送る。
+ * SEQUENTIAL-ORDER: 同定は番号とタイトルで行うため投入の順序は結果に効かないが、失敗したときに
+ * どれを作れなかったのかを追えるよう1件ずつ送る。作品紹介の記事だけは参照先の作品を要するため、
+ * 作品を揃えたあとに作る。
  * </p>
  */
 export const seedForBuild = async (): Promise<void> => {
   await ensureAlbum(showcase.catalogNumber, showcaseSeed, 'PUBLISHED');
   await ensureAlbum(quiet.catalogNumber, quietSeed, 'PUBLISHED');
   await ensureAlbum(draft.catalogNumber, draftSeed, 'DRAFT');
+
+  const showcaseAlbum = await findAlbumByCatalogNumber(showcase.catalogNumber);
+  const showcaseAlbumId =
+    showcaseAlbum === undefined
+      ? await Promise.reject(new Error(`シードした作品が見つかりません: ${showcase.catalogNumber}`))
+      : showcaseAlbum.albumId;
+
+  await ensureArticle(albumArticleSeed(showcaseAlbumId), 'PUBLISHED');
+  await ensureArticle(plainArticleSeed, 'PUBLISHED');
+  await ensureArticle(draftArticleSeed, 'DRAFT');
 };
