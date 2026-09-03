@@ -1,0 +1,38 @@
+---
+import ArticleList from '$components/ArticleList.astro';
+import Pagination from '$components/Pagination.astro';
+import SiteNav from '$components/SiteNav.astro';
+import { listArticles, type PublicArticle } from '$lib/api/client';
+import { ARTICLES_PER_PAGE, articlesPageHref, paginate } from '$lib/pagination';
+import BaseLayout from '$layouts/BaseLayout.astro';
+
+/*
+ * 2ページ目以降。1ページ目は一覧の起点（/articles）が受け持つ。記事詳細と同じ階層でページ番号を
+ * 使わないよう、ページは page の下へ置く。
+ */
+export const getStaticPaths = async () => {
+  const pages = paginate(await listArticles(), ARTICLES_PER_PAGE);
+  return pages.slice(1).map((articles, index) => ({
+    params: { page: String(index + 2) },
+    props: { articles, currentPage: index + 2, totalPages: pages.length },
+  }));
+};
+
+interface Props {
+  readonly articles: readonly PublicArticle[];
+  readonly currentPage: number;
+  readonly totalPages: number;
+}
+
+const { articles, currentPage, totalPages } = Astro.props;
+---
+
+<BaseLayout title={`記事 ${String(currentPage)}ページ目`} description="公開した記事の一覧">
+  <SiteNav slot="header" />
+
+  <h1 class="py-6 text-2xl font-medium">記事</h1>
+
+  <ArticleList articles={articles} />
+
+  <Pagination currentPage={currentPage} totalPages={totalPages} hrefOf={articlesPageHref} />
+</BaseLayout>

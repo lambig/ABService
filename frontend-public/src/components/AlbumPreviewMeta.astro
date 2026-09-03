@@ -1,0 +1,41 @@
+---
+import type { PublicAlbumDetail } from '$lib/api/client';
+import { toEmbedUrl } from '$lib/embed';
+
+/**
+ * アルバムのリンクプレビュー（#197）。
+ *
+ * 外部音源があれば先頭をプレイヤーカードにし、0件ならカバー画像を出す。ALBUM 種別の記事も参照先
+ * アルバムについて同じ扱いをするため、作品のページと記事のページがこれを共有する。
+ */
+interface Props {
+  readonly album: PublicAlbumDetail;
+}
+
+const { album } = Astro.props;
+
+const playerUrl =
+  album.externalAudios[0] === undefined ? null : toEmbedUrl(album.externalAudios[0].url);
+
+/* 絶対URLの基準は site（環境変数で与える）で、ドメインをコードへ書かない */
+const coverImageUrl =
+  album.coverImageUrl === null ? null : new URL(album.coverImageUrl, Astro.site).href;
+---
+
+{
+  playerUrl === null ? (
+    coverImageUrl === null ? null : (
+      <>
+        <meta property="og:image" content={coverImageUrl} />
+        <meta name="twitter:card" content="summary_large_image" />
+      </>
+    )
+  ) : (
+    <>
+      <meta name="twitter:card" content="player" />
+      <meta name="twitter:player" content={playerUrl} />
+      <meta name="twitter:player:width" content="435" />
+      <meta name="twitter:player:height" content="166" />
+    </>
+  )
+}

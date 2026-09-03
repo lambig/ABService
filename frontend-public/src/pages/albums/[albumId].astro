@@ -1,11 +1,11 @@
 ---
+import AlbumPreviewMeta from '$components/AlbumPreviewMeta.astro';
 import EventInfo from '$components/EventInfo.astro';
 import ExternalAudioEmbed from '$components/ExternalAudioEmbed.astro';
 import ProperNoun from '$components/ProperNoun.astro';
 import SiteNav from '$components/SiteNav.astro';
 import TrackList from '$components/TrackList.astro';
 import { getAlbum, listAlbums, type PublicAlbumDetail } from '$lib/api/client';
-import { toEmbedUrl } from '$lib/embed';
 import { formatReleaseDate } from '$lib/format';
 import { renderBody } from '$lib/markup';
 import BaseLayout from '$layouts/BaseLayout.astro';
@@ -48,15 +48,6 @@ const identifiers = [album.catalogNumber, album.isdn].filter((value) => value !=
 const coverImageForBody = album.externalAudios.length === 0 ? album.coverImageUrl : null;
 
 /*
- * リンクプレビュー（#197）。外部音源があれば先頭をプレイヤーカードにし、0件ならカバー画像を出す。
- * 絶対URLの基準は site（環境変数で与える）で、ドメインをコードへ書かない。
- */
-const playerUrl =
-  album.externalAudios[0] === undefined ? null : toEmbedUrl(album.externalAudios[0].url);
-const coverImageUrlForPreview =
-  album.coverImageUrl === null ? null : new URL(album.coverImageUrl, Astro.site).href;
-
-/*
  * 概要説明はメタ説明（description / og:description）に渡さない。Markdown の記法と改行がそのまま
  * 検索結果とリンクプレビューへ出るうえ、長さも本文に依存する。作品はショート紹介文を持たない（#197。
  * 持つのは記事だけ）ため、短文の出所ができるまでメタ説明を出さない。
@@ -64,25 +55,7 @@ const coverImageUrlForPreview =
 ---
 
 <BaseLayout title={album.title}>
-  <Fragment slot="head">
-    {
-      playerUrl === null ? (
-        coverImageUrlForPreview === null ? null : (
-          <>
-            <meta property="og:image" content={coverImageUrlForPreview} />
-            <meta name="twitter:card" content="summary_large_image" />
-          </>
-        )
-      ) : (
-        <>
-          <meta name="twitter:card" content="player" />
-          <meta name="twitter:player" content={playerUrl} />
-          <meta name="twitter:player:width" content="435" />
-          <meta name="twitter:player:height" content="166" />
-        </>
-      )
-    }
-  </Fragment>
+  <AlbumPreviewMeta album={album} slot="head" />
 
   <SiteNav slot="header" />
 

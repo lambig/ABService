@@ -1,0 +1,41 @@
+---
+import EventInfo from '$components/EventInfo.astro';
+import ProperNoun from '$components/ProperNoun.astro';
+import type { PublicAlbumDetail } from '$lib/api/client';
+
+/**
+ * ALBUM 種別の記事から、参照先アルバムへの導線（#197）。
+ *
+ * 出すのはカバー画像・タイトル・初出イベント情報の3つ。作品の事実詳細は作品のページが持つため、
+ * ここでは記事の読み手が「どの作品の話か」を掴める分だけを置く。
+ */
+interface Props {
+  readonly album: PublicAlbumDetail;
+}
+
+const { album } = Astro.props;
+---
+
+<a
+  class="border-border hover:bg-muted/50 flex gap-4 rounded-md border p-4 transition-colors"
+  href={`/albums/${album.albumId}`}
+>
+  {
+    album.coverImageUrl === null ? null : (
+      <img
+        class="size-24 shrink-0 rounded object-cover"
+        src={album.coverImageUrl}
+        alt=""
+        loading="lazy"
+        decoding="async"
+      />
+    )
+  }
+
+  <div class="min-w-0 space-y-1">
+    <p class="font-medium">
+      <ProperNoun>{album.title}</ProperNoun>
+    </p>
+    <EventInfo event={album} />
+  </div>
+</a>

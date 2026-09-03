@@ -1,0 +1,27 @@
+---
+import ArticleList from '$components/ArticleList.astro';
+import Pagination from '$components/Pagination.astro';
+import SiteNav from '$components/SiteNav.astro';
+import { listArticles } from '$lib/api/client';
+import { ARTICLES_PER_PAGE, articlesPageHref, paginate } from '$lib/pagination';
+import BaseLayout from '$layouts/BaseLayout.astro';
+
+/*
+ * 公開中の記事はビルド時に取得して焼き込む（DECISIONS 24 / #125）。並び順は listArticles が決める。
+ * 日付を軸にした導線とタグの絞り込みは #210。
+ */
+const pages = paginate(await listArticles(), ARTICLES_PER_PAGE);
+
+/** 1ページ目は一覧の起点に置く。2ページ目以降は pages/[page] が受け持つ */
+const articles = pages[0] ?? [];
+---
+
+<BaseLayout title="記事" description="公開した記事の一覧">
+  <SiteNav slot="header" />
+
+  <h1 class="py-6 text-2xl font-medium">記事</h1>
+
+  <ArticleList articles={articles} />
+
+  <Pagination currentPage={1} totalPages={pages.length} hrefOf={articlesPageHref} />
+</BaseLayout>
