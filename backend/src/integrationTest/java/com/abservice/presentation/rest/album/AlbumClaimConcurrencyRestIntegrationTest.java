@@ -3,6 +3,7 @@ package com.abservice.presentation.rest.album;
 import static com.abservice.presentation.rest.AdminAuth.authorized;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.abservice.test.CleanDatabase;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import java.util.List;
@@ -11,6 +12,7 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * 集約をまたぐ操作を同時に行ったときの整合性の統合テスト
@@ -26,6 +28,7 @@ import org.junit.jupiter.api.Test;
  * </p>
  */
 @QuarkusTest
+@ExtendWith(CleanDatabase.class)
 @DisplayName("集約をまたぐ操作の同時実行の統合テスト")
 class AlbumClaimConcurrencyRestIntegrationTest {
 

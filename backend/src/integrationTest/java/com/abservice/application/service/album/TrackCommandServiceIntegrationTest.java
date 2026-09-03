@@ -14,6 +14,7 @@ import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.infrastructure.persistence.repository.AlbumRepositoryImpl;
+import com.abservice.test.CleanDatabase;
 import io.quarkus.test.TestReactiveTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
@@ -22,6 +23,7 @@ import jakarta.inject.Inject;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Albumのトラック追加・更新・削除・順序変更ユースケース（#146）の統合テスト
@@ -33,6 +35,7 @@ import org.junit.jupiter.api.Test;
  * </p>
  */
 @QuarkusTest
+@ExtendWith(CleanDatabase.class)
 class TrackCommandServiceIntegrationTest {
 
     @Inject

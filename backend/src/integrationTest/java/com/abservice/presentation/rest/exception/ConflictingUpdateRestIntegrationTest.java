@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
 import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
+import com.abservice.test.CleanDatabase;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.smallrye.mutiny.Uni;
@@ -21,6 +22,7 @@ import org.hibernate.StaleStateException;
 import org.hibernate.reactive.mutiny.Mutiny;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * 楽観ロック競合の扱いの統合テスト
@@ -42,6 +44,7 @@ import org.junit.jupiter.api.Test;
  * </p>
  */
 @QuarkusTest
+@ExtendWith(CleanDatabase.class)
 @DisplayName("楽観ロック競合の統合テスト")
 class ConflictingUpdateRestIntegrationTest {
 

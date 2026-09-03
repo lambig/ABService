@@ -13,6 +13,7 @@ import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.infrastructure.persistence.repository.AlbumRepositoryImpl;
 import com.abservice.infrastructure.persistence.repository.ArticleRepositoryImpl;
+import com.abservice.test.CleanDatabase;
 import io.quarkus.test.TestReactiveTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
@@ -22,6 +23,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * UnpublishAlbumServiceのカスケード非公開化（当該アルバムを参照する公開中の記事も連動して非公開化する）の統合テスト
@@ -32,6 +34,7 @@ import org.junit.jupiter.api.Test;
  * </p>
  */
 @QuarkusTest
+@ExtendWith(CleanDatabase.class)
 class UnpublishAlbumServiceIntegrationTest {
 
     private static final BusinessDateTime NOW = BusinessDateTime.of(Instant.parse("2024-01-01T00:00:00Z"));

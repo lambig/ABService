@@ -13,12 +13,14 @@ import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.domain.model.vo.common.MarkupFormat;
 import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;
+import com.abservice.test.CleanDatabase;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.TestReactiveTransaction;
 import io.quarkus.test.vertx.RunOnVertxContext;
 import io.quarkus.test.vertx.UniAsserter;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -37,6 +39,7 @@ import java.util.List;
  * </p>
  */
 @QuarkusTest
+@ExtendWith(CleanDatabase.class)
 class AlbumRepositoryImplTest {
 
     @Inject

@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:public\"",
     "dev:backend": "cd backend && ./gradlew quarkusDev",
+    "dev:backend:e2e": "cd backend && DB_NAME=abservice_e2e QUARKUS_HTTP_PORT=8090 QUARKUS_FLYWAY_CLEAN_AT_START=true ./gradlew quarkusDev",
     "dev:public": "npm run dev -w abservice-frontend-public",
     "build": "npm run build:backend && npm run build:public",
     "build:backend": "cd backend && ./gradlew build -x test",

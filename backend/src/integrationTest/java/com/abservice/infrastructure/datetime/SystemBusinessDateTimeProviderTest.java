@@ -2,15 +2,18 @@ package com.abservice.infrastructure.datetime;
 
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.test.CleanDatabase;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @QuarkusTest
+@ExtendWith(CleanDatabase.class)
 class SystemBusinessDateTimeProviderTest {
 
     @Inject

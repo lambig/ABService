@@ -6,6 +6,7 @@ import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;
 import com.abservice.infrastructure.persistence.repository.AlbumRepositoryImpl;
+import com.abservice.test.CleanDatabase;
 import io.quarkus.test.TestReactiveTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
@@ -13,6 +14,7 @@ import io.quarkus.test.vertx.UniAsserter;
 import jakarta.inject.Inject;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * アルバムとその初期トラック一覧のワンリクエスト登録（#146・専用ユースケース）の統合テスト
@@ -23,6 +25,7 @@ import org.junit.jupiter.api.Test;
  * </p>
  */
 @QuarkusTest
+@ExtendWith(CleanDatabase.class)
 class RegisterAlbumWithTracksServiceIntegrationTest {
 
     @Inject

@@ -17,28 +17,30 @@ jobs:
     name: Backend full check (spotless / checkstyle / unit+ArchUnit / integration)
     runs-on: ubuntu-latest
 
-    # 統合テスト用 PostgreSQL（docker-compose と同じ postgres:15-alpine / abservice）
+    # 統合テスト用 PostgreSQL（docker-compose と同じ postgres:15-alpine）。
+    # データベース名はテスト専用のもの（#252）。ローカルは compose の init スクリプトが同じ名前で作る。
     services:
       postgres:
         image: postgres:15-alpine
         env:
-          POSTGRES_DB: abservice
+          POSTGRES_DB: abservice_test
           POSTGRES_USER: abservice
           POSTGRES_PASSWORD: abservice
           POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U abservice -d abservice"
+          --health-cmd "pg_isready -U abservice -d abservice_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
     env:
-      # integrationTest の datasource（既定値と一致。明示して意図を残す）
+      # テストの datasource。DB 名は %test プロファイルの指定と同じ値を置く
+      # （service container が作るデータベースと食い違わせない）
       DB_HOST: localhost
       DB_PORT: "5432"
-      DB_NAME: abservice
+      DB_NAME: abservice_test
       DB_USERNAME: abservice
       DB_PASSWORD: abservice
 
@@ -85,19 +87,20 @@ jobs:
     name: E2E (Playwright / 実スタック)
     runs-on: ubuntu-latest
 
-    # backend-check と同じ構成の PostgreSQL。E2E も実DBに対して動かす（#164）
+    # backend-check と同じ構成の PostgreSQL。E2E も実DBに対して動かす（#164）。
+    # データベースは E2E 専用（#252）。母集団をシードしたものだけにするため、統合テストとも分ける。
     services:
       postgres:
         image: postgres:15-alpine
         env:
-          POSTGRES_DB: abservice
+          POSTGRES_DB: abservice_e2e
           POSTGRES_USER: abservice
           POSTGRES_PASSWORD: abservice
           POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U abservice -d abservice"
+          --health-cmd "pg_isready -U abservice -d abservice_e2e"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -105,7 +108,7 @@ jobs:
     env:
       DB_HOST: localhost
       DB_PORT: "5432"
-      DB_NAME: abservice
+      DB_NAME: abservice_e2e
       DB_USERNAME: abservice
       DB_PASSWORD: abservice
       # E2E のシードは管理APIを通す。開発既定と同じ鍵を使う
@@ -162,10 +165,16 @@ jobs:
       # プロファイルは dev を指定する。素で起動すると prod になり、本番向けに必須化した値
       # （アセットのバケット・S3 の資格情報など）を要求する。E2E で見たいのは画面であって本番構成では
       # ないため、ローカルと同じ既定値（docker compose の PostgreSQL と MinIO）で動かす。
+      #
+      # ポートと初期化はローカルの npm run dev:backend:e2e と揃える（#252）。E2E 用のデータベースを
+      # 起動時に clean することで、母集団がシードしたものだけになる。
       - name: Start backend
         run: |
           jar="$(ls backend/build/*-runner.jar)"
-          nohup java -Dquarkus.profile=dev -jar "$jar" > backend.log 2>&1 &
+          nohup java -Dquarkus.profile=dev \
+            -Dquarkus.http.port=8090 \
+            -Dquarkus.flyway.clean-at-start=true \
+            -jar "$jar" > backend.log 2>&1 &
           echo "started: $jar"
 
       - name: Run E2E

@@ -4,10 +4,12 @@ import static com.abservice.presentation.rest.AdminAuth.authorized;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 
+import com.abservice.test.CleanDatabase;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * アルバムとその初期トラック一覧のワンリクエスト登録 REST エンドポイントの E2E 統合テスト
@@ -19,6 +21,7 @@ import org.junit.jupiter.api.Test;
  * </p>
  */
 @QuarkusTest
+@ExtendWith(CleanDatabase.class)
 @DisplayName("アルバムとトラックのワンリクエスト登録 REST エンドポイントの統合テスト")
 class RegisterAlbumWithTracksRestIntegrationTest {
 

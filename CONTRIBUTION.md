@@ -151,10 +151,14 @@ ABService/
 
 ```bash
 docker compose up -d postgres minio
-npm run dev:backend          # 別のシェルで起動したままにする
+npm run dev:backend:e2e      # 別のシェルで起動したままにする（8090 / E2E 用DB）
 npm run test:e2e             # e2e/evidence/ に画像が出る
 npm run evidence:publish -- --pr <PR番号>
 ```
+
+E2E は専用のデータベース（`abservice_e2e`）を見る。`dev:backend:e2e` は起動時にそれを空にしてから
+マイグレーションを流すため、母集団はシードしたものだけになる。開発用の `dev:backend`（8080 /
+`abservice`）とはポートも接続先も別なので、両方を同時に起動したままにできる。
 
 `evidence:publish` は画像を `evidence` ブランチの `pr-<番号>/` へ置き、PR 本文へ貼る Markdown を出力する。**main には証跡を入れない**（リポジトリの履歴とサイズを膨らませないため）。
 

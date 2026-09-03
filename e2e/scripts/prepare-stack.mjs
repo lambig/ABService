@@ -40,7 +40,8 @@ const waitForBackend = async (deadline) => {
           new Error(
             [
               `バックエンドが起動していません（${stack.backendBaseUrl}）。`,
-              'docker compose up -d postgres minio と npm run dev:backend で起動してから実行してください。',
+              'docker compose up -d postgres minio と npm run dev:backend:e2e で起動してから実行してください。',
+              'E2E は専用のデータベースを見ます（#252）。開発用の npm run dev:backend とはポートも接続先も別です。',
             ].join(''),
           ),
         )
