@@ -1,0 +1,38 @@
+---
+import ProperNoun from '$components/ProperNoun.astro';
+
+/** 初出イベントの5項目。一覧と詳細で同じ形を出す */
+interface Props {
+  readonly event: {
+    readonly eventName: string | null;
+    readonly eventDate: string | null;
+    readonly eventPlace: string | null;
+    readonly eventSpaceNumber: string | null;
+    readonly eventNote: string | null;
+  };
+}
+
+const { event } = Astro.props;
+
+/*
+ * イベント名を持たない作品では、他の項目も意味を成さないため何も出さない
+ * （場所やスペース番号だけが残っても読み手が文脈を取れない）。
+ */
+const place = [event.eventPlace, event.eventSpaceNumber].filter((part) => part !== null).join(' ');
+---
+
+{
+  event.eventName === null ? null : (
+    <div class="text-muted-foreground text-sm">
+      <ProperNoun>{event.eventName}</ProperNoun>
+      {event.eventDate === null ? null : (
+        <>
+          {' '}
+          <time datetime={event.eventDate}>{event.eventDate}</time>
+        </>
+      )}
+      {place === '' ? null : <> {place}</>}
+      {event.eventNote === null ? null : <p>{event.eventNote}</p>}
+    </div>
+  )
+}

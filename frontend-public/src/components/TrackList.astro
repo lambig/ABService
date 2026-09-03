@@ -1,0 +1,59 @@
+---
+import ProperNoun from '$components/ProperNoun.astro';
+import type { PublicTrack } from '$lib/api/client';
+
+interface Props {
+  readonly tracks: readonly PublicTrack[];
+}
+
+const { tracks } = Astro.props;
+
+type TrackTune = PublicTrack['tunes'][number];
+
+/**
+ * チューンのクレジット。作品側で指定があるものだけを並べる。
+ *
+ * v1.0 のチューンはテキストで、`Tune` マスタとの同定は持たない（#205）。
+ */
+const creditOf = (tune: TrackTune): string | null => {
+  const credits = [
+    tune.composerCreditOverride === null ? null : `作曲: ${tune.composerCreditOverride}`,
+    tune.arrangerCreditOverride === null ? null : `編曲: ${tune.arrangerCreditOverride}`,
+  ].filter((credit) => credit !== null);
+  return credits.length === 0 ? null : credits.join(' / ');
+};
+---
+
+<ol class="divide-border divide-y">
+  {
+    tracks.map((track) => (
+      <li class="flex gap-4 py-2">
+        <span class="text-muted-foreground w-6 shrink-0 text-right tabular-nums">
+          {track.trackNo}
+        </span>
+        <div class="min-w-0 space-y-1">
+          <div>
+            <ProperNoun>{track.title}</ProperNoun>
+            {track.artistDisplayName === null ? null : (
+              <span class="text-muted-foreground text-sm">
+                {' / '}
+                <ProperNoun>{track.artistDisplayName}</ProperNoun>
+              </span>
+            )}
+          </div>
+
+          {track.tunes.length === 0 ? null : (
+            <ol class="text-muted-foreground space-y-0.5 text-sm">
+              {track.tunes.map((tune) => (
+                <li>
+                  {tune.tuneTitle === null ? null : <ProperNoun>{tune.tuneTitle}</ProperNoun>}
+                  {creditOf(tune) === null ? null : <span>（{creditOf(tune)}）</span>}
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      </li>
+    ))
+  }
+</ol>

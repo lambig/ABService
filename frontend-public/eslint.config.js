@@ -68,6 +68,8 @@ export default tseslint.config(
        * 取り込み直せる形に留める。デザインの差し替えはトークン（DECISIONS 25）で行い、この配下は触らない。
        */
       'src/lib/components/ui/**',
+      // OpenAPI から生成する型定義（openapi-typescript の出力）
+      'src/lib/api/schema.d.ts',
     ],
   },
 

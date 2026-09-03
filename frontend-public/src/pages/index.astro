@@ -1,29 +1,16 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
+import SiteNav from '$components/SiteNav.astro';
+import BaseLayout from '$layouts/BaseLayout.astro';
 
 /*
- * トップの中身（サイトの文言・アルバム・記事の導線）は後続の作業で入れる。ここが持つのは、
- * レイアウトとトークンが効いていることを確かめられる骨組みだけ。
+ * トップの中身（サイトの文言・最新の作品や記事の導線）は後続の作業で入れる。
  *
  * サイト名や紹介文は SiteContent（管理画面から登録する）を引いて描くため、リポジトリに文言を置かない。
  */
 ---
 
 <BaseLayout title="ABService">
-  <nav slot="header" aria-label="主要な導線">
-    <ul class="flex gap-4 text-sm">
-      <li>
-        <a class="hover:text-muted-foreground underline-offset-4 hover:underline" href="/albums"
-          >アルバム</a
-        >
-      </li>
-      <li>
-        <a class="hover:text-muted-foreground underline-offset-4 hover:underline" href="/articles"
-          >記事</a
-        >
-      </li>
-    </ul>
-  </nav>
+  <SiteNav slot="header" />
 
   <p class="text-muted-foreground py-12">準備中</p>
 </BaseLayout>

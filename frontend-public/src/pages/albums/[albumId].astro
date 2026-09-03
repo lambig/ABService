@@ -1,0 +1,153 @@
+---
+import EventInfo from '$components/EventInfo.astro';
+import ExternalAudioEmbed from '$components/ExternalAudioEmbed.astro';
+import ProperNoun from '$components/ProperNoun.astro';
+import SiteNav from '$components/SiteNav.astro';
+import TrackList from '$components/TrackList.astro';
+import { getAlbum, listAlbums, type PublicAlbumDetail } from '$lib/api/client';
+import { toEmbedUrl } from '$lib/embed';
+import { formatReleaseDate } from '$lib/format';
+import { renderBody } from '$lib/markup';
+import BaseLayout from '$layouts/BaseLayout.astro';
+
+/*
+ * 公開中のアルバムの分だけページを作る。一覧で ID を集め、詳細をまとめて取得してから配る
+ * （ページごとに取りに行くより往復が減る）。
+ */
+export const getStaticPaths = async () => {
+  const albums = await listAlbums();
+  const details = await Promise.all(albums.map((album) => getAlbum(album.albumId)));
+  return details.map((album) => ({
+    params: { albumId: album.albumId },
+    props: { album },
+  }));
+};
+
+interface Props {
+  readonly album: PublicAlbumDetail;
+}
+
+const { album } = Astro.props;
+
+/*
+ * 概要説明は Markdown（DECISIONS 24）。プレーンテキストの場合はそのまま出す（Astro が
+ * エスケープする）。無い場合は節ごと出さない。
+ */
+const descriptionHtml =
+  album.description !== null && album.descriptionFormat === 'MARKDOWN'
+    ? renderBody(album.description)
+    : null;
+
+/** 品番と ISDN は並べて出す */
+const identifiers = [album.catalogNumber, album.isdn].filter((value) => value !== null);
+
+/*
+ * カバー画像を本体に出すのは外部音源が0件のときだけ（#197）。プレイヤー自身がアートワークを持つため、
+ * 両方出すと同じ絵が二度並ぶ。
+ */
+const coverImageForBody = album.externalAudios.length === 0 ? album.coverImageUrl : null;
+
+/*
+ * リンクプレビュー（#197）。外部音源があれば先頭をプレイヤーカードにし、0件ならカバー画像を出す。
+ * 絶対URLの基準は site（環境変数で与える）で、ドメインをコードへ書かない。
+ */
+const playerUrl =
+  album.externalAudios[0] === undefined ? null : toEmbedUrl(album.externalAudios[0].url);
+const coverImageUrlForPreview =
+  album.coverImageUrl === null ? null : new URL(album.coverImageUrl, Astro.site).href;
+
+/*
+ * 概要説明はメタ説明（description / og:description）に渡さない。Markdown の記法と改行がそのまま
+ * 検索結果とリンクプレビューへ出るうえ、長さも本文に依存する。作品はショート紹介文を持たない（#197。
+ * 持つのは記事だけ）ため、短文の出所ができるまでメタ説明を出さない。
+ */
+---
+
+<BaseLayout title={album.title}>
+  <Fragment slot="head">
+    {
+      playerUrl === null ? (
+        coverImageUrlForPreview === null ? null : (
+          <>
+            <meta property="og:image" content={coverImageUrlForPreview} />
+            <meta name="twitter:card" content="summary_large_image" />
+          </>
+        )
+      ) : (
+        <>
+          <meta name="twitter:card" content="player" />
+          <meta name="twitter:player" content={playerUrl} />
+          <meta name="twitter:player:width" content="435" />
+          <meta name="twitter:player:height" content="166" />
+        </>
+      )
+    }
+  </Fragment>
+
+  <SiteNav slot="header" />
+
+  <article class="space-y-8 py-6">
+    <header class="flex flex-col gap-4 sm:flex-row">
+      {
+        coverImageForBody === null ? null : (
+          <img
+            class="border-border w-full max-w-64 rounded-md border object-cover"
+            src={coverImageForBody}
+            alt=""
+            decoding="async"
+          />
+        )
+      }
+
+      <div class="space-y-2">
+        <h1 class="text-2xl font-medium">
+          <ProperNoun>{album.title}</ProperNoun>
+        </h1>
+        <p class="text-muted-foreground">
+          <ProperNoun>{album.artistDisplayName}</ProperNoun>
+        </p>
+        <p class="text-muted-foreground text-sm">
+          <time datetime={album.releaseDate}>{formatReleaseDate(album.releaseDate)}</time>
+        </p>
+        {
+          identifiers.length === 0 ? null : (
+            <p class="text-muted-foreground text-sm">
+              <ProperNoun>{identifiers.join(' / ')}</ProperNoun>
+            </p>
+          )
+        }
+        <EventInfo event={album} />
+      </div>
+    </header>
+
+    {
+      descriptionHtml === null ? (
+        album.description === null ? null : (
+          <p class="whitespace-pre-wrap">{album.description}</p>
+        )
+      ) : (
+        <div class="prose-body" set:html={descriptionHtml} />
+      )
+    }
+
+    {
+      album.externalAudios.length === 0 ? null : (
+        <section class="space-y-4">
+          <h2 class="text-lg font-medium">試聴</h2>
+          {album.externalAudios.map((audio) => (
+            <ExternalAudioEmbed audio={audio} albumTitle={album.title} />
+          ))}
+        </section>
+      )
+    }
+
+    {
+      album.tracks.length === 0 ? null : (
+        <section class="space-y-4">
+          <h2 class="text-lg font-medium">曲目</h2>
+          <TrackList tracks={album.tracks} />
+        </section>
+      )
+    }
+  </article>
+</BaseLayout>

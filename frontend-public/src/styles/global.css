@@ -217,3 +217,109 @@
     font-family: var(--font-sans);
   }
 }
+
+/*
+ * ============================================================================
+ * 本文の見た目
+ * ============================================================================
+ * マークアップの描画（`packages/markup`）はクラスを出力しない（DECISIONS 25）。素の HTML が返るため、
+ * 祖先に付けたこのクラスから当てる。描画が通す構文（CommonMark + GFM と折りたたみ）の範囲だけを持つ。
+ */
+@layer components {
+  .prose-body {
+    line-height: 1.8;
+  }
+
+  .prose-body > * + * {
+    margin-block-start: 1em;
+  }
+
+  .prose-body h2 {
+    font-size: 1.25rem;
+    font-weight: 500;
+    margin-block-start: 2em;
+  }
+
+  .prose-body h3 {
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin-block-start: 1.5em;
+  }
+
+  .prose-body ul,
+  .prose-body ol {
+    padding-inline-start: 1.5em;
+  }
+
+  .prose-body ul {
+    list-style: disc;
+  }
+
+  .prose-body ol {
+    list-style: decimal;
+  }
+
+  .prose-body a {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  .prose-body blockquote {
+    border-inline-start: 2px solid var(--color-border);
+    color: var(--color-muted-foreground);
+    padding-inline-start: 1em;
+  }
+
+  .prose-body code {
+    background-color: var(--color-muted);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    padding: 0.1em 0.3em;
+  }
+
+  .prose-body pre {
+    background-color: var(--color-muted);
+    border-radius: var(--radius-md);
+    overflow-x: auto;
+    padding: 1em;
+  }
+
+  .prose-body pre code {
+    background-color: transparent;
+    padding: 0;
+  }
+
+  .prose-body img {
+    border-radius: var(--radius-md);
+    max-width: 100%;
+  }
+
+  .prose-body table {
+    border-collapse: collapse;
+    display: block;
+    overflow-x: auto;
+  }
+
+  .prose-body th,
+  .prose-body td {
+    border: 1px solid var(--color-border);
+    padding: 0.4em 0.8em;
+  }
+
+  .prose-body hr {
+    border-block-start: 1px solid var(--color-border);
+  }
+
+  /* 折りたたみ（`:::details[ラベル]`）。ブラウザの既定の開閉に任せ、見出しだけ押せると分かる形にする */
+  .prose-body summary {
+    cursor: pointer;
+    font-weight: 500;
+  }
+
+  .prose-body details {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 0.8em 1em;
+  }
+}

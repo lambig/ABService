@@ -1,0 +1,35 @@
+---
+import type { PublicExternalAudio } from '$lib/api/client';
+import { toEmbedUrl } from '$lib/embed';
+
+interface Props {
+  readonly audio: PublicExternalAudio;
+  /** 埋め込みが何の試聴かを支援技術へ伝えるための作品名 */
+  readonly albumTitle: string;
+}
+
+const { audio, albumTitle } = Astro.props;
+
+const embedUrl = toEmbedUrl(audio.url);
+---
+
+<figure class="space-y-2">
+  {/* 埋め込みが表示できない環境でも、下のリンクから音源へ辿れる */}
+  <iframe
+    class="border-border w-full rounded-md border"
+    src={embedUrl}
+    title={`${albumTitle} の試聴`}
+    height="166"
+    loading="lazy"
+    referrerpolicy="strict-origin-when-cross-origin"
+    allow="autoplay"></iframe>
+
+  <figcaption class="text-muted-foreground text-sm">
+    <a
+      class="underline underline-offset-4"
+      href={audio.url}
+      target="_blank"
+      rel="noopener noreferrer">SoundCloud で開く</a
+    >
+  </figcaption>
+</figure>

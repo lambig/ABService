@@ -1,4 +1,4 @@
-import { SHOWCASE_CATALOG_NUMBER } from '../support/build-fixtures.ts';
+import { showcase } from '../support/build-fixtures.ts';
 import { stack } from '../support/config.ts';
 import { capture, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
@@ -18,13 +18,13 @@ test.describe('公開サイトの基盤', () => {
     await capture(page, '01-top');
 
     /*
-     * 導線のラベルは画面の実装で変わるため、名前ではなく位置で選ぶ。ここで確かめたいのは
-     * 「証跡を撮って操作できること」であって、文言ではない。遷移先の中身は #123 の画面が
-     * 揃ってから、そのシナリオで見る。
+     * 導線のラベルは画面の実装で変わるため、名前ではなく行き先で選ぶ。ここで確かめたいのは
+     * 「証跡を撮って操作できること」であって、文言ではない。導線にはトップ自身も載る（#197）ため、
+     * 移動が起きる先を選ぶ。遷移先の中身は #123 の画面のシナリオで見る。
      */
     const firstNavLink = page
       .getByRole('navigation', { name: '主要な導線' })
-      .getByRole('link')
+      .locator('a[href]:not([href="/"])')
       .first();
     await expect(firstNavLink).toBeVisible();
 
@@ -45,11 +45,11 @@ test.describe('ビルド前のシード', () => {
       items: readonly { catalogNumber: string | null; albumId: string }[];
     };
 
-    const showcase = page.items.find((item) => item.catalogNumber === SHOWCASE_CATALOG_NUMBER);
-    expect(showcase).toBeDefined();
+    const seeded = page.items.find((item) => item.catalogNumber === showcase.catalogNumber);
+    expect(seeded).toBeDefined();
 
     const detail = await request.get(
-      `${stack.backendBaseUrl}/api/v1/albums/${showcase?.albumId ?? ''}`,
+      `${stack.backendBaseUrl}/api/v1/albums/${seeded?.albumId ?? ''}`,
     );
     await expect(detail).toBeOK();
 
@@ -58,7 +58,7 @@ test.describe('ビルド前のシード', () => {
       externalAudios: readonly { url: string }[];
     };
 
-    expect(album.tracks[0]?.tunes[0]?.tuneTitle).toBe('E2E 確認チューン');
+    expect(album.tracks[0]?.tunes[0]?.tuneTitle).toBe(showcase.tuneTitle);
     expect(album.externalAudios).toHaveLength(1);
   });
 });

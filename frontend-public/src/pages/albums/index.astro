@@ -1,0 +1,32 @@
+---
+import AlbumCard from '$components/AlbumCard.astro';
+import SiteNav from '$components/SiteNav.astro';
+import { listAlbums } from '$lib/api/client';
+import BaseLayout from '$layouts/BaseLayout.astro';
+
+/*
+ * 公開中のアルバムはビルド時に取得して焼き込む（DECISIONS 24 / #125）。並び順は listAlbums が決める。
+ * 日付を軸にした導線と絞り込みは #210。
+ */
+const albums = await listAlbums();
+---
+
+<BaseLayout title="作品" description="発表した作品の一覧">
+  <SiteNav slot="header" />
+
+  <h1 class="py-6 text-2xl font-medium">作品</h1>
+
+  {
+    albums.length > 0 ? (
+      <ul class="grid gap-4 pb-12 sm:grid-cols-2">
+        {albums.map((album) => (
+          <li>
+            <AlbumCard album={album} />
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p class="text-muted-foreground py-12">公開中の作品はありません。</p>
+    )
+  }
+</BaseLayout>
