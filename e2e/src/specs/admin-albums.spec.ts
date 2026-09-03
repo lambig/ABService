@@ -21,6 +21,13 @@ const OPEN_LABEL = '開く';
 /** 未公開であることを示すラベル */
 const DRAFT_LABEL = '下書き';
 
+/** 失敗したときの復帰の操作 */
+const RETRY_LABEL = '再試行';
+const DISCARD_LABEL = '鍵を破棄する';
+
+/** 管理APIの経路。到達できない状態を作るために塞ぐ */
+const ADMIN_API = `${stack.backendBaseUrl}/api/v1/admin/**`;
+
 test.describe('管理画面の作品一覧', () => {
   test('鍵を入れるまで作品を出さない', async ({ page }) => {
     await page.goto(stack.adminBaseUrl);
@@ -44,6 +51,30 @@ test.describe('管理画面の作品一覧', () => {
      */
     await expect(page.getByRole('row').filter({ hasText: draft.title })).toContainText(DRAFT_LABEL);
     await capture(page, '16-admin-albums');
+  });
+
+  test('管理APIへ到達できないときは、同じ鍵でやり直せる', async ({ page }) => {
+    await page.goto(stack.adminBaseUrl);
+    await page.getByLabel(API_KEY_LABEL).fill(stack.adminApiKey);
+
+    /*
+     * 到達できない状態を作る。応答を差し替えるのではなくネットワークの側で塞ぐ（#164 の「APIの
+     * モックはしない」に沿う）。読み込み中のまま止まらないこと、入力からやり直さずに済むことを見る。
+     */
+    await page.route(ADMIN_API, (route) => route.abort());
+    await page.getByRole('button', { name: OPEN_LABEL }).click();
+
+    await expect(page.getByRole('alert')).toBeVisible();
+    await expect(page.getByRole('button', { name: DISCARD_LABEL })).toBeVisible();
+
+    await page.unroute(ADMIN_API);
+    await clickWithEvidence(
+      page,
+      page.getByRole('button', { name: RETRY_LABEL }),
+      '17-admin-retry',
+    );
+
+    await expect(page.getByRole('row').filter({ hasText: showcase.title })).toBeVisible();
   });
 
   test('受け付けられない鍵は断る', async ({ page }) => {

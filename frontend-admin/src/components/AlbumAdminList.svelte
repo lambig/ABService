@@ -13,7 +13,8 @@
     | { readonly kind: 'locked'; readonly message: string | null }
     | { readonly kind: 'loading' }
     | { readonly kind: 'ready'; readonly albums: readonly AdminAlbum[] }
-    | { readonly kind: 'failed'; readonly message: string };
+    /* 鍵を持ったまま失敗した状態。同じ鍵でやり直せるようにするため、ここで抱える */
+    | { readonly kind: 'failed'; readonly message: string; readonly apiKey: string };
 
   let view = $state<View>({ kind: 'locked', message: null });
   let apiKeyDraft = $state('');
@@ -28,19 +29,19 @@
     failed: rememberApiKey,
   } satisfies Record<ApiResult<unknown>['kind'], (apiKey: string) => void>;
 
-  const toView = (result: ApiResult<readonly AdminAlbum[]>): View =>
+  const toView = (apiKey: string, result: ApiResult<readonly AdminAlbum[]>): View =>
     result.kind === 'ok'
       ? { kind: 'ready', albums: result.value }
       : result.kind === 'unauthorized'
         ? { kind: 'locked', message: '鍵が受け付けられませんでした。' }
-        : { kind: 'failed', message: result.message };
+        : { kind: 'failed', message: result.message, apiKey };
 
   const load = async (apiKey: string): Promise<void> => {
     view = { kind: 'loading' };
 
     const result = await listAlbums(apiKey);
     KEY_STORE[result.kind](apiKey);
-    view = toView(result);
+    view = toView(apiKey, result);
   };
 
   /*
@@ -57,6 +58,12 @@
   const submit = (event: SubmitEvent): void => {
     event.preventDefault();
     void load(apiKeyDraft);
+  };
+
+  /* 同じ鍵でやり直す。到達できないだけの失敗は鍵の正しさとは別のため、入力からやり直させない */
+  const retry = (): void => {
+    const current = view;
+    void (current.kind === 'failed' ? load(current.apiKey) : Promise.resolve());
   };
 
   const lock = (): void => {
@@ -106,7 +113,20 @@
 {:else if view.kind === 'loading'}
   <p class="text-muted-foreground">読み込んでいます。</p>
 {:else if failureMessage !== null}
-  <p class="text-destructive" role="alert">{failureMessage}</p>
+  <div class="max-w-md space-y-4">
+    <p class="text-destructive" role="alert">{failureMessage}</p>
+
+    <div class="flex items-center gap-4">
+      <button
+        class="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium"
+        type="button"
+        onclick={retry}>再試行</button
+      >
+      <button class="text-sm underline underline-offset-4" type="button" onclick={lock}>
+        鍵を破棄する
+      </button>
+    </div>
+  </div>
 {:else}
   <div class="space-y-4">
     <div class="flex items-baseline justify-between">
