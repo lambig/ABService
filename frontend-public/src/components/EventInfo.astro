@@ -1,5 +1,6 @@
 ---
 import ProperNoun from '$components/ProperNoun.astro';
+import { formatCalendarDate } from '$lib/format';
 
 /** 初出イベントの5項目。一覧と詳細で同じ形を出す */
 interface Props {
@@ -28,7 +29,7 @@ const place = [event.eventPlace, event.eventSpaceNumber].filter((part) => part !
       {event.eventDate === null ? null : (
         <>
           {' '}
-          <time datetime={event.eventDate}>{event.eventDate}</time>
+          <time datetime={event.eventDate}>{formatCalendarDate(event.eventDate)}</time>
         </>
       )}
       {place === '' ? null : <> {place}</>}

@@ -317,3 +317,24 @@ export const findArticleByTitle = async (title: string): Promise<AdminArticle | 
     .flatMap((page) => page.items)
     .find((item) => item.title === title);
 };
+
+/** 置くサイト文言の指定。キーごとに1つ */
+export interface SiteContentSeed {
+  readonly key: string;
+  readonly content: string;
+  readonly contentFormat: 'MARKDOWN' | 'PLAIN_TEXT';
+}
+
+/**
+ * サイト文言を登録する（同じキーがあれば置き換える）。
+ *
+ * <p>
+ * 文言はリポジトリに置かず管理画面から入れる（#230）。E2E も同じ経路を通す。
+ * </p>
+ */
+export const upsertSiteContent = async (content: SiteContentSeed): Promise<void> => {
+  await putAdmin(`/api/v1/site-contents/${content.key}`, {
+    content: content.content,
+    contentFormat: content.contentFormat,
+  });
+};

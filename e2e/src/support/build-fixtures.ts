@@ -7,6 +7,7 @@ import {
   seedDraftAlbum,
   seedDraftArticle,
   unpublishAlbum,
+  upsertSiteContent,
 } from './admin-api.ts';
 import type { AlbumSeed, ArticleSeed } from './admin-api.ts';
 
@@ -43,6 +44,8 @@ export const showcase = {
   composerCredit: 'Trad.',
   audioUrl: 'https://soundcloud.com/example/e2e',
   eventName: 'E2E 確認イベント',
+  /* リリース日と別の日にする。同じ日にすると、整形後の表示がどちらの日付か区別できない */
+  eventDate: '2026-08-13',
   /** Markdown として描画されることを、要素ごとに確かめるための断片 */
   description: {
     heading: '概要',
@@ -113,6 +116,24 @@ export const draftArticle = {
 } as const;
 
 /**
+ * サイトの文言（#230）。
+ *
+ * <p>
+ * 文言はリポジトリに置かず管理画面から入れるため、画面に出る文字列はここが唯一の出所になる。未登録の
+ * キーは区画ごと出ない仕様のため、E2E では3つとも入れて「出る」側を確かめる。
+ * </p>
+ */
+export const siteContent = {
+  name: 'E2E 確認サイト',
+  description: 'E2E で画面を確認するためのサイト。',
+  /** Markdown として描画されることを、要素ごとに確かめるための断片 */
+  introduction: {
+    heading: 'ようこそ',
+    lead: 'E2E でトップの紹介文を確かめる。',
+  },
+} as const;
+
+/**
  * ページ送りを確かめるための記事。
  *
  * <p>
@@ -147,7 +168,7 @@ const showcaseSeed: AlbumSeed = {
   descriptionFormat: 'MARKDOWN',
   event: {
     name: showcase.eventName,
-    date: showcase.releaseDate,
+    date: showcase.eventDate,
     place: 'E2E 会場',
     spaceNumber: 'A-01',
   },
@@ -288,6 +309,24 @@ const ensureArticle = async (seed: ArticleSeed, state: SeedState): Promise<void>
  * </p>
  */
 export const seedForBuild = async (): Promise<void> => {
+  await upsertSiteContent({
+    key: 'site.name',
+    content: siteContent.name,
+    contentFormat: 'PLAIN_TEXT',
+  });
+  await upsertSiteContent({
+    key: 'site.description',
+    content: siteContent.description,
+    contentFormat: 'PLAIN_TEXT',
+  });
+  await upsertSiteContent({
+    key: 'home.introduction',
+    content: [`## ${siteContent.introduction.heading}`, '', siteContent.introduction.lead, ''].join(
+      '\n',
+    ),
+    contentFormat: 'MARKDOWN',
+  });
+
   await ensureAlbum(showcase.catalogNumber, showcaseSeed, 'PUBLISHED');
   await ensureAlbum(quiet.catalogNumber, quietSeed, 'PUBLISHED');
   await ensureAlbum(draft.catalogNumber, draftSeed, 'DRAFT');

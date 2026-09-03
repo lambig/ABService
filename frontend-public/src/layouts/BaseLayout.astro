@@ -1,14 +1,32 @@
 ---
+import { siteDescription, siteName } from '$lib/site';
 import '../styles/global.css';
 
 interface Props {
-  /** ページのタイトル。ブラウザのタブと OG に出る */
-  readonly title: string;
-  /** ページの説明。検索結果と OG に出る */
+  /** ページの名前。ブラウザのタブと OG では、サイト名と並べて出る。トップのように名前を持たないページは省く */
+  readonly title?: string;
+  /** ページの説明。検索結果と OG に出る。省いたときはサイトの説明を使う */
   readonly description?: string;
 }
 
 const { title, description } = Astro.props;
+
+const name = await siteName();
+
+/*
+ * ページの名前とサイト名を並べる（#230 が site.name の用途に挙げるうちの1つ）。名前を持たないページは
+ * サイト名だけにする。トップでサイト名が二度並ぶのを避けるため。
+ */
+const documentTitle = title === undefined ? name : `${title} ― ${name}`;
+
+/*
+ * ページ固有の名前を持たないページ（トップ）では、サイト名がそのページの見出しになる。名前を持つページ
+ * では、見出しはそのページ自身が出すため、ヘッダーのサイト名は見出しにしない。
+ */
+const SiteNameTag = title === undefined ? 'h1' : 'p';
+
+/* ページ固有の説明が無ければサイトの説明を出す。どちらも無ければメタ説明そのものを出さない */
+const metaDescription = description ?? (await siteDescription());
 
 /*
  * 正規URLと OG の絶対URLは site（環境変数で与える）を基準に組む。ドメインをコードへ書かないため、
@@ -23,13 +41,14 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="canonical" href={canonicalUrl} />
-    <title>{title}</title>
-    {description ? <meta name="description" content={description} /> : null}
+    <title>{documentTitle}</title>
+    {metaDescription ? <meta name="description" content={metaDescription} /> : null}
 
     <meta property="og:type" content="website" />
-    <meta property="og:title" content={title} />
+    <meta property="og:title" content={documentTitle} />
+    <meta property="og:site_name" content={name} />
     <meta property="og:url" content={canonicalUrl} />
-    {description ? <meta property="og:description" content={description} /> : null}
+    {metaDescription ? <meta property="og:description" content={metaDescription} /> : null}
 
     {/* ページごとのリンクプレビュー（アルバム詳細のプレイヤーカード・カバー画像） */}
     <slot name="head" />
@@ -37,7 +56,10 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
 
   <body class="bg-background text-foreground min-h-screen">
     <div class="mx-auto flex min-h-screen max-w-5xl flex-col px-4">
-      <header class="py-6">
+      <header class="space-y-3 py-6">
+        <SiteNameTag class="text-lg font-medium">
+          <a class="underline-offset-4 hover:underline" href="/">{name}</a>
+        </SiteNameTag>
         <slot name="header" />
       </header>
 
