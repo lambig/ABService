@@ -1,4 +1,4 @@
-import { findAlbumIdByCatalogNumber } from '../support/admin-api.ts';
+import { findAlbumByCatalogNumber } from '../support/admin-api.ts';
 import { draft, quiet, showcase } from '../support/build-fixtures.ts';
 import { capture, clickWithEvidence, focusOn } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
@@ -18,10 +18,10 @@ const AUDIO_FALLBACK_LINK = 'SoundCloud で開く';
 const AUDIO_SECTION_HEADING = '試聴';
 
 const albumPathOf = async (catalogNumber: string): Promise<string> => {
-  const albumId = await findAlbumIdByCatalogNumber(catalogNumber);
-  return albumId === undefined
+  const album = await findAlbumByCatalogNumber(catalogNumber);
+  return album === undefined
     ? Promise.reject(new Error(`シードした作品が見つかりません: ${catalogNumber}`))
-    : `/albums/${albumId}`;
+    : `/albums/${album.albumId}`;
 };
 
 test.describe('作品の一覧', () => {

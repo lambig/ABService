@@ -1,5 +1,10 @@
-import { findAlbumIdByCatalogNumber, publishAlbum, seedDraftAlbum } from './admin-api.ts';
-import type { AlbumSeed } from './admin-api.ts';
+import {
+  findAlbumByCatalogNumber,
+  publishAlbum,
+  seedDraftAlbum,
+  unpublishAlbum,
+} from './admin-api.ts';
+import type { AdminAlbum, AlbumSeed } from './admin-api.ts';
 
 /**
  * 公開サイトを組む前に入れておくデータ。
@@ -11,7 +16,8 @@ import type { AlbumSeed } from './admin-api.ts';
  *
  * <p>
  * 投入は冪等にする。ローカルでは同じ DB へ繰り返し実行するため、毎回作ると同じ作品が並んで証跡が
- * 読みにくくなる。カタログナンバーで存在を見て、無いときだけ作る。
+ * 読みにくくなる。カタログナンバーで存在を見て、無いときだけ作る。あわせて公開状態は毎回揃える。
+ * 作成と公開の間で中断すると下書きのまま残り、以後の実行が自力で直せなくなるため。
  * </p>
  *
  * <p>
@@ -135,18 +141,41 @@ const draftSeed: AlbumSeed = {
 /** 公開まで済ませるか、下書きで置くか */
 type SeedState = 'PUBLISHED' | 'DRAFT';
 
+/**
+ * 既存の作品の公開状態を指定へ揃える。
+ *
+ * <p>
+ * 作成と公開は別のリクエストのため、間で中断すると公開予定の作品が下書きのまま残る。状態だけは毎回
+ * 揃えることで、次の実行が自力で直せるようにする。
+ * </p>
+ *
+ * <p>
+ * 内容（タイトル・イベント・曲目など）は揃えない。フィクスチャの値を変えたときは作り直しが要るが、
+ * トラックを持つ作品の削除が塞がっている（#251）。解消後に、専用データを削除して作り直す形へ移す。
+ * </p>
+ */
+const alignPublishState = async (album: AdminAlbum, state: SeedState): Promise<void> => {
+  const current: SeedState = album.publishedAt === null ? 'DRAFT' : 'PUBLISHED';
+
+  return current === state
+    ? undefined
+    : state === 'PUBLISHED'
+      ? publishAlbum(album.albumId)
+      : unpublishAlbum(album.albumId);
+};
+
 const ensureAlbum = async (
   catalogNumber: string,
   seed: AlbumSeed,
   state: SeedState,
 ): Promise<void> => {
-  const existing = await findAlbumIdByCatalogNumber(catalogNumber);
+  const existing = await findAlbumByCatalogNumber(catalogNumber);
 
   return existing === undefined
     ? seedDraftAlbum(seed).then((albumId) =>
         state === 'PUBLISHED' ? publishAlbum(albumId) : undefined,
       )
-    : undefined;
+    : alignPublishState(existing, state);
 };
 
 /**

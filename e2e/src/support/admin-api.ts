@@ -135,6 +135,16 @@ export const publishAlbum = async (albumId: string): Promise<void> => {
 };
 
 /**
+ * 公開中の作品を下書きへ戻す。
+ *
+ * @param albumId
+ *            下書きへ戻す作品のドメインID
+ */
+export const unpublishAlbum = async (albumId: string): Promise<void> => {
+  await postAdmin(`/api/v1/albums/${albumId}/unpublish`, {});
+};
+
+/**
  * 作品を作り、トラックと外部音源を付けて公開する。
  *
  * @returns 作った作品のドメインID
@@ -145,10 +155,12 @@ export const seedPublishedAlbum = async (album: AlbumSeed): Promise<string> => {
   return albumId;
 };
 
-/** 管理向け一覧の1件。同定に使う項目だけを持つ */
-interface AdminAlbumListItem {
+/** 管理向け一覧の1件。同定と公開状態の確認に使う項目だけを持つ */
+export interface AdminAlbum {
   readonly albumId: string;
   readonly catalogNumber: string | null;
+  /** 公開日時。下書きは null */
+  readonly publishedAt: string | null;
 }
 
 /**
@@ -160,14 +172,14 @@ interface AdminAlbumListItem {
  *
  * @param catalogNumber
  *            同定に使うカタログナンバー
- * @returns 見つかった作品のドメインID。無ければ undefined
+ * @returns 見つかった作品。無ければ undefined
  */
-export const findAlbumIdByCatalogNumber = async (
+export const findAlbumByCatalogNumber = async (
   catalogNumber: string,
-): Promise<string | undefined> => {
+): Promise<AdminAlbum | undefined> => {
   const body = await getAdmin(
     `/api/v1/admin/albums?size=100&catalogNumber=${encodeURIComponent(catalogNumber)}`,
   );
-  const { items } = body as { items: readonly AdminAlbumListItem[] };
-  return items.find((item) => item.catalogNumber === catalogNumber)?.albumId;
+  const { items } = body as { items: readonly AdminAlbum[] };
+  return items.find((item) => item.catalogNumber === catalogNumber);
 };
