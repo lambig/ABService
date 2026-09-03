@@ -112,6 +112,23 @@ export const draftArticle = {
   title: 'E2E 下書き記事',
 } as const;
 
+/**
+ * ページ送りを確かめるための記事。
+ *
+ * <p>
+ * 1ページの件数は画面が決める（`$lib/pagination.ts` の `ARTICLES_PER_PAGE`）。ここはその値と揃え、
+ * 公開する記事の総数が1ページに収まらない数になるよう置く。ずれたらページ送りのシナリオが落ちるため、
+ * 揃っていないことに気付ける。
+ * </p>
+ */
+export const pagination = {
+  /** 画面が1ページに並べる件数 */
+  perPage: 20,
+  /** 作品紹介・ノートの2件と合わせて1ページを1件だけ超える */
+  filler: 19,
+  titleOf: (index: number): string => `E2E ページ送り記事 ${String(index)}`,
+} as const;
+
 const showcaseSeed: AlbumSeed = {
   title: showcase.title,
   releaseDate: showcase.releaseDate,
@@ -190,6 +207,12 @@ const draftArticleSeed: ArticleSeed = {
   title: draftArticle.title,
 };
 
+const fillerArticleSeed = (index: number): ArticleSeed => ({
+  articleType: 'NOTE',
+  title: pagination.titleOf(index),
+  introShort: 'ページ送りを確かめるための記事。',
+});
+
 /** 公開まで済ませるか、下書きで置くか */
 type SeedState = 'PUBLISHED' | 'DRAFT';
 
@@ -255,9 +278,13 @@ const ensureArticle = async (seed: ArticleSeed, state: SeedState): Promise<void>
  * 画面確認用のデータを揃える。
  *
  * <p>
- * SEQUENTIAL-ORDER: 同定は番号とタイトルで行うため投入の順序は結果に効かないが、失敗したときに
- * どれを作れなかったのかを追えるよう1件ずつ送る。作品紹介の記事だけは参照先の作品を要するため、
- * 作品を揃えたあとに作る。
+ * SEQUENTIAL-ORDER: 記事の一覧は公開日の降順で並ぶ（#197）。公開の順序がそのまま並び順になるため、
+ * 1ページ目の先頭に置きたいものを最後に公開する。ページ送りの詰め物を先に、作品紹介の記事を最後に置くのは
+ * このためで、失敗したときにどれを作れなかったのかを追える利点も兼ねる。
+ * </p>
+ *
+ * <p>
+ * 作品紹介の記事だけは参照先の作品を要するため、作品を揃えたあとに作る。
  * </p>
  */
 export const seedForBuild = async (): Promise<void> => {
@@ -271,7 +298,11 @@ export const seedForBuild = async (): Promise<void> => {
       ? await Promise.reject(new Error(`シードした作品が見つかりません: ${showcase.catalogNumber}`))
       : showcaseAlbum.albumId;
 
-  await ensureArticle(albumArticleSeed(showcaseAlbumId), 'PUBLISHED');
+  for (const index of Array.from({ length: pagination.filler }, (_unused, i) => i + 1)) {
+    await ensureArticle(fillerArticleSeed(index), 'PUBLISHED');
+  }
+
   await ensureArticle(plainArticleSeed, 'PUBLISHED');
+  await ensureArticle(albumArticleSeed(showcaseAlbumId), 'PUBLISHED');
   await ensureArticle(draftArticleSeed, 'DRAFT');
 };
