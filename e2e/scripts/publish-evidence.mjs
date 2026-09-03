@@ -83,6 +83,19 @@ const publish = (prNumber, images) => {
   });
 
   git(['add', prDirectory], worktree);
+
+  /*
+   * UNCHANGED-EVIDENCE: 撮り直した絵が前回と同じなら、置くものが無い。見た目に影響しない変更
+   * （見出しレベルの入れ替えなど）では起こりうるうえ、同じであること自体は正常なため失敗させない。
+   */
+  const staged = git(['status', '--porcelain'], worktree);
+
+  return staged.length === 0
+    ? console.log('証跡は前回と同じでした。公開済みのものがそのまま使えます。')
+    : publishStaged(prNumber, worktree);
+};
+
+const publishStaged = (prNumber, worktree) => {
   git(['commit', '-m', `evidence: PR #${prNumber}`], worktree);
   git(['push', '--force-with-lease', 'origin', EVIDENCE_BRANCH], worktree);
 };
