@@ -10,6 +10,7 @@ import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
 import com.abservice.infrastructure.persistence.repository.AlbumRepositoryImpl;
+import com.abservice.test.CleanDatabase;
 import io.quarkus.test.TestReactiveTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
@@ -17,6 +18,7 @@ import io.quarkus.test.vertx.UniAsserter;
 import jakarta.inject.Inject;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * 共通監査列の現在の契約（{@code docs/DECISIONS.md} 5）の統合テスト
@@ -27,6 +29,7 @@ import org.junit.jupiter.api.Test;
  * </p>
  */
 @QuarkusTest
+@ExtendWith(CleanDatabase.class)
 class AuditColumnsIntegrationTest {
 
     @Inject

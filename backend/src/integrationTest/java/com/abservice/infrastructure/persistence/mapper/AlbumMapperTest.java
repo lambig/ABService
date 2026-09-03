@@ -21,6 +21,7 @@ import com.abservice.domain.model.vo.common.Url;
 import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
 import com.abservice.infrastructure.persistence.entity.TrackTableRecord;
+import com.abservice.test.CleanDatabase;
 import io.quarkus.test.TestReactiveTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
@@ -31,6 +32,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -43,6 +45,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * </p>
  */
 @QuarkusTest
+@ExtendWith(CleanDatabase.class)
 class AlbumMapperTest {
 
     @Inject

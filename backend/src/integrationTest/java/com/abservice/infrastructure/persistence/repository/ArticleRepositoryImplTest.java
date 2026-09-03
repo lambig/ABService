@@ -11,6 +11,7 @@ import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.MarkupContent;
+import com.abservice.test.CleanDatabase;
 import io.quarkus.test.TestReactiveTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
@@ -19,6 +20,7 @@ import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -26,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * ArticleRepositoryImpl統合テスト（#39: タグのラウンドトリップに加え、CRUD・検索全般を網羅）
  */
 @QuarkusTest
+@ExtendWith(CleanDatabase.class)
 class ArticleRepositoryImplTest {
 
     @Inject

@@ -6,6 +6,7 @@ import com.abservice.domain.model.vo.tune.TuneKind;
 import com.abservice.domain.model.vo.tune.TuneTitle;
 import com.abservice.infrastructure.persistence.datasource.TuneDataSource;
 import com.abservice.infrastructure.persistence.entity.TuneTableRecord;
+import com.abservice.test.CleanDatabase;
 import io.quarkus.test.TestReactiveTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
@@ -13,6 +14,7 @@ import io.quarkus.test.vertx.UniAsserter;
 import jakarta.inject.Inject;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -25,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * </p>
  */
 @QuarkusTest
+@ExtendWith(CleanDatabase.class)
 class TuneMapperTest {
 
     @Inject
