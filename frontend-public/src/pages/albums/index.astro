@@ -5,8 +5,8 @@ import { listAlbums } from '$lib/api/client';
 import BaseLayout from '$layouts/BaseLayout.astro';
 
 /*
- * 公開中のアルバムはビルド時に取得して焼き込む（DECISIONS 24 / #125）。並び順はバックエンドの既定
- * （登録の新しい順）に従う。日付を軸にした導線と絞り込みは #210。
+ * 公開中のアルバムはビルド時に取得して焼き込む（DECISIONS 24 / #125）。並び順は listAlbums が決める。
+ * 日付を軸にした導線と絞り込みは #210。
  */
 const albums = await listAlbums();
 ---
