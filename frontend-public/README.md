@@ -67,10 +67,12 @@ npm exec -w abservice-frontend-public -- shadcn-svelte add <component> -y
 
 ## スクリプト
 
-| コマンド                                         | 内容                         |
-| ------------------------------------------------ | ---------------------------- |
-| `npm run dev -w abservice-frontend-public`       | 開発サーバ（4321番）         |
-| `npm run build -w abservice-frontend-public`     | 静的出力を `dist/` へ        |
-| `npm run typecheck -w abservice-frontend-public` | `astro check`                |
-| `npm run lint -w abservice-frontend-public`      | prettier のチェックと eslint |
-| `npm run format -w abservice-frontend-public`    | prettier で整形              |
+| コマンド                                         | 内容                                  |
+| ------------------------------------------------ | ------------------------------------- |
+| `npm run dev -w abservice-frontend-public`       | 開発サーバ（4321番）                  |
+| `npm run build -w abservice-frontend-public`     | 静的出力を `dist/` へ                 |
+| `npm run typecheck -w abservice-frontend-public` | `astro check`                         |
+| `npm run lint -w abservice-frontend-public`      | 型の生成・prettier のチェック・eslint |
+| `npm run format -w abservice-frontend-public`    | prettier で整形                       |
+
+lint が先に型を作る（`astro sync`）のは、`astro:env` の型が `.astro/` の生成物にあるため。これを持たない状態で eslint を走らせると、環境変数が `any` として扱われ型情報を使う検査が誤った指摘を出す。

@@ -9,7 +9,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "typecheck": "astro check",
-    "lint": "prettier --check . && eslint .",
+    "lint": "astro sync && prettier --check . && eslint .",
     "format": "prettier --write .",
     "generate:api-types": "openapi-typescript ../backend/build/openapi/openapi.yaml -o src/lib/api/schema.d.ts"
   },
