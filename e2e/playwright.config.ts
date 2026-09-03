@@ -41,17 +41,24 @@ export default defineConfig({
   ],
 
   /*
-   * 公開サイトは静的出力のため、開発サーバではなくビルド済みの成果物を配信して見る。バックエンドの
-   * 起動待ちと組み立ても含めて scripts/serve-site.mjs が受け持つ（順序に意味があるため1つに置く）。
-   */
-  /*
+   * どちらのアプリも静的出力のため、開発サーバではなくビルド済みの成果物を配信して見る。組み立てと
+   * データ投入は scripts/prepare-stack.mjs が済ませている（順序に意味があるため1つに置く）。
+   *
    * 既存のサーバを再利用しない。配信しているのは静的な成果物のため、再利用すると前の実行で組んだ
    * 古い画面を見続けることになる（変更が反映されないまま緑になる）。組み直しは1秒未満で済む。
    */
-  webServer: {
-    command: 'node scripts/serve-site.mjs',
-    url: stack.siteBaseUrl,
-    reuseExistingServer: false,
-    timeout: 180_000,
-  },
+  webServer: [
+    {
+      command: 'node scripts/serve-app.mjs public',
+      url: stack.siteBaseUrl,
+      reuseExistingServer: false,
+      timeout: 180_000,
+    },
+    {
+      command: 'node scripts/serve-app.mjs admin',
+      url: stack.adminBaseUrl,
+      reuseExistingServer: false,
+      timeout: 180_000,
+    },
+  ],
 });

@@ -56,15 +56,20 @@ const clearEvidence = () => {
   rmSync(join(repositoryRoot, 'e2e/evidence'), { recursive: true, force: true });
 };
 
-const buildSite = () => {
-  execFileSync('npm', ['run', 'build', '-w', 'abservice-frontend-public'], {
+/*
+ * 公開サイトは組み立ての時点でバックエンドを叩く（API_BASE_URL）。管理画面は組み立てでは叩かず、
+ * ブラウザが叩く（PUBLIC_API_BASE_URL）。どちらも指す先は同じ E2E 用のバックエンドで、渡し方が違う。
+ */
+const build = (workspace, env) => {
+  execFileSync('npm', ['run', 'build', '-w', workspace], {
     cwd: repositoryRoot,
     stdio: 'inherit',
-    env: { ...process.env, API_BASE_URL: stack.backendBaseUrl },
+    env: { ...process.env, ...env },
   });
 };
 
 await waitForBackend(Date.now() + WAIT_LIMIT_MS);
 clearEvidence();
 await seedForBuild();
-buildSite();
+build('abservice-frontend-public', { API_BASE_URL: stack.backendBaseUrl });
+build('abservice-frontend-admin', { PUBLIC_API_BASE_URL: stack.backendBaseUrl });

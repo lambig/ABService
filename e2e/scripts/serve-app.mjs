@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 
 /**
- * 組み上がった公開サイトを配信する（Playwright の webServer から起動される）。
+ * 組み上がったアプリを配信する（Playwright の webServer から起動される）。
+ *
+ *   node scripts/serve-app.mjs public
+ *   node scripts/serve-app.mjs admin
  *
  * 起動待ち・データ投入・組み立ては `prepare-stack.mjs` が済ませている。ここは配信だけを担う。
  *
@@ -9,6 +12,9 @@
  * webServer から使えない。組み上がったファイルを返すだけで足りるため、ここに置く。将来の本番配信も
  * 素の静的配信になる見込み（#125）で、Astro 独自の機能を持つ開発用サーバより実際に近い。
  * E2E そのものは配信先の環境に依存しない（ローカルと CI の中で完結する）。
+ *
+ * 公開サイトと管理画面は別のポートで配信する。1つのプロセスに畳まないのは、Playwright に
+ * 「どちらが上がっていないのか」を持たせるため（webServer は URL ごとに待つ）。
  */
 
 import { existsSync, statSync } from 'node:fs';
@@ -16,10 +22,23 @@ import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { extname, join, normalize } from 'node:path';
 
-import { sitePort } from '../src/support/config.ts';
+import { apps, portOf } from '../src/support/config.ts';
 
 const repositoryRoot = new URL('../../', import.meta.url).pathname;
-const distDir = join(repositoryRoot, 'frontend-public/dist');
+
+const fail = (message) => {
+  console.error(message);
+  process.exit(1);
+};
+
+const appName = process.argv[2] ?? '';
+
+const app = Object.hasOwn(apps, appName)
+  ? apps[appName]
+  : fail(`配信するアプリを指定してください: ${Object.keys(apps).join(' | ')}`);
+
+const distDir = join(repositoryRoot, app.distDir);
+const port = portOf(appName);
 
 const CONTENT_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -42,7 +61,8 @@ const resolveFile = (pathname) => {
 
 /*
  * 見つからない要求には、組み上がった 404 のページを 404 のまま返す（#197。未存在と非公開を区別しない）。
- * 本番の配信もエラーページを同じ形で返す想定のため（#125）、ここでも本文を伴わせる。
+ * 本番の配信もエラーページを同じ形で返す想定のため（#125）、ここでも本文を伴わせる。管理画面は
+ * 404 のページを持たないため、その場合は本文なしで返る。
  */
 const notFoundPage = join(distDir, '404.html');
 
@@ -58,7 +78,7 @@ const respondNotFound = (response) =>
     : response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('Not Found');
 
 createServer((request, response) => {
-  const pathname = new URL(request.url ?? '/', `http://127.0.0.1:${String(sitePort)}`).pathname;
+  const pathname = new URL(request.url ?? '/', `http://127.0.0.1:${String(port)}`).pathname;
   const file = resolveFile(pathname);
 
   return file === undefined
@@ -70,6 +90,6 @@ createServer((request, response) => {
         });
         response.end(body);
       });
-}).listen(sitePort, '127.0.0.1', () => {
-  console.log(`公開サイトを配信しています: http://127.0.0.1:${String(sitePort)}`);
+}).listen(port, '127.0.0.1', () => {
+  console.log(`${appName} を配信しています: http://127.0.0.1:${String(port)}`);
 });
