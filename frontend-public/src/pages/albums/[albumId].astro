@@ -55,9 +55,15 @@ const playerUrl =
   album.externalAudios[0] === undefined ? null : toEmbedUrl(album.externalAudios[0].url);
 const coverImageUrlForPreview =
   album.coverImageUrl === null ? null : new URL(album.coverImageUrl, Astro.site).href;
+
+/*
+ * 概要説明はメタ説明（description / og:description）に渡さない。Markdown の記法と改行がそのまま
+ * 検索結果とリンクプレビューへ出るうえ、長さも本文に依存する。作品はショート紹介文を持たない（#197。
+ * 持つのは記事だけ）ため、短文の出所ができるまでメタ説明を出さない。
+ */
 ---
 
-<BaseLayout title={album.title} description={album.description ?? undefined}>
+<BaseLayout title={album.title}>
   <Fragment slot="head">
     {
       playerUrl === null ? (
