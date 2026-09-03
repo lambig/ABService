@@ -26,6 +26,20 @@ const ALBUM_REFERENCE_HEADING = 'この記事の作品';
 /** ページ送りの導線。文言は画面の実装が持つ */
 const NEXT_PAGE_LINK = '次のページ';
 
+/**
+ * 1ページ目に並ぶはずのタイトル。
+ *
+ * 公開の順序がそのまま並び順になる（公開日の降順）。最後に公開した作品紹介・ノートが先頭へ来て、
+ * 詰め物は番号の大きい方から続く。1ページに収まらない最後の1件（詰め物の1番）は2ページ目へ送られる。
+ */
+const firstPageTitles = [
+  albumArticle.title,
+  plainArticle.title,
+  ...Array.from({ length: pagination.filler - 1 }, (_unused, index) =>
+    pagination.titleOf(pagination.filler - index),
+  ),
+];
+
 const articlePathOf = async (title: string): Promise<string> => {
   const article = await findArticleByTitle(title);
   return article === undefined
@@ -57,28 +71,23 @@ test.describe('記事の一覧', () => {
     await capture(page, '10-article-detail');
   });
 
-  test('公開日の降順に並ぶ', async ({ page }) => {
+  test('1ページ目に、公開日の降順で20件が並ぶ', async ({ page }) => {
     await page.goto('/articles');
 
     const titles = await page.getByRole('heading', { level: 2 }).allInnerTexts();
 
-    /* 公開の順序がそのまま並び順になる。最後に公開したものが先頭へ来る */
-    expect(titles.slice(0, 2)).toEqual([albumArticle.title, plainArticle.title]);
+    expect(titles).toEqual(firstPageTitles);
   });
 
-  test('1ページ20件で、次のページから残りを辿れる', async ({ page }) => {
+  test('次のページから残りを辿れる', async ({ page }) => {
     await page.goto('/articles');
-
-    await expect(page.getByRole('heading', { level: 2 })).toHaveCount(pagination.perPage);
 
     const next = page.getByRole('link', { name: NEXT_PAGE_LINK });
     await clickWithEvidence(page, next, '12-articles-next-page');
 
     /* 公開した記事は1ページを1件だけ超える。2ページ目には最初に公開した1件だけが残る */
-    await expect(page.getByRole('heading', { level: 2 })).toHaveCount(1);
-    await expect(
-      page.getByRole('heading', { level: 2, name: pagination.titleOf(1) }),
-    ).toBeVisible();
+    const titles = await page.getByRole('heading', { level: 2 }).allInnerTexts();
+    expect(titles).toEqual([pagination.titleOf(1)]);
   });
 
   test('下書きは一覧に出ない', async ({ page }) => {
