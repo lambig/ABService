@@ -26,6 +26,9 @@ const ALBUM_REFERENCE_HEADING = 'この記事の作品';
 /** ページ送りの導線。文言は画面の実装が持つ */
 const NEXT_PAGE_LINK = '次のページ';
 
+/** 404 の見出し。定型文のため画面の実装が持つ（#230） */
+const NOT_FOUND_HEADING = 'ページが見つかりません';
+
 /**
  * 1ページ目に並ぶはずのタイトル。
  *
@@ -148,13 +151,18 @@ test.describe('記事の詳細', () => {
     await expect(page.locator('strong')).toHaveCount(0);
   });
 
-  test('下書きの詳細は開けない', async ({ page }) => {
-    const response = await page.goto(await articlePathOf(draftArticle.title));
-
+  test('未存在と下書きは、同じ 404 のページになる', async ({ page }) => {
     /*
-     * 未存在と非公開を区別せず、どちらも 404 にする（#197。下書きの存在を漏らさない）。静的出力の
-     * ため下書きのページはそもそも組まれず、配信が 404 を返す。
+     * 未存在と非公開を区別せず、どちらも同じ 404 を返す（#197。下書きの存在を漏らさない）。静的出力の
+     * ため下書きのページはそもそも組まれず、配信が 404 のページを返す。
      */
-    expect(response?.status()).toBe(404);
+    const missing = await page.goto('/articles/not-a-real-article');
+    expect(missing?.status()).toBe(404);
+    await expect(page.getByRole('heading', { level: 1, name: NOT_FOUND_HEADING })).toBeVisible();
+    await capture(page, '13-not-found');
+
+    const draft = await page.goto(await articlePathOf(draftArticle.title));
+    expect(draft?.status()).toBe(404);
+    await expect(page.getByRole('heading', { level: 1, name: NOT_FOUND_HEADING })).toBeVisible();
   });
 });

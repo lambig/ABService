@@ -1,16 +1,44 @@
 ---
+import ArticleList from '$components/ArticleList.astro';
 import SiteNav from '$components/SiteNav.astro';
+import { listArticles } from '$lib/api/client';
+import { renderBody } from '$lib/markup';
+import { homeIntroduction } from '$lib/site';
 import BaseLayout from '$layouts/BaseLayout.astro';
 
+/** トップに並べる記事の件数（#197。全体を辿るのは記事一覧の役割） */
+const ARTICLE_COUNT = 5;
+
+const introduction = await homeIntroduction();
+
 /*
- * トップの中身（サイトの文言・最新の作品や記事の導線）は後続の作業で入れる。
- *
- * サイト名や紹介文は SiteContent（管理画面から登録する）を引いて描くため、リポジトリに文言を置かない。
+ * 紹介文は Markdown（#230）。プレーンテキストの場合はそのまま出す（Astro がエスケープする）。
+ * 未登録なら区画ごと出さない。文言はリポジトリに置かないため、代わりの文を用意しない。
+ */
+const introductionHtml =
+  introduction?.contentFormat === 'MARKDOWN' ? renderBody(introduction.content) : null;
+
+const articles = (await listArticles()).slice(0, ARTICLE_COUNT);
+
+/*
+ * 見出し（h1）は置かない。トップの主題はサイトそのもので、その名前はヘッダーが出す。作品名やページ名の
+ * ような、ページ固有の主題を持たないため。
  */
 ---
 
-<BaseLayout title="ABService">
+<BaseLayout>
   <SiteNav slot="header" />
 
-  <p class="text-muted-foreground py-12">準備中</p>
+  {
+    introduction === undefined ? null : introductionHtml === null ? (
+      <p class="py-6 whitespace-pre-wrap">{introduction.content}</p>
+    ) : (
+      <div class="prose-body py-6" set:html={introductionHtml} />
+    )
+  }
+
+  <section class="space-y-4 py-6">
+    <h2 class="text-lg font-medium">記事</h2>
+    <ArticleList articles={articles} />
+  </section>
 </BaseLayout>

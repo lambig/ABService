@@ -1,0 +1,22 @@
+---
+import SiteNav from '$components/SiteNav.astro';
+import BaseLayout from '$layouts/BaseLayout.astro';
+
+/*
+ * 未存在と非公開（下書き）を区別せず、どちらもこのページを出す（#197）。下書きの存在を漏らさないため、
+ * 「削除されました」「準備中です」のように状態を示す言い回しは使わない。
+ *
+ * 文言はサイトの内容ではなく定型文のため、コードへ置く（#230）。
+ */
+---
+
+<BaseLayout title="ページが見つかりません">
+  <SiteNav slot="header" />
+
+  <div class="space-y-4 py-12">
+    <h1 class="text-2xl font-medium">ページが見つかりません</h1>
+    <p class="text-muted-foreground">
+      お探しのページは見つかりませんでした。上の導線からお探しください。
+    </p>
+  </div>
+</BaseLayout>

@@ -2,7 +2,7 @@
 import EventInfo from '$components/EventInfo.astro';
 import ProperNoun from '$components/ProperNoun.astro';
 import type { PublicAlbum } from '$lib/api/client';
-import { formatReleaseDate } from '$lib/format';
+import { formatCalendarDate } from '$lib/format';
 
 interface Props {
   readonly album: PublicAlbum;
@@ -40,7 +40,7 @@ const identifiers = [album.catalogNumber, album.isdn].filter((value) => value !=
       <ProperNoun>{album.artistDisplayName}</ProperNoun>
     </p>
     <p class="text-muted-foreground text-sm">
-      <time datetime={album.releaseDate}>{formatReleaseDate(album.releaseDate)}</time>
+      <time datetime={album.releaseDate}>{formatCalendarDate(album.releaseDate)}</time>
     </p>
     {
       identifiers.length === 0 ? null : (

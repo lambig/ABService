@@ -22,6 +22,9 @@ export type PublicArticle = Schemas['PublicArticleResponse'];
 /** 公開向け記事詳細 */
 export type PublicArticleDetail = Schemas['PublicArticleDetailResponse'];
 
+/** サイトの文言1件 */
+export type SiteContent = Schemas['SiteContentResponse'];
+
 /** 一覧の1回あたりの取得件数。バックエンドが受け付ける上限 */
 const PAGE_SIZE = 100;
 
@@ -94,3 +97,16 @@ export const listArticles = (): Promise<readonly PublicArticle[]> => listAll(fet
 /** 公開中の記事詳細を取得する。 */
 export const getArticle = (articleId: string): Promise<PublicArticleDetail> =>
   fetchPublic(`/api/v1/articles/${articleId}`);
+
+/**
+ * サイトの文言を全件取得する（キーの昇順）。
+ *
+ * <p>
+ * ページネーションを持たない。未登録のキーは応答に現れないため、利用側は該当するキーが無ければその区画を
+ * 出さない（#230）。
+ * </p>
+ */
+export const listSiteContents = async (): Promise<readonly SiteContent[]> => {
+  const response = await fetchPublic<Schemas['SiteContentListResponse']>('/api/v1/site-contents');
+  return response.items;
+};

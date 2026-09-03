@@ -1,4 +1,4 @@
-import { showcase } from '../support/build-fixtures.ts';
+import { showcase, siteContent } from '../support/build-fixtures.ts';
 import { stack } from '../support/config.ts';
 import { capture, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
@@ -14,7 +14,8 @@ test.describe('公開サイトの基盤', () => {
   test('トップページが開き、導線をたどれる', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page).toHaveTitle('ABService');
+    /* トップはページの名前を持たないため、タイトルはサイト名だけになる（#230） */
+    await expect(page).toHaveTitle(siteContent.name);
     await capture(page, '01-top');
 
     /*

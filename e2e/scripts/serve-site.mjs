@@ -40,12 +40,29 @@ const resolveFile = (pathname) => {
   return candidates.find((candidate) => existsSync(candidate) && statSync(candidate).isFile());
 };
 
+/*
+ * 見つからない要求には、組み上がった 404 のページを 404 のまま返す（#197。未存在と非公開を区別しない）。
+ * 本番の配信もエラーページを同じ形で返す想定のため（#125）、ここでも本文を伴わせる。
+ */
+const notFoundPage = join(distDir, '404.html');
+
+const respondNotFound = (response) =>
+  existsSync(notFoundPage)
+    ? readFile(notFoundPage).then((body) => {
+        response.writeHead(404, {
+          'Content-Type': CONTENT_TYPES['.html'],
+          'Content-Length': body.byteLength,
+        });
+        response.end(body);
+      })
+    : response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('Not Found');
+
 createServer((request, response) => {
   const pathname = new URL(request.url ?? '/', `http://127.0.0.1:${String(sitePort)}`).pathname;
   const file = resolveFile(pathname);
 
   return file === undefined
-    ? response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('Not Found')
+    ? respondNotFound(response)
     : readFile(file).then((body) => {
         response.writeHead(200, {
           'Content-Type': CONTENT_TYPES[extname(file)] ?? 'application/octet-stream',

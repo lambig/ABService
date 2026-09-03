@@ -6,7 +6,7 @@ import ProperNoun from '$components/ProperNoun.astro';
 import SiteNav from '$components/SiteNav.astro';
 import TrackList from '$components/TrackList.astro';
 import { getAlbum, listAlbums, type PublicAlbumDetail } from '$lib/api/client';
-import { formatReleaseDate } from '$lib/format';
+import { formatCalendarDate } from '$lib/format';
 import { renderBody } from '$lib/markup';
 import BaseLayout from '$layouts/BaseLayout.astro';
 
@@ -80,7 +80,7 @@ const coverImageForBody = album.externalAudios.length === 0 ? album.coverImageUr
           <ProperNoun>{album.artistDisplayName}</ProperNoun>
         </p>
         <p class="text-muted-foreground text-sm">
-          <time datetime={album.releaseDate}>{formatReleaseDate(album.releaseDate)}</time>
+          <time datetime={album.releaseDate}>{formatCalendarDate(album.releaseDate)}</time>
         </p>
         {
           identifiers.length === 0 ? null : (
