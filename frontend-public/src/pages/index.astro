@@ -21,8 +21,8 @@ const introductionHtml =
 const articles = (await listArticles()).slice(0, ARTICLE_COUNT);
 
 /*
- * 見出し（h1）は置かない。トップの主題はサイトそのもので、その名前はヘッダーが出す。作品名やページ名の
- * ような、ページ固有の主題を持たないため。
+ * このページ自身の見出しは置かない。トップの主題はサイトそのもので、ヘッダーのサイト名がその見出しに
+ * なる（BaseLayout がページ名の有無で決める）。記事の区画はその下にぶら下がる。
  */
 ---
 
@@ -39,6 +39,6 @@ const articles = (await listArticles()).slice(0, ARTICLE_COUNT);
 
   <section class="space-y-4 py-6">
     <h2 class="text-lg font-medium">記事</h2>
-    <ArticleList articles={articles} />
+    <ArticleList articles={articles} headingLevel="h3" />
   </section>
 </BaseLayout>

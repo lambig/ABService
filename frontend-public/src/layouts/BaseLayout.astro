@@ -19,6 +19,12 @@ const name = await siteName();
  */
 const documentTitle = title === undefined ? name : `${title} ― ${name}`;
 
+/*
+ * ページ固有の名前を持たないページ（トップ）では、サイト名がそのページの見出しになる。名前を持つページ
+ * では、見出しはそのページ自身が出すため、ヘッダーのサイト名は見出しにしない。
+ */
+const SiteNameTag = title === undefined ? 'h1' : 'p';
+
 /* ページ固有の説明が無ければサイトの説明を出す。どちらも無ければメタ説明そのものを出さない */
 const metaDescription = description ?? (await siteDescription());
 
@@ -51,9 +57,9 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
   <body class="bg-background text-foreground min-h-screen">
     <div class="mx-auto flex min-h-screen max-w-5xl flex-col px-4">
       <header class="space-y-3 py-6">
-        <p class="text-lg font-medium">
+        <SiteNameTag class="text-lg font-medium">
           <a class="underline-offset-4 hover:underline" href="/">{name}</a>
-        </p>
+        </SiteNameTag>
         <slot name="header" />
       </header>
 

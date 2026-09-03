@@ -11,9 +11,18 @@ interface Props {
   readonly article: PublicArticle;
   /** 参照先アルバムのカバー画像。ALBUM 種別で参照と画像の両方があるときだけ渡る */
   readonly coverImageUrl?: string | null;
+  /**
+   * タイトルの見出しレベル。
+   *
+   * カードが何の下にぶら下がるかはページによって変わる（記事一覧では見出しの直下、トップでは「記事」の
+   * 区画の下）。文書構造は置く側が知っているため、そちらから渡す。
+   */
+  readonly headingLevel?: 'h2' | 'h3';
 }
 
-const { article, coverImageUrl = null } = Astro.props;
+const { article, coverImageUrl = null, headingLevel = 'h2' } = Astro.props;
+
+const Heading = headingLevel;
 ---
 
 <a
@@ -33,7 +42,7 @@ const { article, coverImageUrl = null } = Astro.props;
   }
 
   <div class="min-w-0 space-y-1">
-    <h2 class="font-medium">{article.title}</h2>
+    <Heading class="font-medium">{article.title}</Heading>
     {
       article.introShort === '' ? null : (
         <p class="text-muted-foreground line-clamp-2 text-sm">{article.introShort}</p>

@@ -1,4 +1,4 @@
-import { albumArticle, pagination, siteContent } from '../support/build-fixtures.ts';
+import { albumArticle, pagination, plainArticle, siteContent } from '../support/build-fixtures.ts';
 import { expect, test } from '../support/fixtures.ts';
 
 /**
@@ -11,12 +11,28 @@ import { expect, test } from '../support/fixtures.ts';
 /** トップに並べる記事の件数。画面の実装が持つ（#197） */
 const HOME_ARTICLE_COUNT = 5;
 
+/**
+ * トップに並ぶはずのタイトル。
+ *
+ * 記事の並びは公開日の降順で、最後に公開した作品紹介・ノートが先頭へ来る。続きは詰め物が番号の大きい方
+ * から埋め、5件で打ち切られる。
+ */
+const homeArticleTitles = [
+  albumArticle.title,
+  plainArticle.title,
+  ...Array.from({ length: HOME_ARTICLE_COUNT - 2 }, (_unused, index) =>
+    pagination.titleOf(pagination.filler - index),
+  ),
+];
+
 test.describe('トップ', () => {
   test('サイト名と紹介文が出る', async ({ page }) => {
     await page.goto('/');
 
     await expect(page).toHaveTitle(siteContent.name);
-    await expect(page.getByRole('link', { name: siteContent.name })).toBeVisible();
+
+    /* ページ固有の名前を持たないため、サイト名がこのページの見出しになる */
+    await expect(page.getByRole('heading', { level: 1, name: siteContent.name })).toBeVisible();
 
     await expect(
       page.getByRole('heading', { level: 2, name: siteContent.introduction.heading }),
@@ -27,17 +43,11 @@ test.describe('トップ', () => {
   test('記事が公開日の降順で5件だけ並ぶ', async ({ page }) => {
     await page.goto('/');
 
-    /* 記事のカードは main の中の項目。導線（ヘッダー）の項目と混ざらないよう main へ絞る */
-    const cards = page.locator('main li');
-    await expect(cards).toHaveCount(HOME_ARTICLE_COUNT);
-
-    const titles = await cards.getByRole('heading', { level: 2 }).allInnerTexts();
-    expect(titles[0]).toBe(albumArticle.title);
-
     /*
-     * 全体を辿るのは記事一覧の役割。ここには続きが出ない。完全一致で見るのは、詰め物の1番が
-     * 10番台のタイトルの一部にもなるため（「記事 1」は「記事 19」に含まれる）。
+     * 記事のカードは「記事」の区画にぶら下がるため h3。件数・順序・打ち切り位置を1つの期待値で見る。
      */
-    await expect(page.getByText(pagination.titleOf(1), { exact: true })).toHaveCount(0);
+    const titles = await page.getByRole('heading', { level: 3 }).allInnerTexts();
+
+    expect(titles).toEqual(homeArticleTitles);
   });
 });

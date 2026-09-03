@@ -10,9 +10,11 @@ import { referencedAlbumId } from '$lib/article';
  */
 interface Props {
   readonly articles: readonly PublicArticle[];
+  /** カードのタイトルの見出しレベル。文書構造は置く側が知っているため、そのまま通す */
+  readonly headingLevel?: 'h2' | 'h3';
 }
 
-const { articles } = Astro.props;
+const { articles, headingLevel } = Astro.props;
 
 /*
  * ALBUM 種別のカードは参照先アルバムのカバー画像を出す（#197）。アルバムの情報は記事の一覧検索では
@@ -36,7 +38,11 @@ const coverImages = new Map(
     <ul class="grid gap-4">
       {articles.map((article) => (
         <li>
-          <ArticleCard article={article} coverImageUrl={coverImages.get(article.articleId)} />
+          <ArticleCard
+            article={article}
+            coverImageUrl={coverImages.get(article.articleId)}
+            headingLevel={headingLevel}
+          />
         </li>
       ))}
     </ul>
