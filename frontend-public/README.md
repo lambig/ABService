@@ -43,6 +43,18 @@ npm run dev -w abservice-frontend-public
 
 ライトとダークの2組を `prefers-color-scheme` で持ち、サイト内での切り替え機構は持たない。
 
+## Svelte
+
+コンポーネントは runes で書く。`svelte.config.js` が `src/` 配下を runes モードで組むため、Svelte 4 の記法（`export let` / `$:` / `$$props`）はビルドで落ちる。runes モードでもコンパイルが通ってしまう `<slot>` と `on:` のイベントディレクティブは、eslint の `svelte/valid-compile` が落とす。
+
+強制の範囲は `src/` 配下に限る。コンパイラの設定として置くと `node_modules` の Svelte コンポーネントにも及び、依存が Svelte 4 の記法を含むだけでビルドできなくなる。依存の実装方式はこちらの規約とは関係がない。
+
+- props は `$props()`、状態は `$state`、導出は `$derived`
+- 子の受け渡しはスニペット（`{@render ...}`）
+- 親への通知はコールバックの props（`createEventDispatcher` は `no-restricted-imports` で禁じてある）
+
+書き方を1つに固定するのは、`let` が状態なのかただの変数なのかをファイルごとに読み替えずに済ませるため。既定では runes を使っているファイルだけが runes モードになり、同じ記法の意味がファイルによって変わる。
+
 ## shadcn-svelte
 
 コンポーネントは CLI で追加する。
@@ -55,10 +67,12 @@ npm exec -w abservice-frontend-public -- shadcn-svelte add <component> -y
 
 ## スクリプト
 
-| コマンド                                         | 内容                         |
-| ------------------------------------------------ | ---------------------------- |
-| `npm run dev -w abservice-frontend-public`       | 開発サーバ（4321番）         |
-| `npm run build -w abservice-frontend-public`     | 静的出力を `dist/` へ        |
-| `npm run typecheck -w abservice-frontend-public` | `astro check`                |
-| `npm run lint -w abservice-frontend-public`      | prettier のチェックと eslint |
-| `npm run format -w abservice-frontend-public`    | prettier で整形              |
+| コマンド                                         | 内容                                  |
+| ------------------------------------------------ | ------------------------------------- |
+| `npm run dev -w abservice-frontend-public`       | 開発サーバ（4321番）                  |
+| `npm run build -w abservice-frontend-public`     | 静的出力を `dist/` へ                 |
+| `npm run typecheck -w abservice-frontend-public` | `astro check`                         |
+| `npm run lint -w abservice-frontend-public`      | 型の生成・prettier のチェック・eslint |
+| `npm run format -w abservice-frontend-public`    | prettier で整形                       |
+
+lint が先に型を作る（`astro sync`）のは、`astro:env` の型が `.astro/` の生成物にあるため。これを持たない状態で eslint を走らせると、環境変数が `any` として扱われ型情報を使う検査が誤った指摘を出す。

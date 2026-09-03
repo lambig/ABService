@@ -2,6 +2,7 @@ import js from '@eslint/js';
 import astro from 'eslint-plugin-astro';
 import functional from 'eslint-plugin-functional';
 import svelte from 'eslint-plugin-svelte';
+import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 /**
@@ -49,8 +50,41 @@ const conventionRules = {
     'error',
     {
       patterns: ['../../*'],
+      paths: [
+        {
+          name: 'svelte',
+          importNames: ['createEventDispatcher'],
+          message:
+            'Svelte 4 までの API です。親への通知はコールバックの props で表してください（README の Svelte 節）。',
+        },
+        {
+          name: 'svelte',
+          importNames: ['beforeUpdate'],
+          message: 'Svelte 4 までの API です。更新前の処理は $effect.pre で表してください。',
+        },
+        {
+          name: 'svelte',
+          importNames: ['afterUpdate'],
+          message: 'Svelte 4 までの API です。更新後の処理は $effect で表してください。',
+        },
+      ],
     },
   ],
+};
+
+/**
+ * Svelte を runes に揃えるためのルール。
+ *
+ * svelte.config.js の `compilerOptions.runes` と対にする。あちらが塞ぐのはビルドの時点。ここは
+ * ビルドを待たずに同じことを出すためと、runes モードでもコンパイルが通ってしまう Svelte 4 由来の
+ * 書き方（`<slot>`・`on:` のイベントディレクティブ）を塞ぐためにある。
+ */
+const runesRules = {
+  // コンパイラの警告を lint の失敗にする（非推奨の記法はここに出る）
+  'svelte/valid-compile': 'error',
+
+  // $derived.by で書けるものは $derived で書く
+  'svelte/prefer-derived-over-derived-by': 'error',
 };
 
 export default tseslint.config(
@@ -62,6 +96,7 @@ export default tseslint.config(
       // 設定ファイル自身は tsconfig の include 外のため型情報を使う検査にかけられない
       'eslint.config.js',
       'astro.config.mjs',
+      'svelte.config.js',
       /*
        * shadcn-svelte が置くコンポーネントは、このリポジトリが書いたコードではなく上流の生成物である。
        * 規約（if 禁止・否定禁止・immutable-data）はここへ効かせない。手を入れる場合も、上流の更新を
@@ -75,19 +110,26 @@ export default tseslint.config(
 
   js.configs.recommended,
   ...astro.configs.recommended,
-  ...svelte.configs.recommended,
 
+  /*
+   * 型情報を使う検査。tsconfig の include が `.svelte` も拾うため、コンポーネントにも同じ水準で効かせる。
+   *
+   * PARSER-ORDER: この設定は対象のファイルへ TypeScript のパーサを置く。`.svelte` を読めるのは
+   * svelte のパーサだけのため、Svelte の設定より前に置いて上書きさせる。
+   */
   {
-    // 型情報を使う検査は TypeScript のファイルに効かせる
-    files: ['**/*.ts'],
+    files: ['**/*.ts', '**/*.svelte', '**/*.svelte.ts'],
     extends: [tseslint.configs.strictTypeChecked],
     languageOptions: {
       parserOptions: {
         projectService: true,
         tsconfigRootDir: import.meta.dirname,
+        extraFileExtensions: ['.svelte'],
       },
     },
   },
+
+  ...svelte.configs.recommended,
 
   {
     files: ['**/*.ts', '**/*.astro', '**/*.svelte'],
@@ -96,5 +138,18 @@ export default tseslint.config(
       functional,
     },
     rules: conventionRules,
+  },
+
+  {
+    files: ['**/*.svelte', '**/*.svelte.ts'],
+    languageOptions: {
+      /* コンポーネントはブラウザで動く。document や console を未定義と見なさない */
+      globals: globals.browser,
+      /* `<script lang="ts">` の中身は、Svelte のパーサから TypeScript のパーサへ渡さないと読めない */
+      parserOptions: {
+        parser: tseslint.parser,
+      },
+    },
+    rules: runesRules,
   },
 );

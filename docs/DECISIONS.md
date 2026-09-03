@@ -391,4 +391,4 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **トレードオフ**: 依存の取得がプロキシの可用性に依存する。`npm publish` / `npm login` は読み取り専用プロキシのため通らない（必要なら `--registry` で直接指定する）。プライベートレジストリ経由で取得するパッケージはスキャンを受けない。ロックファイルの `resolved` にプロキシの URL が記録されるため、Guard をやめる場合はロックファイルの再生成が必要になる（この記録には npm 11.15.0 以降が要る。8 で npm を 11.19.0 に固定しているのはこの条件も満たすため）。
 
-**実体**: `.npmrc`（`registry`）。CI への組み込み（`flatt-security/setup-takumi-guard-npm`）は #124 で扱う——現在の `ci.yml` は `backend-check` だけで npm を使う工程がない。
+**実体**: `.npmrc`（`registry`）。CI への組み込み（`flatt-security/setup-takumi-guard-npm`）は #124 で扱う。
