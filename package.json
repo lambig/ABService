@@ -6,6 +6,7 @@
   "workspaces": [
     "packages/*",
     "frontend-public",
+    "frontend-admin",
     "e2e"
   ],
   "scripts": {
@@ -13,22 +14,27 @@
     "dev:backend": "cd backend && ./gradlew quarkusDev",
     "dev:backend:e2e": "cd backend && DB_NAME=abservice_e2e QUARKUS_HTTP_PORT=8090 QUARKUS_FLYWAY_CLEAN_AT_START=true ./gradlew quarkusDev",
     "dev:public": "npm run dev -w abservice-frontend-public",
-    "build": "npm run build:backend && npm run build:public",
+    "dev:admin": "npm run dev -w abservice-frontend-admin",
+    "build": "npm run build:backend && npm run build:public && npm run build:admin",
     "build:backend": "cd backend && ./gradlew build -x test",
     "build:public": "npm run build -w abservice-frontend-public",
+    "build:admin": "npm run build -w abservice-frontend-admin",
     "test": "npm run test:backend && npm run test:markup",
     "test:backend": "cd backend && ./gradlew test",
     "test:markup": "npm run test -w abservice-markup",
     "test:e2e": "npm run test -w abservice-e2e",
-    "lint": "npm run lint:markup && npm run lint:public && npm run lint:e2e",
+    "lint": "npm run lint:markup && npm run lint:public && npm run lint:admin && npm run lint:e2e",
     "lint:markup": "npm run lint -w abservice-markup",
     "lint:public": "npm run lint -w abservice-frontend-public",
+    "lint:admin": "npm run lint -w abservice-frontend-admin",
     "lint:e2e": "npm run lint -w abservice-e2e",
     "typecheck:markup": "npm run typecheck -w abservice-markup",
     "typecheck:public": "npm run typecheck -w abservice-frontend-public",
+    "typecheck:admin": "npm run typecheck -w abservice-frontend-admin",
     "typecheck:e2e": "npm run typecheck -w abservice-e2e",
-    "format": "npm run format:public && npm run format:e2e",
+    "format": "npm run format:public && npm run format:admin && npm run format:e2e",
     "format:public": "npm run format -w abservice-frontend-public",
+    "format:admin": "npm run format -w abservice-frontend-admin",
     "format:e2e": "npm run format -w abservice-e2e",
     "evidence:publish": "npm run evidence:publish -w abservice-e2e --",
     "docker:up": "docker-compose up -d",
@@ -39,9 +45,10 @@
     "docker:logs": "docker-compose logs -f",
     "docker:logs:postgres": "docker-compose logs -f postgres",
     "docker:logs:keycloak": "docker-compose logs -f keycloak",
-    "clean": "npm run clean:backend && npm run clean:public",
+    "clean": "npm run clean:backend && npm run clean:public && npm run clean:admin",
     "clean:backend": "cd backend && ./gradlew clean",
-    "clean:public": "rm -rf frontend-public/dist frontend-public/.astro"
+    "clean:public": "rm -rf frontend-public/dist frontend-public/.astro",
+    "clean:admin": "rm -rf frontend-admin/dist frontend-admin/.astro"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

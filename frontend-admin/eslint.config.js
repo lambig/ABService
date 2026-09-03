@@ -8,8 +8,8 @@ import tseslint from 'typescript-eslint';
 /**
  * バックエンドの規約（docs/CODING_GUIDELINES.md §1）をフロントへ写した設定。
  *
- * ルールの選定は packages/markup（#232）に揃える。差分は「Astro / Svelte のファイルが増えること」と
- * 「shadcn-svelte が持ち込むコンポーネントを対象外にすること」の2点で、いずれも下にその理由を書く。
+ * 内容は frontend-public と同じものを持つ。共通化（workspaces のパッケージへ出すか、各アプリで
+ * 重複させるか）は #232 が決めることのため、ここでは先に決めない。
  */
 
 /** if 文・||・否定 ! の禁止（バックエンドの PMD ForbiddenIfStatement 等に対応） */

@@ -83,12 +83,12 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  frontend-public-check:
-    name: Frontend public check (prettier / eslint / astro check)
+  frontend-check:
+    name: Frontend check (prettier / eslint / astro check)
     runs-on: ubuntu-latest
 
     # バックエンドを起動しない。lint と型検査はビルド時のデータ取得を伴わないため、
-    # 公開サイトの組み立て（E2E ジョブが行う）とは独立に走らせられる。
+    # 画面の組み立て（E2E ジョブが行う）とは独立に走らせられる。
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -102,11 +102,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
+      - name: Lint (public)
         run: npm run lint:public
 
-      - name: Typecheck
+      - name: Typecheck (public)
         run: npm run typecheck:public
+
+      - name: Lint (admin)
+        run: npm run lint:admin
+
+      - name: Typecheck (admin)
+        run: npm run typecheck:admin
 
   e2e:
     name: E2E (Playwright / 実スタック)

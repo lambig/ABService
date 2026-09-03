@@ -1,0 +1,9 @@
+dist
+.astro
+node_modules
+
+# shadcn-svelte が置くコンポーネント。上流の生成物のため整形せず、`add` で入れ直したときに差分を作らない
+src/lib/components/ui
+
+# OpenAPI から生成する型定義。生成し直したときに差分を作らない
+src/lib/api/schema.d.ts

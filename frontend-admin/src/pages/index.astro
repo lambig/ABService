@@ -1,0 +1,13 @@
+---
+import AlbumAdminList from '$components/AlbumAdminList.svelte';
+import AdminLayout from '$layouts/AdminLayout.astro';
+
+/*
+ * 一覧はブラウザで引く（下書きを含むため、組み立ての時点の内容を配れない）。組み立てでは描かないため
+ * client:only を指定する。鍵の保持に sessionStorage を使っており、サーバ側では動かない。
+ */
+---
+
+<AdminLayout title="作品">
+  <AlbumAdminList client:only="svelte" />
+</AdminLayout>
