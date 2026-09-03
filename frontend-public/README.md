@@ -43,6 +43,16 @@ npm run dev -w abservice-frontend-public
 
 ライトとダークの2組を `prefers-color-scheme` で持ち、サイト内での切り替え機構は持たない。
 
+## Svelte
+
+コンポーネントは runes で書く。`svelte.config.js` で `compilerOptions.runes` を有効にしてあり、Svelte 4 の記法（`export let` / `$:` / `$$props`）はビルドで落ちる。runes モードでもコンパイルが通ってしまう `<slot>` と `on:` のイベントディレクティブは、eslint の `svelte/valid-compile` が落とす。
+
+- props は `$props()`、状態は `$state`、導出は `$derived`
+- 子の受け渡しはスニペット（`{@render ...}`）
+- 親への通知はコールバックの props（`createEventDispatcher` は `no-restricted-imports` で禁じてある）
+
+書き方を1つに固定するのは、`let` が状態なのかただの変数なのかをファイルごとに読み替えずに済ませるため。既定では runes を使っているファイルだけが runes モードになり、同じ記法の意味がファイルによって変わる。
+
 ## shadcn-svelte
 
 コンポーネントは CLI で追加する。

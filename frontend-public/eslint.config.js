@@ -2,6 +2,7 @@ import js from '@eslint/js';
 import astro from 'eslint-plugin-astro';
 import functional from 'eslint-plugin-functional';
 import svelte from 'eslint-plugin-svelte';
+import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 /**
@@ -49,8 +50,31 @@ const conventionRules = {
     'error',
     {
       patterns: ['../../*'],
+      paths: [
+        {
+          name: 'svelte',
+          importNames: ['createEventDispatcher', 'beforeUpdate', 'afterUpdate'],
+          message:
+            'Svelte 4 までの API です。イベントはコールバックの props で、更新後の処理は $effect で表してください。',
+        },
+      ],
     },
   ],
+};
+
+/**
+ * Svelte を runes に揃えるためのルール。
+ *
+ * svelte.config.js の `compilerOptions.runes` と対にする。あちらが塞ぐのはビルドの時点。ここは
+ * ビルドを待たずに同じことを出すためと、runes モードでもコンパイルが通ってしまう Svelte 4 由来の
+ * 書き方（`<slot>`・`on:` のイベントディレクティブ）を塞ぐためにある。
+ */
+const runesRules = {
+  // コンパイラの警告を lint の失敗にする（非推奨の記法はここに出る）
+  'svelte/valid-compile': 'error',
+
+  // $derived.by で書けるものは $derived で書く
+  'svelte/prefer-derived-over-derived-by': 'error',
 };
 
 export default tseslint.config(
@@ -62,6 +86,7 @@ export default tseslint.config(
       // 設定ファイル自身は tsconfig の include 外のため型情報を使う検査にかけられない
       'eslint.config.js',
       'astro.config.mjs',
+      'svelte.config.js',
       /*
        * shadcn-svelte が置くコンポーネントは、このリポジトリが書いたコードではなく上流の生成物である。
        * 規約（if 禁止・否定禁止・immutable-data）はここへ効かせない。手を入れる場合も、上流の更新を
@@ -96,5 +121,21 @@ export default tseslint.config(
       functional,
     },
     rules: conventionRules,
+  },
+
+  {
+    files: ['**/*.svelte', '**/*.svelte.ts'],
+    languageOptions: {
+      /* コンポーネントはブラウザで動く。document や console を未定義と見なさない */
+      globals: globals.browser,
+      /*
+       * `<script lang="ts">` の中身は、Svelte のパーサから TypeScript のパーサへ渡さないと読めない。
+       * 型情報を使う検査までは効かせない（.svelte は tsconfig の対象外のため）。
+       */
+      parserOptions: {
+        parser: tseslint.parser,
+      },
+    },
+    rules: runesRules,
   },
 );
