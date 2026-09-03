@@ -7,6 +7,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 # 同一ブランチの古い実行はキャンセルして最新のみ走らせる
 concurrency:
   group: ci-${{ github.ref }}
