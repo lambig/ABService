@@ -19,12 +19,23 @@ export declare const commentsPluginName: string;
 
 export declare const commentsPlugin: ESLint.Plugin;
 
+export declare const localPluginName: string;
+
+export declare const localPlugin: ESLint.Plugin;
+
 export interface RestrictedSyntaxEntry {
   readonly selector: string;
   readonly message: string;
 }
 
 export declare const restrictedSyntax: readonly RestrictedSyntaxEntry[];
+
+export interface RestrictedPathEntry {
+  readonly name: string;
+  readonly message: string;
+}
+
+export declare const forbiddenAssertionPaths: readonly RestrictedPathEntry[];
 
 export declare const conventionRules: Linter.RulesRecord;
 
