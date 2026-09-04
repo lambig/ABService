@@ -17,7 +17,8 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+import org.jboss.resteasy.reactive.ResponseStatus;
+import org.jboss.resteasy.reactive.RestResponse;
 
 /**
  * 記事タグの Command REST リソース
@@ -66,9 +67,10 @@ public class ArticleTagCommandResource {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> add(@PathParam("articleId") String articleId, AddArticleTagRequest request) {
+    @ResponseStatus(RestResponse.StatusCode.CREATED)
+    public Uni<AddArticleTagResponse> add(@PathParam("articleId") String articleId, AddArticleTagRequest request) {
         return addArticleTagService.execute(new AddArticleTagInput(articleId, request.name()))
-                .map(ArticleTagCommandResource::toCreated);
+                .map(ArticleTagCommandResource::toResponse);
     }
 
     /**
@@ -82,18 +84,15 @@ public class ArticleTagCommandResource {
      */
     @DELETE
     @Path("/{tagId}")
-    public Uni<Response> remove(@PathParam("articleId") String articleId, @PathParam("tagId") String tagId) {
+    public Uni<Void> remove(@PathParam("articleId") String articleId, @PathParam("tagId") String tagId) {
         return removeArticleTagService.execute(new RemoveArticleTagInput(articleId, tagId))
-                .replaceWith(Response.noContent().build());
+                .replaceWithVoid();
     }
 
-    private static Response toCreated(AddArticleTagOutput output) {
-        return Response.status(Response.Status.CREATED)
-                .entity(
-                        new AddArticleTagResponse(
-                                output.articleId(),
-                                output.tagId(),
-                                output.name()))
-                .build();
+    private static AddArticleTagResponse toResponse(AddArticleTagOutput output) {
+        return new AddArticleTagResponse(
+                output.articleId(),
+                output.tagId(),
+                output.name());
     }
 }

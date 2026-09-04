@@ -87,6 +87,32 @@ class AlbumRestIntegrationTest {
     }
 
     @Test
+    @DisplayName("管理向け詳細が返したカバー画像のキーをそのまま更新へ返すと、画像は保たれる")
+    void adminDetailReturnsCoverImageKeyThatSurvivesUpdate() {
+        final String albumId = authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"title\":\"キー往復のアルバム\",\"releaseDate\":\"2026-01-01\","
+                                + "\"artistDisplayName\":\"E2Eアーティスト\","
+                                + "\"coverImageKey\":\"01a0233d-d25a-7c3b-924f-236ee154fecc.png\"}")
+                .when().post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
+
+        final String coverImageKey = authorized().when().get("/api/v1/admin/albums/" + albumId).then().statusCode(200)
+                .body("coverImageKey", equalTo("01a0233d-d25a-7c3b-924f-236ee154fecc.png")).extract()
+                .path("coverImageKey");
+
+        authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"title\":\"キー往復のアルバム（改題）\",\"releaseDate\":\"2026-01-01\","
+                                + "\"artistDisplayName\":\"E2Eアーティスト\","
+                                + "\"coverImageKey\":\"" + coverImageKey + "\"}")
+                .when().put("/api/v1/albums/" + albumId).then().statusCode(200);
+
+        authorized().when().get("/api/v1/admin/albums/" + albumId).then().statusCode(200)
+                .body("coverImageKey", equalTo("01a0233d-d25a-7c3b-924f-236ee154fecc.png"))
+                .body("coverImageUrl", equalTo("/assets/01a0233d-d25a-7c3b-924f-236ee154fecc.png"));
+    }
+
+    @Test
     @DisplayName("カバー画像なしのアルバムは配信URLがnullで返る")
     void albumWithoutCoverImageHasNullUrl() {
         final String albumId = authorized().contentType(ContentType.JSON)
@@ -96,6 +122,7 @@ class AlbumRestIntegrationTest {
                 .when().post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
 
         authorized().when().get("/api/v1/admin/albums/" + albumId).then().statusCode(200)
+                .body("coverImageKey", nullValue())
                 .body("coverImageUrl", nullValue());
     }
 

@@ -54,6 +54,8 @@ import org.jspecify.annotations.Nullable;
  *            初出イベント補足情報（nullable）
  * @param publishedAt
  *            公開日時（nullable。null は下書き。UTC の {@link Instant}）
+ * @param coverImageKey
+ *            カバー画像の保管キー（nullable。編集の更新要求が受け取るのはこの値で、配信URLではない）
  * @param coverImageUrl
  *            カバー画像の配信URL（nullable。保管キーと配信設定から組み立てた値で、DBに保存されるのはキーのみ）
  * @param externalAudios
@@ -77,6 +79,7 @@ public record AlbumView(
         @Nullable String eventSpaceNumber,
         @Nullable String eventNote,
         @Nullable Instant publishedAt,
+        @Nullable String coverImageKey,
         @Nullable String coverImageUrl,
         List<ExternalAudioView> externalAudios,
         List<TrackView> tracks) {

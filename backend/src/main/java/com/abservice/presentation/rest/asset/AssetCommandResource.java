@@ -18,7 +18,6 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 
 /**
  * アセット（画像）アップロードの Command REST リソース
@@ -62,19 +61,17 @@ public class AssetCommandResource {
     @Path("/upload-url")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> issueUploadUrl(IssueAssetUploadUrlRequest request) {
+    public Uni<AssetUploadUrlResponse> issueUploadUrl(IssueAssetUploadUrlRequest request) {
         return issueAssetUploadUrlService.execute(new IssueAssetUploadUrlInput(request.contentType()))
                 .map(AssetCommandResource::toUploadUrlResponse);
     }
 
-    private static Response toUploadUrlResponse(IssueAssetUploadUrlOutput output) {
-        return Response.ok(
-                new AssetUploadUrlResponse(
-                        output.assetKey(),
-                        output.uploadUrl(),
-                        output.expiresAt(),
-                        output.maxBytes()))
-                .build();
+    private static AssetUploadUrlResponse toUploadUrlResponse(IssueAssetUploadUrlOutput output) {
+        return new AssetUploadUrlResponse(
+                output.assetKey(),
+                output.uploadUrl(),
+                output.expiresAt(),
+                output.maxBytes());
     }
 
     /**
@@ -87,18 +84,16 @@ public class AssetCommandResource {
     @POST
     @Path("/{assetKey}/confirm")
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> confirm(@PathParam("assetKey") String assetKey) {
+    public Uni<ConfirmAssetUploadResponse> confirm(@PathParam("assetKey") String assetKey) {
         return confirmAssetUploadService.execute(new ConfirmAssetUploadInput(assetKey))
                 .map(AssetCommandResource::toConfirmResponse);
     }
 
-    private static Response toConfirmResponse(ConfirmAssetUploadOutput output) {
-        return Response.ok(
-                new ConfirmAssetUploadResponse(
-                        output.assetKey(),
-                        output.url(),
-                        output.contentType(),
-                        output.sizeBytes()))
-                .build();
+    private static ConfirmAssetUploadResponse toConfirmResponse(ConfirmAssetUploadOutput output) {
+        return new ConfirmAssetUploadResponse(
+                output.assetKey(),
+                output.url(),
+                output.contentType(),
+                output.sizeBytes());
     }
 }

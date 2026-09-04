@@ -24,7 +24,8 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+import org.jboss.resteasy.reactive.ResponseStatus;
+import org.jboss.resteasy.reactive.RestResponse;
 
 /**
  * アルバム集約内の外部音源（エンティティ）の Command REST リソース
@@ -75,20 +76,20 @@ public class AlbumExternalAudioCommandResource {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> add(@PathParam("albumId") String albumId, AddExternalAudioRequest request) {
+    @ResponseStatus(RestResponse.StatusCode.CREATED)
+    public Uni<AddExternalAudioResponse> add(
+            @PathParam("albumId") String albumId,
+            AddExternalAudioRequest request) {
         return addExternalAudioService.execute(new AddExternalAudioInput(albumId, request.url()))
-                .map(AlbumExternalAudioCommandResource::toCreated);
+                .map(AlbumExternalAudioCommandResource::toResponse);
     }
 
-    private static Response toCreated(AddExternalAudioOutput output) {
-        return Response.status(Response.Status.CREATED)
-                .entity(
-                        new AddExternalAudioResponse(
-                                output.albumId(),
-                                output.externalAudioId(),
-                                output.displayOrder(),
-                                output.url()))
-                .build();
+    private static AddExternalAudioResponse toResponse(AddExternalAudioOutput output) {
+        return new AddExternalAudioResponse(
+                output.albumId(),
+                output.externalAudioId(),
+                output.displayOrder(),
+                output.url());
     }
 
     /**
@@ -107,11 +108,11 @@ public class AlbumExternalAudioCommandResource {
      */
     @DELETE
     @Path("/{externalAudioId}")
-    public Uni<Response> remove(
+    public Uni<Void> remove(
             @PathParam("albumId") String albumId,
             @PathParam("externalAudioId") String externalAudioId) {
         return removeExternalAudioService.execute(new RemoveExternalAudioInput(albumId, externalAudioId))
-                .replaceWith(Response.noContent().build());
+                .replaceWithVoid();
     }
 
     /**
@@ -127,22 +128,22 @@ public class AlbumExternalAudioCommandResource {
     @Path("/order")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> reorder(@PathParam("albumId") String albumId, ReorderExternalAudiosRequest request) {
+    public Uni<ReorderExternalAudiosResponse> reorder(
+            @PathParam("albumId") String albumId,
+            ReorderExternalAudiosRequest request) {
         return reorderExternalAudiosService
                 .execute(new ReorderExternalAudiosInput(albumId, request.orderedExternalAudioIds()))
-                .map(AlbumExternalAudioCommandResource::toOk);
+                .map(AlbumExternalAudioCommandResource::toResponse);
     }
 
-    private static Response toOk(ReorderExternalAudiosOutput output) {
-        return Response.ok(
-                new ReorderExternalAudiosResponse(
-                        output.albumId(),
-                        output.externalAudios().stream()
-                                .map(
-                                        audio -> new ExternalAudioOrderEntryResponse(
-                                                audio.externalAudioId(),
-                                                audio.displayOrder()))
-                                .toList()))
-                .build();
+    private static ReorderExternalAudiosResponse toResponse(ReorderExternalAudiosOutput output) {
+        return new ReorderExternalAudiosResponse(
+                output.albumId(),
+                output.externalAudios().stream()
+                        .map(
+                                audio -> new ExternalAudioOrderEntryResponse(
+                                        audio.externalAudioId(),
+                                        audio.displayOrder()))
+                        .toList());
     }
 }

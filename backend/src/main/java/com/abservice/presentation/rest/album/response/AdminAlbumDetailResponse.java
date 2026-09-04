@@ -12,6 +12,12 @@ import org.jspecify.annotations.Nullable;
  * 編集者が入力するアーティストソートキーを返すことと、下書きを表す {@code publishedAt} の null を返し得ることである。
  * </p>
  *
+ * <p>
+ * ROUND-TRIP: 更新要求へ返す値は、要求が受け取る綴りで返す。カバー画像は配信URLではなくアセットキーで受け取るため、
+ * 両方を返す。URLからキーを組み立て直すのは配信設定（{@code abservice.assets.public-base-path}）を要求元へ
+ * 写すことであり、設定を変えた時点で黙って壊れる。
+ * </p>
+ *
  * @param albumId
  *            アルバムID（UUIDv7形式の文字列）
  * @param title
@@ -42,8 +48,11 @@ import org.jspecify.annotations.Nullable;
  *            初出イベント補足情報（nullable）
  * @param publishedAt
  *            公開日時（nullable。null は下書き。UTC）
+ * @param coverImageKey
+ *            カバー画像のアセットキー（nullable。更新要求（{@code UpdateAlbumRequest#coverImageKey}）へそのまま
+ *            返す値。全項目置換のため、画像を変えない保存でもこれを送らないとカバー画像が外れる）
  * @param coverImageUrl
- *            カバー画像の配信URL（nullable。サイト相対。登録時に渡すのは配信URLではなくアセットキー）
+ *            カバー画像の配信URL（nullable。サイト相対。表示に使う。更新要求が受け取るのはこの値ではない）
  * @param externalAudios
  *            外部音源（外部サービスの埋め込み元URL）の一覧。表示順の昇順
  * @param tracks
@@ -65,6 +74,7 @@ public record AdminAlbumDetailResponse(
         @Nullable String eventSpaceNumber,
         @Nullable String eventNote,
         @Nullable Instant publishedAt,
+        @Nullable String coverImageKey,
         @Nullable String coverImageUrl,
         List<AdminExternalAudioResponse> externalAudios,
         List<AdminTrackResponse> tracks) {

@@ -87,8 +87,9 @@ final class AlbumQueryResponses {
         };
     }
 
-    private static AlbumDeletionPreconditionsResponse.AffectedArticle toAffectedArticle(DeletionEffectView view) {
-        return new AlbumDeletionPreconditionsResponse.AffectedArticle(
+    private static AlbumDeletionPreconditionsResponse.PreconditionAffectedArticle toAffectedArticle(
+            DeletionEffectView view) {
+        return new AlbumDeletionPreconditionsResponse.PreconditionAffectedArticle(
                 view.articleId(),
                 view.title(),
                 view.losesAlbumReference(),
@@ -235,6 +236,7 @@ final class AlbumQueryResponses {
                 view.eventSpaceNumber(),
                 view.eventNote(),
                 view.publishedAt(),
+                view.coverImageKey(),
                 view.coverImageUrl(),
                 toAdminExternalAudioResponses(view),
                 toAdminTrackResponses(view));
