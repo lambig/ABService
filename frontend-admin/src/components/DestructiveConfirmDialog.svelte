@@ -12,15 +12,29 @@
     readonly open: boolean;
     readonly title: string;
     readonly description: string;
-    /** 影響を受けるものの一覧。空なら「影響なし」の文言を出す */
-    readonly affected: readonly { readonly key: string; readonly label: string }[];
+    /**
+     * 影響を受けるものの一覧。
+     *
+     * null は**まだ分かっていない**ことを表し、そのときは `pendingNotice` を出す。空配列は「取得できて
+     * 影響が無い」ことを表す。この2つを同じ形で受けると、取得できていない状態を「影響なし」と描いて
+     * しまう（実際にそうなっていた）。
+     */
+    readonly affected: readonly { readonly key: string; readonly label: string }[] | null;
     /** 影響一覧の見出し。何の一覧かは呼び出し側の操作で変わる */
     readonly affectedHeading: string;
+    /** 影響が分かっていないときに一覧の代わりに出す文言 */
+    readonly pendingNotice: string;
     readonly confirmLabel: string;
-    /** 実行中は確定と取り消しを塞ぐ（二重送信を防ぐ） */
-    readonly busy: boolean;
-    /** 実行が失敗したときの文言。null なら出さない */
+    /** 確定を塞ぐか。影響範囲を取得できていない間は塞ぐ */
+    readonly confirmDisabled: boolean;
+    /** 取り消しを塞ぐか。実行中だけ塞ぐ（結果を受け取る前に閉じさせない） */
+    readonly cancelDisabled: boolean;
+    /** 実行中。確定の文言が変わる */
+    readonly running: boolean;
+    /** 失敗の文言。null なら出さない */
     readonly failureMessage: string | null;
+    /** やり直す操作。取得できていない前提を問い直す場合だけ渡す */
+    readonly onRetry: (() => void) | null;
     readonly onConfirm: () => void;
     readonly onCancel: () => void;
   };
@@ -31,24 +45,28 @@
     description,
     affected,
     affectedHeading,
+    pendingNotice,
     confirmLabel,
-    busy,
+    confirmDisabled,
+    cancelDisabled,
+    running,
     failureMessage,
+    onRetry,
     onConfirm,
     onCancel,
   }: Props = $props();
 
   /*
    * CLOSE-IS-CANCEL: 覆いのクリックや Esc でも閉じられる。閉じる要求は取り消しとして扱い、開く要求は
-   * 無視する（開いているかどうかは呼び出し側が `open` で決めており、ここは従うだけ）。閉じてよいかの
-   * 判断も呼び出し側が持つ（実行中は閉じさせない等）。
+   * 無視する（開くかどうかは呼び出し側が `open` で決めており、ここは従うだけ）。閉じてよいかの判断も
+   * 呼び出し側が持つ。
    */
   const OPEN_CHANGE: readonly (() => void)[] = [
     /* 閉じる要求（`open` が false になる） */
     (): void => {
       onCancel();
     },
-    /* 開く要求。開くかどうかは呼び出し側が `open` で決めるため、ここでは何もしない */
+    /* 開く要求。ここでは何もしない */
     (): void => undefined,
   ];
 
@@ -67,7 +85,9 @@
     <section class="space-y-2">
       <h3 class="text-sm font-medium">{affectedHeading}</h3>
 
-      {#if affected.length === 0}
+      {#if affected === null}
+        <p class="text-muted-foreground text-sm">{pendingNotice}</p>
+      {:else if affected.length === 0}
         <p class="text-muted-foreground text-sm">影響を受けるものはありません。</p>
       {:else}
         <ul class="text-sm">
@@ -83,9 +103,14 @@
     {/if}
 
     <Dialog.Footer>
-      <Button variant="outline" disabled={busy} onclick={onCancel}>やめる</Button>
-      <Button variant="destructive" disabled={busy} onclick={onConfirm}>
-        {busy ? '実行しています…' : confirmLabel}
+      <Button variant="outline" disabled={cancelDisabled} onclick={onCancel}>やめる</Button>
+
+      {#if onRetry !== null}
+        <Button variant="outline" onclick={onRetry}>もう一度確認する</Button>
+      {/if}
+
+      <Button variant="destructive" disabled={confirmDisabled} onclick={onConfirm}>
+        {running ? '実行しています…' : confirmLabel}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>
