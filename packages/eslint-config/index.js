@@ -18,6 +18,10 @@ import tseslint from 'typescript-eslint';
 /** 深い相対パスの禁止（バックエンドの FQN 禁止に対応する趣旨）。エイリアスを使う */
 export const DEEP_RELATIVE_IMPORT = '../../*';
 
+/** {@link DEEP_RELATIVE_IMPORT} に当たったときの説明 */
+export const DEEP_RELATIVE_IMPORT_MESSAGE =
+  '2つ以上上をたどる相対パスは使いません。エイリアスで指してください（バックエンドの FQN 禁止に対応する趣旨）。';
+
 /**
  * ルールを外すコメントに理由を必須とするプラグイン。
  *
@@ -73,7 +77,12 @@ export const conventionRules = {
 
   'no-restricted-syntax': ['error', ...restrictedSyntax],
 
-  'no-restricted-imports': ['error', { patterns: [DEEP_RELATIVE_IMPORT] }],
+  'no-restricted-imports': [
+    'error',
+    {
+      patterns: [{ group: [DEEP_RELATIVE_IMPORT], message: DEEP_RELATIVE_IMPORT_MESSAGE }],
+    },
+  ],
 
   /*
    * ルールを外すなら理由を書く（バックエンドの「@SuppressWarnings に理由必須」に対応）。
