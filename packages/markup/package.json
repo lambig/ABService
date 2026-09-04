@@ -29,6 +29,7 @@
     "@types/hast": "^3.0.4",
     "@types/mdast": "^4.0.4",
     "@types/unist": "^3.0.3",
+    "abservice-eslint-config": "*",
     "eslint": "^10.0.0",
     "eslint-plugin-functional": "^10.0.0",
     "mdast-util-directive": "^3.1.0",
