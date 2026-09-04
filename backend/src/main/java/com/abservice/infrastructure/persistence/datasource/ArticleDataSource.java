@@ -5,6 +5,7 @@ import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
 import io.quarkus.hibernate.reactive.panache.PanacheQuery;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import io.quarkus.panache.common.Page;
+import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.hibernate.reactive.mutiny.Mutiny;
@@ -267,12 +268,30 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleTableReco
     /**
      * 記事IDで削除
      *
-     * @param id
-     *            記事ID
+     * <p>
+     * 実体を読んでから消す。集約の内側（タグの張り付き・アルバム参照）は、マッピングが表明する {@code cascade = ALL} /
+     * {@code orphanRemoval}のとおりJPAが消す。ドメインIDを条件にしたDELETE文を
+     * 直接発行すると、子を消すのは外部キーの{@code ON DELETE CASCADE}になり、集約の削除がDBの設定に依存する。
+     * </p>
+     *
+     * <p>
+     * {@link #findByDomainId}は{@code articleTagLinks}・{@code albumReference}を{@code JOIN FETCH}
+     * するため、カスケードが遅延初期化に触れることはない。
+     * </p>
+     *
+     * @param domainId
+     *            記事のドメインID
      * @return 削除された場合true
      */
     public Uni<Boolean> deleteByArticleId(String domainId) {
-        return delete("domainId", domainId).onItem().transform(count -> count > 0);
+        return findByDomainId(domainId, Visibility.ALL)
+                .onItem().ifNotNull().transformToUni(this::deleteAndConfirm)
+                .onItem().ifNull().continueWith(false);
+    }
+
+    private Uni<Boolean> deleteAndConfirm(ArticleTableRecord article) {
+        return delete(article)
+                .replaceWith(true);
     }
 
     /**
@@ -283,7 +302,23 @@ public class ArticleDataSource implements PanacheRepositoryBase<ArticleTableReco
      * @return 完了シグナル
      */
     public Uni<Void> deleteByArticleIds(Collection<String> domainIds) {
-        return delete("domainId in ?1", domainIds).replaceWithVoid();
+        return findByIds(domainIds)
+                .flatMap(this::deleteEach);
+    }
+
+    /*
+     * PERFORMANCE: 同一Mutinyセッションへの並行アクセスは内部状態を破壊するため逐次実行する。
+     */
+    private Uni<Void> deleteEach(List<ArticleTableRecord> articles) {
+        return Multi.createFrom().iterable(articles)
+                .onItem().transformToUniAndConcatenate(this::deleteAndReturn)
+                .collect().asList()
+                .replaceWithVoid();
+    }
+
+    private Uni<ArticleTableRecord> deleteAndReturn(ArticleTableRecord article) {
+        return delete(article)
+                .replaceWith(article);
     }
 
     /**

@@ -504,12 +504,29 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, 
     /**
      * アルバムIDで削除
      *
+     * <p>
+     * 実体を読んでから消す。集約の内側（トラック・トラック内チューン構成・外部音源）は、マッピングが表明する {@code cascade = ALL} /
+     * {@code orphanRemoval}のとおりJPAが消す。ドメインIDを条件にしたDELETE文を
+     * 直接発行すると子が残り、{@code fk_track_album}に阻まれる。
+     * </p>
+     *
+     * <p>
+     * {@link #findByIdWithTracks}は子をすべて初期化して返すため、カスケードが遅延初期化に触れることはない。
+     * </p>
+     *
      * @param domainId
      *            アルバムドメインID
      * @return 削除された場合true
      */
     public Uni<Boolean> deleteByAlbumId(String domainId) {
-        return delete("domainId", domainId).onItem().transform(count -> count > 0);
+        return findByIdWithTracks(domainId)
+                .onItem().ifNotNull().transformToUni(this::deleteAndConfirm)
+                .onItem().ifNull().continueWith(false);
+    }
+
+    private Uni<Boolean> deleteAndConfirm(AlbumTableRecord album) {
+        return delete(album)
+                .replaceWith(true);
     }
 
     /**
@@ -520,7 +537,24 @@ public class AlbumDataSource implements PanacheRepositoryBase<AlbumTableRecord, 
      * @return 完了シグナル
      */
     public Uni<Void> deleteByAlbumIds(Collection<String> domainIds) {
-        return delete("domainId in ?1", domainIds).replaceWithVoid();
+        return findByIdsWithTracks(domainIds)
+                .flatMap(this::deleteEach);
+    }
+
+    /*
+     * PERFORMANCE: 同一Mutinyセッションへの並行アクセスは内部状態を破壊するため、
+     * fetchAllLazyChildrenと同じく逐次実行する。
+     */
+    private Uni<Void> deleteEach(List<AlbumTableRecord> albums) {
+        return Multi.createFrom().iterable(albums)
+                .onItem().transformToUniAndConcatenate(this::deleteAndReturn)
+                .collect().asList()
+                .replaceWithVoid();
+    }
+
+    private Uni<AlbumTableRecord> deleteAndReturn(AlbumTableRecord album) {
+        return delete(album)
+                .replaceWith(album);
     }
 
     /**

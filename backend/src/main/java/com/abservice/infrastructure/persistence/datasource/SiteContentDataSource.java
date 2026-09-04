@@ -68,6 +68,12 @@ public class SiteContentDataSource implements PanacheRepositoryBase<SiteContentT
     /**
      * ドメインIDで削除
      *
+     * <p>
+     * サイト文言の集約は子を持たないため、実体を読まずにDELETE文を発行してよい。子を持つ集約
+     * （{@link AlbumDataSource#deleteByAlbumId}・{@link ArticleDataSource#deleteByArticleId}）は
+     * 実体を読んでから消す。この集約に子が生えたら、そちらへ揃える。
+     * </p>
+     *
      * @param domainId
      *            ドメインID
      * @return 削除された場合true

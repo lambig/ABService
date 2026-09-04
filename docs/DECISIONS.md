@@ -392,3 +392,21 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 **トレードオフ**: 依存の取得がプロキシの可用性に依存する。`npm publish` / `npm login` は読み取り専用プロキシのため通らない（必要なら `--registry` で直接指定する）。プライベートレジストリ経由で取得するパッケージはスキャンを受けない。ロックファイルの `resolved` にプロキシの URL が記録されるため、Guard をやめる場合はロックファイルの再生成が必要になる（この記録には npm 11.15.0 以降が要る。8 で npm を 11.19.0 に固定しているのはこの条件も満たすため）。
 
 **実体**: `.npmrc`（`registry`）。CI への組み込み（`flatt-security/setup-takumi-guard-npm`）は #124 で扱う。
+
+---
+
+## 27. 集約の削除は集約を通し、外部キーは実行者ではなく検査に使う
+
+**判断**: 子を持つ集約の削除は、実体を読んでから消す。集約の内側（Album のトラック・トラック内チューン構成・外部音源、Article のタグの張り付き・アルバム参照）を消すのは、マッピングが表明する `cascade = ALL` / `orphanRemoval` である。ドメインIDを条件にしたDELETE文は発行しない。子を持たない集約（Tune・SiteContent）は消すものが無いため、そのままDELETE文を発行してよい。
+
+外部キーの `ON DELETE CASCADE` は、削除を実行させるためには使わない。すでに `ON DELETE CASCADE` を持つ制約は、アプリが子を消し損ねたときの受け皿として残す。
+
+**なぜ**: 子が親より長く生きないことは業務上の事実であって、DBの設定から導かれるものではない。トラックはアルバムの一部であり、アルバムが消えれば一緒に消える。この境界はドメイン側で既に表明されている（Track に Repository が無く、単体で取得も保存も削除もできない）。同じ不変条件を、削除のときだけDDLの設定に委ねると、集約に子を足すたびに「どのDDLに倣うか」を読み解く作業が発生する。集約を単位に消せば、参照するのは前例のDDLではなく集約の境界になる。
+
+保存経路が既にこの形である点も揃う。`AlbumRepositoryImpl.save` はドメインIDで実体を読んでから子を突き合わせており、削除だけが読まずにSQLを撃っていた。
+
+**トレードオフ**: 子1行ごとにDELETEが発行される（1テーブル1文ではなくなる）。アルバムを大量に削除する用途が無いため許容する。`DeleteAlbumService` は編集権の主張（15）で集約を既に読んでいるが、`Repository#deleteById` が受け取るのはIDだけで実体を渡す口が無いため、削除のために親とトラックを読み直す1往復が追加で発行される。これも同じ理由で許容する（同一セッションのため、チューン構成と外部音源の初期化は省かれる）。
+
+`fk_track_album` に `ON DELETE CASCADE` を付けない状態を保つ。DBがアプリの消し忘れを黙って補うのではなく、外部キー違反として拒否するため。
+
+**実体**: `AlbumDataSource#deleteByAlbumId` / `ArticleDataSource#deleteByArticleId`（実体を読んでから `delete(entity)`）、`TuneDataSource#deleteByTuneId` / `SiteContentDataSource#deleteByDomainId`（子が無いためDELETE文のまま）、`AlbumRepositoryImplTest#shouldDeleteAlbumWithTracksTunesAndExternalAudios` / `ArticleRepositoryImplTest#shouldDeleteArticleWithTagLinks`。

@@ -16,9 +16,11 @@ import io.quarkus.test.TestReactiveTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
 import io.quarkus.test.vertx.UniAsserter;
+import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.List;
+import org.hibernate.reactive.mutiny.Mutiny;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -36,6 +38,9 @@ class ArticleRepositoryImplTest {
 
     @Inject
     private AlbumRepositoryImpl albumRepository;
+
+    @Inject
+    private Mutiny.SessionFactory sessionFactory;
 
     @Test
     @TestReactiveTransaction
@@ -228,6 +233,48 @@ class ArticleRepositoryImplTest {
         asserter.execute(() -> repository.deleteById(article.id()));
 
         asserter.assertThat(() -> repository.findById(article.id()), found -> assertThat(found).isNull());
+    }
+
+    /**
+     * #251: 子を持つ記事の削除。
+     *
+     * <p>
+     * 記事の削除も集約を通す。タグの張り付き（{@code article_tag_link}）が残らないことを見る。タグそのもの
+     * （{@code article_tag}）は記事の内側ではないため、記事を消しても残る。母集団はこのテストが作ったものだけ
+     * （{@link CleanDatabase}）。
+     * </p>
+     */
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldDeleteArticleWithTagLinks(UniAsserter asserter) {
+        final var article = Article.create(
+                ArticleType.NOTE,
+                null,
+                new ArticleTitle("Article with tags"),
+                null,
+                null,
+                businessNow())
+                .addTag(ArticleTag.create("Rock"), businessNow())
+                .addTag(ArticleTag.create("Live"), businessNow());
+
+        asserter.execute(() -> repository.save(article));
+
+        asserter.assertThat(() -> countRows("article_tag_link"), count -> assertThat(count).isEqualTo(2L));
+
+        asserter.execute(() -> repository.deleteById(article.id()));
+
+        asserter.assertThat(() -> repository.findById(article.id()), found -> assertThat(found).isNull());
+        asserter.assertThat(() -> countRows("article"), count -> assertThat(count).isEqualTo(0L));
+        asserter.assertThat(() -> countRows("article_tag_link"), count -> assertThat(count).isEqualTo(0L));
+        asserter.assertThat(() -> countRows("article_tag"), count -> assertThat(count).isEqualTo(2L));
+    }
+
+    private Uni<Long> countRows(String table) {
+        return sessionFactory.withSession(
+                session -> session
+                        .createNativeQuery("SELECT count(*) FROM " + table, Long.class)
+                        .getSingleResult());
     }
 
     @Test

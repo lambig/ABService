@@ -2,6 +2,7 @@ package com.abservice.infrastructure.persistence.repository;
 
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.album.Track;
+import com.abservice.domain.model.aggregate.album.TrackTune;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
@@ -10,6 +11,7 @@ import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
+import com.abservice.domain.model.vo.common.ExternalAudioUrl;
 import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.domain.model.vo.common.MarkupFormat;
 import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;
@@ -18,7 +20,9 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.TestReactiveTransaction;
 import io.quarkus.test.vertx.RunOnVertxContext;
 import io.quarkus.test.vertx.UniAsserter;
+import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
+import org.hibernate.reactive.mutiny.Mutiny;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -47,6 +51,9 @@ class AlbumRepositoryImplTest {
 
     @Inject
     private AlbumDataSource dataSource;
+
+    @Inject
+    private Mutiny.SessionFactory sessionFactory;
 
     private ArtistCredit testArtistCredit;
     private BusinessDate testReleaseDate;
@@ -474,6 +481,75 @@ class AlbumRepositoryImplTest {
 
         // Verify deletion
         asserter.assertThat(() -> repository.findById(album.id()), found -> assertThat(found).isNull());
+    }
+
+    /**
+     * #251: 子を持つアルバムの削除。
+     *
+     * <p>
+     * トラックを持つアルバムをドメインIDのDELETE文で消すと、子が残って{@code fk_track_album}に阻まれる。
+     * 集約を読んでから消し、宣言どおりカスケードが働くことを確かめる。子が残らないことは実テーブルの件数で見る
+     * （このテストの母集団は{@link CleanDatabase}が空へ戻した後に作ったものだけ）。
+     * </p>
+     */
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldDeleteAlbumWithTracksTunesAndExternalAudios(UniAsserter asserter) {
+        initTestData();
+
+        final var track = Track
+                .create(
+                        1,
+                        new TrackTitle("Track with tunes"),
+                        null)
+                .addTune(newTrackTune(1))
+                .addTune(newTrackTune(2));
+
+        final var album = Album
+                .create(
+                        new AlbumTitle("Album with children"),
+                        testReleaseDate,
+                        testArtistCredit,
+                        MarkupContent.EMPTY,
+                        null,
+                        null,
+                        null,
+                        null)
+                .addTrack(track)
+                .addExternalAudio(ExternalAudioUrl.of("https://soundcloud.com/example/first"))
+                .album();
+
+        asserter.execute(() -> repository.save(album));
+
+        asserter.assertThat(() -> countRows("track"), count -> assertThat(count).isEqualTo(1L));
+        asserter.assertThat(() -> countRows("track_tune"), count -> assertThat(count).isEqualTo(2L));
+        asserter.assertThat(() -> countRows("album_external_audio"), count -> assertThat(count).isEqualTo(1L));
+
+        asserter.execute(() -> repository.deleteById(album.id()));
+
+        asserter.assertThat(() -> repository.findById(album.id()), found -> assertThat(found).isNull());
+        asserter.assertThat(() -> countRows("album"), count -> assertThat(count).isEqualTo(0L));
+        asserter.assertThat(() -> countRows("track"), count -> assertThat(count).isEqualTo(0L));
+        asserter.assertThat(() -> countRows("track_tune"), count -> assertThat(count).isEqualTo(0L));
+        asserter.assertThat(() -> countRows("album_external_audio"), count -> assertThat(count).isEqualTo(0L));
+    }
+
+    private static TrackTune newTrackTune(Integer seq) {
+        return TrackTune.create(
+                seq,
+                null,
+                null,
+                null,
+                null,
+                null);
+    }
+
+    private Uni<Long> countRows(String table) {
+        return sessionFactory.withSession(
+                session -> session
+                        .createNativeQuery("SELECT count(*) FROM " + table, Long.class)
+                        .getSingleResult());
     }
 
     @Test
