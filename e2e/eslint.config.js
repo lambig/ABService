@@ -1,12 +1,11 @@
-import js from '@eslint/js';
-import functional from 'eslint-plugin-functional';
+import { typescriptWorkspace } from 'abservice-eslint-config';
 import tseslint from 'typescript-eslint';
 
 /**
- * バックエンドの規約（docs/CODING_GUIDELINES.md §1）をシナリオへ写した設定。
+ * ルールの正は `packages/eslint-config`。ここが持つのは、シナリオ固有の緩和だけ。
  *
- * 選定は packages/markup（#232）と frontend-public に揃える。差分は、Playwright のシナリオが
- * 手続きの並びとして読まれるべきものである点で、その扱いを下に書く。
+ * `e2e/` はフロントを検証する側でどちらのアプリにも属さないが、TypeScript で書く以上、規約は同じ
+ * ものに従う（CONTRIBUTION.md のディレクトリ構造を参照）。
  */
 export default tseslint.config(
   {
@@ -21,56 +20,7 @@ export default tseslint.config(
     ],
   },
 
-  js.configs.recommended,
-  tseslint.configs.strictTypeChecked,
-
-  {
-    languageOptions: {
-      parserOptions: {
-        projectService: true,
-        tsconfigRootDir: import.meta.dirname,
-      },
-    },
-    plugins: {
-      functional,
-    },
-    rules: {
-      'prefer-const': 'error',
-      'no-var': 'error',
-      'functional/no-let': 'error',
-
-      '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-non-null-assertion': 'error',
-
-      'functional/immutable-data': 'error',
-
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: 'IfStatement',
-          message:
-            '値の生成は式（三項）で行ってください。if 文は使いません（CODING_GUIDELINES §2）。',
-        },
-        {
-          selector: 'LogicalExpression[operator="||"]',
-          message:
-            '|| は使いません。既定値は ?? を、条件の合成は述語の合成で表してください（CODING_GUIDELINES §1）。',
-        },
-        {
-          selector: 'UnaryExpression[operator="!"]',
-          message:
-            '否定 ! は使いません。述語側で肯定形を用意するか、Predicate.not 相当で合成してください。',
-        },
-      ],
-
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: ['../../*'],
-        },
-      ],
-    },
-  },
+  ...typescriptWorkspace({ tsconfigRootDir: import.meta.dirname }),
 
   {
     /*

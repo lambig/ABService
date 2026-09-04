@@ -1,0 +1,53 @@
+{
+  "name": "abservice-eslint-config",
+  "version": "1.0.0",
+  "description": "ABService TypeScript coding convention as eslint rules, shared by every TypeScript workspace",
+  "type": "module",
+  "private": true,
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./astro-svelte": {
+      "types": "./astro-svelte.d.ts",
+      "default": "./astro-svelte.js"
+    }
+  },
+  "peerDependencies": {
+    "@eslint/js": "^10.0.0",
+    "eslint": "^10.0.0",
+    "eslint-plugin-astro": "^3.0.0",
+    "eslint-plugin-functional": "^10.0.0",
+    "eslint-plugin-svelte": "^3.0.0",
+    "globals": "^17.11.0",
+    "typescript-eslint": "^8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "eslint-plugin-astro": { "optional": true },
+    "eslint-plugin-svelte": { "optional": true },
+    "globals": { "optional": true }
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "eslint": "^10.0.0",
+    "eslint-plugin-astro": "^3.0.0",
+    "eslint-plugin-functional": "^10.0.0",
+    "eslint-plugin-svelte": "^3.0.0",
+    "globals": "^17.11.0",
+    "typescript-eslint": "^8.0.0"
+  },
+  "engines": {
+    "node": "24.20.0",
+    "npm": "11.19.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lambig/ABService.git",
+    "directory": "packages/eslint-config"
+  },
+  "author": "Lambig",
+  "license": "MIT"
+}
