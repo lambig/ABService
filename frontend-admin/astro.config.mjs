@@ -13,6 +13,18 @@ export default defineConfig({
   integrations: [svelte()],
   output: 'static',
 
+  /*
+   * 管理画面が配信されるのは単一ドメインの `/admin/*`（`infra/edge.tf` の `/admin/*` の振り分け）。
+   * base を宣言しないと、生成される資産の参照が `/_astro/...` になる。この綴りは `/admin/*` に
+   * 当たらないため、既定の振り分けで公開サイトのバケットへ流れて 404 になる。画面間のリンクも同じ。
+   *
+   * 振り分けは経路を書き換えない。したがって成果物はバケットの `admin/` 配下へ置く（#125）。
+   *
+   * E2E も `/admin` 配下で配る（`e2e/src/support/config.ts`）。ルートで配ると、プレフィックスの
+   * ある状態を一度も検査しないまま緑になる。
+   */
+  base: '/admin',
+
   env: {
     schema: {
       /*

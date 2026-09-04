@@ -22,7 +22,7 @@ import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { extname, join, normalize } from 'node:path';
 
-import { apps, portOf } from '../src/support/config.ts';
+import { apps, basePathOf, portOf } from '../src/support/config.ts';
 
 const repositoryRoot = new URL('../../', import.meta.url).pathname;
 
@@ -39,6 +39,7 @@ const app = Object.hasOwn(apps, appName)
 
 const distDir = join(repositoryRoot, app.distDir);
 const port = portOf(appName);
+const basePath = basePathOf(appName);
 
 const CONTENT_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -53,11 +54,28 @@ const CONTENT_TYPES = {
   '.woff2': 'font/woff2',
 };
 
-const resolveFile = (pathname) => {
-  const withinDist = join(distDir, normalize(pathname).replace(/^(\.\.[/\\])+/u, ''));
-  const candidates = [withinDist, join(withinDist, 'index.html')];
-  return candidates.find((candidate) => existsSync(candidate) && statSync(candidate).isFile());
+/*
+ * 組み上がった成果物はプレフィックスを含まない平らな形で出る（Astro の `base` は URL にだけ効く）。
+ * 配信側で剥がす。プレフィックスの外への要求は、そのアプリの担当ではないため引かない。
+ */
+const withoutBasePath = (pathname) => {
+  const atBase = pathname === basePath ? '/' : undefined;
+  const underBase = pathname.startsWith(`${basePath}/`)
+    ? pathname.slice(basePath.length)
+    : undefined;
+  return atBase ?? underBase;
 };
+
+const candidatesOf = (withinApp) => {
+  const withinDist = join(distDir, normalize(withinApp).replace(/^(\.\.[/\\])+/u, ''));
+  return [withinDist, join(withinDist, 'index.html')];
+};
+
+const resolveFile = (pathname) =>
+  [withoutBasePath(pathname)]
+    .filter((withinApp) => withinApp !== undefined)
+    .flatMap(candidatesOf)
+    .find((candidate) => existsSync(candidate) && statSync(candidate).isFile());
 
 /*
  * 見つからない要求には、組み上がった 404 のページを 404 のまま返す（#197。未存在と非公開を区別しない）。

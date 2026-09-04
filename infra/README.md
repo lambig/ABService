@@ -93,6 +93,14 @@ schemaの正はマイグレーションであり、起動時に適用される�
 - クロスオリジンの PUT を許可するため、バケットに CORS（`allowed_methods = ["PUT"]`、オリジンはサイトのドメイン）を設定している
 - backend の実行ロールには assets バケットへの `GetObject` / `PutObject` / `DeleteObject` / `ListBucket` を付与済み（署名付きURLの発行と確定時のコピーに追加権限は不要）
 
+## 静的サイト配信
+
+公開サイトと管理画面は別々のS3バケットへ置き、CloudFront が経路で振り分ける（`default_cache_behavior` が `frontend_public`、`path_pattern = "/admin/*"` の `ordered_cache_behavior` が `frontend_admin`）。
+
+- **振り分けは経路を書き換えない。** ビューアが要求した経路がそのままオリジンのオブジェクトキーになるため、管理画面の成果物はバケットの `admin/` 接頭辞配下へ置く（`/admin/index.html` → キー `admin/index.html`）。`origin_path` では解けない（要求の前に足すため `/admin/admin/...` を引くことになる）
+- 管理画面の Astro は同じ理由で `base: '/admin'` を宣言している（`frontend-admin/astro.config.mjs`）。宣言がないと資産の参照が `/_astro/...` になり、既定の振り分けで公開サイトのバケットへ流れる
+- 公開サイトは `base` を持たず、バケット直下へ置く
+
 ## ロールバック（backendデプロイ）
 
 ECRのライフサイクルポリシーにより直近10件のタグ付きイメージが保持される。障害時は`.github/workflows/deploy.yml`を`workflow_dispatch`で手動起動し、`image_tag`に直前の正常なタグ（gitのshort SHA）を指定して再デプロイする（再ビルドは行わず、ECRの既存イメージをそのままEC2へpull・再起動するだけなので数十秒で完了する）。ロールバック後、mainブランチの履歴は`git revert`で追随させる（force-push・履歴書き換えはしない）。
