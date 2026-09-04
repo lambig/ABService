@@ -97,7 +97,7 @@ resource "aws_wafv2_web_acl" "cloudfront" {
   }
 }
 
-# /admin/* と /api/* は検索エンジンにインデックスさせない（SEOペナルティ回避のためrobots.txtのDisallowと併用する）。
+# /admin* と /api/* は検索エンジンにインデックスさせない（SEOペナルティ回避のためrobots.txtのDisallowと併用する）。
 resource "aws_cloudfront_response_headers_policy" "noindex" {
   name = "${var.project_name}-noindex"
 
@@ -108,6 +108,16 @@ resource "aws_cloudfront_response_headers_policy" "noindex" {
       override = true
     }
   }
+}
+
+# 静的サイトの要求経路を実オブジェクトキーへ解決する（ディレクトリ索引の代わり）。
+# 綴りとその理由は functions/resolve-static-uri.js を参照。E2Eの配信も同じファイルを読んで適用する。
+resource "aws_cloudfront_function" "resolve_static_uri" {
+  name    = "${var.project_name}-resolve-static-uri"
+  runtime = "cloudfront-js-2.0"
+  comment = "ディレクトリ索引を持たないS3(OAC)向けに、経路末尾へindex.htmlを補う"
+  publish = true
+  code    = file("${path.module}/functions/resolve-static-uri.js")
 }
 
 resource "aws_cloudfront_origin_access_control" "s3" {
@@ -130,6 +140,10 @@ resource "aws_cloudfront_distribution" "main" {
   price_class     = var.cloudfront_price_class
   aliases         = [var.domain_name]
 
+  # 配信直下は index.html。resolve_static_uri でも同じ結果になるが、どちらが先に走るかへ
+  # 依存させないため両方を宣言する。この宣言はサブディレクトリには効かない。
+  default_root_object = "index.html"
+
   # / -> frontend-public（S3, OAC経由）
   origin {
     domain_name              = aws_s3_bucket.frontend_public.bucket_regional_domain_name
@@ -137,7 +151,7 @@ resource "aws_cloudfront_distribution" "main" {
     origin_access_control_id = aws_cloudfront_origin_access_control.s3.id
   }
 
-  # /admin/* -> frontend-admin（S3, OAC経由）
+  # /admin* -> frontend-admin（S3, OAC経由）
   origin {
     domain_name              = aws_s3_bucket.frontend_admin.bucket_regional_domain_name
     origin_id                = local.admin_origin_id
@@ -171,6 +185,11 @@ resource "aws_cloudfront_distribution" "main" {
     cached_methods         = ["GET", "HEAD"]
     compress               = true
 
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.resolve_static_uri.arn
+    }
+
     forwarded_values {
       query_string = false
       cookies {
@@ -179,14 +198,22 @@ resource "aws_cloudfront_distribution" "main" {
     }
   }
 
+  # パターンは `/admin/*` ではなく `/admin*`。`/admin/*` は末尾スラッシュのない `/admin` に
+  # 一致せず、管理画面の入口が既定の振り分け（公開サイトのバケット）へ流れる。
+  # 代償として `/administrators` のような綴りも管理画面側へ向くが、公開サイトはその経路を持たない。
   ordered_cache_behavior {
-    path_pattern               = "/admin/*"
+    path_pattern               = "/admin*"
     target_origin_id           = local.admin_origin_id
     viewer_protocol_policy     = "redirect-to-https"
     allowed_methods            = ["GET", "HEAD"]
     cached_methods             = ["GET", "HEAD"]
     compress                   = true
     response_headers_policy_id = aws_cloudfront_response_headers_policy.noindex.id
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.resolve_static_uri.arn
+    }
 
     forwarded_values {
       query_string = false

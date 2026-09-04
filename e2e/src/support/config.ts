@@ -22,8 +22,12 @@ export const stack = {
    * 公開サイトと別のポートに置く。両方を同じ実行で見るため、配信を1つにまとめられない。ポートは
    * バックエンドの CORS が許すもの（`application.properties` の既定）と揃える。管理画面は
    * ブラウザから管理APIを叩くため、許されていないと画面が空のまま緑になる。
+   *
+   * 本番と同じ `/admin` 配下に置く（管理画面の Astro が `base` に宣言している）。ルートで配ると、
+   * プレフィックスのある状態を一度も検査しないまま緑になり、資産の参照や画面間のリンクが本番だけで
+   * 壊れる。
    */
-  adminBaseUrl: process.env['E2E_ADMIN_BASE_URL'] ?? 'http://localhost:4322',
+  adminBaseUrl: process.env['E2E_ADMIN_BASE_URL'] ?? 'http://localhost:4322/admin',
 
   /** 管理APIの鍵。ローカルと CI は application.properties の開発既定と同じ値を使う */
   adminApiKey: process.env['ADMIN_API_KEY'] ?? 'dev-admin-api-key',
@@ -45,3 +49,14 @@ export type AppName = keyof typeof apps;
  * 新しい URL を待ち、配信は元のポートで上がる」というすれ違いが起きる。
  */
 export const portOf = (app: AppName): number => Number(new URL(apps[app].baseUrl).port);
+
+/**
+ * 配信がプレフィックスとして受ける経路。
+ *
+ * <p>
+ * 起点の URL から導く（`portOf` と同じ理由）。組み上がった成果物はプレフィックスを含まない平らな形で
+ * 出るため、配信側が要求からこれを剥がしてファイルを引く。公開サイトは空文字になる。
+ * </p>
+ */
+export const basePathOf = (app: AppName): string =>
+  new URL(apps[app].baseUrl).pathname.replace(/\/$/u, '');
