@@ -82,21 +82,15 @@ export const localPlugin = {
  * </p>
  */
 export const forbiddenAssertionPaths = [
-  {
-    name: 'node:assert',
+  /*
+   * SPECIFIER-VARIANTS: Node の assert は4通りの綴りで解決する（`node:` の有無 × `/strict` の有無）。
+   * `no-restricted-imports` の `paths` は綴りの完全一致で照合するため、1つでも落とすと迂回路が残る。
+   */
+  ...['node:assert', 'node:assert/strict', 'assert', 'assert/strict'].map((name) => ({
+    name,
     message:
       'アサーションは文脈ごとの1つに揃えます。単体テストは vitest の expect、E2E は Playwright の expect を使ってください。',
-  },
-  {
-    name: 'node:assert/strict',
-    message:
-      'アサーションは文脈ごとの1つに揃えます。単体テストは vitest の expect、E2E は Playwright の expect を使ってください。',
-  },
-  {
-    name: 'assert',
-    message:
-      'アサーションは文脈ごとの1つに揃えます。単体テストは vitest の expect、E2E は Playwright の expect を使ってください。',
-  },
+  })),
   {
     name: 'chai',
     message:

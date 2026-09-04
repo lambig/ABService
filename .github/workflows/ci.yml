@@ -89,7 +89,7 @@ jobs:
           retention-days: 7
 
   frontend-check:
-    name: Frontend check (prettier / eslint / astro check)
+    name: Frontend check (prettier / eslint / astro check / unit)
     runs-on: ubuntu-latest
 
     # バックエンドを起動しない。lint と型検査はビルド時のデータ取得を伴わないため、
@@ -107,17 +107,29 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint (public)
-        run: npm run lint:public
+      # 全ワークスペースを対象にする（markup / patterns / public / admin / e2e）。
+      # 一部だけを並べると、対象外のワークスペースで有効にした規約が一度も検査されない（#232）。
+      - name: Lint (all workspaces)
+        run: npm run lint
+
+      - name: Typecheck (markup)
+        run: npm run typecheck:markup
+
+      - name: Typecheck (patterns)
+        run: npm run typecheck:patterns
 
       - name: Typecheck (public)
         run: npm run typecheck:public
 
-      - name: Lint (admin)
-        run: npm run lint:admin
-
       - name: Typecheck (admin)
         run: npm run typecheck:admin
+
+      - name: Typecheck (e2e)
+        run: npm run typecheck:e2e
+
+      # 規約ハーネス自身の検査を含む。ルールの実装・設定が退行したらここで落ちる（#232）
+      - name: Unit tests (markup / patterns / eslint-config)
+        run: npm run test:frontend
 
   e2e:
     name: E2E (Playwright / 実スタック)
