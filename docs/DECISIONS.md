@@ -410,3 +410,19 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 `fk_track_album` に `ON DELETE CASCADE` を付けない状態を保つ。DBがアプリの消し忘れを黙って補うのではなく、外部キー違反として拒否するため。
 
 **実体**: `AlbumDataSource#deleteByAlbumId` / `ArticleDataSource#deleteByArticleId`（実体を読んでから `delete(entity)`）、`TuneDataSource#deleteByTuneId` / `SiteContentDataSource#deleteByDomainId`（子が無いためDELETE文のまま）、`AlbumRepositoryImplTest#shouldDeleteAlbumWithTracksTunesAndExternalAudios` / `ArticleRepositoryImplTest#shouldDeleteArticleWithTagLinks`。
+
+---
+
+## 28. バックエンドの規約を写すときは、失う機構を代わりに用意してから写す
+
+**判断**: TypeScript 側でも `switch` 文を禁じる。ただし禁じる前に、網羅性をコンパイル時に検査できる式ベースの分岐（`abservice-patterns`）を用意し、それを使う前提で禁じる。
+
+**なぜ**: バックエンドが `switch` 文を禁じているのは、フォールスルーと `break` の書き忘れという Java の事情による。TypeScript では事情が違い、判別可能ユニオンの網羅性は `switch` と `never` の組み合わせで**コンパイラに検査させる**のが定石になっている。規約の字面だけを写すと、この検査を失う。
+
+規約が守りたいのは「分岐を式で書く」ことであって、`switch` という語を消すことではない。式で書きながら網羅性も保てる道具があれば、両方を満たせる。
+
+**道具の形が要件に決まる**: 候補を1つ当てるたびに残りの型から取り除き、すべて当て終えたときだけ「残りが `never` であること」を要求する関数を渡せる、という形にする。この絞り込みは候補が**リテラル値**であることを要する。述語（`(x) => x.length > 5`）ではユニオンのどの候補を覆ったかを型で表せないため、述語ベースの照合では網羅性検査を作れない。両者は別の道具であり、片方がもう片方を置き換えることはない。
+
+**トレードオフ**: 照合の実装に、型の見え方だけを狭める言い換えが1箇所要る（値は変えないため、当たった候補が既に蓄積されていることに依存して成立する）。この言い換えはパッケージの内側に閉じる。また、分岐のたびに閉包が作られるため、素の `switch` より実行時の費用は高い。この規模では問題にならない。
+
+**実体**: `packages/patterns`（`patterns` / `when` / `orElse` / `exhaustive`）、`packages/eslint-config` の `restrictedSyntax` にある `SwitchStatement` の項目。

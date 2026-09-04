@@ -50,6 +50,11 @@ export const restrictedSyntax = [
     message:
       '否定 ! は使いません。述語側で肯定形を用意するか、Predicate.not 相当で合成してください。',
   },
+  {
+    selector: 'SwitchStatement',
+    message:
+      'switch 文は使いません。abservice-patterns の patterns(...).when(...).orElse(exhaustive) で書いてください（網羅性はコンパイル時に検査されます）。',
+  },
 ];
 
 /** バックエンド規約に対応する、この設定の中核ルール */
