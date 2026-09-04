@@ -1,14 +1,20 @@
 package com.abservice.presentation.rest.album;
 
+import com.abservice.application.query.album.GetAlbumPreconditionsResult;
 import com.abservice.application.query.album.GetAlbumResult;
 import com.abservice.application.query.album.ListAlbumsResult;
 import com.abservice.application.query.album.model.AlbumView;
+import com.abservice.application.query.album.model.DeletionEffectView;
+import com.abservice.application.query.album.model.UnpublicationEffectView;
 import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.presentation.rest.album.response.AdminAlbumDetailResponse;
 import com.abservice.presentation.rest.album.response.AdminAlbumListResponse;
 import com.abservice.presentation.rest.album.response.AdminAlbumResponse;
 import com.abservice.presentation.rest.album.response.AdminExternalAudioResponse;
 import com.abservice.presentation.rest.album.response.AdminTrackResponse;
+import com.abservice.presentation.rest.album.response.AlbumDeletionPreconditionsResponse;
+import com.abservice.presentation.rest.album.response.AlbumPreconditionsResponse;
+import com.abservice.presentation.rest.album.response.AlbumUnpublicationPreconditionsResponse;
 import com.abservice.presentation.rest.album.response.PublicAlbumDetailResponse;
 import com.abservice.presentation.rest.album.response.PublicAlbumListResponse;
 import com.abservice.presentation.rest.album.response.PublicAlbumResponse;
@@ -44,6 +50,56 @@ final class AlbumQueryResponses {
     private static final String ENTITY_NAME = "Album";
 
     private AlbumQueryResponses() {
+    }
+
+    /**
+     * 操作の前提の照会結果を応答へ変換します。
+     *
+     * @param result
+     *            前提の照会結果
+     * @param id
+     *            照会したアルバムのドメインID
+     * @param operation
+     *            問われた操作の綴り
+     * @return 操作の前提
+     * @throws EntityNotFoundException
+     *             アルバムが存在しない場合
+     */
+    static AlbumPreconditionsResponse toPreconditionsResponse(
+            GetAlbumPreconditionsResult result,
+            String id,
+            String operation) {
+        return switch (result) {
+            case GetAlbumPreconditionsResult.Deletion(var affected) -> AlbumPreconditionsResponse.ofDeletion(
+                    operation,
+                    new AlbumDeletionPreconditionsResponse(
+                            affected.stream()
+                                    .map(AlbumQueryResponses::toAffectedArticle)
+                                    .toList()));
+            case GetAlbumPreconditionsResult.Unpublication(var becomingUnpublished) -> AlbumPreconditionsResponse
+                    .ofUnpublication(
+                            operation,
+                            new AlbumUnpublicationPreconditionsResponse(
+                                    becomingUnpublished.stream()
+                                            .map(AlbumQueryResponses::toCascadeUnpublishedArticle)
+                                            .toList()));
+            case GetAlbumPreconditionsResult.NotFound() -> throw EntityNotFoundException.of(ENTITY_NAME, id);
+        };
+    }
+
+    private static AlbumDeletionPreconditionsResponse.AffectedArticle toAffectedArticle(DeletionEffectView view) {
+        return new AlbumDeletionPreconditionsResponse.AffectedArticle(
+                view.articleId(),
+                view.title(),
+                view.losesAlbumReference(),
+                view.becomesUnpublished());
+    }
+
+    private static AlbumUnpublicationPreconditionsResponse.CascadeUnpublishedArticle toCascadeUnpublishedArticle(
+            UnpublicationEffectView view) {
+        return new AlbumUnpublicationPreconditionsResponse.CascadeUnpublishedArticle(
+                view.articleId(),
+                view.title());
     }
 
     /**

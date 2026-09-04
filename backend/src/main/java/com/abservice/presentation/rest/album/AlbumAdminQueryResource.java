@@ -1,6 +1,9 @@
 package com.abservice.presentation.rest.album;
 
 import com.abservice.application.query.Audience;
+import com.abservice.application.query.album.AlbumOperation;
+import com.abservice.application.query.album.GetAlbumPreconditionsQuery;
+import com.abservice.application.query.album.GetAlbumPreconditionsService;
 import com.abservice.application.query.album.GetAlbumQuery;
 import com.abservice.application.query.album.GetAlbumResult;
 import com.abservice.application.query.album.GetAlbumService;
@@ -8,6 +11,7 @@ import com.abservice.application.query.album.ListAlbumsQuery;
 import com.abservice.application.query.album.ListAlbumsService;
 import com.abservice.presentation.rest.album.response.AdminAlbumDetailResponse;
 import com.abservice.presentation.rest.album.response.AdminAlbumListResponse;
+import com.abservice.presentation.rest.album.response.AlbumPreconditionsResponse;
 import com.abservice.presentation.rest.security.SecurityRoles;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
@@ -18,6 +22,8 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
+import java.util.Locale;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -43,16 +49,56 @@ public class AlbumAdminQueryResource {
 
     private final GetAlbumService getAlbumService;
     private final ListAlbumsService listAlbumsService;
+    private final GetAlbumPreconditionsService getAlbumPreconditionsService;
 
     /**
      * @param getAlbumService
      *            アルバム詳細照会ユースケース
      * @param listAlbumsService
      *            アルバム一覧照会ユースケース
+     * @param getAlbumPreconditionsService
+     *            操作の前提を問う照会ユースケース
      */
-    public AlbumAdminQueryResource(GetAlbumService getAlbumService, ListAlbumsService listAlbumsService) {
+    public AlbumAdminQueryResource(
+            GetAlbumService getAlbumService,
+            ListAlbumsService listAlbumsService,
+            GetAlbumPreconditionsService getAlbumPreconditionsService) {
         this.getAlbumService = getAlbumService;
         this.listAlbumsService = listAlbumsService;
+        this.getAlbumPreconditionsService = getAlbumPreconditionsService;
+    }
+
+    /**
+     * アルバムに対する破壊的操作の前提を照会します。
+     *
+     * <p>
+     * 管理画面が実行前に「この操作をして問題ないか」を問う経路。影響範囲を管理画面側で組み立て直さないために置く（#274）。
+     * </p>
+     *
+     * @param id
+     *            アルバムのドメインID
+     * @param operation
+     *            前提を問う操作（{@code delete} / {@code unpublish}）
+     * @return 操作の前提（未存在時は 404、許可外・未指定の操作は 400 の Problem Details）
+     */
+    @GET
+    @Path("/{id}/preconditions")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Uni<AlbumPreconditionsResponse> preconditions(
+            @PathParam("id") String id,
+            @QueryParam("operation") @Nullable String operation) {
+        return Uni.createFrom()
+                .item(() -> AlbumOperation.required(Optional.ofNullable(operation)))
+                .flatMap(resolved -> preconditionsOf(id, resolved));
+    }
+
+    private Uni<AlbumPreconditionsResponse> preconditionsOf(String id, AlbumOperation operation) {
+        return getAlbumPreconditionsService.query(new GetAlbumPreconditionsQuery(id, operation))
+                .map(
+                        result -> AlbumQueryResponses.toPreconditionsResponse(
+                                result,
+                                id,
+                                operation.name().toLowerCase(Locale.ROOT)));
     }
 
     /**
