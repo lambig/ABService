@@ -7,6 +7,7 @@ import tseslint from 'typescript-eslint';
 
 import {
   DEEP_RELATIVE_IMPORT,
+  DEEP_RELATIVE_IMPORT_MESSAGE,
   commentsPlugin,
   commentsPluginName,
   conventionRules,
@@ -20,6 +21,48 @@ import {
  * 素の TypeScript のワークスペース（`packages/markup`・`e2e`）はこちらを読まない。Astro / Svelte の
  * プラグインを要求しないよう、入口を分けている。
  */
+
+/**
+ * 層の依存の向き。
+ *
+ * <p>
+ * `pages` → `layouts` → `components` → `lib` の順に内側へ向かう。内側は外側を輸入しない
+ * （バックエンドの ArchUnit `domainShouldNotDependOnOuterLayers` と同じ趣旨）。`pages` は Astro が
+ * 経路として読むもので、どこからも輸入されない。
+ * </p>
+ *
+ * <p>
+ * 層をまたぐ輸入はすべてエイリアス（`$lib` / `$components` / `$layouts`）を通るため、輸入の綴りで表せる。
+ * `eslint-plugin-boundaries` のような位置から層を判定するプラグインは入れていない（#232）。相対パスで
+ * 層をまたぐ抜け道は、1つ上（`../components/*` 等）を塞ぎ、2つ以上上は
+ * {@link DEEP_RELATIVE_IMPORT} が既に塞いでいる。
+ * </p>
+ *
+ * <p>
+ * `frontend-public` は shadcn-svelte のコンポーネントを `src/lib/components/ui/**` に置いており、
+ * `lib` の中に `components` がある。`$lib/components/...` は `$components/*` に当たらないため規則は
+ * 正しく働くが、名前と中身が食い違っている。置き場の是正は #270 が持つ（#122 で管理画面が shadcn を
+ * 入れる時点で両アプリまとめて移す）。
+ * </p>
+ */
+const layerBoundaries = [
+  {
+    files: ['src/lib/**'],
+    outer: ['$components/*', '$layouts/*', '../components/*', '../layouts/*', '../pages/*'],
+    message:
+      'lib は最も内側の層です。components / layouts / pages を輸入せず、値と関数だけを公開してください。',
+  },
+  {
+    files: ['src/components/**'],
+    outer: ['../pages/*', '../../pages/*'],
+    message: 'components は pages を輸入しません。画面の組み立ては pages 側が行ってください。',
+  },
+  {
+    files: ['src/layouts/**'],
+    outer: ['../pages/*', '../../pages/*'],
+    message: 'layouts は pages を輸入しません。画面の組み立ては pages 側が行ってください。',
+  },
+];
 
 /** Svelte 4 までの API。runes へ揃えるため、輸入の時点で塞ぐ */
 const svelte4Apis = [
@@ -118,7 +161,10 @@ export const astroSvelteWorkspace = ({ tsconfigRootDir }) =>
         // 深い相対パスに加えて Svelte 4 の API も塞ぐ（$lib エイリアスを使う）
         'no-restricted-imports': [
           'error',
-          { patterns: [DEEP_RELATIVE_IMPORT], paths: svelte4Apis },
+          {
+            patterns: [{ group: [DEEP_RELATIVE_IMPORT], message: DEEP_RELATIVE_IMPORT_MESSAGE }],
+            paths: svelte4Apis,
+          },
         ],
       },
     },
@@ -135,4 +181,24 @@ export const astroSvelteWorkspace = ({ tsconfigRootDir }) =>
       },
       rules: runesRules,
     },
+
+    /*
+     * 層ごとに、外側へ向かう輸入を塞ぐ。`no-restricted-imports` は設定を丸ごと上書きするため、
+     * 深い相対パスと Svelte 4 の API もここで並べ直す。
+     */
+    ...layerBoundaries.map(({ files, outer, message }) => ({
+      files,
+      rules: {
+        'no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              { group: [DEEP_RELATIVE_IMPORT], message: DEEP_RELATIVE_IMPORT_MESSAGE },
+              { group: outer, message },
+            ],
+            paths: svelte4Apis,
+          },
+        ],
+      },
+    })),
   );
