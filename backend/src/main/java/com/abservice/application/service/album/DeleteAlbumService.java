@@ -10,6 +10,9 @@ import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.domain.repository.article.ArticleRepository;
 import com.abservice.domain.service.AlbumAccessService;
+import com.abservice.domain.service.AlbumDeletionService;
+import com.abservice.domain.service.AlbumDeletionService.AlbumDeletion;
+import com.abservice.domain.service.AlbumDeletionService.ArticleEffect;
 import com.abservice.domain.service.BusinessDateTimeProvider;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -41,6 +44,7 @@ public class DeleteAlbumService implements CommandService<DeleteAlbumInput, Dele
 
     private final AlbumRepository albumRepository;
     private final AlbumAccessService albumAccessService;
+    private final AlbumDeletionService albumDeletionService;
     private final ArticleRepository articleRepository;
     private final BusinessDateTimeProvider businessDateTimeProvider;
 
@@ -64,8 +68,8 @@ public class DeleteAlbumService implements CommandService<DeleteAlbumInput, Dele
     private Uni<List<DeleteAlbumOutput.AffectedArticle>> detachReferencing(Optional<Album> claimed) {
         return claimed
                 .map(Album::id)
-                .map(articleRepository::findByAlbumId)
-                .map(referencing -> referencing.flatMap(this::loseAlbumReferences))
+                .map(albumDeletionService::attempt)
+                .map(attempt -> attempt.flatMap(this::loseAlbumReferences))
                 .orElseGet(() -> Uni.createFrom().item(List.of()));
     }
 
@@ -76,38 +80,52 @@ public class DeleteAlbumService implements CommandService<DeleteAlbumInput, Dele
                 .replaceWith(affected);
     }
 
-    private Uni<List<DeleteAlbumOutput.AffectedArticle>> loseAlbumReferences(List<Article> referencing) {
+    private Uni<List<DeleteAlbumOutput.AffectedArticle>> loseAlbumReferences(AlbumDeletion deletion) {
         return businessDateTimeProvider.now()
-                .map(now -> detachedAll(referencing, now))
+                .map(now -> detachedAll(deletion, now))
                 .flatMap(articleRepository::saveAll)
-                .replaceWith(() -> toAffectedArticles(referencing));
+                .replaceWith(() -> toAffectedArticles(deletion));
     }
 
-    private static List<Article> detachedAll(List<Article> referencing, BusinessDateTime now) {
-        return referencing.stream()
-                .map(article -> withoutAlbum(article, now))
+    private static List<Article> detachedAll(AlbumDeletion deletion, BusinessDateTime now) {
+        return deletion.effects().stream()
+                .map(effect -> withoutAlbum(effect, now))
                 .toList();
     }
 
-    /*
-     * NARROWING: 参照を失効させられるのは AlbumArticle だけで、他の種別は参照という概念を持たない。
-     * 参照元として引かれた記事は本来すべて AlbumArticle だが、型で絞れなかった場合は非公開化までを反映して返す。
+    /**
+     * 判定に従って遷移を当てる。何が起きるかは {@link AlbumDeletion} が決め、ここは適用に徹する。
      */
-    private static Article withoutAlbum(Article article, BusinessDateTime now) {
-        final var unpublished = Optional.of(article)
-                .filter(Article::isPublic)
+    private static Article withoutAlbum(ArticleEffect effect, BusinessDateTime now) {
+        return Optional.of(effect)
+                .filter(ArticleEffect::losesAlbumReference)
+                .map(losing -> withoutAlbumReference(unpublishedIfNeeded(losing, now), now))
+                .orElseGet(() -> unpublishedIfNeeded(effect, now));
+    }
+
+    private static Article unpublishedIfNeeded(ArticleEffect effect, BusinessDateTime now) {
+        return Optional.of(effect)
+                .filter(ArticleEffect::becomesUnpublished)
+                .map(ArticleEffect::article)
                 .map(published -> published.unpublish(now))
-                .orElse(article);
-        return AlbumArticle.from(unpublished)
+                .orElseGet(effect::article);
+    }
+
+    /*
+     * NARROWING: 参照を失効させられるのは AlbumArticle だけで、他の種別は参照という概念を持たない。判定は
+     * losesAlbumReference が持つが、型で絞れなかった場合は非公開化までを反映して返す。
+     */
+    private static Article withoutAlbumReference(Article article, BusinessDateTime now) {
+        return AlbumArticle.from(article)
                 .<Article>map(
                         albumArticle -> albumArticle.loseAlbumReference(
                                 AlbumReferenceLostReason.ALBUM_DELETED,
                                 now))
-                .orElse(unpublished);
+                .orElse(article);
     }
 
-    private static List<DeleteAlbumOutput.AffectedArticle> toAffectedArticles(List<Article> referencing) {
-        return referencing.stream()
+    private static List<DeleteAlbumOutput.AffectedArticle> toAffectedArticles(AlbumDeletion deletion) {
+        return deletion.referencingArticles().stream()
                 .map(DeleteAlbumService::toAffectedArticle)
                 .toList();
     }

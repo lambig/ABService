@@ -7,6 +7,8 @@ import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.domain.repository.article.ArticleRepository;
 import com.abservice.domain.service.AlbumAccessService;
+import com.abservice.domain.service.AlbumUnpublicationService;
+import com.abservice.domain.service.AlbumUnpublicationService.AlbumUnpublication;
 import com.abservice.domain.service.BusinessDateTimeProvider;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -32,6 +34,7 @@ public class UnpublishAlbumService implements CommandService<UnpublishAlbumInput
 
     private final AlbumRepository albumRepository;
     private final AlbumAccessService albumAccessService;
+    private final AlbumUnpublicationService albumUnpublicationService;
     private final ArticleRepository articleRepository;
     private final BusinessDateTimeProvider businessDateTimeProvider;
 
@@ -47,21 +50,21 @@ public class UnpublishAlbumService implements CommandService<UnpublishAlbumInput
     }
 
     private Uni<UnpublishAlbumOutput> cascadeUnpublishReferencingArticles(Album album) {
-        return articleRepository.findByAlbumId(album.id())
-                .flatMap(this::unpublishPublicOnes)
+        return albumUnpublicationService.attempt(album.id())
+                .map(AlbumUnpublication::articlesBecomingUnpublished)
+                .flatMap(this::unpublishAll)
                 .map(cascadeUnpublished -> toOutput(album, cascadeUnpublished));
     }
 
-    private Uni<List<Article>> unpublishPublicOnes(List<Article> referencing) {
+    private Uni<List<Article>> unpublishAll(List<Article> becomingUnpublished) {
         return businessDateTimeProvider.now()
-                .map(now -> unpublished(referencing, now))
+                .map(now -> unpublished(becomingUnpublished, now))
                 .flatMap(articleRepository::saveAll);
     }
 
-    private static List<Article> unpublished(List<Article> referencing, BusinessDateTime now) {
-        return referencing.stream()
-                .filter(Article::isPublic)
-                .map(publicArticle -> publicArticle.unpublish(now))
+    private static List<Article> unpublished(List<Article> becomingUnpublished, BusinessDateTime now) {
+        return becomingUnpublished.stream()
+                .map(article -> article.unpublish(now))
                 .toList();
     }
 
