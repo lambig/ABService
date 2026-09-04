@@ -1,7 +1,10 @@
 import comments from '@eslint-community/eslint-plugin-eslint-comments';
 import js from '@eslint/js';
 import functional from 'eslint-plugin-functional';
+import jsdoc from 'eslint-plugin-jsdoc';
 import tseslint from 'typescript-eslint';
+
+import { inlineCommentRequiresWhyNotPrefix } from './rules/inline-comment-requires-why-not-prefix.js';
 
 /**
  * `docs/CODING_GUIDELINES.md` §1 の規約を TypeScript 側へ写したルール。
@@ -48,6 +51,54 @@ export const commentsPluginName = '@eslint-community/eslint-comments';
 export const commentsPlugin = comments;
 
 /**
+ * このリポジトリ自身が書いたルールの登録名。
+ *
+ * <p>
+ * 上流に対応物が無いものだけを置く。`rules/` の各ファイルが、なぜ独自に書く必要があるかを持つ。
+ * </p>
+ */
+export const localPluginName = 'abservice';
+
+/** {@link localPluginName} で登録するプラグイン本体 */
+export const localPlugin = {
+  rules: {
+    'inline-comment-requires-why-not-prefix': inlineCommentRequiresWhyNotPrefix,
+  },
+};
+
+/**
+ * 使わせないアサーションの輸入元（バックエンドの「JUnit assertion 禁止・AssertJ 統一」に対応）。
+ *
+ * <p>
+ * アサーションの語彙は文脈ごとに1つに揃える。単体テストは vitest の `expect`、E2E は Playwright の
+ * `expect`（`e2e/src/support/fixtures.ts` が再輸出する）を使う。**どちらを使うかを強制するのではなく、
+ * それ以外を塞ぐ**形にしている。vitest を e2e へ、Playwright を単体テストへ強制すると、文脈に合わない
+ * 側を持ち込むことになるため。
+ * </p>
+ *
+ * <p>
+ * `chai` は vitest が同梱するもので、ワークスペースの巻き上げにより輸入できてしまう。同じ振る舞いを
+ * 2つの語彙で書けると、失敗時の出力とマッチャの種類が混ざるため塞ぐ。
+ * </p>
+ */
+export const forbiddenAssertionPaths = [
+  /*
+   * SPECIFIER-VARIANTS: Node の assert は4通りの綴りで解決する（`node:` の有無 × `/strict` の有無）。
+   * `no-restricted-imports` の `paths` は綴りの完全一致で照合するため、1つでも落とすと迂回路が残る。
+   */
+  ...['node:assert', 'node:assert/strict', 'assert', 'assert/strict'].map((name) => ({
+    name,
+    message:
+      'アサーションは文脈ごとの1つに揃えます。単体テストは vitest の expect、E2E は Playwright の expect を使ってください。',
+  })),
+  {
+    name: 'chai',
+    message:
+      'chai は vitest の同梱物で、巻き上げにより輸入できてしまうものです。vitest の expect を使ってください。',
+  },
+];
+
+/**
  * 構文そのものを塞ぐルール（バックエンドの PMD ForbiddenIfStatement 等に対応）。
  *
  * `no-restricted-syntax` は配列を丸ごと上書きするため、これに足したいワークスペースは
@@ -77,16 +128,16 @@ export const restrictedSyntax = [
 
 /** バックエンド規約に対応する、この設定の中核ルール */
 export const conventionRules = {
-  // 全ローカルを const にする（バックエンドの「全ローカル final」に対応）
+  /* 全ローカルを const にする（バックエンドの「全ローカル final」に対応） */
   'prefer-const': 'error',
   'no-var': 'error',
   'functional/no-let': 'error',
 
-  // TypeScript の strict の穴を塞ぐ。any と non-null assertion は型検査を無効化する
+  /* TypeScript の strict の穴を塞ぐ。any と non-null assertion は型検査を無効化する */
   '@typescript-eslint/no-explicit-any': 'error',
   '@typescript-eslint/no-non-null-assertion': 'error',
 
-  // 破壊的な更新の禁止（バックエンドの「可変コレクション直接生成禁止」に対応）
+  /* 破壊的な更新の禁止（バックエンドの「可変コレクション直接生成禁止」に対応） */
   'functional/immutable-data': 'error',
 
   'no-restricted-syntax': ['error', ...restrictedSyntax],
@@ -95,6 +146,7 @@ export const conventionRules = {
     'error',
     {
       patterns: [{ group: [DEEP_RELATIVE_IMPORT], message: DEEP_RELATIVE_IMPORT_MESSAGE }],
+      paths: forbiddenAssertionPaths,
     },
   ],
 
@@ -105,7 +157,55 @@ export const conventionRules = {
    * 区別できない。理由を同じ行に置くことで、外した判断そのものをレビューの対象にする。
    */
   [`${commentsPluginName}/require-description`]: ['error', { ignore: [] }],
+
+  /*
+   * 行コメントは「why not」に限る（CODING_GUIDELINES §8。バックエンドの Checkstyle
+   * InlineCommentRequiresWhyNotPrefix に対応）。
+   */
+  [`${localPluginName}/inline-comment-requires-why-not-prefix`]: 'error',
 };
+
+/**
+ * 共有パッケージの公開 API に JSDoc を必須にする層。
+ *
+ * <p>
+ * バックエンドは `domain.model` 配下にクラス・フィールド・public メソッドの Javadoc を必須にしている。
+ * TypeScript 側に対応する層は無いため、**ワークスペースをまたいで使われる境界**——共有パッケージの
+ * 入口——に限って必須にする。型で足りている場所へ説明を書かせないため、範囲を広げない。
+ * </p>
+ *
+ * <p>
+ * 必須にするのは JSDoc の存在と、その中に説明があること。`@param` / `@returns` の網羅は求めない。
+ * 引数と戻り値の型は TypeScript が持っており、同じことを2箇所へ書くことになる。
+ * </p>
+ *
+ * @param {object} options
+ * @param {readonly string[]} options.files 公開 API を持つファイル（各パッケージの入口）
+ */
+export const publicApiJsdoc = ({ files }) => ({
+  files: [...files],
+  plugins: { jsdoc },
+  rules: {
+    'jsdoc/require-jsdoc': [
+      'error',
+      {
+        /*
+         * EXPORT-WRAPPER: 輸出される宣言だけを対象にする。`ExportNamedDeclaration > 宣言` の形で
+         * 指定すると、内側の宣言から見て直前のトークンが `export` になり、その上の JSDoc に届かない。
+         * publicOnly に輸出の判定を任せ、対象は宣言の種類で指定する。
+         */
+        publicOnly: true,
+        require: {
+          FunctionDeclaration: true,
+          ArrowFunctionExpression: true,
+          FunctionExpression: true,
+        },
+        contexts: ['VariableDeclaration', 'TSTypeAliasDeclaration', 'TSInterfaceDeclaration'],
+      },
+    ],
+    'jsdoc/require-description': 'error',
+  },
+});
 
 /**
  * 型情報を使う検査の層。
@@ -143,6 +243,10 @@ export const typeCheckedLayer = ({ tsconfigRootDir, files, extraFileExtensions }
  */
 export const typescriptWorkspace = ({ tsconfigRootDir }) =>
   tseslint.config(js.configs.recommended, typeCheckedLayer({ tsconfigRootDir }), {
-    plugins: { functional, [commentsPluginName]: commentsPlugin },
+    plugins: {
+      functional,
+      [commentsPluginName]: commentsPlugin,
+      [localPluginName]: localPlugin,
+    },
     rules: conventionRules,
   });

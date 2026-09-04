@@ -13,6 +13,9 @@ import {
   commentsPlugin,
   commentsPluginName,
   conventionRules,
+  forbiddenAssertionPaths,
+  localPlugin,
+  localPluginName,
   restrictedSyntax,
   typeCheckedLayer,
 } from './index.js';
@@ -110,7 +113,7 @@ const restrictedImports = (extra) => [
       { group: [SRC_ABSOLUTE_IMPORT], message: SRC_ABSOLUTE_IMPORT_MESSAGE },
       ...extra,
     ],
-    paths: svelte4Apis,
+    paths: [...forbiddenAssertionPaths, ...svelte4Apis],
   },
 ];
 
@@ -133,10 +136,10 @@ const LET_WITHOUT_STATE = [
  * （`<slot>`・`on:` のイベントディレクティブ）を塞ぐためにある。
  */
 const runesRules = {
-  // コンパイラの警告を lint の失敗にする（非推奨の記法はここに出る）
+  /* コンパイラの警告を lint の失敗にする（非推奨の記法はここに出る） */
   'svelte/valid-compile': 'error',
 
-  // $derived.by で書けるものは $derived で書く
+  /* $derived.by で書けるものは $derived で書く */
   'svelte/prefer-derived-over-derived-by': 'error',
 
   /*
@@ -185,10 +188,11 @@ export const astroSvelteWorkspace = ({ tsconfigRootDir }) =>
         '@typescript-eslint': tseslint.plugin,
         functional,
         [commentsPluginName]: commentsPlugin,
+        [localPluginName]: localPlugin,
       },
       rules: {
         ...conventionRules,
-        // 深い相対パス・非相対パスに加えて Svelte 4 の API も塞ぐ（エイリアスを使う）
+        /* 深い相対パス・非相対パスに加えて Svelte 4 の API も塞ぐ（エイリアスを使う） */
         'no-restricted-imports': restrictedImports([]),
       },
     },
@@ -206,7 +210,7 @@ export const astroSvelteWorkspace = ({ tsconfigRootDir }) =>
       rules: runesRules,
     },
 
-    // 層ごとに、外側へ向かう輸入を塞ぐ
+    /* 層ごとに、外側へ向かう輸入を塞ぐ */
     ...layerBoundaries.map(({ files, outer, message }) => ({
       files,
       rules: {

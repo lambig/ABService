@@ -1,4 +1,4 @@
-import { typescriptWorkspace } from 'abservice-eslint-config';
+import { publicApiJsdoc, typescriptWorkspace } from 'abservice-eslint-config';
 import tseslint from 'typescript-eslint';
 
 /**
@@ -11,4 +11,6 @@ export default tseslint.config(
   },
 
   ...typescriptWorkspace({ tsconfigRootDir: import.meta.dirname }),
+
+  publicApiJsdoc({ files: ['src/index.ts'] }),
 );

@@ -1,4 +1,4 @@
-import { typescriptWorkspace } from 'abservice-eslint-config';
+import { publicApiJsdoc, typescriptWorkspace } from 'abservice-eslint-config';
 import tseslint from 'typescript-eslint';
 
 /**
@@ -15,8 +15,10 @@ export default tseslint.config(
 
   ...typescriptWorkspace({ tsconfigRootDir: import.meta.dirname }),
 
+  publicApiJsdoc({ files: ['src/index.ts'] }),
+
   {
-    // テストは assert のために値を組み立てる。可変更新の禁止は本体コードに対して効かせる
+    /* テストは assert のために値を組み立てる。可変更新の禁止は本体コードに対して効かせる */
     files: ['**/*.test.ts'],
     rules: {
       'functional/immutable-data': 'off',

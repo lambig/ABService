@@ -19,6 +19,10 @@ export declare const commentsPluginName: string;
 
 export declare const commentsPlugin: ESLint.Plugin;
 
+export declare const localPluginName: string;
+
+export declare const localPlugin: ESLint.Plugin;
+
 export interface RestrictedSyntaxEntry {
   readonly selector: string;
   readonly message: string;
@@ -26,7 +30,21 @@ export interface RestrictedSyntaxEntry {
 
 export declare const restrictedSyntax: readonly RestrictedSyntaxEntry[];
 
+export interface RestrictedPathEntry {
+  readonly name: string;
+  readonly message: string;
+}
+
+export declare const forbiddenAssertionPaths: readonly RestrictedPathEntry[];
+
 export declare const conventionRules: Linter.RulesRecord;
+
+export interface PublicApiJsdocOptions {
+  /** 公開 API を持つファイル（各パッケージの入口） */
+  readonly files: readonly string[];
+}
+
+export declare const publicApiJsdoc: (options: PublicApiJsdocOptions) => ConfigWithExtends;
 
 export interface TypeCheckedLayerOptions {
   /** 参照側の `import.meta.dirname`。tsconfig の解決をそのワークスペースの位置から始める */
