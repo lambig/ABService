@@ -1,3 +1,4 @@
+import comments from '@eslint-community/eslint-plugin-eslint-comments';
 import js from '@eslint/js';
 import functional from 'eslint-plugin-functional';
 import tseslint from 'typescript-eslint';
@@ -16,6 +17,17 @@ import tseslint from 'typescript-eslint';
 
 /** 深い相対パスの禁止（バックエンドの FQN 禁止に対応する趣旨）。エイリアスを使う */
 export const DEEP_RELATIVE_IMPORT = '../../*';
+
+/**
+ * ルールを外すコメントに理由を必須とするプラグイン。
+ *
+ * 登録名を短くしない。`@eslint-community/eslint-comments` のまま使うことで、eslint の出力に出る
+ * ルール名が上流の文書と一致する。
+ */
+export const commentsPluginName = '@eslint-community/eslint-comments';
+
+/** {@link commentsPluginName} で登録するプラグイン本体 */
+export const commentsPlugin = comments;
 
 /**
  * 構文そのものを塞ぐルール（バックエンドの PMD ForbiddenIfStatement 等に対応）。
@@ -57,6 +69,14 @@ export const conventionRules = {
   'no-restricted-syntax': ['error', ...restrictedSyntax],
 
   'no-restricted-imports': ['error', { patterns: [DEEP_RELATIVE_IMPORT] }],
+
+  /*
+   * ルールを外すなら理由を書く（バックエンドの「@SuppressWarnings に理由必須」に対応）。
+   *
+   * 外した事実だけが残ると、後から読む人には「規約が間違っているのか、ここが例外なのか、直し忘れなのか」が
+   * 区別できない。理由を同じ行に置くことで、外した判断そのものをレビューの対象にする。
+   */
+  [`${commentsPluginName}/require-description`]: ['error', { ignore: [] }],
 };
 
 /**
@@ -95,6 +115,6 @@ export const typeCheckedLayer = ({ tsconfigRootDir, files, extraFileExtensions }
  */
 export const typescriptWorkspace = ({ tsconfigRootDir }) =>
   tseslint.config(js.configs.recommended, typeCheckedLayer({ tsconfigRootDir }), {
-    plugins: { functional },
+    plugins: { functional, [commentsPluginName]: commentsPlugin },
     rules: conventionRules,
   });

@@ -1,4 +1,4 @@
-import type { Linter } from 'eslint';
+import type { ESLint, Linter } from 'eslint';
 import type { ConfigArray, ConfigWithExtends } from 'typescript-eslint';
 
 /**
@@ -8,6 +8,10 @@ import type { ConfigArray, ConfigWithExtends } from 'typescript-eslint';
  */
 
 export declare const DEEP_RELATIVE_IMPORT: string;
+
+export declare const commentsPluginName: string;
+
+export declare const commentsPlugin: ESLint.Plugin;
 
 export interface RestrictedSyntaxEntry {
   readonly selector: string;

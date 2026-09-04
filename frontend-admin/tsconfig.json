@@ -9,7 +9,9 @@
       "$layouts/*": ["./src/layouts/*"]
     },
     "verbatimModuleSyntax": true,
-    "noUncheckedIndexedAccess": true
+    "noUncheckedIndexedAccess": true,
+    // astro/tsconfigs/base が有効にしている。依存の型定義まで検査し、型の食い違いを取りこぼさない（#232）
+    "skipLibCheck": false
   },
   "include": [".astro/types.d.ts", "**/*"],
   "exclude": ["dist", "node_modules"]
