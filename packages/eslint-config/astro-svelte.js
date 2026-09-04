@@ -8,6 +8,8 @@ import tseslint from 'typescript-eslint';
 import {
   DEEP_RELATIVE_IMPORT,
   DEEP_RELATIVE_IMPORT_MESSAGE,
+  SRC_ABSOLUTE_IMPORT,
+  SRC_ABSOLUTE_IMPORT_MESSAGE,
   commentsPlugin,
   commentsPluginName,
   conventionRules,
@@ -32,11 +34,16 @@ import {
  * </p>
  *
  * <p>
- * 層をまたぐ輸入はすべてエイリアス（`$lib` / `$components` / `$layouts`）を通るため、輸入の綴りで表せる。
- * `eslint-plugin-boundaries` のような位置から層を判定するプラグインは入れていない（#232）。相対パスで
- * 層をまたぐ抜け道は、1つ上（`../components/*` 等）を塞ぎ、2つ以上上は
- * {@link DEEP_RELATIVE_IMPORT} が既に塞いでいる。
+ * 境界は**輸入の綴り**で強制する。`eslint-plugin-boundaries` のような位置から層を判定するプラグインは
+ * 入れていない（#232）。綴りで表すには、層へ届く綴りが有限でなければならないため、次の3つを塞ぐ。
  * </p>
+ *
+ * <ul>
+ * <li>エイリアス（`$components/*` 等）— 層をまたぐ輸入の正規の綴り</li>
+ * <li>1つ上をたどる相対パス（`../components/*` 等）。2つ以上上は {@link DEEP_RELATIVE_IMPORT} が塞ぐ</li>
+ * <li>自身の `src` を指す非相対パス（{@link SRC_ABSOLUTE_IMPORT}）。両アプリの tsconfig が
+ * `baseUrl: "."` を持つため、`src/components/Foo.astro` のような綴りでも解決してしまう</li>
+ * </ul>
  *
  * <p>
  * `frontend-public` は shadcn-svelte のコンポーネントを `src/lib/components/ui/**` に置いており、
@@ -54,12 +61,13 @@ const layerBoundaries = [
   },
   {
     files: ['src/components/**'],
-    outer: ['../pages/*', '../../pages/*'],
-    message: 'components は pages を輸入しません。画面の組み立ては pages 側が行ってください。',
+    outer: ['$layouts/*', '../layouts/*', '../pages/*'],
+    message:
+      'components は自分より外側（layouts / pages）を輸入しません。枠と画面の組み立ては外側が行ってください。',
   },
   {
     files: ['src/layouts/**'],
-    outer: ['../pages/*', '../../pages/*'],
+    outer: ['../pages/*'],
     message: 'layouts は pages を輸入しません。画面の組み立ては pages 側が行ってください。',
   },
 ];
@@ -81,6 +89,28 @@ const svelte4Apis = [
     name: 'svelte',
     importNames: ['afterUpdate'],
     message: 'Svelte 4 までの API です。更新後の処理は $effect で表してください。',
+  },
+];
+
+/**
+ * `no-restricted-imports` の設定を組み立てる。
+ *
+ * <p>
+ * このルールは設定を丸ごと上書きするため、層ごとの上書きでも土台（深い相対パス・非相対パス・Svelte 4 の
+ * API）を並べ直す必要がある。手で書き写すと写し漏れが境界の穴になるため、1箇所で組み立てる。
+ * </p>
+ *
+ * @param {readonly {group: readonly string[], message: string}[]} extra 層ごとに足す禁止
+ */
+const restrictedImports = (extra) => [
+  'error',
+  {
+    patterns: [
+      { group: [DEEP_RELATIVE_IMPORT], message: DEEP_RELATIVE_IMPORT_MESSAGE },
+      { group: [SRC_ABSOLUTE_IMPORT], message: SRC_ABSOLUTE_IMPORT_MESSAGE },
+      ...extra,
+    ],
+    paths: svelte4Apis,
   },
 ];
 
@@ -158,14 +188,8 @@ export const astroSvelteWorkspace = ({ tsconfigRootDir }) =>
       },
       rules: {
         ...conventionRules,
-        // 深い相対パスに加えて Svelte 4 の API も塞ぐ（$lib エイリアスを使う）
-        'no-restricted-imports': [
-          'error',
-          {
-            patterns: [{ group: [DEEP_RELATIVE_IMPORT], message: DEEP_RELATIVE_IMPORT_MESSAGE }],
-            paths: svelte4Apis,
-          },
-        ],
+        // 深い相対パス・非相対パスに加えて Svelte 4 の API も塞ぐ（エイリアスを使う）
+        'no-restricted-imports': restrictedImports([]),
       },
     },
 
@@ -182,23 +206,11 @@ export const astroSvelteWorkspace = ({ tsconfigRootDir }) =>
       rules: runesRules,
     },
 
-    /*
-     * 層ごとに、外側へ向かう輸入を塞ぐ。`no-restricted-imports` は設定を丸ごと上書きするため、
-     * 深い相対パスと Svelte 4 の API もここで並べ直す。
-     */
+    // 層ごとに、外側へ向かう輸入を塞ぐ
     ...layerBoundaries.map(({ files, outer, message }) => ({
       files,
       rules: {
-        'no-restricted-imports': [
-          'error',
-          {
-            patterns: [
-              { group: [DEEP_RELATIVE_IMPORT], message: DEEP_RELATIVE_IMPORT_MESSAGE },
-              { group: outer, message },
-            ],
-            paths: svelte4Apis,
-          },
-        ],
+        'no-restricted-imports': restrictedImports([{ group: outer, message }]),
       },
     })),
   );
