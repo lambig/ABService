@@ -95,11 +95,20 @@ schemaの正はマイグレーションであり、起動時に適用される�
 
 ## 静的サイト配信
 
-公開サイトと管理画面は別々のS3バケットへ置き、CloudFront が経路で振り分ける（`default_cache_behavior` が `frontend_public`、`path_pattern = "/admin/*"` の `ordered_cache_behavior` が `frontend_admin`）。
+公開サイトと管理画面は別々のS3バケットへ置き、CloudFront が経路で振り分ける（`default_cache_behavior` が `frontend_public`、`path_pattern = "/admin*"` の `ordered_cache_behavior` が `frontend_admin`）。
 
 - **振り分けは経路を書き換えない。** ビューアが要求した経路がそのままオリジンのオブジェクトキーになるため、管理画面の成果物はバケットの `admin/` 接頭辞配下へ置く（`/admin/index.html` → キー `admin/index.html`）。`origin_path` では解けない（要求の前に足すため `/admin/admin/...` を引くことになる）
 - 管理画面の Astro は同じ理由で `base: '/admin'` を宣言している（`frontend-admin/astro.config.mjs`）。宣言がないと資産の参照が `/_astro/...` になり、既定の振り分けで公開サイトのバケットへ流れる
 - 公開サイトは `base` を持たず、バケット直下へ置く
+- 管理画面のパターンは `/admin*`。`/admin/*` は末尾スラッシュのない `/admin` に一致せず、入口が公開サイトのバケットへ流れる
+
+### 経路からオブジェクトキーへの解決
+
+OAC 経由の S3 は REST エンドポイントで、ディレクトリ索引を持たない。`default_root_object` も配信直下にしか効かないため、`/albums/` や `/admin` はその綴りのままキーとして引かれて 403/404 になる。Astro の既定（`build.format: 'directory'`）は各ページを `index.html` として出すため、CloudFront Functions（viewer request、`aws_cloudfront_function.resolve_static_uri`）が綴りを合わせる。
+
+- 最後の区間に `.` を含む経路（資産・`404.html`）は素通し、それ以外は末尾へ `index.html` を補う
+- 結び付けるのは静的サイトの2つの振り分けだけ。`/api/*` へ結ぶと拡張子を持たない API の経路まで書き換わる
+- **E2E の配信（`e2e/scripts/serve-app.mjs`）は同じファイルを読み、`handler` へ要求を通して解決する。** 写して並べると片方が黙って古くなり、検査が本番と違う解決で緑になる
 
 ## ロールバック（backendデプロイ）
 
