@@ -7,6 +7,8 @@ import tseslint from 'typescript-eslint';
 
 import {
   DEEP_RELATIVE_IMPORT,
+  commentsPlugin,
+  commentsPluginName,
   conventionRules,
   restrictedSyntax,
   typeCheckedLayer,
@@ -109,6 +111,7 @@ export const astroSvelteWorkspace = ({ tsconfigRootDir }) =>
       plugins: {
         '@typescript-eslint': tseslint.plugin,
         functional,
+        [commentsPluginName]: commentsPlugin,
       },
       rules: {
         ...conventionRules,
