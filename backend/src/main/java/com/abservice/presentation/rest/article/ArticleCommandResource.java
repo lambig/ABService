@@ -38,7 +38,8 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+import org.jboss.resteasy.reactive.ResponseStatus;
+import org.jboss.resteasy.reactive.RestResponse;
 
 /**
  * 記事集約の Command REST リソース
@@ -108,9 +109,10 @@ public class ArticleCommandResource {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> create(CreateArticleRequest request) {
+    @ResponseStatus(RestResponse.StatusCode.CREATED)
+    public Uni<CreateArticleResponse> create(CreateArticleRequest request) {
         return createArticleService.execute(toInput(request))
-                .map(ArticleCommandResource::toCreated);
+                .map(ArticleCommandResource::toResponse);
     }
 
     private static CreateArticleInput toInput(CreateArticleRequest request) {
@@ -120,12 +122,6 @@ public class ArticleCommandResource {
                 request.body(),
                 request.bodyFormat(),
                 request.introShort());
-    }
-
-    private static Response toCreated(CreateArticleOutput output) {
-        return Response.status(Response.Status.CREATED)
-                .entity(toResponse(output))
-                .build();
     }
 
     private static CreateArticleResponse toResponse(CreateArticleOutput output) {
@@ -149,9 +145,9 @@ public class ArticleCommandResource {
     @Path("/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> update(@PathParam("id") String id, UpdateArticleRequest request) {
+    public Uni<UpdateArticleResponse> update(@PathParam("id") String id, UpdateArticleRequest request) {
         return updateArticleService.execute(toInput(id, request))
-                .map(ArticleCommandResource::toOk);
+                .map(ArticleCommandResource::toResponse);
     }
 
     private static UpdateArticleInput toInput(String id, UpdateArticleRequest request) {
@@ -162,10 +158,6 @@ public class ArticleCommandResource {
                 request.body(),
                 request.bodyFormat(),
                 request.introShort());
-    }
-
-    private static Response toOk(UpdateArticleOutput output) {
-        return Response.ok(toResponse(output)).build();
     }
 
     private static UpdateArticleResponse toResponse(UpdateArticleOutput output) {
@@ -185,9 +177,9 @@ public class ArticleCommandResource {
      */
     @DELETE
     @Path("/{id}")
-    public Uni<Response> delete(@PathParam("id") String id) {
+    public Uni<Void> delete(@PathParam("id") String id) {
         return deleteArticleService.execute(new DeleteArticleInput(id))
-                .replaceWith(Response.noContent().build());
+                .replaceWithVoid();
     }
 
     /**
@@ -200,13 +192,9 @@ public class ArticleCommandResource {
     @POST
     @Path("/{id}/publish")
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> publish(@PathParam("id") String id) {
+    public Uni<PublishArticleResponse> publish(@PathParam("id") String id) {
         return publishArticleService.execute(new PublishArticleInput(id))
-                .map(ArticleCommandResource::toOk);
-    }
-
-    private static Response toOk(PublishArticleOutput output) {
-        return Response.ok(toResponse(output)).build();
+                .map(ArticleCommandResource::toResponse);
     }
 
     private static PublishArticleResponse toResponse(PublishArticleOutput output) {
@@ -227,13 +215,9 @@ public class ArticleCommandResource {
     @POST
     @Path("/{id}/unpublish")
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> unpublish(@PathParam("id") String id) {
+    public Uni<UnpublishArticleResponse> unpublish(@PathParam("id") String id) {
         return unpublishArticleService.execute(new UnpublishArticleInput(id))
-                .map(ArticleCommandResource::toOk);
-    }
-
-    private static Response toOk(UnpublishArticleOutput output) {
-        return Response.ok(toResponse(output)).build();
+                .map(ArticleCommandResource::toResponse);
     }
 
     private static UnpublishArticleResponse toResponse(UnpublishArticleOutput output) {
@@ -257,9 +241,9 @@ public class ArticleCommandResource {
     @Path("/{id}/album")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> setAlbum(@PathParam("id") String id, SetArticleAlbumRequest request) {
+    public Uni<SetArticleAlbumResponse> setAlbum(@PathParam("id") String id, SetArticleAlbumRequest request) {
         return setArticleAlbumService.execute(new SetArticleAlbumInput(id, request.albumId()))
-                .map(ArticleCommandResource::toOk);
+                .map(ArticleCommandResource::toResponse);
     }
 
     /**
@@ -276,13 +260,9 @@ public class ArticleCommandResource {
      */
     @DELETE
     @Path("/{id}/album")
-    public Uni<Response> removeAlbum(@PathParam("id") String id) {
+    public Uni<Void> removeAlbum(@PathParam("id") String id) {
         return removeArticleAlbumService.execute(new RemoveArticleAlbumInput(id))
-                .replaceWith(Response.noContent().build());
-    }
-
-    private static Response toOk(SetArticleAlbumOutput output) {
-        return Response.ok(toResponse(output)).build();
+                .replaceWithVoid();
     }
 
     private static SetArticleAlbumResponse toResponse(SetArticleAlbumOutput output) {

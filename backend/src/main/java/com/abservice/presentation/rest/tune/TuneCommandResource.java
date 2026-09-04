@@ -23,7 +23,8 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+import org.jboss.resteasy.reactive.ResponseStatus;
+import org.jboss.resteasy.reactive.RestResponse;
 
 /**
  * チューン集約の Command REST リソース
@@ -70,9 +71,10 @@ public class TuneCommandResource {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> create(CreateTuneRequest request) {
+    @ResponseStatus(RestResponse.StatusCode.CREATED)
+    public Uni<CreateTuneResponse> create(CreateTuneRequest request) {
         return createTuneService.execute(toInput(request))
-                .map(TuneCommandResource::toCreated);
+                .map(TuneCommandResource::toResponse);
     }
 
     private static CreateTuneInput toInput(CreateTuneRequest request) {
@@ -86,12 +88,6 @@ public class TuneCommandResource {
                 request.tuneType(),
                 request.defaultKey(),
                 request.defaultTempo());
-    }
-
-    private static Response toCreated(CreateTuneOutput output) {
-        return Response.status(Response.Status.CREATED)
-                .entity(toResponse(output))
-                .build();
     }
 
     private static CreateTuneResponse toResponse(CreateTuneOutput output) {
@@ -114,9 +110,9 @@ public class TuneCommandResource {
     @Path("/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> update(@PathParam("id") String id, UpdateTuneRequest request) {
+    public Uni<UpdateTuneResponse> update(@PathParam("id") String id, UpdateTuneRequest request) {
         return updateTuneService.execute(toInput(id, request))
-                .map(TuneCommandResource::toOk);
+                .map(TuneCommandResource::toResponse);
     }
 
     private static UpdateTuneInput toInput(String id, UpdateTuneRequest request) {
@@ -131,10 +127,6 @@ public class TuneCommandResource {
                 request.tuneType(),
                 request.defaultKey(),
                 request.defaultTempo());
-    }
-
-    private static Response toOk(UpdateTuneOutput output) {
-        return Response.ok(toResponse(output)).build();
     }
 
     private static UpdateTuneResponse toResponse(UpdateTuneOutput output) {
@@ -153,8 +145,8 @@ public class TuneCommandResource {
      */
     @DELETE
     @Path("/{id}")
-    public Uni<Response> delete(@PathParam("id") String id) {
+    public Uni<Void> delete(@PathParam("id") String id) {
         return deleteTuneService.execute(new DeleteTuneInput(id))
-                .replaceWith(Response.noContent().build());
+                .replaceWithVoid();
     }
 }

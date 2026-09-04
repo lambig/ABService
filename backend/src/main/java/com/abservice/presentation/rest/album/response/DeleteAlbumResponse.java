@@ -12,7 +12,7 @@ import java.util.List;
  * @param affectedArticles
  *            影響を受けた記事の一覧（該当なしの場合は空）
  */
-public record DeleteAlbumResponse(List<AffectedArticle> affectedArticles) {
+public record DeleteAlbumResponse(List<DeletionAffectedArticle> affectedArticles) {
 
     /**
      * 影響を受けた記事
@@ -24,6 +24,6 @@ public record DeleteAlbumResponse(List<AffectedArticle> affectedArticles) {
      * @param unpublished
      *            公開中だったため非公開へ戻したか
      */
-    public record AffectedArticle(String articleId, String title, boolean unpublished) {
+    public record DeletionAffectedArticle(String articleId, String title, boolean unpublished) {
     }
 }

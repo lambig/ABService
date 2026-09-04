@@ -122,6 +122,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/albums/{id}/preconditions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preconditions */
+        get: {
+            parameters: {
+                query?: {
+                    operation?: string;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AlbumPreconditionsResponse"];
+                    };
+                };
+                /** @description Not Authorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Allowed */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description 対象が存在しない */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/article-tags": {
         parameters: {
             query?: never;
@@ -344,7 +407,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["CreateAlbumResponse"];
                     };
                 };
                 /** @description 入力の検証に失敗した */
@@ -407,7 +470,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["RegisterAlbumWithTracksResponse"];
                     };
                 };
                 /** @description 入力の検証に失敗した */
@@ -472,7 +535,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["AddExternalAudioResponse"];
                     };
                 };
                 /** @description 入力の検証に失敗した */
@@ -545,7 +608,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["ReorderExternalAudiosResponse"];
                     };
                 };
                 /** @description 入力の検証に失敗した */
@@ -612,14 +675,12 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description OK */
-                200: {
+                /** @description No Content */
+                204: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content: {
-                        "application/json": unknown;
-                    };
+                    content?: never;
                 };
                 /** @description Not Authorized */
                 401: {
@@ -682,7 +743,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["AddTrackResponse"];
                     };
                 };
                 /** @description 入力の検証に失敗した */
@@ -755,7 +816,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["ReorderTracksResponse"];
                     };
                 };
                 /** @description 入力の検証に失敗した */
@@ -830,7 +891,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["UpdateTrackResponse"];
                     };
                 };
                 /** @description 入力の検証に失敗した */
@@ -881,14 +942,12 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description OK */
-                200: {
+                /** @description No Content */
+                204: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content: {
-                        "application/json": unknown;
-                    };
+                    content?: never;
                 };
                 /** @description Not Authorized */
                 401: {
@@ -981,7 +1040,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["UpdateAlbumResponse"];
                     };
                 };
                 /** @description 入力の検証に失敗した */
@@ -1037,7 +1096,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["DeleteAlbumResponse"];
                     };
                 };
                 /** @description Not Authorized */
@@ -1097,7 +1156,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["PublishAlbumResponse"];
                     };
                 };
                 /** @description Not Authorized */
@@ -1158,7 +1217,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["UnpublishAlbumResponse"];
                     };
                 };
                 /** @description Not Authorized */
@@ -1246,7 +1305,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["CreateArticleResponse"];
                     };
                 };
                 /** @description 入力の検証に失敗した */
@@ -1311,7 +1370,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["AddArticleTagResponse"];
                     };
                 };
                 /** @description 入力の検証に失敗した */
@@ -1377,14 +1436,12 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description OK */
-                200: {
+                /** @description No Content */
+                204: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content: {
-                        "application/json": unknown;
-                    };
+                    content?: never;
                 };
                 /** @description Not Authorized */
                 401: {
@@ -1477,7 +1534,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["UpdateArticleResponse"];
                     };
                 };
                 /** @description 入力の検証に失敗した */
@@ -1527,14 +1584,12 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description OK */
-                200: {
+                /** @description No Content */
+                204: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content: {
-                        "application/json": unknown;
-                    };
+                    content?: never;
                 };
                 /** @description Not Authorized */
                 401: {
@@ -1596,7 +1651,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["SetArticleAlbumResponse"];
                     };
                 };
                 /** @description 入力の検証に失敗した */
@@ -1646,14 +1701,12 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description OK */
-                200: {
+                /** @description No Content */
+                204: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content: {
-                        "application/json": unknown;
-                    };
+                    content?: never;
                 };
                 /** @description Not Authorized */
                 401: {
@@ -1712,7 +1765,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["PublishArticleResponse"];
                     };
                 };
                 /** @description Not Authorized */
@@ -1773,7 +1826,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["UnpublishArticleResponse"];
                     };
                 };
                 /** @description Not Authorized */
@@ -1836,7 +1889,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["AssetUploadUrlResponse"];
                     };
                 };
                 /** @description 入力の検証に失敗した */
@@ -1897,7 +1950,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["ConfirmAssetUploadResponse"];
                     };
                 };
                 /** @description Not Authorized */
@@ -1997,7 +2050,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["SiteContentResponse"];
                     };
                 };
                 /** @description 入力の検証に失敗した */
@@ -2109,7 +2162,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["CreateTuneResponse"];
                     };
                 };
                 /** @description 入力の検証に失敗した */
@@ -2218,7 +2271,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["UpdateTuneResponse"];
                     };
                 };
                 /** @description 入力の検証に失敗した */
@@ -2268,14 +2321,12 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description OK */
-                200: {
+                /** @description No Content */
+                204: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content: {
-                        "application/json": unknown;
-                    };
+                    content?: never;
                 };
                 /** @description Not Authorized */
                 401: {
@@ -2314,8 +2365,20 @@ export interface components {
         AddArticleTagRequest: {
             name?: string;
         };
+        AddArticleTagResponse: {
+            articleId: string;
+            tagId: string;
+            name: string;
+        };
         AddExternalAudioRequest: {
             url?: string;
+        };
+        AddExternalAudioResponse: {
+            albumId: string;
+            externalAudioId: string;
+            /** Format: int32 */
+            displayOrder: number;
+            url: string;
         };
         AddTrackRequest: {
             /** Format: int32 */
@@ -2324,6 +2387,13 @@ export interface components {
             artistDisplayName?: string;
             artistSortKey?: string;
             tunes?: components["schemas"]["TrackTuneRequest"][];
+        };
+        AddTrackResponse: {
+            albumId: string;
+            trackId: string;
+            /** Format: int32 */
+            trackNo: number;
+            title: string;
         };
         AdminAlbumArticleDetailResponse: {
             /**
@@ -2361,6 +2431,7 @@ export interface components {
             eventSpaceNumber: string | null;
             eventNote: string | null;
             publishedAt: components["schemas"]["Instant"] | null;
+            coverImageKey: string | null;
             coverImageUrl: string | null;
             externalAudios: components["schemas"]["AdminExternalAudioResponse"][];
             tracks: components["schemas"]["AdminTrackResponse"][];
@@ -2449,6 +2520,39 @@ export interface components {
             artistSortKey: string | null;
             tunes: components["schemas"]["TrackTuneResponse"][];
         };
+        AlbumDeletionPreconditionsResponse: {
+            affectedArticles: components["schemas"]["PreconditionAffectedArticle"][];
+        };
+        AlbumPreconditionsResponse: {
+            operation: string;
+            deletion: components["schemas"]["AlbumDeletionPreconditionsResponse"] | null;
+            unpublication: components["schemas"]["AlbumUnpublicationPreconditionsResponse"] | null;
+        };
+        AlbumUnpublicationPreconditionsResponse: {
+            articlesBecomingUnpublished: components["schemas"]["CascadeUnpublishedArticle"][];
+        };
+        AssetUploadUrlResponse: {
+            assetKey: string;
+            uploadUrl: string;
+            expiresAt: components["schemas"]["Instant"];
+            /** Format: int64 */
+            maxBytes: number;
+        };
+        CascadeUnpublishedArticle: {
+            articleId: string;
+            title: string;
+        };
+        CascadeUnpublishedArticleResponse: {
+            articleId: string;
+            title: string;
+        };
+        ConfirmAssetUploadResponse: {
+            assetKey: string;
+            url: string;
+            contentType: string;
+            /** Format: int64 */
+            sizeBytes: number;
+        };
         CreateAlbumRequest: {
             title?: string;
             releaseDate?: string;
@@ -2461,12 +2565,24 @@ export interface components {
             descriptionFormat?: string;
             event?: components["schemas"]["EventRequest2"];
         };
+        CreateAlbumResponse: {
+            albumId: string;
+            title: string;
+            releaseDate: string;
+            artistDisplayName: string;
+        };
         CreateArticleRequest: {
             articleType?: string;
             title?: string;
             body?: string;
             bodyFormat?: string;
             introShort?: string;
+        };
+        CreateArticleResponse: {
+            articleId: string;
+            articleType: string;
+            title: string;
+            publicFlag: boolean;
         };
         CreateTuneRequest: {
             title?: string;
@@ -2479,6 +2595,19 @@ export interface components {
             defaultKey?: string;
             /** Format: int32 */
             defaultTempo?: number;
+        };
+        CreateTuneResponse: {
+            tuneId: string;
+            title: string;
+            tuneKind: string;
+        };
+        DeleteAlbumResponse: {
+            affectedArticles: components["schemas"]["DeletionAffectedArticle"][];
+        };
+        DeletionAffectedArticle: {
+            articleId: string;
+            title: string;
+            unpublished: boolean;
         };
         EventRequest: {
             name?: string;
@@ -2501,6 +2630,11 @@ export interface components {
             spaceNumber?: string;
             note?: string;
         };
+        ExternalAudioOrderEntryResponse: {
+            externalAudioId: string;
+            /** Format: int32 */
+            displayOrder: number;
+        };
         FieldError: {
             field?: string;
             message?: string;
@@ -2513,6 +2647,12 @@ export interface components {
         Instant: string;
         IssueAssetUploadUrlRequest: {
             contentType?: string;
+        };
+        PreconditionAffectedArticle: {
+            articleId: string;
+            title: string;
+            losesAlbumReference: boolean;
+            becomesUnpublished: boolean;
         };
         ProblemDetail: {
             type?: string;
@@ -2642,6 +2782,17 @@ export interface components {
             artistDisplayName: string | null;
             tunes: components["schemas"]["TrackTuneResponse"][];
         };
+        PublishAlbumResponse: {
+            albumId: string;
+            title: string;
+            published: boolean;
+        };
+        PublishArticleResponse: {
+            articleId: string;
+            articleType: string;
+            title: string;
+            publicFlag: boolean;
+        };
         RegisterAlbumWithTracksRequest: {
             title?: string;
             releaseDate?: string;
@@ -2655,14 +2806,35 @@ export interface components {
             event?: components["schemas"]["EventRequest1"];
             tracks?: components["schemas"]["TrackRequest"][];
         };
+        RegisterAlbumWithTracksResponse: {
+            albumId: string;
+            title: string;
+            releaseDate: string;
+            artistDisplayName: string;
+            tracks: components["schemas"]["TrackSummaryResponse"][];
+        };
         ReorderExternalAudiosRequest: {
             orderedExternalAudioIds?: string[];
+        };
+        ReorderExternalAudiosResponse: {
+            albumId: string;
+            externalAudios: components["schemas"]["ExternalAudioOrderEntryResponse"][];
         };
         ReorderTracksRequest: {
             orderedTrackIds?: string[];
         };
+        ReorderTracksResponse: {
+            albumId: string;
+            tracks: components["schemas"]["TrackOrderEntryResponse"][];
+        };
         SetArticleAlbumRequest: {
             albumId?: string;
+        };
+        SetArticleAlbumResponse: {
+            articleId: string;
+            articleType: string;
+            albumId: string;
+            title: string;
         };
         SiteContentListResponse: {
             items: components["schemas"]["SiteContentResponse"][];
@@ -2672,6 +2844,11 @@ export interface components {
             content: string;
             contentFormat: string;
         };
+        TrackOrderEntryResponse: {
+            trackId: string;
+            /** Format: int32 */
+            trackNo: number;
+        };
         TrackRequest: {
             /** Format: int32 */
             trackNo?: number;
@@ -2679,6 +2856,12 @@ export interface components {
             artistDisplayName?: string;
             artistSortKey?: string;
             tunes?: components["schemas"]["TrackTuneRequest"][];
+        };
+        TrackSummaryResponse: {
+            trackId: string;
+            /** Format: int32 */
+            trackNo: number;
+            title: string;
         };
         TrackTuneRequest: {
             /** Format: int32 */
@@ -2720,6 +2903,18 @@ export interface components {
             /** Format: int32 */
             defaultTempo: number | null;
         };
+        UnpublishAlbumResponse: {
+            albumId: string;
+            title: string;
+            published: boolean;
+            cascadeUnpublishedArticles: components["schemas"]["CascadeUnpublishedArticleResponse"][];
+        };
+        UnpublishArticleResponse: {
+            articleId: string;
+            articleType: string;
+            title: string;
+            publicFlag: boolean;
+        };
         UpdateAlbumRequest: {
             title?: string;
             releaseDate?: string;
@@ -2732,12 +2927,24 @@ export interface components {
             descriptionFormat?: string;
             event?: components["schemas"]["EventRequest"];
         };
+        UpdateAlbumResponse: {
+            albumId: string;
+            title: string;
+            releaseDate: string;
+            artistDisplayName: string;
+        };
         UpdateArticleRequest: {
             articleType?: string;
             title?: string;
             body?: string;
             bodyFormat?: string;
             introShort?: string;
+        };
+        UpdateArticleResponse: {
+            articleId: string;
+            articleType: string;
+            title: string;
+            publicFlag: boolean;
         };
         UpdateTrackRequest: {
             /** Format: int32 */
@@ -2746,6 +2953,13 @@ export interface components {
             artistDisplayName?: string;
             artistSortKey?: string;
             tunes?: components["schemas"]["TrackTuneRequest"][];
+        };
+        UpdateTrackResponse: {
+            albumId: string;
+            trackId: string;
+            /** Format: int32 */
+            trackNo: number;
+            title: string;
         };
         UpdateTuneRequest: {
             title?: string;
@@ -2758,6 +2972,11 @@ export interface components {
             defaultKey?: string;
             /** Format: int32 */
             defaultTempo?: number;
+        };
+        UpdateTuneResponse: {
+            tuneId: string;
+            title: string;
+            tuneKind: string;
         };
         UpsertSiteContentRequest: {
             content?: string;

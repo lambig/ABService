@@ -4,11 +4,15 @@ import com.abservice.lib.Optionals;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.quarkus.smallrye.openapi.OpenApiFilter;
 import java.lang.reflect.RecordComponent;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.eclipse.microprofile.openapi.OASFactory;
 import org.eclipse.microprofile.openapi.OASFilter;
 import org.eclipse.microprofile.openapi.models.Components;
@@ -34,6 +38,12 @@ import org.jspecify.annotations.Nullable;
  * 例外は Jackson の出力制御を持つ型（{@code @JsonInclude}）で、そこでは項目名が省略され得る。実際にキーが 出ない項目を
  * {@code required} にすると契約が実応答とずれるため、対象から外す。
  * </p>
+ *
+ * <p>
+ * NESTED-RECORDS: 応答の record は入れ子を持つ（一覧の要素など）。入れ子は {@code 親$子} という名前で読み込まれる
+ * ため、スキーマ名（単純名）をパッケージへ繋いだ綴りでは解決できない。パッケージ直下の record から入れ子を辿って
+ * 索引を作り、スキーマ名で引く。辿らないと入れ子だけが素通りし、常にある項目が省略可能として定義される。
+ * </p>
  */
 @OpenApiFilter(stages = OpenApiFilter.RunStage.BUILD)
 public class ResponseNullabilityFilter implements OASFilter {
@@ -54,16 +64,18 @@ public class ResponseNullabilityFilter implements OASFilter {
 
     @Override
     public void filterOpenAPI(OpenAPI openAPI) {
-        Optional.ofNullable(openAPI.getComponents())
+        final Map<String, Schema> schemas = Optional.ofNullable(openAPI.getComponents())
                 .map(Components::getSchemas)
-                .orElseGet(Map::of)
-                .forEach(ResponseNullabilityFilter::applyTo);
+                .orElseGet(Map::of);
+
+        applyToAll(schemas, responseRecordsBySchemaName(schemas.keySet()));
     }
 
-    private static void applyTo(String schemaName, Schema schema) {
-        resolveResponseRecord(schemaName)
-                .filter(ResponseNullabilityFilter::keepsEveryPropertyInOutput)
-                .ifPresent(type -> applyToRecord(schema, type));
+    private static void applyToAll(Map<String, Schema> schemas, Map<String, Class<?>> responseRecords) {
+        schemas.forEach(
+                (schemaName, schema) -> Optional.ofNullable(responseRecords.get(schemaName))
+                        .filter(ResponseNullabilityFilter::keepsEveryPropertyInOutput)
+                        .ifPresent(type -> applyToRecord(schema, type)));
     }
 
     /*
@@ -119,6 +131,41 @@ public class ResponseNullabilityFilter implements OASFilter {
                 List.of(
                         OASFactory.createSchema().ref(ref),
                         OASFactory.createSchema().addType(Schema.SchemaType.NULL)));
+    }
+
+    /**
+     * スキーマ名から応答の record を引く索引を作る。
+     *
+     * <p>
+     * パッケージ直下の record はスキーマ名から直接解決できる。入れ子はそこから辿るしかないため、直下のものを起点に
+     * 集める。単純名が衝突すると、smallrye が付ける連番（{@code Foo2}）と索引の対応が崩れ、別の型の項目を当てて
+     * しまうため、衝突は組み立ての時点で落とす（宣言側の検査は {@code LayeredArchitectureTest}）。
+     * </p>
+     */
+    private static Map<String, Class<?>> responseRecordsBySchemaName(Set<String> schemaNames) {
+        final List<Class<?>> declared = schemaNames.stream()
+                .map(ResponseNullabilityFilter::resolveResponseRecord)
+                .flatMap(Optional::stream)
+                .toList();
+
+        return Stream.concat(declared.stream(), declared.stream().flatMap(ResponseNullabilityFilter::nestedRecordsOf))
+                .collect(
+                        Collectors.toUnmodifiableMap(
+                                Class::getSimpleName,
+                                Function.identity(),
+                                ResponseNullabilityFilter::rejectDuplicate));
+    }
+
+    private static Stream<Class<?>> nestedRecordsOf(Class<?> type) {
+        return Arrays.stream(type.getDeclaredClasses())
+                .filter(Class::isRecord)
+                .flatMap(nested -> Stream.concat(Stream.of(nested), nestedRecordsOf(nested)));
+    }
+
+    private static Class<?> rejectDuplicate(Class<?> first, Class<?> second) {
+        throw new IllegalStateException(
+                "応答の record の単純名が衝突しています。スキーマ名で一意に引けないため改名してください: "
+                        + first.getName() + " / " + second.getName());
     }
 
     private static Optional<Class<?>> resolveResponseRecord(String schemaName) {

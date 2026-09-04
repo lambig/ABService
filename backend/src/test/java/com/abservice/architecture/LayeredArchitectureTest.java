@@ -23,7 +23,9 @@ import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.library.GeneralCodingRules;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -55,6 +57,7 @@ class LayeredArchitectureTest {
     private static final String PRESENTATION = "..presentation..";
     private static final String READ_DATASOURCE = "..infrastructure.persistence.datasource..";
     private static final String READ_ENTITY = "..infrastructure.persistence.entity..";
+    private static final String REST_RESPONSE = "..presentation.rest..response";
     private static final List<String> ALBUM_LOOKUP_METHODS = List.of(
             "findById",
             "findByIdExclusively",
@@ -314,6 +317,62 @@ class LayeredArchitectureTest {
                         "アルバムの取得は AlbumAccessService（編集権・参照の主張を伴う唯一の入口）を通す"
                                 + "（主張を伴わない取得を業務コードから使わせない、#178 A-2）")
                 .allowEmptyShould(true).check(classes);
+    }
+
+    /**
+     * 応答の record の単純名は、入れ子を含めて一意でなければならない。
+     *
+     * <p>
+     * OpenAPI のスキーマ名は型の単純名で、衝突すると smallrye が連番（{@code Foo2}）を付ける。定義へ「常にある項目」を
+     * 反映するフィルタ（{@code ResponseNullabilityFilter}）はスキーマ名から型を引くため、衝突した側は索引から外れ、
+     * 別の型の項目を当てるか素通りするかのどちらかになる。どちらも黙って起きるので、宣言の時点で落とす。
+     * </p>
+     */
+    @ArchTest
+    void responseRecordSimpleNamesShouldBeUnique(JavaClasses classes) {
+        classes().that().resideInAPackage(REST_RESPONSE).and(areRecords())
+                .should(haveAnUnsharedSimpleName(sharedSimpleNames(classes)))
+                .as("応答の record の単純名は入れ子を含めて一意にする（OpenAPI のスキーマ名が単純名のため）")
+                .allowEmptyShould(true).check(classes);
+    }
+
+    private static DescribedPredicate<JavaClass> areRecords() {
+        return DescribedPredicate.describe("are records", JavaClass::isRecord);
+    }
+
+    private static List<String> sharedSimpleNames(JavaClasses classes) {
+        return responseRecords(classes)
+                .collect(Collectors.groupingBy(JavaClass::getSimpleName, Collectors.counting()))
+                .entrySet().stream()
+                .filter(entry -> entry.getValue() > 1)
+                .map(Map.Entry::getKey)
+                .toList();
+    }
+
+    private static Stream<JavaClass> responseRecords(JavaClasses classes) {
+        return classes.stream()
+                .filter(JavaClass::isRecord)
+                .filter(javaClass -> javaClass.getPackageName().endsWith(".response"));
+    }
+
+    private static ArchCondition<JavaClass> haveAnUnsharedSimpleName(List<String> sharedSimpleNames) {
+        return new ArchCondition<>("have a simple name shared with no other response record") {
+            @Override
+            public void check(JavaClass javaClass, ConditionEvents events) {
+                Optional.of(javaClass)
+                        .filter(type -> sharedSimpleNames.contains(type.getSimpleName()))
+                        .map(LayeredArchitectureTest::sharedSimpleNameViolation)
+                        .ifPresent(events::add);
+            }
+        };
+    }
+
+    private static ConditionEvent sharedSimpleNameViolation(JavaClass javaClass) {
+        return SimpleConditionEvent.violated(
+                javaClass,
+                "%s の単純名 %s が他の応答 record と重複している".formatted(
+                        javaClass.getFullName(),
+                        javaClass.getSimpleName()));
     }
 
     /*

@@ -30,7 +30,8 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+import org.jboss.resteasy.reactive.ResponseStatus;
+import org.jboss.resteasy.reactive.RestResponse;
 
 /**
  * アルバム集約内トラック（エンティティ）の Command REST リソース
@@ -87,9 +88,10 @@ public class AlbumTrackCommandResource {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> add(@PathParam("albumId") String albumId, AddTrackRequest request) {
+    @ResponseStatus(RestResponse.StatusCode.CREATED)
+    public Uni<AddTrackResponse> add(@PathParam("albumId") String albumId, AddTrackRequest request) {
         return addTrackService.execute(toInput(albumId, request))
-                .map(AlbumTrackCommandResource::toCreated);
+                .map(AlbumTrackCommandResource::toResponse);
     }
 
     private static AddTrackInput toInput(String albumId, AddTrackRequest request) {
@@ -100,12 +102,6 @@ public class AlbumTrackCommandResource {
                 request.artistDisplayName(),
                 request.artistSortKey(),
                 TrackTuneRequest.toInputs(request.tunes()));
-    }
-
-    private static Response toCreated(AddTrackOutput output) {
-        return Response.status(Response.Status.CREATED)
-                .entity(toResponse(output))
-                .build();
     }
 
     private static AddTrackResponse toResponse(AddTrackOutput output) {
@@ -131,7 +127,7 @@ public class AlbumTrackCommandResource {
     @Path("/{trackId}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> update(
+    public Uni<UpdateTrackResponse> update(
             @PathParam("albumId") String albumId,
             @PathParam("trackId") String trackId,
             UpdateTrackRequest request) {
@@ -140,7 +136,7 @@ public class AlbumTrackCommandResource {
                         albumId,
                         trackId,
                         request))
-                .map(AlbumTrackCommandResource::toOk);
+                .map(AlbumTrackCommandResource::toResponse);
     }
 
     private static UpdateTrackInput toInput(
@@ -155,10 +151,6 @@ public class AlbumTrackCommandResource {
                 request.artistDisplayName(),
                 request.artistSortKey(),
                 TrackTuneRequest.toInputs(request.tunes()));
-    }
-
-    private static Response toOk(UpdateTrackOutput output) {
-        return Response.ok(toResponse(output)).build();
     }
 
     private static UpdateTrackResponse toResponse(UpdateTrackOutput output) {
@@ -185,9 +177,9 @@ public class AlbumTrackCommandResource {
      */
     @DELETE
     @Path("/{trackId}")
-    public Uni<Response> remove(@PathParam("albumId") String albumId, @PathParam("trackId") String trackId) {
+    public Uni<Void> remove(@PathParam("albumId") String albumId, @PathParam("trackId") String trackId) {
         return removeTrackService.execute(new RemoveTrackInput(albumId, trackId))
-                .replaceWith(Response.noContent().build());
+                .replaceWithVoid();
     }
 
     /**
@@ -203,13 +195,9 @@ public class AlbumTrackCommandResource {
     @Path("/order")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> reorder(@PathParam("albumId") String albumId, ReorderTracksRequest request) {
+    public Uni<ReorderTracksResponse> reorder(@PathParam("albumId") String albumId, ReorderTracksRequest request) {
         return reorderTracksService.execute(new ReorderTracksInput(albumId, request.orderedTrackIds()))
-                .map(AlbumTrackCommandResource::toOk);
-    }
-
-    private static Response toOk(ReorderTracksOutput output) {
-        return Response.ok(toResponse(output)).build();
+                .map(AlbumTrackCommandResource::toResponse);
     }
 
     private static ReorderTracksResponse toResponse(ReorderTracksOutput output) {

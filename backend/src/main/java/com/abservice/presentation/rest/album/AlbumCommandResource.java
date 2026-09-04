@@ -41,9 +41,10 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 import java.util.List;
 import java.util.Optional;
+import org.jboss.resteasy.reactive.ResponseStatus;
+import org.jboss.resteasy.reactive.RestResponse;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -108,9 +109,10 @@ public class AlbumCommandResource {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> create(CreateAlbumRequest request) {
+    @ResponseStatus(RestResponse.StatusCode.CREATED)
+    public Uni<CreateAlbumResponse> create(CreateAlbumRequest request) {
         return createAlbumService.execute(toInput(request))
-                .map(AlbumCommandResource::toCreated);
+                .map(AlbumCommandResource::toResponse);
     }
 
     private static CreateAlbumInput toInput(CreateAlbumRequest request) {
@@ -139,12 +141,6 @@ public class AlbumCommandResource {
                 .orElse(null);
     }
 
-    private static Response toCreated(CreateAlbumOutput output) {
-        return Response.status(Response.Status.CREATED)
-                .entity(toResponse(output))
-                .build();
-    }
-
     private static CreateAlbumResponse toResponse(CreateAlbumOutput output) {
         return new CreateAlbumResponse(
                 output.albumId(),
@@ -166,9 +162,9 @@ public class AlbumCommandResource {
     @Path("/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> update(@PathParam("id") String id, UpdateAlbumRequest request) {
+    public Uni<UpdateAlbumResponse> update(@PathParam("id") String id, UpdateAlbumRequest request) {
         return updateAlbumService.execute(toInput(id, request))
-                .map(AlbumCommandResource::toOk);
+                .map(AlbumCommandResource::toResponse);
     }
 
     private static UpdateAlbumInput toInput(String id, UpdateAlbumRequest request) {
@@ -199,10 +195,6 @@ public class AlbumCommandResource {
                 .orElse(null);
     }
 
-    private static Response toOk(UpdateAlbumOutput output) {
-        return Response.ok(toResponse(output)).build();
-    }
-
     private static UpdateAlbumResponse toResponse(UpdateAlbumOutput output) {
         return new UpdateAlbumResponse(
                 output.albumId(),
@@ -225,23 +217,21 @@ public class AlbumCommandResource {
     @DELETE
     @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> delete(@PathParam("id") String id) {
+    public Uni<DeleteAlbumResponse> delete(@PathParam("id") String id) {
         return deleteAlbumService.execute(new DeleteAlbumInput(id))
                 .map(AlbumCommandResource::toDeleteResponse);
     }
 
-    private static Response toDeleteResponse(DeleteAlbumOutput output) {
-        return Response.ok(
-                new DeleteAlbumResponse(
-                        output.affectedArticles().stream()
-                                .map(AlbumCommandResource::toAffectedArticle)
-                                .toList()))
-                .build();
+    private static DeleteAlbumResponse toDeleteResponse(DeleteAlbumOutput output) {
+        return new DeleteAlbumResponse(
+                output.affectedArticles().stream()
+                        .map(AlbumCommandResource::toAffectedArticle)
+                        .toList());
     }
 
-    private static DeleteAlbumResponse.AffectedArticle toAffectedArticle(
+    private static DeleteAlbumResponse.DeletionAffectedArticle toAffectedArticle(
             DeleteAlbumOutput.AffectedArticle affected) {
-        return new DeleteAlbumResponse.AffectedArticle(
+        return new DeleteAlbumResponse.DeletionAffectedArticle(
                 affected.articleId(),
                 affected.title(),
                 affected.unpublished());
@@ -257,13 +247,9 @@ public class AlbumCommandResource {
     @POST
     @Path("/{id}/publish")
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> publish(@PathParam("id") String id) {
+    public Uni<PublishAlbumResponse> publish(@PathParam("id") String id) {
         return publishAlbumService.execute(new PublishAlbumInput(id))
-                .map(AlbumCommandResource::toOk);
-    }
-
-    private static Response toOk(PublishAlbumOutput output) {
-        return Response.ok(toResponse(output)).build();
+                .map(AlbumCommandResource::toResponse);
     }
 
     private static PublishAlbumResponse toResponse(PublishAlbumOutput output) {
@@ -283,13 +269,9 @@ public class AlbumCommandResource {
     @POST
     @Path("/{id}/unpublish")
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> unpublish(@PathParam("id") String id) {
+    public Uni<UnpublishAlbumResponse> unpublish(@PathParam("id") String id) {
         return unpublishAlbumService.execute(new UnpublishAlbumInput(id))
-                .map(AlbumCommandResource::toOk);
-    }
-
-    private static Response toOk(UnpublishAlbumOutput output) {
-        return Response.ok(toResponse(output)).build();
+                .map(AlbumCommandResource::toResponse);
     }
 
     private static UnpublishAlbumResponse toResponse(UnpublishAlbumOutput output) {
@@ -320,9 +302,10 @@ public class AlbumCommandResource {
     @Path("/with-tracks")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> registerWithTracks(RegisterAlbumWithTracksRequest request) {
+    @ResponseStatus(RestResponse.StatusCode.CREATED)
+    public Uni<RegisterAlbumWithTracksResponse> registerWithTracks(RegisterAlbumWithTracksRequest request) {
         return registerAlbumWithTracksService.execute(toInput(request))
-                .map(AlbumCommandResource::toCreated);
+                .map(AlbumCommandResource::toResponse);
     }
 
     private static RegisterAlbumWithTracksInput toInput(RegisterAlbumWithTracksRequest request) {
@@ -378,12 +361,6 @@ public class AlbumCommandResource {
                                 t.artistSortKey(),
                                 TrackTuneRequest.toInputs(t.tunes())))
                 .orElse(null);
-    }
-
-    private static Response toCreated(RegisterAlbumWithTracksOutput output) {
-        return Response.status(Response.Status.CREATED)
-                .entity(toResponse(output))
-                .build();
     }
 
     private static RegisterAlbumWithTracksResponse toResponse(RegisterAlbumWithTracksOutput output) {

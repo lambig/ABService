@@ -2,6 +2,7 @@ package com.abservice.presentation.rest.openapi;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasKey;
@@ -21,6 +22,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * 応答の項目が「常にあるか」「null を取り得るか」は、record
  * の宣言から導く（{@link ResponseNullabilityFilter}）。
  * 利用側はこの定義から型を生成するため、実際の応答との対応をここで固定する。
+ * </p>
+ *
+ * <p>
+ * GENERATED-ARTIFACT-IS-NOT-A-CHECK:
+ * 生成した型定義（{@code schema.d.ts}）はコミットされるが、組み立てで
+ * 再生成して差分を見ていない。定義の退行は生成物に現れるだけで検査されないため、ここで直接固定する。
  * </p>
  */
 @QuarkusTest
@@ -69,6 +76,50 @@ class OpenApiSchemaRestIntegrationTest {
     }
 
     @Test
+    @DisplayName("入れ子の応答 record も、項目が必須で返る")
+    void nestedResponseRecordPropertiesAreRequired() {
+        /*
+         * NESTED-LOOKUP: 入れ子はスキーマ名（単純名）をパッケージへ繋いだ綴りで解決できないため、探索が 素通りすると required
+         * ごと落ちる。直下の record だけを見ていると、その取りこぼしに気づけない。
+         */
+        openApi()
+                .body(SCHEMAS + "PreconditionAffectedArticle", hasKey("required"))
+                .body(
+                        SCHEMAS + "PreconditionAffectedArticle.required",
+                        containsInAnyOrder(
+                                "articleId",
+                                "title",
+                                "losesAlbumReference",
+                                "becomesUnpublished"));
+    }
+
+    @Test
+    @DisplayName("Command の応答は本体の型を指す")
+    void commandResponsesReferToTheirBodyType() {
+        /*
+         * BODY-TYPE: リソースが Response を返すと本体の型が定義に出ず、要求元が型を手書きすることになる。
+         * 参照が具体のスキーマを指していることを固定する。
+         */
+        openApi()
+                .body(
+                        okBodyRefOf("put", "/api/v1/albums/{id}"),
+                        equalTo("#/components/schemas/UpdateAlbumResponse"));
+    }
+
+    @Test
+    @DisplayName("本体を持たない Command は 204 で、本体の宣言を持たない")
+    void bodylessCommandRespondsWithNoContent() {
+        /*
+         * 記事の削除は本体を返さない（Uni<Void>）。200 と空の本体で宣言されると、要求元は返らない本体を 読もうとする。201
+         * の定義上の状態コードは別（#282）のため、ここでは 204 の操作だけを見る。
+         */
+        openApi()
+                .body(responsesOf("delete", "/api/v1/articles/{id}"), hasKey("204"))
+                .body(responsesOf("delete", "/api/v1/articles/{id}"), not(hasKey("200")))
+                .body(responsesOf("delete", "/api/v1/articles/{id}") + ".'204'", not(hasKey("content")));
+    }
+
+    @Test
     @DisplayName("記事の応答は articleType の値から実装スキーマを引ける")
     void articleResponseIsDiscriminatedByArticleType() {
         openApi()
@@ -84,5 +135,17 @@ class OpenApiSchemaRestIntegrationTest {
 
     private static ValidatableResponse openApi() {
         return given().accept("application/json").when().get("/q/openapi?format=json").then().statusCode(200);
+    }
+
+    /*
+     * GPATH-QUOTING: 経路と状態コードはそのままでは GPath の識別子にならない（`/`・`{}` を含み、状態コードは
+     * 数字で始まる）。引用して1つのキーとして扱う。
+     */
+    private static String responsesOf(String method, String path) {
+        return "paths.'%s'.%s.responses".formatted(path, method);
+    }
+
+    private static String okBodyRefOf(String method, String path) {
+        return responsesOf(method, path) + ".'200'.content.'application/json'.schema.$ref";
     }
 }

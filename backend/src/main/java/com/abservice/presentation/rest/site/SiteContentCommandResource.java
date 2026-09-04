@@ -14,7 +14,6 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 
 /**
  * サイト文言の Command REST リソース
@@ -56,17 +55,13 @@ public class SiteContentCommandResource {
     @Path("/{key}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Uni<Response> upsert(@PathParam("key") String key, UpsertSiteContentRequest request) {
+    public Uni<SiteContentResponse> upsert(@PathParam("key") String key, UpsertSiteContentRequest request) {
         return upsertSiteContentService.execute(
                 new UpsertSiteContentInput(
                         key,
                         request.content(),
                         request.contentFormat()))
-                .map(SiteContentCommandResource::toOk);
-    }
-
-    private static Response toOk(UpsertSiteContentOutput output) {
-        return Response.ok(toResponse(output)).build();
+                .map(SiteContentCommandResource::toResponse);
     }
 
     private static SiteContentResponse toResponse(UpsertSiteContentOutput output) {

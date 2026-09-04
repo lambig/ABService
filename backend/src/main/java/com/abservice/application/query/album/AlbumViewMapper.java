@@ -33,7 +33,8 @@ final class AlbumViewMapper {
      * エンティティを Read Model へ変換します。
      *
      * <p>
-     * カバー画像はDBに保管キーだけを持つため、配信URLは {@code assetBasePath} と組み合わせて組み立てます。
+     * カバー画像はDBに保管キーだけを持つため、配信URLは {@code assetBasePath} と組み合わせて組み立てます。保管キー
+     * そのものも返します（編集の更新要求が受け取るのはキーで、URLから組み立て直すのは要求元の仕事ではありません）。
      * </p>
      *
      * @param entity
@@ -67,6 +68,7 @@ final class AlbumViewMapper {
                 entity.getEventSpaceNumber(),
                 entity.getEventNote(),
                 entity.getPublishedAt(),
+                entity.getCoverImageKey(),
                 toCoverImageUrl(entity.getCoverImageKey(), assetBasePath),
                 toExternalAudioViews(externalAudios),
                 tracks);
