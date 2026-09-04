@@ -49,10 +49,8 @@ import {
  * </ul>
  *
  * <p>
- * `frontend-public` は shadcn-svelte のコンポーネントを `src/lib/components/ui/**` に置いており、
- * `lib` の中に `components` がある。`$lib/components/...` は `$components/*` に当たらないため規則は
- * 正しく働くが、名前と中身が食い違っている。置き場の是正は #270 が持つ（#122 で管理画面が shadcn を
- * 入れる時点で両アプリまとめて移す）。
+ * shadcn-svelte が置くコンポーネントは `src/components/ui/**` にあり、この層の規則の対象になる（規約自体は
+ * 各アプリの eslint 設定が除外する。上流の生成物のため）。
  * </p>
  */
 const layerBoundaries = [

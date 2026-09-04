@@ -188,6 +188,26 @@ export const findAlbumByCatalogNumber = async (
   return items.find((item) => item.catalogNumber === catalogNumber);
 };
 
+/**
+ * カタログナンバーの接頭辞で作品を探す。
+ *
+ * <p>
+ * 検査のためだけに作った作品を、控えを持たずに片付けるために使う。前回の実行が落ちて残ったものも
+ * 同じ接頭辞で拾える。
+ * </p>
+ *
+ * @param prefix
+ *            カタログナンバーの接頭辞
+ * @return 該当する作品（該当なしは空）
+ */
+export const findAlbumsByCatalogNumberPrefix = async (
+  prefix: string,
+): Promise<readonly AdminAlbum[]> => {
+  const body = await getAdmin('/api/v1/admin/albums?size=100');
+  const { items } = body as { items: readonly AdminAlbum[] };
+  return items.filter((item) => (item.catalogNumber ?? '').startsWith(prefix));
+};
+
 /** 作る記事の指定。省略した項目は API の既定に従う */
 export interface ArticleSeed {
   readonly articleType: 'ALBUM' | 'NOTE' | 'NEWS' | 'EVENT' | 'OTHER';
@@ -265,6 +285,26 @@ export const publishArticle = async (articleId: string): Promise<void> => {
  * @param articleId
  *            削除する記事のドメインID
  */
+/**
+ * 作品を削除する（べき等。画面から消したものへ重ねて呼んでも成功する）。
+ *
+ * @param albumId
+ *            削除する作品のドメインID
+ */
+export const deleteAlbum = async (albumId: string): Promise<void> => {
+  const response = await fetch(`${stack.backendBaseUrl}/api/v1/albums/${albumId}`, {
+    method: 'DELETE',
+    headers: adminHeaders,
+  });
+  return response.ok
+    ? undefined
+    : Promise.reject(
+        new Error(
+          `DELETE /api/v1/albums/${albumId} が失敗しました（HTTP ${String(response.status)}）`,
+        ),
+      );
+};
+
 export const deleteArticle = async (articleId: string): Promise<void> => {
   const response = await fetch(`${stack.backendBaseUrl}/api/v1/articles/${articleId}`, {
     method: 'DELETE',

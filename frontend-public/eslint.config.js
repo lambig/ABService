@@ -19,7 +19,7 @@ export default tseslint.config(
        * 規約（if 禁止・否定禁止・immutable-data）はここへ効かせない。手を入れる場合も、上流の更新を
        * 取り込み直せる形に留める。デザインの差し替えはトークン（DECISIONS 25）で行い、この配下は触らない。
        */
-      'src/lib/components/ui/**',
+      'src/components/ui/**',
       // OpenAPI から生成する型定義（openapi-typescript の出力）
       'src/lib/api/schema.d.ts',
     ],

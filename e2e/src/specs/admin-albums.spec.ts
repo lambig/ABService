@@ -1,7 +1,12 @@
-import { draft, showcase } from '../support/build-fixtures.ts';
+import { setTimeout as delay } from 'node:timers/promises';
+
+import type { Locator, Page } from '@playwright/test';
+
+import { albumArticle, draft, showcase } from '../support/build-fixtures.ts';
 import { stack } from '../support/config.ts';
 import { capture, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
+import { deleteScratchAlbums, seedScratchAlbum } from '../support/scratch-albums.ts';
 
 /**
  * 管理画面の作品一覧（#122）のジャーニー。
@@ -27,6 +32,42 @@ const DISCARD_LABEL = '鍵を破棄する';
 
 /** 管理APIの経路。到達できない状態を作るために塞ぐ */
 const ADMIN_API = `${stack.backendBaseUrl}/api/v1/admin/**`;
+
+/** 前提の照会だけを塞ぐ経路。一覧は引けるまま、確認だけ失敗させるために分ける */
+const PRECONDITIONS_API = `${stack.backendBaseUrl}/api/v1/admin/albums/*/preconditions*`;
+
+/** 前提の照会を遅らせる時間。取り消しや開き直しを挟む余地を作る */
+const SLOW_PRECONDITIONS_MS = 2_000;
+
+/** 一覧に置く操作 */
+const DELETE_LABEL = '削除する';
+const UNPUBLISH_LABEL = '非公開にする';
+const PUBLISH_LABEL = '公開する';
+
+/** 公開中であることを示すラベル */
+const PUBLISHED_LABEL = '公開';
+
+/** 確認の対話 */
+const DELETE_DIALOG_TITLE = 'この作品を削除しますか';
+const UNPUBLISH_DIALOG_TITLE = 'この作品を非公開にしますか';
+const CANCEL_LABEL = 'やめる';
+const UNPUBLISH_AFFECTED_HEADING = '連動して非公開になる記事';
+const NO_AFFECTED_TEXT = '影響を受けるものはありません。';
+
+/** 鍵を入れて一覧が出た状態にする */
+const openAdmin = async (page: Page): Promise<void> => {
+  await page.goto(stack.adminBaseUrl);
+  await page.getByLabel(API_KEY_LABEL).fill(stack.adminApiKey);
+  await page.getByRole('button', { name: OPEN_LABEL }).click();
+  await expect(page.getByRole('table')).toBeVisible();
+};
+
+/** タイトルで一覧の行を指す。操作ボタンは行ごとに並ぶため、行を経由して押す */
+const rowOf = (page: Page, title: string): Locator =>
+  page.getByRole('row').filter({ hasText: title });
+
+/* 検査の中で作った作品を残さない。残ると次回の組み立てに混ざり、公開サイトの母集団の前提を壊す */
+test.afterEach(deleteScratchAlbums);
 
 test.describe('管理画面の作品一覧', () => {
   test('鍵を入れるまで作品を出さない', async ({ page }) => {
@@ -84,5 +125,145 @@ test.describe('管理画面の作品一覧', () => {
 
     await expect(page.getByRole('alert')).toBeVisible();
     await expect(page.getByText(showcase.title)).toHaveCount(0);
+  });
+
+  test('非公開の事前確認は、連動して非公開になる記事を出す', async ({ page }) => {
+    await openAdmin(page);
+
+    /*
+     * 影響範囲は照会（#274）が返したものを出す。画面は参照元の一覧から「どれが非公開になるか」を
+     * 組み立て直さない。シードした作品は公開中の記事から参照されているため、その記事が並ぶ。
+     */
+    await clickWithEvidence(
+      page,
+      rowOf(page, showcase.title).getByRole('button', { name: UNPUBLISH_LABEL }),
+      '18-admin-unpublish-confirm',
+    );
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText(UNPUBLISH_DIALOG_TITLE);
+    await expect(dialog).toContainText(UNPUBLISH_AFFECTED_HEADING);
+    await expect(dialog).toContainText(albumArticle.title);
+    await capture(page, '19-admin-unpublish-affected');
+
+    /* やめれば何も起きない。確認は実行と別の操作である */
+    await dialog.getByRole('button', { name: CANCEL_LABEL }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(
+      rowOf(page, showcase.title).getByRole('button', { name: UNPUBLISH_LABEL }),
+    ).toBeVisible();
+  });
+
+  test('参照されていない作品の削除は、影響なしとして確認できる', async ({ page }) => {
+    const title = await seedScratchAlbum('削除確認');
+
+    await openAdmin(page);
+    await rowOf(page, title).getByRole('button', { name: DELETE_LABEL }).click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText(DELETE_DIALOG_TITLE);
+    await expect(dialog).toContainText(NO_AFFECTED_TEXT);
+
+    /* 確定すると一覧から消える。消えたことを一覧の読み直しで見る（画面側で行を隠すのではない） */
+    await clickWithEvidence(
+      page,
+      dialog.getByRole('button', { name: DELETE_LABEL }),
+      '20-admin-delete-confirm',
+    );
+
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(rowOf(page, title)).toHaveCount(0);
+  });
+
+  test('下書きは公開でき、公開すると状態が変わる', async ({ page }) => {
+    const title = await seedScratchAlbum('公開');
+
+    await openAdmin(page);
+    await expect(rowOf(page, title)).toContainText(DRAFT_LABEL);
+
+    /* 公開は影響を及ばせないため確認を挟まない（#274 が前提を持つのは削除と非公開化） */
+    await rowOf(page, title).getByRole('button', { name: PUBLISH_LABEL }).click();
+
+    await expect(rowOf(page, title)).toContainText(PUBLISHED_LABEL);
+    await expect(rowOf(page, title).getByRole('button', { name: UNPUBLISH_LABEL })).toBeVisible();
+  });
+
+  test('前提を取得できないときは、確定させず「影響なし」とも言わない', async ({ page }) => {
+    const title = await seedScratchAlbum('前提失敗');
+
+    await openAdmin(page);
+
+    /*
+     * 前提の照会だけを塞ぐ（一覧は引けるまま）。影響範囲を確認できていない状態で破壊操作を通さない
+     * ことを見る。取得できていないことと、取得できて影響が無いことは別である。
+     */
+    await page.route(PRECONDITIONS_API, (route) => route.abort());
+    await rowOf(page, title).getByRole('button', { name: DELETE_LABEL }).click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('alert')).toBeVisible();
+    await expect(dialog).not.toContainText(NO_AFFECTED_TEXT);
+    await expect(dialog.getByRole('button', { name: DELETE_LABEL })).toBeDisabled();
+    await capture(page, '21-admin-preconditions-unavailable');
+
+    /* やめれば閉じる。作品は残っている（実行へ進んでいない） */
+    await dialog.getByRole('button', { name: CANCEL_LABEL }).click();
+    await page.unroute(PRECONDITIONS_API);
+    await expect(rowOf(page, title)).toBeVisible();
+  });
+
+  test('問い合わせ中に閉じると、対話は戻ってこない', async ({ page }) => {
+    const title = await seedScratchAlbum('問い合わせ中断');
+
+    await openAdmin(page);
+
+    /* 応答を遅らせて、待っている間に閉じる余地を作る */
+    await page.route(PRECONDITIONS_API, async (route) => {
+      await delay(SLOW_PRECONDITIONS_MS);
+      await route.abort();
+    });
+    await rowOf(page, title).getByRole('button', { name: DELETE_LABEL }).click();
+
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+
+    /* 遅れて返った照会が、閉じた対話を開き直さないこと */
+    await delay(SLOW_PRECONDITIONS_MS * 2);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await page.unroute(PRECONDITIONS_API);
+  });
+
+  test('開き直した後に古い照会が返っても、新しい状態が残る', async ({ page }) => {
+    const title = await seedScratchAlbum('世代');
+
+    await openAdmin(page);
+
+    /*
+     * 1回目の照会だけを遅らせて失敗させる。登録直後に外すため、2回目は素通りして成功する。呼び出しごと
+     * の識別で捨てないと、遅れて返った古い失敗が新しい成功を上書きする。
+     */
+    await page.route(PRECONDITIONS_API, async (route) => {
+      await delay(SLOW_PRECONDITIONS_MS);
+      await route.abort();
+    });
+    await rowOf(page, title).getByRole('button', { name: DELETE_LABEL }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.unroute(PRECONDITIONS_API);
+
+    /* 閉じて、同じ対象・同じ操作をもう一度開く。こちらは成功して確定できる状態になる */
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await rowOf(page, title).getByRole('button', { name: DELETE_LABEL }).click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText(NO_AFFECTED_TEXT);
+    await expect(dialog.getByRole('button', { name: DELETE_LABEL })).toBeEnabled();
+
+    /* 古い照会が返る頃を過ぎても、新しい状態が保たれていること */
+    await delay(SLOW_PRECONDITIONS_MS * 2);
+    await expect(dialog).toContainText(NO_AFFECTED_TEXT);
+    await expect(dialog.getByRole('alert')).toHaveCount(0);
+    await expect(dialog.getByRole('button', { name: DELETE_LABEL })).toBeEnabled();
   });
 });
