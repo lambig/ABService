@@ -1,6 +1,7 @@
 import comments from '@eslint-community/eslint-plugin-eslint-comments';
 import js from '@eslint/js';
 import functional from 'eslint-plugin-functional';
+import jsdoc from 'eslint-plugin-jsdoc';
 import tseslint from 'typescript-eslint';
 
 import { inlineCommentRequiresWhyNotPrefix } from './rules/inline-comment-requires-why-not-prefix.js';
@@ -169,6 +170,48 @@ export const conventionRules = {
    */
   [`${localPluginName}/inline-comment-requires-why-not-prefix`]: 'error',
 };
+
+/**
+ * 共有パッケージの公開 API に JSDoc を必須にする層。
+ *
+ * <p>
+ * バックエンドは `domain.model` 配下にクラス・フィールド・public メソッドの Javadoc を必須にしている。
+ * TypeScript 側に対応する層は無いため、**ワークスペースをまたいで使われる境界**——共有パッケージの
+ * 入口——に限って必須にする。型で足りている場所へ説明を書かせないため、範囲を広げない。
+ * </p>
+ *
+ * <p>
+ * 必須にするのは JSDoc の存在と、その中に説明があること。`@param` / `@returns` の網羅は求めない。
+ * 引数と戻り値の型は TypeScript が持っており、同じことを2箇所へ書くことになる。
+ * </p>
+ *
+ * @param {object} options
+ * @param {readonly string[]} options.files 公開 API を持つファイル（各パッケージの入口）
+ */
+export const publicApiJsdoc = ({ files }) => ({
+  files: [...files],
+  plugins: { jsdoc },
+  rules: {
+    'jsdoc/require-jsdoc': [
+      'error',
+      {
+        /*
+         * EXPORT-WRAPPER: 輸出される宣言だけを対象にする。`ExportNamedDeclaration > 宣言` の形で
+         * 指定すると、内側の宣言から見て直前のトークンが `export` になり、その上の JSDoc に届かない。
+         * publicOnly に輸出の判定を任せ、対象は宣言の種類で指定する。
+         */
+        publicOnly: true,
+        require: {
+          FunctionDeclaration: true,
+          ArrowFunctionExpression: true,
+          FunctionExpression: true,
+        },
+        contexts: ['VariableDeclaration', 'TSTypeAliasDeclaration', 'TSInterfaceDeclaration'],
+      },
+    ],
+    'jsdoc/require-description': 'error',
+  },
+});
 
 /**
  * 型情報を使う検査の層。

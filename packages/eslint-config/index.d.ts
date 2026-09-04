@@ -39,6 +39,13 @@ export declare const forbiddenAssertionPaths: readonly RestrictedPathEntry[];
 
 export declare const conventionRules: Linter.RulesRecord;
 
+export interface PublicApiJsdocOptions {
+  /** 公開 API を持つファイル（各パッケージの入口） */
+  readonly files: readonly string[];
+}
+
+export declare const publicApiJsdoc: (options: PublicApiJsdocOptions) => ConfigWithExtends;
+
 export interface TypeCheckedLayerOptions {
   /** 参照側の `import.meta.dirname`。tsconfig の解決をそのワークスペースの位置から始める */
   readonly tsconfigRootDir: string;
