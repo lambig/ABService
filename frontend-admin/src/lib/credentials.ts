@@ -11,8 +11,8 @@ const STORAGE_KEY = 'abservice.admin.api-key';
  *
  * <p>
  * `localStorage` ではなく `sessionStorage` に置く。共用の端末で開いたまま離れたときに、タブを
- * 閉じれば残らない状態にする。持続させる必要が出たら、鍵そのものではなく期限付きのトークンを持つ形へ
- * 移す（認証の方式は #116 が持つ）。
+ * 閉じれば残らない状態にする。ただしブラウザが鍵そのものを持つ形自体を、失効させられて期限も切れる
+ * トークンを持つ形へ移す（#264）。
  * </p>
  */
 export const storedApiKey = (): string | null => sessionStorage.getItem(STORAGE_KEY);
