@@ -18,6 +18,24 @@ import tseslint from 'typescript-eslint';
 /** 深い相対パスの禁止（バックエンドの FQN 禁止に対応する趣旨）。エイリアスを使う */
 export const DEEP_RELATIVE_IMPORT = '../../*';
 
+/** {@link DEEP_RELATIVE_IMPORT} に当たったときの説明 */
+export const DEEP_RELATIVE_IMPORT_MESSAGE =
+  '2つ以上上をたどる相対パスは使いません。エイリアスで指してください（バックエンドの FQN 禁止に対応する趣旨）。';
+
+/**
+ * 自身の `src` を指す非相対パスの禁止。
+ *
+ * <p>
+ * tsconfig が `baseUrl: "."` を持つと `src/lib/foo` のような綴りでも解決する。層の境界を輸入の綴りで
+ * 強制する以上、この経路を残すと境界を迂回できてしまうため、綴りをエイリアスと相対パスに限る。
+ * </p>
+ */
+export const SRC_ABSOLUTE_IMPORT = 'src/**';
+
+/** {@link SRC_ABSOLUTE_IMPORT} に当たったときの説明 */
+export const SRC_ABSOLUTE_IMPORT_MESSAGE =
+  '自身の src を指す非相対パスは使いません。エイリアス（$lib / $components / $layouts）か相対パスで指してください（層の境界を綴りで強制しているため）。';
+
 /**
  * ルールを外すコメントに理由を必須とするプラグイン。
  *
@@ -73,7 +91,12 @@ export const conventionRules = {
 
   'no-restricted-syntax': ['error', ...restrictedSyntax],
 
-  'no-restricted-imports': ['error', { patterns: [DEEP_RELATIVE_IMPORT] }],
+  'no-restricted-imports': [
+    'error',
+    {
+      patterns: [{ group: [DEEP_RELATIVE_IMPORT], message: DEEP_RELATIVE_IMPORT_MESSAGE }],
+    },
+  ],
 
   /*
    * ルールを外すなら理由を書く（バックエンドの「@SuppressWarnings に理由必須」に対応）。
