@@ -19,8 +19,14 @@ ABService のアーキテクチャ制約・コーディング規約は多層の�
 | PMD | `backend/config/pmd/ruleset.xml` | `if` 文全廃、VO/record の検証必須、FQN 禁止、`if` 値 return / `switch` 文禁止、可変コレクタ（`Collectors.toList/toSet/toMap`）・Collection/Map変異呼び出し禁止（型解決で判定、`infrastructure.persistence` 境界のみ例外） |
 | NullAway / ErrorProne | `backend/build.gradle` | `@NullMarked`（package-info）＋ `@Nullable` によるコンパイル時 null 安全。`main` 全体（`..persistence.entity..` は Hibernate populate 体のため対象外）を ERROR で強制。設計・除外方針は #44 |
 | Spotless | `backend/config/spotless/eclipse-formatter.xml` | フォーマット |
+| eslint | `packages/eslint-config`（`index.js` / `astro-svelte.js` / `rules/`。参照は markup / patterns / public / admin / e2e） | 全ローカル const、`any` / non-null assertion 禁止、可変更新の禁止、`if` / 中置論理和 / 否定 / `switch` 文の禁止、深い相対パスと自身の `src` への非相対パスの禁止、フロントエンドの層の依存方向（`pages` → `layouts` → `components` → `lib`）、Svelte の runes 強制、`eslint-disable` の理由必須、行コメントは "why not" のみ（独自ルール `inline-comment-requires-why-not-prefix`）、アサーションの輸入元の限定、共有パッケージの公開APIへのJSDoc必須 |
+| prettier | 各ワークスペースの `.prettierrc` | フォーマット（`packages/markup` / `packages/patterns` / `packages/eslint-config` は対象外） |
 
 detekt（Kotlin）カスタムルール26件相当は、Java に構文的対応物のある21件を全件強制・5件は対象外（`!!`・バッククォート名など Java に存在しない構文）。
+
+**Java と TypeScript は同じ規約を別々の機構で表す。** 片方のルールを変えたらもう片方も見る（対応関係は `packages/eslint-config/index.js` の各ルールのコメントが持つ）。言語差でそのまま写せなかったものは #232 が記録している。`switch` は禁じたうえで網羅性を `abservice-patterns` の照合で保つ形にしており（[DECISIONS.md](DECISIONS.md) 28）、中置論理積（`&&`）は nullish 合成や条件付きレンダリングで実質必須のため対象外にしている。
+
+**規約ハーネス自身も検査対象にする。** eslint の独自ルールと設定は `packages/eslint-config/test/` が正負例で固定し、CI の `frontend-check` が全ワークスペースの lint・型検査とあわせて実行する。ルールの実装や設定が退行したらここで落ちる。
 
 **維持すべき設計方針**（今後の拡張で保つ）:
 - **規約ベースのルールは実装を待たず先行導入する**。対象0件の間は `allowEmptyShould(true)` で不活性、最初の実装が入った瞬間から強制。「機能実装を待ってからルール化」はしない。
