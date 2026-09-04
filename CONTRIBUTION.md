@@ -73,6 +73,7 @@ ABService/
 ├── frontend-admin/          # 管理画面（Astro + Svelte）
 ├── frontend-public/         # 公開サイト（Astro + Svelte）
 ├── packages/markup/         # マークアップ描画（公開サイトと管理画面が共有する）
+├── packages/patterns/       # 網羅性を保った式ベースの分岐（switch文の代わり）
 ├── packages/eslint-config/  # TypeScript側の規約（上記3つとe2eが共有する。Java側の正はcheckstyle/pmd）
 ├── e2e/                     # E2Eテストとレビュー証跡（アプリを跨ぐため、どちらにも属させない）
 ├── infra/                   # AWS構成（Terraform）
