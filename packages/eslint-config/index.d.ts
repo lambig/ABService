@@ -9,6 +9,12 @@ import type { ConfigArray, ConfigWithExtends } from 'typescript-eslint';
 
 export declare const DEEP_RELATIVE_IMPORT: string;
 
+export declare const DEEP_RELATIVE_IMPORT_MESSAGE: string;
+
+export declare const SRC_ABSOLUTE_IMPORT: string;
+
+export declare const SRC_ABSOLUTE_IMPORT_MESSAGE: string;
+
 export declare const commentsPluginName: string;
 
 export declare const commentsPlugin: ESLint.Plugin;
