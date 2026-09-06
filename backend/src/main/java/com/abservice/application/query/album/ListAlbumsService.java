@@ -2,6 +2,7 @@ package com.abservice.application.query.album;
 
 import com.abservice.application.query.AudienceVisibility;
 import com.abservice.application.query.QueryService;
+import com.abservice.application.query.PageCounts;
 import com.abservice.application.query.SortKeys;
 import com.abservice.application.query.album.model.AlbumView;
 import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;
@@ -25,8 +26,8 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>
  * CQRS の Read 側ユースケース。ドメイン・Repository を経由せず、{@link AlbumDataSource} が返す
- * {@code PanacheQuery} の {@code list()}/{@code count()}/{@code pageCount()}
- * をそのまま活用し、 独自の COUNT クエリやページ数計算式を書かない。対象範囲はクエリの {@code audience}
+ * {@code PanacheQuery} の一覧取得完了後に件数を取得する。同一Sessionの並列利用を避け、
+ * COUNTは1回だけ発行し、総ページ数は取得済み件数から算出する。対象範囲はクエリの {@code audience}
  * が決め、公開向け（{@code PUBLIC}）では下書き（未公開）アルバムを一覧に含めず、管理向け（{@code ADMIN}） では下書きも含めます。
  * </p>
  *
@@ -66,12 +67,9 @@ public class ListAlbumsService implements QueryService<ListAlbumsQuery, ListAlbu
                         query.audience()),
                 keywordOrNull(query.title()),
                 keywordOrNull(query.catalogNumber()));
-        return Uni.combine().all()
-                .unis(
-                        panacheQuery.list(),
-                        panacheQuery.count(),
-                        panacheQuery.pageCount())
-                .asTuple()
+        return panacheQuery.list()
+                .flatMap(items -> panacheQuery.count()
+                        .map(count -> Tuple3.of(items, count, PageCounts.totalPages(count, size))))
                 .flatMap(
                         tuple -> toResultWithExternalAudios(
                                 tuple,

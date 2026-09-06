@@ -2,6 +2,7 @@ package com.abservice.application.query.tune;
 
 import com.abservice.application.query.Audience;
 import com.abservice.application.query.QueryService;
+import com.abservice.application.query.PageCounts;
 import com.abservice.application.query.SortKeys;
 import com.abservice.infrastructure.persistence.datasource.TuneDataSource;
 import com.abservice.infrastructure.persistence.entity.TuneTableRecord;
@@ -17,8 +18,8 @@ import lombok.AllArgsConstructor;
  *
  * <p>
  * CQRS の Read 側ユースケース。ドメイン・Repository を経由せず、{@link TuneDataSource} が返す
- * {@code PanacheQuery} の {@code list()}/{@code count()}/{@code pageCount()}
- * をそのまま活用し、 独自の COUNT クエリやページ数計算式を書かない。
+ * {@code PanacheQuery} の一覧取得完了後に件数を取得する。同一Sessionの並列利用を避け、
+ * COUNTは1回だけ発行し、総ページ数は取得済み件数から算出する。
  * </p>
  */
 @ApplicationScoped
@@ -43,12 +44,9 @@ public class ListTunesService implements QueryService<ListTunesQuery, ListTunesR
                         query.sort(),
                         query.direction(),
                         Audience.ADMIN));
-        return Uni.combine().all()
-                .unis(
-                        panacheQuery.list(),
-                        panacheQuery.count(),
-                        panacheQuery.pageCount())
-                .asTuple()
+        return panacheQuery.list()
+                .flatMap(items -> panacheQuery.count()
+                        .map(count -> Tuple3.of(items, count, PageCounts.totalPages(count, size))))
                 .map(
                         tuple -> toResult(
                                 tuple,
