@@ -19,14 +19,14 @@
     "build:backend": "cd backend && ./gradlew build -x test",
     "build:public": "npm run build -w abservice-frontend-public",
     "build:admin": "npm run build -w abservice-frontend-admin",
-    "test": "npm run test:backend && npm run test:markup && npm run test:patterns && npm run test:eslint-config",
+    "test": "npm run test:backend && npm run test:markup && npm run test:patterns && npm run test:eslint-config && npm run test:audio-dsp",
     "test:backend": "cd backend && ./gradlew test",
     "test:markup": "npm run test -w abservice-markup",
     "test:patterns": "npm run test -w abservice-patterns",
     "test:eslint-config": "npm run test -w abservice-eslint-config",
-    "test:frontend": "npm run test:markup && npm run test:patterns && npm run test:eslint-config",
+    "test:frontend": "npm run test:markup && npm run test:patterns && npm run test:eslint-config && npm run test:audio-dsp",
     "test:e2e": "npm run test -w abservice-e2e",
-    "lint": "npm run lint:markup && npm run lint:patterns && npm run lint:public && npm run lint:admin && npm run lint:e2e",
+    "lint": "npm run lint:markup && npm run lint:patterns && npm run lint:public && npm run lint:admin && npm run lint:e2e && npm run lint:audio-dsp",
     "lint:markup": "npm run lint -w abservice-markup",
     "lint:patterns": "npm run lint -w abservice-patterns",
     "lint:public": "npm run lint -w abservice-frontend-public",
@@ -53,7 +53,10 @@
     "clean": "npm run clean:backend && npm run clean:public && npm run clean:admin",
     "clean:backend": "cd backend && ./gradlew clean",
     "clean:public": "rm -rf frontend-public/dist frontend-public/.astro",
-    "clean:admin": "rm -rf frontend-admin/dist frontend-admin/.astro"
+    "clean:admin": "rm -rf frontend-admin/dist frontend-admin/.astro",
+    "test:audio-dsp": "npm run test -w abservice-audio-dsp",
+    "lint:audio-dsp": "npm run lint -w abservice-audio-dsp",
+    "typecheck:audio-dsp": "npm run typecheck -w abservice-audio-dsp"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
