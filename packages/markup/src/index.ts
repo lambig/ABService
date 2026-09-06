@@ -16,7 +16,7 @@ import { remarkDetailsDirective } from './details.js';
  * ブラウザ（管理画面のプレビュー）で参照先が変わって「同じ関数」の保証が崩れる。
  */
 export type RenderOptions = {
-  /** アセットの配信ベースパス（例: `/assets`）。画像の `src` をこの配下に限る */
+  /** アセットの配信ベースパス（例: `/assets`）。同一 origin の root-relative path を指定する（ルート `/` は不可）。画像の `src` をURL解決後もこの配下に限る */
   readonly assetBasePath: string;
 };
 
