@@ -1,0 +1,38 @@
+{
+  "name": "abservice-audio-features",
+  "version": "0.1.0",
+  "description": "Audio feature contracts and reference DSP for the v1.1 listening installation",
+  "type": "module",
+  "private": true,
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "abservice-eslint-config": "*",
+    "eslint": "^10.0.0",
+    "eslint-plugin-functional": "^10.0.0",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": "24.20.0",
+    "npm": "11.19.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lambig/ABService.git",
+    "directory": "packages/audio-features"
+  },
+  "keywords": ["audio", "dsp", "web-audio", "wasm"],
+  "author": "Lambig",
+  "license": "MIT"
+}
