@@ -115,6 +115,9 @@ jobs:
       - name: Typecheck (markup)
         run: npm run typecheck:markup
 
+      - name: Typecheck (installation)
+        run: npm run typecheck:installation
+
       - name: Typecheck (patterns)
         run: npm run typecheck:patterns
 
