@@ -74,7 +74,7 @@ ABServiceでは以下のLinting/フォーマットツールを使用していま
 
 #### Git Hooks
 
-コミット前に自動でコード品質チェックを実行できます（Java 25 が必要です）：
+コミット前・プッシュ前に自動でコード品質チェックを実行できます：
 
 ```bash
 # プロジェクトルートで実行（初回のみ）
@@ -83,10 +83,7 @@ ABServiceでは以下のLinting/フォーマットツールを使用していま
 
 **導入されるhooks:**
 - `pre-commit`: 品質ゲート（Spotless / Checkstyle / PMD / ユニット+ArchUnit テスト）を実行
-
-`core.hooksPath=.githooks` を設定し、バージョン管理された検査専用フックを有効にします。
-フックは整形や再ステージを行いません。Java の変更はステージ前に `backend/gradlew -p backend spotlessApply` で整形してください。
-GitHub API など Git フックを経由しない反映でも、`.githooks/pre-commit` と同じ品質ゲートを事前に実行してください。
+- `pre-push`: ビルドとテストを実行
 
 **Hooksをスキップする場合（非推奨）:**
 ```bash

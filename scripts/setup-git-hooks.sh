@@ -1,11 +1,34 @@
-#!/usr/bin/env bash
-# Enable the versioned, read-only pre-commit quality gate for this clone.
-# git config also works from linked worktrees; no .git directory is assumed.
-set -euo pipefail
+#!/bin/bash
+#
+# Git hooks setup script
+# Installs pre-commit and pre-push hooks
+#
+# Usage:
+#   ./scripts/setup-git-hooks.sh
+#
 
-PROJECT_ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
-test -x "$PROJECT_ROOT/.githooks/pre-commit"
-git -C "$PROJECT_ROOT" config --local core.hooksPath .githooks
+set -e
 
-echo "Enabled .githooks/pre-commit (Spotless / Checkstyle / PMD / unit+ArchUnit)."
-echo "Use Java 25 and run backend/gradlew -p backend spotlessApply before staging Java edits."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+HOOKS_DIR="$PROJECT_ROOT/.git/hooks"
+
+echo "🔧 Setting up Git hooks..."
+
+# Copy hooks
+cp "$SCRIPT_DIR/git-hooks/pre-commit" "$HOOKS_DIR/pre-commit"
+cp "$SCRIPT_DIR/git-hooks/pre-push" "$HOOKS_DIR/pre-push"
+
+# Make executable
+chmod +x "$HOOKS_DIR/pre-commit"
+chmod +x "$HOOKS_DIR/pre-push"
+
+echo "✅ Git hooks installed successfully!"
+echo ""
+echo "Installed hooks:"
+echo "  - pre-commit: Runs spotless format and checkstyle"
+echo "  - pre-push: Runs full build with tests"
+echo ""
+echo "To bypass hooks (not recommended):"
+echo "  git commit --no-verify"
+echo "  git push --no-verify"
