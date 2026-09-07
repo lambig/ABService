@@ -119,13 +119,14 @@ public sealed interface Result<T> {
 
         @Override
         public Result<T> mapErrorFields(UnaryOperator<String> mapper) {
-            return Result.failure(errors().stream()
-                    .map(
-                            error -> new ErrorResult(
-                                    mapper.apply(error.field()),
-                                    error.message(),
-                                    error.code()))
-                    .toList());
+            return Result.failure(
+                    errors().stream()
+                            .map(
+                                    error -> new ErrorResult(
+                                            mapper.apply(error.field()),
+                                            error.message(),
+                                            error.code()))
+                            .toList());
         }
 
         public Failure(ErrorResult... errors) {
@@ -184,7 +185,6 @@ public sealed interface Result<T> {
      * @return 位置だけを変換した結果
      */
     Result<T> mapErrorFields(UnaryOperator<String> mapper);
-
 
     /**
      * 結果を解決します。 成功時は値を返し、失敗時は例外をスローします。
