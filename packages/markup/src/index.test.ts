@@ -19,7 +19,9 @@ describe('マークアップ描画', () => {
     });
 
     it('details の直書きはタグとして出力されない', () => {
-      expect(render('<details><summary>x</summary>y</details>')).not.toContain('<details');
+      expect(render('<details><summary>x</summary>y</details>')).not.toContain(
+        '<details',
+      );
     });
 
     it('生HTMLはタグもテキストも残らない（描画の対象にしない）', () => {
@@ -55,13 +57,17 @@ describe('マークアップ描画', () => {
     });
 
     it('リンクを描画する', () => {
-      expect(render('[表題](https://example.com/)')).toContain('href="https://example.com/"');
+      expect(render('[表題](https://example.com/)')).toContain(
+        'href="https://example.com/"',
+      );
     });
   });
 
   describe('折りたたみのディレクティブ', () => {
     it('details ディレクティブを details/summary へ変換する', () => {
-      const html = render(':::details[収録曲について]\n本文がここに入る。\n:::');
+      const html = render(
+        ':::details[収録曲について]\n本文がここに入る。\n:::',
+      );
       expect(html).toContain('<details>');
       expect(html).toContain('<summary>収録曲について</summary>');
       expect(html).toContain('本文がここに入る。');
@@ -96,11 +102,15 @@ describe('マークアップ描画', () => {
     });
 
     it('外部URLの画像は落とす', () => {
-      expect(render('![外部](https://example.com/x.png)')).not.toContain('<img');
+      expect(render('![外部](https://example.com/x.png)')).not.toContain(
+        '<img',
+      );
     });
 
     it('data URI の画像は落とす', () => {
-      expect(render('![埋め込み](data:image/png;base64,iVBORw0KGgo=)')).not.toContain('<img');
+      expect(
+        render('![埋め込み](data:image/png;base64,iVBORw0KGgo=)'),
+      ).not.toContain('<img');
     });
 
     it('配信ベースパスに前方一致するだけの別パスは落とす', () => {
@@ -115,5 +125,76 @@ describe('マークアップ描画', () => {
       );
       expect(html).not.toContain('class=');
     });
+  });
+});
+
+describe('画像のURL正規化後の境界 (#289)', () => {
+  it.each([
+    '/assets/../api/v1/albums',
+    '/assets/%2e%2e/api/v1/albums',
+    '/assets/%2E./api/v1/albums',
+    '/assets/.%2e/api/v1/albums',
+    '/assets/..\\api/v1/albums',
+    '/assets/..%5capi/v1/albums',
+    '//example.com/assets/cover.png',
+    '/\\example.com/assets/cover.png',
+    'https://asset-validation.invalid/assets/cover.png',
+    '/assets/a/../../api/v1/albums',
+    '/assets/a/../cover.png',
+  ])('曖昧なパスまたは外部originを描画しない: %s', (src) => {
+    expect(render(`![画像](<${src}>)`)).not.toContain('<img');
+  });
+
+  it.each(['/assets', '/assets/'])(
+    '末尾スラッシュの有無で許可範囲が変わらない: %s',
+    (assetBasePath) => {
+      const html = renderMarkup(
+        '![表紙](/assets/album/cover.png?size=small#image)',
+        { assetBasePath },
+      );
+      const src = /src="([^"]+)"/u.exec(html)?.[1];
+      expect(src).toBe('/assets/album/cover.png?size=small#image');
+      const destination = new URL(src ?? '', 'https://portfolio.example');
+      expect(destination.origin).toBe('https://portfolio.example');
+      expect(destination.pathname).toBe('/assets/album/cover.png');
+    },
+  );
+
+  it('独自のベースパスも正規化後の境界で検査する', () => {
+    const options = { assetBasePath: '/media/images' };
+    const html = renderMarkup('![表紙](/media/images/cover.png)', options);
+    const src = /src="([^"]+)"/u.exec(html)?.[1];
+    expect(new URL(src ?? '', 'https://portfolio.example').pathname).toBe(
+      '/media/images/cover.png',
+    );
+    expect(
+      renderMarkup('![別](/media/images-other/cover.png)', options),
+    ).not.toContain('<img');
+    expect(
+      renderMarkup('![逸脱](/media/images/%2e%2e/private.png)', options),
+    ).not.toContain('<img');
+  });
+
+  it.each([
+    '',
+    '/',
+    'assets',
+    '//example.com/assets',
+    'https://example.com/assets',
+    '/assets/..',
+    '/assets?x=1',
+    '/assets#x',
+  ])('不正な設定は画像を許可しない: %s', (assetBasePath) => {
+    expect(
+      renderMarkup('![表紙](/assets/cover.png)', { assetBasePath }),
+    ).not.toContain('<img');
+  });
+
+  it('除去する画像が連続しても後続の画像を検査する', () => {
+    const html = render(
+      '![1](/assets/../api/a) ![2](/assets/%2e%2e/api/b) ![3](/assets/cover.png)',
+    );
+    expect(html.match(/<img/gu)).toHaveLength(1);
+    expect(html).toContain('src="/assets/cover.png"');
   });
 });
