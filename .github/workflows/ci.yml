@@ -117,6 +117,10 @@ jobs:
 
       - name: Typecheck (audio-dsp)
         run: npm run typecheck:audio-dsp
+      - name: Typecheck (visualizer)
+        run: npm run typecheck:visualizer
+      - name: Build visualizer PoC
+        run: npm run build -w abservice-visualizer
 
       - name: Typecheck (patterns)
         run: npm run typecheck:patterns

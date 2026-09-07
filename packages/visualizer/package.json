@@ -1,0 +1,48 @@
+{
+  "name": "abservice-visualizer",
+  "version": "1.0.0",
+  "description": "Independent fake AudioFeatures WebGPU visualizer PoC",
+  "type": "module",
+  "private": true,
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "abservice-eslint-config": "*",
+    "eslint": "^10.0.0",
+    "eslint-plugin-functional": "^10.0.0",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.2.4",
+    "@webgpu/types": "0.1.64",
+    "vite": "8.2.2"
+  },
+  "engines": {
+    "node": "24.20.0",
+    "npm": "11.19.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lambig/ABService.git",
+    "directory": "packages/visualizer"
+  },
+  "keywords": [
+    "webgpu",
+    "visualizer"
+  ],
+  "author": "Lambig",
+  "license": "MIT",
+  "dependencies": {
+    "abservice-audio-dsp": "*"
+  }
+}
