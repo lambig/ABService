@@ -173,5 +173,52 @@ class TrackAdditionServiceTest {
         assertThat(result).isInstanceOf(Result.Failure.class);
         assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
                 .contains("SEQ_REQUIRED", "TRACK_TUNE_TITLE_TOO_LONG");
+        assertThat(result.errors().stream().map(ErrorResult::field).toList())
+                .containsExactly(
+                        "tunes[0].seq",
+                        "tunes[1].tuneTitle");
+    }
+
+    @Test
+    @DisplayName("エラーの位置は入力の綴りで返り、行ごとの添字と作曲・編曲のクレジットを区別できる")
+    void errorsCarryInputPaths() {
+        final var trackFields = TrackAdditionService.validate(
+                new TrackFields(
+                        null,
+                        "   ",
+                        null,
+                        null,
+                        null));
+        final var artistCredit = TrackAdditionService.validate(
+                new TrackFields(
+                        1,
+                        "トラックタイトル",
+                        "a".repeat(256),
+                        null,
+                        null));
+        final var credits = TrackAdditionService.validate(
+                new TrackFields(
+                        1,
+                        "トラックタイトル",
+                        null,
+                        null,
+                        List.of(
+                                new TuneFields(
+                                        1,
+                                        "チューン1",
+                                        "a".repeat(256),
+                                        "b".repeat(256),
+                                        null))));
+
+        assertThat(trackFields.errors().stream().map(ErrorResult::field).toList())
+                .contains(
+                        "trackNo",
+                        "title");
+        assertThat(artistCredit.errors().stream().map(ErrorResult::field).toList())
+                .containsExactly("artistDisplayName");
+        assertThat(credits.errors().stream().map(ErrorResult::field).toList())
+                .containsExactly(
+                        "tunes[0].composerCreditOverride",
+                        "tunes[0].arrangerCreditOverride");
     }
 }

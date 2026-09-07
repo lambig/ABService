@@ -166,7 +166,8 @@ public final class Track implements DomainEntity<Track, Track.Id> {
                                 "Track number is required",
                                 "TRACK_NO_REQUIRED"))
                         .verify(trackNo, Function.identity()),
-                TrackTitle.fromInput(title),
+                TrackTitle.fromInput(title)
+                        .withErrorField("title"),
                 (validTrackNo, validTitle) -> Track.create(
                         validTrackNo,
                         validTitle,

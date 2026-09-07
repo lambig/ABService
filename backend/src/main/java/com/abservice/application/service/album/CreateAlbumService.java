@@ -1,6 +1,7 @@
 package com.abservice.application.service.album;
 
 import com.abservice.application.service.CommandService;
+import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.repository.album.AlbumRepository;
@@ -41,17 +42,20 @@ public class CreateAlbumService implements CommandService<CreateAlbumInput, Crea
     @WithTransaction
     @Override
     public Uni<CreateAlbumOutput> execute(CreateAlbumInput input) {
-        return albumCreationService.create(
-                input.title(),
-                resolveReleaseDate(input.releaseDate()),
-                input.artistDisplayName(),
-                input.artistSortKey(),
-                input.catalogNumber(),
-                input.isdn(),
-                input.coverImageKey(),
-                input.description(),
-                input.descriptionFormat(),
-                toEventFields(input.event()))
+        return Uni.createFrom()
+                .item(
+                        () -> albumCreationService.create(
+                                input.title(),
+                                resolveReleaseDate(input.releaseDate()),
+                                input.artistDisplayName(),
+                                input.artistSortKey(),
+                                input.catalogNumber(),
+                                input.isdn(),
+                                input.coverImageKey(),
+                                input.description(),
+                                input.descriptionFormat(),
+                                toEventFields(input.event()))
+                                .resolve(ValidationException::new))
                 .flatMap(albumRepository::save)
                 .map(CreateAlbumService::toOutput);
     }
