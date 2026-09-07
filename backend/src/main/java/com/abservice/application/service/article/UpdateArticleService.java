@@ -49,6 +49,7 @@ public class UpdateArticleService implements CommandService<UpdateArticleInput, 
         return Uni.createFrom()
                 .item(
                         () -> Article.Id.fromInput(input.articleId())
+                                .mapErrorFields(field -> "articleId")
                                 .resolve(ValidationException::new))
                 .flatMap(this::findExisting)
                 .flatMap(existing -> applyValidatedUpdate(existing, input))
@@ -93,7 +94,9 @@ public class UpdateArticleService implements CommandService<UpdateArticleInput, 
     private static Result<MarkupContent> resolveBody(@Nullable String content, @Nullable String format) {
         return Optional.ofNullable(content)
                 .filter(StringUtils::isNotBlank)
-                .map(c -> MarkupContent.fromInput(c, format))
+                .map(
+                        c -> MarkupContent.fromInput(c, format)
+                                .mapErrorFields(ArticleInputPaths::body))
                 .orElse(EMPTY_BODY);
     }
 

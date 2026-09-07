@@ -71,6 +71,11 @@ public sealed interface Result<T> {
         }
 
         @Override
+        public Result<T> withErrorField(String path) {
+            return this;
+        }
+
+        @Override
         public List<ErrorResult> errors() {
             return List.of();
         }
@@ -124,6 +129,18 @@ public sealed interface Result<T> {
                             .map(
                                     error -> new ErrorResult(
                                             mapper.apply(error.field()),
+                                            error.message(),
+                                            error.code()))
+                            .toList());
+        }
+
+        @Override
+        public Result<T> withErrorField(String path) {
+            return Result.failure(
+                    errors().stream()
+                            .map(
+                                    error -> new ErrorResult(
+                                            path,
                                             error.message(),
                                             error.code()))
                             .toList());
@@ -185,6 +202,21 @@ public sealed interface Result<T> {
      * @return 位置だけを変換した結果
      */
     Result<T> mapErrorFields(UnaryOperator<String> mapper);
+
+    /**
+     * 入力の組み立て境界で、エラーの位置を1つの入力パスへ固定する。成功値・エラー順序・message/codeは保持する。
+     *
+     * <p>
+     * 値オブジェクトが返す field を捨てて1つのパスへ寄せる形は、{@link #mapErrorFields} で書くと引数を使わない
+     * ラムダになる。配列の添字のように外側の値を含むパスではその形が使えないため（引数を捨てるラムダは静的解析が
+     * 塞いでいる）、位置を固定する操作を独立して持つ。
+     * </p>
+     *
+     * @param path
+     *            この結果のエラー全体に与える入力パス
+     * @return 位置だけを固定した結果
+     */
+    Result<T> withErrorField(String path);
 
     /**
      * 結果を解決します。 成功時は値を返し、失敗時は例外をスローします。

@@ -46,6 +46,7 @@ public class UpdateTuneService implements CommandService<UpdateTuneInput, Update
         return Uni.createFrom()
                 .item(
                         () -> Tune.Id.fromInput(input.tuneId())
+                                .mapErrorFields(field -> "tuneId")
                                 .resolve(ValidationException::new))
                 .flatMap(this::findExisting)
                 .map(
@@ -63,12 +64,15 @@ public class UpdateTuneService implements CommandService<UpdateTuneInput, Update
 
     static Result<Tune> validateAndApply(Tune existing, UpdateTuneInput input) {
         return Result.zip(
-                TuneTitle.fromInput(input.title()),
+                TuneTitle.fromInput(input.title())
+                        .mapErrorFields(field -> "title"),
                 TuneKind.fromInput(input.tuneKind()),
-                resolveCredit(input.defaultComposerCredit()),
+                resolveCredit(input.defaultComposerCredit())
+                        .mapErrorFields(field -> "defaultComposerCredit"),
                 TitleKindComposer::new)
                 .flatMap(
                         composer -> resolveCredit(input.defaultArrangerCredit())
+                                .mapErrorFields(field -> "defaultArrangerCredit")
                                 .map(
                                         arrangerCredit -> Tune.reconstruct(
                                                 existing.id(),

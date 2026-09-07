@@ -34,8 +34,10 @@ public record SetArticleAlbumInput(@Nullable String articleId, @Nullable String 
         return Uni.createFrom()
                 .item(
                         () -> Result.zip(
-                                Article.Id.fromInput(articleId),
-                                Album.Id.fromInput(albumId),
+                                Article.Id.fromInput(articleId)
+                                        .mapErrorFields(field -> "articleId"),
+                                Album.Id.fromInput(albumId)
+                                        .mapErrorFields(field -> "albumId"),
                                 (parsedArticleId, parsedAlbumId) -> this)
                                 .resolve(ValidationException::new));
     }

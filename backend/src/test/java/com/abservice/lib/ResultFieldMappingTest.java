@@ -39,5 +39,33 @@ class ResultFieldMappingTest {
     void keepsSuccessfulValue() {
         final var result = Result.success("value");
         assertThat(result.mapErrorFields(field -> "unused")).isSameAs(result);
+        assertThat(result.withErrorField("unused")).isSameAs(result);
+    }
+
+    @Test
+    @DisplayName("位置の固定は、値オブジェクトが返した field を捨てて全エラーを1つのパスへ寄せる")
+    void fixesEveryErrorToOnePath() {
+        final var result = Result.failure(
+                List.of(
+                        new ErrorResult(
+                                "value",
+                                "空です",
+                                "ID_BLANK"),
+                        new ErrorResult(
+                                "value",
+                                "UUIDではありません",
+                                "ID_INVALID_UUID")));
+
+        assertThat(result.withErrorField("orderedTrackIds[2]").errors())
+                .containsExactly(
+                        new ErrorResult(
+                                "orderedTrackIds[2]",
+                                "空です",
+                                "ID_BLANK"),
+                        new ErrorResult(
+                                "orderedTrackIds[2]",
+                                "UUIDではありません",
+                                "ID_INVALID_UUID"));
+        assertThat(result.errors().getFirst().field()).isEqualTo("value");
     }
 }

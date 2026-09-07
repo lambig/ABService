@@ -47,12 +47,14 @@ public class UpdateTrackService implements CommandService<UpdateTrackInput, Upda
         return Uni.createFrom()
                 .item(
                         () -> Album.Id.fromInput(input.albumId())
+                                .mapErrorFields(field -> "albumId")
                                 .resolve(ValidationException::new))
                 .flatMap(albumAccessService::findExistingAndClaimEdit)
                 .flatMap(
                         album -> Uni.createFrom()
                                 .item(
                                         () -> Track.Id.fromInput(input.trackId())
+                                                .mapErrorFields(field -> "trackId")
                                                 .resolve(ValidationException::new))
                                 .map(album::getTrack)
                                 .flatMap(
@@ -73,7 +75,8 @@ public class UpdateTrackService implements CommandService<UpdateTrackInput, Upda
                 .flatMap(
                         resolved -> Result.zip(
                                 trackNoPolicy().verify(input.trackNo(), Function.identity()),
-                                TrackTitle.fromInput(input.title()),
+                                TrackTitle.fromInput(input.title())
+                                        .mapErrorFields(field -> "title"),
                                 (trackNo, title) -> Track.reconstruct(
                                         existing.id(),
                                         trackNo,
@@ -101,6 +104,7 @@ public class UpdateTrackService implements CommandService<UpdateTrackInput, Upda
                 .filter(StringUtils::isNotBlank)
                 .map(
                         name -> ArtistCredit.fromInput(name, sortKey)
+                                .mapErrorFields(field -> "artistDisplayName")
                                 .map(Optional::of))
                 .orElseGet(() -> Result.<Optional<ArtistCredit>>success(Optional.empty()));
     }

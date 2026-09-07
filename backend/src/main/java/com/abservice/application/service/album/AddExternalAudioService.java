@@ -36,8 +36,10 @@ public class AddExternalAudioService implements CommandService<AddExternalAudioI
         return Uni.createFrom()
                 .item(
                         () -> Result.zip(
-                                Album.Id.fromInput(input.albumId()),
-                                ExternalAudioUrl.fromInput(input.url()),
+                                Album.Id.fromInput(input.albumId())
+                                        .mapErrorFields(field -> "albumId"),
+                                ExternalAudioUrl.fromInput(input.url())
+                                        .mapErrorFields(field -> "url"),
                                 Fields::new)
                                 .resolve(ValidationException::new))
                 .flatMap(

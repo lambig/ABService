@@ -108,6 +108,8 @@ class UpdateArticleServiceTest {
         assertThat(result).isInstanceOf(Result.Failure.class);
         assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
                 .contains("MARKUP_FORMAT_REQUIRED");
+        assertThat(result.errors().stream().map(ErrorResult::field).toList())
+                .containsExactly("bodyFormat");
     }
 
     @Test
