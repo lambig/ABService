@@ -107,8 +107,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 全ワークスペースを対象にする（markup / patterns / audio-dsp / installation / public / admin / e2e）。
-      # 一部だけを並べると、対象外のワークスペースで有効にした規約が一度も検査されない（#232）。
+      # 全ワークスペースを対象にする。一部だけを並べると、対象外のワークスペースで有効にした規約が
+      # 一度も検査されない（#232）。対象の一覧は `lint` が持ち、ここには写さない。
       - name: Lint (all workspaces)
         run: npm run lint
 
@@ -133,8 +133,10 @@ jobs:
       - name: Typecheck (e2e)
         run: npm run typecheck:e2e
 
-      # 規約ハーネス自身の検査を含む。ルールの実装・設定が退行したらここで落ちる（#232）
-      - name: Unit tests (markup / patterns / audio-dsp / installation / eslint-config)
+      # 対象のワークスペースは `test:frontend` が持つ。ここへ列挙すると、ワークスペースが増えたときに
+      # 名前だけが古くなる（実体は落ちないため気付けない）。規約ハーネス自身の検査もこの中に含まれ、
+      # ルールの実装・設定が退行したらここで落ちる（#232）
+      - name: Unit tests (frontend workspaces)
         run: npm run test:frontend
 
   e2e:
