@@ -28,6 +28,7 @@ public record PublishAlbumInput(@Nullable String albumId) implements CommandServ
         return Uni.createFrom()
                 .item(
                         () -> Album.Id.fromInput(albumId)
+                                .mapErrorFields(field -> "albumId")
                                 .resolve(ValidationException::new))
                 .replaceWith(this);
     }

@@ -49,4 +49,19 @@ class ReorderTracksServiceTest {
         assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
                 .contains("ID_INVALID_UUID", "ID_BLANK");
     }
+
+    @Test
+    @DisplayName("要素のエラーは、どの添字の要素かが分かる入力パスで返る")
+    void elementErrorsCarryTheirIndex() {
+        final var result = ReorderTracksService.validateOrderedTrackIds(
+                List.of(
+                        Track.Id.generate().value(),
+                        "not-a-uuid",
+                        "   "));
+
+        assertThat(result.errors().stream().map(ErrorResult::field).distinct().toList())
+                .containsExactly(
+                        "orderedTrackIds[1]",
+                        "orderedTrackIds[2]");
+    }
 }

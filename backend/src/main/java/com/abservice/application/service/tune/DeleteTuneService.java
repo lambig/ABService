@@ -38,6 +38,7 @@ public class DeleteTuneService implements CommandService<DeleteTuneInput, Delete
         return Uni.createFrom()
                 .item(
                         () -> Tune.Id.fromInput(input.tuneId())
+                                .mapErrorFields(field -> "tuneId")
                                 .resolve(ValidationException::new))
                 .flatMap(tuneDeletionService::deletable)
                 .flatMap(tuneRepository::deleteById)

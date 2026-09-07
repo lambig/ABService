@@ -2,11 +2,13 @@ package com.abservice.lib;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.NonNull;
 
@@ -71,6 +73,11 @@ public sealed interface Result<T> {
         }
 
         @Override
+        public Result<T> withErrorField(String path) {
+            return this;
+        }
+
+        @Override
         public List<ErrorResult> errors() {
             return List.of();
         }
@@ -123,10 +130,44 @@ public sealed interface Result<T> {
                     errors().stream()
                             .map(
                                     error -> new ErrorResult(
-                                            mapper.apply(error.field()),
+                                            mappedField(error.field(), mapper),
                                             error.message(),
                                             error.code()))
                             .toList());
+        }
+
+        @Override
+        public Result<T> withErrorField(String path) {
+            return Result.failure(
+                    errors().stream()
+                            .map(
+                                    error -> new ErrorResult(
+                                            fixedField(error.field(), path),
+                                            error.message(),
+                                            error.code()))
+                            .toList());
+        }
+
+        /**
+         * 空の field は、どの項目にも紐付かないエラー（要求全体に関わるもの）を表すため写さない。
+         *
+         * <p>
+         * 項目のパスへ寄せると、欄に紐付かないことと欄が分からないことが混ざり、フォームは「どの欄でもない エラー」を特定の欄の下に描く（DECISIONS
+         * 29）。
+         * </p>
+         */
+        private static String mappedField(String field, UnaryOperator<String> mapper) {
+            return Optional.of(field)
+                    .filter(StringUtils::isNotEmpty)
+                    .map(mapper)
+                    .orElse(field);
+        }
+
+        /** 空の field を保つ点は {@link #mappedField} と同じ。位置は写像ではなく固定値で与える。 */
+        private static String fixedField(String field, String path) {
+            return field.isEmpty()
+                    ? field
+                    : path;
         }
 
         public Failure(ErrorResult... errors) {
@@ -180,11 +221,35 @@ public sealed interface Result<T> {
     /**
      * 入力の組み立て境界でエラー位置を対応付ける。成功値・エラー順序・message/codeは保持する。
      *
+     * <p>
+     * 空の field（どの項目にも紐付かない、要求全体に関わるエラー）は写さずそのまま保つ。呼び出し側の写像に
+     * その判断を委ねると、写像を書くたびに落とせる（DECISIONS 29）。
+     * </p>
+     *
      * @param mapper
      *            フィールド名から入力パスへの変換（入れ子・配列添字も表現できる）
      * @return 位置だけを変換した結果
      */
     Result<T> mapErrorFields(UnaryOperator<String> mapper);
+
+    /**
+     * 入力の組み立て境界で、エラーの位置を1つの入力パスへ固定する。成功値・エラー順序・message/codeは保持する。
+     *
+     * <p>
+     * 値オブジェクトが返す field を捨てて1つのパスへ寄せる形は、{@link #mapErrorFields} で書くと引数を使わない
+     * ラムダになる。配列の添字のように外側の値を含むパスではその形が使えないため（引数を捨てるラムダは静的解析が
+     * 塞いでいる）、位置を固定する操作を独立して持つ。
+     * </p>
+     *
+     * <p>
+     * 空の field は {@link #mapErrorFields} と同じくそのまま保つ。
+     * </p>
+     *
+     * @param path
+     *            この結果のエラー全体に与える入力パス（空の field を持つエラーには与えない）
+     * @return 位置だけを固定した結果
+     */
+    Result<T> withErrorField(String path);
 
     /**
      * 結果を解決します。 成功時は値を返し、失敗時は例外をスローします。

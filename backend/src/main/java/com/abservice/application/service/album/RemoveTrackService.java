@@ -34,8 +34,10 @@ public class RemoveTrackService implements CommandService<RemoveTrackInput, Remo
         return Uni.createFrom()
                 .item(
                         () -> Result.zip(
-                                Album.Id.fromInput(input.albumId()),
-                                Track.Id.fromInput(input.trackId()),
+                                Album.Id.fromInput(input.albumId())
+                                        .mapErrorFields(field -> "albumId"),
+                                Track.Id.fromInput(input.trackId())
+                                        .mapErrorFields(field -> "trackId"),
                                 Ids::new)
                                 .resolve(ValidationException::new))
                 .flatMap(

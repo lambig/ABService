@@ -109,6 +109,8 @@ class UpdateTrackServiceTest {
         assertThat(result).isInstanceOf(Result.Failure.class);
         assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
                 .contains("TRACK_NO_REQUIRED", "TRACK_TITLE_REQUIRED");
+        assertThat(result.errors().stream().map(ErrorResult::field).toList())
+                .contains("trackNo", "title");
     }
 
     @Test

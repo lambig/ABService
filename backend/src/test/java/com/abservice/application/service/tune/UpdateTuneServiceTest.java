@@ -94,4 +94,42 @@ class UpdateTuneServiceTest {
         assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
                 .contains("TUNE_TITLE_REQUIRED", "TUNE_KIND_INVALID");
     }
+
+    @Test
+    @DisplayName("エラーはAPIの入力パスで返る。同じクレジットの値オブジェクトでも作曲と編曲を混同しない")
+    void errorsCarryApiInputPaths() {
+        final var titleAndComposer = UpdateTuneService.validateAndApply(
+                existingTune(),
+                new UpdateTuneInput(
+                        null,
+                        "   ",
+                        "TRAD",
+                        "a".repeat(256),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null));
+        final var arrangerOnly = UpdateTuneService.validateAndApply(
+                existingTune(),
+                new UpdateTuneInput(
+                        null,
+                        "タイトル",
+                        "TRAD",
+                        null,
+                        "b".repeat(256),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null));
+
+        assertThat(titleAndComposer.errors().stream().map(ErrorResult::field).toList())
+                .containsExactly(
+                        "title",
+                        "defaultComposerCredit");
+        assertThat(arrangerOnly.errors().stream().map(ErrorResult::field).toList())
+                .containsExactly("defaultArrangerCredit");
+    }
 }

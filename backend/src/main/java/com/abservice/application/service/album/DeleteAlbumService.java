@@ -54,6 +54,7 @@ public class DeleteAlbumService implements CommandService<DeleteAlbumInput, Dele
         return Uni.createFrom()
                 .item(
                         () -> Album.Id.fromInput(input.albumId())
+                                .mapErrorFields(field -> "albumId")
                                 .resolve(ValidationException::new))
                 .flatMap(this::deleteWithReferencingArticles);
     }

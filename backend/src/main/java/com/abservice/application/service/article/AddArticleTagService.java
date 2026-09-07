@@ -63,7 +63,8 @@ public class AddArticleTagService implements CommandService<AddArticleTagInput, 
 
     private static ValidInput validate(AddArticleTagInput input) {
         return Result.zip(
-                Article.Id.fromInput(input.articleId()),
+                Article.Id.fromInput(input.articleId())
+                        .mapErrorFields(field -> "articleId"),
                 ArticleTag.fromInput(input.name()),
                 ValidInput::new)
                 .resolve(ValidationException::new);

@@ -40,8 +40,13 @@ public class UpsertSiteContentService implements CommandService<UpsertSiteConten
 
     private static Parsed validate(UpsertSiteContentInput input) {
         return Result.zip(
-                SiteContentKey.fromInput(input.key()),
-                MarkupContent.fromInput(input.content(), input.contentFormat()),
+                SiteContentKey.fromInput(input.key())
+                        .mapErrorFields(field -> "key"),
+                MarkupContent.fromInput(input.content(), input.contentFormat())
+                        .mapErrorFields(
+                                field -> "format".equals(field)
+                                        ? "contentFormat"
+                                        : "content"),
                 Parsed::new)
                 .resolve(ValidationException::new);
     }
