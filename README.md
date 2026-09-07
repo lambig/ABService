@@ -105,3 +105,18 @@ git push --no-verify
 #### SpotBugsについて
 
 SpotBugs は現在このプロジェクトでは未導入。再導入（PMD 組込ルールセットと併せたバグパターン検出）の検討は issue #193。
+
+### AudioWorklet PoC
+
+合成音源でRMS通知を確認する独立ページです。開始ボタンで440Hzの音が鳴ります。
+
+```bash
+npm run dev -w abservice-audio-worklet
+npm run test:audio-worklet
+npm run typecheck:audio-worklet
+npm run lint:audio-worklet
+npm exec -w abservice-audio-worklet -- playwright install chromium
+npm run test:browser -w abservice-audio-worklet
+```
+
+ブラウザテストはproduction buildを起動して実行します。

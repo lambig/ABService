@@ -1,0 +1,51 @@
+{
+  "name": "abservice-audio-worklet",
+  "version": "1.0.0",
+  "description": "AudioWorklet RMS transport and synthetic playback PoC",
+  "type": "module",
+  "private": true,
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run src",
+    "test:watch": "vitest src",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test:browser": "playwright test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "abservice-eslint-config": "*",
+    "eslint": "^10.0.0",
+    "eslint-plugin-functional": "^10.0.0",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.2.4",
+    "vite": "8.2.2",
+    "@playwright/test": "^1.62.0",
+    "@types/node": "^24.0.0"
+  },
+  "engines": {
+    "node": "24.20.0",
+    "npm": "11.19.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lambig/ABService.git",
+    "directory": "packages/audio-worklet"
+  },
+  "keywords": [
+    "audio",
+    "dsp"
+  ],
+  "author": "Lambig",
+  "license": "MIT",
+  "dependencies": {
+    "abservice-audio-dsp": "*"
+  }
+}

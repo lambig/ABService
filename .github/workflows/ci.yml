@@ -118,6 +118,9 @@ jobs:
       - name: Typecheck (audio-dsp)
         run: npm run typecheck:audio-dsp
 
+      - name: Typecheck (audio-worklet)
+        run: npm run typecheck:audio-worklet
+
       - name: Typecheck (installation)
         run: npm run typecheck:installation
 
@@ -138,6 +141,38 @@ jobs:
       # ルールの実装・設定が退行したらここで落ちる（#232）
       - name: Unit tests (frontend workspaces)
         run: npm run test:frontend
+
+  audio-worklet-browser:
+    name: AudioWorklet browser (production bundle)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npm exec -w abservice-audio-worklet -- playwright install --with-deps chromium --only-shell
+
+      - name: Test real AudioWorklet
+        run: npm run test:browser -w abservice-audio-worklet
+
+      - name: Upload browser evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: audio-worklet-browser
+          path: packages/audio-worklet/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
 
   e2e:
     name: E2E (Playwright / 実スタック)
