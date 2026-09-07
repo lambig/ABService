@@ -1,8 +1,8 @@
 # Visualizer PoC (#291)
 
 `AudioFeatures → mapFeatures → PresentationFrame → WebGPU Renderer` の独立デモ。
-#293 のDSP契約ブランチをベースにし、音声の再生・取得・解析は実装しない。
-既存の公開／管理画面へは組み込まない。会話での順次実装・PR発行承認に基づく。
+音声の再生・取得・解析は実装せず、`abservice-audio-dsp` の `AudioFeatures` を入力として受け取る。
+既存の公開／管理画面へは組み込まない。
 
 ## 実行
 
