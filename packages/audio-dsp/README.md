@@ -49,7 +49,7 @@ npm run lint:audio-dsp
 
 ## 後続
 
-1. **P1 残り**: AudioWorklet adapter と再生 graph、セッション時刻の単調性、通知周期の分離。
+1. **P1**: `packages/audio-worklet` に AudioWorklet adapter と再生 graph、通知周期の分離を実装。
    未接続入力は通知を抑止するか有効な無音ブロックとして扱う。PCM の main thread 転送は行わない。
 2. **P2**: FFT / window / hop / 帯域境界 / onset の意味論を合成 fixture とともに固定。
    完全な `AudioFeatures` を返す DSP を実装する。
@@ -57,3 +57,5 @@ npm run lint:audio-dsp
 4. **端末評価**: Android の長時間再生、通知頻度、deadline miss・音切れ。
 
 FLAC 登録・OPFS・Service Worker・WebGPU・Album/Track API 結線は #290 の非目標のまま。
+
+通知窓のRMSは [設計判断30](../../docs/DECISIONS.md#30-rms通知は音声ブロックを間引かず通知窓のパワーを集計する) を参照。
