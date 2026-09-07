@@ -35,6 +35,42 @@ class ResultFieldMappingTest {
     }
 
     @Test
+    @DisplayName("どの項目にも紐付かない空の field は、写像でも位置の固定でも項目のエラーにしない")
+    void keepsWholeRequestErrorUnassigned() {
+        final var result = Result.failure(
+                List.of(
+                        new ErrorResult(
+                                "",
+                                "組み合わせが不正です",
+                                "COMBINATION_INVALID"),
+                        new ErrorResult(
+                                "title",
+                                "必須",
+                                "REQUIRED")));
+
+        assertThat(result.mapErrorFields(field -> "tracks[0]." + field).errors())
+                .containsExactly(
+                        new ErrorResult(
+                                "",
+                                "組み合わせが不正です",
+                                "COMBINATION_INVALID"),
+                        new ErrorResult(
+                                "tracks[0].title",
+                                "必須",
+                                "REQUIRED"));
+        assertThat(result.withErrorField("orderedTrackIds[0]").errors())
+                .containsExactly(
+                        new ErrorResult(
+                                "",
+                                "組み合わせが不正です",
+                                "COMBINATION_INVALID"),
+                        new ErrorResult(
+                                "orderedTrackIds[0]",
+                                "必須",
+                                "REQUIRED"));
+    }
+
+    @Test
     @DisplayName("成功値にはエラー変換を適用しない")
     void keepsSuccessfulValue() {
         final var result = Result.success("value");
