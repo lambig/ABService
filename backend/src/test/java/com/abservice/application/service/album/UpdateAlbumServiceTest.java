@@ -228,6 +228,11 @@ class UpdateAlbumServiceTest {
                         null,
                         null));
 
+        assertThat(result.errors().stream().map(ErrorResult::field).toList())
+                .contains(
+                        "title",
+                        "releaseDate",
+                        "artistDisplayName");
         assertThat(result).isInstanceOf(Result.Failure.class);
         assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
                 .contains(

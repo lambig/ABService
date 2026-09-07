@@ -56,7 +56,7 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
     public Uni<UpdateAlbumOutput> execute(UpdateAlbumInput input) {
         return Uni.createFrom()
                 .item(
-                        () -> Album.Id.fromInput(input.albumId())
+                        () -> Album.Id.fromInput(input.albumId()).mapErrorFields(field -> "albumId")
                                 .resolve(ValidationException::new))
                 .flatMap(albumAccessService::findExistingAndClaimEdit)
                 .map(
@@ -69,17 +69,17 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
     static Result<Album> validateAndApply(Album existing, UpdateAlbumInput input) {
         return Result.zip(
                 Result.zip(
-                        AlbumTitle.fromInput(input.title()),
+                        AlbumTitle.fromInput(input.title()).mapErrorFields(field -> "title"),
                         resolveReleaseDate(input.releaseDate()),
-                        ArtistCredit.fromInput(input.artistDisplayName(), input.artistSortKey()),
+                        ArtistCredit.fromInput(input.artistDisplayName(), input.artistSortKey()).mapErrorFields(field -> "artistDisplayName"),
                         TitleDateArtist::new),
                 Result.zip(
-                        resolveOptional(CatalogNumber::fromInput, input.catalogNumber()),
-                        resolveOptional(Isdn::fromInput, input.isdn()),
+                        resolveOptional(CatalogNumber::fromInput, input.catalogNumber()).mapErrorFields(field -> "catalogNumber"),
+                        resolveOptional(Isdn::fromInput, input.isdn()).mapErrorFields(field -> "isdn"),
                         resolveEvent(input.event()),
                         OptionalFields::new),
                 Result.zip(
-                        resolveOptional(AssetKey::fromInput, input.coverImageKey()),
+                        resolveOptional(AssetKey::fromInput, input.coverImageKey()).mapErrorFields(field -> "coverImageKey"),
                         resolveDescription(input.description(), input.descriptionFormat()),
                         CoverAndDescription::new),
                 (base, optional, extra) -> existing.changeTitle(base.title())
@@ -98,7 +98,8 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
     private static Result<MarkupContent> resolveDescription(@Nullable String content, @Nullable String format) {
         return Optional.ofNullable(content)
                 .filter(StringUtils::isNotBlank)
-                .map(c -> MarkupContent.fromInput(c, format))
+                .map(c -> MarkupContent.fromInput(c, format)
+                        .mapErrorFields(field -> "format".equals(field) ? "descriptionFormat" : "description"))
                 .orElse(EMPTY_DESCRIPTION);
     }
 
@@ -145,7 +146,7 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
                                 date.orElse(null),
                                 input.place(),
                                 input.spaceNumber(),
-                                input.note()))
+                                input.note()).mapErrorFields(field -> "event.name"))
                 .map(Optional::of);
     }
 

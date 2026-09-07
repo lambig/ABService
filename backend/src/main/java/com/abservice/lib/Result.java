@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.NonNull;
@@ -65,6 +66,11 @@ public sealed interface Result<T> {
      */
     record Success<T>(@NonNull T value) implements Result<T> {
         @Override
+        public Result<T> mapErrorFields(UnaryOperator<String> mapper) {
+            return this;
+        }
+
+        @Override
         public List<ErrorResult> errors() {
             return List.of();
         }
@@ -109,6 +115,17 @@ public sealed interface Result<T> {
     record Failure<T>(@NonNull List<ErrorResult> errors) implements Result<T> {
         public Failure {
             Validate.notEmpty(errors, "errors must not be empty");
+        }
+
+        @Override
+        public Result<T> mapErrorFields(UnaryOperator<String> mapper) {
+            return Result.failure(errors().stream()
+                    .map(
+                            error -> new ErrorResult(
+                                    mapper.apply(error.field()),
+                                    error.message(),
+                                    error.code()))
+                    .toList());
         }
 
         public Failure(ErrorResult... errors) {
@@ -158,6 +175,16 @@ public sealed interface Result<T> {
      * @return エラーのリスト（成功時は空）
      */
     List<ErrorResult> errors();
+
+    /**
+     * 入力の組み立て境界でエラー位置を対応付ける。成功値・エラー順序・message/codeは保持する。
+     *
+     * @param mapper
+     *            フィールド名から入力パスへの変換（入れ子・配列添字も表現できる）
+     * @return 位置だけを変換した結果
+     */
+    Result<T> mapErrorFields(UnaryOperator<String> mapper);
+
 
     /**
      * 結果を解決します。 成功時は値を返し、失敗時は例外をスローします。

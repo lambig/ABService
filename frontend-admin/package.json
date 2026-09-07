@@ -11,7 +11,8 @@
     "typecheck": "astro check",
     "lint": "astro sync && prettier --check . && eslint .",
     "format": "prettier --write .",
-    "generate:api-types": "openapi-typescript ../backend/build/openapi/openapi.yaml -o src/lib/api/schema.d.ts"
+    "generate:api-types": "openapi-typescript ../backend/build/openapi/openapi.yaml -o src/lib/api/schema.d.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@astrojs/svelte": "^9.0.0",
@@ -41,7 +42,8 @@
     "prettier-plugin-tailwindcss": "^0.8.0",
     "shadcn-svelte": "^1.0.0",
     "typescript": "^5.0.0",
-    "typescript-eslint": "^8.0.0"
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.2.4"
   },
   "engines": {
     "node": "24.20.0",
