@@ -71,15 +71,18 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
                 Result.zip(
                         AlbumTitle.fromInput(input.title()).mapErrorFields(field -> "title"),
                         resolveReleaseDate(input.releaseDate()),
-                        ArtistCredit.fromInput(input.artistDisplayName(), input.artistSortKey()).mapErrorFields(field -> "artistDisplayName"),
+                        ArtistCredit.fromInput(input.artistDisplayName(), input.artistSortKey())
+                                .mapErrorFields(field -> "artistDisplayName"),
                         TitleDateArtist::new),
                 Result.zip(
-                        resolveOptional(CatalogNumber::fromInput, input.catalogNumber()).mapErrorFields(field -> "catalogNumber"),
+                        resolveOptional(CatalogNumber::fromInput, input.catalogNumber())
+                                .mapErrorFields(field -> "catalogNumber"),
                         resolveOptional(Isdn::fromInput, input.isdn()).mapErrorFields(field -> "isdn"),
                         resolveEvent(input.event()),
                         OptionalFields::new),
                 Result.zip(
-                        resolveOptional(AssetKey::fromInput, input.coverImageKey()).mapErrorFields(field -> "coverImageKey"),
+                        resolveOptional(AssetKey::fromInput, input.coverImageKey())
+                                .mapErrorFields(field -> "coverImageKey"),
                         resolveDescription(input.description(), input.descriptionFormat()),
                         CoverAndDescription::new),
                 (base, optional, extra) -> existing.changeTitle(base.title())
