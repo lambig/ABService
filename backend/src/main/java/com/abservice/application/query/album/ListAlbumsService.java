@@ -68,8 +68,13 @@ public class ListAlbumsService implements QueryService<ListAlbumsQuery, ListAlbu
                 keywordOrNull(query.title()),
                 keywordOrNull(query.catalogNumber()));
         return panacheQuery.list()
-                .flatMap(items -> panacheQuery.count()
-                        .map(count -> Tuple3.of(items, count, PageCounts.totalPages(count, size))))
+                .flatMap(
+                        items -> panacheQuery.count()
+                                .map(
+                                        count -> Tuple3.of(
+                                                items,
+                                                count,
+                                                PageCounts.totalPages(count, size))))
                 .flatMap(
                         tuple -> toResultWithExternalAudios(
                                 tuple,

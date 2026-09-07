@@ -45,8 +45,13 @@ public class ListTunesService implements QueryService<ListTunesQuery, ListTunesR
                         query.direction(),
                         Audience.ADMIN));
         return panacheQuery.list()
-                .flatMap(items -> panacheQuery.count()
-                        .map(count -> Tuple3.of(items, count, PageCounts.totalPages(count, size))))
+                .flatMap(
+                        items -> panacheQuery.count()
+                                .map(
+                                        count -> Tuple3.of(
+                                                items,
+                                                count,
+                                                PageCounts.totalPages(count, size))))
                 .map(
                         tuple -> toResult(
                                 tuple,

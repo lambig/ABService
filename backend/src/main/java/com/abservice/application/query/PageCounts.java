@@ -9,8 +9,10 @@ public final class PageCounts {
     /**
      * 0件でも1ページとする既存のPanache契約を維持する。
      *
-     * @param count 取得済みの非負の総件数
-     * @param size クランプ済みの正のページサイズ
+     * @param count
+     *            取得済みの非負の総件数
+     * @param size
+     *            クランプ済みの正のページサイズ
      * @return 総ページ数
      */
     public static int totalPages(long count, int size) {

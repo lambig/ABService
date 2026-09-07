@@ -55,8 +55,13 @@ public class ListArticlesService implements QueryService<ListArticlesQuery, List
                 query.albumId(),
                 query.publicFlag());
         return panacheQuery.list()
-                .flatMap(items -> panacheQuery.count()
-                        .map(count -> Tuple3.of(items, count, PageCounts.totalPages(count, size))))
+                .flatMap(
+                        items -> panacheQuery.count()
+                                .map(
+                                        count -> Tuple3.of(
+                                                items,
+                                                count,
+                                                PageCounts.totalPages(count, size))))
                 .map(
                         tuple -> toResult(
                                 tuple,
