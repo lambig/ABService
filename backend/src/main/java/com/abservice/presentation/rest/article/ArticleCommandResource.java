@@ -153,6 +153,7 @@ public class ArticleCommandResource {
     private static UpdateArticleInput toInput(String id, UpdateArticleRequest request) {
         return new UpdateArticleInput(
                 id,
+                request.expectedRevision(),
                 request.articleType(),
                 request.title(),
                 request.body(),
@@ -163,6 +164,7 @@ public class ArticleCommandResource {
     private static UpdateArticleResponse toResponse(UpdateArticleOutput output) {
         return new UpdateArticleResponse(
                 output.articleId(),
+                output.revision(),
                 output.articleType(),
                 output.title(),
                 output.publicFlag());

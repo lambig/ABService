@@ -19,6 +19,55 @@ import java.util.List;
 public interface ArticleRepository extends Repository<Article, Article.Id> {
 
     /**
+     * IDで記事を取得し、その行の世代を伴って返す
+     *
+     * <p>
+     * 世代（{@link Revision}）はドメインの語彙ではなく、**更新の契約**である。編集を始めた時点の世代を要求が
+     * 持ち込み、保存の直前に読んだ世代と突き合わせることで、途中で別の操作が保存したかどうかを判定する （DECISIONS
+     * 30）。業務モデルへ持たせないのは、記事の事実ではないものを集約の状態に混ぜないためである。
+     * </p>
+     *
+     * @param id
+     *            記事ID
+     * @return 記事と行の世代。存在しない場合はnull
+     */
+    Uni<Revisioned> findByIdWithRevision(Article.Id id);
+
+    /**
+     * 保存し、保存後の行の世代を伴って返す
+     *
+     * <p>
+     * 保存で世代は進む。呼び出し元が次の更新の条件として返せるようにするため、進んだ後の値を伴わせる
+     * （進み方を呼び出し元が推測すると、実装の都合が契約になる）。
+     * </p>
+     *
+     * @param aggregate
+     *            保存する記事
+     * @return 保存後の記事と行の世代
+     */
+    Uni<Revisioned> saveWithRevision(Article aggregate);
+
+    /**
+     * 行の世代。更新の条件として運ぶだけの値で、業務上の意味を持たない
+     *
+     * @param value
+     *            世代（保存のたびに進む）
+     */
+    record Revision(int value) {
+    }
+
+    /**
+     * 記事と、その行の世代の組
+     *
+     * @param article
+     *            記事
+     * @param revision
+     *            行の世代
+     */
+    record Revisioned(Article article, Revision revision) {
+    }
+
+    /**
      * 記事タイプで記事を検索
      *
      * @param articleType

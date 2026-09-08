@@ -6,7 +6,6 @@ import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.entity.article.ArticleTag;
 import com.abservice.domain.repository.article.ArticleRepository;
-import com.abservice.domain.service.BusinessDateTimeProvider;
 import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -17,8 +16,8 @@ import lombok.AllArgsConstructor;
  * 記事タグ削除コマンドサービス
  *
  * <p>
- * {@link Article#removeTag(ArticleTag.Id, com.abservice.domain.model.vo.common.BusinessDateTime)}
- * を呼び出すユースケースです。付いていないタグを外す操作はべき等に成功する（記事から見て結果が同じため）。
+ * {@link Article#removeTag(ArticleTag.Id)} を呼び出すユースケースです。付いていないタグを外す操作はべき等に
+ * 成功する（記事から見て結果が同じため）。タグの付け替えは記事そのものの更新ではないため、記事の更新日時は 動かしません。
  * </p>
  *
  * <p>
@@ -31,7 +30,6 @@ import lombok.AllArgsConstructor;
 public class RemoveArticleTagService implements CommandService<RemoveArticleTagInput, RemoveArticleTagOutput> {
 
     private final ArticleRepository articleRepository;
-    private final BusinessDateTimeProvider businessDateTimeProvider;
 
     @WithTransaction
     @Override
@@ -40,7 +38,7 @@ public class RemoveArticleTagService implements CommandService<RemoveArticleTagI
                 .item(() -> validate(input))
                 .flatMap(
                         ids -> findExisting(ids.articleId())
-                                .flatMap(article -> untagged(article, ids.tagId()))
+                                .map(article -> article.removeTag(ids.tagId()))
                                 .flatMap(articleRepository::save)
                                 .map(saved -> toOutput(saved, ids.tagId())));
     }
@@ -62,11 +60,6 @@ public class RemoveArticleTagService implements CommandService<RemoveArticleTagI
         return articleRepository.findById(id)
                 .onItem().ifNull()
                 .failWith(() -> EntityNotFoundException.of("Article", id.value()));
-    }
-
-    private Uni<Article> untagged(Article article, ArticleTag.Id tagId) {
-        return businessDateTimeProvider.now()
-                .map(now -> article.removeTag(tagId, now));
     }
 
     private static RemoveArticleTagOutput toOutput(Article article, ArticleTag.Id tagId) {

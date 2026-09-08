@@ -176,6 +176,7 @@ final class ArticleQueryResponses {
         return switch (ArticleType.valueOf(view.articleType())) {
             case ALBUM -> new AdminAlbumArticleDetailResponse(
                     view.articleId(),
+                    view.revision(),
                     view.articleType(),
                     view.title(),
                     view.body(),
@@ -191,6 +192,7 @@ final class ArticleQueryResponses {
                     toTagResponses(view));
             case NOTE, NEWS, EVENT, OTHER -> new AdminPlainArticleDetailResponse(
                     view.articleId(),
+                    view.revision(),
                     view.articleType(),
                     view.title(),
                     view.body(),

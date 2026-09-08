@@ -1,5 +1,6 @@
 package com.abservice.application.service.article;
 
+import com.abservice.application.exception.ConflictingEditException;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.domain.exception.ValidationException;
@@ -11,10 +12,12 @@ import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.domain.repository.article.ArticleRepository;
 import com.abservice.domain.service.BusinessDateTimeProvider;
+import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.util.Objects;
 import java.util.Optional;
 import lombok.AllArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
@@ -47,18 +50,65 @@ public class UpdateArticleService implements CommandService<UpdateArticleInput, 
     @Override
     public Uni<UpdateArticleOutput> execute(UpdateArticleInput input) {
         return Uni.createFrom()
-                .item(
-                        () -> Article.Id.fromInput(input.articleId())
-                                .mapErrorFields(field -> "articleId")
-                                .resolve(ValidationException::new))
-                .flatMap(this::findExisting)
+                .item(() -> requested(input))
+                .flatMap(requested -> findExisting(requested.articleId()))
+                .map(claimed -> claimedAsOf(claimed, input))
                 .flatMap(existing -> applyValidatedUpdate(existing, input))
-                .flatMap(articleRepository::save)
+                .flatMap(articleRepository::saveWithRevision)
                 .map(UpdateArticleService::toOutput);
     }
 
-    private Uni<Article> findExisting(Article.Id id) {
-        return articleRepository.findById(id)
+    /** 更新の対象と条件。どちらも欠けていれば検証エラーで、記事を掴む前に決まる */
+    private record Requested(Article.Id articleId, int expectedRevision) {
+    }
+
+    private static Requested requested(UpdateArticleInput input) {
+        return Result.zip(
+                Article.Id.fromInput(input.articleId())
+                        .mapErrorFields(field -> "articleId"),
+                expectedRevision(input.expectedRevision()),
+                Requested::new)
+                .resolve(ValidationException::new);
+    }
+
+    /**
+     * 編集を始めた時点の世代。
+     *
+     * <p>
+     * 未指定を「条件なし」として通さない。全項目置換のため、条件を持たない更新は、編集の間に入った別の保存を 黙って消す（DECISIONS 30）。
+     * </p>
+     */
+    private static Result<Integer> expectedRevision(@Nullable Integer value) {
+        return Optional.ofNullable(value)
+                .map(Result::success)
+                .orElseGet(
+                        () -> Result.failure(
+                                new ErrorResult(
+                                        "expectedRevision",
+                                        "編集を始めた時点の世代は必須です",
+                                        "ARTICLE_EXPECTED_REVISION_REQUIRED")));
+    }
+
+    /**
+     * 掴んだ行の世代が、編集を始めた時点と同じであることを確かめる。
+     *
+     * <p>
+     * 違っていれば、この更新が持っている値は既に古い。届いた値を最新へ適用すると、間に入った保存を消すため拒む。
+     * </p>
+     */
+    private static Article claimedAsOf(ArticleRepository.Revisioned claimed, UpdateArticleInput input) {
+        return Objects.equals(claimed.revision().value(), input.expectedRevision())
+                ? claimed.article()
+                : conflicting(claimed);
+    }
+
+    private static Article conflicting(ArticleRepository.Revisioned claimed) {
+        throw new ConflictingEditException(
+                "記事 %s は編集を始めた後に更新されています".formatted(claimed.article().id().value()));
+    }
+
+    private Uni<ArticleRepository.Revisioned> findExisting(Article.Id id) {
+        return articleRepository.findByIdWithRevision(id)
                 .onItem().ifNull()
                 .failWith(() -> EntityNotFoundException.of("Article", id.value()));
     }
@@ -100,11 +150,12 @@ public class UpdateArticleService implements CommandService<UpdateArticleInput, 
                 .orElse(EMPTY_BODY);
     }
 
-    private static UpdateArticleOutput toOutput(Article article) {
+    private static UpdateArticleOutput toOutput(ArticleRepository.Revisioned saved) {
         return new UpdateArticleOutput(
-                article.id().value(),
-                article.articleType().name(),
-                article.title().value(),
-                article.isPublic());
+                saved.article().id().value(),
+                saved.revision().value(),
+                saved.article().articleType().name(),
+                saved.article().title().value(),
+                saved.article().isPublic());
     }
 }

@@ -217,27 +217,31 @@ public sealed interface Article extends Aggregate<Article, Article.@NonNull Id>
     /**
      * タグを追加
      *
+     * <p>
+     * 更新日時は動かない。タグの付け替えは記事そのものの更新ではなく、記事とタグの結び付きの変更である （現在日時を要さないのはこのため）。
+     * </p>
+     *
      * @param tag
      *            追加するタグ
-     * @param currentDateTime
-     *            現在日時
      * @return 更新されたArticle
      */
-    default @NonNull Article addTag(@NonNull ArticleTag tag, @NonNull BusinessDateTime currentDateTime) {
-        return withCore(core().addTag(tag, currentDateTime));
+    default @NonNull Article addTag(@NonNull ArticleTag tag) {
+        return withCore(core().addTag(tag));
     }
 
     /**
      * タグを削除
      *
+     * <p>
+     * 更新日時は動かない（{@link #addTag} と同じ理由）。
+     * </p>
+     *
      * @param tagId
      *            削除するタグのID
-     * @param currentDateTime
-     *            現在日時
      * @return 更新されたArticle
      */
-    default @NonNull Article removeTag(ArticleTag.@NonNull Id tagId, @NonNull BusinessDateTime currentDateTime) {
-        return withCore(core().removeTag(tagId, currentDateTime));
+    default @NonNull Article removeTag(ArticleTag.@NonNull Id tagId) {
+        return withCore(core().removeTag(tagId));
     }
 
     /**

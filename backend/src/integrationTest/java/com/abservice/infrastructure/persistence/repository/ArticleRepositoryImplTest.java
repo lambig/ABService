@@ -55,8 +55,8 @@ class ArticleRepositoryImplTest {
                 null,
                 null,
                 businessNow())
-                .addTag(tag1, businessNow())
-                .addTag(tag2, businessNow());
+                .addTag(tag1)
+                .addTag(tag2);
 
         asserter.execute(() -> repository.save(article));
 
@@ -103,8 +103,8 @@ class ArticleRepositoryImplTest {
                 null,
                 null,
                 businessNow())
-                .addTag(keepTag, businessNow())
-                .addTag(removeTag, businessNow());
+                .addTag(keepTag)
+                .addTag(removeTag);
 
         asserter.execute(() -> repository.save(original));
 
@@ -113,8 +113,8 @@ class ArticleRepositoryImplTest {
                         .flatMap(
                                 loaded -> {
                                     final var newTag = ArticleTag.create("New");
-                                    final var next = loaded.removeTag(removeTag.id(), businessNow())
-                                            .addTag(newTag, businessNow());
+                                    final var next = loaded.removeTag(removeTag.id())
+                                            .addTag(newTag);
                                     return repository.save(next);
                                 }));
 
@@ -140,7 +140,7 @@ class ArticleRepositoryImplTest {
                 null,
                 null,
                 businessNow())
-                .addTag(sharedTag, businessNow());
+                .addTag(sharedTag);
         final var article2 = Article.create(
                 ArticleType.NOTE,
                 null,
@@ -148,7 +148,7 @@ class ArticleRepositoryImplTest {
                 null,
                 null,
                 businessNow())
-                .addTag(sharedTag, businessNow());
+                .addTag(sharedTag);
 
         asserter.execute(() -> repository.save(article1));
         asserter.execute(() -> repository.save(article2));
@@ -255,8 +255,8 @@ class ArticleRepositoryImplTest {
                 null,
                 null,
                 businessNow())
-                .addTag(ArticleTag.create("Rock"), businessNow())
-                .addTag(ArticleTag.create("Live"), businessNow());
+                .addTag(ArticleTag.create("Rock"))
+                .addTag(ArticleTag.create("Live"));
 
         asserter.execute(() -> repository.save(article));
 

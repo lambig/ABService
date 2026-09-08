@@ -310,7 +310,7 @@ public final class ArticleCore {
     }
 
     @NonNull
-    ArticleCore addTag(@NonNull ArticleTag tag, @NonNull BusinessDateTime currentDateTime) {
+    ArticleCore addTag(@NonNull ArticleTag tag) {
         final var validatedTag = Policy.<ArticleTag>of(
                 Objects::nonNull,
                 TAG_REQUIRED_ERROR)
@@ -324,32 +324,42 @@ public final class ArticleCore {
                         "ARTICLE_TAG_DUPLICATE"))
                 .verify(validatedTag, Function.identity())
                 .resolve(BusinessRuleViolationException::fromErrors);
-        return ArticleCore.factory(
-                id,
-                title,
-                body,
-                introShort,
-                publishedAt,
-                currentDateTime,
-                publicFlag,
-                Stream.concat(tags.stream(), Stream.of(validatedTag)).toList());
+        return withTags(Stream.concat(tags.stream(), Stream.of(validatedTag)).toList());
     }
 
     @NonNull
-    ArticleCore removeTag(ArticleTag.@NonNull Id tagId, @NonNull BusinessDateTime currentDateTime) {
+    ArticleCore removeTag(ArticleTag.@NonNull Id tagId) {
         final var validatedTagId = Policy.<ArticleTag.Id>of(
                 Objects::nonNull,
                 TAG_ID_REQUIRED_ERROR)
                 .verify(tagId, Function.identity()).resolve(Policy::illegalArgument);
+        return withTags(tags.stream().filter(not(t -> t.hasId(validatedTagId))).toList());
+    }
+
+    /**
+     * タグの集合だけを差し替える。
+     *
+     * <p>
+     * <b>更新日時（{@code updatedAtBusiness}）は動かさない。</b>タグの付け替えは記事そのものの更新ではなく、
+     * 記事とタグの結び付きの変更である。ここで日時を動かすと、タグ側からまとめて付け替えただけで記事が更新された
+     * ことになり、更新日時で並ぶ一覧の順序と編集の世代（DECISIONS 30）が動く。
+     * </p>
+     *
+     * @param nextTags
+     *            差し替え後のタグ
+     * @return タグだけを差し替えた共通状態
+     */
+    @NonNull
+    private ArticleCore withTags(@NonNull List<ArticleTag> nextTags) {
         return ArticleCore.factory(
                 id,
                 title,
                 body,
                 introShort,
                 publishedAt,
-                currentDateTime,
+                updatedAtBusiness,
                 publicFlag,
-                tags.stream().filter(not(t -> t.hasId(validatedTagId))).toList());
+                nextTags);
     }
 
     /**

@@ -436,15 +436,15 @@ class ArticleTest {
             // Arrange
             final var article = createTestArticle();
             final var tag = createTestTag("TestTag");
-            final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
-            final var updated = article.addTag(tag, currentDateTime);
+            final var updated = article.addTag(tag);
 
             // Assert
             assertThat(updated.getTags().size()).isEqualTo(1);
             assertThat(updated.getTags().contains(tag)).isTrue();
-            assertThat(updated.updatedAtBusiness()).isNotNull();
+            assertThat(updated.updatedAtBusiness()).as("タグの追加は記事の更新ではないため更新日時を動かさない")
+                    .isEqualTo(article.updatedAtBusiness());
         }
 
         @Test
@@ -455,11 +455,10 @@ class ArticleTest {
             final var tag1 = createTestTag("Tag1");
             final var tag2 = createTestTag("Tag2");
             final var tag3 = createTestTag("Tag3");
-            final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act
-            final var updated = article.addTag(tag1, currentDateTime).addTag(tag2, currentDateTime)
-                    .addTag(tag3, currentDateTime);
+            final var updated = article.addTag(tag1).addTag(tag2)
+                    .addTag(tag3);
 
             // Assert
             assertThat(updated.getTags().size()).isEqualTo(3);
@@ -475,11 +474,10 @@ class ArticleTest {
         void addTagWithNullShouldThrowException() {
             // Arrange
             final var article = createTestArticle();
-            final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act & Assert
             assertThatThrownBy(() -> {
-                article.addTag(null, currentDateTime);
+                article.addTag(null);
             }).isInstanceOf(IllegalArgumentException.class).hasMessage("Tag cannot be null");
         }
 
@@ -490,13 +488,12 @@ class ArticleTest {
             var article = createTestArticle();
             final var tag1 = createTestTag("Tag1");
             final var tag2 = ArticleTag.reconstruct(tag1.id(), "Tag2"); // 同じIDで異なる名前
-            final var currentDateTime = BusinessDateTime.of(Instant.now());
-            article = article.addTag(tag1, currentDateTime);
+            article = article.addTag(tag1);
 
             // Act & Assert
             final var finalArticle = article;
             assertThatThrownBy(() -> {
-                finalArticle.addTag(tag2, currentDateTime);
+                finalArticle.addTag(tag2);
             }).isInstanceOf(BusinessRuleViolationException.class).hasMessageContaining("already exists");
         }
     }
@@ -511,16 +508,16 @@ class ArticleTest {
             // Arrange
             var article = createTestArticle();
             final var tag = createTestTag("TagToRemove");
-            final var currentDateTime = BusinessDateTime.of(Instant.now());
-            article = article.addTag(tag, currentDateTime);
+            article = article.addTag(tag);
 
             // Act
-            final var updated = article.removeTag(tag.id(), currentDateTime);
+            final var updated = article.removeTag(tag.id());
 
             // Assert
             assertThat(updated.getTags().size()).isEqualTo(0);
             assertThat(updated.getTags().contains(tag)).isFalse();
-            assertThat(updated.updatedAtBusiness()).isNotNull();
+            assertThat(updated.updatedAtBusiness()).as("タグの削除も更新日時を動かさない")
+                    .isEqualTo(article.updatedAtBusiness());
         }
 
         @Test
@@ -531,11 +528,10 @@ class ArticleTest {
             final var tag1 = createTestTag("Tag1");
             final var tag2 = createTestTag("Tag2");
             final var tag3 = createTestTag("Tag3");
-            final var currentDateTime = BusinessDateTime.of(Instant.now());
-            article = article.addTag(tag1, currentDateTime).addTag(tag2, currentDateTime).addTag(tag3, currentDateTime);
+            article = article.addTag(tag1).addTag(tag2).addTag(tag3);
 
             // Act
-            final var updated = article.removeTag(tag2.id(), currentDateTime);
+            final var updated = article.removeTag(tag2.id());
 
             // Assert
             assertThat(updated.getTags().size()).isEqualTo(2);
@@ -550,12 +546,11 @@ class ArticleTest {
             // Arrange
             var article = createTestArticle();
             final var tag = createTestTag("Tag");
-            final var currentDateTime = BusinessDateTime.of(Instant.now());
-            article = article.addTag(tag, currentDateTime);
+            article = article.addTag(tag);
             final var nonExistentId = ArticleTag.Id.generate();
 
             // Act
-            final var updated = article.removeTag(nonExistentId, currentDateTime);
+            final var updated = article.removeTag(nonExistentId);
 
             // Assert
             assertThat(updated.getTags().size()).isEqualTo(1); // タグは削除されていない
@@ -566,11 +561,10 @@ class ArticleTest {
         void removeTagWithNullIdShouldThrowException() {
             // Arrange
             final var article = createTestArticle();
-            final var currentDateTime = BusinessDateTime.of(Instant.now());
 
             // Act & Assert
             assertThatThrownBy(() -> {
-                article.removeTag(null, currentDateTime);
+                article.removeTag(null);
             }).isInstanceOf(IllegalArgumentException.class).hasMessage("Tag ID cannot be null");
         }
     }

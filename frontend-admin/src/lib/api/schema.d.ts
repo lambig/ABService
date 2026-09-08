@@ -2402,6 +2402,8 @@ export interface components {
              */
             articleType: "ALBUM";
             articleId: string;
+            /** Format: int32 */
+            revision: number;
             title: string;
             body: string;
             bodyFormat: string;
@@ -2504,6 +2506,8 @@ export interface components {
              */
             articleType: "NOTE" | "NEWS" | "EVENT" | "OTHER";
             articleId: string;
+            /** Format: int32 */
+            revision: number;
             title: string;
             body: string;
             bodyFormat: string;
@@ -2940,6 +2944,8 @@ export interface components {
             artistDisplayName: string;
         };
         UpdateArticleRequest: {
+            /** Format: int32 */
+            expectedRevision?: number;
             articleType?: string;
             title?: string;
             body?: string;
@@ -2948,6 +2954,8 @@ export interface components {
         };
         UpdateArticleResponse: {
             articleId: string;
+            /** Format: int32 */
+            revision: number;
             articleType: string;
             title: string;
             publicFlag: boolean;

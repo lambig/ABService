@@ -38,6 +38,19 @@ public sealed interface AdminArticleDetailResponse
     String articleId();
 
     /**
+     * 編集の世代
+     *
+     * <p>
+     * 更新要求（{@code UpdateArticleRequest#expectedRevision}）へそのまま返す値。これが現在の版と違えば 409 に
+     * なる（編集を始めた時点より後に別の操作が保存している）。タグの付け替えは記事の更新ではないためこの値を動かさない。
+     * 公開・非公開は本体を変えるため進むので、編集の途中で行った画面は保存の前に読み直す（DECISIONS 30）。
+     * </p>
+     *
+     * @return 編集の世代
+     */
+    int revision();
+
+    /**
      * 記事種別（列挙子名）
      *
      * @return 記事種別
