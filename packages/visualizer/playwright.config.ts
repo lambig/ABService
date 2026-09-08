@@ -8,7 +8,6 @@ export default defineConfig({
   timeout: 30000,
   expect: { timeout: 10000 },
   use: {
-    channel: "chromium",
     baseURL: "http://127.0.0.1:4175",
     viewport: { width: 960, height: 720 },
     trace: "retain-on-failure",
@@ -20,6 +19,10 @@ export default defineConfig({
         "--use-webgpu-adapter=swiftshader",
         "--use-angle=swiftshader",
         "--enable-unsafe-swiftshader",
+        // TEST-ONLY: 既定のGL合成ではcanvas共有画像を作れないためSkiaもVulkanに揃える。
+        "--use-vulkan=swiftshader",
+        "--enable-features=Vulkan",
+        "--disable-vulkan-surface",
       ],
     },
   },
