@@ -72,7 +72,9 @@ public class CreateArticleService implements CommandService<CreateArticleInput, 
     private static Result<MarkupContent> resolveBody(@Nullable String content, @Nullable String format) {
         return Optional.ofNullable(content)
                 .filter(StringUtils::isNotBlank)
-                .map(c -> MarkupContent.fromInput(c, format))
+                .map(
+                        c -> MarkupContent.fromInput(c, format)
+                                .mapErrorFields(ArticleInputPaths::body))
                 .orElse(EMPTY_BODY);
     }
 

@@ -14,6 +14,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import lombok.AllArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -42,7 +43,8 @@ public class ReorderExternalAudiosService
         return Uni.createFrom()
                 .item(
                         () -> Result.zip(
-                                Album.Id.fromInput(input.albumId()),
+                                Album.Id.fromInput(input.albumId())
+                                        .mapErrorFields(field -> "albumId"),
                                 validateOrderedExternalAudioIds(input.orderedExternalAudioIds()),
                                 Ids::new)
                                 .resolve(ValidationException::new))
@@ -67,9 +69,19 @@ public class ReorderExternalAudiosService
                                         "EXTERNAL_AUDIO_ORDER_REQUIRED")));
     }
 
+    /**
+     * 要素ごとのエラーを、その要素の入力パス（{@code orderedExternalAudioIds[i]}）へ写して集約する。
+     *
+     * <p>
+     * 添字を落とすと、送った並びのどの要素が不正なのかを呼び出し元が特定できない（値オブジェクトは自分が配列の
+     * 何番目かを知らないため、写せるのは組み立てるここだけ）。
+     * </p>
+     */
     private static Result<List<ExternalAudio.Id>> sequence(List<@Nullable String> values) {
-        return values.stream()
-                .map(ExternalAudio.Id::fromInput)
+        return IntStream.range(0, values.size())
+                .mapToObj(
+                        index -> ExternalAudio.Id.fromInput(values.get(index))
+                                .withErrorField("orderedExternalAudioIds[" + index + "]"))
                 .reduce(
                         Result.success(List.of()),
                         (acc, next) -> Result.zip(

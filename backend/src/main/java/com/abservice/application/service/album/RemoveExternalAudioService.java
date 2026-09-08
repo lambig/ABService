@@ -37,8 +37,10 @@ public class RemoveExternalAudioService
         return Uni.createFrom()
                 .item(
                         () -> Result.zip(
-                                Album.Id.fromInput(input.albumId()),
-                                ExternalAudio.Id.fromInput(input.externalAudioId()),
+                                Album.Id.fromInput(input.albumId())
+                                        .mapErrorFields(field -> "albumId"),
+                                ExternalAudio.Id.fromInput(input.externalAudioId())
+                                        .mapErrorFields(field -> "externalAudioId"),
                                 Ids::new)
                                 .resolve(ValidationException::new))
                 .flatMap(

@@ -7,7 +7,13 @@ import tseslint from "typescript-eslint";
 export default tseslint.config(
   {
     // 設定ファイル自身は tsconfig の include 外のため型情報を使う検査にかけられない
-    ignores: ["node_modules/**", "dist/**", "eslint.config.js"],
+    ignores: [
+      "node_modules/**",
+      "dist/**",
+      "test-results/**",
+      "playwright-report/**",
+      "eslint.config.js",
+    ],
   },
 
   ...typescriptWorkspace({ tsconfigRootDir: import.meta.dirname }),

@@ -30,6 +30,7 @@ public class DeleteArticleService implements CommandService<DeleteArticleInput, 
         return Uni.createFrom()
                 .item(
                         () -> Article.Id.fromInput(input.articleId())
+                                .mapErrorFields(field -> "articleId")
                                 .resolve(ValidationException::new))
                 .flatMap(articleRepository::deleteById)
                 .replaceWith(new DeleteArticleOutput());

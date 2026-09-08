@@ -37,23 +37,16 @@ onsetは強度のピークを取り込み、時定数0.16秒で減衰する。�
 `previous`には`restingFrame`またはmapperが返したframeを渡す。時刻の巻き戻りでは平滑化をresetする。
 AudioFeaturesの帯域・onset意味論は#290で検討中であり、このfake sourceはDSPの代替実装ではない。
 
-## 検証と未完了条件
+## ブラウザ検証
 
-ローカルで単体13テスト・型検査・lint・Vite buildを実行。
-CIにも型検査・lint・単体・buildを追加した。
-この作業環境にはブラウザがなく、Playwright Chromiumの取得がtimeoutしたため、
-**WGSLの実GPUコンパイル・デモ描画・スクリーンショットは未確認**。Draft PRとして扱う。
+```sh
+npm exec -w abservice-visualizer -- playwright install --with-deps chromium
+npm run test:visualizer:browser
+```
 
-対象端末の実測は未実施。WebGPUを第一候補として維持できるとの判断はまだ行わない。
-以下をレビュー時の実機検証で記録する。
-
-| 検証                             | 記録する内容                                                                          |
-| -------------------------------- | ------------------------------------------------------------------------------------- |
-| 開始・停止・再開始               | デモ表示、停止中の負荷、時刻reset、連打で重複loopが残らないこと                       |
-| 通常・全画面・縦横回転           | artworkと文字の視認性、canvas寸法、復帰後の描画                                       |
-| 30分連続                         | 端末／OS／ブラウザ／GPU、解像度、fps、frame interval、CPU/GPU負荷、メモリ開始／終了値 |
-| WebGPU unavailable / adapter拒否 | エラー表示、開始で再試行できること                                                    |
-| device lost                      | 描画停止、資源解放、開始で再初期化できること                                          |
+production bundleを独立起動し、ChromiumのソフトウェアWebGPUで描画とライフサイクルを検証する。
+GPUなしのCIでもWGSLとGPU APIの実行経路を検査するための構成であり、会場端末の性能評価には使わない。
+画像と失敗時traceはCI artifactに保存する。対象端末の評価条件と残作業は#291を正とする。
 
 画面上のfpsはrAF間隔由来、CPU submitはrender呼び出しの経過時間でありGPU実行時間ではない。
 GPU負荷・メモリは対象端末のプロファイラで別途観測する。

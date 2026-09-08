@@ -28,6 +28,7 @@ public record UnpublishArticleInput(@Nullable String articleId) implements Comma
         return Uni.createFrom()
                 .item(
                         () -> Article.Id.fromInput(articleId)
+                                .mapErrorFields(field -> "articleId")
                                 .resolve(ValidationException::new))
                 .replaceWith(this);
     }

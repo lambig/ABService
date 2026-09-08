@@ -50,8 +50,10 @@ public class RemoveArticleTagService implements CommandService<RemoveArticleTagI
 
     private static Ids validate(RemoveArticleTagInput input) {
         return Result.zip(
-                Article.Id.fromInput(input.articleId()),
-                ArticleTag.Id.fromInput(input.tagId()),
+                Article.Id.fromInput(input.articleId())
+                        .mapErrorFields(field -> "articleId"),
+                ArticleTag.Id.fromInput(input.tagId())
+                        .mapErrorFields(field -> "tagId"),
                 Ids::new)
                 .resolve(ValidationException::new);
     }

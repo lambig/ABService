@@ -49,12 +49,15 @@ public class CreateTuneService implements CommandService<CreateTuneInput, Create
 
     static Result<Tune> validate(CreateTuneInput input) {
         return Result.zip(
-                TuneTitle.fromInput(input.title()),
+                TuneTitle.fromInput(input.title())
+                        .mapErrorFields(field -> "title"),
                 TuneKind.fromInput(input.tuneKind()),
-                resolveCredit(input.defaultComposerCredit()),
+                resolveCredit(input.defaultComposerCredit())
+                        .mapErrorFields(field -> "defaultComposerCredit"),
                 TitleKindComposer::new)
                 .flatMap(
                         composer -> resolveCredit(input.defaultArrangerCredit())
+                                .mapErrorFields(field -> "defaultArrangerCredit")
                                 .map(
                                         arrangerCredit -> Tune.create(
                                                 composer.title(),

@@ -258,3 +258,30 @@ jobs:
             e2e/evidence/
           if-no-files-found: ignore
           retention-days: 7
+
+  visualizer-browser:
+    name: Visualizer browser (Chromium / software WebGPU)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npm exec -w abservice-visualizer -- playwright install --with-deps chromium
+      - name: Run production visualizer browser tests
+        run: npm run test:visualizer:browser
+      - name: Upload browser evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: visualizer-browser
+          path: packages/visualizer/test-results/
+          if-no-files-found: error
+          retention-days: 7

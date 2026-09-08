@@ -53,6 +53,40 @@ class CreateTuneServiceTest {
     }
 
     @Test
+    @DisplayName("エラーはAPIの入力パスで返る。同じクレジットの値オブジェクトでも作曲と編曲を混同しない")
+    void errorsCarryApiInputPaths() {
+        final var titleAndComposer = CreateTuneService.validate(
+                new CreateTuneInput(
+                        "   ",
+                        "TRAD",
+                        "a".repeat(256),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null));
+        final var arrangerOnly = CreateTuneService.validate(
+                new CreateTuneInput(
+                        "タイトル",
+                        "TRAD",
+                        null,
+                        "b".repeat(256),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null));
+
+        assertThat(titleAndComposer.errors().stream().map(ErrorResult::field).toList())
+                .containsExactly(
+                        "title",
+                        "defaultComposerCredit");
+        assertThat(arrangerOnly.errors().stream().map(ErrorResult::field).toList())
+                .containsExactly("defaultArrangerCredit");
+    }
+
+    @Test
     @DisplayName("クレジット未入力は成功しdefaultComposerCredit/defaultArrangerCreditはnull")
     void blankCreditsSucceedWithNullCredits() {
         final var result = CreateTuneService.validate(

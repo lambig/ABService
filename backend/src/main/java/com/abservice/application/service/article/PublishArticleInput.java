@@ -28,6 +28,7 @@ public record PublishArticleInput(@Nullable String articleId) implements Command
         return Uni.createFrom()
                 .item(
                         () -> Article.Id.fromInput(articleId)
+                                .mapErrorFields(field -> "articleId")
                                 .resolve(ValidationException::new))
                 .replaceWith(this);
     }

@@ -60,7 +60,7 @@ class TuneRestIntegrationTest {
         authorized().contentType(ContentType.JSON).body("{\"title\":\"   \",\"tuneKind\":\"TRAD\"}").when()
                 .post("/api/v1/tunes").then().statusCode(400).contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:VALIDATION_ERROR")).body("status", equalTo(400))
-                .body("errors", not(empty())).body("errors[0].field", equalTo("tuneTitle"));
+                .body("errors", not(empty())).body("errors[0].field", equalTo("title"));
     }
 
     @Test
@@ -98,7 +98,7 @@ class TuneRestIntegrationTest {
         authorized().contentType(ContentType.JSON).body("{\"title\":\"   \",\"tuneKind\":\"TRAD\"}").when()
                 .put("/api/v1/tunes/" + tuneId).then().statusCode(400).contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:VALIDATION_ERROR"))
-                .body("errors[0].field", equalTo("tuneTitle"));
+                .body("errors[0].field", equalTo("title"));
     }
 
     @Test

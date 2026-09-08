@@ -83,6 +83,32 @@ class CreateArticleServiceTest {
     }
 
     @Test
+    @DisplayName("本文の形式エラーは bodyFormat、本文自体のエラーは body の位置で返る")
+    void bodyErrorsCarryApiInputPaths() {
+        final var missingFormat = CreateArticleService.validate(
+                new CreateArticleInput(
+                        "NOTE",
+                        "タイトル",
+                        "本文",
+                        null,
+                        null),
+                NOW);
+        final var unknownFormat = CreateArticleService.validate(
+                new CreateArticleInput(
+                        "NOTE",
+                        "タイトル",
+                        "本文",
+                        "HTML",
+                        null),
+                NOW);
+
+        assertThat(missingFormat.errors().stream().map(ErrorResult::field).toList())
+                .containsExactly("bodyFormat");
+        assertThat(unknownFormat.errors().stream().map(ErrorResult::field).toList())
+                .containsExactly("bodyFormat");
+    }
+
+    @Test
     @DisplayName("本文が空白なら形式未指定でも成功し本文はEMPTY")
     void blankBodySucceedsWithoutFormat() {
         final var result = CreateArticleService.validate(

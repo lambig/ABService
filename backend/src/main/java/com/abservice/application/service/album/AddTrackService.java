@@ -37,6 +37,7 @@ public class AddTrackService implements CommandService<AddTrackInput, AddTrackOu
         return Uni.createFrom()
                 .item(
                         () -> Album.Id.fromInput(input.albumId())
+                                .mapErrorFields(field -> "albumId")
                                 .resolve(ValidationException::new))
                 .flatMap(albumAccessService::findExistingAndClaimEdit)
                 .flatMap(

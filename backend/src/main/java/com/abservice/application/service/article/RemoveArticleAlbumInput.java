@@ -28,6 +28,7 @@ public record RemoveArticleAlbumInput(@Nullable String articleId) implements Com
         return Uni.createFrom()
                 .item(
                         () -> Article.Id.fromInput(articleId)
+                                .mapErrorFields(field -> "articleId")
                                 .map(parsedArticleId -> this)
                                 .resolve(ValidationException::new));
     }
