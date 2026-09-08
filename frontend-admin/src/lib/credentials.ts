@@ -1,3 +1,5 @@
+import type { ApiResult } from './api/http';
+
 /** 鍵の置き場。アプリ名で修飾し、同じ生成元に他のものが入っても衝突させない */
 const STORAGE_KEY = 'abservice.admin.api-key';
 
@@ -26,3 +28,18 @@ export const rememberApiKey = (apiKey: string): void => {
 export const forgetApiKey = (): void => {
   sessionStorage.removeItem(STORAGE_KEY);
 };
+
+/**
+ * 応答の枝ごとに、鍵を覚えるか捨てるか。
+ *
+ * <p>
+ * 受け付けられた鍵だけを覚える。断られた鍵を残すと、次に開いたときも同じ失敗から始まる。到達できない
+ * だけの失敗では捨てない（鍵の正しさとは別の理由のため）。この規則は画面をまたいで同じであるため、
+ * 一覧と編集の双方がここを通す。
+ * </p>
+ */
+export const KEY_STORE = {
+  ok: rememberApiKey,
+  unauthorized: forgetApiKey,
+  failed: rememberApiKey,
+} satisfies Record<ApiResult<unknown>['kind'], (apiKey: string) => void>;

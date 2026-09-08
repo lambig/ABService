@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ApiKeyForm from '$components/ApiKeyForm.svelte';
   import DestructiveConfirmDialog from '$components/DestructiveConfirmDialog.svelte';
   import { Badge } from '$components/ui/badge/index.js';
   import { Button } from '$components/ui/button/index.js';
@@ -13,8 +14,9 @@
     type AdminAlbum,
     type ApiResult,
   } from '$lib/api/client';
-  import { forgetApiKey, rememberApiKey, storedApiKey } from '$lib/credentials';
+  import { KEY_STORE, forgetApiKey, storedApiKey } from '$lib/credentials';
   import { formatCalendarDate } from '$lib/format';
+  import { NEW_ALBUM_PATH, editAlbumPath } from '$lib/paths';
 
   /**
    * 事前確認を要する操作。
@@ -109,17 +111,6 @@
     | { readonly kind: 'failed'; readonly message: string; readonly apiKey: string };
 
   let view = $state<View>({ kind: 'locked', message: null });
-  let apiKeyDraft = $state('');
-
-  /*
-   * 受け付けられた鍵だけを覚える。断られた鍵を残すと、次に開いたときも同じ失敗から始まる。到達できない
-   * だけの失敗では捨てない（鍵の正しさとは別の理由のため）。
-   */
-  const KEY_STORE = {
-    ok: rememberApiKey,
-    unauthorized: forgetApiKey,
-    failed: rememberApiKey,
-  } satisfies Record<ApiResult<unknown>['kind'], (apiKey: string) => void>;
 
   /** 失敗した結果 */
   type ApiFailure = Exclude<ApiResult<unknown>, { readonly kind: 'ok' }>;
@@ -158,11 +149,6 @@
 
   void resume();
 
-  const submit = (event: SubmitEvent): void => {
-    event.preventDefault();
-    void load(apiKeyDraft);
-  };
-
   /* 同じ鍵でやり直す。到達できないだけの失敗は鍵の正しさとは別のため、入力からやり直させない */
   const retry = (): void => {
     const current = view;
@@ -172,7 +158,6 @@
   const lock = (): void => {
     forgetApiKey();
     view = { kind: 'locked', message: null };
-    apiKeyDraft = '';
   };
 
   /* 確認の対話は一覧の中にあるため、差し替えも一覧の状態を保ったまま行う */
@@ -405,28 +390,7 @@
 </script>
 
 {#if view.kind === 'locked'}
-  <form class="max-w-md space-y-4" onsubmit={submit}>
-    <div class="space-y-1">
-      <label class="text-sm font-medium" for="api-key">管理APIの鍵</label>
-      <p class="text-muted-foreground text-sm">
-        鍵はこのタブを閉じるまで保持します。ビルドには含めません。
-      </p>
-    </div>
-
-    <input
-      id="api-key"
-      class="border-input bg-background w-full rounded-md border px-3 py-2"
-      type="password"
-      autocomplete="off"
-      bind:value={apiKeyDraft}
-    />
-
-    {#if lockMessage !== null}
-      <p class="text-destructive text-sm" role="alert">{lockMessage}</p>
-    {/if}
-
-    <Button type="submit">開く</Button>
-  </form>
+  <ApiKeyForm message={lockMessage} onSubmit={(apiKey: string) => void load(apiKey)} />
 {:else if view.kind === 'loading'}
   <p class="text-muted-foreground">読み込んでいます。</p>
 {:else if failureMessage !== null}
@@ -444,9 +408,12 @@
   <div class="space-y-4">
     <div class="flex items-baseline justify-between">
       <p class="text-muted-foreground text-sm">{albums.length} 件</p>
-      <button class="text-sm underline underline-offset-4" type="button" onclick={lock}>
-        鍵を破棄する
-      </button>
+      <div class="flex items-center gap-4">
+        <a class="text-sm underline underline-offset-4" href={NEW_ALBUM_PATH}>作品を追加する</a>
+        <button class="text-sm underline underline-offset-4" type="button" onclick={lock}>
+          鍵を破棄する
+        </button>
+      </div>
     </div>
 
     {#if albums.length === 0}
@@ -477,6 +444,12 @@
               </Table.Cell>
               <Table.Cell>
                 <div class="flex items-center gap-2">
+                  <a
+                    class="text-sm underline underline-offset-4"
+                    href={editAlbumPath(album.albumId)}
+                  >
+                    編集する
+                  </a>
                   {#if album.publishedAt === null}
                     <Button size="sm" variant="outline" onclick={() => void publish(album)}>
                       公開する

@@ -15,8 +15,14 @@ import { deleteAlbum, findAlbumsByCatalogNumberPrefix, seedDraftAlbum } from './
  * </p>
  */
 
-/** 検査のためだけに作る作品のカタログナンバーの接頭辞。シードした作品（`E2E-0001` 等）には当たらない */
-const SCRATCH_CATALOG_PREFIX = 'E2E-SCRATCH-';
+/**
+ * 検査のためだけに作る作品のカタログナンバーの接頭辞。シードした作品（`E2E-0001` 等）には当たらない。
+ *
+ * <p>
+ * 画面から作品を作るシナリオも、片付けの対象に入るようこの接頭辞を入力する。
+ * </p>
+ */
+export const SCRATCH_CATALOG_PREFIX = 'E2E-SCRATCH-';
 
 /**
  * 検査のためだけの作品を1つ作る（下書き）。
