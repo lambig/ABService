@@ -91,6 +91,6 @@ public record RegisterAlbumWithTracksInput(
             @Nullable String title,
             @Nullable String artistDisplayName,
             @Nullable String artistSortKey,
-            @Nullable List<TrackTuneInput> tunes) {
+            @Nullable List<@Nullable TrackTuneInput> tunes) {
     }
 }

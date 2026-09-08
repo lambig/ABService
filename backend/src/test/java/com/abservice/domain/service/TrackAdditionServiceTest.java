@@ -6,6 +6,7 @@ import com.abservice.domain.service.TrackAdditionService.TrackFields;
 import com.abservice.domain.service.TrackAdditionService.TuneFields;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
+import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -177,6 +178,35 @@ class TrackAdditionServiceTest {
                 .containsExactly(
                         "tunes[0].seq",
                         "tunes[1].tuneTitle");
+    }
+
+    @Test
+    @DisplayName("行そのものが無いチューン構成は、その行の位置の検証エラーになる")
+    void missingTuneRowFails() {
+        final var result = TrackAdditionService.validate(
+                new TrackFields(
+                        1,
+                        "トラックタイトル",
+                        null,
+                        null,
+                        Arrays.asList(
+                                null,
+                                new TuneFields(
+                                        2,
+                                        "a".repeat(256),
+                                        null,
+                                        null,
+                                        null))));
+
+        assertThat(result).isInstanceOf(Result.Failure.class);
+        assertThat(result.errors().stream().map(ErrorResult::field).toList())
+                .containsExactly(
+                        "tunes[0]",
+                        "tunes[1].tuneTitle");
+        assertThat(result.errors().stream().map(ErrorResult::code).toList())
+                .containsExactly(
+                        "TUNE_REQUIRED",
+                        "TRACK_TUNE_TITLE_TOO_LONG");
     }
 
     @Test

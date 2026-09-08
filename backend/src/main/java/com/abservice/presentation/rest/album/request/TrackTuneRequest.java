@@ -39,20 +39,32 @@ public record TrackTuneRequest(
     /**
      * アプリケーション層の入力DTOへ変換する
      *
+     * <p>
+     * 行そのものが無い（JSONの配列要素が {@code null}）場合はその位置を保ったまま渡す。行の欠落は検証エラーであり、
+     * 位置を合成できる場所（{@code TrackAdditionService}）まで届けなければ添字を失う。
+     * </p>
+     *
      * @param tunes
-     *            チューン構成のリクエスト一覧（nullable）
+     *            チューン構成のリクエスト一覧（nullable。要素もnullable）
      * @return 入力DTO一覧（入力がnullの場合はnull）
      */
-    public static @Nullable List<TrackTuneInput> toInputs(@Nullable List<TrackTuneRequest> tunes) {
+    public static @Nullable List<@Nullable TrackTuneInput> toInputs(
+            @Nullable List<@Nullable TrackTuneRequest> tunes) {
         return Optional.ofNullable(tunes)
                 .map(TrackTuneRequest::toInputList)
                 .orElse(null);
     }
 
-    private static List<TrackTuneInput> toInputList(List<TrackTuneRequest> tunes) {
+    private static List<@Nullable TrackTuneInput> toInputList(List<@Nullable TrackTuneRequest> tunes) {
         return tunes.stream()
-                .map(TrackTuneRequest::toInput)
+                .<@Nullable TrackTuneInput>map(TrackTuneRequest::toInputOrNull)
                 .toList();
+    }
+
+    private static @Nullable TrackTuneInput toInputOrNull(@Nullable TrackTuneRequest tune) {
+        return Optional.ofNullable(tune)
+                .map(TrackTuneRequest::toInput)
+                .orElse(null);
     }
 
     private TrackTuneInput toInput() {

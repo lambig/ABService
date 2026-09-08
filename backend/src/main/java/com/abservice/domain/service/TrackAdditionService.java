@@ -67,14 +67,14 @@ public class TrackAdditionService implements DomainService {
      * @param artistSortKey
      *            アーティストソートキー（nullable）
      * @param tunes
-     *            チューン構成（nullable。未指定は構成なしとして扱う）
+     *            チューン構成（nullable。未指定は構成なしとして扱う。要素がnullの行は検証エラーとして扱う）
      */
     public record TrackFields(
             @Nullable Integer trackNo,
             @Nullable String title,
             @Nullable String artistDisplayName,
             @Nullable String artistSortKey,
-            @Nullable List<TuneFields> tunes) {
+            @Nullable List<@Nullable TuneFields> tunes) {
     }
 
     /**
@@ -118,10 +118,10 @@ public class TrackAdditionService implements DomainService {
      * </p>
      *
      * @param tunes
-     *            チューン構成の入力値（nullable。未指定は構成なしとして扱う）
+     *            チューン構成の入力値（nullable。未指定は構成なしとして扱う。要素がnullの行は検証エラーとして扱う）
      * @return 成功時はチューン構成の一覧、失敗時はエラー
      */
-    public static Result<List<TrackTune>> resolveTunes(@Nullable List<TuneFields> tunes) {
+    public static Result<List<TrackTune>> resolveTunes(@Nullable List<@Nullable TuneFields> tunes) {
         return Optional.ofNullable(tunes)
                 .map(TrackAdditionService::validateTunes)
                 .orElseGet(() -> Result.success(List.of()));
@@ -144,7 +144,7 @@ public class TrackAdditionService implements DomainService {
     private record ResolvedFields(Optional<ArtistCredit> artistCredit, List<TrackTune> tunes) {
     }
 
-    private static Result<List<TrackTune>> validateTunes(List<TuneFields> tunes) {
+    private static Result<List<TrackTune>> validateTunes(List<@Nullable TuneFields> tunes) {
         return Result.all(validateEach(tunes))
                 .flatMap(TrackAdditionService::verifyUniqueSeqs);
     }
@@ -157,12 +157,26 @@ public class TrackAdditionService implements DomainService {
      * 知らないため、写せるのは一覧を組み立てるここだけ）。
      * </p>
      */
-    private static List<Result<TrackTune>> validateEach(List<TuneFields> tunes) {
+    private static List<Result<TrackTune>> validateEach(List<@Nullable TuneFields> tunes) {
         return IntStream.range(0, tunes.size())
-                .mapToObj(
-                        index -> validateTune(tunes.get(index))
-                                .mapErrorFields(field -> "tunes[" + index + "]." + field))
+                .mapToObj(index -> validateTuneAt(tunes.get(index), index))
                 .toList();
+    }
+
+    /** 行そのものが無い場合は、その要素の位置を指す（項目のパスを持たないため添字までで止める）。 */
+    private static Result<TrackTune> validateTuneAt(@Nullable TuneFields tune, int index) {
+        return Optional.ofNullable(tune)
+                .map(
+                        present -> validateTune(present)
+                                .mapErrorFields(field -> "tunes[" + index + "]." + field))
+                .orElseGet(() -> Result.<TrackTune>failure(missingTune(index)));
+    }
+
+    private static ErrorResult missingTune(int index) {
+        return new ErrorResult(
+                "tunes[" + index + "]",
+                "Tune information is required",
+                "TUNE_REQUIRED");
     }
 
     private static Result<TrackTune> validateTune(TuneFields tune) {
