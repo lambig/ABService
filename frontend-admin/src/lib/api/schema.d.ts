@@ -2417,6 +2417,8 @@ export interface components {
         };
         AdminAlbumDetailResponse: {
             albumId: string;
+            /** Format: int32 */
+            revision: number;
             title: string;
             releaseDate: string;
             artistDisplayName: string;
@@ -2916,6 +2918,8 @@ export interface components {
             publicFlag: boolean;
         };
         UpdateAlbumRequest: {
+            /** Format: int32 */
+            expectedRevision?: number;
             title?: string;
             releaseDate?: string;
             artistDisplayName?: string;
@@ -2929,6 +2933,8 @@ export interface components {
         };
         UpdateAlbumResponse: {
             albumId: string;
+            /** Format: int32 */
+            revision: number;
             title: string;
             releaseDate: string;
             artistDisplayName: string;

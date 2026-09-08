@@ -26,6 +26,9 @@ import org.jspecify.annotations.Nullable;
  *
  * @param albumId
  *            アルバムID（ドメインID・UUIDv7形式の文字列）
+ * @param revision
+ *            編集の世代。作品本体の行の版で、更新要求の {@code expectedRevision}
+ *            と突き合わせる（#287）。トラック等の 子は別の編集単位のため、子だけの変更ではこの値は進まない
  * @param title
  *            アルバムタイトル
  * @param releaseDate
@@ -65,6 +68,7 @@ import org.jspecify.annotations.Nullable;
  */
 public record AlbumView(
         String albumId,
+        int revision,
         String title,
         String releaseDate,
         String artistDisplayName,

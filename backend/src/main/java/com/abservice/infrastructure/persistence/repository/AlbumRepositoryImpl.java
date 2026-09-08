@@ -45,6 +45,17 @@ public class AlbumRepositoryImpl implements AlbumRepository {
 
     @Override
     public Uni<Album> save(Album aggregate) {
+        return saved(aggregate)
+                .map(AlbumMapper::toDomain);
+    }
+
+    @Override
+    public Uni<Revisioned> saveWithRevision(Album aggregate) {
+        return saved(aggregate)
+                .map(AlbumRepositoryImpl::toRevisioned);
+    }
+
+    private Uni<AlbumTableRecord> saved(Album aggregate) {
         final var entity = AlbumMapper.toEntity(aggregate);
         return dataSource.findByIdWithTracks(entity.getDomainId())
                 .onItem().ifNotNull().transformToUni(
@@ -54,8 +65,13 @@ public class AlbumRepositoryImpl implements AlbumRepository {
                                 aggregate))
                 .onItem().ifNull().switchTo(
                         () -> dataSource.persistAlbumWithRelations(entity)
-                                .flatMap(saved -> applyTrackTunes(saved, aggregate.tracks())))
-                .map(AlbumMapper::toDomain);
+                                .flatMap(saved -> applyTrackTunes(saved, aggregate.tracks())));
+    }
+
+    private static Revisioned toRevisioned(AlbumTableRecord entity) {
+        return new Revisioned(
+                AlbumMapper.toDomain(entity),
+                new Revision(entity.getVersion()));
     }
 
     private Uni<AlbumTableRecord> updateExisting(
@@ -251,11 +267,21 @@ public class AlbumRepositoryImpl implements AlbumRepository {
 
     @Override
     public Uni<Album> findByIdExclusively(Album.Id id) {
+        return lockedEntity(id)
+                .onItem().ifNotNull().transform(AlbumMapper::toDomain);
+    }
+
+    @Override
+    public Uni<Revisioned> findByIdExclusivelyWithRevision(Album.Id id) {
+        return lockedEntity(id)
+                .onItem().ifNotNull().transform(AlbumRepositoryImpl::toRevisioned);
+    }
+
+    private Uni<AlbumTableRecord> lockedEntity(Album.Id id) {
         return Optional.ofNullable(id)
                 .map(Album.Id::value)
                 .map(this::lockedThenLoaded)
-                .orElseGet(() -> Uni.createFrom().nullItem())
-                .onItem().ifNotNull().transform(AlbumMapper::toDomain);
+                .orElseGet(() -> Uni.createFrom().nullItem());
     }
 
     @Override

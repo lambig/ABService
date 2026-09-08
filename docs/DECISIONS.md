@@ -450,3 +450,23 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 **トレードオフ**: field は文字列であり、対応付けの取りこぼしをコンパイル時には検出できない。取りこぼした項目は、欄に紐付かないエラーとして画面に出る（誤った欄には出ない）。
 
 **実体**: `Result#mapErrorFields` / `Result#withErrorField` / `ResultFieldMappingTest`、`AlbumCreationService` / `TrackAdditionService`（`Result` を返し、自分の引数の綴りで位置を返す）、`RegisterAlbumWithTracksService`（`tracks[i].` の合成）、`frontend-admin` の `src/lib/api/http.ts`（`requestJson` / `requestEmpty`）と `src/lib/api/http.test.ts`。
+
+---
+
+## 30. 全項目置換の更新は、編集を始めた時点の世代を条件に取る
+
+**判断**: 管理向け詳細は編集の世代（`revision`）を返し、更新要求は `expectedRevision` として同じ値を返す。保存の直前に読んだ世代と違えば 409 で拒む。未指定は 400（後勝ちを選ばない）。世代は業務モデルへ持たせず、リポジトリの**更新契約**として扱う（`AlbumRepository.Revision` / `Revisioned`）。作品についての事実ではないものを集約の状態へ混ぜない。
+
+**世代を進めるのは作品本体の変更だけ**とする。トラック・チューン構成・外部音源は別の編集単位で、子だけの変更では本体の世代は進まない（子のコレクションは逆側の写像であり、親行が汚れないため実装上もそうなる）。
+
+競合は、flush 時に検出する楽観ロックと同じ 409（`CONFLICTING_UPDATE`）で返す。応答に世代の値は載せない。画面は古い値を自動で再送せず、入力を保ったまま「最新を読み込む」へ戻す。
+
+**なぜ**: 全項目置換の更新は、届いた値をそのまま最新の状態へ適用する。2つのタブが同じ詳細を読み、片方が保存した後にもう片方が「別の項目だけ直した」つもりで送ると、読んだ時点の値が最新を上書きする。この経路は DB の版でも行ロックでも検出できない——後の要求は最新を読み直してから更新するため、競合そのものが起きていない。検出できる位置は「読んだ時点」を要求が持ち込んだときだけである。
+
+未指定を通すと、条件を送らないだけで後勝ちに戻れる抜け道が残り、機構で守れない。
+
+子の変更で本体の世代を進めると、重ならない編集（本体の項目とトラックの追加）が競合になる。子はそれぞれ独立した操作APIを持つため、同じ編集単位に畳む理由がない。
+
+**トレードオフ**: 本体と子を1画面で同時に編集する形にするなら、編集単位の定義を見直す必要がある（そのときは子の操作側にも同じ仕組みを入れる）。また、409 に世代を載せないため、画面は差分を示すのに読み直しを要する（差分の突き合わせは持たない）。
+
+**実体**: `AlbumRepository`（`Revision` / `Revisioned` / `findByIdExclusivelyWithRevision` / `saveWithRevision`）、`UpdateAlbumService`（`expectedRevision` の必須検証と突き合わせ）、`ConflictingEditException` とその Mapper、`AlbumEditRevisionRestIntegrationTest`、`frontend-admin` の `AlbumForm.svelte`（`Target` と競合の枝）。

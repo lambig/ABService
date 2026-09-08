@@ -170,6 +170,7 @@ public class AlbumCommandResource {
     private static UpdateAlbumInput toInput(String id, UpdateAlbumRequest request) {
         return new UpdateAlbumInput(
                 id,
+                request.expectedRevision(),
                 request.title(),
                 request.releaseDate(),
                 request.artistDisplayName(),
@@ -198,6 +199,7 @@ public class AlbumCommandResource {
     private static UpdateAlbumResponse toResponse(UpdateAlbumOutput output) {
         return new UpdateAlbumResponse(
                 output.albumId(),
+                output.revision(),
                 output.title(),
                 output.releaseDate(),
                 output.artistDisplayName());

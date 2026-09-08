@@ -83,7 +83,7 @@ VO の外部入力用の生成は、例外 throw の `of()`（内部生成）と
 - **リソース未存在**: empty `Uni` → `EntityNotFoundException` へ変換。
 - **ビジネスルール違反**: `DomainException` 階層（`ValidationException` / `EntityNotFoundException` / `BusinessRuleViolationException`）。
 - **HTTP 変換**: presentation 層の `DomainExceptionMapper` が RFC9457 `ProblemDetail`（400/404/409/5xx）へ変換する。
-- **同時更新の競合**: `@Version` による楽観ロックの競合はドメイン例外ではなく永続化層から上がるため、専用マッパーが 409 へ変換する（意図して検出している競合を想定外障害＝500として返さない）。応答に内部情報は載せない。
+- **同時更新の競合**: `@Version` による楽観ロックの競合はドメイン例外ではなく永続化層から上がるため、専用マッパーが 409 へ変換する（意図して検出している競合を想定外障害＝500として返さない）。応答に内部情報は載せない。全項目置換の更新は、これとは別に「編集を始めた時点の世代」を条件に取り、保存前の突き合わせで古いフォームを同じ 409 へ落とす（[DECISIONS.md](DECISIONS.md) 30）。検出する位置が2つあるのは、後の要求が最新を読み直す経路では楽観ロックが働かないためで、応答としては区別しない。
 
 ## 7. データベース
 

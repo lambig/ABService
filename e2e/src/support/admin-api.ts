@@ -159,6 +159,53 @@ export const seedPublishedAlbum = async (album: AlbumSeed): Promise<string> => {
   return albumId;
 };
 
+/** 管理向け詳細のうち、画面の外から更新を送るために要る項目 */
+interface AdminAlbumDetail {
+  readonly revision: number;
+  readonly title: string;
+  readonly releaseDate: string;
+  readonly artistDisplayName: string;
+  readonly artistSortKey: string | null;
+  readonly catalogNumber: string | null;
+  readonly isdn: string | null;
+  readonly coverImageKey: string | null;
+  readonly description: string | null;
+  readonly descriptionFormat: string;
+}
+
+/**
+ * 別のタブが保存した状態を作る（タイトルだけを変えて全項目置換する）。
+ *
+ * <p>
+ * 更新は編集を始めた時点の世代（`expectedRevision`）を要求するため、詳細を読んでから送る（#287）。画面が
+ * 同じ作品を開いたまま古い世代で保存しようとしたときに、競合として拒まれることを見るために使う。
+ * </p>
+ *
+ * @param albumId
+ *            対象の作品のドメインID
+ * @param title
+ *            置き換え後のタイトル
+ */
+export const renameAlbumOutsideTheScreen = async (
+  albumId: string,
+  title: string,
+): Promise<void> => {
+  const detail = (await getAdmin(`/api/v1/admin/albums/${albumId}`)) as AdminAlbumDetail;
+
+  await sendAdmin('PUT', `/api/v1/albums/${albumId}`, {
+    expectedRevision: detail.revision,
+    title,
+    releaseDate: detail.releaseDate,
+    artistDisplayName: detail.artistDisplayName,
+    artistSortKey: detail.artistSortKey,
+    catalogNumber: detail.catalogNumber,
+    isdn: detail.isdn,
+    coverImageKey: detail.coverImageKey,
+    description: detail.description,
+    descriptionFormat: detail.descriptionFormat,
+  });
+};
+
 /** 管理向け一覧の1件。同定と公開状態の確認に使う項目だけを持つ */
 export interface AdminAlbum {
   readonly albumId: string;

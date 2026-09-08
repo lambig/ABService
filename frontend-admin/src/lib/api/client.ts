@@ -78,17 +78,25 @@ export const createAlbum = (
 ): Promise<ApiResult<Schemas['CreateAlbumResponse']>> =>
   request<Schemas['CreateAlbumResponse']>('POST', '/api/v1/albums', apiKey, fields);
 
-/** 作品を更新する（PUT風の全項目置換。トラックと外部音源は対象外）。 */
+/**
+ * 作品を更新する（PUT風の全項目置換。トラックと外部音源は対象外）。
+ *
+ * <p>
+ * 編集を始めた時点の世代（`expectedRevision`）を必ず送る。全項目置換のため、これを持たない更新は編集の
+ * 間に入った別の保存を消す。世代が古ければ 409 が返る（#287）。
+ * </p>
+ */
 export const updateAlbum = (
   apiKey: string,
   albumId: string,
   fields: AlbumFields,
+  expectedRevision: number,
 ): Promise<ApiResult<Schemas['UpdateAlbumResponse']>> =>
   request<Schemas['UpdateAlbumResponse']>(
     'PUT',
     `/api/v1/albums/${encodeURIComponent(albumId)}`,
     apiKey,
-    fields,
+    { ...fields, expectedRevision },
   );
 
 /**

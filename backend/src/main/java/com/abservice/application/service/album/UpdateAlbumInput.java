@@ -17,6 +17,9 @@ import org.jspecify.annotations.Nullable;
  *
  * @param albumId
  *            更新対象のアルバムID
+ * @param expectedRevision
+ *            編集を始めた時点の世代（必須）。保存の直前に読んだ世代と違えば、その間に別の操作が保存しているため
+ *            競合として拒む（#287）。全項目置換のため、これを持たない更新は他の保存を黙って消す
  * @param title
  *            アルバムタイトル（必須・空不可）
  * @param releaseDate
@@ -41,6 +44,7 @@ import org.jspecify.annotations.Nullable;
  */
 public record UpdateAlbumInput(
         @Nullable String albumId,
+        @Nullable Integer expectedRevision,
         @Nullable String title,
         @Nullable String releaseDate,
         @Nullable String artistDisplayName,

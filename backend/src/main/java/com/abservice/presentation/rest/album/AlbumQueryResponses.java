@@ -222,6 +222,7 @@ final class AlbumQueryResponses {
     private static AdminAlbumDetailResponse toAdminAlbumDetailResponse(AlbumView view) {
         return new AdminAlbumDetailResponse(
                 view.albumId(),
+                view.revision(),
                 view.title(),
                 view.releaseDate(),
                 view.artistDisplayName(),

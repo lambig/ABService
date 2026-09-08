@@ -24,18 +24,28 @@ import { deleteAlbum, findAlbumsByCatalogNumberPrefix, seedDraftAlbum } from './
  */
 export const SCRATCH_CATALOG_PREFIX = 'E2E-SCRATCH-';
 
+/** 作った作品。画面から指すためのタイトルと、APIから操作するためのIDを持つ */
+export interface ScratchAlbum {
+  readonly albumId: string;
+  readonly title: string;
+}
+
 /**
  * 検査のためだけの作品を1つ作る（下書き）。
  *
+ * <p>
+ * 画面の外から同じ作品を操作するシナリオ（別のタブが保存した状態を作る等）はIDを要するため、こちらを使う。
+ * </p>
+ *
  * @param purpose
  *            何のための作品かを表す短い語。タイトルに入る
- * @returns 一覧で行を指すためのタイトル
+ * @returns 作った作品のIDとタイトル
  */
-export const seedScratchAlbum = async (purpose: string): Promise<string> => {
+export const seedScratchAlbumDetail = async (purpose: string): Promise<ScratchAlbum> => {
   const stamp = String(Date.now());
   const title = `E2E ${purpose}アルバム ${stamp}`;
 
-  await seedDraftAlbum({
+  const albumId = await seedDraftAlbum({
     title,
     releaseDate: '2026-09-01',
     artistDisplayName: `E2E ${purpose}アーティスト`,
@@ -43,8 +53,18 @@ export const seedScratchAlbum = async (purpose: string): Promise<string> => {
     catalogNumber: `${SCRATCH_CATALOG_PREFIX}${stamp}`,
   });
 
-  return title;
+  return { albumId, title };
 };
+
+/**
+ * 検査のためだけの作品を1つ作る（下書き）。
+ *
+ * @param purpose
+ *            何のための作品かを表す短い語。タイトルに入る
+ * @returns 一覧で行を指すためのタイトル
+ */
+export const seedScratchAlbum = async (purpose: string): Promise<string> =>
+  (await seedScratchAlbumDetail(purpose)).title;
 
 /** 検査のためだけに作った作品を片付ける。作るシナリオを持つ spec の `afterEach` に置く */
 export const deleteScratchAlbums = async (): Promise<void> => {
