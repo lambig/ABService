@@ -1,3 +1,5 @@
+import { validBlock } from "./pcm";
+
 /** 描画へ渡す v0 の完全な特徴量。時刻は AudioContext の秒、centroid は Hz。 */
 export type AudioFeatures = Readonly<{
   timeSeconds: number;
@@ -53,18 +55,6 @@ export const audioFeatures = (
     ? snapshot(value)
     : invalidInput;
 
-const validBlock = (block: PcmBlock): boolean =>
-  [1, 2].includes(block.channels.length) &&
-  Number.isFinite(block.sampleRate) &&
-  block.sampleRate > 0 &&
-  nonNegativeFinite(block.timeSeconds) &&
-  block.channels.every(
-    (channel) =>
-      channel.length > 0 &&
-      channel.length === block.channels[0]?.length &&
-      channel.every(Number.isFinite),
-  );
-
 const clippedSquare = (value: number): number =>
   Math.min(1, Math.abs(value)) ** 2;
 const meanSquare = (channel: Readonly<Float32Array>): number =>
@@ -87,3 +77,20 @@ export const rmsDsp: DspPort<RmsFeatures> = Object.freeze({
       ? snapshot({ timeSeconds: block.timeSeconds, rms: rms(block.channels) })
       : invalidInput,
 });
+
+/** P2の周波数観測値。onsetは未計測のため含めない。 */
+export type SpectralFeatures = Omit<AudioFeatures, "onset">;
+
+/** 固定窓DSPと、呼び出し元が次状態を受け取る純粋なhop処理。 */
+export {
+  createSpectralDsp,
+  createSpectralStream,
+  defaultSpectralConfig,
+} from "./spectral";
+
+/** 周波数解析の設定と、入力ブロックを窓へ組み立てる境界。 */
+export type {
+  SpectralConfig,
+  SpectralStream,
+  SpectralPushResult,
+} from "./spectral";
