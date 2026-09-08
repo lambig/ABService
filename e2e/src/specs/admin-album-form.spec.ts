@@ -2,6 +2,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 import type { Locator, Page } from '@playwright/test';
 
+import { renameAlbumOutsideTheScreen } from '../support/admin-api.ts';
 import { stack } from '../support/config.ts';
 import { capture, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
@@ -9,6 +10,7 @@ import {
   SCRATCH_CATALOG_PREFIX,
   deleteScratchAlbums,
   seedScratchAlbum,
+  seedScratchAlbumDetail,
 } from '../support/scratch-albums.ts';
 
 /**
@@ -57,6 +59,10 @@ const WRONG_API_KEY = 'e2e-wrong-key';
 
 /** 入力を抱えたまま鍵待ちへ戻ったことを伝える文言 */
 const PENDING_NOTICE = '入力した内容は保持しています';
+
+/** 編集を始めた後に別の操作が保存していたことを伝える見出しと、その復帰の操作 */
+const CONFLICT_HEADING = '編集を始めた後に、別の操作がこの作品を保存しています';
+const RELOAD_LABEL = '最新を読み込む';
 
 /** 鍵を入れて一覧が出た状態にする */
 const openAdmin = async (page: Page): Promise<void> => {
@@ -208,6 +214,53 @@ test.describe('管理画面の作品の編集', () => {
     /* 応答が返れば保存は成立し、一覧へ戻る */
     await expect(page.getByRole('table')).toBeVisible();
     await page.unroute(UPDATE_API);
+  });
+
+  test('編集中に別の操作が保存していたら、入力を保ったまま競合を伝える', async ({ page }) => {
+    const album = await seedScratchAlbumDetail('競合');
+    const renamed = `${album.title} 画面からの改題`;
+    const savedElsewhere = `${album.title} 別タブの保存`;
+
+    await openAdmin(page);
+    await openEdit(page, album.title);
+    await page.getByLabel(TITLE_LABEL).fill(renamed);
+
+    /*
+     * 画面が読んだ後に、別のタブ（ここではAPI経由）が同じ作品を保存する。画面はこの時点の世代を持って
+     * いないため、そのまま保存すると別タブの保存を消すことになる。
+     */
+    await renameAlbumOutsideTheScreen(album.albumId, savedElsewhere);
+
+    await clickWithEvidence(
+      page,
+      page.getByRole('button', { name: SAVE_LABEL }),
+      '35-admin-edit-conflict-submit',
+    );
+
+    /* 競合として伝え、入力は保つ（欄のエラーとしては出さない） */
+    await expect(page.getByText(CONFLICT_HEADING)).toBeVisible();
+    await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(renamed);
+    await expect(fieldOf(page, 'title').getByRole('alert')).toHaveCount(0);
+    await capture(page, '36-admin-edit-conflicted');
+
+    /* 別タブの保存は消えていない */
+    await expect(page.getByRole('table')).toHaveCount(0);
+
+    /* 最新を読み込むと、保存されている内容に置き換わる */
+    await clickWithEvidence(
+      page,
+      page.getByRole('button', { name: RELOAD_LABEL }),
+      '37-admin-edit-conflict-reload',
+    );
+
+    await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(savedElsewhere);
+    await expect(page.getByText(CONFLICT_HEADING)).toHaveCount(0);
+
+    /* 読み直した後の世代なら保存できる */
+    await page.getByLabel(TITLE_LABEL).fill(renamed);
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+    await expect(page.getByRole('table')).toBeVisible();
+    await expect(rowOf(page, renamed)).toBeVisible();
   });
 
   test('対象を指定せずに編集を開くと、対象が無いと言う', async ({ page }) => {

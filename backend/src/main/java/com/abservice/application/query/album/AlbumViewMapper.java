@@ -54,6 +54,7 @@ final class AlbumViewMapper {
             List<TrackView> tracks) {
         return new AlbumView(
                 entity.getDomainId(),
+                entity.getVersion(),
                 entity.getTitle(),
                 entity.getReleaseDate().toString(),
                 entity.getArtistDisplayName(),

@@ -96,13 +96,15 @@ class AlbumRestIntegrationTest {
                                 + "\"coverImageKey\":\"01a0233d-d25a-7c3b-924f-236ee154fecc.png\"}")
                 .when().post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
 
-        final String coverImageKey = authorized().when().get("/api/v1/admin/albums/" + albumId).then().statusCode(200)
-                .body("coverImageKey", equalTo("01a0233d-d25a-7c3b-924f-236ee154fecc.png")).extract()
-                .path("coverImageKey");
+        final var detail = authorized().when().get("/api/v1/admin/albums/" + albumId).then().statusCode(200)
+                .body("coverImageKey", equalTo("01a0233d-d25a-7c3b-924f-236ee154fecc.png")).extract();
+        final String coverImageKey = detail.path("coverImageKey");
+        final int revision = detail.path("revision");
 
         authorized().contentType(ContentType.JSON)
                 .body(
-                        "{\"title\":\"キー往復のアルバム（改題）\",\"releaseDate\":\"2026-01-01\","
+                        "{\"expectedRevision\":" + revision + ",\"title\":\"キー往復のアルバム（改題）\","
+                                + "\"releaseDate\":\"2026-01-01\","
                                 + "\"artistDisplayName\":\"E2Eアーティスト\","
                                 + "\"coverImageKey\":\"" + coverImageKey + "\"}")
                 .when().put("/api/v1/albums/" + albumId).then().statusCode(200);
@@ -155,7 +157,7 @@ class AlbumRestIntegrationTest {
 
         authorized().contentType(ContentType.JSON)
                 .body(
-                        "{\"title\":\"更新後タイトル\",\"releaseDate\":\"2026-01-01\","
+                        "{\"expectedRevision\":0,\"title\":\"更新後タイトル\",\"releaseDate\":\"2026-01-01\","
                                 + "\"artistDisplayName\":\"更新後アーティスト\",\"catalogNumber\":\"UPD-0001\"}")
                 .when().put("/api/v1/albums/" + albumId).then().statusCode(200).body("albumId", equalTo(albumId))
                 .body("title", equalTo("更新後タイトル")).body("releaseDate", equalTo("2026-01-01"))
@@ -175,7 +177,7 @@ class AlbumRestIntegrationTest {
 
         authorized().contentType(ContentType.JSON)
                 .body(
-                        "{\"title\":\"更新後タイトル\",\"releaseDate\":\"2026-01-01\","
+                        "{\"expectedRevision\":0,\"title\":\"更新後タイトル\",\"releaseDate\":\"2026-01-01\","
                                 + "\"artistDisplayName\":\"更新後アーティスト\",\"isdn\":\"2784702901978\","
                                 + "\"coverImageKey\":\"01a0233d-d25a-7c3b-924f-236ee154fecc.png\","
                                 + "\"event\":{\"name\":\"コミックマーケット104\",\"date\":\"2026-01-01\","
@@ -192,7 +194,10 @@ class AlbumRestIntegrationTest {
     @DisplayName("存在しないIDの更新は404 problem+jsonを返す")
     void updateNotFound() {
         authorized().contentType(ContentType.JSON)
-                .body("{\"title\":\"タイトル\",\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"アーティスト\"}").when()
+                .body(
+                        "{\"expectedRevision\":0,\"title\":\"タイトル\",\"releaseDate\":\"2026-01-01\","
+                                + "\"artistDisplayName\":\"アーティスト\"}")
+                .when()
                 .put("/api/v1/albums/" + UUID.randomUUID()).then().statusCode(404)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
@@ -206,7 +211,10 @@ class AlbumRestIntegrationTest {
                 .post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
 
         authorized().contentType(ContentType.JSON)
-                .body("{\"title\":\"   \",\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"アーティスト\"}").when()
+                .body(
+                        "{\"expectedRevision\":0,\"title\":\"   \",\"releaseDate\":\"2026-01-01\","
+                                + "\"artistDisplayName\":\"アーティスト\"}")
+                .when()
                 .put("/api/v1/albums/" + albumId).then().statusCode(400).contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:VALIDATION_ERROR"))
                 .body("errors[0].field", equalTo("title"));

@@ -4,6 +4,7 @@ import type { AdminAlbumDetail } from './client';
 
 const detail = {
   albumId: 'album-1',
+  revision: 3,
   title: 'アルバム',
   releaseDate: '2026-01-01',
   artistDisplayName: 'アーティスト',

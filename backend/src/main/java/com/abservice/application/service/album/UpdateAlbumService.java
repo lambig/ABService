@@ -1,5 +1,6 @@
 package com.abservice.application.service.album;
 
+import com.abservice.application.exception.ConflictingEditException;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.domain.exception.ValidationException;
@@ -21,6 +22,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import lombok.AllArgsConstructor;
@@ -55,16 +57,66 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
     @Override
     public Uni<UpdateAlbumOutput> execute(UpdateAlbumInput input) {
         return Uni.createFrom()
-                .item(
-                        () -> Album.Id.fromInput(input.albumId())
-                                .mapErrorFields(field -> "albumId")
-                                .resolve(ValidationException::new))
-                .flatMap(albumAccessService::findExistingAndClaimEdit)
+                .item(() -> requested(input))
+                .flatMap(
+                        requested -> albumAccessService
+                                .findExistingAndClaimEditWithRevision(requested.albumId()))
+                .map(claimed -> claimedAsOf(claimed, input))
                 .map(
                         existing -> validateAndApply(existing, input)
                                 .resolve(ValidationException::new))
-                .flatMap(albumRepository::save)
+                .flatMap(albumRepository::saveWithRevision)
                 .map(UpdateAlbumService::toOutput);
+    }
+
+    /** 更新の対象と条件。どちらも欠けていれば検証エラーで、集約を掴む前に決まる */
+    private record Requested(Album.Id albumId, int expectedRevision) {
+    }
+
+    private static Requested requested(UpdateAlbumInput input) {
+        return Result.zip(
+                Album.Id.fromInput(input.albumId())
+                        .mapErrorFields(field -> "albumId"),
+                expectedRevision(input.expectedRevision()),
+                Requested::new)
+                .resolve(ValidationException::new);
+    }
+
+    /**
+     * 編集を始めた時点の世代。
+     *
+     * <p>
+     * 未指定を「条件なし」として通さない。全項目置換のため、条件を持たない更新は、編集の間に入った別の保存を
+     * 黙って消す（#287）。後勝ちを選ぶ判断はしていないため、指定を要求する。
+     * </p>
+     */
+    private static Result<Integer> expectedRevision(@Nullable Integer value) {
+        return Optional.ofNullable(value)
+                .map(Result::success)
+                .orElseGet(
+                        () -> Result.failure(
+                                new ErrorResult(
+                                        "expectedRevision",
+                                        "編集を始めた時点の世代は必須です",
+                                        "ALBUM_EXPECTED_REVISION_REQUIRED")));
+    }
+
+    /**
+     * 掴んだ行の世代が、編集を始めた時点と同じであることを確かめる。
+     *
+     * <p>
+     * 違っていれば、この更新が持っている値は既に古い。届いた値を最新へ適用すると、間に入った保存を消すため拒む。
+     * </p>
+     */
+    private static Album claimedAsOf(AlbumRepository.Revisioned claimed, UpdateAlbumInput input) {
+        return Objects.equals(claimed.revision().value(), input.expectedRevision())
+                ? claimed.album()
+                : conflicting(claimed);
+    }
+
+    private static Album conflicting(AlbumRepository.Revisioned claimed) {
+        throw new ConflictingEditException(
+                "アルバム %s は編集を始めた後に更新されています".formatted(claimed.album().id().value()));
     }
 
     static Result<Album> validateAndApply(Album existing, UpdateAlbumInput input) {
@@ -198,11 +250,12 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
                 .orElseGet(() -> Result.<Optional<T>>success(Optional.empty()));
     }
 
-    private static UpdateAlbumOutput toOutput(Album album) {
+    private static UpdateAlbumOutput toOutput(AlbumRepository.Revisioned saved) {
         return new UpdateAlbumOutput(
-                album.id().value(),
-                album.title().value(),
-                album.releaseDate().asLocalDate().toString(),
-                album.artistCredit().displayName().value());
+                saved.album().id().value(),
+                saved.revision().value(),
+                saved.album().title().value(),
+                saved.album().releaseDate().asLocalDate().toString(),
+                saved.album().artistCredit().displayName().value());
     }
 }

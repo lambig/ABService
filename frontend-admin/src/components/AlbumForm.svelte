@@ -123,7 +123,19 @@
     | { readonly kind: 'idle' }
     | { readonly kind: 'saving' }
     | { readonly kind: 'invalid'; readonly errors: FormErrors }
+    | { readonly kind: 'conflicted' }
     | { readonly kind: 'refused'; readonly message: string };
+
+  /**
+   * 更新する対象。
+   *
+   * <p>
+   * 世代（`revision`）は読み込んだ時点のもので、保存の条件として送り返す（#287）。新規作成では持たない
+   * （まだ無いものに世代は無い）。対象と世代を別々の項目にすると、対象があるのに世代が無い状態を作れて
+   * しまう。
+   * </p>
+   */
+  type Target = Readonly<{ albumId: string; revision: number }>;
 
   /**
    * 鍵を入れ直した後に戻る先。
@@ -134,7 +146,7 @@
    * 誤った鍵でフォームを埋めた場合、これを持たないと最初の保存で全入力が消える。
    * </p>
    */
-  type Pending = Readonly<{ albumId: string | null; draft: AlbumDraft }>;
+  type Pending = Readonly<{ target: Target | null; draft: AlbumDraft }>;
 
   /**
    * 画面の状態。
@@ -155,8 +167,8 @@
     | {
         readonly kind: 'editing';
         readonly apiKey: string;
-        /** 更新する対象。null は新規作成 */
-        readonly albumId: string | null;
+        /** 更新する対象と、読み込んだ時点の世代。null は新規作成 */
+        readonly target: Target | null;
         readonly draft: AlbumDraft;
         readonly submission: Submission;
       };
@@ -170,10 +182,10 @@
   const failureTextOf = (failure: ApiFailure): string =>
     failure.kind === 'unauthorized' ? '鍵が受け付けられませんでした。' : failure.message;
 
-  const editing = (apiKey: string, albumId: string | null, draft: AlbumDraft): View => ({
+  const editing = (apiKey: string, target: Target | null, draft: AlbumDraft): View => ({
     kind: 'editing',
     apiKey,
-    albumId,
+    target,
     draft,
     submission: { kind: 'idle' },
   });
@@ -184,7 +196,7 @@
 
   const loaded = (apiKey: string, albumId: string, result: ApiResult<AdminAlbumDetail>): View =>
     result.kind === 'ok'
-      ? editing(apiKey, albumId, draftOf(result.value))
+      ? editing(apiKey, { albumId, revision: result.value.revision }, draftOf(result.value))
       : result.kind === 'unauthorized'
         ? { kind: 'locked', message: failureTextOf(result), pending: null }
         : { kind: 'unavailable', apiKey, message: failureTextOf(result) };
@@ -244,7 +256,7 @@
     return pending === null
       ? open(apiKey)
       : settled(() => {
-          view = editing(apiKey, pending.albumId, pending.draft);
+          view = editing(apiKey, pending.target, pending.draft);
         });
   };
 
@@ -297,22 +309,37 @@
       ? { kind: 'invalid', errors }
       : { kind: 'refused', message: failureTextOf(failure) };
 
-  const rejectionOf = (failure: ApiFailure): Submission =>
-    rejection(failure, formErrorsOf(failure.problem, ASSIGNABLE_PATHS));
+  /** 競合として返る状態コード。編集を始めた後に別の操作が保存している（#287） */
+  const CONFLICT_STATUS = 409;
 
-  /** 保存の経路。新規作成と更新で送る先が違うだけで、送る項目と結果の扱いは同じ */
+  /**
+   * 競合は入力の誤りと分けて扱う。
+   *
+   * 直す先が入力ではなく「読み直し」にあるため、欄へも全体のエラーへも出さない。古い値を自動で再送も
+   * しない（同じ世代で送り直せば再び競合する）。
+   */
+  const rejectionOf = (failure: ApiFailure): Submission =>
+    failure.status === CONFLICT_STATUS
+      ? { kind: 'conflicted' }
+      : rejection(failure, formErrorsOf(failure.problem, ASSIGNABLE_PATHS));
+
+  /**
+   * 保存の経路。
+   *
+   * 更新は編集を始めた時点の世代を条件として送る。新規作成に世代は無い（まだ無いものは誰も更新できない）。
+   */
   const save = async (
     apiKey: string,
-    albumId: string | null,
+    target: Target | null,
     draft: AlbumDraft,
   ): Promise<ApiResult<unknown>> =>
-    albumId === null
+    target === null
       ? createAlbum(apiKey, albumFieldsOf(draft))
-      : updateAlbum(apiKey, albumId, albumFieldsOf(draft));
+      : updateAlbum(apiKey, target.albumId, albumFieldsOf(draft), target.revision);
 
   /** いま抱えている入力。編集中でなければ持たない */
   const pendingOf = (current: View): Pending | null =>
-    current.kind === 'editing' ? { albumId: current.albumId, draft: current.draft } : null;
+    current.kind === 'editing' ? { target: current.target, draft: current.draft } : null;
 
   const viewAfterFailure = (failure: ApiFailure): View =>
     failure.kind === 'unauthorized'
@@ -344,17 +371,28 @@
 
     const current = view;
     void (current.kind === 'editing' && current.submission.kind !== 'saving'
-      ? submitWith(current.apiKey, current.albumId, current.draft)
+      ? submitWith(current.apiKey, current.target, current.draft)
       : Promise.resolve());
   };
 
   const submitWith = async (
     apiKey: string,
-    albumId: string | null,
+    target: Target | null,
     draft: AlbumDraft,
   ): Promise<void> => {
     withSubmission({ kind: 'saving' });
-    applySaveOutcome(apiKey, await save(apiKey, albumId, draft));
+    applySaveOutcome(apiKey, await save(apiKey, target, draft));
+  };
+
+  /**
+   * 最新を読み込み直す。
+   *
+   * 競合したときの復帰先。いまの入力は破棄され、保存されている内容に置き換わる（差分の突き合わせは
+   * まだ持たない。#287 の受け入れは「古い値を自動で再送しない」ところまで）。
+   */
+  const reload = (): void => {
+    const current = view;
+    void (current.kind === 'editing' ? open(current.apiKey) : Promise.resolve());
   };
 
   /*
@@ -379,6 +417,7 @@
   );
   const refusedMessage = $derived(submission.kind === 'refused' ? submission.message : null);
   const saving = $derived(submission.kind === 'saving');
+  const conflicted = $derived(submission.kind === 'conflicted');
 
   const messagesOf = (path: AlbumFieldPath): readonly string[] => errors.byField.get(path) ?? [];
 
@@ -477,6 +516,19 @@
         {#each errors.unassigned as message (message)}
           <p class="text-destructive text-sm" role="alert">{message}</p>
         {/each}
+      </section>
+    {/if}
+
+    {#if conflicted}
+      <section class="space-y-2" role="alert">
+        <h2 class="text-destructive text-base font-medium">
+          編集を始めた後に、別の操作がこの作品を保存しています
+        </h2>
+        <p class="text-muted-foreground text-sm">
+          いまの入力はそのまま保持しています。このまま保存し直しても、同じ理由で断られます。最新を読み込むと、
+          入力は保存されている内容に置き換わります。
+        </p>
+        <Button type="button" variant="outline" onclick={reload}>最新を読み込む</Button>
       </section>
     {/if}
 

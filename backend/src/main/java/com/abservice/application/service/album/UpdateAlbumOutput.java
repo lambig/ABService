@@ -11,6 +11,8 @@ import com.abservice.application.service.CommandService;
  *
  * @param albumId
  *            アルバムID（UUIDv7形式の文字列）
+ * @param revision
+ *            保存後の世代。続けて編集する側が次の更新の条件として使う（#287）
  * @param title
  *            アルバムタイトル
  * @param releaseDate
@@ -20,6 +22,7 @@ import com.abservice.application.service.CommandService;
  */
 public record UpdateAlbumOutput(
         String albumId,
+        int revision,
         String title,
         String releaseDate,
         String artistDisplayName) implements CommandService.Output {
