@@ -97,7 +97,8 @@ class ArticleRestIntegrationTest {
 
         authorized().contentType(ContentType.JSON)
                 .body(
-                        "{\"articleType\":\"NOTE\",\"title\":\"更新後タイトル\",\"body\":\"更新後本文\","
+                        "{\"expectedRevision\":0,\"articleType\":\"NOTE\",\"title\":\"更新後タイトル\","
+                                + "\"body\":\"更新後本文\","
                                 + "\"bodyFormat\":\"PLAIN_TEXT\",\"introShort\":\"更新後概要\"}")
                 .when().put("/api/v1/articles/" + articleId).then().statusCode(200)
                 .body("articleId", equalTo(articleId)).body("title", equalTo("更新後タイトル"))
@@ -109,7 +110,8 @@ class ArticleRestIntegrationTest {
     @Test
     @DisplayName("存在しないIDの更新は404 problem+jsonを返す")
     void updateNotFound() {
-        authorized().contentType(ContentType.JSON).body("{\"articleType\":\"NOTE\",\"title\":\"タイトル\"}").when()
+        authorized().contentType(ContentType.JSON)
+                .body("{\"expectedRevision\":0,\"articleType\":\"NOTE\",\"title\":\"タイトル\"}").when()
                 .put("/api/v1/articles/" + UUID.randomUUID()).then().statusCode(404)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
@@ -122,7 +124,8 @@ class ArticleRestIntegrationTest {
                 .body("{\"articleType\":\"NOTE\",\"title\":\"タイトル\"}").when().post("/api/v1/articles").then()
                 .statusCode(201).extract().path("articleId");
 
-        authorized().contentType(ContentType.JSON).body("{\"articleType\":\"NOTE\",\"title\":\"   \"}").when()
+        authorized().contentType(ContentType.JSON)
+                .body("{\"expectedRevision\":0,\"articleType\":\"NOTE\",\"title\":\"   \"}").when()
                 .put("/api/v1/articles/" + articleId).then().statusCode(400)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:VALIDATION_ERROR"))
@@ -293,8 +296,15 @@ class ArticleRestIntegrationTest {
                 .body("articleType", equalTo("ALBUM"))
                 .body("albumId", equalTo(albumId));
 
+        /* 参照の設定と公開で記事本体が変わっているため、編集の世代は読み直して送る（DECISIONS 30） */
+        final int revision = authorized().when().get("/api/v1/admin/articles/" + articleId).then().statusCode(200)
+                .extract().path("revision");
+
         authorized().contentType(ContentType.JSON)
-                .body("{\"articleType\":\"NOTE\",\"title\":\"種別変更後タイトル\"}").when()
+                .body(
+                        "{\"expectedRevision\":" + revision
+                                + ",\"articleType\":\"NOTE\",\"title\":\"種別変更後タイトル\"}")
+                .when()
                 .put("/api/v1/articles/" + articleId).then().statusCode(200)
                 .body("articleType", equalTo("NOTE"));
 

@@ -457,7 +457,10 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **判断**: 管理向け詳細は編集の世代（`revision`）を返し、更新要求は `expectedRevision` として同じ値を返す。保存の直前に読んだ世代と違えば 409 で拒む。未指定は 400（後勝ちを選ばない）。世代は業務モデルへ持たせず、リポジトリの**更新契約**として扱う（`AlbumRepository.Revision` / `Revisioned`）。作品についての事実ではないものを集約の状態へ混ぜない。
 
-**世代を進めるのは作品本体の変更だけ**とする。トラック・チューン構成・外部音源は別の編集単位で、子だけの変更では本体の世代は進まない（子のコレクションは逆側の写像であり、親行が汚れないため実装上もそうなる）。
+**編集単位は集約本体**とする。何がその本体を変えるかは対象ごとに違い、**契約ではなく当てはめの問題**として実測で確定する。
+
+- アルバム: トラック・チューン構成・外部音源は別の編集単位。子だけの変更では本体の世代は進まない（子のコレクションは逆側の写像であり、親行が汚れない）
+- 記事: タグは集約の内側にあり、その操作は業務上の更新日時を動かすため本体の世代が進む。公開・非公開も本体を変える。したがって編集の途中でそれらを行った画面は、保存の前に世代を読み直す
 
 競合は、flush 時に検出する楽観ロックと同じ 409（`CONFLICTING_UPDATE`）で返す。応答に世代の値は載せない。画面は古い値を自動で再送せず、入力を保ったまま「最新を読み込む」へ戻す。
 
@@ -469,4 +472,4 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **トレードオフ**: 本体と子を1画面で同時に編集する形にするなら、編集単位の定義を見直す必要がある（そのときは子の操作側にも同じ仕組みを入れる）。また、409 に世代を載せないため、画面は差分を示すのに読み直しを要する（差分の突き合わせは持たない）。
 
-**実体**: `AlbumRepository`（`Revision` / `Revisioned` / `findByIdExclusivelyWithRevision` / `saveWithRevision`）、`UpdateAlbumService`（`expectedRevision` の必須検証と突き合わせ）、`ConflictingEditException` とその Mapper、`AlbumEditRevisionRestIntegrationTest`、`frontend-admin` の `AlbumForm.svelte`（`Target` と競合の枝）。
+**実体**: `AlbumRepository` / `ArticleRepository`（`Revision` / `Revisioned` と、世代つきの取得・保存）、`UpdateAlbumService` / `UpdateArticleService`（`expectedRevision` の必須検証と突き合わせ）、`ConflictingEditException` とその Mapper、`AlbumEditRevisionRestIntegrationTest` / `ArticleEditRevisionRestIntegrationTest`（対象ごとの編集単位もここで固定）、`frontend-admin` の `AlbumForm.svelte`（`Target` と競合の枝）。

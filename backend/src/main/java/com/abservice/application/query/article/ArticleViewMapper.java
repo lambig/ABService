@@ -53,6 +53,7 @@ final class ArticleViewMapper {
         final var reference = Optional.ofNullable(entity.getAlbumReference());
         return new ArticleView(
                 entity.getDomainId(),
+                entity.getVersion(),
                 entity.getArticleType(),
                 reference.map(ArticleAlbumReferenceTableRecord::getAlbumId)
                         .orElse(null),

@@ -14,6 +14,9 @@ import org.jspecify.annotations.Nullable;
  *
  * @param articleId
  *            更新対象の記事ID
+ * @param expectedRevision
+ *            編集を始めた時点の世代（必須）。保存の直前に読んだ世代と違えば、その間に別の操作が保存しているため
+ *            競合として拒む（DECISIONS 30）。全項目置換のため、これを持たない更新は他の保存を黙って消す
  * @param articleType
  *            記事種別（{@code com.abservice.domain.model.vo.article.ArticleType}
  *            の列挙子名）
@@ -29,6 +32,7 @@ import org.jspecify.annotations.Nullable;
  */
 public record UpdateArticleInput(
         @Nullable String articleId,
+        @Nullable Integer expectedRevision,
         @Nullable String articleType,
         @Nullable String title,
         @Nullable String body,

@@ -20,6 +20,16 @@ class UpdateArticleServiceTest {
 
     private static final BusinessDateTime NOW = BusinessDateTime.of(Instant.parse("2026-01-01T00:00:00Z"));
 
+    /**
+     * 編集を始めた時点の世代。
+     *
+     * <p>
+     * 本テストの対象（{@code validateAndApply}）は世代を見ない。世代の突き合わせは記事を掴む側の責務で、
+     * 経路ごと（未指定は400・不一致は409）に統合テストが固定している。
+     * </p>
+     */
+    private static final Integer REVISION_UNUSED = 0;
+
     private static Article existingArticle() {
         return Article.create(
                 ArticleType.NOTE,
@@ -37,6 +47,7 @@ class UpdateArticleServiceTest {
                 existingArticle(),
                 new UpdateArticleInput(
                         null,
+                        REVISION_UNUSED,
                         "NOTE",
                         "新タイトル",
                         "新本文",
@@ -60,6 +71,7 @@ class UpdateArticleServiceTest {
                 existing,
                 new UpdateArticleInput(
                         null,
+                        REVISION_UNUSED,
                         "NOTE",
                         "新タイトル",
                         null,
@@ -79,6 +91,7 @@ class UpdateArticleServiceTest {
                 existingArticle(),
                 new UpdateArticleInput(
                         null,
+                        REVISION_UNUSED,
                         "BAD",
                         "   ",
                         null,
@@ -98,6 +111,7 @@ class UpdateArticleServiceTest {
                 existingArticle(),
                 new UpdateArticleInput(
                         null,
+                        REVISION_UNUSED,
                         "NOTE",
                         "タイトル",
                         "本文",
@@ -119,6 +133,7 @@ class UpdateArticleServiceTest {
                 existingArticle(),
                 new UpdateArticleInput(
                         null,
+                        REVISION_UNUSED,
                         "NOTE",
                         "タイトル",
                         "   ",

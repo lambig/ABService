@@ -50,13 +50,29 @@ public class ArticleRepositoryImpl implements ArticleRepository {
 
     @Override
     public Uni<Article> save(Article aggregate) {
+        return saved(aggregate)
+                .map(ArticleMapper::toDomain);
+    }
+
+    @Override
+    public Uni<Revisioned> saveWithRevision(Article aggregate) {
+        return saved(aggregate)
+                .map(ArticleRepositoryImpl::toRevisioned);
+    }
+
+    private Uni<ArticleTableRecord> saved(Article aggregate) {
         return Optional.ofNullable(aggregate)
                 .map(
                         a -> dataSource
                                 .findByDomainId(ArticleMapper.toEntity(a).getDomainId(), Visibility.ALL)
-                                .flatMap(existingEntity -> upsertArticle(existingEntity, a))
-                                .map(ArticleMapper::toDomain))
+                                .flatMap(existingEntity -> upsertArticle(existingEntity, a)))
                 .orElseGet(() -> Uni.createFrom().failure(new IllegalArgumentException("Article cannot be null")));
+    }
+
+    private static Revisioned toRevisioned(ArticleTableRecord entity) {
+        return new Revisioned(
+                ArticleMapper.toDomain(entity),
+                new Revision(entity.getVersion()));
     }
 
     private Uni<ArticleTableRecord> upsertArticle(@Nullable ArticleTableRecord existingEntity, Article aggregate) {
@@ -187,6 +203,15 @@ public class ArticleRepositoryImpl implements ArticleRepository {
                 .map(this::findAllById)
                 .orElseGet(() -> Uni.createFrom().item(List.of()))
                 .map(articles -> articles.stream().findFirst().orElse(null));
+    }
+
+    @Override
+    public Uni<Revisioned> findByIdWithRevision(Article.Id id) {
+        return Optional.ofNullable(id)
+                .map(Article.Id::value)
+                .map(domainId -> dataSource.findByDomainId(domainId, Visibility.ALL))
+                .orElseGet(() -> Uni.createFrom().nullItem())
+                .onItem().ifNotNull().transform(ArticleRepositoryImpl::toRevisioned);
     }
 
     @Override

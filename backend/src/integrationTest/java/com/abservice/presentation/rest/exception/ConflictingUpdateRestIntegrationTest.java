@@ -127,10 +127,15 @@ class ConflictingUpdateRestIntegrationTest {
         return List.of(firstStatus.join(), secondStatus.join());
     }
 
+    /*
+     * SAME-REVISION: 双方が「作った直後の世代」を条件に送る。編集開始時点の突き合わせ（DECISIONS 30）でも flush
+     * 時の楽観ロックでも、競合として現れるのは 409 である。どちらの位置で検出されたかは問わない。
+     */
     private static int update(String articleId, String title) {
         return authorized().contentType(ContentType.JSON)
                 .body(
-                        "{\"articleType\":\"NEWS\",\"title\":\"%s\",\"body\":\"本文\",\"bodyFormat\":\"MARKDOWN\"}"
+                        ("{\"expectedRevision\":0,\"articleType\":\"NEWS\",\"title\":\"%s\","
+                                + "\"body\":\"本文\",\"bodyFormat\":\"MARKDOWN\"}")
                                 .formatted(title))
                 .when().put("/api/v1/articles/" + articleId).getStatusCode();
     }
