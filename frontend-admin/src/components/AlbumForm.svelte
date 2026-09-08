@@ -126,13 +126,29 @@
     | { readonly kind: 'refused'; readonly message: string };
 
   /**
+   * 鍵を入れ直した後に戻る先。
+   *
+   * <p>
+   * 保存が断られた（401/403）ときも入力は失わない。**鍵の正しさは入力の正しさとは別**であり、鍵を
+   * 入れ直せば同じ入力から続けられる必要がある。新規作成では鍵の入力時に管理APIを呼ばないため、
+   * 誤った鍵でフォームを埋めた場合、これを持たないと最初の保存で全入力が消える。
+   * </p>
+   */
+  type Pending = Readonly<{ albumId: string | null; draft: AlbumDraft }>;
+
+  /**
    * 画面の状態。
    *
    * 鍵待ち・読み込み中・読めなかった・対象が指定されていない・編集中を1つの型で表す。編集中だけが
    * 入力値を持つため、入力値を状態の外に置かない（読み込みに失敗した状態で入力欄が出ることを作らない）。
    */
   type View =
-    | { readonly kind: 'locked'; readonly message: string | null }
+    | {
+        readonly kind: 'locked';
+        readonly message: string | null;
+        /** 鍵を入れ直したら戻る入力。まだ入力が無いときは null */
+        readonly pending: Pending | null;
+      }
     | { readonly kind: 'loading' }
     | { readonly kind: 'unavailable'; readonly apiKey: string; readonly message: string }
     | { readonly kind: 'unspecified' }
@@ -162,15 +178,15 @@
     submission: { kind: 'idle' },
   });
 
-  const lock = (message: string | null): void => {
-    view = { kind: 'locked', message };
+  const lock = (message: string | null, pending: Pending | null): void => {
+    view = { kind: 'locked', message, pending };
   };
 
   const loaded = (apiKey: string, albumId: string, result: ApiResult<AdminAlbumDetail>): View =>
     result.kind === 'ok'
       ? editing(apiKey, albumId, draftOf(result.value))
       : result.kind === 'unauthorized'
-        ? { kind: 'locked', message: failureTextOf(result) }
+        ? { kind: 'locked', message: failureTextOf(result), pending: null }
         : { kind: 'unavailable', apiKey, message: failureTextOf(result) };
 
   const load = async (apiKey: string, albumId: string): Promise<void> => {
@@ -215,6 +231,23 @@
 
   const open = (apiKey: string): Promise<void> => OPEN[mode](apiKey);
 
+  /**
+   * 鍵を受け取ったときの続け方。
+   *
+   * 入力を抱えたまま鍵待ちへ戻っていれば、読み直さずその入力へ復帰する。読み直すと、鍵が断られる前に
+   * 書いていた内容を捨てることになる。
+   */
+  const accept = (apiKey: string): Promise<void> => {
+    const current = view;
+    const pending = current.kind === 'locked' ? current.pending : null;
+
+    return pending === null
+      ? open(apiKey)
+      : settled(() => {
+          view = editing(apiKey, pending.albumId, pending.draft);
+        });
+  };
+
   /*
    * このコンポーネントは client:only で載るため、ここが動くのはブラウザだけになる（組み立ての時点で
    * sessionStorage と location を触らない）。
@@ -223,7 +256,7 @@
     const apiKey = storedApiKey();
     return apiKey === null
       ? settled(() => {
-          lock(null);
+          lock(null, null);
         })
       : open(apiKey);
   };
@@ -277,9 +310,13 @@
       ? createAlbum(apiKey, albumFieldsOf(draft))
       : updateAlbum(apiKey, albumId, albumFieldsOf(draft));
 
+  /** いま抱えている入力。編集中でなければ持たない */
+  const pendingOf = (current: View): Pending | null =>
+    current.kind === 'editing' ? { albumId: current.albumId, draft: current.draft } : null;
+
   const viewAfterFailure = (failure: ApiFailure): View =>
     failure.kind === 'unauthorized'
-      ? { kind: 'locked', message: failureTextOf(failure) }
+      ? { kind: 'locked', message: failureTextOf(failure), pending: pendingOf(view) }
       : withSubmissionOf(rejectionOf(failure));
 
   /**
@@ -325,6 +362,13 @@
    * 値をここで用意する。
    */
   const lockMessage = $derived(view.kind === 'locked' ? view.message : null);
+
+  /** 入力を抱えたまま鍵待ちへ戻っていることを伝える文言。抱えていなければ出さない */
+  const pendingNotice = $derived(
+    view.kind === 'locked' && view.pending !== null
+      ? '入力した内容は保持しています。鍵を入れ直すと、続けて保存できます。'
+      : null,
+  );
   const unavailableMessage = $derived(view.kind === 'unavailable' ? view.message : null);
   const draft = $derived<AlbumDraft>(view.kind === 'editing' ? view.draft : EMPTY_DRAFT);
   const submission = $derived<Submission>(
@@ -345,7 +389,12 @@
 </script>
 
 {#if view.kind === 'locked'}
-  <ApiKeyForm message={lockMessage} onSubmit={(apiKey: string) => void open(apiKey)} />
+  <div class="space-y-4">
+    {#if pendingNotice !== null}
+      <p class="text-muted-foreground text-sm">{pendingNotice}</p>
+    {/if}
+    <ApiKeyForm message={lockMessage} onSubmit={(apiKey: string) => void accept(apiKey)} />
+  </div>
 {:else if view.kind === 'loading'}
   <p class="text-muted-foreground">読み込んでいます。</p>
 {:else if view.kind === 'unspecified'}
@@ -363,58 +412,64 @@
   </div>
 {:else}
   <form class="max-w-2xl space-y-8" onsubmit={submit}>
-    {#each SECTIONS as section (section.heading)}
-      <section class="space-y-4">
-        <h2 class="text-base font-medium">{section.heading}</h2>
+    <!--
+      送ったのはクリックした時点の入力である。保存中も入力を受け付けると、その後の変更は要求に
+      入らないまま、成功して一覧へ移ったときに黙って消える。
+    -->
+    <fieldset class="space-y-8" disabled={saving}>
+      {#each SECTIONS as section (section.heading)}
+        <section class="space-y-4">
+          <h2 class="text-base font-medium">{section.heading}</h2>
 
-        {#each section.fields as field (field.path)}
-          <div class="space-y-1" data-field={field.path}>
-            <label class="text-sm font-medium" for={idOf(field.path)}>{field.label}</label>
+          {#each section.fields as field (field.path)}
+            <div class="space-y-1" data-field={field.path}>
+              <label class="text-sm font-medium" for={idOf(field.path)}>{field.label}</label>
 
-            {#if field.kind === 'choice'}
-              <select
-                id={idOf(field.path)}
-                class="border-input bg-background w-full rounded-md border px-3 py-2"
-                value={draft[field.path]}
-                aria-invalid={messagesOf(field.path).length > 0}
-                onchange={(event) => {
-                  update(field.path, event.currentTarget.value);
-                }}
-              >
-                {#each field.choices as choice (choice)}
-                  <option value={choice}>{CHOICE_LABELS[choice] ?? choice}</option>
-                {/each}
-              </select>
-            {:else if field.kind === 'multiline'}
-              <textarea
-                id={idOf(field.path)}
-                class="border-input bg-background w-full rounded-md border px-3 py-2"
-                rows="4"
-                value={draft[field.path]}
-                aria-invalid={messagesOf(field.path).length > 0}
-                oninput={(event) => {
-                  update(field.path, event.currentTarget.value);
-                }}></textarea>
-            {:else}
-              <input
-                id={idOf(field.path)}
-                class="border-input bg-background w-full rounded-md border px-3 py-2"
-                type={field.kind === 'date' ? 'date' : 'text'}
-                value={draft[field.path]}
-                aria-invalid={messagesOf(field.path).length > 0}
-                oninput={(event) => {
-                  update(field.path, event.currentTarget.value);
-                }}
-              />
-            {/if}
+              {#if field.kind === 'choice'}
+                <select
+                  id={idOf(field.path)}
+                  class="border-input bg-background w-full rounded-md border px-3 py-2"
+                  value={draft[field.path]}
+                  aria-invalid={messagesOf(field.path).length > 0}
+                  onchange={(event) => {
+                    update(field.path, event.currentTarget.value);
+                  }}
+                >
+                  {#each field.choices as choice (choice)}
+                    <option value={choice}>{CHOICE_LABELS[choice] ?? choice}</option>
+                  {/each}
+                </select>
+              {:else if field.kind === 'multiline'}
+                <textarea
+                  id={idOf(field.path)}
+                  class="border-input bg-background w-full rounded-md border px-3 py-2"
+                  rows="4"
+                  value={draft[field.path]}
+                  aria-invalid={messagesOf(field.path).length > 0}
+                  oninput={(event) => {
+                    update(field.path, event.currentTarget.value);
+                  }}></textarea>
+              {:else}
+                <input
+                  id={idOf(field.path)}
+                  class="border-input bg-background w-full rounded-md border px-3 py-2"
+                  type={field.kind === 'date' ? 'date' : 'text'}
+                  value={draft[field.path]}
+                  aria-invalid={messagesOf(field.path).length > 0}
+                  oninput={(event) => {
+                    update(field.path, event.currentTarget.value);
+                  }}
+                />
+              {/if}
 
-            {#each messagesOf(field.path) as message (message)}
-              <p class="text-destructive text-sm" role="alert">{message}</p>
-            {/each}
-          </div>
-        {/each}
-      </section>
-    {/each}
+              {#each messagesOf(field.path) as message (message)}
+                <p class="text-destructive text-sm" role="alert">{message}</p>
+              {/each}
+            </div>
+          {/each}
+        </section>
+      {/each}
+    </fieldset>
 
     {#if errors.unassigned.length > 0}
       <section class="space-y-1">

@@ -56,10 +56,24 @@ describe('要求への写し取り', () => {
     expect(fields.title).toBe('アルバム');
   });
 
-  it('前後の空白は落とす', () => {
-    const fields = albumFieldsOf(withValue(EMPTY_DRAFT, 'title', '  アルバム  '));
+  it('空白だけの項目は送らない', () => {
+    const fields = albumFieldsOf(withValue(draftOf(detail), 'title', '   '));
 
-    expect(fields.title).toBe('アルバム');
+    expect(fields.title).toBeUndefined();
+  });
+
+  it('入力された値は加工せず送る（前後の空白も保つ）', () => {
+    const fields = albumFieldsOf(withValue(EMPTY_DRAFT, 'description', '  本文  '));
+
+    expect(fields.description).toBe('  本文  ');
+  });
+
+  it('触っていない項目は、読み込んだ値のまま送り返す（全項目置換で書き換えない）', () => {
+    const withSpaces = withValue(draftOf(detail), 'description', ' # 見出し\n\n本文 ');
+    const fields = albumFieldsOf(withValue(withSpaces, 'title', '改題'));
+
+    expect(fields.title).toBe('改題');
+    expect(fields.description).toBe(' # 見出し\n\n本文 ');
   });
 
   it('カバー画像の鍵は欄を持たないが、読み込んだ値を送り返す', () => {

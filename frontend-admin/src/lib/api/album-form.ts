@@ -90,9 +90,17 @@ export const withValue = (draft: AlbumDraft, path: AlbumFieldPath, value: string
   [path]: value,
 });
 
-const blankToUndefined = (value: string): string | undefined => (value === '' ? undefined : value);
-
-const presence = (value: string): string | undefined => blankToUndefined(value.trim());
+/**
+ * 入力された値。空白だけなら未指定として扱う。
+ *
+ * <p>
+ * **判定にだけ空白を落とし、送る値は加工しない。** 更新は全項目置換で、画面が正規化した値がそのまま
+ * 保存される。自由記述（概要説明・補足）は前後の空白も本文の一部であり、バックエンドの
+ * {@code MarkupContent} は受け取った本文を加工せず保持する契約である。ここで整えると、別の項目を
+ * 変えただけの保存が、触っていない項目の値を黙って書き換える。
+ * </p>
+ */
+const presence = (value: string): string | undefined => (value.trim() === '' ? undefined : value);
 
 /**
  * 初出イベント。

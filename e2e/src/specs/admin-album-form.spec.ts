@@ -1,3 +1,5 @@
+import { setTimeout as delay } from 'node:timers/promises';
+
 import type { Locator, Page } from '@playwright/test';
 
 import { stack } from '../support/config.ts';
@@ -44,8 +46,17 @@ const CREATE_LABEL = '作成する';
 /** 未公開であることを示すラベル */
 const DRAFT_LABEL = '下書き';
 
-/** 更新の経路。到達できない状態を作るために塞ぐ */
+/** 更新の経路。到達できない状態・応答が遅い状態を作るために塞ぐ */
 const UPDATE_API = `${stack.backendBaseUrl}/api/v1/albums/*`;
+
+/** 保存の応答を遅らせる時間。保存中の状態を観測する余地を作る */
+const SLOW_SAVE_MS = 2_000;
+
+/** 受け付けられない鍵。断られた後の復帰を見るために使う */
+const WRONG_API_KEY = 'e2e-wrong-key';
+
+/** 入力を抱えたまま鍵待ちへ戻ったことを伝える文言 */
+const PENDING_NOTICE = '入力した内容は保持しています';
 
 /** 鍵を入れて一覧が出た状態にする */
 const openAdmin = async (page: Page): Promise<void> => {
@@ -176,6 +187,29 @@ test.describe('管理画面の作品の編集', () => {
     await page.unroute(UPDATE_API);
   });
 
+  test('保存中は入力も塞ぐ（送信後の変更が黙って消えない）', async ({ page }) => {
+    const title = await seedScratchAlbum('保存中');
+
+    await openAdmin(page);
+    await openEdit(page, title);
+    await page.getByLabel(TITLE_LABEL).fill(`${title} 保存中`);
+
+    /* 応答を遅らせて、保存中の状態を観測できるようにする（要求そのものは通す） */
+    await page.route(UPDATE_API, async (route) => {
+      await delay(SLOW_SAVE_MS);
+      await route.continue();
+    });
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+
+    await expect(page.getByLabel(TITLE_LABEL)).toBeDisabled();
+    await expect(page.getByLabel(EVENT_PLACE_LABEL)).toBeDisabled();
+    await capture(page, '32-admin-edit-saving');
+
+    /* 応答が返れば保存は成立し、一覧へ戻る */
+    await expect(page.getByRole('table')).toBeVisible();
+    await page.unroute(UPDATE_API);
+  });
+
   test('対象を指定せずに編集を開くと、対象が無いと言う', async ({ page }) => {
     await page.goto(`${stack.adminBaseUrl}/albums/edit`);
     await page.getByLabel(API_KEY_LABEL).fill(stack.adminApiKey);
@@ -209,6 +243,44 @@ test.describe('管理画面の作品の追加', () => {
     await expect(page.getByRole('table')).toBeVisible();
     await expect(rowOf(page, title)).toContainText(DRAFT_LABEL);
     await capture(page, '31-admin-new-created');
+  });
+
+  test('鍵が断られても入力は残り、入れ直せば続けて作成できる', async ({ page }) => {
+    const stamp = String(Date.now());
+    const title = `E2E 鍵を入れ直して追加した作品 ${stamp}`;
+
+    /*
+     * 新規作成は鍵の入力時に管理APIを呼ばない（読み込むものが無い）。したがって鍵が正しいと分かるのは
+     * 最初の保存のときで、そこで入力を捨てると全項目を書き直させることになる。
+     */
+    await page.goto(`${stack.adminBaseUrl}/albums/new`);
+    await page.getByLabel(API_KEY_LABEL).fill(WRONG_API_KEY);
+    await page.getByRole('button', { name: OPEN_LABEL }).click();
+
+    await page.getByLabel(TITLE_LABEL).fill(title);
+    await page.getByLabel(RELEASE_DATE_LABEL).fill('2026-11-01');
+    await page.getByLabel(ARTIST_LABEL).fill('E2E 再認証アーティスト');
+    await page.getByLabel(CATALOG_NUMBER_LABEL).fill(`${SCRATCH_CATALOG_PREFIX}${stamp}`);
+
+    await page.getByRole('button', { name: CREATE_LABEL }).click();
+
+    /* 鍵の入力へ戻るが、入力を抱えていることを伝える */
+    await expect(page.getByLabel(API_KEY_LABEL)).toBeVisible();
+    await expect(page.getByText(PENDING_NOTICE)).toBeVisible();
+    await capture(page, '33-admin-new-key-refused');
+
+    await page.getByLabel(API_KEY_LABEL).fill(stack.adminApiKey);
+    await page.getByRole('button', { name: OPEN_LABEL }).click();
+
+    /* 書いた内容がそのまま戻る（読み直しも初期化もしない） */
+    await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(title);
+    await expect(page.getByLabel(ARTIST_LABEL)).toHaveValue('E2E 再認証アーティスト');
+    await capture(page, '34-admin-new-key-accepted');
+
+    await page.getByRole('button', { name: CREATE_LABEL }).click();
+
+    await expect(page.getByRole('table')).toBeVisible();
+    await expect(rowOf(page, title)).toContainText(DRAFT_LABEL);
   });
 
   test('必須を入れずに作成すると、その欄にエラーが出る', async ({ page }) => {
