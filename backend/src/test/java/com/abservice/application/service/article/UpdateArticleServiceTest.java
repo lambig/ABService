@@ -65,7 +65,7 @@ class UpdateArticleServiceTest {
     void publicFlagAndTagsAreUnaffected() {
         final var existing = existingArticle()
                 .publish(NOW)
-                .addTag(ArticleTag.create("タグ"), NOW);
+                .addTag(ArticleTag.create("タグ"));
 
         final var updated = UpdateArticleService.validateAndApply(
                 existing,

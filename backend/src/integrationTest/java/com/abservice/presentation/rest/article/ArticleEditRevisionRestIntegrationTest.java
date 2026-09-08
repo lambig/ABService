@@ -20,8 +20,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * </p>
  *
  * <p>
- * 編集単位の当てはめはアルバムと同じではない。タグは記事集約の内側にあり、その操作は記事の業務上の更新日時を動かす
- * ため、本体の世代が進む（アルバムのトラックは別の行で親を汚さない）。公開操作も同じく本体を変える。どこまでが同じ 編集単位かをここで固定する。
+ * どこまでが同じ編集単位かもここで固定する。タグの付け替えは記事そのものの更新ではないため、本体の世代も更新日時も
+ * 動かさない（アルバムのトラックと同じ扱い）。一方、公開・非公開は記事の状態を変えるため世代が進む。
  * </p>
  */
 @QuarkusTest
@@ -103,25 +103,25 @@ class ArticleEditRevisionRestIntegrationTest {
     }
 
     @Test
-    @DisplayName("タグの追加は記事本体の世代を進める（タグは記事集約の一部）")
-    void addingATagAdvancesTheArticleRevision() {
+    @DisplayName("タグの操作は記事本体の世代も更新日時も動かさない（タグの付け替えは記事の更新ではない）")
+    void changingTagsDoesNotAdvanceTheArticleRevision() {
         final String articleId = createArticle("タグの編集単位記事");
         final int revision = revisionOf(articleId);
+        final String updatedAtBusiness = authorized().when().get("/api/v1/admin/articles/" + articleId).then()
+                .statusCode(200).extract().path("updatedAtBusiness");
 
-        authorized().contentType(ContentType.JSON).body("{\"name\":\"世代テストタグ\"}")
-                .when().post("/api/v1/articles/" + articleId + "/tags").then().statusCode(201);
+        final String tagId = authorized().contentType(ContentType.JSON).body("{\"name\":\"世代テストタグ\"}")
+                .when().post("/api/v1/articles/" + articleId + "/tags").then().statusCode(201).extract()
+                .path("tagId");
 
-        /*
-         * アルバムのトラックとは違い、タグは記事集約の内側にある。タグの操作は記事の業務上の更新日時を動かすため、 本体の行が変わり世代が進む。
-         */
-        final int revisionAfterTag = revisionOf(articleId);
-        assertThat(revisionAfterTag).as("タグの操作は本体の世代を進める").isGreaterThan(revision);
+        authorized().when().delete("/api/v1/articles/" + articleId + "/tags/" + tagId).then().statusCode(204);
 
-        /* したがって、タグを操作した後に読み直さずに保存すると競合になる */
-        authorized().contentType(ContentType.JSON).body(updateBody(revision, "タグ操作前の世代での保存"))
-                .when().put("/api/v1/articles/" + articleId).then().statusCode(409);
+        assertThat(revisionOf(articleId)).as("タグの付け替えでは本体の世代は進まない").isEqualTo(revision);
+        authorized().when().get("/api/v1/admin/articles/" + articleId).then().statusCode(200)
+                .body("updatedAtBusiness", equalTo(updatedAtBusiness));
 
-        authorized().contentType(ContentType.JSON).body(updateBody(revisionAfterTag, "読み直した世代での保存"))
+        /* したがって、タグを操作した後も本体の編集は読み直しを要さない */
+        authorized().contentType(ContentType.JSON).body(updateBody(revision, "タグ操作後の保存"))
                 .when().put("/api/v1/articles/" + articleId).then().statusCode(200);
     }
 

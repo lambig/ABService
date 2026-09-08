@@ -21,7 +21,7 @@ import org.jspecify.annotations.Nullable;
  *            記事ID（ドメインID・UUIDv7形式の文字列）
  * @param revision
  *            編集の世代。記事本体の行の版で、更新要求の {@code expectedRevision} と突き合わせる（DECISIONS
- *            30）。 タグは記事集約の内側にあるため、タグの操作でもこの値は進む
+ *            30）。 タグの付け替えは記事の更新ではないためこの値を動かさず、公開・非公開は本体を変えるため進める
  * @param articleType
  *            記事種別（列挙子名）
  * @param albumId
