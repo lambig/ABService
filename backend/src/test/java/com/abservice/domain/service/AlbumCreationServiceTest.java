@@ -339,4 +339,78 @@ class AlbumCreationServiceTest {
         assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
                 .contains("EVENT_NAME_REQUIRED");
     }
+
+    @Test
+    @DisplayName("エラーの位置は引数の綴りで返り、同じ value を返す値オブジェクトどうしを区別できる")
+    void errorsCarryArgumentNames() {
+        final var titleAndCatalogNumberAndIsdn = AlbumCreationService.validate(
+                "   ",
+                VALID_RELEASE_DATE,
+                "アーティスト名",
+                null,
+                "a".repeat(101),
+                "not-an-isdn",
+                null,
+                null,
+                null,
+                null);
+
+        assertThat(titleAndCatalogNumberAndIsdn.errors().stream().map(ErrorResult::field).toList())
+                .contains(
+                        "title",
+                        "catalogNumber",
+                        "isdn");
+    }
+
+    @Test
+    @DisplayName("アーティスト名・カバー画像・説明・イベント名も引数の綴りで返る")
+    void optionalErrorsCarryArgumentNames() {
+        final var artistAndCover = AlbumCreationService.validate(
+                "アルバムタイトル",
+                VALID_RELEASE_DATE,
+                "   ",
+                null,
+                null,
+                null,
+                "/assets/01a0233d-d25a-7c3b-924f-236ee154fecc.png",
+                null,
+                null,
+                null);
+        final var descriptionFormat = AlbumCreationService.validate(
+                "アルバムタイトル",
+                VALID_RELEASE_DATE,
+                "アーティスト名",
+                null,
+                null,
+                null,
+                null,
+                "説明本文",
+                null,
+                null);
+        final var eventName = AlbumCreationService.validate(
+                "アルバムタイトル",
+                VALID_RELEASE_DATE,
+                "アーティスト名",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new EventFields(
+                        "   ",
+                        NO_EVENT_DATE,
+                        null,
+                        null,
+                        null));
+
+        assertThat(artistAndCover.errors().stream().map(ErrorResult::field).toList())
+                .contains(
+                        "artistDisplayName",
+                        "coverImageKey");
+        assertThat(descriptionFormat.errors().stream().map(ErrorResult::field).toList())
+                .containsExactly("descriptionFormat");
+        assertThat(eventName.errors().stream().map(ErrorResult::field).toList())
+                .containsExactly("event.name");
+    }
 }

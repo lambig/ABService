@@ -16,6 +16,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 import lombok.AllArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
@@ -49,17 +50,20 @@ public class RegisterAlbumWithTracksService
     @WithTransaction
     @Override
     public Uni<RegisterAlbumWithTracksOutput> execute(RegisterAlbumWithTracksInput input) {
-        return albumCreationService.create(
-                input.title(),
-                resolveReleaseDate(input.releaseDate()),
-                input.artistDisplayName(),
-                input.artistSortKey(),
-                input.catalogNumber(),
-                input.isdn(),
-                input.coverImageKey(),
-                input.description(),
-                input.descriptionFormat(),
-                toEventFields(input.event()))
+        return Uni.createFrom()
+                .item(
+                        () -> albumCreationService.create(
+                                input.title(),
+                                resolveReleaseDate(input.releaseDate()),
+                                input.artistDisplayName(),
+                                input.artistSortKey(),
+                                input.catalogNumber(),
+                                input.isdn(),
+                                input.coverImageKey(),
+                                input.description(),
+                                input.descriptionFormat(),
+                                toEventFields(input.event()))
+                                .resolve(ValidationException::new))
                 .flatMap(album -> addTracks(album, tracksOf(input)))
                 .flatMap(albumRepository::save)
                 .map(RegisterAlbumWithTracksService::toOutput);
@@ -72,30 +76,50 @@ public class RegisterAlbumWithTracksService
     }
 
     private Uni<Album> addTracks(Album album, List<RegisterAlbumWithTracksInput.TrackInput> tracks) {
-        return tracks.stream()
+        return IntStream.range(0, tracks.size())
+                .boxed()
                 .reduce(
                         Uni.createFrom().item(album),
-                        (accUni, track) -> accUni.flatMap(a -> addOneTrack(a, track)),
+                        (accUni, index) -> accUni.flatMap(
+                                a -> addOneTrack(
+                                        a,
+                                        tracks.get(index),
+                                        index)),
                         (a, b) -> {
                             throw new UnsupportedOperationException();
                         });
     }
 
-    private Uni<Album> addOneTrack(Album album, RegisterAlbumWithTracksInput.@Nullable TrackInput track) {
-        return Optional.ofNullable(track)
-                .map(RegisterAlbumWithTracksService::toTrackFields)
-                .map(
-                        fields -> trackAdditionService.addTrack(album, fields)
-                                .map(TrackAdditionService.Addition::album))
-                .orElseGet(
-                        () -> Uni.createFrom()
-                                .failure(
-                                        new ValidationException(
-                                                List.of(
-                                                        new ErrorResult(
-                                                                "tracks",
-                                                                "トラック情報は必須です",
-                                                                "TRACK_REQUIRED")))));
+    /**
+     * トラック1件を追加する。エラーの位置は、そのトラックの入力パス（{@code tracks[i].<項目>}）へ写す。
+     *
+     * <p>
+     * ドメインサービスが返すのは自分の入力（{@code TrackFields}）の綴りで、自分が何番目のトラックかは知らない。
+     * 添字を知っているのは一覧を組み立てるここだけで、落とすとどのトラックが不正なのかを呼び出し元が特定できない。
+     * </p>
+     */
+    private Uni<Album> addOneTrack(
+            Album album,
+            RegisterAlbumWithTracksInput.@Nullable TrackInput track,
+            int index) {
+        return Uni.createFrom()
+                .item(
+                        () -> Optional.ofNullable(track)
+                                .map(RegisterAlbumWithTracksService::toTrackFields)
+                                .map(
+                                        fields -> trackAdditionService.addTrack(album, fields)
+                                                .mapErrorFields(field -> "tracks[" + index + "]." + field))
+                                .orElseGet(() -> Result.<TrackAdditionService.Addition>failure(missingTrack(index)))
+                                .resolve(ValidationException::new))
+                .map(TrackAdditionService.Addition::album);
+    }
+
+    /** 行そのものが無い場合は、その要素の位置を指す（項目のパスを持たないため添字までで止める）。 */
+    private static ErrorResult missingTrack(int index) {
+        return new ErrorResult(
+                "tracks[" + index + "]",
+                "トラック情報は必須です",
+                "TRACK_REQUIRED");
     }
 
     private static TrackAdditionService.TrackFields toTrackFields(RegisterAlbumWithTracksInput.TrackInput t) {

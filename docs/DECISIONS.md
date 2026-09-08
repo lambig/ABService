@@ -429,15 +429,19 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 ---
 
-## 29. 入力エラーの位置は、VOではなく入力を組み立てる場所でAPIの入力パスへ写す
+## 29. 入力エラーの位置は、値を検証した場所が自分の語彙へ写し、境界で合成する
 
-**判断**: 値オブジェクトの検証エラーは、その値オブジェクト自身にとってのローカルな field を返す（`AssetKey` は `assetKey`）。APIの入力パス（`coverImageKey`・`event.name`・`tracks[0].title` 等）への対応付けは、application input を組み立てる場所が `Result#mapErrorFields` で行う。成功値・message/code・エラーの順序は変えず、位置だけを写す。入れ子と配列添字は写像の合成で表す。
+**判断**: 検証エラーの位置は、**その値を渡した側の語彙**で返す。値オブジェクトは自分にとってのローカルな field を返し（`AssetKey` は `assetKey`）、それを受け取った関数・ドメインサービスは自分の引数の綴りへ写す（`AlbumCreationService` は `coverImageKey`、`TrackTune.fromInput` は `composerCreditOverride`）。APIの入力パスへの最終的な対応付けと、入れ子・配列添字の合成（`tracks[0].tunes[1].tuneTitle`）は、application input を組み立てる場所が行う。位置の変換は `Result#mapErrorFields`（写像）と `Result#withErrorField`（1つのパスへ固定）で、成功値・message/code・エラーの順序は変えない。
 
-全体に関わるエラーを表す空の field は空のまま維持し、特定の項目のエラーへ寄せない。
+そのため、**ドメインの検証は例外ではなく `Result` で返す**。例外へ変えるのは application 境界の判断で、そこは位置を写せる唯一の場所でもある。
+
+全体に関わるエラーを表す空の field は空のまま維持し、特定の項目のエラーへ寄せない（この維持は呼び出し側の写像ではなく `Result` 側で守る）。
 
 フロントエンドは code から field を導く対応表を持たず、応答が返した field をそのまま使う。管理APIの応答は HTTP status と Problem Details を保ったまま画面へ渡し、通信の失敗・HTTPの失敗・成功応答の読み取り失敗を別の理由として区別する。本文を要求する操作と本文を持たない操作（204）は型で分け、204 を任意の型の値へ偽装しない。
 
-**なぜ**: 同じ値オブジェクトは複数の入力位置から使われ、入れ子や配列の要素にも現れる。値オブジェクトがAPIのパスを知ると、再利用のたびに「どの入力から来たか」の分岐を値オブジェクト側が持つことになり、パスの正が値オブジェクトとAPI定義の2箇所へ散る。組み立てる場所は、自分がその値をどのパスへ置いたかを知っている。そこで写せば、知識は最小で足りる。
+**なぜ**: 同じ値オブジェクトは複数の入力位置から使われ、入れ子や配列の要素にも現れる。値オブジェクトがAPIのパスを知ると、再利用のたびに「どの入力から来たか」の分岐を値オブジェクト側が持つことになり、パスの正が値オブジェクトとAPI定義の2箇所へ散る。渡した側は、自分がその値をどの引数・どのパスへ置いたかを知っている。そこで写せば、知識は最小で足りる。
+
+写す場所を1箇所（最外の境界）に集めることはできない。`AlbumTitle`・`CatalogNumber`・`Isdn` はいずれも `value` を返すため、受け取った側から見ると区別がつかない。区別できるのは、それぞれを呼んだ場所だけである。配列の添字も同じで、要素は自分が何番目かを知らない。
 
 空の field を項目のエラーへ寄せると、フォームは「どの欄でもないエラー」を特定の欄の下に描く。欄に紐付かないことは、欄が分からないことではなく、そのエラーの性質である。
 
@@ -445,4 +449,4 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **トレードオフ**: field は文字列であり、対応付けの取りこぼしをコンパイル時には検出できない。取りこぼした項目は、欄に紐付かないエラーとして画面に出る（誤った欄には出ない）。
 
-**実体**: `Result#mapErrorFields` / `ResultFieldMappingTest`、`UpdateAlbumService`、`frontend-admin` の `src/lib/api/http.ts`（`requestJson` / `requestEmpty`）と `src/lib/api/http.test.ts`。
+**実体**: `Result#mapErrorFields` / `Result#withErrorField` / `ResultFieldMappingTest`、`AlbumCreationService` / `TrackAdditionService`（`Result` を返し、自分の引数の綴りで位置を返す）、`RegisterAlbumWithTracksService`（`tracks[i].` の合成）、`frontend-admin` の `src/lib/api/http.ts`（`requestJson` / `requestEmpty`）と `src/lib/api/http.test.ts`。

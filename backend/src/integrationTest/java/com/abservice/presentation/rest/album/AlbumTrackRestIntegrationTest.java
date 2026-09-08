@@ -115,6 +115,20 @@ class AlbumTrackRestIntegrationTest {
     }
 
     @Test
+    @DisplayName("チューン構成の行そのものが無いトラック追加は400で、その行の位置を返す")
+    void addTrackWithMissingTuneRowReturnsValidationError() {
+        final String albumId = createAlbum("チューン構成行欠落確認アルバム");
+
+        authorized().contentType(ContentType.JSON)
+                .body("{\"trackNo\":1,\"title\":\"1曲目\",\"tunes\":[null]}")
+                .when().post("/api/v1/albums/" + albumId + "/tracks").then().statusCode(400)
+                .contentType("application/problem+json")
+                .body("type", equalTo("urn:abservice:error:VALIDATION_ERROR"))
+                .body("errors[0].field", equalTo("tunes[0]"))
+                .body("errors[0].code", equalTo("TUNE_REQUIRED"));
+    }
+
+    @Test
     @DisplayName("トラックを更新するとチューン構成を含む全項目が置換される")
     void updateTrackReplacesFields() {
         final String albumId = createAlbum("トラック更新確認アルバム");
