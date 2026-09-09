@@ -46,10 +46,25 @@
      * （#323）。
      */
     readonly onChanged: (albumId: string | null, revision: number) => void;
+    /**
+     * 付け外しが編集開始時点より後の保存によって断られた（stale revisionの409）ことを画面全体へ渡す。
+     *
+     * この区画には#287の競合UI（入力を保持し「最新を読み込む」へ導く）が無いため、通常の失敗
+     * （鍵切れ・想定外のエラー等）とは分けて親へ委ねる。ALBUM以外の種別への操作を拒む409
+     * （BUSINESS_RULE_VIOLATION）はここに含めない——読み直しても解決しないため。
+     */
+    readonly onConflict: () => void;
   };
 
-  const { apiKey, articleId, albumId, expectedRevision, onUnauthorized, onChanged }: Props =
-    $props();
+  const {
+    apiKey,
+    articleId,
+    albumId,
+    expectedRevision,
+    onUnauthorized,
+    onChanged,
+    onConflict,
+  }: Props = $props();
 
   /**
    * いま参照している作品の見えかた。
@@ -89,6 +104,12 @@
 
   const failureTextOf = (failure: ApiFailure): string =>
     failure.kind === 'unauthorized' ? '鍵が受け付けられませんでした。' : failure.message;
+
+  /** stale revisionを表すエラー型（DECISIONS 30）。ALBUM以外への操作を拒む409とは型で区別する */
+  const CONFLICT_PROBLEM_TYPE = 'urn:abservice:error:CONFLICTING_UPDATE';
+
+  const isStaleRevisionConflict = (failure: ApiFailure): boolean =>
+    failure.kind === 'failed' && failure.problem?.type === CONFLICT_PROBLEM_TYPE;
 
   /**
    * 鍵が断られたかどうかで、画面全体へ渡すかを分ける。
@@ -139,11 +160,17 @@
   };
 
   /**
-   * 参照を差し替えた結果を反映する。断られたなら理由を残し、参照は動かさない。
+   * 参照を差し替えた結果を反映する。
    *
    * <p>
-   * 成功したときだけ、応答が返した世代を画面全体へ渡す。**世代を取り直すGETは挟まない**——別の操作が
+   * 成功したときは、応答が返した世代を画面全体へ渡す。**世代を取り直すGETは挟まない**——別の操作が
    * 間に保存していれば、それを黙って追い越すことになる（#323）。
+   * </p>
+   *
+   * <p>
+   * stale revisionによる409は、この区画の「断られた」表示に留めず親へ渡す。#287の競合UI
+   * （入力を保持し「最新を読み込む」へ導く）に接続するためで、この区画には復帰手段が無い。それ以外の
+   * 失敗（鍵切れ・ALBUM以外への操作を拒む409・想定外のエラー）は、理由をこの区画に残す。
    * </p>
    */
   const applyLink = (
@@ -152,9 +179,12 @@
     nextAlbumId: string | null,
   ): void => {
     const message = result.kind === 'ok' ? '' : failureTextOf(result);
+    const conflict = result.kind !== 'ok' && isStaleRevisionConflict(result);
 
     KEY_STORE[result.kind](apiKey);
-    operation = result.kind === 'ok' ? { kind: 'idle' } : { kind: 'rejected', message };
+    operation = [result.kind === 'ok', conflict].some(Boolean)
+      ? { kind: 'idle' }
+      : { kind: 'rejected', message };
     reference = result.kind === 'ok' ? next : reference;
     search = result.kind === 'ok' ? { kind: 'idle' } : search;
     ESCALATE[result.kind](message);
@@ -164,7 +194,9 @@
         ? () => {
             onChanged(nextAlbumId, result.value.revision);
           }
-        : () => undefined;
+        : conflict
+          ? onConflict
+          : () => undefined;
     notify();
   };
 

@@ -589,6 +589,18 @@
         : current;
   };
 
+  /**
+   * 参照の付け外しが編集開始時点より後の保存によって断られたときの画面全体の扱い。
+   *
+   * <p>
+   * 本文保存の競合（{@link rejectionOf}）と同じ `conflicted` 状態にする。入力・タグ・albumId・
+   * 古い `target` はそのまま保持し、「最新を読み込む」を選ぶまで自動では更新しない（#287・#323）。
+   * </p>
+   */
+  const albumOperationConflicted = (): void => {
+    withSubmission({ kind: 'conflicted' });
+  };
+
   const viewAfterFailure = (failure: ApiFailure): View =>
     failure.kind === 'unauthorized'
       ? {
@@ -968,6 +980,7 @@
             expectedRevision={target === null ? null : target.revision}
             onUnauthorized={lockWithInput}
             onChanged={withAlbum}
+            onConflict={albumOperationConflicted}
           />
         {/if}
       {/key}
