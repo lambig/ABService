@@ -32,3 +32,14 @@ export const albumIdIn = (search: string): string | null =>
 
 /** 記事の一覧 */
 export const ARTICLE_LIST_PATH = `${BASE}/articles`;
+
+/** 記事の新規作成 */
+export const NEW_ARTICLE_PATH = `${BASE}/articles/new`;
+
+/** 記事の編集。対象の渡し方は作品と同じ（{@link editAlbumPath}） */
+export const editArticlePath = (articleId: string): string =>
+  `${BASE}/articles/edit?articleId=${encodeURIComponent(articleId)}`;
+
+/** 編集画面が受け取った対象。指定が無ければ null */
+export const articleIdIn = (search: string): string | null =>
+  new URLSearchParams(search).get('articleId');

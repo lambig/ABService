@@ -366,6 +366,45 @@ export const deleteArticle = async (articleId: string): Promise<void> => {
       );
 };
 
+/** 管理向け記事詳細のうち、画面の外から更新を送るために要る項目 */
+interface AdminArticleDetail {
+  readonly revision: number;
+  readonly articleType: string;
+  readonly title: string;
+  readonly body: string;
+  readonly bodyFormat: string;
+  readonly introShort: string;
+}
+
+/**
+ * 別のタブが保存した状態を作る（タイトルだけを変えて全項目置換する）。
+ *
+ * <p>
+ * 更新は編集を始めた時点の世代（`expectedRevision`）を要求するため、詳細を読んでから送る（#287）。画面が
+ * 同じ記事を開いたまま古い世代で保存しようとしたときに、競合として拒まれることを見るために使う。
+ * </p>
+ *
+ * @param articleId
+ *            対象の記事のドメインID
+ * @param title
+ *            置き換え後のタイトル
+ */
+export const renameArticleOutsideTheScreen = async (
+  articleId: string,
+  title: string,
+): Promise<void> => {
+  const detail = (await getAdmin(`/api/v1/admin/articles/${articleId}`)) as AdminArticleDetail;
+
+  await sendAdmin('PUT', `/api/v1/articles/${articleId}`, {
+    expectedRevision: detail.revision,
+    articleType: detail.articleType,
+    title,
+    body: detail.body,
+    bodyFormat: detail.bodyFormat,
+    introShort: detail.introShort,
+  });
+};
+
 /** 管理向け一覧の1件。同定に使う項目だけを持つ */
 export interface AdminArticle {
   readonly articleId: string;
