@@ -1,6 +1,8 @@
 <script lang="ts">
   import ApiKeyForm from '$components/ApiKeyForm.svelte';
+  import ArticleAlbumEditor from '$components/ArticleAlbumEditor.svelte';
   import ArticleTagsEditor from '$components/ArticleTagsEditor.svelte';
+  import ConfirmDialog from '$components/ConfirmDialog.svelte';
   import { Button } from '$components/ui/button/index.js';
   import {
     ARTICLE_TYPES,
@@ -110,11 +112,17 @@
    * `detached` は**作成はできたが、続けて編集するための世代を読めなかった**状態。ここから保存を通すと
    * 同じ内容の記事をもう1件作ることになるため、保存を塞いで読み直しへ導く。
    * </p>
+   *
+   * <p>
+   * `confirming` は、保存すると作品への参照が落ちることを確かめている状態。落とすかどうかを決めるのは
+   * バックエンドの遷移規則で、画面は**そうなることを伝える**だけ。
+   * </p>
    */
   type Submission =
     | { readonly kind: 'idle' }
     | { readonly kind: 'saving' }
     | { readonly kind: 'saved' }
+    | { readonly kind: 'confirming' }
     | { readonly kind: 'invalid'; readonly errors: FormErrors }
     | { readonly kind: 'conflicted' }
     | { readonly kind: 'refused'; readonly message: string }
@@ -143,6 +151,7 @@
     target: Target | null;
     draft: ArticleDraft;
     tags: readonly AdminArticleTag[];
+    albumId: string | null;
   }>;
 
   /**
@@ -198,6 +207,13 @@
          * 入力（`draft`）と別に持つ。タグは本体の保存とは別の経路で変わるため、保存の対象に含めない。
          */
         readonly tags: readonly AdminArticleTag[];
+        /**
+         * 参照している作品。無ければ null。
+         *
+         * タグと同じく本体の保存とは別の経路で変わる。**種別を `ALBUM` から変えると落ちる**ため、
+         * 保存の前に確認するかどうかの判断にも使う。
+         */
+        readonly albumId: string | null;
         readonly submission: Submission;
       };
 
@@ -215,18 +231,29 @@
     target: Target | null,
     draft: ArticleDraft,
     tags: readonly AdminArticleTag[],
+    albumId: string | null,
   ): View => ({
     kind: 'editing',
     apiKey,
     target,
     draft,
     tags,
+    albumId,
     submission: { kind: 'idle' },
   });
 
   const lock = (message: string | null, resumption: Resumption): void => {
     view = { kind: 'locked', message, resumption };
   };
+
+  /**
+   * 照会が返した作品への参照。
+   *
+   * 参照を持てるのは `ALBUM` 種別だけで、応答も種別ごとのサブタイプに分かれている（DECISIONS 21）。
+   * 種別で枝を選ぶ以上のことはしない。
+   */
+  const albumIdOf = (article: AdminArticleDetail): string | null =>
+    article.articleType === 'ALBUM' ? article.albumId : null;
 
   const loaded = (
     apiKey: string,
@@ -239,6 +266,7 @@
           { articleId, revision: result.value.revision },
           draftOf(result.value),
           result.value.tags,
+          albumIdOf(result.value),
         )
       : result.kind === 'unauthorized'
         ? {
@@ -259,7 +287,7 @@
 
   /** 新規作成は読み込むものが無い。鍵だけを確かめて入力へ入る */
   const start = (apiKey: string): void => {
-    view = editing(apiKey, null, EMPTY_DRAFT, []);
+    view = editing(apiKey, null, EMPTY_DRAFT, [], null);
   };
 
   const unspecify = (): void => {
@@ -314,6 +342,7 @@
             resumption.pending.target,
             resumption.pending.draft,
             resumption.pending.tags,
+            resumption.pending.albumId,
           );
         })
       : resumption.kind === 'load'
@@ -514,7 +543,12 @@
     current.kind === 'editing'
       ? {
           kind: 'input',
-          pending: { target: current.target, draft: current.draft, tags: current.tags },
+          pending: {
+            target: current.target,
+            draft: current.draft,
+            tags: current.tags,
+            albumId: current.albumId,
+          },
         }
       : { kind: 'open' };
 
@@ -532,6 +566,42 @@
   const withTags = (next: readonly AdminArticleTag[]): void => {
     const current = view;
     view = current.kind === 'editing' ? { ...current, tags: next } : current;
+  };
+
+  /** 参照の変更を画面全体へ取り込む。種別を変えるときの確認も、この値で決まる */
+  /**
+   * 参照を付け外しした後に、持っている世代を取り直す。
+   *
+   * <p>
+   * **参照の設定・解除は記事そのものを更新するため、世代が進む。**取り直さないと、以後の保存が必ず
+   * 競合として断られる（入力は残るが、保存するには読み直すしかなくなる）。読めなかったときは古い世代の
+   * ままで、そのときは保存が競合として断られる——嘘の世代で送るよりは、断られたほうがよい。
+   * </p>
+   */
+  const refreshRevision = async (apiKey: string, articleId: string): Promise<void> => {
+    const result = await attach(apiKey, articleId);
+    const current = view;
+
+    view =
+      result.kind === 'ok' && current.kind === 'editing'
+        ? { ...current, target: result.value }
+        : current;
+  };
+
+  const albumChanged = (
+    current: Extract<View, { readonly kind: 'editing' }>,
+    next: string | null,
+  ): Promise<void> => {
+    view = { ...current, albumId: next };
+
+    return current.target === null
+      ? Promise.resolve()
+      : refreshRevision(current.apiKey, current.target.articleId);
+  };
+
+  const withAlbum = (next: string | null): void => {
+    const current = view;
+    void (current.kind === 'editing' ? albumChanged(current, next) : Promise.resolve());
   };
 
   const viewAfterFailure = (failure: ApiFailure): View =>
@@ -557,6 +627,17 @@
     message: `記事は作成されましたが、続きを読み込めませんでした。${saved.detachedReason ?? ''}`,
   });
 
+  /**
+   * 保存した後に残っている参照。
+   *
+   * <p>
+   * `ALBUM` 以外で保存すれば参照は落ちる。**落とすと決めるのはバックエンド**だが、保存の前に確かめた
+   * 結果をここへ取り込まないと、種別を戻したときに落ちた参照を残っているように見せる。
+   * </p>
+   */
+  const albumAfterSave = (current: Extract<View, { readonly kind: 'editing' }>): string | null =>
+    current.draft.articleType === 'ALBUM' ? current.albumId : null;
+
   const viewAfterSave = (saved: Saved): View => {
     const current = view;
 
@@ -564,7 +645,12 @@
       ? current
       : saved.target === null
         ? { ...current, submission: detachedOf(saved) }
-        : { ...current, target: saved.target, submission: { kind: 'saved' } };
+        : {
+            ...current,
+            target: saved.target,
+            albumId: albumAfterSave(current),
+            submission: { kind: 'saved' },
+          };
   };
 
   const applySaveOutcome = (apiKey: string, result: ApiResult<Saved>): void => {
@@ -587,12 +673,50 @@
   const submittable = (submission: Submission): boolean =>
     SUBMITTABLE_KINDS.some((kind) => kind === submission.kind);
 
+  /**
+   * 保存すると作品への参照が落ちるか。
+   *
+   * <p>
+   * 参照を持てるのは `ALBUM` 種別だけのため、参照があるまま他の種別へ変えて保存すると落ちる
+   * （DECISIONS 21。落とすのはバックエンドの遷移規則で、画面はその判定を持たない）。**入力の誤りでは
+   * ないので欄のエラーにはせず、保存の前に確かめる。**
+   * </p>
+   */
+  const dropsAlbum = (current: Extract<View, { readonly kind: 'editing' }>): boolean =>
+    [current.albumId !== null, current.draft.articleType !== 'ALBUM'].every(Boolean);
+
   const submit = (event: SubmitEvent): void => {
     event.preventDefault();
 
     const current = view;
     void (current.kind === 'editing' && submittable(current.submission)
+      ? requested(current)
+      : Promise.resolve());
+  };
+
+  /** 確かめることがあれば確認へ、無ければそのまま保存へ */
+  const requested = (current: Extract<View, { readonly kind: 'editing' }>): Promise<void> =>
+    dropsAlbum(current)
+      ? settled(() => {
+          withSubmission({ kind: 'confirming' });
+        })
+      : submitWith(current.apiKey, current.target, current.draft);
+
+  /** 参照が落ちることを確かめたうえで保存する */
+  const confirmSave = (): void => {
+    const current = view;
+    void (current.kind === 'editing' && current.submission.kind === 'confirming'
       ? submitWith(current.apiKey, current.target, current.draft)
+      : Promise.resolve());
+  };
+
+  /** 確認をやめる。入力も参照もそのまま残る */
+  const cancelSave = (): void => {
+    const current = view;
+    void (current.kind === 'editing' && current.submission.kind === 'confirming'
+      ? settled(() => {
+          withSubmission({ kind: 'idle' });
+        })
       : Promise.resolve());
   };
 
@@ -659,6 +783,11 @@
 
   /** タグを付ける先。まだ作られていなければ null */
   const taggedArticleId = $derived(target === null ? null : target.articleId);
+  const albumId = $derived(view.kind === 'editing' ? view.albumId : null);
+
+  /** 参照の区画を出すか。参照を持てるのは `ALBUM` 種別だけ（DECISIONS 21） */
+  const albumReferable = $derived(draft.articleType === 'ALBUM');
+
   const submission = $derived<Submission>(
     view.kind === 'editing' ? view.submission : { kind: 'idle' },
   );
@@ -670,6 +799,9 @@
   const saving = $derived(submission.kind === 'saving');
   const conflicted = $derived(submission.kind === 'conflicted');
   const savedNotice = $derived(submission.kind === 'saved' ? '保存しました。' : null);
+
+  /** 参照が落ちることの確認を出しているか */
+  const confirming = $derived(submission.kind === 'confirming');
 
   /** 入力と保存を塞ぐ条件。送信中と、作成後に世代を読めていない状態 */
   const blocked = $derived([saving, submission.kind === 'detached'].some(Boolean));
@@ -721,63 +853,117 @@
     入力とプレビューを横に並べる。プレビューは打ちながら確かめるためのもので、入力の下に置くと
     本文を打っている間は画面の外にある。狭い画面では縦に積む（横に並べる幅が無い）。
   -->
-  <form class="grid items-start gap-8 lg:grid-cols-2" onsubmit={submit}>
+  <div class="grid items-start gap-8 lg:grid-cols-2">
     <div class="space-y-8">
       <!--
-        送ったのはクリックした時点の入力である。保存中も入力を受け付けると、その後の変更は要求に
-        入らないまま、保存できたことになる。
+        保存のフォームは本体の項目だけを含む。タグと作品への参照は押した時点で反映される別の操作で、
+        同じフォームへ入れると、そちらの入力欄で Enter を押したときに本体が保存される。
       -->
-      <fieldset class="space-y-4" disabled={blocked}>
-        {#each FIELDS as field (field.path)}
-          <div class="space-y-1" data-field={field.path}>
-            <label class="text-sm font-medium" for={idOf(field.path)}>{field.label}</label>
+      <form class="space-y-8" onsubmit={submit}>
+        <!--
+          送ったのはクリックした時点の入力である。保存中も入力を受け付けると、その後の変更は要求に
+          入らないまま、保存できたことになる。
+        -->
+        <fieldset class="space-y-4" disabled={blocked}>
+          {#each FIELDS as field (field.path)}
+            <div class="space-y-1" data-field={field.path}>
+              <label class="text-sm font-medium" for={idOf(field.path)}>{field.label}</label>
 
-            {#if field.kind === 'choice'}
-              <select
-                id={idOf(field.path)}
-                class="border-input bg-background w-full rounded-md border px-3 py-2"
-                value={draft[field.path]}
-                aria-invalid={messagesOf(field.path).length > 0}
-                onchange={(event) => {
-                  update(field.path, event.currentTarget.value);
-                }}
-              >
-                {#each field.choices as choice (choice)}
-                  <option value={choice}>{CHOICE_LABELS[choice] ?? choice}</option>
-                {/each}
-              </select>
-            {:else if field.kind === 'multiline'}
-              <textarea
-                id={idOf(field.path)}
-                class="border-input bg-background w-full rounded-md border px-3 py-2"
-                rows="6"
-                value={draft[field.path]}
-                aria-invalid={messagesOf(field.path).length > 0}
-                oninput={(event) => {
-                  update(field.path, event.currentTarget.value);
-                }}></textarea>
-            {:else}
-              <input
-                id={idOf(field.path)}
-                class="border-input bg-background w-full rounded-md border px-3 py-2"
-                type="text"
-                value={draft[field.path]}
-                aria-invalid={messagesOf(field.path).length > 0}
-                oninput={(event) => {
-                  update(field.path, event.currentTarget.value);
-                }}
-              />
-            {/if}
+              {#if field.kind === 'choice'}
+                <select
+                  id={idOf(field.path)}
+                  class="border-input bg-background w-full rounded-md border px-3 py-2"
+                  value={draft[field.path]}
+                  aria-invalid={messagesOf(field.path).length > 0}
+                  onchange={(event) => {
+                    update(field.path, event.currentTarget.value);
+                  }}
+                >
+                  {#each field.choices as choice (choice)}
+                    <option value={choice}>{CHOICE_LABELS[choice] ?? choice}</option>
+                  {/each}
+                </select>
+              {:else if field.kind === 'multiline'}
+                <textarea
+                  id={idOf(field.path)}
+                  class="border-input bg-background w-full rounded-md border px-3 py-2"
+                  rows="6"
+                  value={draft[field.path]}
+                  aria-invalid={messagesOf(field.path).length > 0}
+                  oninput={(event) => {
+                    update(field.path, event.currentTarget.value);
+                  }}></textarea>
+              {:else}
+                <input
+                  id={idOf(field.path)}
+                  class="border-input bg-background w-full rounded-md border px-3 py-2"
+                  type="text"
+                  value={draft[field.path]}
+                  aria-invalid={messagesOf(field.path).length > 0}
+                  oninput={(event) => {
+                    update(field.path, event.currentTarget.value);
+                  }}
+                />
+              {/if}
 
-            {#each messagesOf(field.path) as message (message)}
+              {#each messagesOf(field.path) as message (message)}
+                <p class="text-destructive text-sm" role="alert">{message}</p>
+              {/each}
+            </div>
+          {/each}
+        </fieldset>
+
+        {#if errors.unassigned.length > 0}
+          <section class="space-y-1">
+            <h2 class="text-base font-medium">どの項目にも紐付かないエラー</h2>
+            {#each errors.unassigned as message (message)}
               <p class="text-destructive text-sm" role="alert">{message}</p>
             {/each}
-          </div>
-        {/each}
-      </fieldset>
+          </section>
+        {/if}
+
+        {#if conflicted}
+          <section class="space-y-2" role="alert">
+            <h2 class="text-destructive text-base font-medium">
+              編集を始めた後に、別の操作がこの記事を保存しています
+            </h2>
+            <p class="text-muted-foreground text-sm">
+              いまの入力はそのまま保持しています。このまま保存し直しても、同じ理由で断られます。最新を読み込むと、
+              入力は保存されている内容に置き換わります。
+            </p>
+            <Button type="button" variant="outline" onclick={reload}>最新を読み込む</Button>
+          </section>
+        {/if}
+
+        {#if detachedMessage !== null}
+          <section class="space-y-2" role="alert">
+            <h2 class="text-destructive text-base font-medium">{detachedMessage}</h2>
+            <p class="text-muted-foreground text-sm">
+              このまま保存すると、同じ内容の記事をもう1件作ることになります。読み込み直すと、作られた記事を
+              続けて編集できます。
+            </p>
+            <Button type="button" variant="outline" onclick={reload}>読み込み直す</Button>
+          </section>
+        {/if}
+
+        {#if refusedMessage !== null}
+          <p class="text-destructive text-sm" role="alert">{refusedMessage}</p>
+        {/if}
+
+        {#if savedNotice !== null}
+          <p class="text-muted-foreground text-sm" role="status">{savedNotice}</p>
+        {/if}
+
+        <div class="flex items-center gap-4">
+          <Button type="submit" disabled={blocked}>
+            {saving ? '保存しています…' : saveLabel}
+          </Button>
+          <a class="text-sm underline underline-offset-4" href={ARTICLE_LIST_PATH}>一覧へ戻る</a>
+        </div>
+      </form>
 
       <!--
-        対象が変わったら作り直す（作成の直後に、その記事のタグを引き直すため）。区画の中の状態は
+        対象が変わったら作り直す（作成の直後に、その記事のタグと参照を引き直すため）。区画の中の状態は
         記事ごとのもので、前の記事の候補や失敗を持ち越さない。
       -->
       {#key taggedArticleId}
@@ -788,55 +974,17 @@
           onUnauthorized={lockWithInput}
           onChanged={withTags}
         />
+
+        {#if albumReferable}
+          <ArticleAlbumEditor
+            {apiKey}
+            {albumId}
+            articleId={taggedArticleId}
+            onUnauthorized={lockWithInput}
+            onChanged={withAlbum}
+          />
+        {/if}
       {/key}
-
-      {#if errors.unassigned.length > 0}
-        <section class="space-y-1">
-          <h2 class="text-base font-medium">どの項目にも紐付かないエラー</h2>
-          {#each errors.unassigned as message (message)}
-            <p class="text-destructive text-sm" role="alert">{message}</p>
-          {/each}
-        </section>
-      {/if}
-
-      {#if conflicted}
-        <section class="space-y-2" role="alert">
-          <h2 class="text-destructive text-base font-medium">
-            編集を始めた後に、別の操作がこの記事を保存しています
-          </h2>
-          <p class="text-muted-foreground text-sm">
-            いまの入力はそのまま保持しています。このまま保存し直しても、同じ理由で断られます。最新を読み込むと、
-            入力は保存されている内容に置き換わります。
-          </p>
-          <Button type="button" variant="outline" onclick={reload}>最新を読み込む</Button>
-        </section>
-      {/if}
-
-      {#if detachedMessage !== null}
-        <section class="space-y-2" role="alert">
-          <h2 class="text-destructive text-base font-medium">{detachedMessage}</h2>
-          <p class="text-muted-foreground text-sm">
-            このまま保存すると、同じ内容の記事をもう1件作ることになります。読み込み直すと、作られた記事を
-            続けて編集できます。
-          </p>
-          <Button type="button" variant="outline" onclick={reload}>読み込み直す</Button>
-        </section>
-      {/if}
-
-      {#if refusedMessage !== null}
-        <p class="text-destructive text-sm" role="alert">{refusedMessage}</p>
-      {/if}
-
-      {#if savedNotice !== null}
-        <p class="text-muted-foreground text-sm" role="status">{savedNotice}</p>
-      {/if}
-
-      <div class="flex items-center gap-4">
-        <Button type="submit" disabled={blocked}>
-          {saving ? '保存しています…' : saveLabel}
-        </Button>
-        <a class="text-sm underline underline-offset-4" href={ARTICLE_LIST_PATH}>一覧へ戻る</a>
-      </div>
     </div>
 
     <!--
@@ -866,5 +1014,21 @@
         </div>
       {/if}
     </section>
-  </form>
+  </div>
+
+  {#if confirming}
+    <ConfirmDialog
+      open={true}
+      title="この記事は作品を参照しています"
+      description="この種別のまま保存すると、参照は失効します。参照を残すなら、種別を作品紹介へ戻してください。"
+      confirmLabel="このまま保存する"
+      confirmDisabled={false}
+      cancelDisabled={false}
+      running={false}
+      failureMessage={null}
+      onRetry={null}
+      onConfirm={confirmSave}
+      onCancel={cancelSave}
+    />
+  {/if}
 {/if}

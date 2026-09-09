@@ -3,7 +3,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import type { Locator, Page } from '@playwright/test';
 
 import { renameArticleOutsideTheScreen } from '../support/admin-api.ts';
-import { albumArticle } from '../support/build-fixtures.ts';
+import { albumArticle, showcase } from '../support/build-fixtures.ts';
 import { stack } from '../support/config.ts';
 import { capture, clickWithEvidence, focusOn } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
@@ -69,6 +69,35 @@ const attachedTagsOf = (page: Page): Locator => page.locator('[data-tags="attach
 
 /** タグの候補だけを断らせる経路。記事の読み込み（`/api/v1/admin/articles/*`）とは分ける */
 const ARTICLE_TAGS_API = `${stack.backendBaseUrl}/api/v1/admin/article-tags`;
+
+/** 参照する作品の区画。タグと同じく、本文の保存とは別の操作 */
+const ALBUM_SEARCH_BY_LABEL = '探す項目';
+const ALBUM_SEARCH_KEYWORD_LABEL = '探す語';
+const ALBUM_SEARCH_LABEL = '探す';
+const ALBUM_LINK_LABEL = '参照する';
+const ALBUM_UNLINK_LABEL = '参照を外す';
+const NO_ALBUM_TEXT = '作品を参照していません。';
+const ALBUM_NEEDS_ARTICLE_TEXT = '記事を作成すると、作品を参照できます。';
+
+/** 種別を変えると参照が落ちることの確認 */
+const ALBUM_DROP_TITLE = 'この記事は作品を参照しています';
+const ALBUM_DROP_CONFIRM_LABEL = 'このまま保存する';
+const CANCEL_LABEL = 'やめる';
+
+/** 参照している作品と、探した候補 */
+const linkedAlbumOf = (page: Page): Locator => page.locator('[data-album="linked"]');
+const albumCandidatesOf = (page: Page): Locator => page.locator('[data-album="candidates"]');
+
+/** ALBUM 種別にして保存した記事を開いた状態にする。参照の区画はこの種別でだけ出る */
+const openAlbumArticle = async (page: Page, articleId: string): Promise<void> => {
+  await page.goto(`${EDIT_ARTICLE_URL}?articleId=${articleId}`);
+  await page.getByLabel(API_KEY_LABEL).fill(stack.adminApiKey);
+  await page.getByRole('button', { name: OPEN_LABEL }).click();
+
+  await page.getByLabel(TYPE_LABEL).selectOption('ALBUM');
+  await page.getByRole('button', { name: SAVE_LABEL }).click();
+  await expect(page.getByText(SAVED_NOTICE)).toBeVisible();
+};
 
 /** 本文のプレビュー。形式によって描き方が変わるため、区画を分けて指す */
 const markdownPreviewOf = (page: Page): Locator => page.locator('[data-preview="markdown"]');
@@ -457,6 +486,14 @@ test.describe('管理画面の記事のタグ', () => {
     await page.reload();
     await expect(attachedTagsOf(page)).toContainText(albumArticle.tags[0]);
 
+    /*
+     * タグを付けた後も本体を保存できる。タグの付け外しは記事の世代を進めない契約（#311）で、進めるなら
+     * ここが競合として断られる。
+     */
+    await page.getByLabel(TITLE_LABEL).fill(`${article.title} タグの後`);
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+    await expect(page.getByText(SAVED_NOTICE)).toBeVisible();
+
     await attachedTagsOf(page).getByRole('button', { name: TAG_REMOVE_LABEL }).click();
     await expect(page.getByText(NO_TAGS_TEXT)).toBeVisible();
   });
@@ -498,6 +535,93 @@ test.describe('管理画面の記事のタグ', () => {
     await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(article.title);
     await expect(page.getByLabel(TAG_SELECT_LABEL)).toBeVisible();
     await capture(page, '62-admin-article-tag-reauth');
+  });
+});
+
+/**
+ * 記事が参照する作品（#309 / #208）。
+ *
+ * 参照を持てるのは `ALBUM` 種別だけ（DECISIONS 21）。付け外しはタグと同じく本文の保存とは別の経路で、
+ * 押した時点で反映される。
+ */
+test.describe('管理画面の記事の作品参照', () => {
+  test('作品を検索して参照し、外せる', async ({ page }) => {
+    const article = await seedScratchArticle('作品参照');
+
+    await openAlbumArticle(page, article.articleId);
+    await expect(page.getByText(NO_ALBUM_TEXT)).toBeVisible();
+
+    /* 探すのはタイトルの部分一致。判定はバックエンドが持ち、画面は返った候補を並べるだけ */
+    await page.getByLabel(ALBUM_SEARCH_KEYWORD_LABEL).fill(showcase.title);
+    await page.getByRole('button', { name: ALBUM_SEARCH_LABEL }).click();
+
+    await clickWithEvidence(
+      page,
+      albumCandidatesOf(page).getByRole('button', { name: ALBUM_LINK_LABEL }).first(),
+      '63-admin-article-album-link',
+    );
+
+    await expect(linkedAlbumOf(page)).toContainText(showcase.title);
+    await capture(page, '64-admin-article-album-linked');
+
+    /* 保存を挟まずに反映されている。読み直しても参照したまま */
+    await page.reload();
+    await expect(linkedAlbumOf(page)).toContainText(showcase.title);
+
+    await linkedAlbumOf(page).getByRole('button', { name: ALBUM_UNLINK_LABEL }).click();
+    await expect(page.getByText(NO_ALBUM_TEXT)).toBeVisible();
+  });
+
+  test('カタログナンバーでも探せる', async ({ page }) => {
+    const article = await seedScratchArticle('カタログナンバーで探す');
+
+    await openAlbumArticle(page, article.articleId);
+
+    await page.getByLabel(ALBUM_SEARCH_BY_LABEL).selectOption('catalogNumber');
+    await page.getByLabel(ALBUM_SEARCH_KEYWORD_LABEL).fill(showcase.catalogNumber);
+    await page.getByRole('button', { name: ALBUM_SEARCH_LABEL }).click();
+
+    await expect(albumCandidatesOf(page)).toContainText(showcase.title);
+  });
+
+  test('種別を変えると、参照が落ちることを確かめてから保存する', async ({ page }) => {
+    const article = await seedScratchArticle('参照の失効');
+
+    await openAlbumArticle(page, article.articleId);
+    await page.getByLabel(ALBUM_SEARCH_KEYWORD_LABEL).fill(showcase.title);
+    await page.getByRole('button', { name: ALBUM_SEARCH_LABEL }).click();
+    await albumCandidatesOf(page).getByRole('button', { name: ALBUM_LINK_LABEL }).first().click();
+    await expect(linkedAlbumOf(page)).toContainText(showcase.title);
+
+    /* 参照を持てない種別へ変えて保存しようとすると、落ちることを先に伝える */
+    await page.getByLabel(TYPE_LABEL).selectOption('NOTE');
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText(ALBUM_DROP_TITLE);
+    await capture(page, '65-admin-article-album-drop-confirm');
+
+    /* やめれば保存しない。確認は保存と別の操作である */
+    await dialog.getByRole('button', { name: CANCEL_LABEL }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByText(SAVED_NOTICE)).toHaveCount(0);
+
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+    await dialog.getByRole('button', { name: ALBUM_DROP_CONFIRM_LABEL }).click();
+    await expect(page.getByText(SAVED_NOTICE)).toBeVisible();
+
+    /* 種別を戻すと区画は出るが、参照は落ちている（残っているように見せない） */
+    await page.getByLabel(TYPE_LABEL).selectOption('ALBUM');
+    await expect(page.getByText(NO_ALBUM_TEXT)).toBeVisible();
+  });
+
+  test('まだ作られていない記事には作品を参照できない', async ({ page }) => {
+    await openWithKey(page, NEW_ARTICLE_URL);
+
+    await page.getByLabel(TYPE_LABEL).selectOption('ALBUM');
+
+    await expect(page.getByText(ALBUM_NEEDS_ARTICLE_TEXT)).toBeVisible();
+    await expect(page.getByLabel(ALBUM_SEARCH_KEYWORD_LABEL)).toHaveCount(0);
   });
 });
 
