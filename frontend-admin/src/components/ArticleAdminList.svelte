@@ -73,7 +73,12 @@
    * 一覧も出ている、といった表せてはいけない組み合わせが作れてしまう。
    */
   type View =
-    | { readonly kind: 'locked'; readonly message: string | null }
+    /*
+     * 鍵待ち。入れ直した後に読むページを抱える——鍵が断られるのは一覧を引くときだけでなく行を操作した
+     * ときもあり、そこで先頭へ戻すと、後ろのページでしていた作業の位置を失う。鍵の正しさと作業位置は
+     * 別のことである。
+     */
+    | { readonly kind: 'locked'; readonly message: string | null; readonly page: number }
     | { readonly kind: 'loading' }
     | {
         readonly kind: 'ready';
@@ -92,7 +97,7 @@
         readonly page: number;
       };
 
-  let view = $state<View>({ kind: 'locked', message: null });
+  let view = $state<View>({ kind: 'locked', message: null, page: 0 });
 
   const assign = (next: View): void => {
     view = next;
@@ -115,7 +120,7 @@
     result.kind === 'ok'
       ? { kind: 'ready', apiKey, page: result.value, activity: { kind: 'idle' } }
       : result.kind === 'unauthorized'
-        ? { kind: 'locked', message: failureTextOf(result) }
+        ? { kind: 'locked', message: failureTextOf(result), page: requested }
         : { kind: 'failed', message: failureTextOf(result), apiKey, page: requested };
 
   /**
@@ -165,9 +170,17 @@
     void (current.kind === 'failed' ? load(current.apiKey, current.page) : Promise.resolve());
   };
 
+  /**
+   * 鍵を捨てて入力へ戻る。
+   *
+   * <p>
+   * 戻る先は先頭のページにする。鍵を断られたときと違い、これは操作した本人が離れることを選んだ場面
+   * であり、続きの作業位置を持ち越す前提を置かない。
+   * </p>
+   */
   const lock = (): void => {
     forgetApiKey();
-    assign({ kind: 'locked', message: null });
+    assign({ kind: 'locked', message: null, page: 0 });
   };
 
   const currentActivity = (): Activity => {
@@ -221,7 +234,7 @@
       ? load(apiKey, page)
       : result.kind === 'unauthorized'
         ? settled(() => {
-            assign({ kind: 'locked', message: failureTextOf(result) });
+            assign({ kind: 'locked', message: failureTextOf(result), page });
           })
         : settled(() => {
             REJECTED[operation](apiKey, article, page, failureTextOf(result));
@@ -282,6 +295,9 @@
    * 値をここで用意する。テンプレート側で `view.page` と書くと、型情報を使う検査が解決できない。
    */
   const lockMessage = $derived(view.kind === 'locked' ? view.message : null);
+
+  /** 鍵を入れ直した後に読むページ。鍵待ち以外では使わない */
+  const lockedPage = $derived(view.kind === 'locked' ? view.page : 0);
   const failureMessage = $derived(view.kind === 'failed' ? view.message : null);
   const page = $derived<AdminArticlePage>(view.kind === 'ready' ? view.page : EMPTY_PAGE);
   const articles = $derived(page.items);
@@ -322,7 +338,7 @@
 </script>
 
 {#if view.kind === 'locked'}
-  <ApiKeyForm message={lockMessage} onSubmit={(apiKey: string) => void load(apiKey, 0)} />
+  <ApiKeyForm message={lockMessage} onSubmit={(apiKey: string) => void load(apiKey, lockedPage)} />
 {:else if view.kind === 'loading'}
   <p class="text-muted-foreground">読み込んでいます。</p>
 {:else if failureMessage !== null}

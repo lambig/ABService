@@ -49,8 +49,17 @@ const PREVIOUS_PAGE_LABEL = '前のページ';
 /** 1ページ目に出る範囲。1ページの件数は画面が決める（`ADMIN_ARTICLES_PER_PAGE` と揃えている） */
 const FIRST_PAGE_RANGE = '1–50 件目';
 
+/** 2ページ目の始まり。総件数は実行ごとに変わるため、始まりだけを見る */
+const SECOND_PAGE_START = /^51–/u;
+
 /** 公開の要求だけを遅らせる経路。送信中の一覧の様子を見るために分ける */
 const PUBLISH_API = `${stack.backendBaseUrl}/api/v1/articles/*/publish`;
+
+/** 記事そのものへの要求。鍵だけを差し替えて断らせるために使う */
+const ARTICLE_COMMAND_API = `${stack.backendBaseUrl}/api/v1/articles/*`;
+
+/** 受け付けられない鍵 */
+const WRONG_API_KEY = 'e2e-wrong-key';
 
 /** 送信中を観測するための待ち時間 */
 const SLOW_PUBLISH_MS = 2_000;
@@ -195,11 +204,51 @@ test.describe('管理画面の記事一覧', () => {
       '42-admin-articles-next-page',
     );
 
-    /* 2ページ目は51件目から始まる。総件数は実行ごとに変わるため、始まりだけを見る */
-    await expect(page.getByText(/^51–/u)).toBeVisible();
+    await expect(page.getByText(SECOND_PAGE_START)).toBeVisible();
     await expect(page.getByRole('button', { name: PREVIOUS_PAGE_LABEL })).toBeEnabled();
 
     await page.getByRole('button', { name: PREVIOUS_PAGE_LABEL }).click();
     await expect(page.getByText(FIRST_PAGE_RANGE)).toBeVisible();
+  });
+
+  test('後ろのページで鍵を断られても、入れ直せば同じページへ戻る', async ({ page }) => {
+    await seedArticlesBeyondFirstPage();
+
+    await openArticles(page);
+    await page.getByRole('button', { name: NEXT_PAGE_LABEL }).click();
+    await expect(page.getByText(SECOND_PAGE_START)).toBeVisible();
+
+    const row = page
+      .getByRole('row')
+      .filter({ has: page.getByRole('button', { name: DELETE_LABEL }) })
+      .first();
+    await row.getByRole('button', { name: DELETE_LABEL }).click();
+
+    /*
+     * 鍵だけを受け付けられないものへ差し替えて送る。応答を作らずバックエンドに断らせるため、断られた
+     * ときの振る舞いをそのまま見られる（#164 の「APIのモックはしない」）。実行は通らないので、記事は
+     * 消えない。
+     */
+    await page.route(ARTICLE_COMMAND_API, (route) =>
+      route.continue({
+        headers: { ...route.request().headers(), authorization: `Bearer ${WRONG_API_KEY}` },
+      }),
+    );
+
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: DELETE_LABEL }).click();
+
+    await expect(page.getByLabel(API_KEY_LABEL)).toBeVisible();
+    await page.unroute(ARTICLE_COMMAND_API);
+
+    /* 鍵の正しさと作業位置は別のこと。入れ直したら、先頭ではなく操作していたページが戻る */
+    await page.getByLabel(API_KEY_LABEL).fill(stack.adminApiKey);
+    await clickWithEvidence(
+      page,
+      page.getByRole('button', { name: OPEN_LABEL }),
+      '43-admin-articles-reauth',
+    );
+
+    await expect(page.getByText(SECOND_PAGE_START)).toBeVisible();
   });
 });
