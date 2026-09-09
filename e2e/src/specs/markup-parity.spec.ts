@@ -3,6 +3,7 @@ import type { Locator, Page } from '@playwright/test';
 import { findArticleByTitle } from '../support/admin-api.ts';
 import { albumArticle } from '../support/build-fixtures.ts';
 import { stack } from '../support/config.ts';
+import { capture, focusOn } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 
 /**
@@ -47,6 +48,14 @@ test.describe('プレビューと公開の一致', () => {
     ).toBeVisible();
     await expectOnlyAllowedImage(publicBodyOf(page));
 
+    /*
+     * 証跡は本文の区画を撮る。**配信ベース配下の画像1つだけが枠として残り、逸脱する画像は枠ごと
+     * 出ない**ことが読み取れる（実体を置いていないため、残った1つは壊れ画像として写る。実アセットで
+     * 見た目まで確かめるのは #164 のカバー画像のジャーニー）。
+     */
+    await focusOn(publicBodyOf(page));
+    await capture(page, '58-article-body-images-public');
+
     /* 同じ記事を管理画面で開く。プレビューが描くのは、公開ページと同じ本文である */
     await page.goto(`${stack.adminBaseUrl}/articles/edit?articleId=${articleId}`);
     await page.getByLabel(API_KEY_LABEL).fill(stack.adminApiKey);
@@ -56,5 +65,9 @@ test.describe('プレビューと公開の一致', () => {
       previewOf(page).getByRole('heading', { name: albumArticle.body.heading }),
     ).toBeVisible();
     await expectOnlyAllowedImage(previewOf(page));
+
+    /* 公開ページと並べて読めるよう、同じ本文のプレビューも撮る */
+    await focusOn(previewOf(page));
+    await capture(page, '59-article-body-images-preview');
   });
 });
