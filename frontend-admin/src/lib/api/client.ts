@@ -1,7 +1,7 @@
 import { PUBLIC_API_BASE_URL } from 'astro:env/client';
 
 import type { components } from './schema';
-import { requestJson } from './http';
+import { requestEmpty, requestJson } from './http';
 import type { ApiResult } from './http';
 export type { ApiResult } from './http';
 
@@ -30,7 +30,14 @@ export type DeletionAffectedArticle = Schemas['PreconditionAffectedArticle'];
 /** 非公開化の前提として返る、連動して非公開になる記事1件 */
 export type UnpublicationAffectedArticle = Schemas['CascadeUnpublishedArticle'];
 
-/** 一覧の取得件数。ページ送りの導線は画面を足すときに置く */
+/**
+ * 一覧1ページの件数。
+ *
+ * <p>
+ * 記事の一覧はこの単位でページを送る。作品の一覧はページ送りの導線をまだ持たず、この件数までしか
+ * 辿れない（#122）。
+ * </p>
+ */
 const PAGE_SIZE = 50;
 
 /** 本体を持つ要求だけが宣言する媒体型。持たない要求へ付けると、送っていない形を宣言することになる */
@@ -50,6 +57,24 @@ const request = <T>(
     method,
     headers: { Authorization: `Bearer ${apiKey}`, ...contentTypeOf(body) },
     ...bodyOf(body),
+  });
+
+/**
+ * 本体を返さない操作の経路。
+ *
+ * <p>
+ * 204 をそのまま成功として扱い、JSON の読み取りを求めない（#288）。本体を返す操作と同じ経路に
+ * まとめると、本体の無い応答を型 `T` に偽装することになる。
+ * </p>
+ */
+const requestNoContent = (
+  method: 'DELETE',
+  path: string,
+  apiKey: string,
+): Promise<ApiResult<void>> =>
+  requestEmpty(`${PUBLIC_API_BASE_URL}${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${apiKey}` },
   });
 
 /** 下書きを含むアルバムを取得する。 */
@@ -189,3 +214,72 @@ export const unpublishAlbum = (
     `/api/v1/albums/${encodeURIComponent(albumId)}/unpublish`,
     apiKey,
   );
+
+/** 管理向け記事一覧の1件。下書き（`publicFlag` が false）を含む */
+export type AdminArticle = Schemas['AdminArticleResponse'];
+
+/**
+ * 管理向け記事一覧の1ページ。
+ *
+ * <p>
+ * 応答が返したページ情報（`page` / `size` / `totalElements` / `totalPages`）を落とさず持つ。件数だけを
+ * 取り出すと、1ページに収まらない記事へ画面から辿り着けなくなる。
+ * </p>
+ */
+export type AdminArticlePage = Schemas['AdminArticleListResponse'];
+
+/**
+ * 記事一覧の並び順。
+ *
+ * <p>
+ * 業務上の更新日時で並べる（`ArticleSortKey` が管理向けに許すキー）。監査列は記録のための列であり、
+ * 編集の作業順を表さない。
+ * </p>
+ */
+const ARTICLE_LIST_SORT = 'updatedAtBusiness';
+
+/**
+ * 下書きを含む記事の1ページを取得する。
+ *
+ * @param apiKey 管理APIの鍵
+ * @param page 0 始まりのページ番号
+ */
+export const listArticles = (apiKey: string, page: number): Promise<ApiResult<AdminArticlePage>> =>
+  request<AdminArticlePage>(
+    'GET',
+    `/api/v1/admin/articles?page=${String(page)}&size=${String(PAGE_SIZE)}&sort=${ARTICLE_LIST_SORT}`,
+    apiKey,
+  );
+
+/** 記事を公開する。 */
+export const publishArticle = (
+  apiKey: string,
+  articleId: string,
+): Promise<ApiResult<Schemas['PublishArticleResponse']>> =>
+  request<Schemas['PublishArticleResponse']>(
+    'POST',
+    `/api/v1/articles/${encodeURIComponent(articleId)}/publish`,
+    apiKey,
+  );
+
+/** 記事を非公開へ戻す。 */
+export const unpublishArticle = (
+  apiKey: string,
+  articleId: string,
+): Promise<ApiResult<Schemas['UnpublishArticleResponse']>> =>
+  request<Schemas['UnpublishArticleResponse']>(
+    'POST',
+    `/api/v1/articles/${encodeURIComponent(articleId)}/unpublish`,
+    apiKey,
+  );
+
+/**
+ * 記事を削除する。
+ *
+ * <p>
+ * 応答は 204 で本体を持たない。作品の削除は影響を受けた記事を返すが、記事を指す集約は無いため
+ * 返すものが無い（DECISIONS 27）。
+ * </p>
+ */
+export const deleteArticle = (apiKey: string, articleId: string): Promise<ApiResult<void>> =>
+  requestNoContent('DELETE', `/api/v1/articles/${encodeURIComponent(articleId)}`, apiKey);

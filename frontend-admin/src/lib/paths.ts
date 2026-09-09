@@ -29,3 +29,6 @@ export const editAlbumPath = (albumId: string): string =>
 /** 編集画面が受け取った対象。指定が無ければ null */
 export const albumIdIn = (search: string): string | null =>
   new URLSearchParams(search).get('albumId');
+
+/** 記事の一覧 */
+export const ARTICLE_LIST_PATH = `${BASE}/articles`;

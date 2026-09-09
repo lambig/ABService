@@ -374,6 +374,7 @@ export interface AdminArticle {
 
 interface AdminArticlePage {
   readonly items: readonly AdminArticle[];
+  readonly totalElements: number;
   readonly totalPages: number;
 }
 
@@ -381,29 +382,64 @@ const fetchAdminArticlePage = async (page: number): Promise<AdminArticlePage> =>
   (await getAdmin(`/api/v1/admin/articles?page=${String(page)}&size=100`)) as AdminArticlePage;
 
 /**
- * タイトルで記事を引く（下書きを含む）。
+ * 下書きを含む全記事。
  *
  * <p>
- * 公開の一覧には下書きが出ないため管理APIを通す。管理の記事一覧はタイトルでの絞り込みを持たない
- * （作品の一覧とは非対称。検索が要るのは記事編集画面から作品を選ぶ経路だけのため）ので、全ページ
- * たぐって完全一致で選ぶ。
+ * 管理の記事一覧はタイトルでの絞り込みを持たない（作品の一覧とは非対称。検索が要るのは記事編集画面から
+ * 作品を選ぶ経路だけのため）ので、全ページたぐってから選ぶ。
  * </p>
- *
- * @param title
- *            同定に使うタイトル
- * @returns 見つかった記事。無ければ undefined
  */
-export const findArticleByTitle = async (title: string): Promise<AdminArticle | undefined> => {
+const allAdminArticles = async (): Promise<readonly AdminArticle[]> => {
   const firstPage = await fetchAdminArticlePage(0);
   const remainingPages = await Promise.all(
     Array.from({ length: Math.max(firstPage.totalPages - 1, 0) }, (_unused, index) =>
       fetchAdminArticlePage(index + 1),
     ),
   );
-  return [firstPage, ...remainingPages]
-    .flatMap((page) => page.items)
-    .find((item) => item.title === title);
+  return [firstPage, ...remainingPages].flatMap((page) => page.items);
 };
+
+/**
+ * タイトルで記事を引く（下書きを含む）。
+ *
+ * <p>
+ * 公開の一覧には下書きが出ないため管理APIを通す。
+ * </p>
+ *
+ * @param title
+ *            同定に使うタイトル
+ * @returns 見つかった記事。無ければ undefined
+ */
+export const findArticleByTitle = async (title: string): Promise<AdminArticle | undefined> =>
+  (await allAdminArticles()).find((item) => item.title === title);
+
+/**
+ * タイトルの接頭辞で記事を探す（下書きを含む）。
+ *
+ * <p>
+ * 検査のためだけに作った記事を、控えを持たずに片付けるために使う。前回の実行が落ちて残ったものも
+ * 同じ接頭辞で拾える。
+ * </p>
+ *
+ * @param prefix
+ *            タイトルの接頭辞
+ * @returns 該当する記事（該当なしは空）
+ */
+export const findArticlesByTitlePrefix = async (prefix: string): Promise<readonly AdminArticle[]> =>
+  (await allAdminArticles()).filter((item) => item.title.startsWith(prefix));
+
+/**
+ * 下書きを含む記事の総件数。
+ *
+ * <p>
+ * ページ送りを見るシナリオが「あと何件足りないか」を決めるために使う。母集団はシードした記事と、
+ * 前回までの実行が残したものの合計で、実行ごとに変わる。
+ * </p>
+ *
+ * @returns 記事の総件数
+ */
+export const countArticles = async (): Promise<number> =>
+  (await fetchAdminArticlePage(0)).totalElements;
 
 /** 置くサイト文言の指定。キーごとに1つ */
 export interface SiteContentSeed {
