@@ -121,6 +121,12 @@ jobs:
       - name: Typecheck (installation)
         run: npm run typecheck:installation
 
+      - name: Typecheck (visualizer)
+        run: npm run typecheck:visualizer
+
+      - name: Build visualizer PoC
+        run: npm run build -w abservice-visualizer
+
       - name: Typecheck (patterns)
         run: npm run typecheck:patterns
 
@@ -210,7 +216,10 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       - name: Install Playwright browsers
-        run: npm exec -w abservice-e2e -- playwright install --with-deps chromium
+        run: |
+          # Playwright supplies Chromium; an unrelated Chrome APT mirror must not block OS dependency installation.
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
+          npm exec -w abservice-e2e -- playwright install --with-deps chromium
 
       - name: Build backend
         run: backend/gradlew -p backend --no-daemon --console=plain quarkusBuild
@@ -251,4 +260,34 @@ jobs:
             e2e/playwright-report/
             e2e/evidence/
           if-no-files-found: ignore
+          retention-days: 7
+
+  visualizer-browser:
+    name: Visualizer browser (Chromium / software WebGPU)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: |
+          # Playwright supplies Chromium; an unrelated Chrome APT mirror must not block OS dependency installation.
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
+          npm exec -w abservice-visualizer -- playwright install --with-deps chromium
+      - name: Run production visualizer browser tests
+        run: npm run test:visualizer:browser
+      - name: Upload browser evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: visualizer-browser
+          path: packages/visualizer/test-results/
+          if-no-files-found: error
           retention-days: 7

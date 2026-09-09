@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AB Visualizer / Study 01</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font:
+          15px system-ui,
+          sans-serif;
+        background: #080c14;
+        color: #dce5ec;
+      }
+      body {
+        margin: 0;
+      }
+      main {
+        max-width: 1100px;
+        margin: auto;
+        padding: 24px;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: center;
+      }
+      h1 {
+        font-size: 18px;
+        letter-spacing: 0.12em;
+      }
+      p,
+      output {
+        color: #99aebf;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: min(65vh, 700px);
+        border: 1px solid #253341;
+        background: #0c1520;
+      }
+      canvas:fullscreen {
+        width: 100vw;
+        height: 100vh;
+        border: 0;
+      }
+      button {
+        background: #182a38;
+        border: 1px solid #416377;
+        color: #e6edf3;
+        padding: 10px 16px;
+        cursor: pointer;
+      }
+      button:focus-visible {
+        outline: 2px solid #87cee2;
+        outline-offset: 3px;
+      }
+      .controls {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 16px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>AB / VISUALIZER</h1>
+        <span>STUDY 01 · FAKE SOURCE</span>
+      </header>
+      <p>
+        音声は再生しません。同じ時刻の特徴量から、同じ描画応答を確認するデモです。
+      </p>
+      <canvas
+        id="scene"
+        aria-label="抽象アート・背景・文字が特徴量に反応するVisualizer"
+      ></canvas>
+      <div class="controls">
+        <button id="start">先頭から開始</button><button id="stop">停止</button
+        ><button id="fullscreen">全画面</button>
+      </div>
+      <p id="status" role="status">開始ボタンでWebGPUを初期化します。</p>
+      <output id="metrics">計測待機中</output>
+      <p>
+        数値は直近120フレームの描画間隔とCPU側の描画送信時間です。GPU実行時間ではありません。
+      </p>
+    </main>
+    <script type="module" src="/src/demo.ts"></script>
+  </body>
+</html>
