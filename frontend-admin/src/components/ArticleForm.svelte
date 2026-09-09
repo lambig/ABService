@@ -125,7 +125,7 @@
   type Target = Readonly<{ articleId: string; revision: number }>;
 
   /**
-   * 鍵を入れ直した後に戻る先。
+   * 鍵待ちのときに抱えている入力。
    *
    * <p>
    * 保存が断られた（401/403）ときも入力は失わない。**鍵の正しさは入力の正しさとは別**であり、鍵を
@@ -133,6 +133,21 @@
    * </p>
    */
   type Pending = Readonly<{ target: Target | null; draft: ArticleDraft }>;
+
+  /**
+   * 鍵を入れ直した後に続けること。
+   *
+   * <p>
+   * 断られたのが何だったかで、続きが変わる。保存なら抱えている入力へ、記事の読み込みならその記事へ、
+   * まだ何も始まっていなければ画面の開き方へ戻る。**続きを画面の開き方（`mode`）から導かない**——
+   * 新規作成として開いた画面でも、作成した後に読み直すのはその記事であり、開き方へ戻せば空の新規作成
+   * に落ちる。そこから保存すれば同じ内容の記事がもう1件できる。
+   * </p>
+   */
+  type Resumption =
+    | { readonly kind: 'input'; readonly pending: Pending }
+    | { readonly kind: 'load'; readonly articleId: string }
+    | { readonly kind: 'open' };
 
   /**
    * 画面の状態。
@@ -144,8 +159,8 @@
     | {
         readonly kind: 'locked';
         readonly message: string | null;
-        /** 鍵を入れ直したら戻る入力。まだ入力が無いときは null */
-        readonly pending: Pending | null;
+        /** 鍵を入れ直した後に続けること */
+        readonly resumption: Resumption;
       }
     | { readonly kind: 'loading' }
     /*
@@ -186,8 +201,8 @@
     submission: { kind: 'idle' },
   });
 
-  const lock = (message: string | null, pending: Pending | null): void => {
-    view = { kind: 'locked', message, pending };
+  const lock = (message: string | null, resumption: Resumption): void => {
+    view = { kind: 'locked', message, resumption };
   };
 
   const loaded = (
@@ -198,7 +213,12 @@
     result.kind === 'ok'
       ? editing(apiKey, { articleId, revision: result.value.revision }, draftOf(result.value))
       : result.kind === 'unauthorized'
-        ? { kind: 'locked', message: failureTextOf(result), pending: null }
+        ? {
+            kind: 'locked',
+            message: failureTextOf(result),
+            /* 断られたのは、この記事の読み込みである。鍵を入れ直したら同じ記事を読み直す */
+            resumption: { kind: 'load', articleId },
+          }
         : { kind: 'unavailable', apiKey, articleId, message: failureTextOf(result) };
 
   const load = async (apiKey: string, articleId: string): Promise<void> => {
@@ -243,21 +263,29 @@
 
   const open = (apiKey: string): Promise<void> => OPEN[mode](apiKey);
 
+  /** 鍵待ちが抱えている続き。鍵待ち以外から呼ばれることはないが、そのときは開き方に従う */
+  const resumptionOf = (current: View): Resumption =>
+    current.kind === 'locked' ? current.resumption : { kind: 'open' };
+
   /**
    * 鍵を受け取ったときの続け方。
    *
-   * 入力を抱えたまま鍵待ちへ戻っていれば、読み直さずその入力へ復帰する。読み直すと、鍵が断られる前に
-   * 書いていた内容を捨てることになる。
+   * <p>
+   * 断られたのが保存なら、入力を抱えたままなので読み直さずその入力へ復帰する（読み直すと、鍵が断られる
+   * 前に書いていた内容を捨てることになる）。断られたのが記事の読み込みなら、その記事を読み直す。どちらも
+   * 無いときだけ、画面の開き方に従う。
+   * </p>
    */
   const accept = (apiKey: string): Promise<void> => {
-    const current = view;
-    const pending = current.kind === 'locked' ? current.pending : null;
+    const resumption = resumptionOf(view);
 
-    return pending === null
-      ? open(apiKey)
-      : settled(() => {
-          view = editing(apiKey, pending.target, pending.draft);
-        });
+    return resumption.kind === 'input'
+      ? settled(() => {
+          view = editing(apiKey, resumption.pending.target, resumption.pending.draft);
+        })
+      : resumption.kind === 'load'
+        ? load(apiKey, resumption.articleId)
+        : open(apiKey);
   };
 
   /*
@@ -268,7 +296,7 @@
     const apiKey = storedApiKey();
     return apiKey === null
       ? settled(() => {
-          lock(null, null);
+          lock(null, { kind: 'open' });
         })
       : open(apiKey);
   };
@@ -444,12 +472,23 @@
     target === null ? created(apiKey, draft) : updated(apiKey, target, draft);
 
   /** いま抱えている入力。編集中でなければ持たない */
-  const pendingOf = (current: View): Pending | null =>
-    current.kind === 'editing' ? { target: current.target, draft: current.draft } : null;
+  /**
+   * 保存が断られたときに、鍵を入れ直した後で続けること。
+   *
+   * 入力を抱えていればそれへ戻る。保存の経路は編集中からしか通らないため、それ以外は起きない。
+   */
+  const resumptionAfterSave = (current: View): Resumption =>
+    current.kind === 'editing'
+      ? { kind: 'input', pending: { target: current.target, draft: current.draft } }
+      : { kind: 'open' };
 
   const viewAfterFailure = (failure: ApiFailure): View =>
     failure.kind === 'unauthorized'
-      ? { kind: 'locked', message: failureTextOf(failure), pending: pendingOf(view) }
+      ? {
+          kind: 'locked',
+          message: failureTextOf(failure),
+          resumption: resumptionAfterSave(view),
+        }
       : withSubmissionOf(rejectionOf(failure));
 
   /**
@@ -556,7 +595,7 @@
 
   /** 入力を抱えたまま鍵待ちへ戻っていることを伝える文言。抱えていなければ出さない */
   const pendingNotice = $derived(
-    view.kind === 'locked' && view.pending !== null
+    view.kind === 'locked' && view.resumption.kind === 'input'
       ? '入力した内容は保持しています。鍵を入れ直すと、続けて保存できます。'
       : null,
   );

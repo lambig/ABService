@@ -59,6 +59,9 @@ const RELOAD_LABEL = '最新を読み込む';
 /** 記事そのものへの要求。保存を遅らせたり塞いだりするために使う */
 const ARTICLE_COMMAND_API = `${stack.backendBaseUrl}/api/v1/articles/*`;
 
+/** 管理向けの記事詳細。読み込みだけを断らせるために、保存の経路と分ける */
+const ARTICLE_DETAIL_API = `${stack.backendBaseUrl}/api/v1/admin/articles/*`;
+
 /** 保存中を観測するための待ち時間 */
 const SLOW_SAVE_MS = 2_000;
 
@@ -334,6 +337,49 @@ test.describe('管理画面の記事の追加', () => {
      * 読み直す先は作った記事で、新規作成の画面ではない。空の新規作成へ戻すと、そのまま保存した人が
      * 同じ内容の記事をもう1件作ることになる。
      */
+    await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(`${title} 別の保存`);
+    await expect(page.getByRole('button', { name: SAVE_LABEL })).toBeVisible();
+  });
+
+  test('読み直しが鍵で止まっても、入れ直せば作った記事が読み込まれる', async ({ page }) => {
+    const title = `${SCRATCH_TITLE_PREFIX} 読み直しの再認証 ${String(Date.now())}`;
+
+    await openWithKey(page, NEW_ARTICLE_URL);
+    await page.getByLabel(TITLE_LABEL).fill(title);
+    await page.getByRole('button', { name: CREATE_LABEL }).click();
+    await expect(page.getByText(SAVED_NOTICE)).toBeVisible();
+
+    await renameArticleOutsideTheScreen(createdArticleId(page), `${title} 別の保存`);
+
+    await page.getByLabel(TITLE_LABEL).fill(`${title} こちらの編集`);
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+    await expect(page.getByText(CONFLICT_HEADING)).toBeVisible();
+
+    /*
+     * 読み直しだけを断らせる。鍵だけを受け付けられないものへ差し替えて送り、応答はバックエンドに
+     * 返させる（#164 の「APIのモックはしない」）。
+     */
+    await page.route(ARTICLE_DETAIL_API, (route) =>
+      route.continue({
+        headers: { ...route.request().headers(), authorization: `Bearer ${WRONG_API_KEY}` },
+      }),
+    );
+    await page.getByRole('button', { name: RELOAD_LABEL }).click();
+
+    await expect(page.getByLabel(API_KEY_LABEL)).toBeVisible();
+    await page.unroute(ARTICLE_DETAIL_API);
+
+    /*
+     * 断られたのは読み込みで、画面の開き方ではない。鍵を入れ直したら、続きはその記事の読み直しになる
+     * （新規作成として開いた画面でも、空の入力へ戻さない）。
+     */
+    await page.getByLabel(API_KEY_LABEL).fill(stack.adminApiKey);
+    await clickWithEvidence(
+      page,
+      page.getByRole('button', { name: OPEN_LABEL }),
+      '56-admin-article-reload-reauth',
+    );
+
     await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(`${title} 別の保存`);
     await expect(page.getByRole('button', { name: SAVE_LABEL })).toBeVisible();
   });
