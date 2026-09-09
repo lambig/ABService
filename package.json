@@ -27,7 +27,7 @@
     "test:admin": "npm run test -w abservice-frontend-admin",
     "test:frontend": "npm run test:markup && npm run test:patterns && npm run test:eslint-config && npm run test:audio-dsp && npm run test:installation && npm run test:admin",
     "test:e2e": "npm run test -w abservice-e2e",
-    "lint": "npm run lint:markup && npm run lint:patterns && npm run lint:public && npm run lint:admin && npm run lint:e2e && npm run lint:audio-dsp && npm run lint:installation",
+    "lint": "npm run lint:markup && npm run lint:patterns && npm run lint:public && npm run lint:admin && npm run lint:e2e && npm run lint:audio-dsp && npm run lint:installation && npm run lint:player",
     "lint:markup": "npm run lint -w abservice-markup",
     "lint:patterns": "npm run lint -w abservice-patterns",
     "lint:public": "npm run lint -w abservice-frontend-public",
@@ -60,7 +60,12 @@
     "typecheck:audio-dsp": "npm run typecheck -w abservice-audio-dsp",
     "test:installation": "npm run test -w abservice-installation",
     "lint:installation": "npm run lint -w abservice-installation",
-    "typecheck:installation": "npm run typecheck -w abservice-installation"
+    "typecheck:installation": "npm run typecheck -w abservice-installation",
+    "dev:player": "npm run dev -w abservice-player",
+    "build:player": "npm run build -w abservice-player",
+    "typecheck:player": "npm run typecheck -w abservice-player",
+    "lint:player": "npm run lint -w abservice-player",
+    "test:player:browser": "npm run test:browser -w abservice-player"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
