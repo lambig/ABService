@@ -266,8 +266,9 @@ class ArticleRestIntegrationTest {
                 .body("{\"articleType\":\"ALBUM\",\"title\":\"紐付け確認記事\"}").when().post("/api/v1/articles").then()
                 .statusCode(201).extract().path("articleId");
 
-        authorized().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
-                .put("/api/v1/articles/" + articleId + "/album").then().statusCode(200)
+        authorized().contentType(ContentType.JSON)
+                .body("{\"albumId\":\"" + albumId + "\",\"expectedRevision\":" + revisionOf(articleId) + "}")
+                .when().put("/api/v1/articles/" + articleId + "/album").then().statusCode(200)
                 .body("articleId", equalTo(articleId)).body("albumId", equalTo(albumId));
     }
 
@@ -286,8 +287,9 @@ class ArticleRestIntegrationTest {
                 .body("{\"articleType\":\"ALBUM\",\"title\":\"種別変更確認記事\"}").when().post("/api/v1/articles").then()
                 .statusCode(201).extract().path("articleId");
 
-        authorized().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
-                .put("/api/v1/articles/" + articleId + "/album").then().statusCode(200)
+        authorized().contentType(ContentType.JSON)
+                .body("{\"albumId\":\"" + albumId + "\",\"expectedRevision\":" + revisionOf(articleId) + "}")
+                .when().put("/api/v1/articles/" + articleId + "/album").then().statusCode(200)
                 .body("albumId", equalTo(albumId));
 
         authorized().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(200);
@@ -297,8 +299,7 @@ class ArticleRestIntegrationTest {
                 .body("albumId", equalTo(albumId));
 
         /* 参照の設定と公開で記事本体が変わっているため、編集の世代は読み直して送る（DECISIONS 30） */
-        final int revision = authorized().when().get("/api/v1/admin/articles/" + articleId).then().statusCode(200)
-                .extract().path("revision");
+        final int revision = revisionOf(articleId);
 
         authorized().contentType(ContentType.JSON)
                 .body(
@@ -326,8 +327,9 @@ class ArticleRestIntegrationTest {
                 .body("{\"articleType\":\"NOTE\",\"title\":\"紐付け拒否確認記事\"}").when().post("/api/v1/articles").then()
                 .statusCode(201).extract().path("articleId");
 
-        authorized().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
-                .put("/api/v1/articles/" + articleId + "/album").then().statusCode(409)
+        authorized().contentType(ContentType.JSON)
+                .body("{\"albumId\":\"" + albumId + "\",\"expectedRevision\":" + revisionOf(articleId) + "}")
+                .when().put("/api/v1/articles/" + articleId + "/album").then().statusCode(409)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:BUSINESS_RULE_VIOLATION"));
     }
@@ -339,8 +341,11 @@ class ArticleRestIntegrationTest {
                 .body("{\"articleType\":\"ALBUM\",\"title\":\"存在しないアルバム紐付け確認記事\"}").when()
                 .post("/api/v1/articles").then().statusCode(201).extract().path("articleId");
 
-        authorized().contentType(ContentType.JSON).body("{\"albumId\":\"" + UUID.randomUUID() + "\"}").when()
-                .put("/api/v1/articles/" + articleId + "/album").then().statusCode(404)
+        authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"albumId\":\"" + UUID.randomUUID() + "\",\"expectedRevision\":"
+                                + revisionOf(articleId) + "}")
+                .when().put("/api/v1/articles/" + articleId + "/album").then().statusCode(404)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
     }
@@ -350,7 +355,8 @@ class ArticleRestIntegrationTest {
     void setAlbumNotFoundForUnknownArticle() {
         final String albumId = createDraftAlbum("記事不在確認アルバム");
 
-        authorized().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
+        authorized().contentType(ContentType.JSON)
+                .body("{\"albumId\":\"" + albumId + "\",\"expectedRevision\":0}").when()
                 .put("/api/v1/articles/" + UUID.randomUUID() + "/album").then().statusCode(404)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
@@ -364,8 +370,9 @@ class ArticleRestIntegrationTest {
                 .body("{\"articleType\":\"ALBUM\",\"title\":\"公開制御確認記事\"}").when().post("/api/v1/articles").then()
                 .statusCode(201).extract().path("articleId");
 
-        authorized().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
-                .put("/api/v1/articles/" + articleId + "/album").then().statusCode(200);
+        authorized().contentType(ContentType.JSON)
+                .body("{\"albumId\":\"" + albumId + "\",\"expectedRevision\":" + revisionOf(articleId) + "}")
+                .when().put("/api/v1/articles/" + articleId + "/album").then().statusCode(200);
 
         authorized().when().post("/api/v1/articles/" + articleId + "/publish").then().statusCode(409)
                 .contentType("application/problem+json")
@@ -385,11 +392,14 @@ class ArticleRestIntegrationTest {
                 .body("{\"articleType\":\"ALBUM\",\"title\":\"解除確認記事\"}").when().post("/api/v1/articles").then()
                 .statusCode(201).extract().path("articleId");
 
-        authorized().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}").when()
-                .put("/api/v1/articles/" + articleId + "/album").then().statusCode(200)
-                .body("albumId", equalTo(albumId));
+        final int revisionAfterLink = authorized().contentType(ContentType.JSON)
+                .body("{\"albumId\":\"" + albumId + "\",\"expectedRevision\":" + revisionOf(articleId) + "}")
+                .when().put("/api/v1/articles/" + articleId + "/album").then().statusCode(200)
+                .body("albumId", equalTo(albumId)).extract().path("revision");
 
-        authorized().when().delete("/api/v1/articles/" + articleId + "/album").then().statusCode(204);
+        authorized().when()
+                .delete("/api/v1/articles/" + articleId + "/album?expectedRevision=" + revisionAfterLink).then()
+                .statusCode(200);
 
         // 種別は ALBUM のままで、参照だけが外れる（種別変更による参照落ちとは別の経路）
         authorized().when().get("/api/v1/admin/articles/" + articleId).then().statusCode(200)
@@ -405,8 +415,15 @@ class ArticleRestIntegrationTest {
                 .body("{\"articleType\":\"ALBUM\",\"title\":\"未紐付け解除確認記事\"}").when().post("/api/v1/articles")
                 .then().statusCode(201).extract().path("articleId");
 
-        authorized().when().delete("/api/v1/articles/" + articleId + "/album").then().statusCode(204);
-        authorized().when().delete("/api/v1/articles/" + articleId + "/album").then().statusCode(204);
+        final int revisionAfterFirstRemove = authorized().when()
+                .delete("/api/v1/articles/" + articleId + "/album?expectedRevision=" + revisionOf(articleId))
+                .then().statusCode(200).extract().path("revision");
+
+        authorized().when()
+                .delete(
+                        "/api/v1/articles/" + articleId + "/album?expectedRevision="
+                                + revisionAfterFirstRemove)
+                .then().statusCode(200);
     }
 
     @Test
@@ -416,7 +433,9 @@ class ArticleRestIntegrationTest {
                 .body("{\"articleType\":\"NOTE\",\"title\":\"解除拒否確認記事\"}").when().post("/api/v1/articles").then()
                 .statusCode(201).extract().path("articleId");
 
-        authorized().when().delete("/api/v1/articles/" + articleId + "/album").then().statusCode(409)
+        authorized().when()
+                .delete("/api/v1/articles/" + articleId + "/album?expectedRevision=" + revisionOf(articleId))
+                .then().statusCode(409)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:BUSINESS_RULE_VIOLATION"));
     }
@@ -424,9 +443,16 @@ class ArticleRestIntegrationTest {
     @Test
     @DisplayName("存在しない記事への解除は404 problem+jsonを返す")
     void removeAlbumNotFoundForUnknownArticle() {
-        authorized().when().delete("/api/v1/articles/" + UUID.randomUUID() + "/album").then().statusCode(404)
+        authorized().when().delete("/api/v1/articles/" + UUID.randomUUID() + "/album?expectedRevision=0").then()
+                .statusCode(404)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
+    }
+
+    /** 管理詳細が返す編集の世代。アルバム参照の付け外しはこれを条件として送る（DECISIONS 30 / #323） */
+    private static int revisionOf(String articleId) {
+        return authorized().when().get("/api/v1/admin/articles/" + articleId).then().statusCode(200).extract()
+                .path("revision");
     }
 
     private static String createDraftAlbum(String title) {

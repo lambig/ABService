@@ -482,17 +482,19 @@ test.describe('管理画面の記事のタグ', () => {
     await expect(attachedTagsOf(page)).toContainText(albumArticle.tags[0]);
     await capture(page, '61-admin-article-tag-attached');
 
-    /* 保存を挟まずに反映されている。読み直しても付いたまま */
-    await page.reload();
-    await expect(attachedTagsOf(page)).toContainText(albumArticle.tags[0]);
-
     /*
-     * タグを付けた後も本体を保存できる。タグの付け外しは記事の世代を進めない契約（#311）で、進めるなら
-     * ここが競合として断られる。
+     * タグを付けた後も、読み直さずに本体を保存できる。ここで使う世代は記事を開いたとき（タグを付ける前）
+     * のもの。タグの付け外しが記事の世代を進める契約なら、ここが競合として断られる（#311）。読み直して
+     * から保存すると、読み直しの時点の世代を使うことになり、この契約を検査できない。
      */
     await page.getByLabel(TITLE_LABEL).fill(`${article.title} タグの後`);
     await page.getByRole('button', { name: SAVE_LABEL }).click();
     await expect(page.getByText(SAVED_NOTICE)).toBeVisible();
+
+    /* 保存とタグの付け外しの両方が反映されている。読み直しても両方とも付いたまま */
+    await page.reload();
+    await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(`${article.title} タグの後`);
+    await expect(attachedTagsOf(page)).toContainText(albumArticle.tags[0]);
 
     await attachedTagsOf(page).getByRole('button', { name: TAG_REMOVE_LABEL }).click();
     await expect(page.getByText(NO_TAGS_TEXT)).toBeVisible();
@@ -570,6 +572,48 @@ test.describe('管理画面の記事の作品参照', () => {
 
     await linkedAlbumOf(page).getByRole('button', { name: ALBUM_UNLINK_LABEL }).click();
     await expect(page.getByText(NO_ALBUM_TEXT)).toBeVisible();
+  });
+
+  /**
+   * revisionの後退（#323）の回帰。
+   *
+   * <p>
+   * 参照の付け外しは記事そのものの世代を進める。GETで世代を取り直す実装だと、間に入った別の保存が
+   * あっても付け外しの操作自体は成功してしまい、しかも取り直した世代をそのまま次の条件にするため、
+   * 編集中のフォームが古い内容のまま次の保存を通してしまう。ここでは付け外し操作自体が古い世代を
+   * 検出して断り、かつ断られたことで世代を進めない（＝続く本文保存も同じ理由で競合する）ことを固定する。
+   * </p>
+   */
+  test('編集中に別の操作が保存していたら、作品参照の操作も競合として断り、先の保存を追い越さない', async ({
+    page,
+  }) => {
+    const article = await seedScratchArticle('作品参照の競合');
+
+    await openAlbumArticle(page, article.articleId);
+
+    /* 画面を開いたまま、別の経路（タブA相当）が保存する。これで画面が持つ世代は古くなる */
+    await renameArticleOutsideTheScreen(article.articleId, `${article.title} 別の保存`);
+
+    /* 古い世代のまま（タブB相当）、作品参照を試みる */
+    await page.getByLabel(ALBUM_SEARCH_KEYWORD_LABEL).fill(showcase.title);
+    await page.getByRole('button', { name: ALBUM_SEARCH_LABEL }).click();
+    await albumCandidatesOf(page).getByRole('button', { name: ALBUM_LINK_LABEL }).first().click();
+
+    /* 断られる。参照は付かない */
+    await expect(page.getByText(NO_ALBUM_TEXT)).toBeVisible();
+    await capture(page, '66-admin-article-album-conflicted');
+
+    /*
+     * 断られた作品参照の操作は世代を進めていない。したがって、まだ画面が持っている古い世代のまま
+     * 本文を保存しても、同じ理由で競合になる（黙って追い越していれば、ここは通ってしまう）。
+     */
+    await page.getByLabel(TITLE_LABEL).fill(`${article.title} こちらの編集`);
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+    await expect(page.getByText(CONFLICT_HEADING)).toBeVisible();
+
+    /* 読み直すと、タブAの保存が残っている（タブBの編集で上書きされていない） */
+    await page.getByRole('button', { name: RELOAD_LABEL }).click();
+    await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(`${article.title} 別の保存`);
   });
 
   test('カタログナンバーでも探せる', async ({ page }) => {

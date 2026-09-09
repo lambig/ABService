@@ -132,9 +132,13 @@ class AlbumClaimConcurrencyRestIntegrationTest {
         return authorized().when().delete(path).getStatusCode();
     }
 
+    /*
+     * 呼び出し元はいずれも作成直後の記事（世代0）に対してのみ紐付けるため、世代は固定値でよい
+     * （紐付け前に記事自身を更新する経路を、この統合テストは持たない）。
+     */
     private static int attachAlbumStatus(String articleId, String albumId) {
         return authorized().contentType(ContentType.JSON)
-                .body("{\"albumId\":\"%s\"}".formatted(albumId))
+                .body("{\"albumId\":\"%s\",\"expectedRevision\":0}".formatted(albumId))
                 .when().put("/api/v1/articles/" + articleId + "/album").getStatusCode();
     }
 

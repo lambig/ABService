@@ -463,19 +463,40 @@ export const searchAlbums = async (
  * 参照を持てるのは `ALBUM` 種別だけで、未存在・非公開などの判定はバックエンドが返す（DECISIONS 21）。
  * 画面は結果を扱うだけで、参照できるかどうかを先に判定しない。
  * </p>
+ *
+ * <p>
+ * 紐付けは記事の世代を進めるため、編集を始めた時点の世代（`expectedRevision`）を送る。世代が古ければ
+ * 409 が返る。応答は紐付け後の世代を返すため、GETで取り直さずそのまま次の条件にできる（#323）。
+ * </p>
  */
 export const setArticleAlbum = (
   apiKey: string,
   articleId: string,
   albumId: string,
+  expectedRevision: number,
 ): Promise<ApiResult<Schemas['SetArticleAlbumResponse']>> =>
   request<Schemas['SetArticleAlbumResponse']>(
     'PUT',
     `/api/v1/articles/${encodeURIComponent(articleId)}/album`,
     apiKey,
-    { albumId },
+    { albumId, expectedRevision },
   );
 
-/** 記事から作品への参照を外す。応答は 204 で本体を持たない */
-export const removeArticleAlbum = (apiKey: string, articleId: string): Promise<ApiResult<void>> =>
-  requestNoContent('DELETE', `/api/v1/articles/${encodeURIComponent(articleId)}/album`, apiKey);
+/**
+ * 記事から作品への参照を外す。
+ *
+ * <p>
+ * 解除も記事の世代を進めるため、紐付けと同じ `expectedRevision` 契約を適用する。応答は解除後の世代を
+ * 返すため、GETで取り直さずそのまま次の条件にできる（#323）。
+ * </p>
+ */
+export const removeArticleAlbum = (
+  apiKey: string,
+  articleId: string,
+  expectedRevision: number,
+): Promise<ApiResult<Schemas['RemoveArticleAlbumResponse']>> =>
+  request<Schemas['RemoveArticleAlbumResponse']>(
+    'DELETE',
+    `/api/v1/articles/${encodeURIComponent(articleId)}/album?expectedRevision=${String(expectedRevision)}`,
+    apiKey,
+  );

@@ -231,7 +231,7 @@ class ArticleAdminQueryRestIntegrationTest {
         final String articleId = authorized().contentType(ContentType.JSON)
                 .body("{\"articleType\":\"ALBUM\",\"title\":\"" + title + "\"}").when().post("/api/v1/articles")
                 .then().statusCode(201).extract().path("articleId");
-        authorized().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\"}")
+        authorized().contentType(ContentType.JSON).body("{\"albumId\":\"" + albumId + "\",\"expectedRevision\":0}")
                 .when().put("/api/v1/articles/" + articleId + "/album").then().statusCode(200);
         return articleId;
     }

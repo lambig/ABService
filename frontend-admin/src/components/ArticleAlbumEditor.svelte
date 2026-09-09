@@ -30,13 +30,26 @@
     readonly articleId: string | null;
     /** いま参照している作品。無ければ null */
     readonly albumId: string | null;
+    /**
+     * 編集を始めた時点の記事の世代。まだ作られていなければ null。
+     *
+     * 付け外しは記事そのものを更新するため世代が進む（#323）。`articleId` が非nullのときは必ず持つ
+     * （どちらも同じ対象から与えられるため）。
+     */
+    readonly expectedRevision: number | null;
     /** 鍵が断られたときに画面全体へ渡す。鍵待ちへ戻すかはこの区画では決めない */
     readonly onUnauthorized: (message: string) => void;
-    /** 参照の変更を画面全体へ渡す。外したときは null */
-    readonly onChanged: (albumId: string | null) => void;
+    /**
+     * 参照の変更を画面全体へ渡す。外したときは albumId が null。
+     *
+     * 付け外し後の記事の世代も渡す。**GETで世代を取り直さない**——応答が返した値をそのまま次の条件にする
+     * （#323）。
+     */
+    readonly onChanged: (albumId: string | null, revision: number) => void;
   };
 
-  const { apiKey, articleId, albumId, onUnauthorized, onChanged }: Props = $props();
+  const { apiKey, articleId, albumId, expectedRevision, onUnauthorized, onChanged }: Props =
+    $props();
 
   /**
    * いま参照している作品の見えかた。
@@ -125,9 +138,16 @@
     ESCALATE[result.kind](message);
   };
 
-  /** 参照を差し替えた結果を反映する。断られたなら理由を残し、参照は動かさない */
+  /**
+   * 参照を差し替えた結果を反映する。断られたなら理由を残し、参照は動かさない。
+   *
+   * <p>
+   * 成功したときだけ、応答が返した世代を画面全体へ渡す。**世代を取り直すGETは挟まない**——別の操作が
+   * 間に保存していれば、それを黙って追い越すことになる（#323）。
+   * </p>
+   */
   const applyLink = (
-    result: ApiResult<unknown>,
+    result: ApiResult<{ revision: number }>,
     next: Reference,
     nextAlbumId: string | null,
   ): void => {
@@ -139,21 +159,23 @@
     search = result.kind === 'ok' ? { kind: 'idle' } : search;
     ESCALATE[result.kind](message);
 
-    LINKED[result.kind](nextAlbumId);
+    const notify =
+      result.kind === 'ok'
+        ? () => {
+            onChanged(nextAlbumId, result.value.revision);
+          }
+        : () => undefined;
+    notify();
   };
 
-  const LINKED = {
-    ok: (nextAlbumId: string | null): void => {
-      onChanged(nextAlbumId);
-    },
-    unauthorized: (): void => undefined,
-    failed: (): void => undefined,
-  } satisfies Record<ApiResult<unknown>['kind'], (nextAlbumId: string | null) => void>;
-
-  const linkWith = async (id: string, candidate: AlbumCandidate): Promise<void> => {
+  const linkWith = async (
+    id: string,
+    revision: number,
+    candidate: AlbumCandidate,
+  ): Promise<void> => {
     operation = { kind: 'linking' };
 
-    const result = await setArticleAlbum(apiKey, id, candidate.albumId);
+    const result = await setArticleAlbum(apiKey, id, candidate.albumId, revision);
     applyLink(
       result,
       { kind: 'ready', title: candidate.title, catalogNumber: candidate.catalogNumber },
@@ -161,21 +183,31 @@
     );
   };
 
-  const unlinkWith = async (id: string): Promise<void> => {
+  const unlinkWith = async (id: string, revision: number): Promise<void> => {
     operation = { kind: 'unlinking' };
 
-    const result = await removeArticleAlbum(apiKey, id);
+    const result = await removeArticleAlbum(apiKey, id, revision);
     applyLink(result, { kind: 'none' }, null);
   };
 
   const link = (candidate: AlbumCandidate): void => {
     const id = articleId;
-    void (id === null ? Promise.resolve() : linkWith(id, candidate));
+    const revision = expectedRevision;
+    void (id === null
+      ? Promise.resolve()
+      : revision === null
+        ? Promise.resolve()
+        : linkWith(id, revision, candidate));
   };
 
   const unlink = (): void => {
     const id = articleId;
-    void (id === null ? Promise.resolve() : unlinkWith(id));
+    const revision = expectedRevision;
+    void (id === null
+      ? Promise.resolve()
+      : revision === null
+        ? Promise.resolve()
+        : unlinkWith(id, revision));
   };
 
   const submitSearch = (event: SubmitEvent): void => {

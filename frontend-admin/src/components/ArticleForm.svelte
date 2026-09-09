@@ -568,40 +568,25 @@
     view = current.kind === 'editing' ? { ...current, tags: next } : current;
   };
 
-  /** 参照の変更を画面全体へ取り込む。種別を変えるときの確認も、この値で決まる */
   /**
-   * 参照を付け外しした後に、持っている世代を取り直す。
+   * 参照の変更を画面全体へ取り込む。種別を変えるときの確認も、この値で決まる。
    *
    * <p>
-   * **参照の設定・解除は記事そのものを更新するため、世代が進む。**取り直さないと、以後の保存が必ず
-   * 競合として断られる（入力は残るが、保存するには読み直すしかなくなる）。読めなかったときは古い世代の
-   * ままで、そのときは保存が競合として断られる——嘘の世代で送るよりは、断られたほうがよい。
+   * **参照の設定・解除は記事そのものを更新するため、世代が進む。**付け外しの応答は保存後の世代を返すため、
+   * それをそのまま次の条件にする。**GETで世代を取り直さない**——取り直すと、間に入った別の保存を黙って
+   * 追い越すことになる（#323）。
    * </p>
    */
-  const refreshRevision = async (apiKey: string, articleId: string): Promise<void> => {
-    const result = await attach(apiKey, articleId);
+  const withAlbum = (next: string | null, revision: number): void => {
     const current = view;
-
     view =
-      result.kind === 'ok' && current.kind === 'editing'
-        ? { ...current, target: result.value }
+      current.kind === 'editing'
+        ? {
+            ...current,
+            albumId: next,
+            target: current.target === null ? current.target : { ...current.target, revision },
+          }
         : current;
-  };
-
-  const albumChanged = (
-    current: Extract<View, { readonly kind: 'editing' }>,
-    next: string | null,
-  ): Promise<void> => {
-    view = { ...current, albumId: next };
-
-    return current.target === null
-      ? Promise.resolve()
-      : refreshRevision(current.apiKey, current.target.articleId);
-  };
-
-  const withAlbum = (next: string | null): void => {
-    const current = view;
-    void (current.kind === 'editing' ? albumChanged(current, next) : Promise.resolve());
   };
 
   const viewAfterFailure = (failure: ApiFailure): View =>
@@ -980,6 +965,7 @@
             {apiKey}
             {albumId}
             articleId={taggedArticleId}
+            expectedRevision={target === null ? null : target.revision}
             onUnauthorized={lockWithInput}
             onChanged={withAlbum}
           />
