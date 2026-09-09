@@ -67,6 +67,9 @@ const TAGS_NEED_ARTICLE_TEXT = '記事を作成すると、タグを付けられ
 /** 付いているタグの一覧 */
 const attachedTagsOf = (page: Page): Locator => page.locator('[data-tags="attached"]');
 
+/** タグの候補だけを断らせる経路。記事の読み込み（`/api/v1/admin/articles/*`）とは分ける */
+const ARTICLE_TAGS_API = `${stack.backendBaseUrl}/api/v1/admin/article-tags`;
+
 /** 本文のプレビュー。形式によって描き方が変わるため、区画を分けて指す */
 const markdownPreviewOf = (page: Page): Locator => page.locator('[data-preview="markdown"]');
 const plainPreviewOf = (page: Page): Locator => page.locator('[data-preview="plain"]');
@@ -464,6 +467,37 @@ test.describe('管理画面の記事のタグ', () => {
     /* 付ける先が無い。作成の前に選ばせると、押せない操作を出すことになる */
     await expect(page.getByText(TAGS_NEED_ARTICLE_TEXT)).toBeVisible();
     await expect(page.getByLabel(TAG_SELECT_LABEL)).toHaveCount(0);
+  });
+
+  test('候補の取得が鍵で断られたら、鍵の入力へ戻る', async ({ page }) => {
+    const article = await seedScratchArticle('タグの候補が断られる');
+
+    /*
+     * 候補の取得だけを断らせる。記事そのものは読めるため、断られたのがタグの候補だけ、という状況に
+     * なる。ここで区画の中に留めると、鍵の入力へ戻れないまま何度読み直しても断られる。
+     */
+    await page.route(ARTICLE_TAGS_API, (route) =>
+      route.continue({
+        headers: { ...route.request().headers(), authorization: `Bearer ${WRONG_API_KEY}` },
+      }),
+    );
+
+    await page.goto(`${EDIT_ARTICLE_URL}?articleId=${article.articleId}`);
+    await page.getByLabel(API_KEY_LABEL).fill(stack.adminApiKey);
+    await page.getByRole('button', { name: OPEN_LABEL }).click();
+
+    /* 鍵の入力へ戻り、編集中の内容を抱えていることも伝える */
+    await expect(page.getByLabel(API_KEY_LABEL)).toBeVisible();
+    await expect(page.getByText(PENDING_NOTICE)).toBeVisible();
+
+    await page.unroute(ARTICLE_TAGS_API);
+    await page.getByLabel(API_KEY_LABEL).fill(stack.adminApiKey);
+    await page.getByRole('button', { name: OPEN_LABEL }).click();
+
+    /* 入力は保ったまま、候補も新しい鍵で引き直せる */
+    await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(article.title);
+    await expect(page.getByLabel(TAG_SELECT_LABEL)).toBeVisible();
+    await capture(page, '62-admin-article-tag-reauth');
   });
 });
 

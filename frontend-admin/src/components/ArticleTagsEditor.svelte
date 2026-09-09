@@ -8,6 +8,7 @@
     type AdminArticleTag,
     type ApiResult,
   } from '$lib/api/client';
+  import { KEY_STORE } from '$lib/credentials';
 
   /**
    * 記事のタグ。
@@ -74,14 +75,34 @@
   const failureTextOf = (failure: ApiFailure): string =>
     failure.kind === 'unauthorized' ? '鍵が受け付けられませんでした。' : failure.message;
 
+  /**
+   * 候補を読めなかったときの残し方。
+   *
+   * <p>
+   * 鍵が断られたのは**この区画だけの問題ではない**ため、付け外しと同じく画面全体へ渡す。ここへ
+   * 「読み直す」だけを出して留めると、鍵の入力へ戻れないまま何度読み直しても断られる。
+   * </p>
+   */
+  const CANDIDATES_AFTER = {
+    ok: (): void => undefined,
+    unauthorized: (message: string): void => {
+      onUnauthorized(message);
+    },
+    failed: (): void => undefined,
+  } satisfies Record<ApiResult<unknown>['kind'], (message: string) => void>;
+
   const loadCandidates = async (): Promise<void> => {
     candidates = { kind: 'loading' };
 
     const result = await listArticleTags(apiKey);
+    const message = result.kind === 'ok' ? '' : failureTextOf(result);
+
+    KEY_STORE[result.kind](apiKey);
     candidates =
       result.kind === 'ok'
         ? { kind: 'ready', items: result.value }
-        : { kind: 'unavailable', message: failureTextOf(result) };
+        : { kind: 'unavailable', message };
+    CANDIDATES_AFTER[result.kind](message);
   };
 
   /* 対象が無いうちは引かない（付ける先が無いため、候補を出しても押せない） */
@@ -114,6 +135,7 @@
   const apply = (result: ApiResult<unknown>, next: readonly AdminArticleTag[]): void => {
     const message = result.kind === 'ok' ? '' : failureTextOf(result);
 
+    KEY_STORE[result.kind](apiKey);
     operation = result.kind === 'ok' ? { kind: 'idle' } : { kind: 'rejected', message };
     AFTER[result.kind](next, message);
   };
@@ -153,6 +175,9 @@
    */
   const candidateItems = $derived(candidates.kind === 'ready' ? candidates.items : []);
   const candidatesMessage = $derived(candidates.kind === 'unavailable' ? candidates.message : null);
+
+  /** まだ読めていない状態。候補が0件であることと混ぜない */
+  const candidatesLoading = $derived(candidates.kind === 'loading');
   const rejectedMessage = $derived(operation.kind === 'rejected' ? operation.message : null);
 
   /** 送信中は次の操作へ入らない */
@@ -198,7 +223,9 @@
       </ul>
     {/if}
 
-    {#if candidatesMessage !== null}
+    {#if candidatesLoading}
+      <p class="text-muted-foreground text-sm">候補を読み込んでいます。</p>
+    {:else if candidatesMessage !== null}
       <div class="space-y-2">
         <p class="text-destructive text-sm" role="alert">{candidatesMessage}</p>
         <Button type="button" size="sm" variant="outline" onclick={() => void loadCandidates()}>
