@@ -121,6 +121,12 @@ jobs:
       - name: Typecheck (installation)
         run: npm run typecheck:installation
 
+      - name: Typecheck (player)
+        run: npm run typecheck:player
+
+      - name: Build player PoC
+        run: npm run build:player
+
       - name: Typecheck (patterns)
         run: npm run typecheck:patterns
 
@@ -463,4 +469,29 @@ jobs:
             e2e/playwright-report/
             e2e/evidence/
           if-no-files-found: ignore
+          retention-days: 7
+
+  player-browser:
+    name: Player browser (Chromium / FLAC)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npm exec -w abservice-player -- playwright install --with-deps --only-shell chromium
+      - name: Run production player browser tests
+        run: npm run test:player:browser
+      - name: Upload browser evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: player-browser
+          path: packages/player/test-results/
+          if-no-files-found: error
           retention-days: 7
