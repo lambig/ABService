@@ -1,5 +1,6 @@
 <script lang="ts">
   import ApiKeyForm from '$components/ApiKeyForm.svelte';
+  import ArticleTagsEditor from '$components/ArticleTagsEditor.svelte';
   import { Button } from '$components/ui/button/index.js';
   import {
     ARTICLE_TYPES,
@@ -16,6 +17,7 @@
     getArticle,
     updateArticle,
     type AdminArticleDetail,
+    type AdminArticleTag,
     type ApiResult,
   } from '$lib/api/client';
   import {
@@ -137,7 +139,11 @@
    * 入れ直せば同じ入力から続けられる必要がある。
    * </p>
    */
-  type Pending = Readonly<{ target: Target | null; draft: ArticleDraft }>;
+  type Pending = Readonly<{
+    target: Target | null;
+    draft: ArticleDraft;
+    tags: readonly AdminArticleTag[];
+  }>;
 
   /**
    * 鍵を入れ直した後に続けること。
@@ -186,6 +192,12 @@
         /** 更新する対象と、読み込んだ時点の世代。null は新規作成 */
         readonly target: Target | null;
         readonly draft: ArticleDraft;
+        /**
+         * 付いているタグ。
+         *
+         * 入力（`draft`）と別に持つ。タグは本体の保存とは別の経路で変わるため、保存の対象に含めない。
+         */
+        readonly tags: readonly AdminArticleTag[];
         readonly submission: Submission;
       };
 
@@ -198,11 +210,17 @@
   const failureTextOf = (failure: ApiFailure): string =>
     failure.kind === 'unauthorized' ? '鍵が受け付けられませんでした。' : failure.message;
 
-  const editing = (apiKey: string, target: Target | null, draft: ArticleDraft): View => ({
+  const editing = (
+    apiKey: string,
+    target: Target | null,
+    draft: ArticleDraft,
+    tags: readonly AdminArticleTag[],
+  ): View => ({
     kind: 'editing',
     apiKey,
     target,
     draft,
+    tags,
     submission: { kind: 'idle' },
   });
 
@@ -216,7 +234,12 @@
     result: ApiResult<AdminArticleDetail>,
   ): View =>
     result.kind === 'ok'
-      ? editing(apiKey, { articleId, revision: result.value.revision }, draftOf(result.value))
+      ? editing(
+          apiKey,
+          { articleId, revision: result.value.revision },
+          draftOf(result.value),
+          result.value.tags,
+        )
       : result.kind === 'unauthorized'
         ? {
             kind: 'locked',
@@ -236,7 +259,7 @@
 
   /** 新規作成は読み込むものが無い。鍵だけを確かめて入力へ入る */
   const start = (apiKey: string): void => {
-    view = editing(apiKey, null, EMPTY_DRAFT);
+    view = editing(apiKey, null, EMPTY_DRAFT, []);
   };
 
   const unspecify = (): void => {
@@ -286,7 +309,12 @@
 
     return resumption.kind === 'input'
       ? settled(() => {
-          view = editing(apiKey, resumption.pending.target, resumption.pending.draft);
+          view = editing(
+            apiKey,
+            resumption.pending.target,
+            resumption.pending.draft,
+            resumption.pending.tags,
+          );
         })
       : resumption.kind === 'load'
         ? load(apiKey, resumption.articleId)
@@ -484,8 +512,27 @@
    */
   const resumptionAfterSave = (current: View): Resumption =>
     current.kind === 'editing'
-      ? { kind: 'input', pending: { target: current.target, draft: current.draft } }
+      ? {
+          kind: 'input',
+          pending: { target: current.target, draft: current.draft, tags: current.tags },
+        }
       : { kind: 'open' };
+
+  /**
+   * タグの操作が鍵で断られたとき。
+   *
+   * 保存が断られたときと同じ扱いにする。断られたのは鍵で、入力の正しさとは別のことであり、入れ直せば
+   * 続けられる必要がある。
+   */
+  const lockWithInput = (message: string): void => {
+    view = { kind: 'locked', message, resumption: resumptionAfterSave(view) };
+  };
+
+  /** 付け外しの結果を画面全体へ取り込む。抱えている記事の状態と食い違わせない */
+  const withTags = (next: readonly AdminArticleTag[]): void => {
+    const current = view;
+    view = current.kind === 'editing' ? { ...current, tags: next } : current;
+  };
 
   const viewAfterFailure = (failure: ApiFailure): View =>
     failure.kind === 'unauthorized'
@@ -607,6 +654,11 @@
   const unavailableMessage = $derived(view.kind === 'unavailable' ? view.message : null);
   const draft = $derived<ArticleDraft>(view.kind === 'editing' ? view.draft : EMPTY_DRAFT);
   const target = $derived<Target | null>(view.kind === 'editing' ? view.target : null);
+  const apiKey = $derived(view.kind === 'editing' ? view.apiKey : '');
+  const tags = $derived<readonly AdminArticleTag[]>(view.kind === 'editing' ? view.tags : []);
+
+  /** タグを付ける先。まだ作られていなければ null */
+  const taggedArticleId = $derived(target === null ? null : target.articleId);
   const submission = $derived<Submission>(
     view.kind === 'editing' ? view.submission : { kind: 'idle' },
   );
@@ -723,6 +775,20 @@
           </div>
         {/each}
       </fieldset>
+
+      <!--
+        対象が変わったら作り直す（作成の直後に、その記事のタグを引き直すため）。区画の中の状態は
+        記事ごとのもので、前の記事の候補や失敗を持ち越さない。
+      -->
+      {#key taggedArticleId}
+        <ArticleTagsEditor
+          {apiKey}
+          {tags}
+          articleId={taggedArticleId}
+          onUnauthorized={lockWithInput}
+          onChanged={withTags}
+        />
+      {/key}
 
       {#if errors.unassigned.length > 0}
         <section class="space-y-1">

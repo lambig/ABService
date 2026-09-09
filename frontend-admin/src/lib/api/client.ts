@@ -239,6 +239,9 @@ export type AdminArticleDetail = Schemas['AdminArticleDetailResponse'];
  */
 export type ArticleFields = Schemas['UpdateArticleRequest'] & Schemas['CreateArticleRequest'];
 
+/** 記事タグ1件。名前で同定し、外すときだけ `tagId` を使う（DECISIONS 23） */
+export type AdminArticleTag = Schemas['AdminArticleTagResponse'];
+
 /**
  * 管理向け記事一覧の1ページ。
  *
@@ -355,3 +358,61 @@ export const unpublishArticle = (
  */
 export const deleteArticle = (apiKey: string, articleId: string): Promise<ApiResult<void>> =>
   requestNoContent('DELETE', `/api/v1/articles/${encodeURIComponent(articleId)}`, apiKey);
+
+/**
+ * 付けられるタグの一覧。
+ *
+ * <p>
+ * 既にある名前を選ばせるために引く。画面が候補を持たないと、同じ意味のタグが表記違いで増える。
+ * </p>
+ */
+export const listArticleTags = async (
+  apiKey: string,
+): Promise<ApiResult<readonly AdminArticleTag[]>> => {
+  const result = await request<Schemas['AdminArticleTagListResponse']>(
+    'GET',
+    '/api/v1/admin/article-tags',
+    apiKey,
+  );
+
+  return result.kind === 'ok' ? { kind: 'ok', value: result.value.items } : result;
+};
+
+/**
+ * 記事にタグを付ける。
+ *
+ * <p>
+ * 送るのは**名前**で、同じ名前のタグが無ければ作られる（DECISIONS 23）。画面は同名かどうかを判定
+ * しない——判定の規則はバックエンドが持ち、写すと2箇所へ散る。
+ * </p>
+ */
+export const addArticleTag = (
+  apiKey: string,
+  articleId: string,
+  name: string,
+): Promise<ApiResult<Schemas['AddArticleTagResponse']>> =>
+  request<Schemas['AddArticleTagResponse']>(
+    'POST',
+    `/api/v1/articles/${encodeURIComponent(articleId)}/tags`,
+    apiKey,
+    { name },
+  );
+
+/**
+ * 記事からタグを外す。
+ *
+ * <p>
+ * 外す対象は `tagId` で指す（付けるときは名前だが、外すのは既に付いている1件のため）。応答は 204 で
+ * 本体を持たない。
+ * </p>
+ */
+export const removeArticleTag = (
+  apiKey: string,
+  articleId: string,
+  tagId: string,
+): Promise<ApiResult<void>> =>
+  requestNoContent(
+    'DELETE',
+    `/api/v1/articles/${encodeURIComponent(articleId)}/tags/${encodeURIComponent(tagId)}`,
+    apiKey,
+  );
