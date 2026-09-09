@@ -665,124 +665,140 @@
     </div>
   </div>
 {:else}
-  <form class="max-w-2xl space-y-8" onsubmit={submit}>
-    <!--
-      送ったのはクリックした時点の入力である。保存中も入力を受け付けると、その後の変更は要求に
-      入らないまま、保存できたことになる。
-    -->
-    <fieldset class="space-y-4" disabled={blocked}>
-      {#each FIELDS as field (field.path)}
-        <div class="space-y-1" data-field={field.path}>
-          <label class="text-sm font-medium" for={idOf(field.path)}>{field.label}</label>
+  <!--
+    入力とプレビューを横に並べる。プレビューは打ちながら確かめるためのもので、入力の下に置くと
+    本文を打っている間は画面の外にある。狭い画面では縦に積む（横に並べる幅が無い）。
+  -->
+  <form class="grid items-start gap-8 lg:grid-cols-2" onsubmit={submit}>
+    <div class="space-y-8">
+      <!--
+        送ったのはクリックした時点の入力である。保存中も入力を受け付けると、その後の変更は要求に
+        入らないまま、保存できたことになる。
+      -->
+      <fieldset class="space-y-4" disabled={blocked}>
+        {#each FIELDS as field (field.path)}
+          <div class="space-y-1" data-field={field.path}>
+            <label class="text-sm font-medium" for={idOf(field.path)}>{field.label}</label>
 
-          {#if field.kind === 'choice'}
-            <select
-              id={idOf(field.path)}
-              class="border-input bg-background w-full rounded-md border px-3 py-2"
-              value={draft[field.path]}
-              aria-invalid={messagesOf(field.path).length > 0}
-              onchange={(event) => {
-                update(field.path, event.currentTarget.value);
-              }}
-            >
-              {#each field.choices as choice (choice)}
-                <option value={choice}>{CHOICE_LABELS[choice] ?? choice}</option>
-              {/each}
-            </select>
-          {:else if field.kind === 'multiline'}
-            <textarea
-              id={idOf(field.path)}
-              class="border-input bg-background w-full rounded-md border px-3 py-2"
-              rows="6"
-              value={draft[field.path]}
-              aria-invalid={messagesOf(field.path).length > 0}
-              oninput={(event) => {
-                update(field.path, event.currentTarget.value);
-              }}></textarea>
-          {:else}
-            <input
-              id={idOf(field.path)}
-              class="border-input bg-background w-full rounded-md border px-3 py-2"
-              type="text"
-              value={draft[field.path]}
-              aria-invalid={messagesOf(field.path).length > 0}
-              oninput={(event) => {
-                update(field.path, event.currentTarget.value);
-              }}
-            />
-          {/if}
+            {#if field.kind === 'choice'}
+              <select
+                id={idOf(field.path)}
+                class="border-input bg-background w-full rounded-md border px-3 py-2"
+                value={draft[field.path]}
+                aria-invalid={messagesOf(field.path).length > 0}
+                onchange={(event) => {
+                  update(field.path, event.currentTarget.value);
+                }}
+              >
+                {#each field.choices as choice (choice)}
+                  <option value={choice}>{CHOICE_LABELS[choice] ?? choice}</option>
+                {/each}
+              </select>
+            {:else if field.kind === 'multiline'}
+              <textarea
+                id={idOf(field.path)}
+                class="border-input bg-background w-full rounded-md border px-3 py-2"
+                rows="6"
+                value={draft[field.path]}
+                aria-invalid={messagesOf(field.path).length > 0}
+                oninput={(event) => {
+                  update(field.path, event.currentTarget.value);
+                }}></textarea>
+            {:else}
+              <input
+                id={idOf(field.path)}
+                class="border-input bg-background w-full rounded-md border px-3 py-2"
+                type="text"
+                value={draft[field.path]}
+                aria-invalid={messagesOf(field.path).length > 0}
+                oninput={(event) => {
+                  update(field.path, event.currentTarget.value);
+                }}
+              />
+            {/if}
 
-          {#each messagesOf(field.path) as message (message)}
+            {#each messagesOf(field.path) as message (message)}
+              <p class="text-destructive text-sm" role="alert">{message}</p>
+            {/each}
+          </div>
+        {/each}
+      </fieldset>
+
+      {#if errors.unassigned.length > 0}
+        <section class="space-y-1">
+          <h2 class="text-base font-medium">どの項目にも紐付かないエラー</h2>
+          {#each errors.unassigned as message (message)}
             <p class="text-destructive text-sm" role="alert">{message}</p>
           {/each}
-        </div>
-      {/each}
-    </fieldset>
+        </section>
+      {/if}
 
-    <section class="space-y-2">
+      {#if conflicted}
+        <section class="space-y-2" role="alert">
+          <h2 class="text-destructive text-base font-medium">
+            編集を始めた後に、別の操作がこの記事を保存しています
+          </h2>
+          <p class="text-muted-foreground text-sm">
+            いまの入力はそのまま保持しています。このまま保存し直しても、同じ理由で断られます。最新を読み込むと、
+            入力は保存されている内容に置き換わります。
+          </p>
+          <Button type="button" variant="outline" onclick={reload}>最新を読み込む</Button>
+        </section>
+      {/if}
+
+      {#if detachedMessage !== null}
+        <section class="space-y-2" role="alert">
+          <h2 class="text-destructive text-base font-medium">{detachedMessage}</h2>
+          <p class="text-muted-foreground text-sm">
+            このまま保存すると、同じ内容の記事をもう1件作ることになります。読み込み直すと、作られた記事を
+            続けて編集できます。
+          </p>
+          <Button type="button" variant="outline" onclick={reload}>読み込み直す</Button>
+        </section>
+      {/if}
+
+      {#if refusedMessage !== null}
+        <p class="text-destructive text-sm" role="alert">{refusedMessage}</p>
+      {/if}
+
+      {#if savedNotice !== null}
+        <p class="text-muted-foreground text-sm" role="status">{savedNotice}</p>
+      {/if}
+
+      <div class="flex items-center gap-4">
+        <Button type="submit" disabled={blocked}>
+          {saving ? '保存しています…' : saveLabel}
+        </Button>
+        <a class="text-sm underline underline-offset-4" href={ARTICLE_LIST_PATH}>一覧へ戻る</a>
+      </div>
+    </div>
+
+    <!--
+      スクロールに追従させる。入力の側が長く、下の欄を触っているときも描画結果を見ていられる。
+      本文が伸びてもプレビュー自体は画面に収め、中だけをスクロールさせる。
+    -->
+    <section class="space-y-2 lg:sticky lg:top-6">
       <h2 class="text-base font-medium">本文のプレビュー</h2>
       <p class="text-muted-foreground text-sm">
         公開サイトと同じ描画を通しています。余白や文字の大きさは、公開サイトの見えかたとは別です。
       </p>
 
       {#if previewHtml === null}
-        <div class="prose-plain border-input rounded-md border px-3 py-2" data-preview="plain">
+        <div
+          class="prose-plain border-input max-h-[70vh] overflow-y-auto rounded-md border px-3 py-2"
+          data-preview="plain"
+        >
           {draft.body}
         </div>
       {:else}
-        <div class="prose-body border-input rounded-md border px-3 py-2" data-preview="markdown">
+        <div
+          class="prose-body border-input max-h-[70vh] overflow-y-auto rounded-md border px-3 py-2"
+          data-preview="markdown"
+        >
           <!-- eslint-disable-next-line svelte/no-at-html-tags -- 出すのは共有の描画（packages/markup）がサニタイズ済みの HTML で、生HTMLをパースする経路は入口で塞いである（DECISIONS 24）。描画結果を出すことがこの区画の目的で、テキストとして出せばプレビューにならない -->
           {@html previewHtml}
         </div>
       {/if}
     </section>
-
-    {#if errors.unassigned.length > 0}
-      <section class="space-y-1">
-        <h2 class="text-base font-medium">どの項目にも紐付かないエラー</h2>
-        {#each errors.unassigned as message (message)}
-          <p class="text-destructive text-sm" role="alert">{message}</p>
-        {/each}
-      </section>
-    {/if}
-
-    {#if conflicted}
-      <section class="space-y-2" role="alert">
-        <h2 class="text-destructive text-base font-medium">
-          編集を始めた後に、別の操作がこの記事を保存しています
-        </h2>
-        <p class="text-muted-foreground text-sm">
-          いまの入力はそのまま保持しています。このまま保存し直しても、同じ理由で断られます。最新を読み込むと、
-          入力は保存されている内容に置き換わります。
-        </p>
-        <Button type="button" variant="outline" onclick={reload}>最新を読み込む</Button>
-      </section>
-    {/if}
-
-    {#if detachedMessage !== null}
-      <section class="space-y-2" role="alert">
-        <h2 class="text-destructive text-base font-medium">{detachedMessage}</h2>
-        <p class="text-muted-foreground text-sm">
-          このまま保存すると、同じ内容の記事をもう1件作ることになります。読み込み直すと、作られた記事を
-          続けて編集できます。
-        </p>
-        <Button type="button" variant="outline" onclick={reload}>読み込み直す</Button>
-      </section>
-    {/if}
-
-    {#if refusedMessage !== null}
-      <p class="text-destructive text-sm" role="alert">{refusedMessage}</p>
-    {/if}
-
-    {#if savedNotice !== null}
-      <p class="text-muted-foreground text-sm" role="status">{savedNotice}</p>
-    {/if}
-
-    <div class="flex items-center gap-4">
-      <Button type="submit" disabled={blocked}>
-        {saving ? '保存しています…' : saveLabel}
-      </Button>
-      <a class="text-sm underline underline-offset-4" href={ARTICLE_LIST_PATH}>一覧へ戻る</a>
-    </div>
   </form>
 {/if}

@@ -424,7 +424,7 @@ test.describe('管理画面の本文のプレビュー', () => {
     await expect(preview.getByRole('listitem')).toHaveText([...MARKDOWN_BODY.bullets]);
     await expect(preview.locator('strong')).toHaveText(MARKDOWN_BODY.emphasis);
 
-    /* プレビューは入力欄の下にある。証跡は描画結果が写る位置まで寄せてから撮る */
+    /* 証跡は、入力と描画結果が同じ画面に並んでいることが分かる位置で撮る */
     await focusOn(preview);
     await capture(page, '57-admin-article-preview');
   });
