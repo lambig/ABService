@@ -216,7 +216,10 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       - name: Install Playwright browsers
-        run: npm exec -w abservice-e2e -- playwright install --with-deps chromium
+        run: |
+          # Playwright supplies Chromium; an unrelated Chrome APT mirror must not block OS dependency installation.
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
+          npm exec -w abservice-e2e -- playwright install --with-deps chromium
 
       - name: Build backend
         run: backend/gradlew -p backend --no-daemon --console=plain quarkusBuild
@@ -274,7 +277,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Install Chromium
-        run: npm exec -w abservice-visualizer -- playwright install --with-deps chromium
+        run: |
+          # Playwright supplies Chromium; an unrelated Chrome APT mirror must not block OS dependency installation.
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
+          npm exec -w abservice-visualizer -- playwright install --with-deps chromium
       - name: Run production visualizer browser tests
         run: npm run test:visualizer:browser
       - name: Upload browser evidence
