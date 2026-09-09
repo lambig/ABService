@@ -100,6 +100,21 @@ export const albumArticle = {
     heading: '記事の見出し',
     lead: 'E2E で記事の本文を確かめる。',
   },
+  /**
+   * 画像の配信ベース判定を確かめるための `src`。
+   *
+   * <p>
+   * 配信ベース配下のものは描かれ、`/assets/../api/...` のように解決後は配下から出るものは画像ごと
+   * 落ちる（#289）。**プレビューと公開が同じ設定で判定していること**を同じ本文から見るため、この
+   * 記事の本文へ両方を入れておく。
+   * </p>
+   */
+  image: {
+    allowedSrc: '/assets/e2e-body-image.png',
+    allowedAlt: 'E2E 本文の画像',
+    deviantSrc: '/assets/../api/v1/albums',
+    deviantAlt: 'E2E 配下から出る画像',
+  },
 } as const;
 
 /** 作品への参照を持たない記事 */
@@ -208,7 +223,16 @@ const draftSeed: AlbumSeed = {
 const albumArticleSeed = (albumId: string): ArticleSeed => ({
   articleType: 'ALBUM',
   title: albumArticle.title,
-  body: [`## ${albumArticle.body.heading}`, '', albumArticle.body.lead, ''].join('\n'),
+  body: [
+    `## ${albumArticle.body.heading}`,
+    '',
+    albumArticle.body.lead,
+    '',
+    `![${albumArticle.image.allowedAlt}](${albumArticle.image.allowedSrc})`,
+    '',
+    `![${albumArticle.image.deviantAlt}](${albumArticle.image.deviantSrc})`,
+    '',
+  ].join('\n'),
   bodyFormat: 'MARKDOWN',
   introShort: albumArticle.introShort,
   albumId,
