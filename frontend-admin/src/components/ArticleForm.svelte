@@ -26,6 +26,7 @@
   } from '$lib/api/form-errors';
   import { ARTICLE_TYPE_LABELS } from '$lib/article-labels';
   import { KEY_STORE, storedApiKey } from '$lib/credentials';
+  import { renderBody } from '$lib/markup';
   import { ARTICLE_LIST_PATH, articleIdIn, editArticlePath } from '$lib/paths';
 
   /**
@@ -43,8 +44,12 @@
    * </p>
    *
    * <p>
-   * タグ・作品への参照・本文のプレビューは持たない（#309 の別スライス）。種別は選べるが、`ALBUM` を
-   * 選んでも参照を付ける操作はまだ無い。
+   * 本文は入力しながら描画結果を確かめられる。描画は公開サイトと同じ共有の関数を通す（DECISIONS 24）。
+   * </p>
+   *
+   * <p>
+   * タグと作品への参照は持たない（#309 の別スライス）。種別は選べるが、`ALBUM` を選んでも参照を
+   * 付ける操作はまだ無い。
    * </p>
    */
   type Props = {
@@ -624,6 +629,17 @@
 
   /** 保存の文言。対象を持てば更新で、持たなければ作成（画面の開き方ではなく、いまの対象で決まる） */
   const saveLabel = $derived(target === null ? '作成する' : '保存する');
+
+  /**
+   * 本文のプレビュー。
+   *
+   * <p>
+   * 描画は公開サイトと同じ共有の関数を通す（DECISIONS 24）。ここで別の描画を持つと、プレビューが
+   * 嘘になる。プレーンテキストは記法として解釈せず、そのまま出す（公開サイトと同じ扱い）ため、
+   * この値は null になる。
+   * </p>
+   */
+  const previewHtml = $derived(draft.bodyFormat === 'MARKDOWN' ? renderBody(draft.body) : null);
 </script>
 
 {#if view.kind === 'locked'}
@@ -702,6 +718,24 @@
         </div>
       {/each}
     </fieldset>
+
+    <section class="space-y-2">
+      <h2 class="text-base font-medium">本文のプレビュー</h2>
+      <p class="text-muted-foreground text-sm">
+        公開サイトと同じ描画を通しています。余白や文字の大きさは、公開サイトの見えかたとは別です。
+      </p>
+
+      {#if previewHtml === null}
+        <div class="prose-plain border-input rounded-md border px-3 py-2" data-preview="plain">
+          {draft.body}
+        </div>
+      {:else}
+        <div class="prose-body border-input rounded-md border px-3 py-2" data-preview="markdown">
+          <!-- eslint-disable-next-line svelte/no-at-html-tags -- 出すのは共有の描画（packages/markup）がサニタイズ済みの HTML で、生HTMLをパースする経路は入口で塞いである（DECISIONS 24）。描画結果を出すことがこの区画の目的で、テキストとして出せばプレビューにならない -->
+          {@html previewHtml}
+        </div>
+      {/if}
+    </section>
 
     {#if errors.unassigned.length > 0}
       <section class="space-y-1">

@@ -4,7 +4,7 @@ import type { Locator, Page } from '@playwright/test';
 
 import { renameArticleOutsideTheScreen } from '../support/admin-api.ts';
 import { stack } from '../support/config.ts';
-import { capture, clickWithEvidence } from '../support/evidence.ts';
+import { capture, clickWithEvidence, focusOn } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 import {
   SCRATCH_TITLE_PREFIX,
@@ -55,6 +55,27 @@ const PENDING_NOTICE = '入力した内容は保持しています。鍵を入�
 /** 競合したときの見出しと復帰の操作 */
 const CONFLICT_HEADING = '編集を始めた後に、別の操作がこの記事を保存しています';
 const RELOAD_LABEL = '最新を読み込む';
+
+/** 本文のプレビュー。形式によって描き方が変わるため、区画を分けて指す */
+const markdownPreviewOf = (page: Page): Locator => page.locator('[data-preview="markdown"]');
+const plainPreviewOf = (page: Page): Locator => page.locator('[data-preview="plain"]');
+
+/** 記法を確かめるための本文。投入した値をそのまま期待値に使う */
+const MARKDOWN_BODY = {
+  heading: 'プレビューの見出し',
+  bullets: ['ひとつめ', 'ふたつめ'],
+  emphasis: '強調',
+} as const;
+
+const markdownBodyText = [
+  `## ${MARKDOWN_BODY.heading}`,
+  '',
+  `- ${MARKDOWN_BODY.bullets[0]}`,
+  `- ${MARKDOWN_BODY.bullets[1]}`,
+  '',
+  `**${MARKDOWN_BODY.emphasis}**`,
+  '',
+].join('\n');
 
 /** 記事そのものへの要求。保存を遅らせたり塞いだりするために使う */
 const ARTICLE_COMMAND_API = `${stack.backendBaseUrl}/api/v1/articles/*`;
@@ -382,5 +403,60 @@ test.describe('管理画面の記事の追加', () => {
 
     await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(`${title} 別の保存`);
     await expect(page.getByRole('button', { name: SAVE_LABEL })).toBeVisible();
+  });
+});
+
+/**
+ * 本文のプレビュー（#309 / DECISIONS 24）。
+ *
+ * 描画は公開サイトと同じ共有の関数を通る。ここで見ているのは、その関数が管理画面でも同じ結果を出すこと
+ * と、形式によって解釈を変えないことである。保存はしないため、記事は作られない。
+ */
+test.describe('管理画面の本文のプレビュー', () => {
+  test('Markdown は記法として描かれる', async ({ page }) => {
+    await openWithKey(page, NEW_ARTICLE_URL);
+
+    await page.getByLabel(BODY_LABEL, { exact: true }).fill(markdownBodyText);
+    await page.getByLabel(BODY_FORMAT_LABEL).selectOption('MARKDOWN');
+
+    const preview = markdownPreviewOf(page);
+    await expect(preview.getByRole('heading', { name: MARKDOWN_BODY.heading })).toBeVisible();
+    await expect(preview.getByRole('listitem')).toHaveText([...MARKDOWN_BODY.bullets]);
+    await expect(preview.locator('strong')).toHaveText(MARKDOWN_BODY.emphasis);
+
+    /* プレビューは入力欄の下にある。証跡は描画結果が写る位置まで寄せてから撮る */
+    await focusOn(preview);
+    await capture(page, '57-admin-article-preview');
+  });
+
+  test('プレーンテキストは記法として解釈されない', async ({ page }) => {
+    await openWithKey(page, NEW_ARTICLE_URL);
+
+    /* 新規作成の初期値はプレーンテキスト。形式を変えずに、記法の見た目を含む本文を入れる */
+    await page.getByLabel(BODY_LABEL, { exact: true }).fill(markdownBodyText);
+
+    await expect(markdownPreviewOf(page)).toHaveCount(0);
+    await expect(plainPreviewOf(page)).toContainText(`**${MARKDOWN_BODY.emphasis}**`);
+    await expect(plainPreviewOf(page).locator('strong')).toHaveCount(0);
+  });
+
+  test('生HTMLは描かれない', async ({ page }) => {
+    await openWithKey(page, NEW_ARTICLE_URL);
+
+    /*
+     * 生HTMLはパースしない（DECISIONS 24）。管理APIキーをブラウザに置ける前提が、描画側フィルタの
+     * 網羅性ではなく入口を塞いでいることに依っているため、ここが崩れていないことを見る。
+     */
+    await page
+      .getByLabel(BODY_LABEL, { exact: true })
+      .fill(
+        ['<script>alert(1)</script>', '', '<b>太字にはならない</b>', '', '本文', ''].join('\n'),
+      );
+    await page.getByLabel(BODY_FORMAT_LABEL).selectOption('MARKDOWN');
+
+    const preview = markdownPreviewOf(page);
+    await expect(preview.locator('script')).toHaveCount(0);
+    await expect(preview.locator('b')).toHaveCount(0);
+    await expect(preview).toContainText('本文');
   });
 });

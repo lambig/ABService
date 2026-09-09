@@ -37,6 +37,18 @@ export default defineConfig({
         access: 'public',
         default: 'http://localhost:8080',
       }),
+
+      /*
+       * アセット（画像）の配信ベースパス。本文の描画が画像の src をこの配下に限る（DECISIONS 24）。
+       * 公開サイトはビルド時にしか描画しないため server で宣言しているが、管理画面のプレビューは
+       * 入力中にブラウザで描くため client になる。バックエンドの abservice.assets.public-base-path と
+       * CloudFront のビヘイビアに一致させる。
+       */
+      PUBLIC_ASSET_BASE_PATH: envField.string({
+        context: 'client',
+        access: 'public',
+        default: '/assets',
+      }),
     },
   },
 
