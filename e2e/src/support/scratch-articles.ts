@@ -23,10 +23,19 @@ import {
 /** 検査のためだけに作る記事のタイトルの接頭辞。シードした記事（`E2E 確認〜`）には当たらない */
 export const SCRATCH_TITLE_PREFIX = 'E2E-SCRATCH 記事';
 
-/** 作った記事。画面から指すためのタイトルと、APIから操作するためのIDを持つ */
+/**
+ * 作った記事。
+ *
+ * <p>
+ * 画面から指すためのタイトル、APIから操作するためのID、そして編集画面に**入っているはずの値**を持つ。
+ * 期待値の出所を投入した値そのものにするため、シナリオ側へ文字列を書き写さない。
+ * </p>
+ */
 export interface ScratchArticle {
   readonly articleId: string;
   readonly title: string;
+  readonly introShort: string;
+  readonly body: string;
 }
 
 const scratchTitle = (purpose: string): string =>
@@ -37,17 +46,22 @@ const scratchTitle = (purpose: string): string =>
  *
  * @param purpose
  *            何のための記事かを表す短い語。タイトルに入る
- * @returns 作った記事のIDとタイトル
+ * @returns 作った記事のIDと、投入した値
  */
 export const seedScratchArticle = async (purpose: string): Promise<ScratchArticle> => {
   const title = scratchTitle(purpose);
+  const introShort = `E2E ${purpose}のショート紹介文。`;
+  const body = `E2E ${purpose}の本文。`;
+
   const articleId = await seedDraftArticle({
     articleType: 'NOTE',
     title,
-    introShort: `E2E ${purpose}のショート紹介文。`,
+    body,
+    bodyFormat: 'PLAIN_TEXT',
+    introShort,
   });
 
-  return { articleId, title };
+  return { articleId, title, introShort, body };
 };
 
 /**
