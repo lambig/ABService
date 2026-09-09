@@ -26,5 +26,5 @@ public record UpdateTrackRequest(
         @Nullable String title,
         @Nullable String artistDisplayName,
         @Nullable String artistSortKey,
-        @Nullable List<TrackTuneRequest> tunes) {
+        @Nullable List<@Nullable TrackTuneRequest> tunes) {
 }

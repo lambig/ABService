@@ -1,0 +1,14 @@
+---
+import ArticleForm from '$components/ArticleForm.svelte';
+import AdminLayout from '$layouts/AdminLayout.astro';
+
+/*
+ * 対象は問い合わせ文字列（`?articleId=`）で受ける。成果物は静的で、記事ごとの経路を組み立ての時点で
+ * 出せない（扱うのは下書きを含む編集中の状態で、組み立て後に増える）。読み込みもブラウザで行うため
+ * client:only を指定する。
+ */
+---
+
+<AdminLayout title="記事を編集">
+  <ArticleForm client:only="svelte" mode="edit" />
+</AdminLayout>

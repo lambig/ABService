@@ -57,8 +57,14 @@ class ArticleAlbumAttachRestIntegrationTest {
 
     private static Response attach(String articleId, String albumId) {
         return authorized().contentType(ContentType.JSON)
-                .body("{\"albumId\":\"%s\"}".formatted(albumId))
+                .body("{\"albumId\":\"%s\",\"expectedRevision\":%d}".formatted(albumId, revisionOf(articleId)))
                 .when().put("/api/v1/articles/" + articleId + "/album");
+    }
+
+    /** 管理詳細が返す編集の世代。紐付けはこれを条件として送る（DECISIONS 30 / #323） */
+    private static int revisionOf(String articleId) {
+        return authorized().when().get("/api/v1/admin/articles/" + articleId).then().statusCode(200).extract()
+                .path("revision");
     }
 
     private static String createAlbum(String title) {

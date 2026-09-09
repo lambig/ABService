@@ -25,8 +25,12 @@ struct Vertex { @builtin(position) position: vec4f, @location(0) uv: vec2f, }
   let art = textureSample(image, imageSampler, vec2f(clamp(artUV.x, 0, 1), clamp(artUV.y, 0, 1) * 0.5));
   let artMask = select(0.0, 1.0, all(artUV >= vec2f(0)) && all(artUV <= vec2f(1)));
   color = mix(color, art.rgb, artMask);
-  let textUV = (p - vec2f(0, 0.48 + frame.typography.x)) / vec2f(1.2, 0.30) + 0.5;
-  let text = textureSample(image, imageSampler, vec2f(clamp(textUV.x, 0, 1), 0.5 + clamp(textUV.y, 0, 1) * 0.5));
+  // Match the display aspect to the text crop instead of compressing the square atlas half.
+  let textOrigin = vec2f(0, 704);
+  let textSize = vec2f(512, 128);
+  let textDisplay = 1.2 * textSize / textSize.x;
+  let textUV = (p - vec2f(0, 0.48 + frame.typography.x)) / textDisplay + 0.5;
+  let text = textureSample(image, imageSampler, (textOrigin + clamp(textUV, vec2f(0), vec2f(1)) * textSize) / vec2f(textureDimensions(image)));
   let textMask = select(0.0, text.a, all(textUV >= vec2f(0)) && all(textUV <= vec2f(1)));
   color = mix(color, text.rgb, textMask * frame.typography.y);
   let cell = fract((p + vec2f(t * 0.008, -t * 0.015)) * vec2f(9, 7)) - 0.5;

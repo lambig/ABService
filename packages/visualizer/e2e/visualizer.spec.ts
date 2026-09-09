@@ -144,6 +144,83 @@ test("縦横のサイズ変更とfullscreen復帰後も描画する", async ({ p
   await resized();
 });
 
+[
+  { width: 960, height: 720 },
+  { width: 480, height: 800 },
+].forEach((viewport) => {
+  test(`文字層の正方形を歪めず描画する (${String(viewport.width)}×${String(viewport.height)})`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.addInitScript(() => {
+      /* eslint-disable-next-line @typescript-eslint/unbound-method -- Preserve native text drawing with the actual canvas context. */
+      const fillText = CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText = function (
+        text,
+        x,
+        y,
+        maxWidth,
+      ) {
+        const draw =
+          text === "AB / RESONANCE"
+            ? () => {
+                this.save();
+                this.fillStyle = "#ff00ff";
+                this.fillRect(x - 32, y - 48, 64, 64);
+                this.restore();
+              }
+            : () => {
+                fillText.call(this, text, x, y, maxWidth);
+              };
+        draw();
+      };
+    });
+    await page.goto("/");
+    await start(page);
+    const png = await page.locator("#scene").screenshot();
+    const bounds = await page.evaluate(async (base64) => {
+      const image = new Image();
+      image.src = `data:image/png;base64,${base64}`;
+      await image.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = image.width;
+      canvas.height = image.height;
+      const context = canvas.getContext("2d");
+      context?.drawImage(image, 0, 0);
+      const rgba =
+        context?.getImageData(0, 0, image.width, image.height).data ??
+        new Uint8ClampedArray();
+      return Array.from(
+        { length: image.width * image.height },
+        (_, pixel) => pixel,
+      ).reduce(
+        (box, pixel) => {
+          const x = pixel % image.width;
+          const y = Math.floor(pixel / image.width);
+          return (rgba[pixel * 4] ?? 0) > 100 &&
+            (rgba[pixel * 4 + 1] ?? 0) < 80 &&
+            (rgba[pixel * 4 + 2] ?? 0) > 100
+            ? {
+                left: Math.min(box.left, x),
+                right: Math.max(box.right, x),
+                top: Math.min(box.top, y),
+                bottom: Math.max(box.bottom, y),
+                count: box.count + 1,
+              }
+            : box;
+        },
+        { left: image.width, right: 0, top: image.height, bottom: 0, count: 0 },
+      );
+    }, png.toString("base64"));
+    expect(bounds.count).toBeGreaterThan(100);
+    const ratio =
+      (bounds.right - bounds.left + 1) / (bounds.bottom - bounds.top + 1);
+    expect(ratio).toBeGreaterThan(0.92);
+    expect(ratio).toBeLessThan(1.08);
+    expect((await observation(page)).errors).toEqual([]);
+  });
+});
+
 test("実行中の再開始でも旧deviceを解放する", async ({ page }) => {
   await page.goto("/");
   await start(page);

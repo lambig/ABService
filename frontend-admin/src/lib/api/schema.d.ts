@@ -1692,7 +1692,9 @@ export interface paths {
         /** Remove Album */
         delete: {
             parameters: {
-                query?: never;
+                query?: {
+                    expectedRevision?: number;
+                };
                 header?: never;
                 path: {
                     id: string;
@@ -1701,12 +1703,14 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description No Content */
-                204: {
+                /** @description OK */
+                200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["RemoveArticleAlbumResponse"];
+                    };
                 };
                 /** @description Not Authorized */
                 401: {
@@ -2402,6 +2406,8 @@ export interface components {
              */
             articleType: "ALBUM";
             articleId: string;
+            /** Format: int32 */
+            revision: number;
             title: string;
             body: string;
             bodyFormat: string;
@@ -2417,6 +2423,8 @@ export interface components {
         };
         AdminAlbumDetailResponse: {
             albumId: string;
+            /** Format: int32 */
+            revision: number;
             title: string;
             releaseDate: string;
             artistDisplayName: string;
@@ -2502,6 +2510,8 @@ export interface components {
              */
             articleType: "NOTE" | "NEWS" | "EVENT" | "OTHER";
             articleId: string;
+            /** Format: int32 */
+            revision: number;
             title: string;
             body: string;
             bodyFormat: string;
@@ -2813,6 +2823,13 @@ export interface components {
             artistDisplayName: string;
             tracks: components["schemas"]["TrackSummaryResponse"][];
         };
+        RemoveArticleAlbumResponse: {
+            articleId: string;
+            /** Format: int32 */
+            revision: number;
+            articleType: string;
+            title: string;
+        };
         ReorderExternalAudiosRequest: {
             orderedExternalAudioIds?: string[];
         };
@@ -2829,9 +2846,13 @@ export interface components {
         };
         SetArticleAlbumRequest: {
             albumId?: string;
+            /** Format: int32 */
+            expectedRevision?: number;
         };
         SetArticleAlbumResponse: {
             articleId: string;
+            /** Format: int32 */
+            revision: number;
             articleType: string;
             albumId: string;
             title: string;
@@ -2916,6 +2937,8 @@ export interface components {
             publicFlag: boolean;
         };
         UpdateAlbumRequest: {
+            /** Format: int32 */
+            expectedRevision?: number;
             title?: string;
             releaseDate?: string;
             artistDisplayName?: string;
@@ -2929,11 +2952,15 @@ export interface components {
         };
         UpdateAlbumResponse: {
             albumId: string;
+            /** Format: int32 */
+            revision: number;
             title: string;
             releaseDate: string;
             artistDisplayName: string;
         };
         UpdateArticleRequest: {
+            /** Format: int32 */
+            expectedRevision?: number;
             articleType?: string;
             title?: string;
             body?: string;
@@ -2942,6 +2969,8 @@ export interface components {
         };
         UpdateArticleResponse: {
             articleId: string;
+            /** Format: int32 */
+            revision: number;
             articleType: string;
             title: string;
             publicFlag: boolean;

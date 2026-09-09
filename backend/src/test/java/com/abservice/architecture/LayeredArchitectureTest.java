@@ -61,6 +61,7 @@ class LayeredArchitectureTest {
     private static final List<String> ALBUM_LOOKUP_METHODS = List.of(
             "findById",
             "findByIdExclusively",
+            "findByIdExclusivelyWithRevision",
             "findAllById",
             "findAll");
 

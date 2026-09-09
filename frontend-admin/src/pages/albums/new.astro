@@ -1,0 +1,13 @@
+---
+import AlbumForm from '$components/AlbumForm.svelte';
+import AdminLayout from '$layouts/AdminLayout.astro';
+
+/*
+ * 入力は組み立てでは描かない（鍵の保持に sessionStorage を使い、保存はブラウザから管理APIを叩く）。
+ * client:only を指定する。
+ */
+---
+
+<AdminLayout title="作品を追加">
+  <AlbumForm client:only="svelte" mode="new" />
+</AdminLayout>

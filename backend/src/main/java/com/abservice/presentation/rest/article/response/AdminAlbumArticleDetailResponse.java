@@ -15,6 +15,8 @@ import org.jspecify.annotations.Nullable;
  *
  * @param articleId
  *            記事ID（UUIDv7形式の文字列）
+ * @param revision
+ *            編集の世代（更新要求の {@code expectedRevision} へそのまま返す値。DECISIONS 30）
  * @param articleType
  *            記事種別（列挙子名。常に {@code ALBUM}）
  * @param title
@@ -45,6 +47,7 @@ import org.jspecify.annotations.Nullable;
 @Schema(properties = @SchemaProperty(name = "articleType", enumeration = "ALBUM"))
 public record AdminAlbumArticleDetailResponse(
         String articleId,
+        int revision,
         String articleType,
         String title,
         String body,

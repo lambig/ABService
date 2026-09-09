@@ -11,6 +11,8 @@ import com.abservice.application.service.CommandService;
  *
  * @param articleId
  *            更新された記事のID（UUIDv7形式の文字列）
+ * @param revision
+ *            保存後の世代。続けて編集する側が次の更新の条件として使う（DECISIONS 30）
  * @param articleType
  *            記事種別（列挙子名）
  * @param title
@@ -20,6 +22,7 @@ import com.abservice.application.service.CommandService;
  */
 public record UpdateArticleOutput(
         String articleId,
+        int revision,
         String articleType,
         String title,
         boolean publicFlag) implements CommandService.Output {

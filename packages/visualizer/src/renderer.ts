@@ -38,6 +38,7 @@ const atlas = (): HTMLCanvasElement => {
     );
     context.stroke();
   });
+  /* Text occupies the 512 × 128 crop at (0, 704), sampled at the same aspect ratio in scene.wgsl. */
   context.fillStyle = "#eef3f5";
   context.font = "bold 54px sans-serif";
   context.textAlign = "center";

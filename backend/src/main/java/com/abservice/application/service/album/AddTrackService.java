@@ -41,7 +41,10 @@ public class AddTrackService implements CommandService<AddTrackInput, AddTrackOu
                                 .resolve(ValidationException::new))
                 .flatMap(albumAccessService::findExistingAndClaimEdit)
                 .flatMap(
-                        album -> trackAdditionService.addTrack(album, toTrackFields(input))
+                        album -> Uni.createFrom()
+                                .item(
+                                        () -> trackAdditionService.addTrack(album, toTrackFields(input))
+                                                .resolve(ValidationException::new))
                                 .flatMap(
                                         addition -> albumRepository.save(addition.album())
                                                 .map(saved -> toOutput(saved, addition.track()))));

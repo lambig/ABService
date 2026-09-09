@@ -29,5 +29,5 @@ public record UpdateTrackInput(
         @Nullable String title,
         @Nullable String artistDisplayName,
         @Nullable String artistSortKey,
-        @Nullable List<TrackTuneInput> tunes) implements CommandService.Input {
+        @Nullable List<@Nullable TrackTuneInput> tunes) implements CommandService.Input {
 }

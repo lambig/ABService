@@ -78,6 +78,21 @@ class RegisterAlbumWithTracksRestIntegrationTest {
     }
 
     @Test
+    @DisplayName("チューン構成の行そのものが無いと400で、その行の位置を返す")
+    void missingTuneRowReturnsValidationError() {
+        authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"title\":\"チューン行欠落登録アルバム\",\"releaseDate\":\"2026-01-01\","
+                                + "\"artistDisplayName\":\"アーティスト\",\"tracks\":["
+                                + "{\"trackNo\":1,\"title\":\"1曲目\",\"tunes\":[null]}]}")
+                .when().post("/api/v1/albums/with-tracks").then().statusCode(400)
+                .contentType("application/problem+json")
+                .body("type", equalTo("urn:abservice:error:VALIDATION_ERROR"))
+                .body("errors[0].field", equalTo("tracks[0].tunes[0]"))
+                .body("errors[0].code", equalTo("TUNE_REQUIRED"));
+    }
+
+    @Test
     @DisplayName("トラックのタイトルが未指定だと400 problem+json（検証エラー）を返す")
     void trackValidationError() {
         authorized().contentType(ContentType.JSON)

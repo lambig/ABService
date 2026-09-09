@@ -1,0 +1,14 @@
+---
+import AlbumForm from '$components/AlbumForm.svelte';
+import AdminLayout from '$layouts/AdminLayout.astro';
+
+/*
+ * 対象は問い合わせ文字列（`?albumId=`）で受ける。成果物は静的で、作品ごとの経路を組み立ての時点で
+ * 出せない（扱うのは下書きを含む編集中の状態で、組み立て後に増える）。読み込みもブラウザで行うため
+ * client:only を指定する。
+ */
+---
+
+<AdminLayout title="作品を編集">
+  <AlbumForm client:only="svelte" mode="edit" />
+</AdminLayout>

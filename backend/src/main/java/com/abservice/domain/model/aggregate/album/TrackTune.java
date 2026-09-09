@@ -213,11 +213,15 @@ public final class TrackTune implements DomainEntity<TrackTune, Integer> {
         return Result.zip(
                 seqPolicy().verify(seq, Function.identity()),
                 Result.zip(
-                        optional(TrackTuneTitle::fromInput, tuneTitle),
-                        optional(Credit::fromInput, composerCreditOverride),
-                        optional(Credit::fromInput, arrangerCreditOverride),
+                        optional(TrackTuneTitle::fromInput, tuneTitle)
+                                .withErrorField("tuneTitle"),
+                        optional(Credit::fromInput, composerCreditOverride)
+                                .withErrorField("composerCreditOverride"),
+                        optional(Credit::fromInput, arrangerCreditOverride)
+                                .withErrorField("arrangerCreditOverride"),
                         OptionalFields::new),
-                optional(Url::fromInput, linkUrl),
+                optional(Url::fromInput, linkUrl)
+                        .withErrorField("linkUrl"),
                 (validSeq, fields, url) -> TrackTune.create(
                         validSeq,
                         null,

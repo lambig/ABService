@@ -9,6 +9,7 @@ import com.abservice.application.service.article.PublishArticleInput;
 import com.abservice.application.service.article.PublishArticleOutput;
 import com.abservice.application.service.article.PublishArticleService;
 import com.abservice.application.service.article.RemoveArticleAlbumInput;
+import com.abservice.application.service.article.RemoveArticleAlbumOutput;
 import com.abservice.application.service.article.RemoveArticleAlbumService;
 import com.abservice.application.service.article.SetArticleAlbumInput;
 import com.abservice.application.service.article.SetArticleAlbumOutput;
@@ -24,6 +25,7 @@ import com.abservice.presentation.rest.article.request.SetArticleAlbumRequest;
 import com.abservice.presentation.rest.article.request.UpdateArticleRequest;
 import com.abservice.presentation.rest.article.response.CreateArticleResponse;
 import com.abservice.presentation.rest.article.response.PublishArticleResponse;
+import com.abservice.presentation.rest.article.response.RemoveArticleAlbumResponse;
 import com.abservice.presentation.rest.article.response.SetArticleAlbumResponse;
 import com.abservice.presentation.rest.article.response.UnpublishArticleResponse;
 import com.abservice.presentation.rest.article.response.UpdateArticleResponse;
@@ -37,6 +39,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import org.jboss.resteasy.reactive.ResponseStatus;
 import org.jboss.resteasy.reactive.RestResponse;
@@ -153,6 +156,7 @@ public class ArticleCommandResource {
     private static UpdateArticleInput toInput(String id, UpdateArticleRequest request) {
         return new UpdateArticleInput(
                 id,
+                request.expectedRevision(),
                 request.articleType(),
                 request.title(),
                 request.body(),
@@ -163,6 +167,7 @@ public class ArticleCommandResource {
     private static UpdateArticleResponse toResponse(UpdateArticleOutput output) {
         return new UpdateArticleResponse(
                 output.articleId(),
+                output.revision(),
                 output.articleType(),
                 output.title(),
                 output.publicFlag());
@@ -231,18 +236,27 @@ public class ArticleCommandResource {
     /**
      * 記事にアルバムを紐付けます（ALBUM種別の記事のみ。参照先アルバムの公開状態は問いません）。
      *
+     * <p>
+     * 紐付けは記事の世代を進めるため、更新（PUT /articles/{id}）と同じ楽観ロック契約を適用します。
+     * {@code expectedRevision} が保存直前の世代と食い違えば409を返します（#323）。
+     * </p>
+     *
      * @param id
      *            紐付け対象の記事ID
      * @param request
      *            Album参照設定リクエスト
-     * @return 200 OK と紐付け結果
+     * @return 200 OK と紐付け結果（紐付け後の世代を含む）
      */
     @PUT
     @Path("/{id}/album")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Uni<SetArticleAlbumResponse> setAlbum(@PathParam("id") String id, SetArticleAlbumRequest request) {
-        return setArticleAlbumService.execute(new SetArticleAlbumInput(id, request.albumId()))
+        return setArticleAlbumService.execute(
+                new SetArticleAlbumInput(
+                        id,
+                        request.albumId(),
+                        request.expectedRevision()))
                 .map(ArticleCommandResource::toResponse);
     }
 
@@ -251,25 +265,39 @@ public class ArticleCommandResource {
      *
      * <p>
      * 紐付けを持たない記事・参照が失効している記事に対してもべき等に成功します。参照先アルバムの削除に伴う失効とは別に、
-     * 人が明示的に外す操作のため理由は残しません。
+     * 人が明示的に外す操作のため理由は残しません。解除も記事の世代を進めるため、紐付けと同じ楽観ロック契約を 適用します（#323）。
      * </p>
      *
      * @param id
      *            解除対象の記事ID
-     * @return 204 No Content
+     * @param expectedRevision
+     *            編集を始めた時点の記事の世代（必須）
+     * @return 200 OK と解除結果（解除後の世代を含む）
      */
     @DELETE
     @Path("/{id}/album")
-    public Uni<Void> removeAlbum(@PathParam("id") String id) {
-        return removeArticleAlbumService.execute(new RemoveArticleAlbumInput(id))
-                .replaceWithVoid();
+    @Produces(MediaType.APPLICATION_JSON)
+    public Uni<RemoveArticleAlbumResponse> removeAlbum(
+            @PathParam("id") String id,
+            @QueryParam("expectedRevision") Integer expectedRevision) {
+        return removeArticleAlbumService.execute(new RemoveArticleAlbumInput(id, expectedRevision))
+                .map(ArticleCommandResource::toResponse);
     }
 
     private static SetArticleAlbumResponse toResponse(SetArticleAlbumOutput output) {
         return new SetArticleAlbumResponse(
                 output.articleId(),
+                output.revision(),
                 output.articleType(),
                 output.albumId(),
+                output.title());
+    }
+
+    private static RemoveArticleAlbumResponse toResponse(RemoveArticleAlbumOutput output) {
+        return new RemoveArticleAlbumResponse(
+                output.articleId(),
+                output.revision(),
+                output.articleType(),
                 output.title());
     }
 }

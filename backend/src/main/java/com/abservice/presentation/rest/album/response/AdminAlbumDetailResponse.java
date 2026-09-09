@@ -20,6 +20,10 @@ import org.jspecify.annotations.Nullable;
  *
  * @param albumId
  *            アルバムID（UUIDv7形式の文字列）
+ * @param revision
+ *            編集の世代。更新要求（{@code UpdateAlbumRequest#expectedRevision}）へそのまま返す値で、これが
+ *            現在の版と違えば 409 になる（編集を始めた時点より後に別の操作が保存している）。トラック等の子の操作は
+ *            別の編集単位で、この値を進めない
  * @param title
  *            アルバムタイトル
  * @param releaseDate
@@ -60,6 +64,7 @@ import org.jspecify.annotations.Nullable;
  */
 public record AdminAlbumDetailResponse(
         String albumId,
+        int revision,
         String title,
         String releaseDate,
         String artistDisplayName,

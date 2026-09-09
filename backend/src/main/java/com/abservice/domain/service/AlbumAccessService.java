@@ -41,6 +41,24 @@ public class AlbumAccessService implements DomainService {
     }
 
     /**
+     * これから編集するアルバムを、編集権を主張して取得し、その行の世代を伴わせる
+     *
+     * <p>
+     * 世代は更新の契約（{@link AlbumRepository.Revision}）で、業務上の意味を持たない。編集を始めた時点の世代と
+     * 突き合わせる呼び出し元（全項目置換の更新）だけがこの取得を使う（#287）。
+     * </p>
+     *
+     * @param id
+     *            アルバムID
+     * @return 存在するAlbumと行の世代。存在しない場合は{@link EntityNotFoundException}で失敗する
+     */
+    public Uni<AlbumRepository.Revisioned> findExistingAndClaimEditWithRevision(Album.Id id) {
+        return albumRepository.findByIdExclusivelyWithRevision(id)
+                .onItem().ifNull()
+                .failWith(() -> EntityNotFoundException.of("Album", id.value()));
+    }
+
+    /**
      * 参照先のアルバムを、参照が操作の間ずれないことを主張して取得する
      *
      * <p>

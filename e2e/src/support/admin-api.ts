@@ -159,6 +159,53 @@ export const seedPublishedAlbum = async (album: AlbumSeed): Promise<string> => {
   return albumId;
 };
 
+/** 管理向け詳細のうち、画面の外から更新を送るために要る項目 */
+interface AdminAlbumDetail {
+  readonly revision: number;
+  readonly title: string;
+  readonly releaseDate: string;
+  readonly artistDisplayName: string;
+  readonly artistSortKey: string | null;
+  readonly catalogNumber: string | null;
+  readonly isdn: string | null;
+  readonly coverImageKey: string | null;
+  readonly description: string | null;
+  readonly descriptionFormat: string;
+}
+
+/**
+ * 別のタブが保存した状態を作る（タイトルだけを変えて全項目置換する）。
+ *
+ * <p>
+ * 更新は編集を始めた時点の世代（`expectedRevision`）を要求するため、詳細を読んでから送る（#287）。画面が
+ * 同じ作品を開いたまま古い世代で保存しようとしたときに、競合として拒まれることを見るために使う。
+ * </p>
+ *
+ * @param albumId
+ *            対象の作品のドメインID
+ * @param title
+ *            置き換え後のタイトル
+ */
+export const renameAlbumOutsideTheScreen = async (
+  albumId: string,
+  title: string,
+): Promise<void> => {
+  const detail = (await getAdmin(`/api/v1/admin/albums/${albumId}`)) as AdminAlbumDetail;
+
+  await sendAdmin('PUT', `/api/v1/albums/${albumId}`, {
+    expectedRevision: detail.revision,
+    title,
+    releaseDate: detail.releaseDate,
+    artistDisplayName: detail.artistDisplayName,
+    artistSortKey: detail.artistSortKey,
+    catalogNumber: detail.catalogNumber,
+    isdn: detail.isdn,
+    coverImageKey: detail.coverImageKey,
+    description: detail.description,
+    descriptionFormat: detail.descriptionFormat,
+  });
+};
+
 /** 管理向け一覧の1件。同定と公開状態の確認に使う項目だけを持つ */
 export interface AdminAlbum {
   readonly albumId: string;
@@ -246,11 +293,19 @@ export const seedDraftArticle = async (article: ArticleSeed): Promise<string> =>
 
   const articleId = articleIdOf(created);
 
-  /* 参照の設定は全項目置換の PUT（作成時のリクエストは参照を持たない） */
+  /*
+   * 参照の設定は全項目置換の PUT（作成時のリクエストは参照を持たない）。作成直後のため世代は0
+   * （紐付けも記事の世代を進める契約、#323）。
+   */
   await Promise.all(
     article.albumId === undefined
       ? []
-      : [putAdmin(`/api/v1/articles/${articleId}/album`, { albumId: article.albumId })],
+      : [
+          putAdmin(`/api/v1/articles/${articleId}/album`, {
+            albumId: article.albumId,
+            expectedRevision: 0,
+          }),
+        ],
   );
 
   /*
@@ -319,6 +374,45 @@ export const deleteArticle = async (articleId: string): Promise<void> => {
       );
 };
 
+/** 管理向け記事詳細のうち、画面の外から更新を送るために要る項目 */
+interface AdminArticleDetail {
+  readonly revision: number;
+  readonly articleType: string;
+  readonly title: string;
+  readonly body: string;
+  readonly bodyFormat: string;
+  readonly introShort: string;
+}
+
+/**
+ * 別のタブが保存した状態を作る（タイトルだけを変えて全項目置換する）。
+ *
+ * <p>
+ * 更新は編集を始めた時点の世代（`expectedRevision`）を要求するため、詳細を読んでから送る（#287）。画面が
+ * 同じ記事を開いたまま古い世代で保存しようとしたときに、競合として拒まれることを見るために使う。
+ * </p>
+ *
+ * @param articleId
+ *            対象の記事のドメインID
+ * @param title
+ *            置き換え後のタイトル
+ */
+export const renameArticleOutsideTheScreen = async (
+  articleId: string,
+  title: string,
+): Promise<void> => {
+  const detail = (await getAdmin(`/api/v1/admin/articles/${articleId}`)) as AdminArticleDetail;
+
+  await sendAdmin('PUT', `/api/v1/articles/${articleId}`, {
+    expectedRevision: detail.revision,
+    articleType: detail.articleType,
+    title,
+    body: detail.body,
+    bodyFormat: detail.bodyFormat,
+    introShort: detail.introShort,
+  });
+};
+
 /** 管理向け一覧の1件。同定に使う項目だけを持つ */
 export interface AdminArticle {
   readonly articleId: string;
@@ -327,6 +421,7 @@ export interface AdminArticle {
 
 interface AdminArticlePage {
   readonly items: readonly AdminArticle[];
+  readonly totalElements: number;
   readonly totalPages: number;
 }
 
@@ -334,29 +429,64 @@ const fetchAdminArticlePage = async (page: number): Promise<AdminArticlePage> =>
   (await getAdmin(`/api/v1/admin/articles?page=${String(page)}&size=100`)) as AdminArticlePage;
 
 /**
- * タイトルで記事を引く（下書きを含む）。
+ * 下書きを含む全記事。
  *
  * <p>
- * 公開の一覧には下書きが出ないため管理APIを通す。管理の記事一覧はタイトルでの絞り込みを持たない
- * （作品の一覧とは非対称。検索が要るのは記事編集画面から作品を選ぶ経路だけのため）ので、全ページ
- * たぐって完全一致で選ぶ。
+ * 管理の記事一覧はタイトルでの絞り込みを持たない（作品の一覧とは非対称。検索が要るのは記事編集画面から
+ * 作品を選ぶ経路だけのため）ので、全ページたぐってから選ぶ。
  * </p>
- *
- * @param title
- *            同定に使うタイトル
- * @returns 見つかった記事。無ければ undefined
  */
-export const findArticleByTitle = async (title: string): Promise<AdminArticle | undefined> => {
+const allAdminArticles = async (): Promise<readonly AdminArticle[]> => {
   const firstPage = await fetchAdminArticlePage(0);
   const remainingPages = await Promise.all(
     Array.from({ length: Math.max(firstPage.totalPages - 1, 0) }, (_unused, index) =>
       fetchAdminArticlePage(index + 1),
     ),
   );
-  return [firstPage, ...remainingPages]
-    .flatMap((page) => page.items)
-    .find((item) => item.title === title);
+  return [firstPage, ...remainingPages].flatMap((page) => page.items);
 };
+
+/**
+ * タイトルで記事を引く（下書きを含む）。
+ *
+ * <p>
+ * 公開の一覧には下書きが出ないため管理APIを通す。
+ * </p>
+ *
+ * @param title
+ *            同定に使うタイトル
+ * @returns 見つかった記事。無ければ undefined
+ */
+export const findArticleByTitle = async (title: string): Promise<AdminArticle | undefined> =>
+  (await allAdminArticles()).find((item) => item.title === title);
+
+/**
+ * タイトルの接頭辞で記事を探す（下書きを含む）。
+ *
+ * <p>
+ * 検査のためだけに作った記事を、控えを持たずに片付けるために使う。前回の実行が落ちて残ったものも
+ * 同じ接頭辞で拾える。
+ * </p>
+ *
+ * @param prefix
+ *            タイトルの接頭辞
+ * @returns 該当する記事（該当なしは空）
+ */
+export const findArticlesByTitlePrefix = async (prefix: string): Promise<readonly AdminArticle[]> =>
+  (await allAdminArticles()).filter((item) => item.title.startsWith(prefix));
+
+/**
+ * 下書きを含む記事の総件数。
+ *
+ * <p>
+ * ページ送りを見るシナリオが「あと何件足りないか」を決めるために使う。母集団はシードした記事と、
+ * 前回までの実行が残したものの合計で、実行ごとに変わる。
+ * </p>
+ *
+ * @returns 記事の総件数
+ */
+export const countArticles = async (): Promise<number> =>
+  (await fetchAdminArticlePage(0)).totalElements;
 
 /** 置くサイト文言の指定。キーごとに1つ */
 export interface SiteContentSeed {

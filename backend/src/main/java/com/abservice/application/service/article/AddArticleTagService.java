@@ -7,7 +7,6 @@ import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.entity.article.ArticleTag;
 import com.abservice.domain.repository.article.ArticleRepository;
 import com.abservice.domain.repository.article.ArticleTagRepository;
-import com.abservice.domain.service.BusinessDateTimeProvider;
 import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -19,8 +18,8 @@ import lombok.AllArgsConstructor;
  * 記事タグ追加コマンドサービス
  *
  * <p>
- * {@link Article#addTag(ArticleTag, com.abservice.domain.model.vo.common.BusinessDateTime)}
- * を呼び出すユースケースです。
+ * {@link Article#addTag(ArticleTag)} を呼び出すユースケースです。タグの付け替えは記事そのものの更新ではないため、
+ * 記事の更新日時は動かしません（現在日時を要しないのはこのため）。
  * </p>
  *
  * <p>
@@ -39,7 +38,6 @@ public class AddArticleTagService implements CommandService<AddArticleTagInput, 
 
     private final ArticleRepository articleRepository;
     private final ArticleTagRepository articleTagRepository;
-    private final BusinessDateTimeProvider businessDateTimeProvider;
 
     @WithTransaction
     @Override
@@ -53,7 +51,7 @@ public class AddArticleTagService implements CommandService<AddArticleTagInput, 
 
     private Uni<AddArticleTagOutput> addTagTo(Article.Id articleId, ArticleTag tag) {
         return findExisting(articleId)
-                .flatMap(article -> tagged(article, tag))
+                .map(article -> article.addTag(tag))
                 .flatMap(articleRepository::save)
                 .map(saved -> toOutput(saved, tag));
     }
@@ -84,11 +82,6 @@ public class AddArticleTagService implements CommandService<AddArticleTagInput, 
         return articleRepository.findById(id)
                 .onItem().ifNull()
                 .failWith(() -> EntityNotFoundException.of("Article", id.value()));
-    }
-
-    private Uni<Article> tagged(Article article, ArticleTag tag) {
-        return businessDateTimeProvider.now()
-                .map(now -> article.addTag(tag, now));
     }
 
     private static AddArticleTagOutput toOutput(Article article, ArticleTag tag) {

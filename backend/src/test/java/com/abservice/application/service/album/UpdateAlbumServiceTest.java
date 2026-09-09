@@ -20,6 +20,16 @@ import org.junit.jupiter.api.Test;
 @DisplayName("UpdateAlbumService.validateAndApply（更新差分適用の集約）のテスト")
 class UpdateAlbumServiceTest {
 
+    /**
+     * 編集を始めた時点の世代。
+     *
+     * <p>
+     * 本テストの対象（{@code validateAndApply}）は世代を見ない。世代の突き合わせは集約を掴む側の責務で、
+     * 経路ごと（未指定は400・不一致は409）に統合テストが固定している。
+     * </p>
+     */
+    private static final Integer REVISION_UNUSED = 0;
+
     private static Album existingAlbum() {
         return Album.create(
                 AlbumTitle.of("元のタイトル"),
@@ -42,6 +52,7 @@ class UpdateAlbumServiceTest {
                 existingAlbum(),
                 new UpdateAlbumInput(
                         null,
+                        REVISION_UNUSED,
                         "新タイトル",
                         "2026-01-01",
                         "新アーティスト",
@@ -68,6 +79,7 @@ class UpdateAlbumServiceTest {
                 existingAlbum(),
                 new UpdateAlbumInput(
                         null,
+                        REVISION_UNUSED,
                         "新タイトル",
                         "2026-01-01",
                         "新アーティスト",
@@ -94,6 +106,7 @@ class UpdateAlbumServiceTest {
                 existing,
                 new UpdateAlbumInput(
                         null,
+                        REVISION_UNUSED,
                         "新タイトル",
                         "2026-01-01",
                         "新アーティスト",
@@ -116,6 +129,7 @@ class UpdateAlbumServiceTest {
                 existingAlbum(),
                 new UpdateAlbumInput(
                         null,
+                        REVISION_UNUSED,
                         "新タイトル",
                         "2026-01-01",
                         "新アーティスト",
@@ -142,6 +156,7 @@ class UpdateAlbumServiceTest {
                 existing,
                 new UpdateAlbumInput(
                         null,
+                        REVISION_UNUSED,
                         "新タイトル",
                         "2026-01-01",
                         "新アーティスト",
@@ -164,6 +179,7 @@ class UpdateAlbumServiceTest {
                 existingAlbum(),
                 new UpdateAlbumInput(
                         null,
+                        REVISION_UNUSED,
                         "新タイトル",
                         "2026-01-01",
                         "新アーティスト",
@@ -194,6 +210,7 @@ class UpdateAlbumServiceTest {
                 existing,
                 new UpdateAlbumInput(
                         null,
+                        REVISION_UNUSED,
                         "新タイトル",
                         "2026-01-01",
                         "新アーティスト",
@@ -217,6 +234,7 @@ class UpdateAlbumServiceTest {
                 existingAlbum(),
                 new UpdateAlbumInput(
                         null,
+                        REVISION_UNUSED,
                         "   ",
                         "not-a-date",
                         "   ",
@@ -248,6 +266,7 @@ class UpdateAlbumServiceTest {
                 existingAlbum(),
                 new UpdateAlbumInput(
                         null,
+                        REVISION_UNUSED,
                         "   ",
                         "2026-01-01",
                         "新アーティスト",
@@ -271,6 +290,7 @@ class UpdateAlbumServiceTest {
                 existingAlbum(),
                 new UpdateAlbumInput(
                         null,
+                        REVISION_UNUSED,
                         "新タイトル",
                         "2026-01-01",
                         "新アーティスト",

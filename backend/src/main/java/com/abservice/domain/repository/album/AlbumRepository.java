@@ -50,6 +50,55 @@ public interface AlbumRepository extends Repository<Album, Album.Id> {
     Uni<Album> findByIdExclusively(Album.Id id);
 
     /**
+     * {@link #findByIdExclusively} と同じ取得を、その行の世代を伴って返す
+     *
+     * <p>
+     * 世代（{@link Revision}）はドメインの語彙ではなく、**更新の契約**である。編集を始めた時点の世代を要求が
+     * 持ち込み、保存の直前に読んだ世代と突き合わせることで、途中で別の操作が保存したかどうかを判定する（#287）。
+     * 業務モデルへ持たせないのは、作品の事実ではないものを集約の状態に混ぜないためである。
+     * </p>
+     *
+     * @param id
+     *            アルバムID
+     * @return アルバムと行の世代。存在しない場合はnull
+     */
+    Uni<Revisioned> findByIdExclusivelyWithRevision(Album.Id id);
+
+    /**
+     * 保存し、保存後の行の世代を伴って返す
+     *
+     * <p>
+     * 保存で世代は進む。呼び出し元が次の更新の条件として返せるようにするため、進んだ後の値を伴わせる
+     * （進み方を呼び出し元が推測すると、実装の都合が契約になる）。
+     * </p>
+     *
+     * @param aggregate
+     *            保存するアルバム
+     * @return 保存後のアルバムと行の世代
+     */
+    Uni<Revisioned> saveWithRevision(Album aggregate);
+
+    /**
+     * 行の世代。更新の条件として運ぶだけの値で、業務上の意味を持たない
+     *
+     * @param value
+     *            世代（保存のたびに進む）
+     */
+    record Revision(int value) {
+    }
+
+    /**
+     * アルバムと、その行の世代の組
+     *
+     * @param album
+     *            アルバム
+     * @param revision
+     *            行の世代
+     */
+    record Revisioned(Album album, Revision revision) {
+    }
+
+    /**
      * 複数のIDでアルバムを取得する（主張を伴わない取得）
      *
      * <p>

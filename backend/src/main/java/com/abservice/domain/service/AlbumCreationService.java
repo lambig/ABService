@@ -1,6 +1,5 @@
 package com.abservice.domain.service;
 
-import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.DomainFactory;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.vo.album.AlbumTitle;
@@ -12,7 +11,6 @@ import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.lib.Result;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Optional;
 import java.util.function.Function;
@@ -33,6 +31,17 @@ import org.jspecify.annotations.Nullable;
  * {@link BusinessDate} 文字列の解釈（ISO-8601パース）はドメイン層が {@code java.time} に直接依存しないための
  * 境界層の責務のため、{@code releaseDate}・イベント開催日は呼び出し側で解決済みの {@link Result} を渡してください
  * （{@code Result} は成功時は解決済みの値、失敗時はパース失敗等のエラーを保持し、他の検証項目と合わせて集約されます）。
+ * </p>
+ *
+ * <p>
+ * 検証エラーは {@link Result} で返します。例外へ変えるのは呼び出し元（application 層）の判断で、そこは入力を
+ * 組み立てた場所として、エラーの位置を自分の入力パスへ写せる立場でもあります（DECISIONS 29）。エラーの位置は
+ * 本サービスの引数の綴り（{@code title} / {@code artistDisplayName} / {@code catalogNumber}
+ * / {@code isdn} / {@code coverImageKey} / {@code description} /
+ * {@code descriptionFormat} /
+ * {@code event.name}）で返します。値オブジェクトはどの引数から渡されたかを知らないため、写せるのはここだけです （同じ
+ * {@code value} を返す {@code AlbumTitle} と {@code CatalogNumber} と {@code Isdn}
+ * を、 呼び出し元では区別できません）。
  * </p>
  */
 @ApplicationScoped
@@ -61,10 +70,10 @@ public class AlbumCreationService implements DomainService {
      *            概要説明のマークアップ形式（{@code description}を指定する場合のみ必須）
      * @param event
      *            初出イベント情報（nullable）
-     * @return 検証・生成されたAlbum。検証失敗時は{@link ValidationException}で失敗する
+     * @return 成功時は検証・生成されたAlbum、失敗時はエラー
      */
     @DomainFactory
-    public Uni<Album> create(
+    public Result<Album> create(
             @Nullable String title,
             Result<BusinessDate> releaseDate,
             @Nullable String artistDisplayName,
@@ -75,20 +84,17 @@ public class AlbumCreationService implements DomainService {
             @Nullable String description,
             @Nullable String descriptionFormat,
             @Nullable EventFields event) {
-        return Uni.createFrom()
-                .item(
-                        () -> validate(
-                                title,
-                                releaseDate,
-                                artistDisplayName,
-                                artistSortKey,
-                                catalogNumber,
-                                isdn,
-                                coverImageKey,
-                                description,
-                                descriptionFormat,
-                                event)
-                                .resolve(ValidationException::new));
+        return validate(
+                title,
+                releaseDate,
+                artistDisplayName,
+                artistSortKey,
+                catalogNumber,
+                isdn,
+                coverImageKey,
+                description,
+                descriptionFormat,
+                event);
     }
 
     @DomainFactory
@@ -105,17 +111,22 @@ public class AlbumCreationService implements DomainService {
             @Nullable EventFields event) {
         return Result.zip(
                 Result.zip(
-                        AlbumTitle.fromInput(title),
+                        AlbumTitle.fromInput(title)
+                                .withErrorField("title"),
                         releaseDate,
-                        ArtistCredit.fromInput(artistDisplayName, artistSortKey),
+                        ArtistCredit.fromInput(artistDisplayName, artistSortKey)
+                                .withErrorField("artistDisplayName"),
                         TitleDateArtist::new),
                 Result.zip(
-                        resolveOptional(CatalogNumber::fromInput, catalogNumber),
-                        resolveOptional(Isdn::fromInput, isdn),
+                        resolveOptional(CatalogNumber::fromInput, catalogNumber)
+                                .withErrorField("catalogNumber"),
+                        resolveOptional(Isdn::fromInput, isdn)
+                                .withErrorField("isdn"),
                         resolveEvent(event),
                         OptionalFields::new),
                 Result.zip(
-                        resolveOptional(AssetKey::fromInput, coverImageKey),
+                        resolveOptional(AssetKey::fromInput, coverImageKey)
+                                .withErrorField("coverImageKey"),
                         resolveDescription(description, descriptionFormat),
                         CoverAndDescription::new),
                 (base, optional, extra) -> Album.create(
@@ -135,7 +146,12 @@ public class AlbumCreationService implements DomainService {
     private static Result<MarkupContent> resolveDescription(@Nullable String content, @Nullable String format) {
         return Optional.ofNullable(content)
                 .filter(StringUtils::isNotBlank)
-                .map(c -> MarkupContent.fromInput(c, format))
+                .map(
+                        c -> MarkupContent.fromInput(c, format)
+                                .mapErrorFields(
+                                        field -> "format".equals(field)
+                                                ? "descriptionFormat"
+                                                : "description"))
                 .orElse(EMPTY_DESCRIPTION);
     }
 
@@ -192,7 +208,8 @@ public class AlbumCreationService implements DomainService {
                                 date.orElse(null),
                                 event.place(),
                                 event.spaceNumber(),
-                                event.note()))
+                                event.note())
+                                .withErrorField("event.name"))
                 .map(Optional::of);
     }
 

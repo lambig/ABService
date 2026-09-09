@@ -38,21 +38,32 @@ public record TrackTuneInput(
     /**
      * ドメインサービスの入力値へ変換する
      *
+     * <p>
+     * 行そのものが無い（配列要素が {@code null}）場合はその位置を保ったまま渡す。行の欠落を検証エラーとして {@code tunes[i]}
+     * の位置で返すのは、添字を知っている {@link TrackAdditionService} の側である。
+     * </p>
+     *
      * @param tunes
-     *            チューン構成の入力DTO一覧（nullable）
+     *            チューン構成の入力DTO一覧（nullable。要素もnullable）
      * @return ドメインサービスの入力値一覧（入力がnullの場合はnull）
      */
-    public static @Nullable List<TrackAdditionService.TuneFields> toFields(
-            @Nullable List<TrackTuneInput> tunes) {
+    public static @Nullable List<TrackAdditionService.@Nullable TuneFields> toFields(
+            @Nullable List<@Nullable TrackTuneInput> tunes) {
         return Optional.ofNullable(tunes)
                 .map(TrackTuneInput::toFieldList)
                 .orElse(null);
     }
 
-    private static List<TrackAdditionService.TuneFields> toFieldList(List<TrackTuneInput> tunes) {
-        return tunes.stream()
-                .map(TrackTuneInput::toFields)
+    private static List<TrackAdditionService.@Nullable TuneFields> toFieldList(
+            List<@Nullable TrackTuneInput> tunes) {
+        return tunes.stream().<TrackAdditionService.@Nullable TuneFields>map(TrackTuneInput::toFieldsOrNull)
                 .toList();
+    }
+
+    private static TrackAdditionService.@Nullable TuneFields toFieldsOrNull(@Nullable TrackTuneInput tune) {
+        return Optional.ofNullable(tune)
+                .map(TrackTuneInput::toFields)
+                .orElse(null);
     }
 
     private TrackAdditionService.TuneFields toFields() {

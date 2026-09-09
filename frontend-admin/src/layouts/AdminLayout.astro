@@ -1,4 +1,6 @@
 ---
+import { ALBUM_LIST_PATH, ARTICLE_LIST_PATH } from '$lib/paths';
+
 import '../styles/global.css';
 
 interface Props {
@@ -7,6 +9,12 @@ interface Props {
 }
 
 const { title } = Astro.props;
+
+/** 集約ごとの入口。ここに無い画面（新規作成・編集）は、それぞれの一覧から辿る */
+const ENTRIES = [
+  { label: '作品', href: ALBUM_LIST_PATH },
+  { label: '記事', href: ARTICLE_LIST_PATH },
+] as const;
 
 /*
  * 管理画面はサイト名や紹介文（SiteContent。#230）を引かない。あれは公開サイトの見えかたを決める
@@ -30,6 +38,16 @@ const APPLICATION_NAME = 'ABService 管理';
       <header class="border-border flex items-baseline gap-3 border-b py-6">
         <p class="text-lg font-medium">{APPLICATION_NAME}</p>
         <p class="text-muted-foreground text-sm">{title}</p>
+
+        <nav class="ml-auto flex items-center gap-4">
+          {
+            ENTRIES.map((entry) => (
+              <a class="text-sm underline underline-offset-4" href={entry.href}>
+                {entry.label}
+              </a>
+            ))
+          }
+        </nav>
       </header>
 
       <main class="flex-1 py-6">
