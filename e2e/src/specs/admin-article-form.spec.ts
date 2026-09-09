@@ -3,6 +3,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import type { Locator, Page } from '@playwright/test';
 
 import { renameArticleOutsideTheScreen } from '../support/admin-api.ts';
+import { albumArticle } from '../support/build-fixtures.ts';
 import { stack } from '../support/config.ts';
 import { capture, clickWithEvidence, focusOn } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
@@ -55,6 +56,16 @@ const PENDING_NOTICE = '入力した内容は保持しています。鍵を入�
 /** 競合したときの見出しと復帰の操作 */
 const CONFLICT_HEADING = '編集を始めた後に、別の操作がこの記事を保存しています';
 const RELOAD_LABEL = '最新を読み込む';
+
+/** タグの区画。付け外しは本文の保存と別の経路のため、操作も文言も分かれている */
+const TAG_SELECT_LABEL = '付けるタグ';
+const TAG_ADD_LABEL = '付ける';
+const TAG_REMOVE_LABEL = '外す';
+const NO_TAGS_TEXT = 'タグは付いていません。';
+const TAGS_NEED_ARTICLE_TEXT = '記事を作成すると、タグを付けられます。';
+
+/** 付いているタグの一覧 */
+const attachedTagsOf = (page: Page): Locator => page.locator('[data-tags="attached"]');
 
 /** 本文のプレビュー。形式によって描き方が変わるため、区画を分けて指す */
 const markdownPreviewOf = (page: Page): Locator => page.locator('[data-preview="markdown"]');
@@ -412,6 +423,50 @@ test.describe('管理画面の記事の追加', () => {
  * 描画は公開サイトと同じ共有の関数を通る。ここで見ているのは、その関数が管理画面でも同じ結果を出すこと
  * と、形式によって解釈を変えないことである。保存はしないため、記事は作られない。
  */
+/**
+ * 記事のタグ（#309 / #120）。
+ *
+ * 付け外しは本文の保存とは別の経路で、押した時点で反映される。既にある名前から選ぶだけで、同名かどうかの
+ * 判定はバックエンドが持つ（DECISIONS 23）。
+ */
+test.describe('管理画面の記事のタグ', () => {
+  test('既存のタグを選んで付け、外せる', async ({ page }) => {
+    const article = await seedScratchArticle('タグ');
+
+    await page.goto(`${EDIT_ARTICLE_URL}?articleId=${article.articleId}`);
+    await page.getByLabel(API_KEY_LABEL).fill(stack.adminApiKey);
+    await page.getByRole('button', { name: OPEN_LABEL }).click();
+
+    await expect(page.getByText(NO_TAGS_TEXT)).toBeVisible();
+
+    /* 候補はシードした記事が持つタグ。名前で選び、画面は同名の判定をしない */
+    await page.getByLabel(TAG_SELECT_LABEL).selectOption(albumArticle.tags[0]);
+    await clickWithEvidence(
+      page,
+      page.getByRole('button', { name: TAG_ADD_LABEL }),
+      '60-admin-article-tag-add',
+    );
+
+    await expect(attachedTagsOf(page)).toContainText(albumArticle.tags[0]);
+    await capture(page, '61-admin-article-tag-attached');
+
+    /* 保存を挟まずに反映されている。読み直しても付いたまま */
+    await page.reload();
+    await expect(attachedTagsOf(page)).toContainText(albumArticle.tags[0]);
+
+    await attachedTagsOf(page).getByRole('button', { name: TAG_REMOVE_LABEL }).click();
+    await expect(page.getByText(NO_TAGS_TEXT)).toBeVisible();
+  });
+
+  test('まだ作られていない記事にはタグを付けられない', async ({ page }) => {
+    await openWithKey(page, NEW_ARTICLE_URL);
+
+    /* 付ける先が無い。作成の前に選ばせると、押せない操作を出すことになる */
+    await expect(page.getByText(TAGS_NEED_ARTICLE_TEXT)).toBeVisible();
+    await expect(page.getByLabel(TAG_SELECT_LABEL)).toHaveCount(0);
+  });
+});
+
 test.describe('管理画面の本文のプレビュー', () => {
   test('Markdown は記法として描かれる', async ({ page }) => {
     await openWithKey(page, NEW_ARTICLE_URL);
