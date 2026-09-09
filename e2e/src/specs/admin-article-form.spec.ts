@@ -69,6 +69,23 @@ const fieldOf = (page: Page, path: string): Locator => page.locator(`[data-field
 const rowOf = (page: Page, title: string): Locator =>
   page.getByRole('row').filter({ hasText: title });
 
+/**
+ * 作成の後に経路へ入る対象。
+ *
+ * 作成できた時点で、画面はその記事の編集を指す。画面の外からその記事を動かすシナリオが対象を知る
+ * 手立ては経路しかない（作成の応答はシナリオから見えない）。
+ */
+const createdArticleId = (page: Page): string => {
+  const articleId = new URL(page.url()).searchParams.get('articleId');
+
+  return (
+    articleId ??
+    (() => {
+      throw new Error(`作成した後の経路に articleId がありません: ${page.url()}`);
+    })()
+  );
+};
+
 /** 鍵を入れて、その画面が開いた状態にする */
 const openWithKey = async (page: Page, url: string): Promise<void> => {
   await page.goto(url);
@@ -290,5 +307,34 @@ test.describe('管理画面の記事の追加', () => {
     await page.getByRole('button', { name: CREATE_LABEL }).click();
 
     await expect(fieldOf(page, 'title').getByRole('alert')).toBeVisible();
+  });
+
+  test('作成した後に競合しても、読み直す先は作った記事である', async ({ page }) => {
+    const title = `${SCRATCH_TITLE_PREFIX} 作成後の競合 ${String(Date.now())}`;
+
+    await openWithKey(page, NEW_ARTICLE_URL);
+    await page.getByLabel(TITLE_LABEL).fill(title);
+    await page.getByRole('button', { name: CREATE_LABEL }).click();
+    await expect(page.getByText(SAVED_NOTICE)).toBeVisible();
+
+    /* 作成の後も同じ画面に留まっている。この状態で、別の経路がその記事を保存する */
+    await renameArticleOutsideTheScreen(createdArticleId(page), `${title} 別の保存`);
+
+    await page.getByLabel(TITLE_LABEL).fill(`${title} こちらの編集`);
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+    await expect(page.getByText(CONFLICT_HEADING)).toBeVisible();
+
+    await clickWithEvidence(
+      page,
+      page.getByRole('button', { name: RELOAD_LABEL }),
+      '55-admin-article-created-conflict-reload',
+    );
+
+    /*
+     * 読み直す先は作った記事で、新規作成の画面ではない。空の新規作成へ戻すと、そのまま保存した人が
+     * 同じ内容の記事をもう1件作ることになる。
+     */
+    await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(`${title} 別の保存`);
+    await expect(page.getByRole('button', { name: SAVE_LABEL })).toBeVisible();
   });
 });

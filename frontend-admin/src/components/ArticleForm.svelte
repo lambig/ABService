@@ -148,7 +148,17 @@
         readonly pending: Pending | null;
       }
     | { readonly kind: 'loading' }
-    | { readonly kind: 'unavailable'; readonly apiKey: string; readonly message: string }
+    /*
+     * 読めなかった状態。読もうとした対象を抱える——やり直しの先は「画面の開き方」ではなく、失敗した
+     * その読み込みである。開き方へ戻すと、作成済みの記事を読み直している途中の失敗から、空の新規作成
+     * へ落ちる。
+     */
+    | {
+        readonly kind: 'unavailable';
+        readonly apiKey: string;
+        readonly articleId: string;
+        readonly message: string;
+      }
     | { readonly kind: 'unspecified' }
     | {
         readonly kind: 'editing';
@@ -189,7 +199,7 @@
       ? editing(apiKey, { articleId, revision: result.value.revision }, draftOf(result.value))
       : result.kind === 'unauthorized'
         ? { kind: 'locked', message: failureTextOf(result), pending: null }
-        : { kind: 'unavailable', apiKey, message: failureTextOf(result) };
+        : { kind: 'unavailable', apiKey, articleId, message: failureTextOf(result) };
 
   const load = async (apiKey: string, articleId: string): Promise<void> => {
     view = { kind: 'loading' };
@@ -265,9 +275,12 @@
 
   void resume();
 
+  /** 読めなかった読み込みをやり直す。戻る先は失敗したその対象で、画面の開き方ではない */
   const retry = (): void => {
     const current = view;
-    void (current.kind === 'unavailable' ? open(current.apiKey) : Promise.resolve());
+    void (current.kind === 'unavailable'
+      ? load(current.apiKey, current.articleId)
+      : Promise.resolve());
   };
 
   /**
@@ -493,17 +506,40 @@
   };
 
   /**
+   * いま編集している記事。
+   *
+   * <p>
+   * 対象を持っていればそれで、持っていなくても作成はできていれば（`detached`）その記事。どちらも
+   * 無いときだけ、まだ何も作られていない。**画面をどう開いたか（`mode`）はここに関わらない**——
+   * 新規作成として開いた画面でも、作成した後に指しているのはその記事である。
+   * </p>
+   */
+  const editedArticleIdOf = (current: View): string | null =>
+    current.kind !== 'editing'
+      ? null
+      : current.target !== null
+        ? current.target.articleId
+        : current.submission.kind === 'detached'
+          ? current.submission.articleId
+          : null;
+
+  /**
    * 最新を読み込み直す。
    *
+   * <p>
    * 競合したときと、作成の後で世代を読めなかったときの復帰先。いまの入力は保存されている内容に
    * 置き換わる（差分の突き合わせはまだ持たない。#287 の受け入れは「古い値を自動で再送しない」まで）。
+   * </p>
+   *
+   * <p>
+   * 読み直す先は**いま編集している記事**で、画面の開き方ではない。開き方へ戻すと、新規作成として
+   * 開いた画面で作成した後の読み直しが、空の新規作成へ落ちる。そこから保存すれば同じ内容の記事が
+   * もう1件できる。
+   * </p>
    */
   const reload = (): void => {
     const current = view;
-    const articleId =
-      current.kind === 'editing' && current.submission.kind === 'detached'
-        ? current.submission.articleId
-        : null;
+    const articleId = editedArticleIdOf(current);
 
     void (current.kind !== 'editing'
       ? Promise.resolve()
