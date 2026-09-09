@@ -293,11 +293,19 @@ export const seedDraftArticle = async (article: ArticleSeed): Promise<string> =>
 
   const articleId = articleIdOf(created);
 
-  /* 参照の設定は全項目置換の PUT（作成時のリクエストは参照を持たない） */
+  /*
+   * 参照の設定は全項目置換の PUT（作成時のリクエストは参照を持たない）。作成直後のため世代は0
+   * （紐付けも記事の世代を進める契約、#323）。
+   */
   await Promise.all(
     article.albumId === undefined
       ? []
-      : [putAdmin(`/api/v1/articles/${articleId}/album`, { albumId: article.albumId })],
+      : [
+          putAdmin(`/api/v1/articles/${articleId}/album`, {
+            albumId: article.albumId,
+            expectedRevision: 0,
+          }),
+        ],
   );
 
   /*

@@ -1,5 +1,6 @@
 package com.abservice.application.service.article;
 
+import com.abservice.application.exception.ConflictingEditException;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.exception.EntityNotFoundException;
@@ -25,6 +26,13 @@ import lombok.AllArgsConstructor;
  * 状態に依存するため記事単体では可否を判定できない）。対象記事の種別が{@link ArticleType#ALBUM}でない場合は記事単体で
  * 決まる制約のため本サービスで{@link BusinessRuleViolationException}（409）とします。
  * </p>
+ *
+ * <p>
+ * 紐付けはArticleの世代を進める（{@link UpdateArticleService}と同じ行を更新する）ため、他の更新系コマンドと
+ * 同じ{@code expectedRevision}契約を適用します。編集を始めた時点の世代と保存直前の世代が食い違えば
+ * {@link ConflictingEditException}（409）とし、フォームが編集中の内容を古い世代のまま上書きすることを防ぎます
+ * （#323）。
+ * </p>
  */
 @ApplicationScoped
 @AllArgsConstructor
@@ -40,9 +48,11 @@ public class SetArticleAlbumService implements CommandService<SetArticleAlbumInp
         return input.asValidated()
                 .map(SetArticleAlbumService::toIds)
                 .flatMap(
-                        ids -> findExistingAlbumArticle(ids.articleId())
+                        ids -> findExisting(ids.articleId())
+                                .map(claimed -> claimedAsOf(claimed, input))
+                                .flatMap(SetArticleAlbumService::requireAlbumType)
                                 .flatMap(article -> attachAlbum(article, ids.albumId()))
-                                .flatMap(articleRepository::save)
+                                .flatMap(articleRepository::saveWithRevision)
                                 .map(saved -> toOutput(saved, ids.albumId())));
     }
 
@@ -64,11 +74,28 @@ public class SetArticleAlbumService implements CommandService<SetArticleAlbumInp
                 Album.Id.of(Objects.requireNonNull(valid.albumId())));
     }
 
-    private Uni<AlbumArticle> findExistingAlbumArticle(Article.Id id) {
-        return articleRepository.findById(id)
+    private Uni<ArticleRepository.Revisioned> findExisting(Article.Id id) {
+        return articleRepository.findByIdWithRevision(id)
                 .onItem().ifNull()
-                .failWith(() -> EntityNotFoundException.of("Article", id.value()))
-                .flatMap(SetArticleAlbumService::requireAlbumType);
+                .failWith(() -> EntityNotFoundException.of("Article", id.value()));
+    }
+
+    /**
+     * 掴んだ行の世代が、編集を始めた時点と同じであることを確かめる。
+     *
+     * <p>
+     * 違っていれば、この紐付けが持っている値は既に古い。届いた値を最新へ適用すると、間に入った保存を消すため拒む。
+     * </p>
+     */
+    private static Article claimedAsOf(ArticleRepository.Revisioned claimed, SetArticleAlbumInput input) {
+        return Objects.equals(claimed.revision().value(), input.expectedRevision())
+                ? claimed.article()
+                : conflicting(claimed);
+    }
+
+    private static Article conflicting(ArticleRepository.Revisioned claimed) {
+        throw new ConflictingEditException(
+                "記事 %s は編集を始めた後に更新されています".formatted(claimed.article().id().value()));
     }
 
     /*
@@ -85,11 +112,12 @@ public class SetArticleAlbumService implements CommandService<SetArticleAlbumInp
                                                 "ALBUM種別の記事のみアルバムを紐付けられます")));
     }
 
-    private static SetArticleAlbumOutput toOutput(Article article, Album.Id albumId) {
+    private static SetArticleAlbumOutput toOutput(ArticleRepository.Revisioned saved, Album.Id albumId) {
         return new SetArticleAlbumOutput(
-                article.id().value(),
-                article.articleType().name(),
+                saved.article().id().value(),
+                saved.revision().value(),
+                saved.article().articleType().name(),
                 albumId.value(),
-                article.title().value());
+                saved.article().title().value());
     }
 }

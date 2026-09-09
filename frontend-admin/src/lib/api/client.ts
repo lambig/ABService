@@ -243,6 +243,16 @@ export type ArticleFields = Schemas['UpdateArticleRequest'] & Schemas['CreateArt
 export type AdminArticleTag = Schemas['AdminArticleTagResponse'];
 
 /**
+ * 記事から参照する作品を探した結果。
+ *
+ * <p>
+ * 下書きを含む（管理向けの一覧を引くため）。参照できるかどうかの判定はバックエンドが持ち、画面は
+ * 返った候補を並べるだけ。
+ * </p>
+ */
+export type AlbumCandidate = AdminAlbum;
+
+/**
  * 管理向け記事一覧の1ページ。
  *
  * <p>
@@ -414,5 +424,79 @@ export const removeArticleTag = (
   requestNoContent(
     'DELETE',
     `/api/v1/articles/${encodeURIComponent(articleId)}/tags/${encodeURIComponent(tagId)}`,
+    apiKey,
+  );
+
+/** 検索の取得件数。選ぶための候補で、全件を辿るための一覧ではない */
+const ALBUM_SEARCH_SIZE = 20;
+
+/**
+ * 参照する作品を探す。
+ *
+ * <p>
+ * タイトルとカタログナンバーの両方を同じ語で問い合わせる経路は無いため、入力された語をどちらの絞り込みに
+ * 渡すかは呼び出し側が決める（#208）。絞り込みは部分一致で、判定はバックエンドが持つ。
+ * </p>
+ *
+ * @param apiKey 管理APIの鍵
+ * @param by 絞り込む項目
+ * @param keyword 入力された語
+ */
+export const searchAlbums = async (
+  apiKey: string,
+  by: 'title' | 'catalogNumber',
+  keyword: string,
+): Promise<ApiResult<readonly AlbumCandidate[]>> => {
+  const result = await request<Schemas['AdminAlbumListResponse']>(
+    'GET',
+    `/api/v1/admin/albums?page=0&size=${String(ALBUM_SEARCH_SIZE)}&${by}=${encodeURIComponent(keyword)}`,
+    apiKey,
+  );
+
+  return result.kind === 'ok' ? { kind: 'ok', value: result.value.items } : result;
+};
+
+/**
+ * 記事が参照する作品を設定する。
+ *
+ * <p>
+ * 参照を持てるのは `ALBUM` 種別だけで、未存在・非公開などの判定はバックエンドが返す（DECISIONS 21）。
+ * 画面は結果を扱うだけで、参照できるかどうかを先に判定しない。
+ * </p>
+ *
+ * <p>
+ * 紐付けは記事の世代を進めるため、編集を始めた時点の世代（`expectedRevision`）を送る。世代が古ければ
+ * 409 が返る。応答は紐付け後の世代を返すため、GETで取り直さずそのまま次の条件にできる（#323）。
+ * </p>
+ */
+export const setArticleAlbum = (
+  apiKey: string,
+  articleId: string,
+  albumId: string,
+  expectedRevision: number,
+): Promise<ApiResult<Schemas['SetArticleAlbumResponse']>> =>
+  request<Schemas['SetArticleAlbumResponse']>(
+    'PUT',
+    `/api/v1/articles/${encodeURIComponent(articleId)}/album`,
+    apiKey,
+    { albumId, expectedRevision },
+  );
+
+/**
+ * 記事から作品への参照を外す。
+ *
+ * <p>
+ * 解除も記事の世代を進めるため、紐付けと同じ `expectedRevision` 契約を適用する。応答は解除後の世代を
+ * 返すため、GETで取り直さずそのまま次の条件にできる（#323）。
+ * </p>
+ */
+export const removeArticleAlbum = (
+  apiKey: string,
+  articleId: string,
+  expectedRevision: number,
+): Promise<ApiResult<Schemas['RemoveArticleAlbumResponse']>> =>
+  request<Schemas['RemoveArticleAlbumResponse']>(
+    'DELETE',
+    `/api/v1/articles/${encodeURIComponent(articleId)}/album?expectedRevision=${String(expectedRevision)}`,
     apiKey,
   );
