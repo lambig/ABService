@@ -17,6 +17,7 @@ DB_NAME_VALUE=$(aws ssm get-parameter --name "/$PROJECT/$ENVIRONMENT/db/name" --
 DB_USERNAME_VALUE=$(aws ssm get-parameter --name "/$PROJECT/$ENVIRONMENT/db/username" --query 'Parameter.Value' --output text --region "$REGION")
 DB_PASSWORD_VALUE=$(aws ssm get-parameter --name "/$PROJECT/$ENVIRONMENT/db/password" --with-decryption --query 'Parameter.Value' --output text --region "$REGION")
 ADMIN_API_KEY_VALUE=$(aws ssm get-parameter --name "/$PROJECT/$ENVIRONMENT/app/admin-api-key" --with-decryption --query 'Parameter.Value' --output text --region "$REGION")
+ASSETS_BUCKET_VALUE=$(aws ssm get-parameter --name "/$PROJECT/$ENVIRONMENT/assets/bucket" --query 'Parameter.Value' --output text --region "$REGION")
 
 export BACKEND_IMAGE="$IMAGE"
 export DB_HOST="$DB_HOST_VALUE"
@@ -25,6 +26,7 @@ export DB_NAME="$DB_NAME_VALUE"
 export DB_USERNAME="$DB_USERNAME_VALUE"
 export DB_PASSWORD="$DB_PASSWORD_VALUE"
 export ADMIN_API_KEY="$ADMIN_API_KEY_VALUE"
+export ASSETS_BUCKET="$ASSETS_BUCKET_VALUE"
 
 cd /opt/abservice
 docker compose -f docker-compose.prod.yml pull

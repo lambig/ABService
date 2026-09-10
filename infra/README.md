@@ -92,6 +92,7 @@ schemaの正はマイグレーションであり、起動時に適用される�
 - 確定に至らなかった `pending/` の実体はライフサイクル（`aws_s3_bucket_lifecycle_configuration.assets`）で1日後に期限切れにする。バケットは versioning 有効なので旧バージョンと未完了マルチパートも同時に掃除する
 - クロスオリジンの PUT を許可するため、バケットに CORS（`allowed_methods = ["PUT"]`、オリジンはサイトのドメイン）を設定している
 - backend の実行ロールには assets バケットへの `GetObject` / `PutObject` / `DeleteObject` / `ListBucket` を付与済み（署名付きURLの発行と確定時のコピーに追加権限は不要）
+- バケット名はTerraformが Parameter Store の `/<project>/<environment>/assets/bucket` へ保存し、`deploy.sh` が backend コンテナへ `ASSETS_BUCKET` として渡す。prod プロファイルは既定値を持たないため、渡し漏れは起動失敗になる
 
 ## 静的サイト配信
 
