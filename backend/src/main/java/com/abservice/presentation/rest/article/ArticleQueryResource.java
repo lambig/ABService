@@ -7,6 +7,7 @@ import com.abservice.application.query.article.GetArticleService;
 import com.abservice.application.query.article.ListArticlesQuery;
 import com.abservice.application.query.article.ListArticlesService;
 import com.abservice.presentation.rest.article.response.PublicArticleDetailResponse;
+import com.abservice.presentation.rest.openapi.Executes;
 import com.abservice.presentation.rest.article.response.PublicArticleListResponse;
 import io.smallrye.mutiny.Uni;
 import jakarta.ws.rs.DefaultValue;
@@ -56,6 +57,7 @@ public class ArticleQueryResource {
     @GET
     @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(GetArticleService.class)
     public Uni<PublicArticleDetailResponse> get(@PathParam("id") String id) {
         return getArticleService.query(
                 new GetArticleQuery(
@@ -79,6 +81,7 @@ public class ArticleQueryResource {
      */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(ListArticlesService.class)
     public Uni<PublicArticleListResponse> list(
             @QueryParam("page") @DefaultValue("0") int page,
             @QueryParam("size") @DefaultValue("20") int size,

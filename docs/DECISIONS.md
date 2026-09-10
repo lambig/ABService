@@ -473,3 +473,62 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 **トレードオフ**: 本体と子を1画面で同時に編集する形にするなら、編集単位の定義を見直す必要がある（そのときは子の操作側にも同じ仕組みを入れる）。また、409 に世代を載せないため、画面は差分を示すのに読み直しを要する（差分の突き合わせは持たない）。
 
 **実体**: `AlbumRepository` / `ArticleRepository`（`Revision` / `Revisioned` と、世代つきの取得・保存）、`UpdateAlbumService` / `UpdateArticleService` / `SetArticleAlbumService` / `RemoveArticleAlbumService`（`expectedRevision` の必須検証と突き合わせ）、`ConflictingEditException` とその Mapper、`AlbumEditRevisionRestIntegrationTest` / `ArticleEditRevisionRestIntegrationTest`（対象ごとの編集単位もここで固定）、`frontend-admin` の `AlbumForm.svelte` / `ArticleForm.svelte`（`Target` と競合の枝）。
+
+---
+
+## 31. 資源を作る操作は 201・Location・表現の3つを返し、定義は宣言から書く
+
+**判断**: 資源を作る POST は 201 と、作られた資源を指す `Location`、作られた資源の表現を返す。RFC 9110 §9.3.3・§15.3.2 が SHOULD とする3つをすべて満たす。
+
+`Location` は**同一オリジンの相対参照**にする。要求元は同じオリジンへ戻るため絶対化して得るものがなく、絶対 URI は配信経路（CloudFront）より内側のホストを応答へ載せる。
+
+どの操作が資源を作るかは `CreatesResource` が宣言する。実装は `CreatedResponses` が3つを組み、API 定義は `CreatedResourceResponseFilter` が同じ宣言から書く。状態コードをエンドポイントごとの `@APIResponse` として定義側へ書き写さない（契約の正は実装）。
+
+**なぜ**: smallrye-openapi は `@ResponseStatus` も戻り値型も読まないため、実装が 201 を返しても定義には 200 として現れ、`Location` は現れない。要求元はこの定義から型を生成するので、実在しない 200 を待ち、位置を型として受け取れない。
+
+3つのうち一部だけを満たす形は、標準から外れる理由を永続的に説明し続けることになる。201 を捨てて 200 にすれば `Location` の SHOULD は消えるが、「資源を作ったのに 201 を送らない」という状態コード自体の逸脱が残る。3つとも満たす形だけが説明を要しない。
+
+作られた資源の情報は呼び出し側が即座に使う（記事作成は応答の `articleId` で編集画面へ結び、タグ追加は応答をそのまま画面の状態へ反映する）。表現を返さず位置だけを返す設計にすると、いずれの経路も1往復増える。
+
+宣言（`CreatesResource`）は定義側しか動かさず、実応答は `CreatedResponses` が組む。別経路であるため、**両者の対応は ArchUnit が双方向に縛る**（宣言したなら組む・組むなら宣言する）。片方だけ書けると、定義 201 / 実装 200 とその逆がどちらも成立し、#282 の元症状に戻れる。
+
+**トレードオフ**: 状態コードとヘッダは戻り値型に現れないため、定義へ写す機構が要る。ビルド時フィルタはクラスパスを走査できないので走査対象を数え上げで持ち、その漏れは ArchUnit が `@Path` を持つリソースと突き合わせて落とす。
+
+相対参照のため `ResponseBuilder.location(URI)` は使えない（JAX-RS の規定でベース URI へ解決され絶対化する）。ヘッダへ直接与える。
+
+子資源の `Location`（記事タグ・トラック・外部音源）が指す先は GET を持たない。SHOULD が求めるのは作られた資源への URI 参照であり取得経路ではないため、識別子として成り立つ限りは許容する。
+
+**実体**: `CreatesResource` / `CreatedResponses` / `CreatedResourceResponseFilter`、`LayeredArchitectureTest`（数え上げ漏れの検出）、`OpenApiSchemaRestIntegrationTest`（定義側の 201 と `Location`）、各 REST 統合テストの `createRespondsWithCreatedAndLocation` / `addRespondsWithCreatedAndLocation` / `registerRespondsWithCreatedAndLocation`（実応答の位置）。
+
+---
+
+## 32. 失敗はユースケースが宣言し、状態コードへの写像は境界が持つ
+
+**判断**: エラー応答の契約を分ける。
+
+- **どの失敗を返し得るか**は、その判断を持つ場所が持つ。語彙は `Failure`（`VALIDATION` / `NOT_FOUND` / `CONFLICT`）で、HTTP を含まない
+  - ユースケース自身が発生させる失敗（入力の検証など）は宣言する（`FailureContract`）
+  - 照会が**正常な結果の一種として返す**もの（対象が無い）は、結果型の並びから読む（`FailureResult`）。sealed な結果型がすでにその可能性を持っているため、宣言で重ねると同じ事実を二度書くことになる
+- **どの状態コードで返すか**は例外マッパーが宣言し、`ProblemDetailErrorContract` が集める
+
+エンドポイントは失敗を宣言せず、実行するユースケースを指すだけ（`Executes`）。API 定義は「エンドポイント → ユースケース → 失敗 → 状態コード」と辿って組む。応答本体はどのエラーでも `ProblemDetail`（RFC 9457・`application/problem+json`）一つで、本体の型と説明は `ProblemDetailResponseFilter` が与える。
+
+`Failure` から状態コードへの写像は境界（`ProblemDetailResponseFilter`）が1箇所で持つ。`VALIDATION` → 400、`NOT_FOUND` → 404、`CONFLICT` → 409。想定外の失敗の 500 は能力ではないので宣言に含めず、全オペレーションへ足す。認証・認可の 401/403 は Quarkus が `@RolesAllowed` から状態コードだけを付けるため、本体の型を与える側で拾う。
+
+**なぜ**: 失敗はユースケースの能力であり、経路の形から導けない。形からの推定（「本体か問合せ文字列があれば 400」「パスパラメータがあれば 404」）は実装と系統的に食い違う。
+
+- 経路の識別子を値オブジェクトへ通す操作は、本体を持たなくても検証の失敗を返す（アルバムの公開）
+- 対象の不在を成功として扱う操作は、経路で対象を指しても未存在を返さない（べき等な削除・upsert）
+- 非排他に版つきの行を更新する操作は、明示的な業務ルール違反が無くても基盤由来の競合を返す（記事の非公開化）
+
+これらを状態コードごとのマーカー（`@MayBadRequest` / `@MayNotFound` のような）でエンドポイントへ足していくと、`@APIResponse` を列挙するのと同じ構造を別名で再発明することになる。失敗の判断を持つ場所は1つ（ユースケース）であり、宣言もそこに置く。
+
+一律に全オペレーションへ足さないのは、返らない状態コードを宣言すると要求元がそれを扱う枝を書き、決して通らない経路がクライアントに残るため。
+
+**トレードオフ**: 宣言と実装の対応は完全には機械化できない。守れるのは次まで。
+
+- 更新のユースケースが宣言を持つこと、エンドポイントがユースケースを指すこと、指した先を実際に実行すること、照会が `QueryService` を**直接**実装することは ArchUnit が落とす。最後の1つは、抽象クラスや派生インターフェースを挟むと結果型の型引数へ辿り着けず、照会は動いたまま結果型由来の失敗だけが定義から消えるため。同じ条件で組み立ても落ちる
+- **宣言の中身の誤り**（返す失敗を書き忘れる・返さない失敗を書く）は静的には検出できない。実応答との一致は統合テストが固定する
+- 宣言を必須にできるのは更新だけ。照会は失敗を1つも発生させないものがあり（一覧の全件照会）、必須にすると「失敗が無いこと」を空の宣言で書かせることになる。照会の失敗は結果型と、実際に発生させるものだけが持つ宣言の2つから読む
+
+**実体**: `Failure`（失敗の語彙）、`FailureContract`（ユースケースが発生させる失敗の宣言）、`FailureResult`（照会結果のバリアントが境界で失敗になること）、`Executes`（エンドポイントが実行するユースケース）、`DeclaredEndpoints`（宣言と結果型から失敗を読み、操作を同定する）、`ProblemDetailErrorContract`（マッパーの数え上げ）、`ProblemDetailResponseFilter`（写像と反映）、`LayeredArchitectureTest`（宣言の欠落・指し先のずれ・数え上げ漏れの検出）、`OpenApiSchemaRestIntegrationTest` の `errorsFollowTheUseCaseFailureContract` / `errorResponsesCarryProblemDetail` / `unreachableErrorsAreAbsent`。
