@@ -168,9 +168,20 @@ jobs:
       - name: Ensure gradlew is executable
         run: chmod +x backend/gradlew
 
-      # 型生成の入力。quarkusBuild が build/openapi/openapi.yaml を出す
+      # 型生成の入力。build/openapi は quarkusBuild の宣言された出力に入っていないため、
+      # タスクがキャッシュや前回の状態で実行されないと、定義は古いまま・無いまま成功する。
+      # 検査したいのは今のソースから出る定義なので、キャッシュを使わず作り直す。
       - name: Build backend (OpenAPI definition)
-        run: backend/gradlew -p backend --no-daemon --console=plain quarkusBuild
+        run: backend/gradlew -p backend --no-daemon --console=plain --no-build-cache clean quarkusBuild
+
+      # 定義が書かれないまま先へ進むと、型生成は「入力が無い」で落ちる。原因が読めないので手前で止める
+      - name: Verify the definition was produced
+        run: |
+          if [ ! -f backend/build/openapi/openapi.yaml ]; then
+            echo "The build did not write backend/build/openapi/openapi.yaml." >&2
+            echo "Check that quarkusBuild actually ran the augmentation step." >&2
+            exit 1
+          fi
 
       - name: Install dependencies
         run: npm ci

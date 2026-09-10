@@ -551,4 +551,6 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 検査は入力を作るところから回すため、`quarkusBuild` の分だけ CI の総実行時間が増える。他のジョブと並列に走るので待ち時間は変わらない。
 
+定義の出力先（`build/openapi`）は `quarkusBuild` の宣言された出力ではないため、タスクがキャッシュや前回の状態で実行されないと**定義が書かれないまま成功する**。検査の側はビルドキャッシュを使わずに作り直し、書かれたことを確かめてから型を生成する。
+
 **実体**: `.github/workflows/ci.yml` の `api-types-check`、ルート `package.json` の `generate:api-types`、`frontend-public` / `frontend-admin` の `src/lib/api/schema.d.ts`。
