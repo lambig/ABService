@@ -32,6 +32,7 @@ import com.abservice.presentation.rest.album.response.RegisterAlbumWithTracksRes
 import com.abservice.presentation.rest.album.response.UnpublishAlbumResponse;
 import com.abservice.presentation.rest.album.response.UpdateAlbumResponse;
 import com.abservice.presentation.rest.openapi.CreatesResource;
+import com.abservice.presentation.rest.openapi.MayConflict;
 import com.abservice.presentation.rest.security.SecurityRoles;
 import io.github.lambig.textescape.TextEscape;
 import io.smallrye.mutiny.Uni;
@@ -118,15 +119,7 @@ public class AlbumCommandResource {
     public Uni<RestResponse<CreateAlbumResponse>> create(CreateAlbumRequest request) {
         return createAlbumService.execute(toInput(request))
                 .map(AlbumCommandResource::toResponse)
-                .map(AlbumCommandResource::created);
-    }
-
-    private static RestResponse<CreateAlbumResponse> created(CreateAlbumResponse album) {
-        return CreatedResponses.at(locationOf(album.albumId()), album);
-    }
-
-    private static RestResponse<RegisterAlbumWithTracksResponse> created(RegisterAlbumWithTracksResponse album) {
-        return CreatedResponses.at(locationOf(album.albumId()), album);
+                .map(album -> CreatedResponses.at(locationOf(album.albumId()), album));
     }
 
     private static String locationOf(String albumId) {
@@ -182,6 +175,7 @@ public class AlbumCommandResource {
     @Path("/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @MayConflict
     public Uni<UpdateAlbumResponse> update(@PathParam("id") String id, UpdateAlbumRequest request) {
         return updateAlbumService.execute(toInput(id, request))
                 .map(AlbumCommandResource::toResponse);
@@ -325,11 +319,12 @@ public class AlbumCommandResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     @CreatesResource
+    @MayConflict
     public Uni<RestResponse<RegisterAlbumWithTracksResponse>> registerWithTracks(
             RegisterAlbumWithTracksRequest request) {
         return registerAlbumWithTracksService.execute(toInput(request))
                 .map(AlbumCommandResource::toResponse)
-                .map(AlbumCommandResource::created);
+                .map(album -> CreatedResponses.at(locationOf(album.albumId()), album));
     }
 
     private static RegisterAlbumWithTracksInput toInput(RegisterAlbumWithTracksRequest request) {

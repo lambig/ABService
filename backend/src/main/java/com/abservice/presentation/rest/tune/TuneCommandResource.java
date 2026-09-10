@@ -10,6 +10,7 @@ import com.abservice.application.service.tune.UpdateTuneOutput;
 import com.abservice.application.service.tune.UpdateTuneService;
 import com.abservice.presentation.rest.CreatedResponses;
 import com.abservice.presentation.rest.openapi.CreatesResource;
+import com.abservice.presentation.rest.openapi.MayConflict;
 import com.abservice.presentation.rest.tune.request.CreateTuneRequest;
 import com.abservice.presentation.rest.tune.request.UpdateTuneRequest;
 import com.abservice.presentation.rest.tune.response.CreateTuneResponse;
@@ -80,15 +81,13 @@ public class TuneCommandResource {
     public Uni<RestResponse<CreateTuneResponse>> create(CreateTuneRequest request) {
         return createTuneService.execute(toInput(request))
                 .map(TuneCommandResource::toResponse)
-                .map(TuneCommandResource::created);
+                .map(tune -> CreatedResponses.at(locationOf(tune.tuneId()), tune));
     }
 
-    private static RestResponse<CreateTuneResponse> created(CreateTuneResponse tune) {
-        return CreatedResponses.at(
-                TextEscape.escape(TUNE_LOCATION)
-                        .where("tuneId", tune.tuneId())
-                        .compile(),
-                tune);
+    private static String locationOf(String tuneId) {
+        return TextEscape.escape(TUNE_LOCATION)
+                .where("tuneId", tuneId)
+                .compile();
     }
 
     private static CreateTuneInput toInput(CreateTuneRequest request) {
@@ -159,6 +158,7 @@ public class TuneCommandResource {
      */
     @DELETE
     @Path("/{id}")
+    @MayConflict
     public Uni<Void> delete(@PathParam("id") String id) {
         return deleteTuneService.execute(new DeleteTuneInput(id))
                 .replaceWithVoid();

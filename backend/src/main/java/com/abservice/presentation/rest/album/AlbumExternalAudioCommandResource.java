@@ -15,6 +15,7 @@ import com.abservice.presentation.rest.album.response.AddExternalAudioResponse;
 import com.abservice.presentation.rest.album.response.ReorderExternalAudiosResponse;
 import com.abservice.presentation.rest.album.response.ReorderExternalAudiosResponse.ExternalAudioOrderEntryResponse;
 import com.abservice.presentation.rest.openapi.CreatesResource;
+import com.abservice.presentation.rest.openapi.MayConflict;
 import com.abservice.presentation.rest.security.SecurityRoles;
 import io.github.lambig.textescape.TextEscape;
 import io.smallrye.mutiny.Uni;
@@ -82,21 +83,20 @@ public class AlbumExternalAudioCommandResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     @CreatesResource
+    @MayConflict
     public Uni<RestResponse<AddExternalAudioResponse>> add(
             @PathParam("albumId") String albumId,
             AddExternalAudioRequest request) {
         return addExternalAudioService.execute(new AddExternalAudioInput(albumId, request.url()))
                 .map(AlbumExternalAudioCommandResource::toResponse)
-                .map(AlbumExternalAudioCommandResource::created);
+                .map(audio -> CreatedResponses.at(locationOf(audio.albumId(), audio.externalAudioId()), audio));
     }
 
-    private static RestResponse<AddExternalAudioResponse> created(AddExternalAudioResponse externalAudio) {
-        return CreatedResponses.at(
-                TextEscape.escape(AUDIO_LOCATION)
-                        .where("albumId", externalAudio.albumId())
-                        .where("externalAudioId", externalAudio.externalAudioId())
-                        .compile(),
-                externalAudio);
+    private static String locationOf(String albumId, String externalAudioId) {
+        return TextEscape.escape(AUDIO_LOCATION)
+                .where("albumId", albumId)
+                .where("externalAudioId", externalAudioId)
+                .compile();
     }
 
     private static AddExternalAudioResponse toResponse(AddExternalAudioOutput output) {
@@ -123,6 +123,7 @@ public class AlbumExternalAudioCommandResource {
      */
     @DELETE
     @Path("/{externalAudioId}")
+    @MayConflict
     public Uni<Void> remove(
             @PathParam("albumId") String albumId,
             @PathParam("externalAudioId") String externalAudioId) {
@@ -143,6 +144,7 @@ public class AlbumExternalAudioCommandResource {
     @Path("/order")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @MayConflict
     public Uni<ReorderExternalAudiosResponse> reorder(
             @PathParam("albumId") String albumId,
             ReorderExternalAudiosRequest request) {

@@ -562,15 +562,6 @@ export interface paths {
                         "application/problem+json": components["schemas"]["ProblemDetail"];
                     };
                 };
-                /** @description 業務ルールに反する、または他の操作と競合した */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetail"];
-                    };
-                };
                 /** @description 想定外の失敗 */
                 500: {
                     headers: {
@@ -1486,15 +1477,6 @@ export interface paths {
                         "application/problem+json": components["schemas"]["ProblemDetail"];
                     };
                 };
-                /** @description 業務ルールに反する、または他の操作と競合した */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetail"];
-                    };
-                };
                 /** @description 想定外の失敗 */
                 500: {
                     headers: {
@@ -1561,15 +1543,6 @@ export interface paths {
                 };
                 /** @description 対象が存在しない */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetail"];
-                    };
-                };
-                /** @description 業務ルールに反する、または他の操作と競合した */
-                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1644,15 +1617,6 @@ export interface paths {
                 };
                 /** @description 対象が存在しない */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetail"];
-                    };
-                };
-                /** @description 業務ルールに反する、または他の操作と競合した */
-                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1774,15 +1738,6 @@ export interface paths {
                 };
                 /** @description 権限が足りない */
                 403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetail"];
-                    };
-                };
-                /** @description 業務ルールに反する、または他の操作と競合した */
-                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1955,15 +1910,6 @@ export interface paths {
                 };
                 /** @description 対象が存在しない */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetail"];
-                    };
-                };
-                /** @description 業務ルールに反する、または他の操作と競合した */
-                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -2156,15 +2102,6 @@ export interface paths {
                 };
                 /** @description 対象が存在しない */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetail"];
-                    };
-                };
-                /** @description 業務ルールに反する、または他の操作と競合した */
-                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -2502,15 +2439,6 @@ export interface paths {
                         "application/problem+json": components["schemas"]["ProblemDetail"];
                     };
                 };
-                /** @description 業務ルールに反する、または他の操作と競合した */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetail"];
-                    };
-                };
                 /** @description 想定外の失敗 */
                 500: {
                     headers: {
@@ -2587,15 +2515,6 @@ export interface paths {
                         "application/problem+json": components["schemas"]["ProblemDetail"];
                     };
                 };
-                /** @description 業務ルールに反する、または他の操作と競合した */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetail"];
-                    };
-                };
                 /** @description 想定外の失敗 */
                 500: {
                     headers: {
@@ -2663,15 +2582,6 @@ export interface paths {
                 };
                 /** @description 対象が存在しない */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetail"];
-                    };
-                };
-                /** @description 業務ルールに反する、または他の操作と競合した */
-                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -2803,15 +2713,6 @@ export interface paths {
                 };
                 /** @description 対象が存在しない */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetail"];
-                    };
-                };
-                /** @description 業務ルールに反する、または他の操作と競合した */
-                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -2959,15 +2860,6 @@ export interface paths {
                         "application/problem+json": components["schemas"]["ProblemDetail"];
                     };
                 };
-                /** @description 業務ルールに反する、または他の操作と競合した */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetail"];
-                    };
-                };
                 /** @description 想定外の失敗 */
                 500: {
                     headers: {
@@ -3105,15 +2997,6 @@ export interface paths {
                 };
                 /** @description 対象が存在しない */
                 404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetail"];
-                    };
-                };
-                /** @description 業務ルールに反する、または他の操作と競合した */
-                409: {
                     headers: {
                         [name: string]: unknown;
                     };

@@ -31,6 +31,7 @@ import com.abservice.presentation.rest.article.response.SetArticleAlbumResponse;
 import com.abservice.presentation.rest.article.response.UnpublishArticleResponse;
 import com.abservice.presentation.rest.article.response.UpdateArticleResponse;
 import com.abservice.presentation.rest.openapi.CreatesResource;
+import com.abservice.presentation.rest.openapi.MayConflict;
 import com.abservice.presentation.rest.security.SecurityRoles;
 import io.github.lambig.textescape.TextEscape;
 import io.smallrye.mutiny.Uni;
@@ -121,15 +122,13 @@ public class ArticleCommandResource {
     public Uni<RestResponse<CreateArticleResponse>> create(CreateArticleRequest request) {
         return createArticleService.execute(toInput(request))
                 .map(ArticleCommandResource::toResponse)
-                .map(ArticleCommandResource::created);
+                .map(article -> CreatedResponses.at(locationOf(article.articleId()), article));
     }
 
-    private static RestResponse<CreateArticleResponse> created(CreateArticleResponse article) {
-        return CreatedResponses.at(
-                TextEscape.escape(ARTICLE_LOCATION)
-                        .where("articleId", article.articleId())
-                        .compile(),
-                article);
+    private static String locationOf(String articleId) {
+        return TextEscape.escape(ARTICLE_LOCATION)
+                .where("articleId", articleId)
+                .compile();
     }
 
     private static CreateArticleInput toInput(CreateArticleRequest request) {
@@ -162,6 +161,7 @@ public class ArticleCommandResource {
     @Path("/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @MayConflict
     public Uni<UpdateArticleResponse> update(@PathParam("id") String id, UpdateArticleRequest request) {
         return updateArticleService.execute(toInput(id, request))
                 .map(ArticleCommandResource::toResponse);
@@ -211,6 +211,7 @@ public class ArticleCommandResource {
     @POST
     @Path("/{id}/publish")
     @Produces(MediaType.APPLICATION_JSON)
+    @MayConflict
     public Uni<PublishArticleResponse> publish(@PathParam("id") String id) {
         return publishArticleService.execute(new PublishArticleInput(id))
                 .map(ArticleCommandResource::toResponse);
@@ -265,6 +266,7 @@ public class ArticleCommandResource {
     @Path("/{id}/album")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @MayConflict
     public Uni<SetArticleAlbumResponse> setAlbum(@PathParam("id") String id, SetArticleAlbumRequest request) {
         return setArticleAlbumService.execute(
                 new SetArticleAlbumInput(
@@ -291,6 +293,7 @@ public class ArticleCommandResource {
     @DELETE
     @Path("/{id}/album")
     @Produces(MediaType.APPLICATION_JSON)
+    @MayConflict
     public Uni<RemoveArticleAlbumResponse> removeAlbum(
             @PathParam("id") String id,
             @QueryParam("expectedRevision") Integer expectedRevision) {

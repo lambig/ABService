@@ -181,7 +181,12 @@ class OpenApiSchemaRestIntegrationTest {
                 .body(responsesOf("get", "/api/v1/albums"), hasKey("400"))
                 // パスで対象を指すだけの操作は入力を受け取らない
                 .body(responsesOf("post", "/api/v1/albums/{id}/publish"), not(hasKey("400")))
-                .body(responsesOf("post", "/api/v1/albums/{id}/publish"), hasKey("409"));
+                // 409 は返し得ると宣言した操作にだけ現れる。記事の公開は参照先が非公開なら業務ルール違反
+                .body(responsesOf("post", "/api/v1/articles/{id}/publish"), hasKey("409"))
+                // アルバムの公開は参照先を持たず、業務ルール違反の経路がない
+                .body(responsesOf("post", "/api/v1/albums/{id}/publish"), not(hasKey("409")))
+                // 資源を書き換えない操作にも現れない（署名付きURLの払い出しは検証の失敗だけを返す）
+                .body(responsesOf("post", "/api/v1/assets/upload-url"), not(hasKey("409")));
     }
 
     @Test

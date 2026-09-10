@@ -10,13 +10,16 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 import static java.util.function.Predicate.not;
 
 import com.abservice.domain.repository.album.AlbumRepository;
-import com.abservice.presentation.rest.openapi.CreatedResourceResponseFilter;
+import com.abservice.presentation.rest.CreatedResponses;
 import com.abservice.presentation.rest.openapi.CreatesResource;
+import com.abservice.presentation.rest.openapi.DeclaredEndpoints;
+import com.abservice.presentation.rest.openapi.MayConflict;
 import com.abservice.presentation.rest.openapi.ProblemDetailErrorContract;
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaAccess;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -381,33 +384,94 @@ class LayeredArchitectureTest {
     }
 
     /**
-     * 資源を作る操作を持つリソースは、応答を定義へ反映するフィルタの数え上げに含まれなければならない。
+     * REST リソースは、応答の宣言を読む側の数え上げに含まれていなければならない。
      *
      * <p>
-     * {@link CreatedResourceResponseFilter} はビルド時フィルタでクラスパスを走査できないため、走査対象を数え上げで
-     * 持つ。数え上げから漏れたリソースは実装が 201 と {@code Location} を返すのに定義は 200 のままになり、要求元が
-     * 生成する型と実際の応答がずれる。ずれは定義を見に行くまで現れないので、宣言の時点で落とす。
+     * ビルド時フィルタはクラスパスを走査できないため、走査対象を {@link DeclaredEndpoints} が数え上げで持つ。漏れた
+     * リソースの宣言（{@link CreatesResource} / {@link MayConflict}）は読まれず、その操作の定義だけが実装と
+     * ずれる。ずれは定義を見に行くまで現れないので、リソースを足した時点で落とす。宣言を持たない Query 側も同じ 数え上げに置き、検査を1つに保つ。
      * </p>
      */
     @ArchTest
-    void resourcesThatCreateShouldBeListedInTheOpenApiFilter(JavaClasses classes) {
-        classes().that(haveAMethodThatCreatesResource())
-                .should(beListedIn("CreatedResourceResponseFilter.RESOURCE_CLASSES", filteredResourceNames()))
-                .as("資源を作る操作を持つリソースは CreatedResourceResponseFilter.RESOURCE_CLASSES に数え上げる")
+    void restResourcesShouldBeListedInTheDeclaredEndpoints(JavaClasses classes) {
+        classes().that().resideInAPackage(PRESENTATION).and().areAnnotatedWith("jakarta.ws.rs.Path")
+                .should(beListedIn("DeclaredEndpoints.RESOURCES", declaredResourceNames()))
+                .as("REST リソースは DeclaredEndpoints.RESOURCES に数え上げる")
                 .allowEmptyShould(true).check(classes);
     }
 
-    private static DescribedPredicate<JavaClass> haveAMethodThatCreatesResource() {
-        return DescribedPredicate.describe(
-                "have a method annotated with @CreatesResource",
-                javaClass -> javaClass.getMethods().stream()
-                        .anyMatch(method -> method.isAnnotatedWith(CreatesResource.class)));
-    }
-
-    private static List<String> filteredResourceNames() {
-        return CreatedResourceResponseFilter.RESOURCE_CLASSES.stream()
+    private static List<String> declaredResourceNames() {
+        return DeclaredEndpoints.RESOURCES.stream()
                 .map(Class::getName)
                 .toList();
+    }
+
+    /**
+     * 資源を作ると宣言した操作は、その応答を {@code CreatedResponses} で組まなければならない。
+     *
+     * <p>
+     * 宣言（{@link CreatesResource}）は定義側だけを動かし、実応答は {@code CreatedResponses} が組む。両者が
+     * 別経路であるため、宣言だけがある状態（定義 201 / 実装 200）が成立してしまう。#282 の元症状は定義と実装の
+     * 不一致そのものなので、片方だけ書ける余地を残さない。
+     * </p>
+     */
+    @ArchTest
+    void creatingOperationsShouldBuildTheirResponseWithCreatedResponses(JavaClasses classes) {
+        methods().that().areAnnotatedWith(CreatesResource.class)
+                .should(buildResponsesWithCreatedResponses())
+                .as("@CreatesResource を宣言した操作は CreatedResponses で 201 と Location を組む")
+                .allowEmptyShould(true).check(classes);
+    }
+
+    /**
+     * {@code CreatedResponses} で応答を組む操作は、資源を作ると宣言していなければならない。
+     *
+     * <p>
+     * 逆向きの取りこぼし（実装 201 / 定義 200）を塞ぐ。宣言を忘れた操作は定義上 200 のままになり、要求元は 実在しない 200 を待つ。
+     * </p>
+     */
+    @ArchTest
+    void operationsBuildingCreatedResponsesShouldDeclareIt(JavaClasses classes) {
+        methods().that(buildCreatedResponses())
+                .should().beAnnotatedWith(CreatesResource.class)
+                .as("CreatedResponses で応答を組む操作は @CreatesResource を宣言する")
+                .allowEmptyShould(true).check(classes);
+    }
+
+    /*
+     * LAMBDA-AND-REFERENCE: 応答の組み立ては map(...) のラムダの中で呼ばれる。呼び出しと参照の両方を集めないと、
+     * メソッド参照で書いた経路が検査から漏れる。
+     */
+    private static boolean buildsCreatedResponses(JavaMethod method) {
+        return Stream.<JavaAccess<?>>concat(
+                method.getMethodCallsFromSelf().stream(),
+                method.getMethodReferencesFromSelf().stream())
+                .anyMatch(access -> access.getTargetOwner().isAssignableTo(CreatedResponses.class));
+    }
+
+    private static DescribedPredicate<JavaMethod> buildCreatedResponses() {
+        return DescribedPredicate.describe(
+                "build their response with CreatedResponses",
+                LayeredArchitectureTest::buildsCreatedResponses);
+    }
+
+    private static ArchCondition<JavaMethod> buildResponsesWithCreatedResponses() {
+        return new ArchCondition<>("build their response with CreatedResponses") {
+            @Override
+            public void check(JavaMethod method, ConditionEvents events) {
+                Optional.of(method)
+                        .filter(not(LayeredArchitectureTest::buildsCreatedResponses))
+                        .map(LayeredArchitectureTest::missingCreatedResponsesViolation)
+                        .ifPresent(events::add);
+            }
+        };
+    }
+
+    private static ConditionEvent missingCreatedResponsesViolation(JavaMethod method) {
+        return SimpleConditionEvent.violated(
+                method,
+                "%s は資源を作ると宣言しているが CreatedResponses で応答を組んでいない（定義だけが 201 になる）"
+                        .formatted(method.getFullName()));
     }
 
     /**

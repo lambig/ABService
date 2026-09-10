@@ -1,6 +1,7 @@
 package com.abservice.presentation.rest.openapi;
 
 import com.abservice.presentation.rest.exception.ProblemDetail;
+import com.abservice.presentation.rest.openapi.DeclaredEndpoints.Endpoint;
 import io.quarkus.smallrye.openapi.OpenApiFilter;
 import java.util.List;
 import java.util.Map;
@@ -33,8 +34,8 @@ import org.jspecify.annotations.Nullable;
  * 反映は2つ。既に定義されている状態コードには応答本体の型と説明を与える（認証・認可の 401/403 は Quarkus が
  * {@code @RolesAllowed} から状態コードだけを付けるため、本体の型はここで与える）。定義に無いものは足す——想定外の 失敗の 500
  * は全オペレーションへ、未存在の 404 はパスで対象を指すオペレーションへ、入力の検証失敗の 400 は本体か
- * 問合せ文字列を受け取るオペレーションへ、業務ルール違反と競合の 409 は状態を変えるメソッドへ。何をどこへ足すかの 根拠は
- * {@link #codesToAdd} が持つ。
+ * 問合せ文字列を受け取るオペレーションへ、業務ルール違反と競合の 409 は {@link MayConflict} を宣言した操作へ。
+ * 何をどこへ足すかの根拠は {@link #codesToAdd} が持つ。
  * </p>
  */
 @OpenApiFilter(stages = OpenApiFilter.RunStage.BUILD)
@@ -45,19 +46,6 @@ public class ProblemDetailResponseFilter implements OASFilter {
     private static final String NOT_FOUND = "404";
     private static final String CONFLICT = "409";
     private static final String INTERNAL_ERROR = "500";
-
-    /**
-     * 状態を変えるメソッド。
-     *
-     * <p>
-     * 業務ルール違反も競合もここでしか起こらない。読み取りは他の操作と競合せず、業務ルールの判定も伴わない。
-     * </p>
-     */
-    private static final Set<PathItem.HttpMethod> STATE_CHANGING = Set.of(
-            PathItem.HttpMethod.DELETE,
-            PathItem.HttpMethod.PATCH,
-            PathItem.HttpMethod.POST,
-            PathItem.HttpMethod.PUT);
 
     /** 状態コードごとの説明。どのコードを返すかはマッパーの宣言が持ち、定義上の文言はここが持つ。 */
     private static final Map<String, String> DESCRIPTIONS = Map.of(
@@ -76,27 +64,35 @@ public class ProblemDetailResponseFilter implements OASFilter {
 
     @Override
     public void filterOpenAPI(OpenAPI openAPI) {
+        final Set<Endpoint> conflicting = DeclaredEndpoints.declaring(MayConflict.class);
+
         Optional.ofNullable(openAPI.getPaths())
                 .map(Paths::getPathItems)
-                .map(Map::values)
-                .orElseGet(List::of)
-                .forEach(ProblemDetailResponseFilter::applyToPathItem);
+                .orElseGet(Map::of)
+                .forEach(
+                        (path, pathItem) -> applyToPathItem(
+                                path,
+                                pathItem,
+                                conflicting));
     }
 
-    private static void applyToPathItem(PathItem pathItem) {
+    private static void applyToPathItem(
+            String path,
+            PathItem pathItem,
+            Set<Endpoint> conflicting) {
         Optional.ofNullable(pathItem.getOperations())
                 .orElseGet(Map::of)
                 .forEach(
                         (httpMethod, operation) -> applyToOperation(
-                                httpMethod,
                                 operation,
-                                pathItem));
+                                pathItem,
+                                conflicting.contains(new Endpoint(httpMethod, path))));
     }
 
     private static void applyToOperation(
-            PathItem.HttpMethod httpMethod,
             Operation operation,
-            PathItem pathItem) {
+            PathItem pathItem,
+            boolean mayConflict) {
         final APIResponses responses = Optional.ofNullable(operation.getResponses())
                 .orElseGet(OASFactory::createAPIResponses);
 
@@ -104,9 +100,9 @@ public class ProblemDetailResponseFilter implements OASFilter {
                 .forEach(code -> describeExisting(responses, code));
 
         codesToAdd(
-                httpMethod,
                 operation,
-                pathItem)
+                pathItem,
+                mayConflict)
                 .forEach(code -> addProblemResponse(responses, code));
 
         operation.setResponses(responses);
@@ -122,7 +118,8 @@ public class ProblemDetailResponseFilter implements OASFilter {
      * </p>
      *
      * <p>
-     * 業務ルール違反と競合の 409 は状態を変えるメソッドが返し得る。読み取りは他の操作と競合せず、業務ルールの判定も 伴わない。
+     * 業務ルール違反と競合の 409 は、返し得ると宣言した操作（{@link MayConflict}）だけが返す。HTTP メソッドから
+     * 導くと、資源を書き換えない操作にまで宣言が広がる。
      * </p>
      *
      * <p>
@@ -131,9 +128,9 @@ public class ProblemDetailResponseFilter implements OASFilter {
      * </p>
      */
     private static List<String> codesToAdd(
-            PathItem.HttpMethod httpMethod,
             Operation operation,
-            PathItem pathItem) {
+            PathItem pathItem,
+            boolean mayConflict) {
         return Stream.of(
                 Stream.of(INTERNAL_ERROR),
                 identifiesTargetByPath(pathItem, operation)
@@ -142,7 +139,7 @@ public class ProblemDetailResponseFilter implements OASFilter {
                 acceptsInput(pathItem, operation)
                         ? Stream.of(BAD_REQUEST)
                         : Stream.<String>empty(),
-                STATE_CHANGING.contains(httpMethod)
+                mayConflict
                         ? Stream.of(CONFLICT)
                         : Stream.<String>empty())
                 .flatMap(codes -> codes)

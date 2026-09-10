@@ -9,6 +9,7 @@ import com.abservice.presentation.rest.CreatedResponses;
 import com.abservice.presentation.rest.article.request.AddArticleTagRequest;
 import com.abservice.presentation.rest.article.response.AddArticleTagResponse;
 import com.abservice.presentation.rest.openapi.CreatesResource;
+import com.abservice.presentation.rest.openapi.MayConflict;
 import com.abservice.presentation.rest.security.SecurityRoles;
 import io.github.lambig.textescape.TextEscape;
 import io.smallrye.mutiny.Uni;
@@ -73,21 +74,20 @@ public class ArticleTagCommandResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     @CreatesResource
+    @MayConflict
     public Uni<RestResponse<AddArticleTagResponse>> add(
             @PathParam("articleId") String articleId,
             AddArticleTagRequest request) {
         return addArticleTagService.execute(new AddArticleTagInput(articleId, request.name()))
                 .map(ArticleTagCommandResource::toResponse)
-                .map(ArticleTagCommandResource::created);
+                .map(tag -> CreatedResponses.at(locationOf(tag.articleId(), tag.tagId()), tag));
     }
 
-    private static RestResponse<AddArticleTagResponse> created(AddArticleTagResponse tag) {
-        return CreatedResponses.at(
-                TextEscape.escape(ARTICLE_TAG_LOCATION)
-                        .where("articleId", tag.articleId())
-                        .where("tagId", tag.tagId())
-                        .compile(),
-                tag);
+    private static String locationOf(String articleId, String tagId) {
+        return TextEscape.escape(ARTICLE_TAG_LOCATION)
+                .where("articleId", articleId)
+                .where("tagId", tagId)
+                .compile();
     }
 
     /**

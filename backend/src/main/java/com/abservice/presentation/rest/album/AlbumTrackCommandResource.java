@@ -21,6 +21,7 @@ import com.abservice.presentation.rest.album.response.ReorderTracksResponse;
 import com.abservice.presentation.rest.album.response.ReorderTracksResponse.TrackOrderEntryResponse;
 import com.abservice.presentation.rest.album.response.UpdateTrackResponse;
 import com.abservice.presentation.rest.openapi.CreatesResource;
+import com.abservice.presentation.rest.openapi.MayConflict;
 import com.abservice.presentation.rest.security.SecurityRoles;
 import io.github.lambig.textescape.TextEscape;
 import io.smallrye.mutiny.Uni;
@@ -94,21 +95,20 @@ public class AlbumTrackCommandResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     @CreatesResource
+    @MayConflict
     public Uni<RestResponse<AddTrackResponse>> add(
             @PathParam("albumId") String albumId,
             AddTrackRequest request) {
         return addTrackService.execute(toInput(albumId, request))
                 .map(AlbumTrackCommandResource::toResponse)
-                .map(AlbumTrackCommandResource::created);
+                .map(track -> CreatedResponses.at(locationOf(track.albumId(), track.trackId()), track));
     }
 
-    private static RestResponse<AddTrackResponse> created(AddTrackResponse track) {
-        return CreatedResponses.at(
-                TextEscape.escape(TRACK_LOCATION)
-                        .where("albumId", track.albumId())
-                        .where("trackId", track.trackId())
-                        .compile(),
-                track);
+    private static String locationOf(String albumId, String trackId) {
+        return TextEscape.escape(TRACK_LOCATION)
+                .where("albumId", albumId)
+                .where("trackId", trackId)
+                .compile();
     }
 
     private static AddTrackInput toInput(String albumId, AddTrackRequest request) {
@@ -144,6 +144,7 @@ public class AlbumTrackCommandResource {
     @Path("/{trackId}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @MayConflict
     public Uni<UpdateTrackResponse> update(
             @PathParam("albumId") String albumId,
             @PathParam("trackId") String trackId,
@@ -194,6 +195,7 @@ public class AlbumTrackCommandResource {
      */
     @DELETE
     @Path("/{trackId}")
+    @MayConflict
     public Uni<Void> remove(@PathParam("albumId") String albumId, @PathParam("trackId") String trackId) {
         return removeTrackService.execute(new RemoveTrackInput(albumId, trackId))
                 .replaceWithVoid();
@@ -212,6 +214,7 @@ public class AlbumTrackCommandResource {
     @Path("/order")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @MayConflict
     public Uni<ReorderTracksResponse> reorder(@PathParam("albumId") String albumId, ReorderTracksRequest request) {
         return reorderTracksService.execute(new ReorderTracksInput(albumId, request.orderedTrackIds()))
                 .map(AlbumTrackCommandResource::toResponse);
