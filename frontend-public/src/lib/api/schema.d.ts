@@ -4,7 +4,6 @@
  */
 
 export interface paths {
-    // STALE-PROBE: #124 の受け入れ試験。api-types-check が落ちることを確かめるための細工
     "/api/v1/admin/albums": {
         parameters: {
             query?: never;
