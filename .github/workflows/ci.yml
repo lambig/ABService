@@ -233,8 +233,13 @@ jobs:
             exit 1
           fi
 
+      # prod の compose は DB の起動を待たない（本番の接続先は RDS で、同じ compose には居ない）。
+      # backend は起動時にマイグレーションを行うため、先に DB を用意しておく
+      - name: Start PostgreSQL
+        run: docker compose up -d --wait --wait-timeout 120 postgres
+
       - name: Start the production stack
-        run: docker compose up -d --wait --wait-timeout 240 postgres backend
+        run: docker compose up -d --wait --wait-timeout 240 backend
 
       # readiness は DB 接続確認を含む。マイグレーションまで通っていることがここで分かる
       - name: Check readiness through the published port
