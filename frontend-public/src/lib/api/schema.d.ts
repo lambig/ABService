@@ -401,9 +401,11 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description OK */
-                200: {
+                /** @description 作成した */
+                201: {
                     headers: {
+                        /** @description 作られた資源の位置（同一オリジンの相対参照） */
+                        Location: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -464,9 +466,11 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description OK */
-                200: {
+                /** @description 作成した */
+                201: {
                     headers: {
+                        /** @description 作られた資源の位置（同一オリジンの相対参照） */
+                        Location: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -529,9 +533,11 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description OK */
-                200: {
+                /** @description 作成した */
+                201: {
                     headers: {
+                        /** @description 作られた資源の位置（同一オリジンの相対参照） */
+                        Location: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -737,9 +743,11 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description OK */
-                200: {
+                /** @description 作成した */
+                201: {
                     headers: {
+                        /** @description 作られた資源の位置（同一オリジンの相対参照） */
+                        Location: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -1299,9 +1307,11 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description OK */
-                200: {
+                /** @description 作成した */
+                201: {
                     headers: {
+                        /** @description 作られた資源の位置（同一オリジンの相対参照） */
+                        Location: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -1364,9 +1374,11 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description OK */
-                200: {
+                /** @description 作成した */
+                201: {
                     headers: {
+                        /** @description 作られた資源の位置（同一オリジンの相対参照） */
+                        Location: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -1692,7 +1704,9 @@ export interface paths {
         /** Remove Album */
         delete: {
             parameters: {
-                query?: never;
+                query?: {
+                    expectedRevision?: number;
+                };
                 header?: never;
                 path: {
                     id: string;
@@ -1701,12 +1715,14 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description No Content */
-                204: {
+                /** @description OK */
+                200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["RemoveArticleAlbumResponse"];
+                    };
                 };
                 /** @description Not Authorized */
                 401: {
@@ -2156,9 +2172,11 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description OK */
-                200: {
+                /** @description 作成した */
+                201: {
                     headers: {
+                        /** @description 作られた資源の位置（同一オリジンの相対参照） */
+                        Location: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -2819,6 +2837,13 @@ export interface components {
             artistDisplayName: string;
             tracks: components["schemas"]["TrackSummaryResponse"][];
         };
+        RemoveArticleAlbumResponse: {
+            articleId: string;
+            /** Format: int32 */
+            revision: number;
+            articleType: string;
+            title: string;
+        };
         ReorderExternalAudiosRequest: {
             orderedExternalAudioIds?: string[];
         };
@@ -2835,9 +2860,13 @@ export interface components {
         };
         SetArticleAlbumRequest: {
             albumId?: string;
+            /** Format: int32 */
+            expectedRevision?: number;
         };
         SetArticleAlbumResponse: {
             articleId: string;
+            /** Format: int32 */
+            revision: number;
             articleType: string;
             albumId: string;
             title: string;

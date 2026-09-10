@@ -57,6 +57,16 @@ class AlbumRestIntegrationTest {
     }
 
     @Test
+    @DisplayName("アルバムの作成は201と、作られたアルバムを指すLocationを返す")
+    void createRespondsWithCreatedAndLocation() {
+        final var response = authorized().contentType(ContentType.JSON)
+                .body("{\"title\":\"位置確認アルバム\",\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"アーティスト\"}")
+                .when().post("/api/v1/albums").then().statusCode(201).extract();
+
+        assertThat(response.header("Location")).isEqualTo("/api/v1/albums/" + response.path("albumId"));
+    }
+
+    @Test
     @DisplayName("カバー画像のアセットキーを登録すると配信URLとして返る")
     void createWithCoverImageKeyReturnsDeliveryUrl() {
         final String albumId = authorized().contentType(ContentType.JSON)

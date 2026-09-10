@@ -20,6 +20,7 @@ import com.abservice.application.service.article.UnpublishArticleService;
 import com.abservice.application.service.article.UpdateArticleInput;
 import com.abservice.application.service.article.UpdateArticleOutput;
 import com.abservice.application.service.article.UpdateArticleService;
+import com.abservice.presentation.rest.CreatedResponses;
 import com.abservice.presentation.rest.article.request.CreateArticleRequest;
 import com.abservice.presentation.rest.article.request.SetArticleAlbumRequest;
 import com.abservice.presentation.rest.article.request.UpdateArticleRequest;
@@ -29,7 +30,9 @@ import com.abservice.presentation.rest.article.response.RemoveArticleAlbumRespon
 import com.abservice.presentation.rest.article.response.SetArticleAlbumResponse;
 import com.abservice.presentation.rest.article.response.UnpublishArticleResponse;
 import com.abservice.presentation.rest.article.response.UpdateArticleResponse;
+import com.abservice.presentation.rest.openapi.CreatesResource;
 import com.abservice.presentation.rest.security.SecurityRoles;
+import io.github.lambig.textescape.TextEscape;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.Consumes;
@@ -41,7 +44,6 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
-import org.jboss.resteasy.reactive.ResponseStatus;
 import org.jboss.resteasy.reactive.RestResponse;
 
 /**
@@ -60,6 +62,9 @@ import org.jboss.resteasy.reactive.RestResponse;
 @Path("/api/v1/articles")
 @RolesAllowed(SecurityRoles.ADMIN)
 public class ArticleCommandResource {
+
+    /** 作成した記事の位置。クラスの {@code @Path} と対応する */
+    private static final String ARTICLE_LOCATION = "/api/v1/articles/${articleId}";
 
     private final CreateArticleService createArticleService;
     private final UpdateArticleService updateArticleService;
@@ -107,15 +112,24 @@ public class ArticleCommandResource {
      *
      * @param request
      *            記事作成リクエスト
-     * @return 201 Created と作成結果
+     * @return 201 Created、作成した記事の位置、作成結果
      */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    @ResponseStatus(RestResponse.StatusCode.CREATED)
-    public Uni<CreateArticleResponse> create(CreateArticleRequest request) {
+    @CreatesResource
+    public Uni<RestResponse<CreateArticleResponse>> create(CreateArticleRequest request) {
         return createArticleService.execute(toInput(request))
-                .map(ArticleCommandResource::toResponse);
+                .map(ArticleCommandResource::toResponse)
+                .map(ArticleCommandResource::created);
+    }
+
+    private static RestResponse<CreateArticleResponse> created(CreateArticleResponse article) {
+        return CreatedResponses.at(
+                TextEscape.escape(ARTICLE_LOCATION)
+                        .where("articleId", article.articleId())
+                        .compile(),
+                article);
     }
 
     private static CreateArticleInput toInput(CreateArticleRequest request) {

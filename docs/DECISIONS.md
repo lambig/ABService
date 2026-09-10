@@ -473,3 +473,27 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 **トレードオフ**: 本体と子を1画面で同時に編集する形にするなら、編集単位の定義を見直す必要がある（そのときは子の操作側にも同じ仕組みを入れる）。また、409 に世代を載せないため、画面は差分を示すのに読み直しを要する（差分の突き合わせは持たない）。
 
 **実体**: `AlbumRepository` / `ArticleRepository`（`Revision` / `Revisioned` と、世代つきの取得・保存）、`UpdateAlbumService` / `UpdateArticleService` / `SetArticleAlbumService` / `RemoveArticleAlbumService`（`expectedRevision` の必須検証と突き合わせ）、`ConflictingEditException` とその Mapper、`AlbumEditRevisionRestIntegrationTest` / `ArticleEditRevisionRestIntegrationTest`（対象ごとの編集単位もここで固定）、`frontend-admin` の `AlbumForm.svelte` / `ArticleForm.svelte`（`Target` と競合の枝）。
+
+---
+
+## 31. 資源を作る操作は 201・Location・表現の3つを返し、定義は宣言から書く
+
+**判断**: 資源を作る POST は 201 と、作られた資源を指す `Location`、作られた資源の表現を返す。RFC 9110 §9.3.3・§15.3.2 が SHOULD とする3つをすべて満たす。
+
+`Location` は**同一オリジンの相対参照**にする。要求元は同じオリジンへ戻るため絶対化して得るものがなく、絶対 URI は配信経路（CloudFront）より内側のホストを応答へ載せる。
+
+どの操作が資源を作るかは `CreatesResource` が宣言する。実装は `CreatedResponses` が3つを組み、API 定義は `CreatedResourceResponseFilter` が同じ宣言から書く。状態コードをエンドポイントごとの `@APIResponse` として定義側へ書き写さない（契約の正は実装）。
+
+**なぜ**: smallrye-openapi は `@ResponseStatus` も戻り値型も読まないため、実装が 201 を返しても定義には 200 として現れ、`Location` は現れない。要求元はこの定義から型を生成するので、実在しない 200 を待ち、位置を型として受け取れない。
+
+3つのうち一部だけを満たす形は、標準から外れる理由を永続的に説明し続けることになる。201 を捨てて 200 にすれば `Location` の SHOULD は消えるが、「資源を作ったのに 201 を送らない」という状態コード自体の逸脱が残る。3つとも満たす形だけが説明を要しない。
+
+作られた資源の情報は呼び出し側が即座に使う（記事作成は応答の `articleId` で編集画面へ結び、タグ追加は応答をそのまま画面の状態へ反映する）。表現を返さず位置だけを返す設計にすると、いずれの経路も1往復増える。
+
+**トレードオフ**: 状態コードとヘッダは戻り値型に現れないため、定義へ写す機構が要る。ビルド時フィルタはクラスパスを走査できないので走査対象を数え上げで持ち、その漏れは ArchUnit が `CreatesResource` の付いたメソッドと突き合わせて落とす。
+
+相対参照のため `ResponseBuilder.location(URI)` は使えない（JAX-RS の規定でベース URI へ解決され絶対化する）。ヘッダへ直接与える。
+
+子資源の `Location`（記事タグ・トラック・外部音源）が指す先は GET を持たない。SHOULD が求めるのは作られた資源への URI 参照であり取得経路ではないため、識別子として成り立つ限りは許容する。
+
+**実体**: `CreatesResource` / `CreatedResponses` / `CreatedResourceResponseFilter`、`LayeredArchitectureTest`（数え上げ漏れの検出）、`OpenApiSchemaRestIntegrationTest`（定義側の 201 と `Location`）、各 REST 統合テストの `createRespondsWithCreatedAndLocation` / `addRespondsWithCreatedAndLocation` / `registerRespondsWithCreatedAndLocation`（実応答の位置）。

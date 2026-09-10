@@ -11,6 +11,7 @@ import com.abservice.application.service.album.ReorderTracksService;
 import com.abservice.application.service.album.UpdateTrackInput;
 import com.abservice.application.service.album.UpdateTrackOutput;
 import com.abservice.application.service.album.UpdateTrackService;
+import com.abservice.presentation.rest.CreatedResponses;
 import com.abservice.presentation.rest.album.request.AddTrackRequest;
 import com.abservice.presentation.rest.album.request.ReorderTracksRequest;
 import com.abservice.presentation.rest.album.request.TrackTuneRequest;
@@ -19,7 +20,9 @@ import com.abservice.presentation.rest.album.response.AddTrackResponse;
 import com.abservice.presentation.rest.album.response.ReorderTracksResponse;
 import com.abservice.presentation.rest.album.response.ReorderTracksResponse.TrackOrderEntryResponse;
 import com.abservice.presentation.rest.album.response.UpdateTrackResponse;
+import com.abservice.presentation.rest.openapi.CreatesResource;
 import com.abservice.presentation.rest.security.SecurityRoles;
+import io.github.lambig.textescape.TextEscape;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.Consumes;
@@ -30,7 +33,6 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import org.jboss.resteasy.reactive.ResponseStatus;
 import org.jboss.resteasy.reactive.RestResponse;
 
 /**
@@ -49,6 +51,9 @@ import org.jboss.resteasy.reactive.RestResponse;
 @Path("/api/v1/albums/{albumId}/tracks")
 @RolesAllowed(SecurityRoles.ADMIN)
 public class AlbumTrackCommandResource {
+
+    /** 追加したトラックの位置。クラスの {@code @Path} と、更新・削除の {@code @Path} に対応する */
+    private static final String TRACK_LOCATION = "/api/v1/albums/${albumId}/tracks/${trackId}";
 
     private final AddTrackService addTrackService;
     private final UpdateTrackService updateTrackService;
@@ -83,15 +88,27 @@ public class AlbumTrackCommandResource {
      *            追加先のアルバムID
      * @param request
      *            トラック追加リクエスト
-     * @return 201 Created と追加結果
+     * @return 201 Created、追加したトラックの位置、追加結果
      */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    @ResponseStatus(RestResponse.StatusCode.CREATED)
-    public Uni<AddTrackResponse> add(@PathParam("albumId") String albumId, AddTrackRequest request) {
+    @CreatesResource
+    public Uni<RestResponse<AddTrackResponse>> add(
+            @PathParam("albumId") String albumId,
+            AddTrackRequest request) {
         return addTrackService.execute(toInput(albumId, request))
-                .map(AlbumTrackCommandResource::toResponse);
+                .map(AlbumTrackCommandResource::toResponse)
+                .map(AlbumTrackCommandResource::created);
+    }
+
+    private static RestResponse<AddTrackResponse> created(AddTrackResponse track) {
+        return CreatedResponses.at(
+                TextEscape.escape(TRACK_LOCATION)
+                        .where("albumId", track.albumId())
+                        .where("trackId", track.trackId())
+                        .compile(),
+                track);
     }
 
     private static AddTrackInput toInput(String albumId, AddTrackRequest request) {

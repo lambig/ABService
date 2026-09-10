@@ -110,13 +110,33 @@ class OpenApiSchemaRestIntegrationTest {
     @DisplayName("本体を持たない Command は 204 で、本体の宣言を持たない")
     void bodylessCommandRespondsWithNoContent() {
         /*
-         * 記事の削除は本体を返さない（Uni<Void>）。200 と空の本体で宣言されると、要求元は返らない本体を 読もうとする。201
-         * の定義上の状態コードは別（#282）のため、ここでは 204 の操作だけを見る。
+         * 記事の削除は本体を返さない（Uni<Void>）。200 と空の本体で宣言されると、要求元は返らない本体を 読もうとする。資源を作る 操作の 201 は
+         * {@link #creatingCommandRespondsWithCreatedAndLocation} が見るため、ここでは 204
+         * の操作だけを見る。
          */
         openApi()
                 .body(responsesOf("delete", "/api/v1/articles/{id}"), hasKey("204"))
                 .body(responsesOf("delete", "/api/v1/articles/{id}"), not(hasKey("200")))
                 .body(responsesOf("delete", "/api/v1/articles/{id}") + ".'204'", not(hasKey("content")));
+    }
+
+    @Test
+    @DisplayName("資源を作る操作は 201 と、作られた資源を指す Location を持つ")
+    void creatingCommandRespondsWithCreatedAndLocation() {
+        /*
+         * CREATED-IS-NOT-IN-THE-RETURN-TYPE: 実装は RestResponse で 201 と Location を返すが、
+         * smallrye は戻り値から状態コードもヘッダも読まない。定義が 200 のままだと、要求元は実在しない 200 を待ち、
+         * 位置を型として受け取れない（#282）。集約直下と子資源の両方を見る。
+         */
+        openApi()
+                .body(responsesOf("post", "/api/v1/albums"), hasKey("201"))
+                .body(responsesOf("post", "/api/v1/albums"), not(hasKey("200")))
+                .body(createdBodyRefOf("post", "/api/v1/albums"), equalTo("#/components/schemas/CreateAlbumResponse"))
+                .body(locationOf("post", "/api/v1/albums") + ".required", equalTo(true))
+                .body(locationOf("post", "/api/v1/albums") + ".schema.format", equalTo("uri-reference"))
+                .body(responsesOf("post", "/api/v1/articles/{articleId}/tags"), hasKey("201"))
+                .body(responsesOf("post", "/api/v1/articles/{articleId}/tags"), not(hasKey("200")))
+                .body(locationOf("post", "/api/v1/articles/{articleId}/tags") + ".required", equalTo(true));
     }
 
     @Test
@@ -147,5 +167,13 @@ class OpenApiSchemaRestIntegrationTest {
 
     private static String okBodyRefOf(String method, String path) {
         return responsesOf(method, path) + ".'200'.content.'application/json'.schema.$ref";
+    }
+
+    private static String createdBodyRefOf(String method, String path) {
+        return responsesOf(method, path) + ".'201'.content.'application/json'.schema.$ref";
+    }
+
+    private static String locationOf(String method, String path) {
+        return responsesOf(method, path) + ".'201'.headers.Location";
     }
 }

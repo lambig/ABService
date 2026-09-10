@@ -19,6 +19,7 @@ import com.abservice.application.service.album.UnpublishAlbumService;
 import com.abservice.application.service.album.UpdateAlbumInput;
 import com.abservice.application.service.album.UpdateAlbumOutput;
 import com.abservice.application.service.album.UpdateAlbumService;
+import com.abservice.presentation.rest.CreatedResponses;
 import com.abservice.presentation.rest.album.request.CreateAlbumRequest;
 import com.abservice.presentation.rest.album.request.CreateAlbumRequest.EventRequest;
 import com.abservice.presentation.rest.album.request.RegisterAlbumWithTracksRequest;
@@ -30,7 +31,9 @@ import com.abservice.presentation.rest.album.response.PublishAlbumResponse;
 import com.abservice.presentation.rest.album.response.RegisterAlbumWithTracksResponse;
 import com.abservice.presentation.rest.album.response.UnpublishAlbumResponse;
 import com.abservice.presentation.rest.album.response.UpdateAlbumResponse;
+import com.abservice.presentation.rest.openapi.CreatesResource;
 import com.abservice.presentation.rest.security.SecurityRoles;
+import io.github.lambig.textescape.TextEscape;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.Consumes;
@@ -43,7 +46,6 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import java.util.List;
 import java.util.Optional;
-import org.jboss.resteasy.reactive.ResponseStatus;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jspecify.annotations.Nullable;
 
@@ -62,6 +64,9 @@ import org.jspecify.annotations.Nullable;
 @Path("/api/v1/albums")
 @RolesAllowed(SecurityRoles.ADMIN)
 public class AlbumCommandResource {
+
+    /** 作成したアルバムの位置。クラスの {@code @Path} と対応する */
+    private static final String ALBUM_LOCATION = "/api/v1/albums/${albumId}";
 
     private final CreateAlbumService createAlbumService;
     private final UpdateAlbumService updateAlbumService;
@@ -104,15 +109,30 @@ public class AlbumCommandResource {
      *
      * @param request
      *            アルバム作成リクエスト
-     * @return 201 Created と作成結果
+     * @return 201 Created、作成したアルバムの位置、作成結果
      */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    @ResponseStatus(RestResponse.StatusCode.CREATED)
-    public Uni<CreateAlbumResponse> create(CreateAlbumRequest request) {
+    @CreatesResource
+    public Uni<RestResponse<CreateAlbumResponse>> create(CreateAlbumRequest request) {
         return createAlbumService.execute(toInput(request))
-                .map(AlbumCommandResource::toResponse);
+                .map(AlbumCommandResource::toResponse)
+                .map(AlbumCommandResource::created);
+    }
+
+    private static RestResponse<CreateAlbumResponse> created(CreateAlbumResponse album) {
+        return CreatedResponses.at(locationOf(album.albumId()), album);
+    }
+
+    private static RestResponse<RegisterAlbumWithTracksResponse> created(RegisterAlbumWithTracksResponse album) {
+        return CreatedResponses.at(locationOf(album.albumId()), album);
+    }
+
+    private static String locationOf(String albumId) {
+        return TextEscape.escape(ALBUM_LOCATION)
+                .where("albumId", albumId)
+                .compile();
     }
 
     private static CreateAlbumInput toInput(CreateAlbumRequest request) {
@@ -298,16 +318,18 @@ public class AlbumCommandResource {
      *
      * @param request
      *            アルバムと初期トラック一覧のワンリクエスト登録リクエスト
-     * @return 201 Created と登録結果
+     * @return 201 Created、登録したアルバムの位置、登録結果
      */
     @POST
     @Path("/with-tracks")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    @ResponseStatus(RestResponse.StatusCode.CREATED)
-    public Uni<RegisterAlbumWithTracksResponse> registerWithTracks(RegisterAlbumWithTracksRequest request) {
+    @CreatesResource
+    public Uni<RestResponse<RegisterAlbumWithTracksResponse>> registerWithTracks(
+            RegisterAlbumWithTracksRequest request) {
         return registerAlbumWithTracksService.execute(toInput(request))
-                .map(AlbumCommandResource::toResponse);
+                .map(AlbumCommandResource::toResponse)
+                .map(AlbumCommandResource::created);
     }
 
     private static RegisterAlbumWithTracksInput toInput(RegisterAlbumWithTracksRequest request) {

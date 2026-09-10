@@ -8,12 +8,15 @@ import com.abservice.application.service.album.RemoveExternalAudioService;
 import com.abservice.application.service.album.ReorderExternalAudiosInput;
 import com.abservice.application.service.album.ReorderExternalAudiosOutput;
 import com.abservice.application.service.album.ReorderExternalAudiosService;
+import com.abservice.presentation.rest.CreatedResponses;
 import com.abservice.presentation.rest.album.request.AddExternalAudioRequest;
 import com.abservice.presentation.rest.album.request.ReorderExternalAudiosRequest;
 import com.abservice.presentation.rest.album.response.AddExternalAudioResponse;
 import com.abservice.presentation.rest.album.response.ReorderExternalAudiosResponse;
 import com.abservice.presentation.rest.album.response.ReorderExternalAudiosResponse.ExternalAudioOrderEntryResponse;
+import com.abservice.presentation.rest.openapi.CreatesResource;
 import com.abservice.presentation.rest.security.SecurityRoles;
+import io.github.lambig.textescape.TextEscape;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.Consumes;
@@ -24,7 +27,6 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import org.jboss.resteasy.reactive.ResponseStatus;
 import org.jboss.resteasy.reactive.RestResponse;
 
 /**
@@ -42,6 +44,9 @@ import org.jboss.resteasy.reactive.RestResponse;
 @Path("/api/v1/albums/{albumId}/external-audios")
 @RolesAllowed(SecurityRoles.ADMIN)
 public class AlbumExternalAudioCommandResource {
+
+    /** 追加した外部音源の位置。クラスの {@code @Path} と、削除の {@code @Path} に対応する */
+    private static final String AUDIO_LOCATION = "/api/v1/albums/${albumId}/external-audios/${externalAudioId}";
 
     private final AddExternalAudioService addExternalAudioService;
     private final RemoveExternalAudioService removeExternalAudioService;
@@ -71,17 +76,27 @@ public class AlbumExternalAudioCommandResource {
      *            追加先のアルバムID
      * @param request
      *            外部音源追加リクエスト
-     * @return 201 Created と追加結果
+     * @return 201 Created、追加した外部音源の位置、追加結果
      */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    @ResponseStatus(RestResponse.StatusCode.CREATED)
-    public Uni<AddExternalAudioResponse> add(
+    @CreatesResource
+    public Uni<RestResponse<AddExternalAudioResponse>> add(
             @PathParam("albumId") String albumId,
             AddExternalAudioRequest request) {
         return addExternalAudioService.execute(new AddExternalAudioInput(albumId, request.url()))
-                .map(AlbumExternalAudioCommandResource::toResponse);
+                .map(AlbumExternalAudioCommandResource::toResponse)
+                .map(AlbumExternalAudioCommandResource::created);
+    }
+
+    private static RestResponse<AddExternalAudioResponse> created(AddExternalAudioResponse externalAudio) {
+        return CreatedResponses.at(
+                TextEscape.escape(AUDIO_LOCATION)
+                        .where("albumId", externalAudio.albumId())
+                        .where("externalAudioId", externalAudio.externalAudioId())
+                        .compile(),
+                externalAudio);
     }
 
     private static AddExternalAudioResponse toResponse(AddExternalAudioOutput output) {

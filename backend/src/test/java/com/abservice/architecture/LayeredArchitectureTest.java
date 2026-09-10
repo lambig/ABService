@@ -10,6 +10,8 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 import static java.util.function.Predicate.not;
 
 import com.abservice.domain.repository.album.AlbumRepository;
+import com.abservice.presentation.rest.openapi.CreatedResourceResponseFilter;
+import com.abservice.presentation.rest.openapi.CreatesResource;
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaAccess;
 import com.tngtech.archunit.core.domain.JavaClass;
@@ -374,6 +376,55 @@ class LayeredArchitectureTest {
                 "%s の単純名 %s が他の応答 record と重複している".formatted(
                         javaClass.getFullName(),
                         javaClass.getSimpleName()));
+    }
+
+    /**
+     * 資源を作る操作を持つリソースは、応答を定義へ反映するフィルタの数え上げに含まれなければならない。
+     *
+     * <p>
+     * {@link CreatedResourceResponseFilter} はビルド時フィルタでクラスパスを走査できないため、走査対象を数え上げで
+     * 持つ。数え上げから漏れたリソースは実装が 201 と {@code Location} を返すのに定義は 200 のままになり、要求元が
+     * 生成する型と実際の応答がずれる。ずれは定義を見に行くまで現れないので、宣言の時点で落とす。
+     * </p>
+     */
+    @ArchTest
+    void resourcesThatCreateShouldBeListedInTheOpenApiFilter(JavaClasses classes) {
+        classes().that(haveAMethodThatCreatesResource())
+                .should(beListedIn(filteredResourceNames()))
+                .as("資源を作る操作を持つリソースは CreatedResourceResponseFilter.RESOURCE_CLASSES に数え上げる")
+                .allowEmptyShould(true).check(classes);
+    }
+
+    private static DescribedPredicate<JavaClass> haveAMethodThatCreatesResource() {
+        return DescribedPredicate.describe(
+                "have a method annotated with @CreatesResource",
+                javaClass -> javaClass.getMethods().stream()
+                        .anyMatch(method -> method.isAnnotatedWith(CreatesResource.class)));
+    }
+
+    private static List<String> filteredResourceNames() {
+        return CreatedResourceResponseFilter.RESOURCE_CLASSES.stream()
+                .map(Class::getName)
+                .toList();
+    }
+
+    private static ArchCondition<JavaClass> beListedIn(List<String> resourceNames) {
+        return new ArchCondition<>("be listed in CreatedResourceResponseFilter.RESOURCE_CLASSES") {
+            @Override
+            public void check(JavaClass javaClass, ConditionEvents events) {
+                Optional.of(javaClass)
+                        .filter(not(type -> resourceNames.contains(type.getFullName())))
+                        .map(LayeredArchitectureTest::unlistedResourceViolation)
+                        .ifPresent(events::add);
+            }
+        };
+    }
+
+    private static ConditionEvent unlistedResourceViolation(JavaClass javaClass) {
+        return SimpleConditionEvent.violated(
+                javaClass,
+                "%s は資源を作る操作を持つが CreatedResourceResponseFilter.RESOURCE_CLASSES に無い（定義側が 200 のまま残る）"
+                        .formatted(javaClass.getFullName()));
     }
 
     /*

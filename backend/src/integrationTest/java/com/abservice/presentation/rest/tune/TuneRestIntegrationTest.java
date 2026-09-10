@@ -158,6 +158,16 @@ class TuneRestIntegrationTest {
                 .body("size", equalTo(20));
     }
 
+    @Test
+    @DisplayName("チューンの作成は201と、作られたチューンを指すLocationを返す")
+    void createRespondsWithCreatedAndLocation() {
+        final var response = authorized().contentType(ContentType.JSON)
+                .body("{\"title\":\"位置確認チューン\",\"tuneKind\":\"TRAD\"}")
+                .when().post("/api/v1/tunes").then().statusCode(201).extract();
+
+        assertThat(response.header("Location")).isEqualTo("/api/v1/tunes/" + response.path("tuneId"));
+    }
+
     private static String createTune(String title) {
         return authorized().contentType(ContentType.JSON)
                 .body("{\"title\":\"" + title + "\",\"tuneKind\":\"TRAD\"}").when().post("/api/v1/tunes")

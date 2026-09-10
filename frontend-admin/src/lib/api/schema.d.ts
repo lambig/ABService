@@ -401,9 +401,11 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description OK */
-                200: {
+                /** @description 作成した */
+                201: {
                     headers: {
+                        /** @description 作られた資源の位置（同一オリジンの相対参照） */
+                        Location: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -464,9 +466,11 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description OK */
-                200: {
+                /** @description 作成した */
+                201: {
                     headers: {
+                        /** @description 作られた資源の位置（同一オリジンの相対参照） */
+                        Location: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -529,9 +533,11 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description OK */
-                200: {
+                /** @description 作成した */
+                201: {
                     headers: {
+                        /** @description 作られた資源の位置（同一オリジンの相対参照） */
+                        Location: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -737,9 +743,11 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description OK */
-                200: {
+                /** @description 作成した */
+                201: {
                     headers: {
+                        /** @description 作られた資源の位置（同一オリジンの相対参照） */
+                        Location: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -1299,9 +1307,11 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description OK */
-                200: {
+                /** @description 作成した */
+                201: {
                     headers: {
+                        /** @description 作られた資源の位置（同一オリジンの相対参照） */
+                        Location: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -1364,9 +1374,11 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description OK */
-                200: {
+                /** @description 作成した */
+                201: {
                     headers: {
+                        /** @description 作られた資源の位置（同一オリジンの相対参照） */
+                        Location: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -2160,9 +2172,11 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description OK */
-                200: {
+                /** @description 作成した */
+                201: {
                     headers: {
+                        /** @description 作られた資源の位置（同一オリジンの相対参照） */
+                        Location: string;
                         [name: string]: unknown;
                     };
                     content: {
