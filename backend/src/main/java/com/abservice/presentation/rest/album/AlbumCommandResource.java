@@ -32,7 +32,7 @@ import com.abservice.presentation.rest.album.response.RegisterAlbumWithTracksRes
 import com.abservice.presentation.rest.album.response.UnpublishAlbumResponse;
 import com.abservice.presentation.rest.album.response.UpdateAlbumResponse;
 import com.abservice.presentation.rest.openapi.CreatesResource;
-import com.abservice.presentation.rest.openapi.MayConflict;
+import com.abservice.presentation.rest.openapi.Executes;
 import com.abservice.presentation.rest.security.SecurityRoles;
 import io.github.lambig.textescape.TextEscape;
 import io.smallrye.mutiny.Uni;
@@ -116,6 +116,7 @@ public class AlbumCommandResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     @CreatesResource
+    @Executes(CreateAlbumService.class)
     public Uni<RestResponse<CreateAlbumResponse>> create(CreateAlbumRequest request) {
         return createAlbumService.execute(toInput(request))
                 .map(AlbumCommandResource::toResponse)
@@ -175,7 +176,7 @@ public class AlbumCommandResource {
     @Path("/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    @MayConflict
+    @Executes(UpdateAlbumService.class)
     public Uni<UpdateAlbumResponse> update(@PathParam("id") String id, UpdateAlbumRequest request) {
         return updateAlbumService.execute(toInput(id, request))
                 .map(AlbumCommandResource::toResponse);
@@ -233,6 +234,7 @@ public class AlbumCommandResource {
     @DELETE
     @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(DeleteAlbumService.class)
     public Uni<DeleteAlbumResponse> delete(@PathParam("id") String id) {
         return deleteAlbumService.execute(new DeleteAlbumInput(id))
                 .map(AlbumCommandResource::toDeleteResponse);
@@ -263,6 +265,7 @@ public class AlbumCommandResource {
     @POST
     @Path("/{id}/publish")
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(PublishAlbumService.class)
     public Uni<PublishAlbumResponse> publish(@PathParam("id") String id) {
         return publishAlbumService.execute(new PublishAlbumInput(id))
                 .map(AlbumCommandResource::toResponse);
@@ -285,6 +288,7 @@ public class AlbumCommandResource {
     @POST
     @Path("/{id}/unpublish")
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(UnpublishAlbumService.class)
     public Uni<UnpublishAlbumResponse> unpublish(@PathParam("id") String id) {
         return unpublishAlbumService.execute(new UnpublishAlbumInput(id))
                 .map(AlbumCommandResource::toResponse);
@@ -319,7 +323,7 @@ public class AlbumCommandResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     @CreatesResource
-    @MayConflict
+    @Executes(RegisterAlbumWithTracksService.class)
     public Uni<RestResponse<RegisterAlbumWithTracksResponse>> registerWithTracks(
             RegisterAlbumWithTracksRequest request) {
         return registerAlbumWithTracksService.execute(toInput(request))

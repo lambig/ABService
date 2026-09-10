@@ -167,25 +167,44 @@ class OpenApiSchemaRestIntegrationTest {
     }
 
     @Test
-    @DisplayName("返らないエラーは定義に現れない（公開の読み取りに認証・認可・競合は無い）")
+    @DisplayName("エラーは経路の形ではなくユースケースの失敗契約から決まる")
+    void errorsFollowTheUseCaseFailureContract() {
+        /*
+         * FORM-DOES-NOT-IMPLY-FAILURE: 「本体か問合せ文字列があれば400」「パスパラメータがあれば404」という
+         * 推定は実装と食い違う。経路の識別子を検証する操作は本体を持たなくても 400 を返し、対象の不在を成功と 扱う削除や upsert は 404
+         * を返さない。ここで見るのはその食い違いが起きる4つの操作（#282）。
+         */
+        openApi()
+                // 本体も問合せ文字列も持たないが、経路の識別子を値オブジェクトへ通すため検証の失敗を返す
+                .body(responsesOf("post", "/api/v1/albums/{id}/publish"), hasKey("400"))
+                // べき等な削除は対象の不在を成功として扱う
+                .body(responsesOf("delete", "/api/v1/articles/{id}"), hasKey("400"))
+                .body(responsesOf("delete", "/api/v1/articles/{id}"), not(hasKey("404")))
+                // upsert は対象が無くても作るため、未存在で失敗しない
+                .body(responsesOf("put", "/api/v1/site-contents/{key}"), not(hasKey("404")))
+                // 非排他に版つきの行を更新する操作は、基盤由来の競合を返し得る
+                .body(responsesOf("post", "/api/v1/articles/{id}/unpublish"), hasKey("409"));
+    }
+
+    @Test
+    @DisplayName("返らないエラーは定義に現れない")
     void unreachableErrorsAreAbsent() {
         /*
          * 全オペレーションへ一律に足すと、返らない状態コードを契約として宣言することになる。要求元はそれを
          * 扱う枝を書くため、宣言する範囲は返し得る条件と対で決める。
          */
         openApi()
+                // 公開の読み取りは認証を要さない
                 .body(responsesOf("get", "/api/v1/albums"), not(hasKey("401")))
                 .body(responsesOf("get", "/api/v1/albums"), not(hasKey("403")))
+                // 読み取りは他の操作と競合しない
                 .body(responsesOf("get", "/api/v1/albums"), not(hasKey("409")))
                 // 並び順を問合せ文字列で受け取るため、入力の検証失敗は返し得る
                 .body(responsesOf("get", "/api/v1/albums"), hasKey("400"))
-                // パスで対象を指すだけの操作は入力を受け取らない
-                .body(responsesOf("post", "/api/v1/albums/{id}/publish"), not(hasKey("400")))
-                // 409 は返し得ると宣言した操作にだけ現れる。記事の公開は参照先が非公開なら業務ルール違反
-                .body(responsesOf("post", "/api/v1/articles/{id}/publish"), hasKey("409"))
-                // アルバムの公開は参照先を持たず、業務ルール違反の経路がない
-                .body(responsesOf("post", "/api/v1/albums/{id}/publish"), not(hasKey("409")))
-                // 資源を書き換えない操作にも現れない（署名付きURLの払い出しは検証の失敗だけを返す）
+                // 個別取得は対象の不在を失敗として返すが、一覧は返さない
+                .body(responsesOf("get", "/api/v1/albums/{id}"), hasKey("404"))
+                .body(responsesOf("get", "/api/v1/albums"), not(hasKey("404")))
+                // 資源を書き換えない操作は競合しない（署名付きURLの払い出しは検証の失敗だけを返す）
                 .body(responsesOf("post", "/api/v1/assets/upload-url"), not(hasKey("409")));
     }
 

@@ -9,11 +9,12 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 import static java.util.function.Predicate.not;
 
+import com.abservice.application.exception.FailureContract;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.presentation.rest.CreatedResponses;
 import com.abservice.presentation.rest.openapi.CreatesResource;
 import com.abservice.presentation.rest.openapi.DeclaredEndpoints;
-import com.abservice.presentation.rest.openapi.MayConflict;
+import com.abservice.presentation.rest.openapi.Executes;
 import com.abservice.presentation.rest.openapi.ProblemDetailErrorContract;
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaAccess;
@@ -28,6 +29,7 @@ import com.tngtech.archunit.lang.ConditionEvent;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.library.GeneralCodingRules;
+import jakarta.ws.rs.HttpMethod;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import java.util.List;
 import java.util.Map;
@@ -388,7 +390,7 @@ class LayeredArchitectureTest {
      *
      * <p>
      * ビルド時フィルタはクラスパスを走査できないため、走査対象を {@link DeclaredEndpoints} が数え上げで持つ。漏れた
-     * リソースの宣言（{@link CreatesResource} / {@link MayConflict}）は読まれず、その操作の定義だけが実装と
+     * リソースの宣言（{@link CreatesResource} / {@link Executes}）は読まれず、その操作の定義だけが実装と
      * ずれる。ずれは定義を見に行くまで現れないので、リソースを足した時点で落とす。宣言を持たない Query 側も同じ 数え上げに置き、検査を1つに保つ。
      * </p>
      */
@@ -438,15 +440,8 @@ class LayeredArchitectureTest {
                 .allowEmptyShould(true).check(classes);
     }
 
-    /*
-     * LAMBDA-AND-REFERENCE: 応答の組み立ては map(...) のラムダの中で呼ばれる。呼び出しと参照の両方を集めないと、
-     * メソッド参照で書いた経路が検査から漏れる。
-     */
     private static boolean buildsCreatedResponses(JavaMethod method) {
-        return Stream.<JavaAccess<?>>concat(
-                method.getMethodCallsFromSelf().stream(),
-                method.getMethodReferencesFromSelf().stream())
-                .anyMatch(access -> access.getTargetOwner().isAssignableTo(CreatedResponses.class));
+        return reaches(method, CreatedResponses.class);
     }
 
     private static DescribedPredicate<JavaMethod> buildCreatedResponses() {
@@ -500,6 +495,134 @@ class LayeredArchitectureTest {
                 "%s が %s に数え上げられていない（API 定義へ反映されないまま残る）".formatted(
                         javaClass.getFullName(),
                         listName));
+    }
+
+    /**
+     * ユースケースは、返し得る失敗を宣言していなければならない。
+     *
+     * <p>
+     * エラー応答の契約はユースケースが持ち、API 定義はそこから組む。宣言の無いユースケースを実行する操作は、定義側で
+     * 失敗を1つも持たないまま公開され、要求元は実際に返る 400/404/409 を型として扱えない。
+     * </p>
+     */
+    @ArchTest
+    void useCasesShouldDeclareTheirFailures(JavaClasses classes) {
+        classes().that().resideInAnyPackage("..application.service..", "..application.query..").and()
+                .haveSimpleNameEndingWith("Service").and().areNotInterfaces()
+                .should().beAnnotatedWith(FailureContract.class)
+                .as("ユースケースは @FailureContract で返し得る失敗を宣言する")
+                .allowEmptyShould(true).check(classes);
+    }
+
+    /**
+     * エンドポイントは、実行するユースケースを指していなければならない。
+     *
+     * <p>
+     * 失敗の契約はユースケースが持つため、定義側はエンドポイントからユースケースへ辿れなければ失敗を写せない。指して
+     * いない操作は、失敗を1つも持たない定義として公開される。読み取りも対象に含める——一覧は並び順の検証で 400 を、 個別取得は対象の不在で 404
+     * を返すため、宣言が無ければどちらも定義から落ちる。
+     * </p>
+     */
+    @ArchTest
+    void endpointsShouldPointAtTheirUseCase(JavaClasses classes) {
+        methods().that().areDeclaredInClassesThat().haveSimpleNameEndingWith("Resource").and(
+                areHttpEndpoints())
+                .should().beAnnotatedWith(Executes.class)
+                .as("エンドポイントは @Executes で実行するユースケースを指す")
+                .allowEmptyShould(true).check(classes);
+    }
+
+    /**
+     * 指したユースケースを、そのエンドポイントが実際に実行していなければならない。
+     *
+     * <p>
+     * {@link Executes} は定義側の失敗契約を引くためだけに読まれるので、指す先が実装とずれても動いてしまう。ずれた
+     * ままだと、定義には呼んでいないユースケースの失敗が並ぶ。宣言を実装と結び付けておく。
+     * </p>
+     */
+    @ArchTest
+    void endpointsShouldExecuteTheUseCaseTheyPointAt(JavaClasses classes) {
+        methods().that().areAnnotatedWith(Executes.class)
+                .should(executeTheDeclaredUseCase())
+                .as("@Executes が指すユースケースを、そのエンドポイントが実際に実行する")
+                .allowEmptyShould(true).check(classes);
+    }
+
+    /*
+     * LAMBDA-AND-REFERENCE: ユースケースの実行は map(...) の内側や メソッド参照でも書かれる。呼び出しと参照の
+     * 両方を集めないと、書き方によって検査から漏れる。
+     */
+    private static ArchCondition<JavaMethod> executeTheDeclaredUseCase() {
+        return new ArchCondition<>("execute the use case they point at") {
+            @Override
+            public void check(JavaMethod method, ConditionEvents events) {
+                Optional.of(method)
+                        .filter(not(LayeredArchitectureTest::executesItsDeclaredUseCase))
+                        .map(LayeredArchitectureTest::unexecutedUseCaseViolation)
+                        .ifPresent(events::add);
+            }
+        };
+    }
+
+    private static boolean executesItsDeclaredUseCase(JavaMethod method) {
+        return reaches(method, declaredUseCaseOf(method));
+    }
+
+    /**
+     * そのメソッドから対象の型へ届くかどうか。
+     *
+     * <p>
+     * エンドポイントは組み立てや問い合わせを同じクラスの private メソッドへ委ねることがある。直接の呼び出しだけを
+     * 見ると、その書き方が検査から漏れて「宣言はあるが実装していない」と誤判定する。実装の書き方を検査の都合で 縛らないよう、同一クラス内の委譲を1段だけ辿る。
+     * </p>
+     */
+    private static boolean reaches(JavaMethod method, Class<?> target) {
+        return Stream.concat(
+                accessesOf(method),
+                delegatesOf(method).flatMap(LayeredArchitectureTest::accessesOf))
+                .anyMatch(access -> access.getTargetOwner().isAssignableTo(target));
+    }
+
+    /*
+     * LAMBDA-AND-REFERENCE: 呼び出しは map(...) のラムダの中にも、メソッド参照の形でも現れる。両方を集めないと
+     * 書き方によって検査から漏れる。
+     */
+    private static Stream<JavaAccess<?>> accessesOf(JavaMethod method) {
+        return Stream.<JavaAccess<?>>concat(
+                method.getMethodCallsFromSelf().stream(),
+                method.getMethodReferencesFromSelf().stream());
+    }
+
+    private static Stream<JavaMethod> delegatesOf(JavaMethod method) {
+        return accessesOf(method)
+                .filter(access -> access.getTargetOwner().equals(method.getOwner()))
+                .map(access -> access.getTarget().resolveMember())
+                .flatMap(Optional::stream)
+                .filter(JavaMethod.class::isInstance)
+                .map(JavaMethod.class::cast);
+    }
+
+    private static Class<?> declaredUseCaseOf(JavaMethod method) {
+        return method.getAnnotationOfType(Executes.class).value();
+    }
+
+    private static ConditionEvent unexecutedUseCaseViolation(JavaMethod method) {
+        return SimpleConditionEvent.violated(
+                method,
+                "%s は %s を指しているが実行していない（定義に載る失敗が実装とずれる）".formatted(
+                        method.getFullName(),
+                        declaredUseCaseOf(method).getSimpleName()));
+    }
+
+    /*
+     * META-ANNOTATION: @GET/@POST などは jakarta.ws.rs.HttpMethod を持つ注釈で、種類を数え上げると新しい
+     * メソッドを足したときに漏れる。メタ注釈の有無で判定する。
+     */
+    private static DescribedPredicate<JavaMethod> areHttpEndpoints() {
+        return DescribedPredicate.describe(
+                "are HTTP endpoints",
+                method -> method.getAnnotations().stream()
+                        .anyMatch(annotation -> annotation.getRawType().isAnnotatedWith(HttpMethod.class)));
     }
 
     /**

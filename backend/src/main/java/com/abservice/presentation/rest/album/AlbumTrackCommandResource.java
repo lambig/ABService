@@ -21,7 +21,7 @@ import com.abservice.presentation.rest.album.response.ReorderTracksResponse;
 import com.abservice.presentation.rest.album.response.ReorderTracksResponse.TrackOrderEntryResponse;
 import com.abservice.presentation.rest.album.response.UpdateTrackResponse;
 import com.abservice.presentation.rest.openapi.CreatesResource;
-import com.abservice.presentation.rest.openapi.MayConflict;
+import com.abservice.presentation.rest.openapi.Executes;
 import com.abservice.presentation.rest.security.SecurityRoles;
 import io.github.lambig.textescape.TextEscape;
 import io.smallrye.mutiny.Uni;
@@ -95,7 +95,7 @@ public class AlbumTrackCommandResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     @CreatesResource
-    @MayConflict
+    @Executes(AddTrackService.class)
     public Uni<RestResponse<AddTrackResponse>> add(
             @PathParam("albumId") String albumId,
             AddTrackRequest request) {
@@ -144,7 +144,7 @@ public class AlbumTrackCommandResource {
     @Path("/{trackId}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    @MayConflict
+    @Executes(UpdateTrackService.class)
     public Uni<UpdateTrackResponse> update(
             @PathParam("albumId") String albumId,
             @PathParam("trackId") String trackId,
@@ -195,7 +195,7 @@ public class AlbumTrackCommandResource {
      */
     @DELETE
     @Path("/{trackId}")
-    @MayConflict
+    @Executes(RemoveTrackService.class)
     public Uni<Void> remove(@PathParam("albumId") String albumId, @PathParam("trackId") String trackId) {
         return removeTrackService.execute(new RemoveTrackInput(albumId, trackId))
                 .replaceWithVoid();
@@ -214,7 +214,7 @@ public class AlbumTrackCommandResource {
     @Path("/order")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    @MayConflict
+    @Executes(ReorderTracksService.class)
     public Uni<ReorderTracksResponse> reorder(@PathParam("albumId") String albumId, ReorderTracksRequest request) {
         return reorderTracksService.execute(new ReorderTracksInput(albumId, request.orderedTrackIds()))
                 .map(AlbumTrackCommandResource::toResponse);

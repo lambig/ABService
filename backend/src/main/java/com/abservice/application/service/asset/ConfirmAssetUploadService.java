@@ -2,6 +2,8 @@ package com.abservice.application.service.asset;
 
 import com.abservice.application.port.AssetStorage;
 import com.abservice.application.port.StoredAssetHead;
+import com.abservice.application.exception.Failure;
+import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.domain.exception.ValidationException;
@@ -31,6 +33,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * </p>
  */
 @ApplicationScoped
+@FailureContract({Failure.VALIDATION, Failure.NOT_FOUND})
 public class ConfirmAssetUploadService implements CommandService<ConfirmAssetUploadInput, ConfirmAssetUploadOutput> {
 
     private final AssetStorage assetStorage;

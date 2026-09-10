@@ -1,6 +1,8 @@
 package com.abservice.application.query.article;
 
 import com.abservice.application.query.AudienceVisibility;
+import com.abservice.application.exception.Failure;
+import com.abservice.application.exception.FailureContract;
 import com.abservice.application.query.QueryService;
 import com.abservice.infrastructure.persistence.datasource.ArticleDataSource;
 import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
@@ -23,6 +25,7 @@ import org.jspecify.annotations.Nullable;
  */
 @ApplicationScoped
 @AllArgsConstructor
+@FailureContract(Failure.NOT_FOUND)
 public class GetArticleService implements QueryService<GetArticleQuery, GetArticleResult> {
 
     private final ArticleDataSource dataSource;

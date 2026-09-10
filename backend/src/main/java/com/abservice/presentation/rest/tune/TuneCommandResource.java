@@ -10,7 +10,7 @@ import com.abservice.application.service.tune.UpdateTuneOutput;
 import com.abservice.application.service.tune.UpdateTuneService;
 import com.abservice.presentation.rest.CreatedResponses;
 import com.abservice.presentation.rest.openapi.CreatesResource;
-import com.abservice.presentation.rest.openapi.MayConflict;
+import com.abservice.presentation.rest.openapi.Executes;
 import com.abservice.presentation.rest.tune.request.CreateTuneRequest;
 import com.abservice.presentation.rest.tune.request.UpdateTuneRequest;
 import com.abservice.presentation.rest.tune.response.CreateTuneResponse;
@@ -78,6 +78,7 @@ public class TuneCommandResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     @CreatesResource
+    @Executes(CreateTuneService.class)
     public Uni<RestResponse<CreateTuneResponse>> create(CreateTuneRequest request) {
         return createTuneService.execute(toInput(request))
                 .map(TuneCommandResource::toResponse)
@@ -123,6 +124,7 @@ public class TuneCommandResource {
     @Path("/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(UpdateTuneService.class)
     public Uni<UpdateTuneResponse> update(@PathParam("id") String id, UpdateTuneRequest request) {
         return updateTuneService.execute(toInput(id, request))
                 .map(TuneCommandResource::toResponse);
@@ -158,7 +160,7 @@ public class TuneCommandResource {
      */
     @DELETE
     @Path("/{id}")
-    @MayConflict
+    @Executes(DeleteTuneService.class)
     public Uni<Void> delete(@PathParam("id") String id) {
         return deleteTuneService.execute(new DeleteTuneInput(id))
                 .replaceWithVoid();

@@ -2,6 +2,7 @@ package com.abservice.application.query.article;
 
 import static com.abservice.lib.Iterables.toList;
 
+import com.abservice.application.exception.FailureContract;
 import com.abservice.application.query.QueryService;
 import com.abservice.application.query.article.model.ArticleTagView;
 import com.abservice.infrastructure.persistence.datasource.ArticleTagDataSource;
@@ -25,6 +26,7 @@ import lombok.AllArgsConstructor;
  */
 @ApplicationScoped
 @AllArgsConstructor
+@FailureContract({})
 public class ListArticleTagsService implements QueryService<ListArticleTagsQuery, ListArticleTagsResult> {
 
     private final ArticleTagDataSource dataSource;

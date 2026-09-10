@@ -2,6 +2,8 @@ package com.abservice.application.query.album;
 
 import com.abservice.application.query.Audience;
 import com.abservice.application.query.AudienceVisibility;
+import com.abservice.application.exception.Failure;
+import com.abservice.application.exception.FailureContract;
 import com.abservice.application.query.QueryService;
 import com.abservice.application.query.album.model.DeletionEffectView;
 import com.abservice.application.query.album.model.UnpublicationEffectView;
@@ -43,6 +45,7 @@ import org.jspecify.annotations.Nullable;
  */
 @ApplicationScoped
 @AllArgsConstructor
+@FailureContract(Failure.NOT_FOUND)
 public class GetAlbumPreconditionsService
         implements
             QueryService<GetAlbumPreconditionsQuery, GetAlbumPreconditionsResult> {

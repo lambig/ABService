@@ -1,5 +1,7 @@
 package com.abservice.application.service.site;
 
+import com.abservice.application.exception.Failure;
+import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.site.SiteContent;
@@ -22,6 +24,7 @@ import lombok.AllArgsConstructor;
  */
 @ApplicationScoped
 @AllArgsConstructor
+@FailureContract(Failure.VALIDATION)
 public class UpsertSiteContentService implements CommandService<UpsertSiteContentInput, UpsertSiteContentOutput> {
 
     private final SiteContentRepository siteContentRepository;

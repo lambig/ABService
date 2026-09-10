@@ -9,7 +9,7 @@ import com.abservice.presentation.rest.CreatedResponses;
 import com.abservice.presentation.rest.article.request.AddArticleTagRequest;
 import com.abservice.presentation.rest.article.response.AddArticleTagResponse;
 import com.abservice.presentation.rest.openapi.CreatesResource;
-import com.abservice.presentation.rest.openapi.MayConflict;
+import com.abservice.presentation.rest.openapi.Executes;
 import com.abservice.presentation.rest.security.SecurityRoles;
 import io.github.lambig.textescape.TextEscape;
 import io.smallrye.mutiny.Uni;
@@ -74,7 +74,7 @@ public class ArticleTagCommandResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     @CreatesResource
-    @MayConflict
+    @Executes(AddArticleTagService.class)
     public Uni<RestResponse<AddArticleTagResponse>> add(
             @PathParam("articleId") String articleId,
             AddArticleTagRequest request) {
@@ -101,6 +101,7 @@ public class ArticleTagCommandResource {
      */
     @DELETE
     @Path("/{tagId}")
+    @Executes(RemoveArticleTagService.class)
     public Uni<Void> remove(@PathParam("articleId") String articleId, @PathParam("tagId") String tagId) {
         return removeArticleTagService.execute(new RemoveArticleTagInput(articleId, tagId))
                 .replaceWithVoid();

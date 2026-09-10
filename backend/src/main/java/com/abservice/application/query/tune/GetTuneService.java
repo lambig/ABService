@@ -1,5 +1,7 @@
 package com.abservice.application.query.tune;
 
+import com.abservice.application.exception.Failure;
+import com.abservice.application.exception.FailureContract;
 import com.abservice.application.query.QueryService;
 import com.abservice.infrastructure.persistence.datasource.TuneDataSource;
 import com.abservice.infrastructure.persistence.entity.TuneTableRecord;
@@ -21,6 +23,7 @@ import org.jspecify.annotations.Nullable;
  */
 @ApplicationScoped
 @AllArgsConstructor
+@FailureContract(Failure.NOT_FOUND)
 public class GetTuneService implements QueryService<GetTuneQuery, GetTuneResult> {
 
     private final TuneDataSource dataSource;

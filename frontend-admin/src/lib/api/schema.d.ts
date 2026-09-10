@@ -187,15 +187,6 @@ export interface paths {
                         "application/json": components["schemas"]["AlbumPreconditionsResponse"];
                     };
                 };
-                /** @description 入力の検証に失敗した */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetail"];
-                    };
-                };
                 /** @description 認証されていない */
                 401: {
                     headers: {
@@ -890,6 +881,15 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description 入力の検証に失敗した */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
                 /** @description 認証されていない */
                 401: {
                     headers: {
@@ -1247,6 +1247,15 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description 入力の検証に失敗した */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
                 /** @description 認証されていない */
                 401: {
                     headers: {
@@ -1450,6 +1459,15 @@ export interface paths {
                         "application/json": components["schemas"]["DeleteAlbumResponse"];
                     };
                 };
+                /** @description 入力の検証に失敗した */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
                 /** @description 認証されていない */
                 401: {
                     headers: {
@@ -1468,8 +1486,8 @@ export interface paths {
                         "application/problem+json": components["schemas"]["ProblemDetail"];
                     };
                 };
-                /** @description 対象が存在しない */
-                404: {
+                /** @description 業務ルールに反する、または他の操作と競合した */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1521,6 +1539,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["PublishAlbumResponse"];
+                    };
+                };
+                /** @description 入力の検証に失敗した */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
                     };
                 };
                 /** @description 認証されていない */
@@ -1597,6 +1624,15 @@ export interface paths {
                         "application/json": components["schemas"]["UnpublishAlbumResponse"];
                     };
                 };
+                /** @description 入力の検証に失敗した */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
                 /** @description 認証されていない */
                 401: {
                     headers: {
@@ -1617,6 +1653,15 @@ export interface paths {
                 };
                 /** @description 対象が存在しない */
                 404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 業務ルールに反する、または他の操作と競合した */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1890,6 +1935,15 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description 入力の検証に失敗した */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
                 /** @description 認証されていない */
                 401: {
                     headers: {
@@ -1910,6 +1964,15 @@ export interface paths {
                 };
                 /** @description 対象が存在しない */
                 404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 業務ルールに反する、または他の操作と競合した */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -2082,6 +2145,15 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description 入力の検証に失敗した */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
                 /** @description 認証されていない */
                 401: {
                     headers: {
@@ -2093,15 +2165,6 @@ export interface paths {
                 };
                 /** @description 権限が足りない */
                 403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetail"];
-                    };
-                };
-                /** @description 対象が存在しない */
-                404: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -2329,6 +2392,15 @@ export interface paths {
                         "application/json": components["schemas"]["PublishArticleResponse"];
                     };
                 };
+                /** @description 入力の検証に失敗した */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
                 /** @description 認証されていない */
                 401: {
                     headers: {
@@ -2412,6 +2484,15 @@ export interface paths {
                         "application/json": components["schemas"]["UnpublishArticleResponse"];
                     };
                 };
+                /** @description 入力の検証に失敗した */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
                 /** @description 認証されていない */
                 401: {
                     headers: {
@@ -2432,6 +2513,15 @@ export interface paths {
                 };
                 /** @description 対象が存在しない */
                 404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 業務ルールに反する、または他の操作と競合した */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -2560,6 +2650,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ConfirmAssetUploadResponse"];
+                    };
+                };
+                /** @description 入力の検証に失敗した */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
                     };
                 };
                 /** @description 認証されていない */
@@ -2704,15 +2803,6 @@ export interface paths {
                 };
                 /** @description 権限が足りない */
                 403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetail"];
-                    };
-                };
-                /** @description 対象が存在しない */
-                404: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -3004,6 +3094,15 @@ export interface paths {
                         "application/problem+json": components["schemas"]["ProblemDetail"];
                     };
                 };
+                /** @description 業務ルールに反する、または他の操作と競合した */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
                 /** @description 想定外の失敗 */
                 500: {
                     headers: {
@@ -3035,6 +3134,15 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description 入力の検証に失敗した */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
                 /** @description 認証されていない */
                 401: {
                     headers: {
@@ -3046,15 +3154,6 @@ export interface paths {
                 };
                 /** @description 権限が足りない */
                 403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/problem+json": components["schemas"]["ProblemDetail"];
-                    };
-                };
-                /** @description 対象が存在しない */
-                404: {
                     headers: {
                         [name: string]: unknown;
                     };

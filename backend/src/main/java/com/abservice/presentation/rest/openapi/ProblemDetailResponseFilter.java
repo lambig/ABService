@@ -1,13 +1,12 @@
 package com.abservice.presentation.rest.openapi;
 
+import com.abservice.application.exception.Failure;
 import com.abservice.presentation.rest.exception.ProblemDetail;
 import com.abservice.presentation.rest.openapi.DeclaredEndpoints.Endpoint;
 import io.quarkus.smallrye.openapi.OpenApiFilter;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Stream;
 import org.eclipse.microprofile.openapi.OASFactory;
 import org.eclipse.microprofile.openapi.OASFilter;
@@ -16,26 +15,24 @@ import org.eclipse.microprofile.openapi.models.Operation;
 import org.eclipse.microprofile.openapi.models.PathItem;
 import org.eclipse.microprofile.openapi.models.Paths;
 import org.eclipse.microprofile.openapi.models.media.Content;
-import org.eclipse.microprofile.openapi.models.parameters.Parameter;
 import org.eclipse.microprofile.openapi.models.responses.APIResponse;
 import org.eclipse.microprofile.openapi.models.responses.APIResponses;
-import org.jspecify.annotations.Nullable;
 
 /**
  * エラー応答（RFC 9457 Problem Details）を API 定義へ反映する OpenAPI フィルタ
  *
  * <p>
- * エラー契約の出所は例外マッパーであり、個々のエンドポイントではない。エンドポイントごとに {@code @APIResponse} を書くと同じ契約が
- * API の数だけ複製されるため、マッパーが宣言する状態コード
- * （{@link ProblemDetailErrorContract}）を読んで定義側へ一括で反映する。
+ * エラー契約の出所は2つに分かれる。**どの状態コードで返すか**は例外マッパーが決め（{@link ProblemDetailErrorContract}）、
+ * **どの失敗を返し得るか**はユースケースが宣言する（{@code FailureContract}）。エンドポイントごとに
+ * {@code @APIResponse} を書くと、同じ契約が API の数だけ複製されるうえ、実装を変えたときに追い漏らしても定義は 生成できてしまう。
  * </p>
  *
  * <p>
  * 反映は2つ。既に定義されている状態コードには応答本体の型と説明を与える（認証・認可の 401/403 は Quarkus が
  * {@code @RolesAllowed} から状態コードだけを付けるため、本体の型はここで与える）。定義に無いものは足す——想定外の 失敗の 500
- * は全オペレーションへ、未存在の 404 はパスで対象を指すオペレーションへ、入力の検証失敗の 400 は本体か
- * 問合せ文字列を受け取るオペレーションへ、業務ルール違反と競合の 409 は {@link MayConflict} を宣言した操作へ。
- * 何をどこへ足すかの根拠は {@link #codesToAdd} が持つ。
+ * は全オペレーションへ、それ以外はそのエンドポイントが実行するユースケースの宣言（{@link Executes} で
+ * 辿る）から決める。経路の形（本体・問合せ文字列・パスパラメータの有無）から失敗を推定しない。推定は実装と食い違う
+ * （経路の識別子を検証する操作は本体が無くても 400 を返し、対象の不在を成功とする削除は 404 を返さない）。
  * </p>
  */
 @OpenApiFilter(stages = OpenApiFilter.RunStage.BUILD)
@@ -47,7 +44,23 @@ public class ProblemDetailResponseFilter implements OASFilter {
     private static final String CONFLICT = "409";
     private static final String INTERNAL_ERROR = "500";
 
-    /** 状態コードごとの説明。どのコードを返すかはマッパーの宣言が持ち、定義上の文言はここが持つ。 */
+    /**
+     * 失敗と状態コードの対応。
+     *
+     * <p>
+     * ユースケースの語彙（{@link Failure}）を HTTP へ写す唯一の場所。写し方は例外マッパーの実装と一致していなければ ならず、その対応は
+     * {@code OpenApiSchemaRestIntegrationTest} と各 REST 統合テストが実応答で固定する。
+     * </p>
+     */
+    private static final Map<Failure, String> STATUS_CODES = Map.of(
+            Failure.VALIDATION,
+            BAD_REQUEST,
+            Failure.NOT_FOUND,
+            NOT_FOUND,
+            Failure.CONFLICT,
+            CONFLICT);
+
+    /** 状態コードごとの説明。どのコードを返すかは宣言が持ち、定義上の文言はここが持つ。 */
     private static final Map<String, String> DESCRIPTIONS = Map.of(
             BAD_REQUEST,
             "入力の検証に失敗した",
@@ -64,7 +77,7 @@ public class ProblemDetailResponseFilter implements OASFilter {
 
     @Override
     public void filterOpenAPI(OpenAPI openAPI) {
-        final Set<Endpoint> conflicting = DeclaredEndpoints.declaring(MayConflict.class);
+        final Map<Endpoint, Class<?>> useCases = DeclaredEndpoints.executedUseCases();
 
         Optional.ofNullable(openAPI.getPaths())
                 .map(Paths::getPathItems)
@@ -73,36 +86,29 @@ public class ProblemDetailResponseFilter implements OASFilter {
                         (path, pathItem) -> applyToPathItem(
                                 path,
                                 pathItem,
-                                conflicting));
+                                useCases));
     }
 
     private static void applyToPathItem(
             String path,
             PathItem pathItem,
-            Set<Endpoint> conflicting) {
+            Map<Endpoint, Class<?>> useCases) {
         Optional.ofNullable(pathItem.getOperations())
                 .orElseGet(Map::of)
                 .forEach(
                         (httpMethod, operation) -> applyToOperation(
                                 operation,
-                                pathItem,
-                                conflicting.contains(new Endpoint(httpMethod, path))));
+                                DeclaredEndpoints.failuresOf(useCases, new Endpoint(httpMethod, path))));
     }
 
-    private static void applyToOperation(
-            Operation operation,
-            PathItem pathItem,
-            boolean mayConflict) {
+    private static void applyToOperation(Operation operation, List<Failure> failures) {
         final APIResponses responses = Optional.ofNullable(operation.getResponses())
                 .orElseGet(OASFactory::createAPIResponses);
 
         ProblemDetailErrorContract.declaredStatusCodes()
                 .forEach(code -> describeExisting(responses, code));
 
-        codesToAdd(
-                operation,
-                pathItem,
-                mayConflict)
+        codesToAdd(failures)
                 .forEach(code -> addProblemResponse(responses, code));
 
         operation.setResponses(responses);
@@ -112,58 +118,15 @@ public class ProblemDetailResponseFilter implements OASFilter {
      * 定義に無くても足す状態コード。
      *
      * <p>
-     * 想定外の失敗はどのオペレーションでも起こり得るため常に足す。未存在はパスで対象を指すオペレーションだけが返し得る （形式が不正なIDも未存在として 404
-     * になる）。入力の検証失敗は本体か問合せ文字列を受け取るオペレーションが 返し得る（並び順のキーや向きが閉じた選択肢の外なら
-     * 400）。パスで対象を指すだけのオペレーションは 400 を返さない。
-     * </p>
-     *
-     * <p>
-     * 業務ルール違反と競合の 409 は、返し得ると宣言した操作（{@link MayConflict}）だけが返す。HTTP メソッドから
-     * 導くと、資源を書き換えない操作にまで宣言が広がる。
-     * </p>
-     *
-     * <p>
-     * 認証・認可の 401/403 は Quarkus が {@code @RolesAllowed} から付けるため足す側では扱わず、本体の型と
-     * 説明を与える側で拾う（認証を要さないオペレーションには現れない）。
+     * 想定外の失敗はどのオペレーションでも起こり得るため常に足す。それ以外は宣言された失敗を写す。認証・認可の 401/403 は Quarkus が
+     * {@code @RolesAllowed} から付けるため足す側では扱わず、本体の型と説明を与える側で 拾う（認証を要さないオペレーションには現れない）。
      * </p>
      */
-    private static List<String> codesToAdd(
-            Operation operation,
-            PathItem pathItem,
-            boolean mayConflict) {
-        return Stream.of(
+    private static List<String> codesToAdd(List<Failure> failures) {
+        return Stream.concat(
                 Stream.of(INTERNAL_ERROR),
-                identifiesTargetByPath(pathItem, operation)
-                        ? Stream.of(NOT_FOUND)
-                        : Stream.<String>empty(),
-                acceptsInput(pathItem, operation)
-                        ? Stream.of(BAD_REQUEST)
-                        : Stream.<String>empty(),
-                mayConflict
-                        ? Stream.of(CONFLICT)
-                        : Stream.<String>empty())
-                .flatMap(codes -> codes)
+                failures.stream().map(STATUS_CODES::get))
                 .toList();
-    }
-
-    /**
-     * 入力を受け取るかどうか。
-     *
-     * <p>
-     * 受け取るのは要求本体と問合せ文字列で、どちらも値が閉じた選択肢や検証規則の外にあれば 400 になる。パスパラメータは
-     * 対象の同定に使われ、形式が不正でも未存在として扱われるため入力に数えない。
-     * </p>
-     */
-    private static boolean acceptsInput(PathItem pathItem, Operation operation) {
-        return Stream.of(
-                Objects.nonNull(operation.getRequestBody()),
-                hasQueryParameter(pathItem, operation))
-                .anyMatch(Boolean::booleanValue);
-    }
-
-    private static boolean hasQueryParameter(PathItem pathItem, Operation operation) {
-        return allParametersOf(pathItem, operation)
-                .anyMatch(parameter -> Parameter.In.QUERY.equals(parameter.getIn()));
     }
 
     /*
@@ -197,14 +160,14 @@ public class ProblemDetailResponseFilter implements OASFilter {
      * 状態コードの説明を引く。
      *
      * <p>
-     * マッパーが宣言した状態コードに説明が無いまま進めると、定義の説明を空へ上書きしてしまう。宣言と説明の対応が 欠けたことは黙って通さず、組み立てを落とす。
+     * 宣言された失敗に対応する説明が無いまま進めると、定義の説明を空へ上書きしてしまう。対応が欠けたことは黙って 通さず、組み立てを落とす。
      * </p>
      */
     private static String descriptionOf(String code) {
         return Optional.ofNullable(DESCRIPTIONS.get(code))
                 .orElseThrow(
                         () -> new IllegalStateException(
-                                "例外マッパーが宣言する状態コードに定義上の説明がありません: " + code));
+                                "定義へ載せる状態コードに説明がありません: " + code));
     }
 
     private static Content problemContent() {
@@ -213,23 +176,5 @@ public class ProblemDetailResponseFilter implements OASFilter {
                         ProblemDetail.MEDIA_TYPE,
                         OASFactory.createMediaType()
                                 .schema(OASFactory.createSchema().ref(PROBLEM_SCHEMA_REF)));
-    }
-
-    private static boolean identifiesTargetByPath(PathItem pathItem, Operation operation) {
-        return allParametersOf(pathItem, operation)
-                .anyMatch(parameter -> Parameter.In.PATH.equals(parameter.getIn()));
-    }
-
-    /** パラメータはパスアイテム側とオペレーション側の両方に置ける（前者はそのパスの全メソッドで共通）。 */
-    private static Stream<Parameter> allParametersOf(PathItem pathItem, Operation operation) {
-        return Stream.concat(
-                parametersOf(pathItem.getParameters()),
-                parametersOf(operation.getParameters()));
-    }
-
-    private static Stream<Parameter> parametersOf(@Nullable List<Parameter> parameters) {
-        return Optional.ofNullable(parameters)
-                .orElseGet(List::of)
-                .stream();
     }
 }
