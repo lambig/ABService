@@ -1,6 +1,5 @@
 package com.abservice.application.query.site;
 
-import com.abservice.application.exception.FailureContract;
 import com.abservice.application.query.QueryService;
 import com.abservice.infrastructure.persistence.datasource.SiteContentDataSource;
 import com.abservice.infrastructure.persistence.entity.SiteContentTableRecord;
@@ -24,7 +23,6 @@ import lombok.AllArgsConstructor;
  */
 @ApplicationScoped
 @AllArgsConstructor
-@FailureContract({})
 public class ListSiteContentsService implements QueryService<ListSiteContentsQuery, ListSiteContentsResult> {
 
     private final SiteContentDataSource dataSource;

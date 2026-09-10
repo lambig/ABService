@@ -2,6 +2,8 @@ package com.abservice.presentation.rest.openapi;
 
 import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
+import com.abservice.application.exception.FailureResult;
+import com.abservice.application.query.QueryService;
 import com.abservice.presentation.rest.album.AlbumAdminQueryResource;
 import com.abservice.presentation.rest.album.AlbumCommandResource;
 import com.abservice.presentation.rest.album.AlbumExternalAudioCommandResource;
@@ -22,6 +24,7 @@ import jakarta.ws.rs.HttpMethod;
 import jakarta.ws.rs.Path;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -103,22 +106,65 @@ public final class DeclaredEndpoints {
      * その操作が返し得る失敗を返します。
      *
      * <p>
-     * ユースケースを指していない操作（読み取りなど）は失敗を宣言しない。宣言が無いものを「失敗を返さない」と扱うため、
-     * 指し忘れは定義から失敗が消えることで現れる。指し忘れ自体は {@code LayeredArchitectureTest} が落とす。
+     * 出所は2つ。ユースケース自身が発生させる失敗は宣言（{@link FailureContract}）から、照会が正常な結果の一種
+     * として返すもの（対象が無い、など）は結果型の並びから読む。後者を宣言で重ねると、型がすでに持っている事実を 二度書くことになる。
      * </p>
      *
      * @param useCases
      *            エンドポイントとユースケースの対応
      * @param endpoint
      *            対象の操作
-     * @return 宣言された失敗
+     * @return その操作が返し得る失敗
      */
     static List<Failure> failuresOf(Map<Endpoint, Class<?>> useCases, Endpoint endpoint) {
         return Optional.ofNullable(useCases.get(endpoint))
-                .map(useCase -> useCase.getAnnotation(FailureContract.class))
+                .stream()
+                .flatMap(useCase -> Stream.concat(declaredBy(useCase), returnedAsResultBy(useCase)))
+                .distinct()
+                .toList();
+    }
+
+    private static Stream<Failure> declaredBy(Class<?> useCase) {
+        return Optional.ofNullable(useCase.getAnnotation(FailureContract.class))
                 .map(FailureContract::value)
-                .map(List::of)
-                .orElseGet(List::of);
+                .stream()
+                .flatMap(Arrays::stream);
+    }
+
+    /**
+     * 照会結果の並びから失敗を読む。
+     *
+     * <p>
+     * 照会は「対象が無い」を例外ではなく結果のバリアントとして返す。その型に {@link FailureResult} が付いていれば、
+     * 境界はそれを失敗として扱う。結果型が閉じていない（sealed でない）場合は並びを数え上げられないため、失敗は
+     * 無いものとして扱う——一覧のように取り得る結果が1つの型で表せるものが該当する。
+     * </p>
+     */
+    private static Stream<Failure> returnedAsResultBy(Class<?> useCase) {
+        return resultTypesOf(useCase)
+                .map(Class::getPermittedSubclasses)
+                .filter(Objects::nonNull)
+                .flatMap(Arrays::stream)
+                .map(variant -> variant.getAnnotation(FailureResult.class))
+                .filter(Objects::nonNull)
+                .map(FailureResult::value);
+    }
+
+    /**
+     * 照会の結果型を、実装している {@code QueryService} の型引数から読む。
+     *
+     * <p>
+     * 更新のユースケース（{@code CommandService}）は結果で失敗を表さないため、ここでは何も返らない。
+     * </p>
+     */
+    private static Stream<Class<?>> resultTypesOf(Class<?> useCase) {
+        return Arrays.stream(useCase.getGenericInterfaces())
+                .filter(ParameterizedType.class::isInstance)
+                .map(ParameterizedType.class::cast)
+                .filter(implemented -> QueryService.class.equals(implemented.getRawType()))
+                .map(implemented -> implemented.getActualTypeArguments()[1])
+                .filter(Class.class::isInstance)
+                .map(argument -> (Class<?>) argument);
     }
 
     private static Stream<Map.Entry<Endpoint, Class<?>>> useCasesOf(Class<?> resource) {

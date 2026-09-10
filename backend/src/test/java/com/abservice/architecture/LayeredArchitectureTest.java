@@ -498,19 +498,25 @@ class LayeredArchitectureTest {
     }
 
     /**
-     * ユースケースは、返し得る失敗を宣言していなければならない。
+     * 更新のユースケースは、返し得る失敗を宣言していなければならない。
      *
      * <p>
      * エラー応答の契約はユースケースが持ち、API 定義はそこから組む。宣言の無いユースケースを実行する操作は、定義側で
-     * 失敗を1つも持たないまま公開され、要求元は実際に返る 400/404/409 を型として扱えない。
+     * 失敗を1つも持たないまま公開され、要求元は実際に返る 400/404/409 を型として扱えない。更新は失敗を必ず1つ以上
+     * 持つ（少なくとも入力の検証）ため、宣言を必須にできる。
+     * </p>
+     *
+     * <p>
+     * 照会は対象になれない。「対象が無い」は例外ではなく結果のバリアントで表され（{@code FailureResult}）、失敗を
+     * 1つも発生させない照会もあるため、空の宣言を強制することになる。照会の失敗は結果型と、実際に失敗を発生させる ものだけが持つ宣言の2つから読む。
      * </p>
      */
     @ArchTest
-    void useCasesShouldDeclareTheirFailures(JavaClasses classes) {
-        classes().that().resideInAnyPackage("..application.service..", "..application.query..").and()
+    void commandUseCasesShouldDeclareTheirFailures(JavaClasses classes) {
+        classes().that().resideInAPackage("..application.service..").and()
                 .haveSimpleNameEndingWith("Service").and().areNotInterfaces()
                 .should().beAnnotatedWith(FailureContract.class)
-                .as("ユースケースは @FailureContract で返し得る失敗を宣言する")
+                .as("更新のユースケースは @FailureContract で返し得る失敗を宣言する")
                 .allowEmptyShould(true).check(classes);
     }
 

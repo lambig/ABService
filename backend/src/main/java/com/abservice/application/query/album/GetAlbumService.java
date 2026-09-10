@@ -1,8 +1,6 @@
 package com.abservice.application.query.album;
 
 import com.abservice.application.query.AudienceVisibility;
-import com.abservice.application.exception.Failure;
-import com.abservice.application.exception.FailureContract;
 import com.abservice.application.query.QueryService;
 import com.abservice.application.query.album.model.AlbumView.TrackView;
 import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;
@@ -30,7 +28,6 @@ import org.jspecify.annotations.Nullable;
  */
 @ApplicationScoped
 @AllArgsConstructor
-@FailureContract(Failure.NOT_FOUND)
 public class GetAlbumService implements QueryService<GetAlbumQuery, GetAlbumResult> {
 
     private final AlbumDataSource dataSource;

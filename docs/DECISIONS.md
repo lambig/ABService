@@ -504,9 +504,11 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 ## 32. 失敗はユースケースが宣言し、状態コードへの写像は境界が持つ
 
-**判断**: エラー応答の契約を2つに分ける。
+**判断**: エラー応答の契約を分ける。
 
-- **どの失敗を返し得るか**は、その判断を持つユースケースが宣言する（`FailureContract`）。語彙は `Failure`（`VALIDATION` / `NOT_FOUND` / `CONFLICT`）で、HTTP を含まない
+- **どの失敗を返し得るか**は、その判断を持つ場所が持つ。語彙は `Failure`（`VALIDATION` / `NOT_FOUND` / `CONFLICT`）で、HTTP を含まない
+  - ユースケース自身が発生させる失敗（入力の検証など）は宣言する（`FailureContract`）
+  - 照会が**正常な結果の一種として返す**もの（対象が無い）は、結果型の並びから読む（`FailureResult`）。sealed な結果型がすでにその可能性を持っているため、宣言で重ねると同じ事実を二度書くことになる
 - **どの状態コードで返すか**は例外マッパーが宣言し、`ProblemDetailErrorContract` が集める
 
 エンドポイントは失敗を宣言せず、実行するユースケースを指すだけ（`Executes`）。API 定義は「エンドポイント → ユースケース → 失敗 → 状態コード」と辿って組む。応答本体はどのエラーでも `ProblemDetail`（RFC 9457・`application/problem+json`）一つで、本体の型と説明は `ProblemDetailResponseFilter` が与える。
@@ -525,8 +527,8 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **トレードオフ**: 宣言と実装の対応は完全には機械化できない。守れるのは次まで。
 
-- ユースケースが宣言を持つこと、エンドポイントがユースケースを指すこと、指した先を実際に実行することは ArchUnit が落とす
+- 更新のユースケースが宣言を持つこと、エンドポイントがユースケースを指すこと、指した先を実際に実行することは ArchUnit が落とす
 - **宣言の中身の誤り**（返す失敗を書き忘れる・返さない失敗を書く）は静的には検出できない。実応答との一致は統合テストが固定する
-- 読み取り側の `NOT_FOUND` は、ユースケースではなく境界（`*QueryResponses`）が `Optional` を例外へ変換して作る。宣言は「対象の不在を失敗として扱う」という契約を表すが、その実装は presentation にあるため、Command 側のように失敗の入口への依存では検査できない
+- 宣言を必須にできるのは更新だけ。照会は失敗を1つも発生させないものがあり（一覧の全件照会）、必須にすると「失敗が無いこと」を空の宣言で書かせることになる。照会の失敗は結果型と、実際に発生させるものだけが持つ宣言の2つから読む
 
-**実体**: `Failure` / `FailureContract`（ユースケースの宣言）、`Executes`（エンドポイントが実行するユースケース）、`DeclaredEndpoints`（宣言から操作を同定する）、`ProblemDetailErrorContract`（マッパーの数え上げ）、`ProblemDetailResponseFilter`（写像と反映）、`LayeredArchitectureTest`（宣言の欠落・指し先のずれ・数え上げ漏れの検出）、`OpenApiSchemaRestIntegrationTest` の `errorsFollowTheUseCaseFailureContract` / `errorResponsesCarryProblemDetail` / `unreachableErrorsAreAbsent`。
+**実体**: `Failure`（失敗の語彙）、`FailureContract`（ユースケースが発生させる失敗の宣言）、`FailureResult`（照会結果のバリアントが境界で失敗になること）、`Executes`（エンドポイントが実行するユースケース）、`DeclaredEndpoints`（宣言と結果型から失敗を読み、操作を同定する）、`ProblemDetailErrorContract`（マッパーの数え上げ）、`ProblemDetailResponseFilter`（写像と反映）、`LayeredArchitectureTest`（宣言の欠落・指し先のずれ・数え上げ漏れの検出）、`OpenApiSchemaRestIntegrationTest` の `errorsFollowTheUseCaseFailureContract` / `errorResponsesCarryProblemDetail` / `unreachableErrorsAreAbsent`。
