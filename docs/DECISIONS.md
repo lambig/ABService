@@ -554,3 +554,26 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 定義の出力先（`build/openapi`）は `quarkusBuild` の宣言された出力ではないため、タスクがキャッシュや前回の状態で実行されないと**定義が書かれないまま成功する**。検査の側はビルドキャッシュを使わずに作り直し、書かれたことを確かめてから型を生成する。
 
 **実体**: `.github/workflows/ci.yml` の `api-types-check`、ルート `package.json` の `generate:api-types`、`frontend-public` / `frontend-admin` の `src/lib/api/schema.d.ts`。
+
+---
+
+## 34. 本番の形（イメージ・compose・IaC）はアプリのE2Eと別に検査する
+
+**判断**: CI に2つのジョブを置く。
+
+- `container-check`: デプロイと同じ `Dockerfile.jvm` でイメージを作り、`docker-compose.prod.yml`（EC2 が動かす構成そのもの）で起動して readiness を引く。必須の設定が無い状態では起動に失敗することもあわせて確かめる
+- `iac-check`: `terraform fmt -check` と `validate`（`-backend=false`）
+
+**なぜ**: E2E が起動するのは dev プロファイルの JAR で、本番が動かす形とは別物。prod でしか効かない設定（必須の環境変数、JSON ログ、S3 の資格情報の取り方）も、イメージの中身（ベースイメージに何が入っているか）も、E2E では通らない。
+
+**構成の受け渡しは compose のファイルを通す**。ワークフローが環境変数をコンテナへ直接渡す形にすると、compose のファイルが渡していない値まで CI では届き、検査が本番と食い違う。compose を通せば、渡し漏れはそのまま起動失敗として出る。
+
+Terraform は資格情報を要さない範囲に限る。`plan` は state と実アカウントを要求するため CI からは行わない。検査に使う版は `versions.tf` の `required_version` の下限に合わせ、宣言した下限で通らない書き方が入ったら落ちるようにする。
+
+**トレードオフ**: イメージのビルドはコンテナの中で Gradle を回すため、CI の総実行時間が増える。他のジョブと並列に走るので待ち時間は変わらない。
+
+CI 用の compose の上書き（`docker-compose.ci.yml`）が1つ増える。prod のファイルはネットワークを宣言しておらず、ローカル用 PostgreSQL と同じネットワークへ載せる必要があるため。上書きの内容はネットワークだけに留め、prod の定義には触らない。
+
+`validate` が見るのは構文と参照であり、権限やリソースの整合までは見ない。
+
+**実体**: `.github/workflows/ci.yml` の `container-check` と `iac-check`、`docker-compose.prod.yml`、`docker-compose.ci.yml`、`backend/src/main/docker/Dockerfile.jvm`、`infra/templates/deploy.sh.tpl`。
