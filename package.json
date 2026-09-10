@@ -19,6 +19,7 @@
     "build:backend": "cd backend && ./gradlew build -x test",
     "build:public": "npm run build -w abservice-frontend-public",
     "build:admin": "npm run build -w abservice-frontend-admin",
+    "generate:api-types": "npm run generate:api-types --workspaces --if-present",
     "test": "npm run test:backend && npm run test:markup && npm run test:patterns && npm run test:eslint-config && npm run test:audio-dsp && npm run test:installation && npm run test:admin",
     "test:backend": "cd backend && ./gradlew test",
     "test:markup": "npm run test -w abservice-markup",

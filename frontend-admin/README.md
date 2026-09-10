@@ -82,7 +82,7 @@ backend/gradlew -p backend quarkusBuild
 npm run generate:api-types -w abservice-frontend-admin
 ```
 
-生成物（`src/lib/api/schema.d.ts`）はコミットする。lint と prettier の対象からは外している。
+生成物（`src/lib/api/schema.d.ts`）はコミットする。lint と prettier の対象からは外している。コミットしたものが定義と一致していることは CI が検査する（判断の理由は [DECISIONS.md](../docs/DECISIONS.md) 33）。ルートから `npm run generate:api-types` を叩けば、生成物を持つワークスペースをまとめて作り直せる。
 
 ## スクリプト
 
