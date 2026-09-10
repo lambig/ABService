@@ -10,6 +10,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 import static java.util.function.Predicate.not;
 
 import com.abservice.application.exception.FailureContract;
+import com.abservice.application.query.QueryService;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.presentation.rest.CreatedResponses;
 import com.abservice.presentation.rest.openapi.CreatesResource;
@@ -518,6 +519,48 @@ class LayeredArchitectureTest {
                 .should().beAnnotatedWith(FailureContract.class)
                 .as("更新のユースケースは @FailureContract で返し得る失敗を宣言する")
                 .allowEmptyShould(true).check(classes);
+    }
+
+    /**
+     * 照会のユースケースは、{@code QueryService} を直接実装していなければならない。
+     *
+     * <p>
+     * 照会が結果として返す失敗（対象が無いなど）は、実装した {@code QueryService<Q, R>} の {@code R} を辿って
+     * 読む。抽象クラスや派生インターフェースを挟むと型引数へ辿り着けず、照会は動いたまま定義からその失敗だけが
+     * 消える。組み立て側も同じ条件で落ちるが、制約そのものはここで明示する。
+     * </p>
+     */
+    @ArchTest
+    void queryUseCasesShouldImplementQueryServiceDirectly(JavaClasses classes) {
+        classes().that().resideInAPackage(APPLICATION_QUERY).and()
+                .haveSimpleNameEndingWith("Service").and().areNotInterfaces()
+                .should(implementQueryServiceDirectly())
+                .as("照会のユースケースは QueryService を直接実装する（結果型を型引数から辿るため）")
+                .allowEmptyShould(true).check(classes);
+    }
+
+    private static ArchCondition<JavaClass> implementQueryServiceDirectly() {
+        return new ArchCondition<>("implement QueryService directly") {
+            @Override
+            public void check(JavaClass javaClass, ConditionEvents events) {
+                Optional.of(javaClass)
+                        .filter(not(LayeredArchitectureTest::implementsQueryServiceDirectly))
+                        .map(LayeredArchitectureTest::indirectQueryServiceViolation)
+                        .ifPresent(events::add);
+            }
+        };
+    }
+
+    private static boolean implementsQueryServiceDirectly(JavaClass javaClass) {
+        return javaClass.getRawInterfaces().stream()
+                .anyMatch(implemented -> implemented.isEquivalentTo(QueryService.class));
+    }
+
+    private static ConditionEvent indirectQueryServiceViolation(JavaClass javaClass) {
+        return SimpleConditionEvent.violated(
+                javaClass,
+                "%s は QueryService を直接実装していない（結果型を辿れず、結果として返す失敗が定義から消える）"
+                        .formatted(javaClass.getFullName()));
     }
 
     /**

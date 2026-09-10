@@ -141,7 +141,7 @@ public final class DeclaredEndpoints {
      * </p>
      */
     private static Stream<Failure> returnedAsResultBy(Class<?> useCase) {
-        return resultTypesOf(useCase)
+        return resultTypeOf(useCase).stream()
                 .map(Class::getPermittedSubclasses)
                 .filter(Objects::nonNull)
                 .flatMap(Arrays::stream)
@@ -154,17 +154,44 @@ public final class DeclaredEndpoints {
      * 照会の結果型を、実装している {@code QueryService} の型引数から読む。
      *
      * <p>
-     * 更新のユースケース（{@code CommandService}）は結果で失敗を表さないため、ここでは何も返らない。
+     * 更新のユースケース（{@code CommandService}）は結果で失敗を表さないため、何も返らない。
+     * </p>
+     *
+     * <p>
+     * 読めるのは {@code QueryService} を直接実装している場合だけで、抽象クラスや派生インターフェースを挟むと
+     * 型引数へ辿り着けない。そのとき素通りさせると、照会は動いたまま結果型由来の失敗（未存在など）が定義から 黙って消える——#282
+     * で塞ごうとしている壊れ方そのもの。照会でありながら結果型を1つに定められないことは 組み立てを落として知らせる。
      * </p>
      */
-    private static Stream<Class<?>> resultTypesOf(Class<?> useCase) {
+    private static Optional<Class<?>> resultTypeOf(Class<?> useCase) {
+        return Optional.of(useCase)
+                .filter(QueryService.class::isAssignableFrom)
+                .map(DeclaredEndpoints::directlyImplementedResultTypes)
+                .map(resultTypes -> singleResultType(useCase, resultTypes));
+    }
+
+    private static List<Class<?>> directlyImplementedResultTypes(Class<?> useCase) {
         return Arrays.stream(useCase.getGenericInterfaces())
                 .filter(ParameterizedType.class::isInstance)
                 .map(ParameterizedType.class::cast)
                 .filter(implemented -> QueryService.class.equals(implemented.getRawType()))
                 .map(implemented -> implemented.getActualTypeArguments()[1])
                 .filter(Class.class::isInstance)
-                .map(argument -> (Class<?>) argument);
+                .<Class<?>>map(Class.class::cast)
+                .toList();
+    }
+
+    private static Class<?> singleResultType(Class<?> useCase, List<Class<?>> resultTypes) {
+        return Optional.of(resultTypes)
+                .filter(types -> types.size() == 1)
+                .map(List::getFirst)
+                .orElseThrow(() -> unresolvableResultType(useCase, resultTypes));
+    }
+
+    private static IllegalStateException unresolvableResultType(Class<?> useCase, List<Class<?>> resultTypes) {
+        return new IllegalStateException(
+                "照会の結果型を1つに定められません（QueryService を直接実装していない可能性があります）: "
+                        + useCase.getName() + " -> " + resultTypes);
     }
 
     private static Stream<Map.Entry<Endpoint, Class<?>>> useCasesOf(Class<?> resource) {
