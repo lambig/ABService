@@ -4,7 +4,9 @@ import com.abservice.presentation.rest.exception.ProblemDetail;
 import io.quarkus.smallrye.openapi.OpenApiFilter;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.eclipse.microprofile.openapi.OASFactory;
 import org.eclipse.microprofile.openapi.OASFilter;
@@ -22,30 +24,55 @@ import org.jspecify.annotations.Nullable;
  * エラー応答（RFC 9457 Problem Details）を API 定義へ反映する OpenAPI フィルタ
  *
  * <p>
- * エラー契約の出所は {@code DomainExceptionMapper} であり、個々のエンドポイントではない。エンドポイントごとに
- * {@code @APIResponse} を書くと同じ契約が API の数だけ複製されるため、マッパーが宣言する状態コード
+ * エラー契約の出所は例外マッパーであり、個々のエンドポイントではない。エンドポイントごとに {@code @APIResponse} を書くと同じ契約が
+ * API の数だけ複製されるため、マッパーが宣言する状態コード
  * （{@link ProblemDetailErrorContract}）を読んで定義側へ一括で反映する。
  * </p>
  *
  * <p>
- * 反映は2つ。既に定義されている状態コードには応答本体の型と説明を与え、パスで対象を指す（パスパラメータを持つ） オペレーションには未存在の 404
- * を足す。一覧のようにパスで対象を指さないオペレーションへ 404 は足さない。
+ * 反映は2つ。既に定義されている状態コードには応答本体の型と説明を与える（認証・認可の 401/403 は Quarkus が
+ * {@code @RolesAllowed} から状態コードだけを付けるため、本体の型はここで与える）。定義に無いものは足す——想定外の 失敗の 500
+ * は全オペレーションへ、未存在の 404 はパスで対象を指すオペレーションへ、入力の検証失敗の 400 は本体か
+ * 問合せ文字列を受け取るオペレーションへ、業務ルール違反と競合の 409 は状態を変えるメソッドへ。何をどこへ足すかの 根拠は
+ * {@link #codesToAdd} が持つ。
  * </p>
  */
 @OpenApiFilter(stages = OpenApiFilter.RunStage.BUILD)
 public class ProblemDetailResponseFilter implements OASFilter {
 
     private static final String PROBLEM_SCHEMA_REF = "#/components/schemas/ProblemDetail";
+    private static final String BAD_REQUEST = "400";
     private static final String NOT_FOUND = "404";
+    private static final String CONFLICT = "409";
+    private static final String INTERNAL_ERROR = "500";
+
+    /**
+     * 状態を変えるメソッド。
+     *
+     * <p>
+     * 業務ルール違反も競合もここでしか起こらない。読み取りは他の操作と競合せず、業務ルールの判定も伴わない。
+     * </p>
+     */
+    private static final Set<PathItem.HttpMethod> STATE_CHANGING = Set.of(
+            PathItem.HttpMethod.DELETE,
+            PathItem.HttpMethod.PATCH,
+            PathItem.HttpMethod.POST,
+            PathItem.HttpMethod.PUT);
 
     /** 状態コードごとの説明。どのコードを返すかはマッパーの宣言が持ち、定義上の文言はここが持つ。 */
     private static final Map<String, String> DESCRIPTIONS = Map.of(
-            "400",
+            BAD_REQUEST,
             "入力の検証に失敗した",
+            "401",
+            "認証されていない",
+            "403",
+            "権限が足りない",
             NOT_FOUND,
             "対象が存在しない",
-            "409",
-            "業務ルールに反する");
+            CONFLICT,
+            "業務ルールに反する、または他の操作と競合した",
+            INTERNAL_ERROR,
+            "想定外の失敗");
 
     @Override
     public void filterOpenAPI(OpenAPI openAPI) {
@@ -58,31 +85,88 @@ public class ProblemDetailResponseFilter implements OASFilter {
 
     private static void applyToPathItem(PathItem pathItem) {
         Optional.ofNullable(pathItem.getOperations())
-                .map(Map::values)
-                .orElseGet(List::of)
-                .forEach(operation -> applyToOperation(operation, pathItem));
+                .orElseGet(Map::of)
+                .forEach(
+                        (httpMethod, operation) -> applyToOperation(
+                                httpMethod,
+                                operation,
+                                pathItem));
     }
 
-    private static void applyToOperation(Operation operation, PathItem pathItem) {
+    private static void applyToOperation(
+            PathItem.HttpMethod httpMethod,
+            Operation operation,
+            PathItem pathItem) {
         final APIResponses responses = Optional.ofNullable(operation.getResponses())
                 .orElseGet(OASFactory::createAPIResponses);
 
         ProblemDetailErrorContract.declaredStatusCodes()
                 .forEach(code -> describeExisting(responses, code));
 
-        codesToAdd(pathItem, operation)
+        codesToAdd(
+                httpMethod,
+                operation,
+                pathItem)
                 .forEach(code -> addProblemResponse(responses, code));
 
         operation.setResponses(responses);
     }
 
     /**
-     * 定義に無くても足す状態コード。パスで対象を指すオペレーションだけが未存在を返し得る。
+     * 定義に無くても足す状態コード。
+     *
+     * <p>
+     * 想定外の失敗はどのオペレーションでも起こり得るため常に足す。未存在はパスで対象を指すオペレーションだけが返し得る （形式が不正なIDも未存在として 404
+     * になる）。入力の検証失敗は本体か問合せ文字列を受け取るオペレーションが 返し得る（並び順のキーや向きが閉じた選択肢の外なら
+     * 400）。パスで対象を指すだけのオペレーションは 400 を返さない。
+     * </p>
+     *
+     * <p>
+     * 業務ルール違反と競合の 409 は状態を変えるメソッドが返し得る。読み取りは他の操作と競合せず、業務ルールの判定も 伴わない。
+     * </p>
+     *
+     * <p>
+     * 認証・認可の 401/403 は Quarkus が {@code @RolesAllowed} から付けるため足す側では扱わず、本体の型と
+     * 説明を与える側で拾う（認証を要さないオペレーションには現れない）。
+     * </p>
      */
-    private static List<String> codesToAdd(PathItem pathItem, Operation operation) {
-        return identifiesTargetByPath(pathItem, operation)
-                ? List.of(NOT_FOUND)
-                : List.of();
+    private static List<String> codesToAdd(
+            PathItem.HttpMethod httpMethod,
+            Operation operation,
+            PathItem pathItem) {
+        return Stream.of(
+                Stream.of(INTERNAL_ERROR),
+                identifiesTargetByPath(pathItem, operation)
+                        ? Stream.of(NOT_FOUND)
+                        : Stream.<String>empty(),
+                acceptsInput(pathItem, operation)
+                        ? Stream.of(BAD_REQUEST)
+                        : Stream.<String>empty(),
+                STATE_CHANGING.contains(httpMethod)
+                        ? Stream.of(CONFLICT)
+                        : Stream.<String>empty())
+                .flatMap(codes -> codes)
+                .toList();
+    }
+
+    /**
+     * 入力を受け取るかどうか。
+     *
+     * <p>
+     * 受け取るのは要求本体と問合せ文字列で、どちらも値が閉じた選択肢や検証規則の外にあれば 400 になる。パスパラメータは
+     * 対象の同定に使われ、形式が不正でも未存在として扱われるため入力に数えない。
+     * </p>
+     */
+    private static boolean acceptsInput(PathItem pathItem, Operation operation) {
+        return Stream.of(
+                Objects.nonNull(operation.getRequestBody()),
+                hasQueryParameter(pathItem, operation))
+                .anyMatch(Boolean::booleanValue);
+    }
+
+    private static boolean hasQueryParameter(PathItem pathItem, Operation operation) {
+        return allParametersOf(pathItem, operation)
+                .anyMatch(parameter -> Parameter.In.QUERY.equals(parameter.getIn()));
     }
 
     /*
@@ -102,14 +186,28 @@ public class ProblemDetailResponseFilter implements OASFilter {
     }
 
     private static void describe(APIResponse response, String code) {
-        response.description(DESCRIPTIONS.get(code))
+        response.description(descriptionOf(code))
                 .content(problemContent());
     }
 
     private static APIResponse problemResponse(String code) {
         return OASFactory.createAPIResponse()
-                .description(DESCRIPTIONS.get(code))
+                .description(descriptionOf(code))
                 .content(problemContent());
+    }
+
+    /**
+     * 状態コードの説明を引く。
+     *
+     * <p>
+     * マッパーが宣言した状態コードに説明が無いまま進めると、定義の説明を空へ上書きしてしまう。宣言と説明の対応が 欠けたことは黙って通さず、組み立てを落とす。
+     * </p>
+     */
+    private static String descriptionOf(String code) {
+        return Optional.ofNullable(DESCRIPTIONS.get(code))
+                .orElseThrow(
+                        () -> new IllegalStateException(
+                                "例外マッパーが宣言する状態コードに定義上の説明がありません: " + code));
     }
 
     private static Content problemContent() {
@@ -121,10 +219,15 @@ public class ProblemDetailResponseFilter implements OASFilter {
     }
 
     private static boolean identifiesTargetByPath(PathItem pathItem, Operation operation) {
+        return allParametersOf(pathItem, operation)
+                .anyMatch(parameter -> Parameter.In.PATH.equals(parameter.getIn()));
+    }
+
+    /** パラメータはパスアイテム側とオペレーション側の両方に置ける（前者はそのパスの全メソッドで共通）。 */
+    private static Stream<Parameter> allParametersOf(PathItem pathItem, Operation operation) {
         return Stream.concat(
                 parametersOf(pathItem.getParameters()),
-                parametersOf(operation.getParameters()))
-                .anyMatch(parameter -> Parameter.In.PATH.equals(parameter.getIn()));
+                parametersOf(operation.getParameters()));
     }
 
     private static Stream<Parameter> parametersOf(@Nullable List<Parameter> parameters) {

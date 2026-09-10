@@ -497,3 +497,31 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 子資源の `Location`（記事タグ・トラック・外部音源）が指す先は GET を持たない。SHOULD が求めるのは作られた資源への URI 参照であり取得経路ではないため、識別子として成り立つ限りは許容する。
 
 **実体**: `CreatesResource` / `CreatedResponses` / `CreatedResourceResponseFilter`、`LayeredArchitectureTest`（数え上げ漏れの検出）、`OpenApiSchemaRestIntegrationTest`（定義側の 201 と `Location`）、各 REST 統合テストの `createRespondsWithCreatedAndLocation` / `addRespondsWithCreatedAndLocation` / `registerRespondsWithCreatedAndLocation`（実応答の位置）。
+
+---
+
+## 32. エラー応答の契約はマッパーが宣言し、定義へ載せる範囲は返し得る条件で決める
+
+**判断**: どの状態コードでエラーを返すかは例外マッパーが宣言し、`ProblemDetailErrorContract` が集める。エンドポイントごとには書かない。応答本体はどのエラーでも `ProblemDetail`（RFC 9457・`application/problem+json`）一つで、本体の型と説明は `ProblemDetailResponseFilter` が定義側へ与える。
+
+定義へ載せる範囲は、その操作が**実際に返し得る条件**で決める。
+
+- **500**（想定外の失敗）: 全オペレーション。どこでも起こり得る
+- **404**（未存在）: パスで対象を指すオペレーション。対象を指さない一覧は返さない。形式が不正なIDも未存在として扱う
+- **400**（入力の検証失敗）: 本体か問合せ文字列を受け取るオペレーション。値が検証規則や閉じた選択肢の外にあるときだけ返る
+- **409**（業務ルール違反・競合）: 状態を変えるメソッド。読み取りは他の操作と競合せず、業務ルールの判定も伴わない
+- **401 / 403**（認証・認可の失敗）: Quarkus が `@RolesAllowed` から状態コードだけを付けたもの。認証を要さないオペレーションには現れない
+
+**なぜ**: エラー契約はリソースの戻り値型にも注釈にも現れない（返すのは例外マッパー）。定義に状態コードだけがあって本体の型が無いと、要求元は Problem Details を型として読めず、生成物では本体を持たない応答になる。
+
+一律に全オペレーションへ足すと、返らない状態コードを契約として宣言することになる。要求元はそれを扱う枝を書き、決して通らない経路がクライアントに残る。
+
+エンドポイントごとに注釈を書くと、同じ契約が API の数だけ複製される。マッパーを変えたときに全箇所を追う必要が出て、追い漏らしても定義は生成できてしまう。
+
+**トレードオフ**: 範囲の判定は定義の形（パラメータの位置・本体の有無・HTTP メソッド）から導き、実装の分岐そのものは読んでいない。業務ルール違反を返さない更新操作にも 409 を宣言する。ここからさらに絞るには実装の分岐を読む機構が必要で、注釈による宣言をエンドポイントへ戻すことになる。
+
+400 の範囲を「入力を受け取るオペレーション」に限れるのは、形式が不正なIDが 400 ではなく 404 になるという挙動が根拠。IDを値オブジェクトへ通す設計へ変えるとこの前提も変わる。
+
+マッパーの数え上げ漏れは ArchUnit が落とすが、宣言そのものの誤り（返さないコードを宣言する・返すコードを宣言し忘れる）は静的には検出できない。
+
+**実体**: `ProblemDetailErrorContract`（マッパーの数え上げと宣言の集約）、`ProblemDetailResponseFilter`（範囲の判定と反映）、各 `*ExceptionMapper` の `@APIResponse`、`LayeredArchitectureTest`（数え上げ漏れの検出）、`OpenApiSchemaRestIntegrationTest` の `errorResponsesCarryProblemDetail` / `unreachableErrorsAreAbsent`、`AlbumRestIntegrationTest` の `malformedIdIsNotFound`（400 の範囲の根拠となる挙動）。

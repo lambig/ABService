@@ -8,6 +8,7 @@ import jakarta.ws.rs.ext.Provider;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.jboss.logging.Logger;
 
 /**
@@ -24,6 +25,7 @@ import org.jboss.logging.Logger;
  * </p>
  */
 @Provider
+@APIResponse(responseCode = "500")
 public class UncaughtExceptionMapper implements ExceptionMapper<Throwable> {
 
     private static final Logger LOG = Logger.getLogger(UncaughtExceptionMapper.class);

@@ -37,6 +37,11 @@ class OpenApiSchemaRestIntegrationTest {
 
     private static final String SCHEMAS = "components.schemas.";
 
+    private static final String PROBLEM_REF = "#/components/schemas/ProblemDetail";
+
+    /** エラー応答の本体を指す GPath。状態コードを差し込んで使う */
+    private static final String PROBLEM_BODY = ".'%s'.content.'application/problem+json'.schema.$ref";
+
     @Test
     @DisplayName("応答の項目は値の有無によらず必須で、nullを取り得る項目だけが null 許容になる")
     void responsePropertiesAreRequiredAndNullableWhereDeclared() {
@@ -137,6 +142,46 @@ class OpenApiSchemaRestIntegrationTest {
                 .body(responsesOf("post", "/api/v1/articles/{articleId}/tags"), hasKey("201"))
                 .body(responsesOf("post", "/api/v1/articles/{articleId}/tags"), not(hasKey("200")))
                 .body(locationOf("post", "/api/v1/articles/{articleId}/tags") + ".required", equalTo(true));
+    }
+
+    @Test
+    @DisplayName("エラー応答はどの状態コードでも problem+json の ProblemDetail を本体に持つ")
+    void errorResponsesCarryProblemDetail() {
+        /*
+         * ERROR-CONTRACT-IS-NOT-IN-THE-SIGNATURE: エラーは例外マッパーが返すため、リソースの
+         * 戻り値型にも注釈にも現れない。要求元は定義から型を生成するので、状態コードだけがあって本体の型が無いと Problem Details
+         * を型として読めない（生成物では content を持たない応答になる）。#282
+         */
+        openApi()
+                // 管理操作は認証・認可の失敗を返す
+                .body(responsesOf("post", "/api/v1/albums") + PROBLEM_BODY.formatted("401"), equalTo(PROBLEM_REF))
+                .body(responsesOf("post", "/api/v1/albums") + PROBLEM_BODY.formatted("403"), equalTo(PROBLEM_REF))
+                // 本体を受け取る操作は入力の検証失敗を返す
+                .body(responsesOf("post", "/api/v1/albums") + PROBLEM_BODY.formatted("400"), equalTo(PROBLEM_REF))
+                // 状態を変える操作は業務ルール違反と競合を返す
+                .body(responsesOf("put", "/api/v1/albums/{id}") + PROBLEM_BODY.formatted("409"), equalTo(PROBLEM_REF))
+                // パスで対象を指す操作は未存在を返す
+                .body(responsesOf("put", "/api/v1/albums/{id}") + PROBLEM_BODY.formatted("404"), equalTo(PROBLEM_REF))
+                // 想定外の失敗はどの操作でも起こり得る
+                .body(responsesOf("get", "/api/v1/albums") + PROBLEM_BODY.formatted("500"), equalTo(PROBLEM_REF));
+    }
+
+    @Test
+    @DisplayName("返らないエラーは定義に現れない（公開の読み取りに認証・認可・競合は無い）")
+    void unreachableErrorsAreAbsent() {
+        /*
+         * 全オペレーションへ一律に足すと、返らない状態コードを契約として宣言することになる。要求元はそれを
+         * 扱う枝を書くため、宣言する範囲は返し得る条件と対で決める。
+         */
+        openApi()
+                .body(responsesOf("get", "/api/v1/albums"), not(hasKey("401")))
+                .body(responsesOf("get", "/api/v1/albums"), not(hasKey("403")))
+                .body(responsesOf("get", "/api/v1/albums"), not(hasKey("409")))
+                // 並び順を問合せ文字列で受け取るため、入力の検証失敗は返し得る
+                .body(responsesOf("get", "/api/v1/albums"), hasKey("400"))
+                // パスで対象を指すだけの操作は入力を受け取らない
+                .body(responsesOf("post", "/api/v1/albums/{id}/publish"), not(hasKey("400")))
+                .body(responsesOf("post", "/api/v1/albums/{id}/publish"), hasKey("409"));
     }
 
     @Test

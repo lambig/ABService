@@ -12,6 +12,7 @@ import static java.util.function.Predicate.not;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.presentation.rest.openapi.CreatedResourceResponseFilter;
 import com.abservice.presentation.rest.openapi.CreatesResource;
+import com.abservice.presentation.rest.openapi.ProblemDetailErrorContract;
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaAccess;
 import com.tngtech.archunit.core.domain.JavaClass;
@@ -24,6 +25,7 @@ import com.tngtech.archunit.lang.ConditionEvent;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.library.GeneralCodingRules;
+import jakarta.ws.rs.ext.ExceptionMapper;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -390,7 +392,7 @@ class LayeredArchitectureTest {
     @ArchTest
     void resourcesThatCreateShouldBeListedInTheOpenApiFilter(JavaClasses classes) {
         classes().that(haveAMethodThatCreatesResource())
-                .should(beListedIn(filteredResourceNames()))
+                .should(beListedIn("CreatedResourceResponseFilter.RESOURCE_CLASSES", filteredResourceNames()))
                 .as("資源を作る操作を持つリソースは CreatedResourceResponseFilter.RESOURCE_CLASSES に数え上げる")
                 .allowEmptyShould(true).check(classes);
     }
@@ -408,23 +410,55 @@ class LayeredArchitectureTest {
                 .toList();
     }
 
-    private static ArchCondition<JavaClass> beListedIn(List<String> resourceNames) {
-        return new ArchCondition<>("be listed in CreatedResourceResponseFilter.RESOURCE_CLASSES") {
+    /**
+     * ビルド時フィルタが持つ数え上げに含まれていることを検査する。
+     *
+     * <p>
+     * フィルタはクラスパスを走査できないため走査対象を数え上げで持つ。漏れたものは定義へ反映されないまま残り、
+     * そのことは定義を見に行くまで分からない。数え上げの綴りは実行時に読むため、リストの中身ではなく名前で照合する。
+     * </p>
+     */
+    private static ArchCondition<JavaClass> beListedIn(String listName, List<String> listedNames) {
+        return new ArchCondition<>("be listed in " + listName) {
             @Override
             public void check(JavaClass javaClass, ConditionEvents events) {
                 Optional.of(javaClass)
-                        .filter(not(type -> resourceNames.contains(type.getFullName())))
-                        .map(LayeredArchitectureTest::unlistedResourceViolation)
+                        .filter(not(type -> listedNames.contains(type.getFullName())))
+                        .map(type -> unlistedViolation(type, listName))
                         .ifPresent(events::add);
             }
         };
     }
 
-    private static ConditionEvent unlistedResourceViolation(JavaClass javaClass) {
+    private static ConditionEvent unlistedViolation(JavaClass javaClass, String listName) {
         return SimpleConditionEvent.violated(
                 javaClass,
-                "%s は資源を作る操作を持つが CreatedResourceResponseFilter.RESOURCE_CLASSES に無い（定義側が 200 のまま残る）"
-                        .formatted(javaClass.getFullName()));
+                "%s が %s に数え上げられていない（API 定義へ反映されないまま残る）".formatted(
+                        javaClass.getFullName(),
+                        listName));
+    }
+
+    /**
+     * エラー応答を返す例外マッパーは、エラー契約の集約に数え上げられていなければならない。
+     *
+     * <p>
+     * {@link ProblemDetailErrorContract} が集めた状態コードだけが、応答本体の型と説明を定義側へ与えられる。
+     * 漏れたマッパーの状態コードは、本体の型を持たないまま定義に残るか、定義に現れない。どちらも要求元は本体を型として 読めず、生成した型では
+     * {@code content} が無いものとして扱われる。
+     * </p>
+     */
+    @ArchTest
+    void exceptionMappersShouldBeListedInTheErrorContract(JavaClasses classes) {
+        classes().that().resideInAPackage(PRESENTATION).and().areAssignableTo(ExceptionMapper.class)
+                .should(beListedIn("ProblemDetailErrorContract.MAPPERS", contractMapperNames()))
+                .as("エラー応答を返す例外マッパーは ProblemDetailErrorContract.MAPPERS に数え上げる")
+                .allowEmptyShould(true).check(classes);
+    }
+
+    private static List<String> contractMapperNames() {
+        return ProblemDetailErrorContract.MAPPERS.stream()
+                .map(Class::getName)
+                .toList();
     }
 
     /*

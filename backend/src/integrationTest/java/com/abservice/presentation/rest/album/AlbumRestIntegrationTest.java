@@ -139,6 +139,18 @@ class AlbumRestIntegrationTest {
     }
 
     @Test
+    @DisplayName("形式が不正なIDも未存在として404 problem+jsonを返す")
+    void malformedIdIsNotFound() {
+        /*
+         * IDは値オブジェクトを通さず文字列で扱うため、形式の不正は入力の検証（400）ではなく「その対象は無い」 （404）として現れる。定義側で 400
+         * を足す対象を「本体か問合せ文字列を受け取るオペレーション」に 限れるのはこの挙動が根拠であり、変わればAPI定義も変わる。
+         */
+        given().when().get("/api/v1/albums/not-a-uuid").then().statusCode(404)
+                .contentType("application/problem+json")
+                .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
+    }
+
+    @Test
     @DisplayName("存在しないIDは404 problem+jsonを返す")
     void getNotFound() {
         given().when().get("/api/v1/albums/01234567-89ab-7def-0123-456789abcdef").then().statusCode(404)
