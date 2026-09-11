@@ -52,8 +52,10 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
         Action   = "ecr:GetAuthorizationToken"
         Resource = "*"
       },
+      # push が使うもの（レイヤの確認と転送、マニフェストの登録）と、ロールバック時に
+      # 対象タグの存在を確かめる DescribeImages。
       {
-        Sid    = "EcrPushPull"
+        Sid    = "EcrImages"
         Effect = "Allow"
         Action = [
           "ecr:BatchCheckLayerAvailability",
@@ -61,7 +63,8 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           "ecr:UploadLayerPart",
           "ecr:CompleteLayerUpload",
           "ecr:PutImage",
-          "ecr:BatchGetImage"
+          "ecr:BatchGetImage",
+          "ecr:DescribeImages"
         ]
         Resource = aws_ecr_repository.backend.arn
       },
@@ -74,10 +77,11 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           "arn:aws:ssm:${var.aws_region}::document/AWS-RunShellScript"
         ]
       },
+      # 終了状態は invocation を直接引いて確かめる。一覧を引く経路は持たない
       {
         Sid      = "SsmCommandStatus"
         Effect   = "Allow"
-        Action   = ["ssm:GetCommandInvocation", "ssm:ListCommandInvocations"]
+        Action   = "ssm:GetCommandInvocation"
         Resource = "*"
       }
     ]

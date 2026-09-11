@@ -320,6 +320,11 @@ jobs:
       - name: Check the bootstrap script syntax
         run: bash -n infra/templates/user_data.sh.tpl
 
+      # 権限の不足は実行して初めて分かり、しかもそれはデプロイの最中になる。叩く API と
+      # ロールの定義がずれていないかを、実行の前に見る
+      - name: Check the deploy roles allow what the deploy calls
+        run: scripts/check-deploy-permissions.sh
+
       - name: Check formatting
         run: terraform fmt -check -recursive infra
 
