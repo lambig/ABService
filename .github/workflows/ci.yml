@@ -165,6 +165,11 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
+      # 生成器を持たないワークスペースは `--if-present` が黙って飛ばすため、生成器が消えると
+      # その生成物は作り直されないまま下の差分検査を通る。バックエンドのビルドより前に見る
+      - name: Check every generated schema has a generator
+        run: scripts/check-api-type-generators.sh
+
       - name: Ensure gradlew is executable
         run: chmod +x backend/gradlew
 

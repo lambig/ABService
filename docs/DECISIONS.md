@@ -539,7 +539,7 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **判断**: フロントエンドが使う API の型（`schema.d.ts`）は生成物だが、リポジトリへコミットする。入力（バックエンドのビルドが出す OpenAPI 定義）から作り直した結果とツリーが一致することを CI の独立したジョブ（`api-types-check`）が検査し、食い違えば落とす。フロントエンドのビルドや型検査のたびに生成し直す形は採らない。
 
-対象のワークスペースはルートの `generate:api-types` が `--workspaces` で拾い、CI の側には列挙しない。
+対象のワークスペースはルートの `generate:api-types` が `--workspaces` で拾い、CI の側には列挙しない。`--if-present` は script を持たないワークスペースを飛ばすため、列挙しない形のままでは生成器が消えたことに気付けない。追跡中の生成物を持つワークスペースが `generate:api-types` を持つことを、生成の前に別途検査する（`scripts/check-api-type-generators.sh`）。対象はここでも生成物の実体から求め、名前を写さない。
 
 **なぜ**: 生成物をコミットするだけでは、API 定義を変えて再生成を忘れたときに**古い型のまま CI が通る**。フロントエンドは古い形に対して型検査が成功し、食い違いは実行時まで現れない（#323 で公開サイトの型が実際に古いまま入った）。
 
@@ -553,7 +553,7 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 定義の出力先（`build/openapi`）は `quarkusBuild` の宣言された出力ではないため、タスクがキャッシュや前回の状態で実行されないと**定義が書かれないまま成功する**。検査の側はビルドキャッシュを使わずに作り直し、書かれたことを確かめてから型を生成する。
 
-**実体**: `.github/workflows/ci.yml` の `api-types-check`、ルート `package.json` の `generate:api-types`、`frontend-public` / `frontend-admin` の `src/lib/api/schema.d.ts`。
+**実体**: `.github/workflows/ci.yml` の `api-types-check`、ルート `package.json` の `generate:api-types`、`scripts/check-api-type-generators.sh`、`frontend-public` / `frontend-admin` の `src/lib/api/schema.d.ts`。
 
 ---
 
