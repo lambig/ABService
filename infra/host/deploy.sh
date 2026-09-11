@@ -57,6 +57,7 @@ if ! docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 240; 
   exit 1
 fi
 
-# 古いイメージを片付けるのは、新しいものが healthy になってから。失敗したときに手元へ残しておけば、
-# 戻すときに pull を待たずに済む。
+# 差し替えで参照されなくなったレイヤを片付けるのは、新しいものが healthy になってから。失敗した
+# ときに手元へ残しておけば、戻すときに pull を待たずに済む。
+# ここで消えるのは dangling なものだけで、commit SHA のタグが付いた旧世代は残る（#336）。
 docker image prune -f
