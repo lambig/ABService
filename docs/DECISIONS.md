@@ -539,7 +539,7 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **判断**: フロントエンドが使う API の型（`schema.d.ts`）は生成物だが、リポジトリへコミットする。入力（バックエンドのビルドが出す OpenAPI 定義）から作り直した結果とツリーが一致することを CI の独立したジョブ（`api-types-check`）が検査し、食い違えば落とす。フロントエンドのビルドや型検査のたびに生成し直す形は採らない。
 
-対象のワークスペースはルートの `generate:api-types` が `--workspaces` で拾い、CI の側には列挙しない。
+対象のワークスペースはルートの `generate:api-types` が `--workspaces --if-present` で拾い、CI の側には列挙しない。この経路は2か所で黙って切れる。script が消えれば `--if-present` が飛ばし、ルートの `workspaces` から外れていれば `--workspaces` がそもそも拾わない。どちらでもその生成物は作り直されないまま差分の検査を通るため、追跡中の生成物を持つワークスペースが `generate:api-types` を持ち、かつ npm がワークスペースとして認識していることを、生成の前に検査する（`scripts/check-api-type-generators.mjs`）。対象は生成物の実体から、ワークスペースの集合は npm 自身（`npm query .workspace`）から求める。どちらの一覧もここへ写さないので、生成物を持つワークスペースが増えても検査の側は古くならない。
 
 **なぜ**: 生成物をコミットするだけでは、API 定義を変えて再生成を忘れたときに**古い型のまま CI が通る**。フロントエンドは古い形に対して型検査が成功し、食い違いは実行時まで現れない（#323 で公開サイトの型が実際に古いまま入った）。
 
@@ -553,7 +553,7 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 定義の出力先（`build/openapi`）は `quarkusBuild` の宣言された出力ではないため、タスクがキャッシュや前回の状態で実行されないと**定義が書かれないまま成功する**。検査の側はビルドキャッシュを使わずに作り直し、書かれたことを確かめてから型を生成する。
 
-**実体**: `.github/workflows/ci.yml` の `api-types-check`、ルート `package.json` の `generate:api-types`、`frontend-public` / `frontend-admin` の `src/lib/api/schema.d.ts`。
+**実体**: `.github/workflows/ci.yml` の `api-types-check`、ルート `package.json` の `generate:api-types`、`scripts/check-api-type-generators.mjs`、`frontend-public` / `frontend-admin` の `src/lib/api/schema.d.ts`。
 
 ---
 
