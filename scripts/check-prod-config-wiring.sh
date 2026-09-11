@@ -16,7 +16,7 @@ deploy="infra/templates/deploy.sh.tpl"
 required="$("$root/scripts/prod-required-settings.sh" | cut -d' ' -f1)"
 
 # compose がコンテナへ渡す値。イメージの参照も同じ環境変数として渡るため区別しない
-passed="$(grep -oE '\$\{[A-Za-z_][A-Za-z0-9_]*\}' "$root/$compose" | tr -d '${}' | sort -u)"
+passed="$(grep -oE '\$\{[A-Za-z_][A-Za-z0-9_]*' "$root/$compose" | sed -E 's/^\$\{//' | sort -u)"
 
 # compose を呼ぶ手前で deploy.sh が export する値
 exported="$(sed -nE 's/^export ([A-Za-z_][A-Za-z0-9_]*)=.*/\1/p' "$root/$deploy" | sort -u)"
