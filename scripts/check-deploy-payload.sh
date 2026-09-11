@@ -12,9 +12,11 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 workflow=".github/workflows/deploy.yml"
 
-# SSM Run Command のパラメータは合計 100KB まで。base64 で約4/3へ膨らむ分と、コマンド本体の分を
-# 見込んで、運ぶ中身は 60KB までに収める。超えるならオブジェクトストア経由へ変える合図
-readonly MAX_BYTES=61440
+# SSM Run Command のパラメータは合計 100KB まで。base64 へ変えた全ファイルと、それを書き出す
+# コマンド本体が同じパラメータに載るため、上限との比較は1ファイルずつではなく合計で行う
+# （1つずつ見る形では、個々が上限未満でも合計が超える組み合わせを緑にしてしまう）。
+# コマンド本体と JSON の構造の分を見込んで 90KB で止める
+readonly MAX_ENCODED_BYTES=92160
 
 deployed="$(sed -nE 's/.*base64 -w0 ([^)")]+).*/\1/p' "$root/$workflow" | sort -u)"
 
@@ -25,6 +27,7 @@ if [ -z "$deployed" ]; then
 fi
 
 status=0
+encoded_total=0
 
 while read -r file; do
   if [ ! -f "$root/$file" ]; then
@@ -34,19 +37,26 @@ while read -r file; do
   fi
 
   bytes=$(($(wc -c <"$root/$file")))
-
-  if [ "$bytes" -gt "$MAX_BYTES" ]; then
-    echo "$file is $bytes bytes, over the $MAX_BYTES the deploy command can carry." >&2
-    status=1
-    continue
-  fi
+  # 手元（BSD）と CI（GNU）で折り返しの既定が違うため、改行を落としてから数える
+  encoded=$(($(base64 <"$root/$file" | tr -d '\n' | wc -c)))
+  encoded_total=$((encoded_total + encoded))
 
   # 実機で走るのは bash。構文が壊れていると、差し替えの途中で止まる
   case "$file" in
   *.sh) bash -n "$root/$file" ;;
   esac
 
-  echo "$file: $bytes bytes"
+  echo "$file: $bytes bytes ($encoded encoded)"
 done <<<"$deployed"
+
+if [ "$encoded_total" -gt "$MAX_ENCODED_BYTES" ]; then
+  echo "The files add up to $encoded_total bytes once encoded, over the $MAX_ENCODED_BYTES the deploy command can carry." >&2
+  echo "Send them through an object store instead of embedding them in the SSM command." >&2
+  status=1
+fi
+
+if [ "$status" -eq 0 ]; then
+  echo "The deploy command carries $encoded_total encoded bytes, within $MAX_ENCODED_BYTES."
+fi
 
 exit "$status"
