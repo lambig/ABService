@@ -139,6 +139,65 @@ jobs:
       - name: Unit tests (frontend workspaces)
         run: npm run test:frontend
 
+  api-types-check:
+    name: Generated API types in sync (OpenAPI -> schema.d.ts)
+    runs-on: ubuntu-latest
+
+    # backend と frontend の継ぎ目の検査。生成物（`schema.d.ts`）はコミットする運用のため、
+    # 入力（backend のビルドが出す OpenAPI 定義）から作り直した結果と一致することを機械で確かめる。
+    # DB も MinIO も要らない（定義の生成は型情報だけで完結し、実行時の依存を持たない）。
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25 (Corretto)
+        uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Ensure gradlew is executable
+        run: chmod +x backend/gradlew
+
+      # 型生成の入力。build/openapi は quarkusBuild の宣言された出力に入っていないため、
+      # タスクがキャッシュや前回の状態で実行されないと、定義は古いまま・無いまま成功する。
+      # 検査したいのは今のソースから出る定義なので、キャッシュを使わず作り直す。
+      - name: Build backend (OpenAPI definition)
+        run: backend/gradlew -p backend --no-daemon --console=plain --no-build-cache clean quarkusBuild
+
+      # 定義が書かれないまま先へ進むと、型生成は「入力が無い」で落ちる。原因が読めないので手前で止める
+      - name: Verify the definition was produced
+        run: |
+          if [ ! -f backend/build/openapi/openapi.yaml ]; then
+            echo "The build did not write backend/build/openapi/openapi.yaml." >&2
+            echo "Check that quarkusBuild actually ran the augmentation step." >&2
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 対象のワークスペースは `generate:api-types` が持つ。ここへ列挙すると、生成物を持つ
+      # ワークスペースが増えたときに名前だけが古くなる（実体は落ちないため気付けない）
+      - name: Regenerate API types
+        run: npm run generate:api-types
+
+      # 追跡していない生成物（新しいワークスペースのもの）も差分へ出すため intent-to-add してから比べる。
+      # 落ちたときの直し方は差分そのものが示す（手元で同じ生成を回して commit する）
+      - name: Fail if the committed types differ from the regenerated ones
+        run: |
+          git add --all --intent-to-add
+          git diff --exit-code
+
   e2e:
     name: E2E (Playwright / 実スタック)
     runs-on: ubuntu-latest

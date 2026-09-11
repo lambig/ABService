@@ -532,3 +532,25 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 - 宣言を必須にできるのは更新だけ。照会は失敗を1つも発生させないものがあり（一覧の全件照会）、必須にすると「失敗が無いこと」を空の宣言で書かせることになる。照会の失敗は結果型と、実際に発生させるものだけが持つ宣言の2つから読む
 
 **実体**: `Failure`（失敗の語彙）、`FailureContract`（ユースケースが発生させる失敗の宣言）、`FailureResult`（照会結果のバリアントが境界で失敗になること）、`Executes`（エンドポイントが実行するユースケース）、`DeclaredEndpoints`（宣言と結果型から失敗を読み、操作を同定する）、`ProblemDetailErrorContract`（マッパーの数え上げ）、`ProblemDetailResponseFilter`（写像と反映）、`LayeredArchitectureTest`（宣言の欠落・指し先のずれ・数え上げ漏れの検出）、`OpenApiSchemaRestIntegrationTest` の `errorsFollowTheUseCaseFailureContract` / `errorResponsesCarryProblemDetail` / `unreachableErrorsAreAbsent`。
+
+---
+
+## 33. 生成物はコミットし、入力からの再生成との一致をCIが検査する
+
+**判断**: フロントエンドが使う API の型（`schema.d.ts`）は生成物だが、リポジトリへコミットする。入力（バックエンドのビルドが出す OpenAPI 定義）から作り直した結果とツリーが一致することを CI の独立したジョブ（`api-types-check`）が検査し、食い違えば落とす。フロントエンドのビルドや型検査のたびに生成し直す形は採らない。
+
+対象のワークスペースはルートの `generate:api-types` が `--workspaces` で拾い、CI の側には列挙しない。
+
+**なぜ**: 生成物をコミットするだけでは、API 定義を変えて再生成を忘れたときに**古い型のまま CI が通る**。フロントエンドは古い形に対して型検査が成功し、食い違いは実行時まで現れない（#323 で公開サイトの型が実際に古いまま入った）。
+
+生成を常時走らせる形にすると、フロントエンドの型検査とビルドがバックエンドの成果物を前提にする。画面だけを触る作業でも JDK と Gradle が要り、`npm ci` の直後に lint・型検査へ入れなくなる。生成物をコミットしておけば、この依存は一致を検査する1ジョブの内側だけで済む。
+
+ジョブをバックエンド側にもフロントエンド側にも寄せずに分けるのは、検査しているのが**両者の継ぎ目**だから。落ちたときに直す先が「型を再生成して commit する」の一点に定まる。
+
+**トレードオフ**: 生成物の差分がレビューに乗る。openapi-typescript の出力は大きく、API 定義を変えるたびに数百行動く。lint と prettier の対象からは外している。
+
+検査は入力を作るところから回すため、`quarkusBuild` の分だけ CI の総実行時間が増える。他のジョブと並列に走るので待ち時間は変わらない。
+
+定義の出力先（`build/openapi`）は `quarkusBuild` の宣言された出力ではないため、タスクがキャッシュや前回の状態で実行されないと**定義が書かれないまま成功する**。検査の側はビルドキャッシュを使わずに作り直し、書かれたことを確かめてから型を生成する。
+
+**実体**: `.github/workflows/ci.yml` の `api-types-check`、ルート `package.json` の `generate:api-types`、`frontend-public` / `frontend-admin` の `src/lib/api/schema.d.ts`。
