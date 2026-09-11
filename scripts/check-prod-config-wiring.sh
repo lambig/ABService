@@ -3,7 +3,7 @@
 #
 # 本番の値は Parameter Store から deploy.sh が取り、export したものを compose が環境として
 # コンテナへ渡す。宣言（application.properties の %prod）だけがあっても、この経路のどちらかが
-# 欠ければ値は届かず、prod は既定値を持たないため起動そのものが失敗する。
+# 欠ければ値は届かない。検査する設定は宣言から自動で拾う（prod-required-settings.sh）。
 #
 # 検査は2方向。宣言した値を compose が渡すこと、compose が読む値を deploy.sh が export すること。
 # この2つで、宣言から export までの連鎖が繋がっていることが言える。

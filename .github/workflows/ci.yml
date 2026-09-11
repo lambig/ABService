@@ -220,6 +220,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 必須の一覧は宣言から自動で拾うため、宣言そのものを弱める変更は「必須が1つ減った」としか
+      # 見えず、後続の検査も素通りする。弱い値で本番が動くことを意味する設定はここで名指しして守る
+      - name: Check the required prod settings stay required
+        run: scripts/check-prod-settings-stay-required.sh
+
       # 宣言があるだけでは値は本番へ届かない。Parameter Store から取って compose へ渡すまでの経路が
       # 繋がっていることを、イメージを作る前に見る。運ぶ経路が無い形は、起動してみるまで表に出ない
       - name: Check the prod configuration reaches the container

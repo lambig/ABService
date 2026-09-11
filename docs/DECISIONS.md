@@ -568,15 +568,15 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **構成の受け渡しは compose のファイルを通す**。ワークフローが環境変数をコンテナへ直接渡す形にすると、compose のファイルが渡していない値まで CI では届き、検査が本番と食い違う。compose を通せば、渡し漏れはそのまま起動失敗として出る。
 
-**本番の必須設定の一覧は1箇所（`scripts/prod-required-settings.sh` の `REQUIRED`）が持ち、宣言・運搬・起動をその一覧で見る**。本番で外から値を受け取る設定について、
+**本番の必須設定は、列挙・運搬・起動に分けて検査する**。
 
-- `application.properties` の `%prod` に既定値なしで宣言されていること。`${VAR}` から `${VAR:...}` へ戻す変更は、本番が開発向けの弱い値——既定のバケット名や開発用の API キー——で動くことを意味する
-- `docker-compose.prod.yml` がコンテナへ渡し、`infra/templates/deploy.sh.tpl` が export すること。宣言だけがあって運ぶ経路が無い形は、起動してみるまで表に出ない
-- その設定を1つずつ欠くと起動が失敗し、失敗が欠いた設定の名前を挙げること
+- **列挙**（`scripts/prod-required-settings.sh`）: `application.properties` の `%prod` のうち既定値を持たない宣言（`${VAR}`）を正として自動で拾う。新しい必須設定を足したときに検査の側へ名前を写す作業が要らず、写し忘れでその設定だけが検査の外に残ることもない
+- **運搬**（`scripts/check-prod-config-wiring.sh`）: 列挙した全件を `docker-compose.prod.yml` がコンテナへ渡し、`infra/templates/deploy.sh.tpl` が export すること。宣言だけがあって運ぶ経路が無い形は、起動してみるまで表に出ない
+- **起動**（`scripts/check-prod-required-settings.sh`）: 他の値を揃えたうえで1つずつ欠くと起動が失敗し、失敗が欠いた設定の名前を挙げること。まとめて欠かす形では、1つが既定値を持つ側へ戻っても残りの欠落で失敗し続けるため、戻ったことに気付けない
 
-を検査する。設定をまとめて欠かす形では、1つが既定値を持つ側へ戻っても残りの欠落で失敗し続けるため、戻ったことに気付けない。
+**「いま何が必須か」と「何が必須であり続けるべきか」は別に持つ**。宣言を正にした列挙は、宣言そのものを弱める変更——`${VAR}` を `${VAR:...}` へ戻す、`%prod` の行を消す——を「必須が1つ減った」としか見ない。本番が開発向けの弱い値（既定のバケット名、開発用の API キー、ローカルのデータベース）で動くことを意味する設定は、`scripts/check-prod-settings-stay-required.sh` が名指しで守る。前者は発見、後者は方針であり、片方に寄せると新規設定の取りこぼしか宣言の後退のどちらかが素通りする。
 
-3つ目の対象は、欠けたことが設定名として現れる設定に限る。直接注入される設定（`abservice.auth.admin-api-key` / `abservice.assets.bucket`）は値が無ければ設定名を挙げて即座に落ちるが、接続URLの式の材料になる DB 系は、欠けても式が組み上がって接続先が変わるだけで、どれが欠けたのかが現れない（#330）。検査は対象外の設定もスキップした理由とともに1件ずつ出力し、一覧が空のまま素通りした状態と見分けられるようにする。
+起動の検査の対象は、欠けたことが設定名として現れる設定に限る。直接注入される設定（`abservice.auth.admin-api-key` / `abservice.assets.bucket`）は値が無ければ設定名を挙げて即座に落ちるが、接続URLの式の材料になる DB 系は、欠けても式が組み上がって接続先が変わるだけで、どれが欠けたのかが現れない（#330）。検査は対象外の設定もスキップした理由とともに1件ずつ出力し、一覧が空のまま素通りした状態と見分けられるようにする。
 
 Terraform は資格情報を要さない範囲に限る。`plan` は state と実アカウントを要求するため CI からは行わない。検査に使う版は `versions.tf` の `required_version` の下限に合わせ、宣言した下限で通らない書き方が入ったら落ちるようにする。
 
@@ -586,4 +586,4 @@ CI 用の compose の上書き（`docker-compose.ci.yml`）が1つ増える。pr
 
 `validate` が見るのは構文と参照であり、権限やリソースの整合までは見ない。
 
-**実体**: `.github/workflows/ci.yml` の `container-check` と `iac-check`、`scripts/prod-required-settings.sh`、`scripts/check-prod-config-wiring.sh`、`scripts/check-prod-required-settings.sh`、`docker-compose.prod.yml`、`docker-compose.ci.yml`、`backend/src/main/docker/Dockerfile.jvm`、`infra/templates/deploy.sh.tpl`。
+**実体**: `.github/workflows/ci.yml` の `container-check` と `iac-check`、`scripts/prod-required-settings.sh`、`scripts/check-prod-settings-stay-required.sh`、`scripts/check-prod-config-wiring.sh`、`scripts/check-prod-required-settings.sh`、`docker-compose.prod.yml`、`docker-compose.ci.yml`、`backend/src/main/docker/Dockerfile.jvm`、`infra/templates/deploy.sh.tpl`。

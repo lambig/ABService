@@ -1,46 +1,26 @@
 #!/usr/bin/env bash
-# 本番で外から値を受け取らなければならない設定を、application.properties の宣言と突き合わせて返す。
+# 本番で外から値を受け取る設定を、application.properties の宣言から列挙する。
 #
-# 出力は「環境変数名 設定キー」の行。値の運搬（docker-compose.prod.yml と deploy.sh）と、
-# 欠けたときに起動しないことの検査は、どちらもこの出力を対象にする。名前を写す側を作らないため、
-# 必須設定の一覧はここだけが持つ。
+# 必須とみなすのは既定値を持たない宣言（`${VAR}`）だけ。既定値を持つ宣言（`${VAR:...}`）は値が
+# 届かなくても起動するため、運搬が切れていることがそのまま事故になるのは既定値なしの宣言に限られる。
 #
-# 一覧に挙げた設定が %prod で既定値なしに宣言されていなければ落とす。既定値を持たせる変更
-# （`${VAR}` から `${VAR:...}` へ戻す、%prod の行を消す）は、本番が開発向けの弱い値
-# ——既定のバケット名や開発用の API キー——で動くことを意味する。
+# 出力は「環境変数名 設定キー」の行。宣言を正にして自動で拾うので、新しい必須設定を足したときも
+# 検査の側へ名前を写す作業は要らない。
+#
+# ここが見るのは「いま何が必須か」であって「何が必須であり続けるべきか」ではない。宣言を弱める変更
+# （`${VAR}` を `${VAR:...}` へ戻す、%prod の行を消す）は、この列挙からその設定が消えるだけなので、
+# check-prod-settings-stay-required.sh が別に名指しで守る。
 set -euo pipefail
-
-# 減らしてよいのは設定そのものを本番から無くしたときだけ。「既定値を持たせたから外す」は上のとおり本番の事故
-readonly REQUIRED=(
-  ADMIN_API_KEY
-  ASSETS_BUCKET
-  DB_HOST
-  DB_PORT
-  DB_NAME
-  DB_USERNAME
-  DB_PASSWORD
-)
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 properties="backend/src/main/resources/application.properties"
 
-status=0
+settings="$(sed -nE 's/^%prod\.([^=]+)=\$\{([A-Za-z_][A-Za-z0-9_]*)\}[[:space:]]*$/\2 \1/p' "$root/$properties")"
 
-for name in "${REQUIRED[@]}"; do
-  found=0
-  # 既定値なしの宣言だけを拾う。`${VAR:...}` は値が届かなくても起動するため、必須の宣言ではない
-  pattern='^%prod\.[^=]+=\$\{'"$name"'\}[[:space:]]*$'
+if [ -z "$settings" ]; then
+  echo "No required prod settings were found in $properties." >&2
+  echo "Expected declarations of the form '%prod.<setting>=\${VAR}'." >&2
+  exit 1
+fi
 
-  while read -r line; do
-    setting="${line%%=*}"
-    printf '%s %s\n' "$name" "${setting#%prod.}"
-    found=1
-  done < <(grep -E "$pattern" "$root/$properties")
-
-  if [ "$found" -eq 0 ]; then
-    echo "$name must be required in production, but $properties has no '%prod.<setting>=\${$name}' declaration." >&2
-    status=1
-  fi
-done
-
-exit "$status"
+printf '%s\n' "$settings"
