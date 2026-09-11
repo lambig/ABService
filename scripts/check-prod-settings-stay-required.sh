@@ -2,7 +2,7 @@
 # 本番で外から値を受け取り続けるべき設定が、いまも必須のまま宣言されていることを検査する。
 #
 # 必須設定の列挙（prod-required-settings.sh）は application.properties の宣言を正にしているため、
-# 宣言を弱める変更——`${VAR}` を `${VAR:...}` へ戻す、%prod の行を消す——は「必須が1つ減った」と
+# 宣言を弱める変更——`${VAR}` を `${VAR:...}` へ戻す、宣言そのものを消す——は「必須が1つ減った」と
 # しか見えず素通りする。本番が開発向けの弱い値（既定のバケット名、開発用の API キー、ローカルの
 # データベース）で動くことを意味する設定は、ここで名指しして守る。
 set -euo pipefail
@@ -27,7 +27,7 @@ status=0
 
 for name in "${MUST_STAY_REQUIRED[@]}"; do
   if ! printf '%s\n' "$required" | grep -qxF "$name"; then
-    echo "$name must stay required in production, but $properties has no '%prod.<setting>=\${$name}' declaration." >&2
+    echo "$name must stay required in production, but $properties has no required prod declaration for \${$name}." >&2
     status=1
   fi
 done
