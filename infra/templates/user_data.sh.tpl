@@ -6,20 +6,24 @@ systemctl enable --now docker
 usermod -aG docker ec2-user
 
 # docker compose（CLI プラグイン）は AL2023 のリポジトリに無い。公式の手順どおり、プラグインの
-# 置き場へバイナリを入れる。版は固定し、配布されている sha256 と突き合わせる（上流の最新へ
-# 黙って追随すると、インスタンスを作った時期だけで実機の compose が変わる）。
+# 置き場へバイナリを入れる。
+#
+# ダイジェストはここに持つ。版の名前だけでは実体が決まらず（GitHub の release は差し替えられる）、
+# 配布物と一緒に置かれた .sha256 を使うと、両方を差し替えられたときに突き合わせが素通りする。
+# 版を上げるときはこの値も一緒に変える。
+#
+# 資産は arm64 のものに固定する。本番の EC2 は arm64（compute.tf が arm64 の AMI を選ぶ）で、
+# 架構を変えるなら資産名とダイジェストの両方を変えることになる。
 COMPOSE_VERSION=v5.5.1
-COMPOSE_ASSET="docker-compose-linux-$(uname -m)"
-COMPOSE_RELEASE="https://github.com/docker/compose/releases/download/$COMPOSE_VERSION"
+COMPOSE_ASSET=docker-compose-linux-aarch64
+COMPOSE_SHA256=732e3a84c1a0f67256ce80bc2598a24546b10ca05f9faa97efceb1171ece2ef7
 PLUGIN_DIR=/usr/libexec/docker/cli-plugins
 
 install -d "$PLUGIN_DIR"
-curl -fsSL "$COMPOSE_RELEASE/$COMPOSE_ASSET" -o "$PLUGIN_DIR/docker-compose"
-curl -fsSL "$COMPOSE_RELEASE/$COMPOSE_ASSET.sha256" -o /tmp/docker-compose.sha256
-# 配布物は「<hash>  <資産名>」の形。置いた先の名前へ読み替えて突き合わせる
-echo "$(cut -d' ' -f1 /tmp/docker-compose.sha256)  $PLUGIN_DIR/docker-compose" | sha256sum -c -
+curl -fsSL "https://github.com/docker/compose/releases/download/$COMPOSE_VERSION/$COMPOSE_ASSET" \
+  -o "$PLUGIN_DIR/docker-compose"
+echo "$COMPOSE_SHA256  $PLUGIN_DIR/docker-compose" | sha256sum -c -
 chmod +x "$PLUGIN_DIR/docker-compose"
-rm -f /tmp/docker-compose.sha256
 
 # bootstrap が済んだことの検査。deploy.sh は docker compose を呼ぶため、ここで揃っていなければ
 # 最初のデプロイが失敗する。set -e により、失敗は cloud-init のログへ残る
