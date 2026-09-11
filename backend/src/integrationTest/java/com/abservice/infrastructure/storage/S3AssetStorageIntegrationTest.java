@@ -3,7 +3,7 @@ package com.abservice.infrastructure.storage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.abservice.application.port.AssetChangedDuringConfirmException;
+import com.abservice.application.port.AssetConfirmConflictException;
 import com.abservice.application.port.StoredAssetHead;
 import com.abservice.test.CleanDatabase;
 import io.quarkus.test.junit.QuarkusTest;
@@ -34,6 +34,11 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
  * 受け入れ前のキーへは署名付きURLの有効期間内なら何度でも書き込めるため、検査と確定の間に実体が置き換わり得る。確定は
  * 検査で得た識別子（{@code ETag}）を条件に取り、置き換わっていれば実ストレージが拒む（#285）。実ストレージ（docker compose の
  * MinIO。バケットは {@code minio-init} が作成）で動作する。
+ * </p>
+ *
+ * <p>
+ * 確定のもう一方の条件であるコピー先の不在（{@code If-None-Match}）は MinIO が無視するため、ここでは観測できない。
+ * 要求へ載せていることは {@code S3AssetStorageRequestTest} が固定する。
  * </p>
  */
 @QuarkusTest
@@ -87,7 +92,7 @@ class S3AssetStorageIntegrationTest {
         putPending(assetKey, pngBytes(512));
 
         assertThatThrownBy(() -> storage.publish(assetKey, head.entityTag()).await().indefinitely())
-                .isInstanceOf(AssetChangedDuringConfirmException.class)
+                .isInstanceOf(AssetConfirmConflictException.class)
                 .hasMessageContaining(assetKey);
 
         assertThat(objectBytes(publishedKey(assetKey))).as("検査していない実体は配信対象へ移らない").isEmpty();
@@ -107,9 +112,14 @@ class S3AssetStorageIntegrationTest {
         assertThat(published.contentLength()).as("サイズ").isEqualTo(head.totalBytes());
     }
 
+    /**
+     * 同時確定が1つに収束することは、コピー先の条件（{@code If-None-Match}）が担う。MinIO はこれを無視するため
+     * ここでは観測できず、要求へ載せていることは {@code S3AssetStorageRequestTest} が固定する。この試験が見るのは、
+     * 同時に走らせても配信されるのは検査した実体であり、確定できなかった側が競合として返ること。
+     */
     @Test
-    @DisplayName("同一キーの確定が同時に走っても、配信されるのは検査した実体ひとつだけ")
-    void concurrentPublishLeavesSingleInspectedContent() {
+    @DisplayName("同一キーの確定が同時に走っても、配信されるのは検査した実体で、確定できなかった側は競合になる")
+    void concurrentPublishKeepsInspectedContent() {
         final var assetKey = assetKey();
         putPending(assetKey, pngBytes(256));
         final var entityTag = readHead(assetKey).entityTag();
@@ -121,7 +131,7 @@ class S3AssetStorageIntegrationTest {
                 .toList();
 
         assertThat(outcomes).as("確定できなかった側も競合として畳まれ、想定外の失敗にならない").contains(true);
-        assertThat(objectBytes(publishedKey(assetKey))).as("配信されるのは検査した実体だけ").get()
+        assertThat(objectBytes(publishedKey(assetKey))).as("配信されるのは検査した実体").get()
                 .extracting(bytes -> bytes.length).isEqualTo(256);
         assertThat(objectBytes(pendingKey(assetKey))).as("受け入れ前には残らない").isEmpty();
     }
@@ -152,7 +162,7 @@ class S3AssetStorageIntegrationTest {
         return CompletableFuture.supplyAsync(
                 () -> storage.publish(assetKey, entityTag)
                         .replaceWith(true)
-                        .onFailure(AssetChangedDuringConfirmException.class).recoverWithItem(false)
+                        .onFailure(AssetConfirmConflictException.class).recoverWithItem(false)
                         .await().indefinitely());
     }
 

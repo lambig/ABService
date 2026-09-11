@@ -3,7 +3,7 @@ package com.abservice.application.service.asset;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.abservice.application.port.AssetChangedDuringConfirmException;
+import com.abservice.application.port.AssetConfirmConflictException;
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.domain.exception.ValidationException;
@@ -114,9 +114,25 @@ class ConfirmAssetUploadServiceTest {
         assertThatThrownBy(
                 () -> service(storage).execute(new ConfirmAssetUploadInput(PNG_KEY)).await().indefinitely())
                 .isInstanceOf(BusinessRuleViolationException.class)
-                .hasCauseInstanceOf(AssetChangedDuringConfirmException.class);
+                .hasCauseInstanceOf(AssetConfirmConflictException.class);
 
         assertThat(storage.publishedKeys()).as("検査した実体でなければ確定しない").isEmpty();
+    }
+
+    @Test
+    @DisplayName("確定済みの判定をすり抜けても、確定そのものの条件で競合になる")
+    void rejectsSecondConfirmThatSlipsPastThePublishedCheck() {
+        final var storage = FakeAssetStorage.hidingPublishedState(PNG_HEAD, 512L);
+        final var service = service(storage);
+
+        service.execute(new ConfirmAssetUploadInput(PNG_KEY)).await().indefinitely();
+
+        assertThatThrownBy(
+                () -> service.execute(new ConfirmAssetUploadInput(PNG_KEY)).await().indefinitely())
+                .isInstanceOf(BusinessRuleViolationException.class)
+                .hasCauseInstanceOf(AssetConfirmConflictException.class);
+
+        assertThat(storage.publishedKeys()).as("配信対象へ入るのは先に成立した1つだけ").containsExactly(PNG_KEY);
     }
 
     private static ConfirmAssetUploadService service(FakeAssetStorage storage) {

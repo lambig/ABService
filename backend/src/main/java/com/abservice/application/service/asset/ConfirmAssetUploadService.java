@@ -1,6 +1,6 @@
 package com.abservice.application.service.asset;
 
-import com.abservice.application.port.AssetChangedDuringConfirmException;
+import com.abservice.application.port.AssetConfirmConflictException;
 import com.abservice.application.port.AssetStorage;
 import com.abservice.application.port.StoredAssetHead;
 import com.abservice.application.exception.Failure;
@@ -27,15 +27,15 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  *
  * <p>
  * 確定は受け入れ前の場所から配信対象へ実体を移す操作であり、クライアントが書き込めるのは受け入れ前だけ。検査した実体と
- * 配信される実体がずれないよう、2つの経路を塞ぐ（#285）。検査から確定までの隙間に受け入れ前が置き換わった場合は、
- * 確定が検査した実体を条件にしているため失敗する。確定後に受け入れ前を作り直して確定をやり直す場合は、確定済みの 公開キーであることを先に見て拒む。
+ * 配信される実体がずれないよう、「検査したその実体であること」と「そのキーがまだ確定していないこと」の両方を、実体を移す
+ * 操作そのものの条件にする（#285）。確定済みかどうかを先に見るのは、確定済みの要求を早く断って無駄な検査を省くため。
+ * 同時に走る確定を退けるのはこの問い合わせではなく、移す操作の条件である。
  * </p>
  *
  * <p>
- * 確定が途中で止まった場合の状態は次のように定まる。配信対象へのコピーが済んだ後に受け入れ前の片付けが失敗しても、
- * 公開キーは確定済みであるため再確定は拒まれ、配信される実体は変わらない。残った受け入れ前の実体は保管先のライフサイクルで
- * 期限切れになる（{@code docs/DECISIONS.md} 18）。応答がクライアントへ届かずに確定が再送された場合も同じ経路をたどる。
- * 同一キーの確定が同時に走った場合は、確定済みの判定をすり抜けた側もコピーの条件で弾かれるため、先に確定した実体だけが配信される。
+ * 確定が途中で止まった場合の状態は次のように定まる。配信対象へのコピーが済んだ後に受け入れ前の片付けが失敗しても、確定は
+ * 成功として返る。残った受け入れ前の実体は保管先のライフサイクルで期限切れになる（{@code docs/DECISIONS.md} 18）。
+ * 応答がクライアントへ届かずに確定が再送された場合は、公開キーが確定済みであるため競合として断られ、配信される実体は 変わらない。
  * </p>
  *
  * <p>
@@ -115,8 +115,8 @@ public class ConfirmAssetUploadService implements CommandService<ConfirmAssetUpl
             StoredAssetHead stored,
             AssetImageFormat format) {
         return assetStorage.publish(assetKey, stored.entityTag())
-                .onFailure(AssetChangedDuringConfirmException.class)
-                .transform(cause -> changedDuringConfirm(assetKey, cause))
+                .onFailure(AssetConfirmConflictException.class)
+                .transform(cause -> confirmConflict(assetKey, cause))
                 .replaceWith(
                         () -> new ConfirmAssetUploadOutput(
                                 assetKey,
@@ -134,11 +134,11 @@ public class ConfirmAssetUploadService implements CommandService<ConfirmAssetUpl
     }
 
     /**
-     * 検査した実体が確定までの間に置き換わっていた場合の競合。保管先の事情を、呼び出し側が読み取れる競合へ翻訳する。
+     * 保管先が確定の条件を満たさなかった場合の競合。保管先の事情を、呼び出し側が読み取れる競合へ翻訳する。
      */
-    private static BusinessRuleViolationException changedDuringConfirm(String assetKey, Throwable cause) {
+    private static BusinessRuleViolationException confirmConflict(String assetKey, Throwable cause) {
         return new BusinessRuleViolationException(
-                "検査した実体が確定までの間に置き換わりました。アップロードからやり直してください: key=" + assetKey,
+                "このアセットを確定できません。実体が置き換わったか、既に確定済みです: key=" + assetKey,
                 cause);
     }
 

@@ -1,6 +1,6 @@
 package com.abservice.application.service.asset;
 
-import com.abservice.application.port.AssetChangedDuringConfirmException;
+import com.abservice.application.port.AssetConfirmConflictException;
 import com.abservice.application.port.AssetStorage;
 import com.abservice.application.port.PresignedUpload;
 import com.abservice.application.port.StoredAssetHead;
@@ -20,8 +20,9 @@ import org.jspecify.annotations.Nullable;
  * </p>
  *
  * <p>
- * 確定は検査した実体の識別子（{@code entityTag}）を条件に取る。{@link #replacedAfterRead} は検査から確定までの
- * 隙間に受け入れ前が別の実体へ置き換わる状況を模し、条件の不一致を再現する。
+ * 確定はポートの契約どおり2つの条件を取る。コピー元が検査した実体のままであること（{@code entityTag} の一致）と、
+ * そのキーがまだ確定していないこと。{@link #replacedAfterRead} は前者が崩れる状況を、
+ * {@link #hidingPublishedState} は確定済みの問い合わせをすり抜けた確定が後者で弾かれることを再現する。
  * </p>
  */
 final class FakeAssetStorage implements AssetStorage {
@@ -34,26 +35,56 @@ final class FakeAssetStorage implements AssetStorage {
 
     private final @Nullable StoredAssetHead stored;
     private final boolean replacesAfterRead;
+    private final boolean hidesPublishedState;
     private String currentEntityTag = ENTITY_TAG;
     private List<String> discardedKeys = List.of();
     private List<String> publishedKeys = List.of();
     private List<String> presignedKeys = List.of();
 
-    private FakeAssetStorage(@Nullable StoredAssetHead stored, boolean replacesAfterRead) {
+    private FakeAssetStorage(
+            @Nullable StoredAssetHead stored,
+            boolean replacesAfterRead,
+            boolean hidesPublishedState) {
         this.stored = stored;
         this.replacesAfterRead = replacesAfterRead;
+        this.hidesPublishedState = hidesPublishedState;
     }
 
     static FakeAssetStorage empty() {
-        return new FakeAssetStorage(null, false);
+        return new FakeAssetStorage(
+                null,
+                false,
+                false);
     }
 
     static FakeAssetStorage holding(byte[] prefix, long totalBytes) {
-        return new FakeAssetStorage(head(prefix, totalBytes), false);
+        return new FakeAssetStorage(
+                head(prefix, totalBytes),
+                false,
+                false);
     }
 
     static FakeAssetStorage replacedAfterRead(byte[] prefix, long totalBytes) {
-        return new FakeAssetStorage(head(prefix, totalBytes), true);
+        return new FakeAssetStorage(
+                head(prefix, totalBytes),
+                true,
+                false);
+    }
+
+    /**
+     * 確定済みかどうかの問い合わせに常に「未確定」と答える保管先。確定済みの判定をすり抜けた要求が、確定そのものの 条件で弾かれることを確かめるために使う。
+     *
+     * @param prefix
+     *            受け入れ前の実体の先頭バイト列
+     * @param totalBytes
+     *            受け入れ前の実体の全体サイズ
+     * @return テスト代替
+     */
+    static FakeAssetStorage hidingPublishedState(byte[] prefix, long totalBytes) {
+        return new FakeAssetStorage(
+                head(prefix, totalBytes),
+                false,
+                true);
     }
 
     @Override
@@ -75,14 +106,14 @@ final class FakeAssetStorage implements AssetStorage {
 
     @Override
     public Uni<Void> publish(String key, String entityTag) {
-        return currentEntityTag.equals(entityTag)
+        return satisfiesConfirmConditions(key, entityTag)
                 ? recordPublished(key)
-                : Uni.createFrom().failure(new AssetChangedDuringConfirmException(key));
+                : Uni.createFrom().failure(new AssetConfirmConflictException(key));
     }
 
     @Override
     public Uni<Boolean> isPublished(String key) {
-        return Uni.createFrom().item(publishedKeys.contains(key));
+        return Uni.createFrom().item(visiblePublishedKeys().contains(key));
     }
 
     @Override
@@ -101,6 +132,19 @@ final class FakeAssetStorage implements AssetStorage {
 
     List<String> presignedKeys() {
         return presignedKeys;
+    }
+
+    private List<String> visiblePublishedKeys() {
+        return hidesPublishedState
+                ? List.of()
+                : publishedKeys;
+    }
+
+    private boolean satisfiesConfirmConditions(String key, String entityTag) {
+        return Stream.of(
+                currentEntityTag.equals(entityTag),
+                !publishedKeys.contains(key))
+                .allMatch(Boolean::booleanValue);
     }
 
     private Uni<Void> recordPublished(String key) {
