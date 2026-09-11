@@ -289,6 +289,11 @@ jobs:
           terraform_version: 1.9.8
           terraform_wrapper: false
 
+      # user_data はインスタンスの初回起動時にしか走らない。構文が壊れていればそのインスタンスは
+      # bootstrap されないまま立ち上がるが、terraform validate はテンプレートの中身を見ない
+      - name: Check the bootstrap script syntax
+        run: bash -n infra/templates/user_data.sh.tpl
+
       - name: Check formatting
         run: terraform fmt -check -recursive infra
 

@@ -25,7 +25,10 @@ concurrency:
 jobs:
   deploy:
     name: Build, push, and deploy backend
-    runs-on: ubuntu-latest
+    # 本番の EC2 は arm64（infra/compute.tf が arm64 の AMI を選ぶ）。amd64 のランナーで作ると、
+    # ECR へ入るのは実機が動かせないイメージになる。エミュレーションでも作れるが、コンテナの中で
+    # Gradle を回すビルドを QEMU に載せることになるため、ランナー自体を arm にする
+    runs-on: ubuntu-24.04-arm
     # terraform apply（#129のドメイン準備待ち）でリポジトリ変数が設定されるまでは何もしない。
     # CI経由の起動は、mainへのpushに対するCIが成功した場合だけに限る（PRのCIや失敗・中断は対象外）。
     if: >-
@@ -82,7 +85,7 @@ jobs:
           fi
 
       # 通常経路: CIが成功したcommitのイメージをビルドしてpushする。
-      - name: Build and push image
+      - name: Build image
         if: steps.resolve.outputs.build == 'true'
         env:
           REGISTRY: ${{ steps.ecr-login.outputs.registry }}
@@ -93,6 +96,30 @@ jobs:
             -t "$REGISTRY/$REPOSITORY:$TAG" \
             -t "$REGISTRY/$REPOSITORY:latest" \
             backend
+
+      # ECR へ入れる前に、実機が動かせる架構であることを確かめる。ランナーの種類が変わっても
+      # ここで気付ける（動かない manifest を push してからでは、失敗するのはデプロイの最中になる）
+      - name: Verify the image architecture matches the host
+        if: steps.resolve.outputs.build == 'true'
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          ARCH="$(docker image inspect "$REGISTRY/$REPOSITORY:$TAG" --format '{{.Architecture}}')"
+          if [ "$ARCH" != "arm64" ]; then
+            echo "The image is $ARCH, but the instance runs arm64 (infra/compute.tf uses the arm64 AMI)." >&2
+            exit 1
+          fi
+          echo "image architecture: $ARCH"
+
+      - name: Push image
+        if: steps.resolve.outputs.build == 'true'
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
           docker push "$REGISTRY/$REPOSITORY:$TAG"
           docker push "$REGISTRY/$REPOSITORY:latest"
 
