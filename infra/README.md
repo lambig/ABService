@@ -47,7 +47,7 @@ Terraform適用は`terraform plan`で差分を確認してから`apply`する運
 | `ecr_repository_url`のリポジトリ名部分 | `ECR_REPOSITORY` |
 | `ec2_instance_id` | `EC2_INSTANCE_ID` |
 
-デプロイは**mainへのpushに対するCIが成功したときだけ**自動実行される（ビルド→ECR push→SSM Run Command経由でEC2上の`/opt/abservice/deploy.sh`を実行しpull・再起動）。対象はそのCIが検査したcommitのSHAに固定されるため、CI完了後にmainが進んでいても、検査していないcommitが出ることはない。GitHub ActionsはOIDC連携で一時認証情報を取得するため、長期のAWSアクセスキーは発行・保存しない（`aws_iam_openid_connect_provider.github_actions`）。
+デプロイは**mainへのpushに対するCIが成功したときだけ**自動実行される（ビルド→ECR push→SSM Run Command経由で、そのSHAの`infra/host/deploy.sh`と`docker-compose.prod.yml`をEC2の`/opt/abservice`へ配ってから実行しpull・再起動）。イメージを動かす手順も検査済みのcommitに揃うため、稼働中のホストが古い手順のまま残ることがない（`user_data`が置くのはDockerの準備とインスタンス固有の値`/opt/abservice/deploy.env`まで）。対象はそのCIが検査したcommitのSHAに固定されるため、CI完了後にmainが進んでいても、検査していないcommitが出ることはない。GitHub ActionsはOIDC連携で一時認証情報を取得するため、長期のAWSアクセスキーは発行・保存しない（`aws_iam_openid_connect_provider.github_actions`）。
 
 `AWS_DEPLOY_ROLE_ARN`未設定の間は`deploy.yml`のjobがskipされ、CIが成功しても何も実行されない。上表のAction variables設定後、次回のCI成功から自動的に有効化される。
 
@@ -113,9 +113,9 @@ OAC 経由の S3 は REST エンドポイントで、ディレクトリ索引を
 
 ## ロールバック（backendデプロイ）
 
-ECRのライフサイクルポリシーにより直近10件のタグ付きイメージが保持される。障害時は`.github/workflows/deploy.yml`を`workflow_dispatch`で手動起動し、`image_tag`に直前の正常なタグ（gitのshort SHA）を指定して再デプロイする（再ビルドは行わず、ECRの既存イメージをそのままEC2へpull・再起動するだけなので数十秒で完了する）。ロールバック後、mainブランチの履歴は`git revert`で追随させる（force-push・履歴書き換えはしない）。
+ECRのライフサイクルポリシーにより直近10件のタグ付きイメージが保持される。障害時は`.github/workflows/deploy.yml`を`workflow_dispatch`で手動起動し、`commit_sha`に直前の正常なcommitのfull SHAを指定して再デプロイする（再ビルドは行わず、ECRの既存イメージをそのままEC2へpull・再起動するだけなので数十秒で完了する）。ロールバック後、mainブランチの履歴は`git revert`で追随させる（force-push・履歴書き換えはしない）。
 
-手動起動は`image_tag`を必須とし、既存イメージの再デプロイだけを行う。新しいcommitを本番へ出す経路はmainへのpush（＋CI成功）だけで、手動起動から検査していないcommitをビルドして出すことはできない。
+手動起動は`commit_sha`を必須とし、既存イメージの再デプロイだけを行う。イメージのタグもEC2へ配る`deploy.sh`・`docker-compose.prod.yml`も、そのcommitから決まる（戻すのはイメージだけで手順は現在のまま、という組み合わせを作らない）。新しいcommitを本番へ出す経路はmainへのpush（＋CI成功）だけで、手動起動から検査していないcommitをビルドして出すことはできない。
 
 ## 未着手・依存関係
 

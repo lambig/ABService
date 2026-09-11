@@ -89,15 +89,10 @@ resource "aws_iam_instance_profile" "ec2" {
 }
 
 locals {
-  deploy_script = templatefile("${path.module}/templates/deploy.sh.tpl", {
+  user_data = templatefile("${path.module}/templates/user_data.sh.tpl", {
     aws_region   = var.aws_region
     project_name = var.project_name
     environment  = var.environment
-  })
-
-  user_data = templatefile("${path.module}/templates/user_data.sh.tpl", {
-    docker_compose_prod_yml = file("${path.module}/../docker-compose.prod.yml")
-    deploy_sh               = local.deploy_script
   })
 }
 
@@ -114,8 +109,8 @@ resource "aws_instance" "backend" {
     encrypted   = true
   }
 
-  # Dockerランタイムの準備に加え、CI（#128）がSSM Run Command経由で呼び出す
-  # /opt/abservice/deploy.sh と docker-compose.prod.yml を配置する。
+  # Dockerランタイムの準備と、インスタンスに固有の値（/opt/abservice/deploy.env）まで。
+  # deploy.sh と docker-compose.prod.yml はデプロイのたびに SSM Run Command が配る（#284）。
   user_data = local.user_data
 
   tags = {

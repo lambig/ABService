@@ -224,15 +224,23 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 ## 16. 本番へ出せるのはCIが成功したcommitだけとする
 
-**判断**: デプロイは main への push を直接のトリガーにせず、CI の完了を受けて起動し、対象を**そのCIが検査したSHA**へ固定する。手動起動は既存イメージの再デプロイ（ロールバック）に限り、タグの指定を必須にする。CIとデプロイを1つのワークフローへ統合する形は採らない。
+**判断**: デプロイは main への push を直接のトリガーにせず、CI の完了を受けて起動し、対象を**そのCIが検査したSHA**へ固定する。手動起動は既存イメージの再デプロイ（ロールバック）に限り、commit の指定を必須にする。CIとデプロイを1つのワークフローへ統合する形は採らない。
 
 **なぜ**: トリガーが独立していると、CIが失敗するcommitでもデプロイが先に完了しうる。SHAを固定するのは、CI完了後に main が進んでいた場合に「検査していないcommitを出す」ことを避けるため。手動起動から任意のcommitをビルドできると、そこが検査を通らない抜け道として残るため、手動経路は既存イメージの差し替えだけに閉じる。
 
 統合しないのは、CIの並行制御が「同一ブランチの古い実行を打ち切る」形であり、同じワークフローに乗せると連続pushでデプロイ中の実行が打ち切られうるため。ジョブ単位で並行制御を分ければ回避できるが、打ち切ってよい処理と打ち切ってはならない処理を同じ実行単位に同居させること自体を避ける。
 
+**デプロイ手順そのものも、検査済みのSHAのものを配る**。`deploy.sh` と `docker-compose.prod.yml` は、イメージを差し替える直前に SSM Run Command が実機へ置いてから実行する。インスタンスを作るときに一度だけ動く仕組み（`user_data` の cloud-init はインスタンスごとに初回しか実行しない）で配ると、ファイルを git で直しても稼働中のホストは古いままで、Terraform を apply しても届かない。イメージだけを検査済みのSHAへ固定しても、それを動かす手順が別の速さで変わるなら、本番で走る組み合わせは検査したものと一致しない。
+
+インスタンスに固有の値（リージョン、Parameter Store のパス）は `user_data` が `/opt/abservice/deploy.env` へ置く。こちらはインスタンスを作るときに決まり、アプリと同じ速さでは変わらない。
+
+**手動のロールバックも、イメージと手順を同じ commit から決める**。入力は commit の SHA で、その commit を checkout してタグを導く。イメージのタグだけを受け取る形にすると、戻したいイメージと、いま配られる `deploy.sh` / `docker-compose.prod.yml` が別の commit のものになりうる。
+
 **トレードオフ**: CIの完了を受けて起動する形はデフォルトブランチ上の定義で実行されるため、デプロイ手順の変更は main に入るまで効かず、PR上では検証できない。またCIとデプロイが別実行になるため、デプロイの成否はCIの実行画面には現れない。
 
-**実体**: `.github/workflows/deploy.yml`、`.github/workflows/ci.yml`、`infra/README.md`（運用手順）。
+配るファイルは SSM のコマンドへ base64 で埋め込むため、パラメータの上限（100KB）に収まる大きさに限られる。オブジェクトストアを経由すればこの制限は外れるが、バケットと権限が増える。収まっていることは CI が見る。
+
+**実体**: `.github/workflows/deploy.yml`、`.github/workflows/ci.yml`、`infra/host/deploy.sh`、`infra/templates/user_data.sh.tpl`、`scripts/check-deploy-payload.sh`、`infra/README.md`（運用手順）。
 
 ---
 
@@ -571,7 +579,7 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 **本番の必須設定は、列挙・運搬・起動に分けて検査する**。
 
 - **列挙**（`scripts/prod-required-settings.sh`）: 本番で効く宣言（`%prod` と、`%prod` に上書きの無いプロファイル無しの宣言）のうち、既定値を持たないものを正として自動で拾う。新しい必須設定を足したときに検査の側へ名前を写す作業が要らず、写し忘れでその設定だけが検査の外に残ることもない
-- **運搬**（`scripts/check-prod-config-wiring.sh`）: 列挙した全件を `docker-compose.prod.yml` がコンテナへ渡し、`infra/templates/deploy.sh.tpl` が export すること。宣言だけがあって運ぶ経路が無い形は、起動してみるまで表に出ない
+- **運搬**（`scripts/check-prod-config-wiring.sh`）: 列挙した全件を `docker-compose.prod.yml` がコンテナへ渡し、`infra/host/deploy.sh` が export すること。宣言だけがあって運ぶ経路が無い形は、起動してみるまで表に出ない
 - **起動**（`scripts/check-prod-required-settings.sh`）: 他の値を揃えたうえで1つずつ欠くと起動が失敗し、失敗が欠いた環境変数の名前を挙げること。まとめて欠かす形では、1つが通る側へ戻っても残りの欠落で失敗し続けるため、戻ったことに気付けない
 
 **「いま何が必須か」と「何が必須であり続けるべきか」は別に持つ**。宣言を正にした列挙は、宣言そのものを弱める変更——`${VAR}` を `${VAR:...}` へ戻す、`%prod` の行を消す——を「必須が1つ減った」としか見ない。本番が開発向けの弱い値（既定のバケット名、開発用の API キー、ローカルのデータベース）で動くことを意味する設定は、`scripts/check-prod-settings-stay-required.sh` が名指しで守る。前者は発見、後者は方針であり、片方に寄せると新規設定の取りこぼしか宣言の後退のどちらかが素通りする。
@@ -590,4 +598,4 @@ CI 用の compose の上書き（`docker-compose.ci.yml`）が1つ増える。pr
 
 `validate` が見るのは構文と参照であり、権限やリソースの整合までは見ない。
 
-**実体**: `.github/workflows/ci.yml` の `container-check` と `iac-check`、`scripts/prod-required-settings.sh`、`scripts/check-prod-settings-stay-required.sh`、`scripts/check-prod-config-wiring.sh`、`scripts/check-prod-required-settings.sh`、`docker-compose.prod.yml`、`docker-compose.ci.yml`、`backend/src/main/docker/Dockerfile.jvm`、`infra/templates/deploy.sh.tpl`。
+**実体**: `.github/workflows/ci.yml` の `container-check` と `iac-check`、`scripts/prod-required-settings.sh`、`scripts/check-prod-settings-stay-required.sh`、`scripts/check-prod-config-wiring.sh`、`scripts/check-prod-required-settings.sh`、`docker-compose.prod.yml`、`docker-compose.ci.yml`、`backend/src/main/docker/Dockerfile.jvm`、`infra/host/deploy.sh`。

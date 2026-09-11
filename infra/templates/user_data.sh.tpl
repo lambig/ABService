@@ -7,11 +7,12 @@ usermod -aG docker ec2-user
 
 mkdir -p /opt/abservice
 
-cat > /opt/abservice/docker-compose.prod.yml <<'COMPOSE_EOF'
-${docker_compose_prod_yml}
-COMPOSE_EOF
-
-cat > /opt/abservice/deploy.sh <<'DEPLOY_EOF'
-${deploy_sh}
-DEPLOY_EOF
-chmod +x /opt/abservice/deploy.sh
+# ここが置くのは、インスタンスを作るときに決まる値だけ。デプロイの手順（deploy.sh）と本番の構成
+# （docker-compose.prod.yml）は、デプロイのたびに CI が検査した SHA のものを SSM Run Command が
+# 配る（.github/workflows/deploy.yml）。cloud-init はインスタンスごとに初回しか実行しないため、
+# ここで手順まで配ると、ファイルを git で変えても稼働中のホストは古いままになる。
+cat > /opt/abservice/deploy.env <<'ENV_EOF'
+REGION=${aws_region}
+PROJECT=${project_name}
+ENVIRONMENT=${environment}
+ENV_EOF
