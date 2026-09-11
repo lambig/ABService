@@ -279,7 +279,8 @@ jobs:
       # 公開ポート経由はコンテナの外から来るため、配信が付ける値を添える（コンテナ自身の
       # healthcheck は loopback から引くので添えない）
       - name: Check readiness through the published port
-        run: curl -fsS -H "X-Origin-Verify: $ORIGIN_VERIFY_TOKEN" http://localhost:8080/q/health/ready
+        run: |
+          curl -fsS -H "X-Origin-Verify: $ORIGIN_VERIFY_TOKEN" http://localhost:8080/q/health/ready
 
       # 自分の配信を経由しない要求は届かない。ここが素通りするなら、別の配信から WAF と
       # 経路の振り分けを迂回してオリジンへ届く（#286）
