@@ -2688,6 +2688,15 @@ export interface paths {
                         "application/problem+json": components["schemas"]["ProblemDetail"];
                     };
                 };
+                /** @description 業務ルールに反する、または他の操作と競合した */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
                 /** @description 想定外の失敗 */
                 500: {
                     headers: {
