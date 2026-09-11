@@ -165,10 +165,15 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      # 生成器を持たないワークスペースは `--if-present` が黙って飛ばすため、生成器が消えると
-      # その生成物は作り直されないまま下の差分検査を通る。バックエンドのビルドより前に見る
+      # 生成器の検査が npm へワークスペースの集合を聞くため、依存の取得はその前に置く
+      - name: Install dependencies
+        run: npm ci
+
+      # ルートの `generate:api-types` は `--workspaces --if-present` で回すため、生成器が消えても、
+      # ルートの workspaces から外れても、その生成物は作り直されないまま下の差分検査を通る。
+      # どちらもバックエンドのビルドより前に見る
       - name: Check every generated schema has a generator
-        run: scripts/check-api-type-generators.sh
+        run: scripts/check-api-type-generators.mjs
 
       - name: Ensure gradlew is executable
         run: chmod +x backend/gradlew
@@ -187,9 +192,6 @@ jobs:
             echo "Check that quarkusBuild actually ran the augmentation step." >&2
             exit 1
           fi
-
-      - name: Install dependencies
-        run: npm ci
 
       # 対象のワークスペースは `generate:api-types` が持つ。ここへ列挙すると、生成物を持つ
       # ワークスペースが増えたときに名前だけが古くなる（実体は落ちないため気付けない）
