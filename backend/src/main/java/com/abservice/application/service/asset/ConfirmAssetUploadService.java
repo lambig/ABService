@@ -1,10 +1,12 @@
 package com.abservice.application.service.asset;
 
+import com.abservice.application.port.AssetChangedDuringConfirmException;
 import com.abservice.application.port.AssetStorage;
 import com.abservice.application.port.StoredAssetHead;
 import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
+import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.lib.ErrorResult;
@@ -24,8 +26,16 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * </p>
  *
  * <p>
- * 確定は受け入れ前の場所から配信対象へ実体を移す操作であり、クライアントが書き込めるのは受け入れ前だけ。署名付きURLの
- * 有効期限内に同じURLへ再度アップロードされても、確定済みの配信実体は変わらない（検査した実体と配信される実体がずれない）。
+ * 確定は受け入れ前の場所から配信対象へ実体を移す操作であり、クライアントが書き込めるのは受け入れ前だけ。検査した実体と
+ * 配信される実体がずれないよう、2つの経路を塞ぐ（#285）。検査から確定までの隙間に受け入れ前が置き換わった場合は、
+ * 確定が検査した実体を条件にしているため失敗する。確定後に受け入れ前を作り直して確定をやり直す場合は、確定済みの 公開キーであることを先に見て拒む。
+ * </p>
+ *
+ * <p>
+ * 確定が途中で止まった場合の状態は次のように定まる。配信対象へのコピーが済んだ後に受け入れ前の片付けが失敗しても、
+ * 公開キーは確定済みであるため再確定は拒まれ、配信される実体は変わらない。残った受け入れ前の実体は保管先のライフサイクルで
+ * 期限切れになる（{@code docs/DECISIONS.md} 18）。応答がクライアントへ届かずに確定が再送された場合も同じ経路をたどる。
+ * 同一キーの確定が同時に走った場合は、確定済みの判定をすり抜けた側もコピーの条件で弾かれるため、先に確定した実体だけが配信される。
  * </p>
  *
  * <p>
@@ -33,7 +43,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * </p>
  */
 @ApplicationScoped
-@FailureContract({Failure.VALIDATION, Failure.NOT_FOUND})
+@FailureContract({Failure.VALIDATION, Failure.NOT_FOUND, Failure.CONFLICT})
 public class ConfirmAssetUploadService implements CommandService<ConfirmAssetUploadInput, ConfirmAssetUploadOutput> {
 
     private final AssetStorage assetStorage;
@@ -59,8 +69,23 @@ public class ConfirmAssetUploadService implements CommandService<ConfirmAssetUpl
 
     @Override
     public Uni<ConfirmAssetUploadOutput> execute(ConfirmAssetUploadInput input) {
-        return assetStorage.readHead(input.assetKey(), AssetImageFormat.REQUIRED_PREFIX_BYTES)
-                .flatMap(head -> verify(input.assetKey(), head));
+        return assetStorage.isPublished(input.assetKey())
+                .flatMap(published -> confirmUnlessPublished(input.assetKey(), published));
+    }
+
+    /**
+     * 一度確定した公開キーへ、別の実体を後から乗せない。確定済みのキーは、同じ署名付きURLで受け入れ前を作り直して
+     * 確定をやり直しても置き換わらない（#285）。
+     */
+    private Uni<ConfirmAssetUploadOutput> confirmUnlessPublished(String assetKey, boolean published) {
+        return published
+                ? Uni.createFrom().failure(alreadyPublished(assetKey))
+                : inspectAndConfirm(assetKey);
+    }
+
+    private Uni<ConfirmAssetUploadOutput> inspectAndConfirm(String assetKey) {
+        return assetStorage.readHead(assetKey, AssetImageFormat.REQUIRED_PREFIX_BYTES)
+                .flatMap(head -> verify(assetKey, head));
     }
 
     private Uni<ConfirmAssetUploadOutput> verify(String assetKey, Optional<StoredAssetHead> head) {
@@ -89,13 +114,32 @@ public class ConfirmAssetUploadService implements CommandService<ConfirmAssetUpl
             String assetKey,
             StoredAssetHead stored,
             AssetImageFormat format) {
-        return assetStorage.publish(assetKey)
+        return assetStorage.publish(assetKey, stored.entityTag())
+                .onFailure(AssetChangedDuringConfirmException.class)
+                .transform(cause -> changedDuringConfirm(assetKey, cause))
                 .replaceWith(
                         () -> new ConfirmAssetUploadOutput(
                                 assetKey,
                                 publicBasePath + "/" + assetKey,
                                 format.contentType(),
                                 stored.totalBytes()));
+    }
+
+    /**
+     * 確定済みの公開キーをもう一度確定しようとした場合の競合。やり直しは別のキーを払い出して行う。
+     */
+    private static BusinessRuleViolationException alreadyPublished(String assetKey) {
+        return new BusinessRuleViolationException(
+                "このアセットは確定済みです。別のキーを払い出してからアップロードしてください: key=" + assetKey);
+    }
+
+    /**
+     * 検査した実体が確定までの間に置き換わっていた場合の競合。保管先の事情を、呼び出し側が読み取れる競合へ翻訳する。
+     */
+    private static BusinessRuleViolationException changedDuringConfirm(String assetKey, Throwable cause) {
+        return new BusinessRuleViolationException(
+                "検査した実体が確定までの間に置き換わりました。アップロードからやり直してください: key=" + assetKey,
+                cause);
     }
 
     private Uni<ConfirmAssetUploadOutput> reject(String assetKey, ErrorResult error) {

@@ -3,6 +3,8 @@ package com.abservice.application.service.asset;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.abservice.application.port.AssetChangedDuringConfirmException;
+import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.domain.exception.ValidationException;
 import java.nio.charset.StandardCharsets;
@@ -86,6 +88,35 @@ class ConfirmAssetUploadServiceTest {
                 .hasMessageContaining("ASSET_CONTENT_MISMATCH");
 
         assertThat(storage.discardedKeys()).containsExactly(PNG_KEY);
+    }
+
+    @Test
+    @DisplayName("確定済みのキーをもう一度確定しようとした場合は競合にし、実体を確定し直さない")
+    void rejectsConfirmingAlreadyPublishedKey() {
+        final var storage = FakeAssetStorage.holding(PNG_HEAD, 512L);
+        final var service = service(storage);
+
+        service.execute(new ConfirmAssetUploadInput(PNG_KEY)).await().indefinitely();
+
+        assertThatThrownBy(
+                () -> service.execute(new ConfirmAssetUploadInput(PNG_KEY)).await().indefinitely())
+                .isInstanceOf(BusinessRuleViolationException.class)
+                .hasMessageContaining(PNG_KEY);
+
+        assertThat(storage.publishedKeys()).as("確定は一度きりで、同じキーが確定し直されない").containsExactly(PNG_KEY);
+    }
+
+    @Test
+    @DisplayName("検査から確定までの間に実体が置き換わった場合は競合にする")
+    void rejectsWhenContentChangedBetweenInspectionAndPublish() {
+        final var storage = FakeAssetStorage.replacedAfterRead(PNG_HEAD, 512L);
+
+        assertThatThrownBy(
+                () -> service(storage).execute(new ConfirmAssetUploadInput(PNG_KEY)).await().indefinitely())
+                .isInstanceOf(BusinessRuleViolationException.class)
+                .hasCauseInstanceOf(AssetChangedDuringConfirmException.class);
+
+        assertThat(storage.publishedKeys()).as("検査した実体でなければ確定しない").isEmpty();
     }
 
     private static ConfirmAssetUploadService service(FakeAssetStorage storage) {

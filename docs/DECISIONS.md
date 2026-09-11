@@ -268,11 +268,13 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **判断**: 署名付きURLの宛先は受け入れ前の置き場（配信パスの外）とし、確定（confirm）で検査に通った実体を保管先の内部コピーで配信対象へ移す。配信対象のキーへ書き込める署名付きURLは発行しない。確定に至らなかった実体はライフサイクルで期限切れにする。
 
+コピーは検査で得た実体の識別子（ETag）を条件に取り、受け入れ前が検査後に置き換わっていれば保管先が拒む。確定済みの公開キーへの再確定も拒む（同じ署名付きURLで受け入れ前を作り直しても、配信される実体は入れ替わらない）。やり直しは別のキーを払い出して行う。
+
 **なぜ**: 署名付きURLは一度発行すると有効期限内は何度でも使える（S3の署名は単回使用にできない）。配信キーへ直接アップロードさせると、確定で検査した実体と、その後にCDNが配信する実体が同一である保証が確定の瞬間に切れる。書き込める場所と配信される場所を分ければ、「確定した実体が配信される」が期限や運用の注意ではなく構造で決まる。受け入れ前を配信パスの外に置くのは、検査前・破棄予定の実体がCDNから到達しないようにするため。
 
 **トレードオフ**: 確定のたびに保管先内のコピーが1回入る（実体はバックエンドを経由しないため転送費と待ち時間は保管先の内部に収まる）。受け入れ前の実体が一時的に二重に存在し、放置分の掃除をライフサイクルに依存する。バージョン固定（同一キーのまま検査したバージョンを配信する）でも同じ不変性は作れるが、バージョンIDを集約が保持することになり「集約が持つのは保管キー、配信URLは組み立てる」（9）とDBスキーマに影響が及ぶため採らない。
 
-**実体**: `application/port/AssetStorage`（`presignUpload` / `publish` / `discard`）、`infrastructure/storage/S3AssetStorage`、`abservice.assets.pending-prefix`、`infra/data.tf`（`pending/` のライフサイクル）。
+**実体**: `application/port/AssetStorage`（`presignUpload` / `readHead` / `publish` / `isPublished` / `discard`）、`application/port/StoredAssetHead` の `entityTag`、`application/port/AssetChangedDuringConfirmException`、`infrastructure/storage/S3AssetStorage`、`abservice.assets.pending-prefix`、`infra/data.tf`（`pending/` のライフサイクル）。
 
 ---
 
