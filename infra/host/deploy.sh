@@ -47,5 +47,17 @@ export ASSETS_BUCKET="$ASSETS_BUCKET_VALUE"
 
 cd /opt/abservice
 docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml up -d
+
+# 起動を始めたことを成功にしない。compose の healthcheck（readiness を引く。DB 接続を含む）が
+# 通るまで待ち、期限を切る。待たずに終えると、起動に失敗しても unhealthy のままでも SSM の実行は
+# 成功で終わり、Actions も緑になる。期限は healthcheck の start_period と retries を見込む。
+if ! docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 240; then
+  echo "The backend did not become healthy in time. Its log follows." >&2
+  docker compose -f docker-compose.prod.yml logs --no-color --tail 200 backend >&2
+  exit 1
+fi
+
+# 差し替えで参照されなくなったレイヤを片付けるのは、新しいものが healthy になってから。失敗した
+# ときに手元へ残しておけば、戻すときに pull を待たずに済む。
+# ここで消えるのは dangling なものだけで、commit SHA のタグが付いた旧世代は残る（#336）。
 docker image prune -f

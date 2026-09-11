@@ -278,6 +278,18 @@ jobs:
       - name: Check readiness through the published port
         run: curl -fsS http://localhost:8080/q/health/ready
 
+      # 起動を始めたことを成功にしていないこと。データベースを止めれば backend は起動に失敗し、
+      # --wait はそれを unhealthy として返す。ここが素通りするなら、本番でも壊れたデプロイが緑で
+      # 終わる（deploy.sh も同じ待ち方をする）。期限は、起動し続けるが healthy にならない場合の保険
+      - name: Fail when the stack does not become healthy
+        run: |
+          docker compose rm -sf backend
+          docker compose stop postgres
+          if docker compose up -d --wait --wait-timeout 120 backend; then
+            echo "The stack reported success while the database was down." >&2
+            exit 1
+          fi
+
       - name: Show backend log
         if: ${{ failure() }}
         run: docker compose logs backend
