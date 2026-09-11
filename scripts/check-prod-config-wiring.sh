@@ -11,7 +11,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 compose="docker-compose.prod.yml"
-deploy="infra/templates/deploy.sh.tpl"
+deploy="infra/host/deploy.sh"
 
 required="$("$root/scripts/prod-required-settings.sh" | cut -d' ' -f1)"
 

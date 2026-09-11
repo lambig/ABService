@@ -98,6 +98,9 @@ jobs:
           TAG: ${{ steps.resolve.outputs.tag }}
         run: aws ecr describe-images --repository-name "$REPOSITORY" --image-ids imageTag="$TAG"
 
+      # イメージだけでなく、それを動かす手順も検査済みのSHAのものへ揃える（DECISIONS 16）。
+      # deploy.sh と docker-compose.prod.yml を毎回配ってから実行する。インスタンスを作るときに
+      # 一度だけ動く user_data で配ると、git で直しても稼働中のホストは古いままになる。
       - name: Deploy via SSM Run Command
         env:
           REGISTRY: ${{ steps.ecr-login.outputs.registry }}
@@ -106,11 +109,27 @@ jobs:
           INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
         run: |
           IMAGE="$REGISTRY/$REPOSITORY:$TAG"
+
+          PARAMETERS=$(jq -n \
+            --arg deploy "$(base64 -w0 infra/host/deploy.sh)" \
+            --arg compose "$(base64 -w0 docker-compose.prod.yml)" \
+            --arg image "$IMAGE" \
+            '{
+              commands: [
+                "set -eu",
+                "install -d -m 755 /opt/abservice",
+                "echo \($deploy) | base64 -d > /opt/abservice/deploy.sh",
+                "chmod +x /opt/abservice/deploy.sh",
+                "echo \($compose) | base64 -d > /opt/abservice/docker-compose.prod.yml",
+                "/opt/abservice/deploy.sh \($image)"
+              ]
+            }')
+
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy $IMAGE" \
-            --parameters "commands=[\"/opt/abservice/deploy.sh $IMAGE\"]" \
+            --parameters "$PARAMETERS" \
             --query "Command.CommandId" --output text)
           echo "SSM command id: $COMMAND_ID"
 

@@ -1,12 +1,29 @@
 #!/bin/bash
-# CI（GitHub Actions）からSSM Run Command経由で呼び出される。
+# 本番のホスト上でイメージを差し替える。CI（GitHub Actions）から SSM Run Command 経由で呼ばれ、
+# 呼び出しの直前に、CI が検査した SHA のこのファイルと docker-compose.prod.yml が
+# /opt/abservice へ置かれる（.github/workflows/deploy.yml）。
+#
 # 引数1: デプロイ対象のフルイメージ参照（例: <account>.dkr.ecr.<region>.amazonaws.com/abservice-backend:<tag>）
+#
+# インスタンスに固有の値はここへ書かず、user_data が置く /opt/abservice/deploy.env から読む。
+# 前者はインスタンスを作るときに決まり、この手順はアプリと同じ速さで変わる。
 set -euo pipefail
 
 IMAGE="$1"
-REGION="${aws_region}"
-PROJECT="${project_name}"
-ENVIRONMENT="${environment}"
+
+readonly ENV_FILE=/opt/abservice/deploy.env
+
+if [ ! -f "$ENV_FILE" ]; then
+  echo "$ENV_FILE is missing. The instance bootstrap (user_data) has not run on this host." >&2
+  exit 1
+fi
+
+# shellcheck source=/dev/null
+. "$ENV_FILE"
+
+: "${REGION:?$ENV_FILE must define REGION}"
+: "${PROJECT:?$ENV_FILE must define PROJECT}"
+: "${ENVIRONMENT:?$ENV_FILE must define ENVIRONMENT}"
 
 REGISTRY="$(echo "$IMAGE" | cut -d/ -f1)"
 aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$REGISTRY"

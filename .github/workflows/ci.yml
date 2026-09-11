@@ -237,6 +237,11 @@ jobs:
       - name: Check the prod configuration reaches the container
         run: scripts/check-prod-config-wiring.sh
 
+      # デプロイのたびに SSM が実機へ配るファイル。リポジトリでもコンテナでも動かないため、
+      # 壊れていても他の検査には現れず、差し替えの最中の実機で初めて分かる
+      - name: Check the files the deploy sends to the host
+        run: scripts/check-deploy-payload.sh
+
       # デプロイと同じ Dockerfile。壊れていることに気付けるのが deploy.yml の実行時では遅い
       - name: Build the production image
         run: docker build -f backend/src/main/docker/Dockerfile.jvm -t abservice-backend:ci backend
