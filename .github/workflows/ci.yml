@@ -225,6 +225,7 @@ jobs:
       DB_PASSWORD: abservice
       ADMIN_API_KEY: ci-admin-api-key
       ASSETS_BUCKET: abservice-assets
+      ORIGIN_VERIFY_TOKEN: ci-origin-verify-token
 
     steps:
       - name: Checkout
@@ -274,9 +275,25 @@ jobs:
       - name: Start the production stack
         run: docker compose up -d --wait --wait-timeout 240 backend
 
-      # readiness は DB 接続確認を含む。マイグレーションまで通っていることがここで分かる
+      # readiness は DB 接続確認を含む。マイグレーションまで通っていることがここで分かる。
+      # 公開ポート経由はコンテナの外から来るため、配信が付ける値を添える（コンテナ自身の
+      # healthcheck は loopback から引くので添えない）
       - name: Check readiness through the published port
-        run: curl -fsS http://localhost:8080/q/health/ready
+        run: |
+          curl -fsS -H "X-Origin-Verify: $ORIGIN_VERIFY_TOKEN" http://localhost:8080/q/health/ready
+
+      # 自分の配信を経由しない要求は届かない。ここが素通りするなら、別の配信から WAF と
+      # 経路の振り分けを迂回してオリジンへ届く（#286）
+      - name: Reject requests that did not come through the distribution
+        run: |
+          if curl -fsS http://localhost:8080/q/health/ready; then
+            echo "The origin answered a request that carried no verification header." >&2
+            exit 1
+          fi
+          if curl -fsS -H "X-Origin-Verify: wrong-token" http://localhost:8080/q/health/ready; then
+            echo "The origin answered a request that carried a wrong verification header." >&2
+            exit 1
+          fi
 
       # 起動を始めたことを成功にしていないこと。データベースを止めれば backend は起動に失敗し、
       # --wait はそれを unhealthy として返す。ここが素通りするなら、本番でも壊れたデプロイが緑で

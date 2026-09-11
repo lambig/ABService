@@ -14,6 +14,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:?}
       ADMIN_API_KEY: ${ADMIN_API_KEY:?}
       ASSETS_BUCKET: ${ASSETS_BUCKET:?}
+      ORIGIN_VERIFY_TOKEN: ${ORIGIN_VERIFY_TOKEN:?}
     ports:
       - "8080:8080"
     # readiness はDB接続を含む。start_period はマイグレーション込みの起動時間を見込む。

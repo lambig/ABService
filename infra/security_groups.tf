@@ -1,11 +1,13 @@
-# CloudFrontからの直接オリジンアクセスのみを許可し、EC2への直接到達（WAFバイパス）を防ぐ。
+# CloudFrontのオリジン向け送信元範囲に絞る。この範囲は**CloudFront全体**のもので、他の配信も含む。
+# 自分の配信に限定するのはbackendが検査するcustom header（#286）で、この prefix list はその手前で
+# 範囲を狭めるだけ。
 data "aws_ec2_managed_prefix_list" "cloudfront_origin_facing" {
   name = "com.amazonaws.global.cloudfront.origin-facing"
 }
 
 resource "aws_security_group" "ec2" {
   name        = "${var.project_name}-ec2-sg"
-  description = "CloudFrontオリジンからのbackendポート宛のみ許可（SSHは開放しない。管理はSSM Session Manager経由）"
+  description = "CloudFront送信元範囲からのbackendポート宛のみ許可。配信の限定はbackendのヘッダ検査が行う（SSHは開放しない。管理はSSM Session Manager経由）"
   vpc_id      = aws_vpc.main.id
 
   # ビューア向けTLS終端はCloudFront側で行い、CloudFront〜EC2間はAWSバックボーン内のHTTPとする

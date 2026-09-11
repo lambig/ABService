@@ -68,6 +68,16 @@ aws ssm get-parameter --name "/<project>/<environment>/app/admin-api-key" \
 
 ローテーションは Parameter Store の値を更新し、backend を再デプロイ（再起動）して反映する。
 
+## オリジンへの到達制限（#286）
+
+EC2のセキュリティグループが許すのは`com.amazonaws.global.cloudfront.origin-facing`の範囲で、これは**CloudFront全体**の送信元であり、他人のdistributionも含む。prefix listだけでは自分の配信に限定できず、別のdistributionが同じEC2を指せばWAFと`/api/*`の振り分けを経ずにbackendへ届く。
+
+Terraformが生成した値（`random_password.origin_verify_token`）をCloudFrontの`custom_header`（`X-Origin-Verify`）とParameter Storeの`/<project>/<environment>/app/origin-verify-token`（SecureString）の両方へ渡し、backendが`OriginVerificationFilter`で照合する。一致しない要求は本文なしの403で拒む。
+
+**コンテナ自身からの`/q/*`は検査しない。** compose のhealthcheckがloopback経由で引くため。この緩和は、同じコンテナの中のプロセスが管理エンドポイントへ到達できることを意味する。外から`/q/*`へ届く経路は、CloudFrontが`/api/*`しか流さないことと、この検査の両方で塞ぐ。
+
+値のrotationはCloudFrontとbackendの両方を同時に切り替えられないため、切り替えの瞬間に断が生じる。手順は#127で扱う。
+
 ## DB接続情報（#117）
 
 RDSの接続先とパスワードはTerraformが Parameter Store へ保存する（`/<project>/<environment>/db/host` `.../port` `.../name` `.../username`、パスワードのみ SecureString の `.../password`）。`deploy.sh` がこれらを取得して backend コンテナへ `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USERNAME` / `DB_PASSWORD` として渡す。backend は JDBC（Flywayが使う）とreactiveの接続URLをこのホスト・ポート・DB名から組み立てるため、用途ごとのURLを個別に渡すことはしない（両者が別のデータベースを指し得る形を残さない）。

@@ -80,6 +80,22 @@ resource "aws_ssm_parameter" "admin_api_key" {
   value = random_password.admin_api_key.result
 }
 
+# --- オリジンへの到達制限（#286） ---
+
+# 自分のCloudFrontだけが付ける値。セキュリティグループが許すのはCloudFront共通の送信元範囲で、
+# 他の配信も含まれるため、prefix listだけでは自分の配信に限定できない。
+# CloudFrontのcustom headerとbackendの設定の両方へ同じ値を渡す。
+resource "random_password" "origin_verify_token" {
+  length  = 48
+  special = false
+}
+
+resource "aws_ssm_parameter" "origin_verify_token" {
+  name  = "/${var.project_name}/${var.environment}/app/origin-verify-token"
+  type  = "SecureString"
+  value = random_password.origin_verify_token.result
+}
+
 # --- S3 ---
 
 resource "aws_s3_bucket" "frontend_public" {
