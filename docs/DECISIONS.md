@@ -561,12 +561,20 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **判断**: CI に2つのジョブを置く。
 
-- `container-check`: デプロイと同じ `Dockerfile.jvm` でイメージを作り、`docker-compose.prod.yml`（EC2 が動かす構成そのもの）で起動して readiness を引く。必須の設定が無い状態では起動に失敗することもあわせて確かめる
+- `container-check`: デプロイと同じ `Dockerfile.jvm` でイメージを作り、`docker-compose.prod.yml`（EC2 が動かす構成そのもの）で起動して readiness を引く。本番の必須設定が宣言から値の運搬まで通っていること、その設定を1つずつ欠くと起動しないことも、あわせて確かめる
 - `iac-check`: `terraform fmt -check` と `validate`（`-backend=false`）
 
 **なぜ**: E2E が起動するのは dev プロファイルの JAR で、本番が動かす形とは別物。prod でしか効かない設定（必須の環境変数、JSON ログ、S3 の資格情報の取り方）も、イメージの中身（ベースイメージに何が入っているか）も、E2E では通らない。
 
 **構成の受け渡しは compose のファイルを通す**。ワークフローが環境変数をコンテナへ直接渡す形にすると、compose のファイルが渡していない値まで CI では届き、検査が本番と食い違う。compose を通せば、渡し漏れはそのまま起動失敗として出る。
+
+**本番の必須設定の一覧は1箇所（`scripts/prod-required-settings.sh` の `REQUIRED`）が持ち、宣言・運搬・起動をその一覧で見る**。本番で外から値を受け取る設定について、
+
+- `application.properties` の `%prod` に既定値なしで宣言されていること。`${VAR}` から `${VAR:...}` へ戻す変更は、本番が開発向けの弱い値——既定のバケット名や開発用の API キー——で動くことを意味する
+- `docker-compose.prod.yml` がコンテナへ渡し、`infra/templates/deploy.sh.tpl` が export すること。宣言だけがあって運ぶ経路が無い形は、起動してみるまで表に出ない
+- その設定を1つずつ欠くと起動が失敗し、失敗が欠いた設定の名前を挙げること
+
+を検査する。設定をまとめて欠かす形では、1つが既定値を持つ側へ戻っても残りの欠落で失敗し続けるため、戻ったことに気付けない。
 
 Terraform は資格情報を要さない範囲に限る。`plan` は state と実アカウントを要求するため CI からは行わない。検査に使う版は `versions.tf` の `required_version` の下限に合わせ、宣言した下限で通らない書き方が入ったら落ちるようにする。
 
@@ -576,4 +584,4 @@ CI 用の compose の上書き（`docker-compose.ci.yml`）が1つ増える。pr
 
 `validate` が見るのは構文と参照であり、権限やリソースの整合までは見ない。
 
-**実体**: `.github/workflows/ci.yml` の `container-check` と `iac-check`、`docker-compose.prod.yml`、`docker-compose.ci.yml`、`backend/src/main/docker/Dockerfile.jvm`、`infra/templates/deploy.sh.tpl`。
+**実体**: `.github/workflows/ci.yml` の `container-check` と `iac-check`、`scripts/prod-required-settings.sh`、`scripts/check-prod-config-wiring.sh`、`scripts/check-prod-required-settings.sh`、`docker-compose.prod.yml`、`docker-compose.ci.yml`、`backend/src/main/docker/Dockerfile.jvm`、`infra/templates/deploy.sh.tpl`。

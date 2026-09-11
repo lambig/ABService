@@ -220,23 +220,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 宣言があるだけでは値は本番へ届かない。Parameter Store から取って compose へ渡すまでの経路が
+      # 繋がっていることを、イメージを作る前に見る。運ぶ経路が無い形は、起動してみるまで表に出ない
+      - name: Check the prod configuration reaches the container
+        run: scripts/check-prod-config-wiring.sh
+
       # デプロイと同じ Dockerfile。壊れていることに気付けるのが deploy.yml の実行時では遅い
       - name: Build the production image
         run: docker build -f backend/src/main/docker/Dockerfile.jvm -t abservice-backend:ci backend
-
-      # prod は設定が無いときに弱い既定値へ倒れず起動を失敗させる（DECISIONS.md）。倒れる側へ戻ると、
-      # 本番が既定のバケットや開発用の API キーで動きうる
-      - name: Fail fast when the required configuration is missing
-        run: |
-          if docker run --rm abservice-backend:ci; then
-            echo "The container started without the required configuration." >&2
-            exit 1
-          fi
 
       # prod の compose は DB の起動を待たない（本番の接続先は RDS で、同じ compose には居ない）。
       # backend は起動時にマイグレーションを行うため、先に DB を用意しておく
       - name: Start PostgreSQL
         run: docker compose up -d --wait --wait-timeout 120 postgres
+
+      # prod は設定が無いときに弱い既定値へ倒れず起動を失敗させる（DECISIONS 34）。倒れる側へ戻ると、
+      # 本番が既定のバケットや開発用の API キーで動きうる。欠かす設定は1つずつで、
+      # まとめて欠かすと1つが既定値を持つ側へ戻っても残りの欠落で失敗し続け、戻ったことに気付けない
+      - name: Fail to start when any single required setting is missing
+        run: scripts/check-prod-required-settings.sh
 
       - name: Start the production stack
         run: docker compose up -d --wait --wait-timeout 240 backend
