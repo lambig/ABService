@@ -143,10 +143,20 @@ jobs:
         run: |
           IMAGE="$REGISTRY/$REPOSITORY:$TAG"
 
+          # SSM 側の実行期限と、こちらの待機期限を対にする。守りたいのは「失敗を確定する時点で、
+          # SSM コマンドも成功しえない terminal 状態になっていること」で、待機期限を延ばすだけでは
+          # 諦めた後も向こうが走り続け、「Actions は赤だが本番は後から更新済み」が残る。
+          # 実行期限を過ぎればコマンドは ExecutionTimedOut になるため、それを見届けられる長さだけ待つ。
+          # 内訳は、ホストの health 待機（deploy.sh の --wait-timeout 240）に、ECR login・
+          # Parameter Store からの取得・pull の余白を足して 360、こちらはそれより長い 420。
+          SSM_EXECUTION_TIMEOUT=360
+          POLL_SECONDS=420
+
           PARAMETERS=$(jq -n \
             --arg deploy "$(base64 -w0 infra/host/deploy.sh)" \
             --arg compose "$(base64 -w0 docker-compose.prod.yml)" \
             --arg image "$IMAGE" \
+            --arg timeout "$SSM_EXECUTION_TIMEOUT" \
             '{
               commands: [
                 "set -eu",
@@ -155,7 +165,8 @@ jobs:
                 "chmod +x /opt/abservice/deploy.sh",
                 "echo \($compose) | base64 -d > /opt/abservice/docker-compose.prod.yml",
                 "/opt/abservice/deploy.sh \($image)"
-              ]
+              ],
+              executionTimeout: [$timeout]
             }')
 
           COMMAND_ID=$(aws ssm send-command \
@@ -166,11 +177,10 @@ jobs:
             --query "Command.CommandId" --output text)
           echo "SSM command id: $COMMAND_ID"
 
-          # SSM の waiter は 5秒 × 20回で打ち切る（約100秒）。deploy.sh は healthy になるまで
-          # 最大240秒待つため、waiter のままでは「Actions は赤だが本番は更新済み」が起こりうる。
-          # terminal status になるまで自分で待ち、期限は向こうの待ちより長く取る。
-          # 送信直後は invocation がまだ見えないことがあるため、その間は Pending として扱う。
-          DEADLINE=$((SECONDS + 300))
+          # 既定の waiter は 5秒 × 20回（約100秒）で打ち切るため使わない。terminal status に
+          # なるまで自分で追う。送信直後は invocation がまだ見えないことがあり、その間は Pending
+          # として扱う。
+          DEADLINE=$((SECONDS + POLL_SECONDS))
           STATUS=Pending
 
           while [ "$SECONDS" -lt "$DEADLINE" ]; do
