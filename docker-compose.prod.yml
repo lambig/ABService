@@ -1,16 +1,19 @@
 services:
   backend:
-    image: ${BACKEND_IMAGE}
+    image: ${BACKEND_IMAGE:?}
     container_name: abservice-backend
     restart: unless-stopped
+    # `:?` は未定義と空文字の両方を弾く。空文字を通すと、接続URLの式に空が埋まったまま起動し、
+    # 本番が既定のデータベースやローカルのホストへ繋ぎに行く（#330）。値が届かないことは
+    # コンテナを作る前にここで止める
     environment:
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-      DB_NAME: ${DB_NAME}
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      ADMIN_API_KEY: ${ADMIN_API_KEY}
-      ASSETS_BUCKET: ${ASSETS_BUCKET}
+      DB_HOST: ${DB_HOST:?}
+      DB_PORT: ${DB_PORT:?}
+      DB_NAME: ${DB_NAME:?}
+      DB_USERNAME: ${DB_USERNAME:?}
+      DB_PASSWORD: ${DB_PASSWORD:?}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:?}
+      ASSETS_BUCKET: ${ASSETS_BUCKET:?}
     ports:
       - "8080:8080"
     # readiness はDB接続を含む。start_period はマイグレーション込みの起動時間を見込む。
