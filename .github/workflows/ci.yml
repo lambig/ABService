@@ -198,6 +198,94 @@ jobs:
           git add --all --intent-to-add
           git diff --exit-code
 
+  container-check:
+    name: Container and prod configuration (image build / boot)
+    runs-on: ubuntu-latest
+
+    # E2E が起動するのは dev プロファイルの JAR であり、本番が動かす形とは別物。ここで見るのは
+    # 本番と同じ経路（Dockerfile.jvm のイメージを docker-compose.prod.yml で起動する）。
+    # 起動に必要な値は compose のファイルが渡すものだけなので、受け渡しの漏れは起動の失敗として出る。
+    env:
+      COMPOSE_FILE: docker-compose.yml:docker-compose.prod.yml:docker-compose.ci.yml
+      BACKEND_IMAGE: abservice-backend:ci
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: abservice
+      DB_USERNAME: abservice
+      DB_PASSWORD: abservice
+      ADMIN_API_KEY: ci-admin-api-key
+      ASSETS_BUCKET: abservice-assets
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 必須の一覧は宣言から自動で拾うため、宣言そのものを弱める変更は「必須が1つ減った」としか
+      # 見えず、後続の検査も素通りする。弱い値で本番が動くことを意味する設定はここで名指しして守る
+      - name: Check the required prod settings stay required
+        run: scripts/check-prod-settings-stay-required.sh
+
+      # 宣言があるだけでは値は本番へ届かない。Parameter Store から取って compose へ渡すまでの経路が
+      # 繋がっていることを、イメージを作る前に見る。運ぶ経路が無い形は、起動してみるまで表に出ない
+      - name: Check the prod configuration reaches the container
+        run: scripts/check-prod-config-wiring.sh
+
+      # デプロイと同じ Dockerfile。壊れていることに気付けるのが deploy.yml の実行時では遅い
+      - name: Build the production image
+        run: docker build -f backend/src/main/docker/Dockerfile.jvm -t abservice-backend:ci backend
+
+      # prod の compose は DB の起動を待たない（本番の接続先は RDS で、同じ compose には居ない）。
+      # backend は起動時にマイグレーションを行うため、先に DB を用意しておく
+      - name: Start PostgreSQL
+        run: docker compose up -d --wait --wait-timeout 120 postgres
+
+      # prod は設定が無いときに弱い既定値へ倒れず起動を失敗させる（DECISIONS 34）。倒れる側へ戻ると、
+      # 本番が既定のバケットや開発用の API キーで動きうる。欠かす設定は1つずつで、
+      # まとめて欠かすと1つが既定値を持つ側へ戻っても残りの欠落で失敗し続け、戻ったことに気付けない
+      - name: Fail to start when any single required setting is missing
+        run: scripts/check-prod-required-settings.sh
+
+      - name: Start the production stack
+        run: docker compose up -d --wait --wait-timeout 240 backend
+
+      # readiness は DB 接続確認を含む。マイグレーションまで通っていることがここで分かる
+      - name: Check readiness through the published port
+        run: curl -fsS http://localhost:8080/q/health/ready
+
+      - name: Show backend log
+        if: ${{ failure() }}
+        run: docker compose logs backend
+
+      - name: Stop the stack
+        if: ${{ always() }}
+        run: docker compose down -v
+
+  iac-check:
+    name: IaC (terraform fmt / validate)
+    runs-on: ubuntu-latest
+
+    # 資格情報を要さない静的な検査だけを行う。state を触らないよう backend は初期化しない。
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # versions.tf の required_version の下限で検査する。手元が新しくても、宣言した下限で
+      # 通らない書き方が入ったらここで落ちる
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive infra
+
+      - name: Initialize without the backend
+        run: terraform -chdir=infra init -backend=false
+
+      - name: Validate
+        run: terraform -chdir=infra validate
+
   e2e:
     name: E2E (Playwright / 実スタック)
     runs-on: ubuntu-latest

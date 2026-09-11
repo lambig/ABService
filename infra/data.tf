@@ -182,3 +182,10 @@ resource "aws_s3_bucket_cors_configuration" "assets" {
     max_age_seconds = 3000
   }
 }
+
+# バケット名はprodで必須（既定値へフォールバックさせない）。DB接続情報と同じ経路で渡す。
+resource "aws_ssm_parameter" "assets_bucket" {
+  name  = "/${var.project_name}/${var.environment}/assets/bucket"
+  type  = "String"
+  value = aws_s3_bucket.assets.bucket
+}

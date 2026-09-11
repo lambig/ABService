@@ -554,3 +554,36 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 定義の出力先（`build/openapi`）は `quarkusBuild` の宣言された出力ではないため、タスクがキャッシュや前回の状態で実行されないと**定義が書かれないまま成功する**。検査の側はビルドキャッシュを使わずに作り直し、書かれたことを確かめてから型を生成する。
 
 **実体**: `.github/workflows/ci.yml` の `api-types-check`、ルート `package.json` の `generate:api-types`、`frontend-public` / `frontend-admin` の `src/lib/api/schema.d.ts`。
+
+---
+
+## 34. 本番の形（イメージ・compose・IaC）はアプリのE2Eと別に検査する
+
+**判断**: CI に2つのジョブを置く。
+
+- `container-check`: デプロイと同じ `Dockerfile.jvm` でイメージを作り、`docker-compose.prod.yml`（EC2 が動かす構成そのもの）で起動して readiness を引く。本番の必須設定が宣言から値の運搬まで通っていること、その設定を1つずつ欠くと起動しないことも、あわせて確かめる
+- `iac-check`: `terraform fmt -check` と `validate`（`-backend=false`）
+
+**なぜ**: E2E が起動するのは dev プロファイルの JAR で、本番が動かす形とは別物。prod でしか効かない設定（必須の環境変数、JSON ログ、S3 の資格情報の取り方）も、イメージの中身（ベースイメージに何が入っているか）も、E2E では通らない。
+
+**構成の受け渡しは compose のファイルを通す**。ワークフローが環境変数をコンテナへ直接渡す形にすると、compose のファイルが渡していない値まで CI では届き、検査が本番と食い違う。compose を通せば、渡し漏れはそのまま起動失敗として出る。
+
+**本番の必須設定は、列挙・運搬・起動に分けて検査する**。
+
+- **列挙**（`scripts/prod-required-settings.sh`）: `application.properties` の `%prod` のうち既定値を持たない宣言（`${VAR}`）を正として自動で拾う。新しい必須設定を足したときに検査の側へ名前を写す作業が要らず、写し忘れでその設定だけが検査の外に残ることもない
+- **運搬**（`scripts/check-prod-config-wiring.sh`）: 列挙した全件を `docker-compose.prod.yml` がコンテナへ渡し、`infra/templates/deploy.sh.tpl` が export すること。宣言だけがあって運ぶ経路が無い形は、起動してみるまで表に出ない
+- **起動**（`scripts/check-prod-required-settings.sh`）: 他の値を揃えたうえで1つずつ欠くと起動が失敗し、失敗が欠いた設定の名前を挙げること。まとめて欠かす形では、1つが既定値を持つ側へ戻っても残りの欠落で失敗し続けるため、戻ったことに気付けない
+
+**「いま何が必須か」と「何が必須であり続けるべきか」は別に持つ**。宣言を正にした列挙は、宣言そのものを弱める変更——`${VAR}` を `${VAR:...}` へ戻す、`%prod` の行を消す——を「必須が1つ減った」としか見ない。本番が開発向けの弱い値（既定のバケット名、開発用の API キー、ローカルのデータベース）で動くことを意味する設定は、`scripts/check-prod-settings-stay-required.sh` が名指しで守る。前者は発見、後者は方針であり、片方に寄せると新規設定の取りこぼしか宣言の後退のどちらかが素通りする。
+
+起動の検査の対象は、欠けたことが設定名として現れる設定に限る。直接注入される設定（`abservice.auth.admin-api-key` / `abservice.assets.bucket`）は値が無ければ設定名を挙げて即座に落ちるが、接続URLの式の材料になる DB 系は、欠けても式が組み上がって接続先が変わるだけで、どれが欠けたのかが現れない（#330）。検査は対象外の設定もスキップした理由とともに1件ずつ出力し、一覧が空のまま素通りした状態と見分けられるようにする。
+
+Terraform は資格情報を要さない範囲に限る。`plan` は state と実アカウントを要求するため CI からは行わない。検査に使う版は `versions.tf` の `required_version` の下限に合わせ、宣言した下限で通らない書き方が入ったら落ちるようにする。
+
+**トレードオフ**: イメージのビルドはコンテナの中で Gradle を回すため、CI の総実行時間が増える。他のジョブと並列に走るので待ち時間は変わらない。
+
+CI 用の compose の上書き（`docker-compose.ci.yml`）が1つ増える。prod のファイルはネットワークを宣言しておらず、ローカル用 PostgreSQL と同じネットワークへ載せる必要があるため。上書きの内容はネットワークだけに留め、prod の定義には触らない。
+
+`validate` が見るのは構文と参照であり、権限やリソースの整合までは見ない。
+
+**実体**: `.github/workflows/ci.yml` の `container-check` と `iac-check`、`scripts/prod-required-settings.sh`、`scripts/check-prod-settings-stay-required.sh`、`scripts/check-prod-config-wiring.sh`、`scripts/check-prod-required-settings.sh`、`docker-compose.prod.yml`、`docker-compose.ci.yml`、`backend/src/main/docker/Dockerfile.jvm`、`infra/templates/deploy.sh.tpl`。
