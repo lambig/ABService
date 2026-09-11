@@ -141,7 +141,7 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 ## 10. 観測性はアプリ固有の実装を持たず拡張の標準経路に載せる
 
-**判断**: ヘルスチェックは自前のリソースクラスを持たず `quarkus-smallrye-health` の `/q/health/{live,ready}` に委ね、readiness のDB接続確認も datasource 拡張の自動登録に任せる。メトリクスは micrometer が `/q/metrics` に Prometheus 形式で公開する。いずれも `/q/*` のため本番で外部から到達しない。ログは prod のみ JSON（1レコード1行）で標準出力へ出す。
+**判断**: ヘルスチェックは自前のリソースクラスを持たず `quarkus-smallrye-health` の `/q/health/{live,ready}` に委ね、readiness のDB接続確認も datasource 拡張の自動登録に任せる。メトリクスは micrometer が `/q/metrics` に Prometheus 形式で公開する。いずれも `/q/*` で、本番で外部から到達しないことは経路の振り分けと配信の識別（35）の両方が担う。ログは prod のみ JSON（1レコード1行）で標準出力へ出す。
 
 **なぜ**: 手書きの `/api/v1/health` は固定文字列を返すだけで、依存先が落ちても UP を返す（＝監視として機能しない）状態だった。拡張の自動登録に載せれば、データソースを増やしたときも検査対象が追随する。公開APIのパス（`/api/v1/**`）に監視用のエンドポイントを混ぜないことで、CloudFront が backend へ流す経路を `/api/*` に限ったまま監視を内側に閉じられる。ログのJSON化を prod 限定にするのは、収集側（CloudWatch Logs）が構造化を求める一方、開発中はプレーン出力の可読性が要るため。
 
@@ -609,3 +609,21 @@ CI 用の compose の上書き（`docker-compose.ci.yml`）が1つ増える。pr
 `validate` が見るのは構文と参照であり、権限やリソースの整合までは見ない。
 
 **実体**: `.github/workflows/ci.yml` の `container-check` と `iac-check`、`scripts/prod-required-settings.sh`、`scripts/check-prod-settings-stay-required.sh`、`scripts/check-prod-config-wiring.sh`、`scripts/check-prod-required-settings.sh`、`docker-compose.prod.yml`、`docker-compose.ci.yml`、`backend/src/main/docker/Dockerfile.jvm`、`infra/host/deploy.sh`。
+
+---
+
+## 35. オリジンへの到達は、送信元の範囲ではなく配信の識別で限定する
+
+**判断**: EC2 のセキュリティグループは CloudFront のオリジン向け送信元範囲へ絞るが、自分の配信に限定するのは backend が検査する識別ヘッダで行う。Terraform が生成した値を、配信の `custom_header` と Parameter Store（backend の設定）の両方へ渡し、一致しない要求は本文なしの 403 で拒む。
+
+**なぜ**: `com.amazonaws.global.cloudfront.origin-facing` は CloudFront 全体の送信元で、他人の配信も同じ範囲から出る。別の配信が同じオリジンを指せば、こちらの WAF も経路の振り分け（`/api/*` だけを backend へ流す）も経ずに届く。prefix list は範囲を狭めるだけで、どの配信から来たかを表さない。「`/q/*` は本番で外部に露出しない」（10）は、振り分けとこの検査の両方があってはじめて成立する。
+
+本文を返さないのは、経由していない相手へ何を期待しているかを教えないため。照合はタイミング攻撃を避けて定数時間で行う。
+
+**稼働確認の経路を自分自身から引く場合だけ素通しにする**。コンテナの healthcheck が通る道であり（10）、ここを塞ぐと readiness が引けない。**この緩和は、同じコンテナの中のプロセスが管理エンドポイントへ到達できることを意味する**。コンテナの中に backend 以外のプロセスを置かない前提に依存しており、前提が変わるなら見直す。
+
+**トレードオフ**: 値を切り替える瞬間、配信と backend のどちらかが古い値を持つため断が生じる。新旧を同時に受け付ける形は持たせていない。rotation の手順は #127 が扱う。
+
+検査そのものは実機でしか確かめられない部分がある。ヘッダの有無による拒否は統合テストと CI（公開ポート経由）で見るが、「別の配信からは到達できない」は AWS 上でしか再現できない。
+
+**実体**: `presentation.rest.security.OriginVerificationFilter`、`application.properties` の `abservice.origin.verify-token`、`infra/data.tf`（値の生成と保管）、`infra/edge.tf`（配信の `custom_header`）、`infra/security_groups.tf`、`docker-compose.prod.yml`、`infra/host/deploy.sh`。
