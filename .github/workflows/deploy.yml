@@ -143,14 +143,17 @@ jobs:
         run: |
           IMAGE="$REGISTRY/$REPOSITORY:$TAG"
 
-          # SSM 側の実行期限と、こちらの待機期限を対にする。守りたいのは「失敗を確定する時点で、
-          # SSM コマンドも成功しえない terminal 状態になっていること」で、待機期限を延ばすだけでは
-          # 諦めた後も向こうが走り続け、「Actions は赤だが本番は後から更新済み」が残る。
-          # 実行期限を過ぎればコマンドは ExecutionTimedOut になるため、それを見届けられる長さだけ待つ。
-          # 内訳は、ホストの health 待機（deploy.sh の --wait-timeout 240）に、ECR login・
-          # Parameter Store からの取得・pull の余白を足して 360、こちらはそれより長い 420。
+          # 守りたいのは「失敗を確定する時点で、SSM コマンドも成功しえない terminal 状態になって
+          # いること」。SSM の期限は配信と実行で別に管理されるため、両方を明示したうえで、こちらの
+          # 待機をその合計より長く取る。配信されないまま期限を過ぎれば DeliveryTimedOut、実行が
+          # 期限を過ぎれば ExecutionTimedOut になるので、諦めた後に配信されて走り出す経路も、
+          # 走り続ける経路も残らない。待機を延ばすだけでは、どちらの経路も塞げない。
+          #
+          # 実行の内訳は、ホストの health 待機（deploy.sh の --wait-timeout 240）に、ECR login・
+          # Parameter Store からの取得・pull の余白を足したもの。
+          SSM_DELIVERY_TIMEOUT=60
           SSM_EXECUTION_TIMEOUT=360
-          POLL_SECONDS=420
+          POLL_SECONDS=450
 
           PARAMETERS=$(jq -n \
             --arg deploy "$(base64 -w0 infra/host/deploy.sh)" \
@@ -173,6 +176,7 @@ jobs:
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy $IMAGE" \
+            --timeout-seconds "$SSM_DELIVERY_TIMEOUT" \
             --parameters "$PARAMETERS" \
             --query "Command.CommandId" --output text)
           echo "SSM command id: $COMMAND_ID"

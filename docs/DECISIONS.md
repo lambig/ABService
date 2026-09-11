@@ -238,7 +238,7 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **デプロイの成否は、起動を始めたことではなく healthy になったことで決める**。`deploy.sh` は compose の healthcheck（readiness を引き、DB 接続を含む）が通るまで待ち、期限を切って失敗させる。待たずに終えると、起動に失敗しても unhealthy のままでも SSM の実行は成功で終わり、Actions も緑になる。古いイメージを片付けるのは healthy を確かめた後にする（失敗したときに手元へ残しておけば、戻すときに pull を待たない）。
 
-**Actions が失敗を確定する時点で、SSM のコマンドも成功しえない状態になっていること**を守る。SSM の実行期限（`executionTimeout`）と Actions の待機期限を対にし、前者を過ぎればコマンドが terminal（`ExecutionTimedOut`）になるようにしたうえで、後者をそれが見届けられる長さにする。待機期限を延ばすだけでは、諦めた後も向こうが走り続け、「Actions は赤だが本番は後から更新済み」が残る。既定の waiter（約100秒で打ち切る）を使わないのも同じ理由。
+**Actions が失敗を確定する時点で、SSM のコマンドも成功しえない状態になっていること**を守る。SSM の期限は配信（`--timeout-seconds`。Agent が受け取るまで）と実行（`executionTimeout`）で別に管理されるため両方を明示し、Actions の待機期限をその合計より長く取る。配信されないまま期限を過ぎれば `DeliveryTimedOut`、実行が期限を過ぎれば `ExecutionTimedOut` になるので、諦めた後に配信されて走り出す経路も、走り続ける経路も残らない。待機期限を延ばすだけでは、どちらも塞げず「Actions は赤だが本番は後から更新済み」が残る。既定の waiter（約100秒で打ち切る）を使わないのも同じ理由。
 
 **手動のロールバックも、イメージと手順を同じ commit から決める**。入力は commit の SHA で、その commit を checkout してタグを導く。イメージのタグだけを受け取る形にすると、戻したいイメージと、いま配られる `deploy.sh` / `docker-compose.prod.yml` が別の commit のものになりうる。
 
