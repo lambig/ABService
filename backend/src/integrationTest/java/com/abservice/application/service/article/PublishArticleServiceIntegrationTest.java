@@ -64,6 +64,7 @@ class PublishArticleServiceIntegrationTest {
                 null,
                 null,
                 null,
+                null,
                 null);
     }
 

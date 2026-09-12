@@ -101,6 +101,7 @@
           kind: 'choice',
           choices: DESCRIPTION_FORMATS,
         },
+        text('originalWorkNote', '原作の出典（例:「○○」より各曲）'),
       ],
     },
     {

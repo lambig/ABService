@@ -5,6 +5,7 @@ import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
+import com.abservice.domain.model.vo.album.OriginalWorkNote;
 import com.abservice.domain.model.vo.album.Price;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.AssetKey;
@@ -73,6 +74,8 @@ public class AlbumCreationService implements DomainService {
      *            初出イベント情報（nullable）
      * @param basePrice
      *            頒布の基準額（nullable。null は額が決まっていない）
+     * @param originalWorkNote
+     *            原作の出典の記述（nullable。空白のみは記述なしとして扱う）
      * @return 成功時は検証・生成されたAlbum、失敗時はエラー
      */
     @DomainFactory
@@ -87,7 +90,8 @@ public class AlbumCreationService implements DomainService {
             @Nullable String description,
             @Nullable String descriptionFormat,
             @Nullable EventFields event,
-            @Nullable BasePriceFields basePrice) {
+            @Nullable BasePriceFields basePrice,
+            @Nullable String originalWorkNote) {
         return validate(
                 title,
                 releaseDate,
@@ -99,7 +103,8 @@ public class AlbumCreationService implements DomainService {
                 description,
                 descriptionFormat,
                 event,
-                basePrice);
+                basePrice,
+                originalWorkNote);
     }
 
     @DomainFactory
@@ -114,7 +119,8 @@ public class AlbumCreationService implements DomainService {
             @Nullable String description,
             @Nullable String descriptionFormat,
             @Nullable EventFields event,
-            @Nullable BasePriceFields basePrice) {
+            @Nullable BasePriceFields basePrice,
+            @Nullable String originalWorkNote) {
         return Result.zip(
                 Result.zip(
                         AlbumTitle.fromInput(title)
@@ -135,7 +141,9 @@ public class AlbumCreationService implements DomainService {
                                 .withErrorField("coverImageKey"),
                         resolveDescription(description, descriptionFormat),
                         resolveBasePrice(basePrice),
-                        CoverAndDescription::new),
+                        resolveOptional(OriginalWorkNote::fromInput, originalWorkNote)
+                                .withErrorField("originalWorkNote"),
+                        Extras::new),
                 (base, optional, extra) -> Album.create(
                         base.title(),
                         base.releaseDate(),
@@ -145,7 +153,8 @@ public class AlbumCreationService implements DomainService {
                         optional.catalogNumber().orElse(null),
                         optional.isdn().orElse(null),
                         extra.coverImageKey().orElse(null),
-                        extra.basePrice().orElse(null)));
+                        extra.basePrice().orElse(null),
+                        extra.originalWorkNote().orElse(null)));
     }
 
     /** 説明なし（blank 入力）を表す検証結果。完全に使い回せる定数。 */
@@ -199,10 +208,11 @@ public class AlbumCreationService implements DomainService {
             Optional<EventReleasedAt> event) {
     }
 
-    private record CoverAndDescription(
+    private record Extras(
             Optional<AssetKey> coverImageKey,
             MarkupContent description,
-            Optional<Price> basePrice) {
+            Optional<Price> basePrice,
+            Optional<OriginalWorkNote> originalWorkNote) {
     }
 
     /**

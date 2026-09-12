@@ -30,6 +30,8 @@ export interface AlbumSeed {
     /** 通貨コード（ISO 4217）。省略は円 */
     readonly currency?: string;
   };
+  /** 原作の出典の記述（#365）。省略すると記述を持たない作品になる */
+  readonly originalWorkNote?: string;
   readonly tracks?: readonly TrackSeed[];
   readonly externalAudioUrls?: readonly string[];
 }
@@ -111,6 +113,7 @@ export const seedDraftAlbum = async (album: AlbumSeed): Promise<string> => {
     descriptionFormat: album.descriptionFormat,
     event: album.event,
     basePrice: album.basePrice,
+    originalWorkNote: album.originalWorkNote,
     tracks: (album.tracks ?? []).map((track) => ({
       trackNo: track.trackNo,
       title: track.title,
@@ -181,6 +184,7 @@ interface AdminAlbumDetail {
   readonly description: string | null;
   readonly descriptionFormat: string;
   readonly basePrice: { readonly amount: number; readonly currency: string } | null;
+  readonly originalWorkNote: string | null;
 }
 
 /**
@@ -214,6 +218,7 @@ export const renameAlbumOutsideTheScreen = async (
     description: detail.description,
     descriptionFormat: detail.descriptionFormat,
     basePrice: detail.basePrice ?? undefined,
+    originalWorkNote: detail.originalWorkNote ?? undefined,
   });
 };
 

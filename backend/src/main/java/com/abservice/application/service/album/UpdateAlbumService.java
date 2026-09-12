@@ -10,6 +10,7 @@ import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
+import com.abservice.domain.model.vo.album.OriginalWorkNote;
 import com.abservice.domain.model.vo.album.Price;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.AssetKey;
@@ -144,7 +145,9 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
                                 .mapErrorFields(field -> "coverImageKey"),
                         resolveDescription(input.description(), input.descriptionFormat()),
                         resolveBasePrice(input.basePrice()),
-                        CoverAndDescription::new),
+                        resolveOptional(OriginalWorkNote::fromInput, input.originalWorkNote())
+                                .mapErrorFields(field -> "originalWorkNote"),
+                        Extras::new),
                 (base, optional, extra) -> existing.changeTitle(base.title())
                         .changeReleaseDate(base.releaseDate())
                         .changeArtistCredit(base.artistCredit())
@@ -153,7 +156,8 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
                         .changeCatalogNumber(optional.catalogNumber().orElse(null))
                         .changeIsdn(optional.isdn().orElse(null))
                         .changeCoverImageKey(extra.coverImageKey().orElse(null))
-                        .changeBasePrice(extra.basePrice().orElse(null)));
+                        .changeBasePrice(extra.basePrice().orElse(null))
+                        .changeOriginalWorkNote(extra.originalWorkNote().orElse(null)));
     }
 
     private static Result<Optional<Price>> resolveBasePrice(
@@ -193,10 +197,11 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
             Optional<EventReleasedAt> event) {
     }
 
-    private record CoverAndDescription(
+    private record Extras(
             Optional<AssetKey> coverImageKey,
             MarkupContent description,
-            Optional<Price> basePrice) {
+            Optional<Price> basePrice,
+            Optional<OriginalWorkNote> originalWorkNote) {
     }
 
     private static Result<BusinessDate> resolveReleaseDate(@Nullable String value) {

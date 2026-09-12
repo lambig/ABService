@@ -25,6 +25,7 @@ export const ALBUM_FIELD_PATHS = [
   'event.note',
   'basePrice.amount',
   'basePrice.currency',
+  'originalWorkNote',
 ] as const;
 
 /** 入力欄の位置 */
@@ -61,6 +62,7 @@ export const EMPTY_DRAFT: AlbumDraft = {
   'event.note': '',
   'basePrice.amount': '',
   'basePrice.currency': '',
+  originalWorkNote: '',
 };
 
 /**
@@ -88,6 +90,7 @@ export const draftOf = (album: AdminAlbumDetail): AlbumDraft => ({
   'event.note': album.eventNote ?? '',
   'basePrice.amount': amountText(album.basePrice?.amount),
   'basePrice.currency': album.basePrice?.currency ?? '',
+  originalWorkNote: album.originalWorkNote ?? '',
 });
 
 /** 額は欄の値として文字列で持つ（入力欄が返すのは文字列で、両方の形を混ぜない） */
@@ -199,4 +202,5 @@ export const albumFieldsOf = (draft: AlbumDraft): AlbumFields => ({
   descriptionFormat: presence(draft.descriptionFormat),
   event: eventOf(draft),
   basePrice: basePriceOf(draft),
+  originalWorkNote: presence(draft.originalWorkNote),
 });

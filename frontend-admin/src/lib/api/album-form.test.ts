@@ -22,6 +22,7 @@ const detail = {
   coverImageKey: 'covers/album-1.png',
   coverImageUrl: 'https://example.com/covers/album-1.png',
   basePrice: { amount: 1500, currency: 'JPY' },
+  originalWorkNote: '「○○」より各曲',
   externalAudios: [],
   tracks: [],
 } satisfies AdminAlbumDetail;
@@ -169,5 +170,27 @@ describe('まとまりの解除', () => {
       amount: undefined,
       currency: 'JPY',
     });
+  });
+});
+
+describe('原作の出典の記述', () => {
+  it('照会の値を、そのまま欄の初期値にする', () => {
+    expect(draftOf(detail).originalWorkNote).toBe('「○○」より各曲');
+  });
+
+  it('記述を持たない作品は空文字になる', () => {
+    expect(draftOf({ ...detail, originalWorkNote: null }).originalWorkNote).toBe('');
+  });
+
+  it('入力された記述を、加工せずそのまま送る', () => {
+    const fields = albumFieldsOf(withValue(EMPTY_DRAFT, 'originalWorkNote', '「○○」より各曲'));
+
+    expect(fields.originalWorkNote).toBe('「○○」より各曲');
+  });
+
+  it('空にした欄は送らない（記述なしへの置換になる）', () => {
+    const fields = albumFieldsOf(withValue(draftOf(detail), 'originalWorkNote', ''));
+
+    expect(fields.originalWorkNote).toBeUndefined();
   });
 });

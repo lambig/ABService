@@ -92,6 +92,7 @@ class ArticlePublicationServiceTest {
                 null,
                 null,
                 null,
+                null,
                 null);
     }
 
