@@ -1,4 +1,4 @@
-import { mkdir } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import type { Locator, Page } from '@playwright/test';
@@ -42,10 +42,35 @@ export const focusOn = async (locator: Locator): Promise<void> => {
  *            ファイル名（`01-albums-list` のように順序が分かる形にする）
  */
 export const capture = async (page: Page, name: string): Promise<void> => {
+  await waitForFonts(page);
+  await shoot(page, name);
+};
+
+/**
+ * 書体の覆い（#361）が出たままの画面を撮る。
+ *
+ * <p>
+ * 通常の {@link capture} では撮れない。待つのはこちらの {@link waitForFonts} だけではなく、Playwright の
+ * `screenshot` 自身が撮る前に書体の読み込み完了を待つためで、覆いが出ている間は**どちらの待ちも明けない**。
+ * ブラウザへ直接（CDP）撮らせる経路をここだけに限り、覆いの見た目を確かめるシナリオから使う。
+ * </p>
+ */
+export const captureWhileCovered = async (page: Page, name: string): Promise<void> => {
+  const path = await pathFor(name);
+  const session = await page.context().newCDPSession(page);
+  const { data } = await session.send('Page.captureScreenshot', { format: 'png' });
+  await session.detach();
+  await writeFile(path, Buffer.from(data, 'base64'));
+};
+
+const shoot = async (page: Page, name: string): Promise<void> => {
+  await page.screenshot({ path: await pathFor(name), animations: 'disabled' });
+};
+
+const pathFor = async (name: string): Promise<string> => {
   const path = join(EVIDENCE_DIR, `${name}.png`);
   await mkdir(dirname(path), { recursive: true });
-  await waitForFonts(page);
-  await page.screenshot({ path, animations: 'disabled' });
+  return path;
 };
 
 /*
