@@ -8,6 +8,7 @@ import TrackList from '$components/TrackList.astro';
 import { getAlbum, listAlbums, type PublicAlbumDetail } from '$lib/api/client';
 import { formatCalendarDate } from '$lib/format';
 import { renderBody } from '$lib/markup';
+import { showsArtistName } from '$lib/site';
 import BaseLayout from '$layouts/BaseLayout.astro';
 
 /*
@@ -40,6 +41,9 @@ const descriptionHtml =
 
 /** 品番と ISDN は並べて出す */
 const identifiers = [album.catalogNumber, album.isdn].filter((value) => value !== null);
+
+/* 名義は既定と違うときだけ出す（#348） */
+const showsArtist = await showsArtistName(album.artistDisplayName);
 
 /*
  * カバー画像を本体に出すのは外部音源が0件のときだけ（#197）。プレイヤー自身がアートワークを持つため、
@@ -76,9 +80,13 @@ const coverImageForBody = album.externalAudios.length === 0 ? album.coverImageUr
         <h1 class="text-2xl font-medium">
           <ProperNoun>{album.title}</ProperNoun>
         </h1>
-        <p class="text-muted-foreground">
-          <ProperNoun>{album.artistDisplayName}</ProperNoun>
-        </p>
+        {
+          showsArtist ? (
+            <p class="text-muted-foreground">
+              <ProperNoun>{album.artistDisplayName}</ProperNoun>
+            </p>
+          ) : null
+        }
         <p class="text-muted-foreground text-sm">
           <time datetime={album.releaseDate}>{formatCalendarDate(album.releaseDate)}</time>
         </p>
