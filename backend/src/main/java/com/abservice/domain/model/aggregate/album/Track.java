@@ -5,8 +5,10 @@ import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -21,7 +23,9 @@ import com.abservice.domain.model.DomainFactory;
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.entity.DomainEntity;
 import com.abservice.domain.model.policy.Policy;
+import com.abservice.domain.model.vo.album.TrackName;
 import com.abservice.domain.model.vo.album.TrackTitle;
+import com.abservice.domain.model.vo.album.TrackTuneTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.Url;
@@ -50,8 +54,15 @@ public final class Track implements DomainEntity<Track, Track.Id> {
     /** トラック番号 */
     @NonNull
     private final Integer trackNo;
-    /** トラックタイトル */
-    @NonNull
+    /**
+     * 入力されたトラックタイトル。
+     *
+     * <p>
+     * 省略できます（#360）。省略したトラックの名は、そのトラックが持つチューン名を繋いだものになります。名を問う ときは、この項目を直に読まず
+     * {@link #name(String)} を通してください。
+     * </p>
+     */
+    @Nullable
     private final TrackTitle title;
     /** nullの場合はAlbumのartistCreditを継承 */
     @Nullable
@@ -66,14 +77,14 @@ public final class Track implements DomainEntity<Track, Track.Id> {
             "Track number cannot be null",
             "TRACK_NO_REQUIRED");
 
-    /** title必須違反時のエラー */
-    private static final ErrorResult TITLE_REQUIRED_ERROR = new ErrorResult(
+    /** 名を答えられない（タイトルも、名を持つチューンも無い）場合のエラー */
+    private static final ErrorResult NAME_UNRESOLVABLE_ERROR = new ErrorResult(
             "title",
-            "Track title cannot be null",
-            "TRACK_TITLE_REQUIRED");
+            "Track title is required unless the track has at least one named tune",
+            "TRACK_NAME_UNRESOLVABLE");
 
     @DomainConstructor
-    private Track(@NonNull Id id, @NonNull Integer trackNo, @NonNull TrackTitle title,
+    private Track(@NonNull Id id, @NonNull Integer trackNo, @Nullable TrackTitle title,
             @Nullable ArtistCredit artistCredit, @NonNull List<TrackTune> tunes) {
         this.id = id;
         this.trackNo = trackNo;
@@ -90,8 +101,8 @@ public final class Track implements DomainEntity<Track, Track.Id> {
                         self -> self.trackNo() != null,
                         TRACK_NO_REQUIRED_ERROR),
                 Policy.of(
-                        self -> self.title() != null,
-                        TITLE_REQUIRED_ERROR))
+                        Stub::hasResolvableName,
+                        NAME_UNRESOLVABLE_ERROR))
                 .verify(
                         new Stub(
                                 id,
@@ -112,14 +123,84 @@ public final class Track implements DomainEntity<Track, Track.Id> {
             return new Track(
                     Objects.requireNonNull(id),
                     Objects.requireNonNull(trackNo),
-                    Objects.requireNonNull(title),
+                    title(),
                     artistCredit(),
                     Objects.requireNonNull(tunes));
+        }
+
+        /**
+         * タイトルを持たないトラックは、名を持つチューンを少なくとも1つ持つ（#360）
+         *
+         * @return 名を答えられる場合は true
+         */
+        boolean hasResolvableName() {
+            return TrackName.isResolvable(titleValue(), tuneTitleValues(tunes()));
+        }
+
+        private @Nullable String titleValue() {
+            return Optional.ofNullable(title())
+                    .map(TrackTitle::value)
+                    .orElse(null);
         }
     }
 
     /**
-     * 新規トラックを生成
+     * このトラックの名を答える
+     *
+     * <p>
+     * タイトルを持つトラックはそれを、持たないトラックはチューン名を繋いだものを名にします（#360）。呼び出し側が
+     * 「名があるか」で分岐しなくて済むよう、名を問う口はここだけにします。
+     * </p>
+     *
+     * @param tuneTitleSeparator
+     *            チューン名を繋ぐ区切り
+     * @return トラックの名
+     */
+    public @NonNull TrackName name(@NonNull String tuneTitleSeparator) {
+        return TrackName.of(
+                Optional.ofNullable(title)
+                        .map(TrackTitle::value)
+                        .orElse(null),
+                tuneTitleValues(tunes),
+                tuneTitleSeparator);
+    }
+
+    /**
+     * チューン名の並び（登場順）。名を持たないチューン（MC・環境音など）は null のまま残す
+     *
+     * @param tunes
+     *            チューン構成（nullable。未指定は構成なしとして扱う）
+     * @return チューン名の並び（登場順）
+     */
+    private static List<@Nullable String> tuneTitleValues(@Nullable List<TrackTune> tunes) {
+        return Optional.ofNullable(tunes)
+                .stream()
+                .flatMap(List::stream)
+                .sorted(Comparator.comparing(TrackTune::seq))
+                .<@Nullable String>map(Track::tuneTitleValue)
+                .toList();
+    }
+
+    /**
+     * チューン1件の名。名を持たないチューン（MC・環境音など）は null
+     *
+     * @param tune
+     *            チューン構成1件
+     * @return チューン名（名を持たない場合は null）
+     */
+    private static @Nullable String tuneTitleValue(TrackTune tune) {
+        return Optional.ofNullable(tune.tuneTitle())
+                .map(TrackTuneTitle::value)
+                .orElse(null);
+    }
+
+    /**
+     * チューン構成を持たない新規トラックを生成
+     *
+     * <p>
+     * 構成を持たないトラックは名の元をタイトルにしか持てないため、タイトルは必須になります（#360）。構成ごと 組み立てる場合は
+     * {@link #create(Integer, TrackTitle, ArtistCredit, List)} を使ってください。
+     * </p>
      *
      * @param trackNo
      *            トラック番号
@@ -132,8 +213,7 @@ public final class Track implements DomainEntity<Track, Track.Id> {
     @DomainFactory
     public static @NonNull Track create(@NonNull Integer trackNo, @NonNull TrackTitle title,
             @Nullable ArtistCredit artistCredit) {
-        return Track.factory(
-                Id.generate(),
+        return Track.create(
                 trackNo,
                 title,
                 artistCredit,
@@ -141,23 +221,85 @@ public final class Track implements DomainEntity<Track, Track.Id> {
     }
 
     /**
+     * 新規トラックを生成
+     *
+     * @param trackNo
+     *            トラック番号
+     * @param title
+     *            トラックタイトル（nullable。省略したときはチューン名が名になる）
+     * @param artistCredit
+     *            アーティストクレジット（nullable）
+     * @param tunes
+     *            チューン構成
+     * @return 新規Track
+     */
+    @DomainFactory
+    public static @NonNull Track create(@NonNull Integer trackNo, @Nullable TrackTitle title,
+            @Nullable ArtistCredit artistCredit, @NonNull List<TrackTune> tunes) {
+        return Track.factory(
+                Id.generate(),
+                trackNo,
+                title,
+                artistCredit,
+                tunes);
+    }
+
+    /**
      * 外部入力からトラックを生成します。
      *
      * <p>
-     * 例外をスローせず、検証結果を {@link Result} で返します。{@code trackNo}・{@code title}の必須検証のみを
-     * 担います。信頼できる内部生成には {@link #create} を使用してください。
+     * 例外をスローせず、検証結果を {@link Result} で返します。{@code trackNo} の必須検証と、タイトルを持つ場合の
+     * その検証を担います。信頼できる内部生成には {@link #create} を使用してください。
+     * </p>
+     *
+     * <p>
+     * タイトルは省略できます（#360）。省略したトラックの名はチューン名を繋いだものになるため、<b>名を持つチューンを
+     * 少なくとも1つ持つ必要があります</b>。満たさない入力は名を答えられないトラックになるため、ここで落とします。
      * </p>
      *
      * @param trackNo
      *            トラック番号
      * @param title
-     *            トラックタイトルを表す文字列
+     *            トラックタイトルを表す文字列（nullable）
      * @param artistCredit
      *            アーティストクレジット（nullable）
+     * @param tunes
+     *            チューン構成
      * @return 成功時は {@code Track}、失敗時はエラー
      */
     public static Result<Track> fromInput(@Nullable Integer trackNo, @Nullable String title,
-            @Nullable ArtistCredit artistCredit) {
+            @Nullable ArtistCredit artistCredit, @NonNull List<TrackTune> tunes) {
+        return Track.fromInput(
+                Id.generate(),
+                trackNo,
+                title,
+                artistCredit,
+                tunes);
+    }
+
+    /**
+     * 外部入力から、既にあるトラックを組み直します。
+     *
+     * <p>
+     * 更新のユースケース（PUT風の全項目置換）が使います。検証の規則は
+     * {@link #fromInput(Integer, String, ArtistCredit, List)}
+     * と同じで、IDだけを引き継ぎます——**規則を呼ぶ側へ写さない**ため、入口を分けずに IDの出どころだけを変えます。
+     * </p>
+     *
+     * @param id
+     *            引き継ぐトラックID
+     * @param trackNo
+     *            トラック番号
+     * @param title
+     *            トラックタイトルを表す文字列（nullable）
+     * @param artistCredit
+     *            アーティストクレジット（nullable）
+     * @param tunes
+     *            チューン構成
+     * @return 成功時は {@code Track}、失敗時はエラー
+     */
+    public static Result<Track> fromInput(@NonNull Id id, @Nullable Integer trackNo, @Nullable String title,
+            @Nullable ArtistCredit artistCredit, @NonNull List<TrackTune> tunes) {
         return Result.zip(
                 Policy.<Integer>of(
                         Objects::nonNull,
@@ -166,12 +308,61 @@ public final class Track implements DomainEntity<Track, Track.Id> {
                                 "Track number is required",
                                 "TRACK_NO_REQUIRED"))
                         .verify(trackNo, Function.identity()),
-                TrackTitle.fromInput(title)
-                        .withErrorField("title"),
-                (validTrackNo, validTitle) -> Track.create(
+                resolveTitle(title, tunes),
+                (validTrackNo, validTitle) -> Track.factory(
+                        id,
                         validTrackNo,
-                        validTitle,
-                        artistCredit));
+                        validTitle.orElse(null),
+                        artistCredit,
+                        tunes));
+    }
+
+    /**
+     * 省略できるタイトルを解く。
+     *
+     * <p>
+     * 空白のみの入力は「省略」と同じに扱います。書式として区別できない（画面の入力欄は空文字を送る）ため、区別すると
+     * 送り手ごとに結果が変わります。省略したうえで名を持つチューンも無いときだけ、タイトルの位置へエラーを返します。
+     * </p>
+     *
+     * @param title
+     *            トラックタイトルを表す文字列（nullable）
+     * @param tunes
+     *            チューン構成
+     * @return 成功時はタイトル（省略時は空）、失敗時はエラー
+     */
+    private static Result<Optional<TrackTitle>> resolveTitle(@Nullable String title, @NonNull List<TrackTune> tunes) {
+        return Optional.ofNullable(title)
+                .filter(StringUtils::isNotBlank)
+                .map(Track::presentTitle)
+                .orElseGet(() -> absentTitle(tunes));
+    }
+
+    /**
+     * 入力されたタイトルを検証する
+     *
+     * @param title
+     *            トラックタイトルを表す文字列
+     * @return 成功時はタイトル、失敗時はエラー
+     */
+    private static Result<Optional<TrackTitle>> presentTitle(String title) {
+        return TrackTitle.fromInput(title)
+                .withErrorField("title")
+                .map(Optional::of);
+    }
+
+    /**
+     * タイトルを省略した入力を受け入れるかどうかを、チューンの側から決める
+     *
+     * @param tunes
+     *            チューン構成
+     * @return 名を持つチューンがあれば空のタイトル、無ければエラー
+     */
+    private static Result<Optional<TrackTitle>> absentTitle(@NonNull List<TrackTune> tunes) {
+        return Policy.<List<TrackTune>>of(
+                candidates -> TrackName.isResolvable(null, tuneTitleValues(candidates)),
+                NAME_UNRESOLVABLE_ERROR)
+                .verify(tunes, ignored -> Optional.<TrackTitle>empty());
     }
 
     /**
@@ -182,7 +373,7 @@ public final class Track implements DomainEntity<Track, Track.Id> {
      * @param trackNo
      *            トラック番号
      * @param title
-     *            トラックタイトル
+     *            トラックタイトル（nullable）
      * @param artistCredit
      *            アーティストクレジット（nullable）
      * @param tunes
@@ -190,7 +381,7 @@ public final class Track implements DomainEntity<Track, Track.Id> {
      * @return 再構成されたTrack
      */
     @DomainFactory
-    public static @NonNull Track reconstruct(@NonNull Id id, @NonNull Integer trackNo, @NonNull TrackTitle title,
+    public static @NonNull Track reconstruct(@NonNull Id id, @NonNull Integer trackNo, @Nullable TrackTitle title,
             @Nullable ArtistCredit artistCredit, @NonNull List<TrackTune> tunes) {
         return Track.factory(
                 id,
@@ -203,11 +394,16 @@ public final class Track implements DomainEntity<Track, Track.Id> {
     /**
      * トラックタイトルを変更
      *
+     * <p>
+     * {@code null} を渡すとタイトルを落とします。落とした後の名はチューン名を繋いだものになるため、名を持つチューンを
+     * 持たないトラックでは落とせません（#360）。
+     * </p>
+     *
      * @param newTitle
-     *            新しいトラックタイトル
+     *            新しいトラックタイトル（nullable）
      * @return 更新されたTrack
      */
-    public @NonNull Track changeTitle(@NonNull TrackTitle newTitle) {
+    public @NonNull Track changeTitle(@Nullable TrackTitle newTitle) {
         return Track.factory(
                 id,
                 trackNo,

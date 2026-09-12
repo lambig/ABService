@@ -13,6 +13,7 @@ import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import lombok.AllArgsConstructor;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
  * トラック追加コマンドサービス
@@ -34,6 +35,10 @@ public class AddTrackService implements CommandService<AddTrackInput, AddTrackOu
     private final AlbumAccessService albumAccessService;
     private final TrackAdditionService trackAdditionService;
 
+    /** チューン名を繋ぐ区切り（#360）。応答はトラックの名を返すため、組み立てにここでも要る */
+    @ConfigProperty(name = "abservice.track.tune-title-separator")
+    private final String tuneTitleSeparator;
+
     @WithTransaction
     @Override
     public Uni<AddTrackOutput> execute(AddTrackInput input) {
@@ -50,7 +55,11 @@ public class AddTrackService implements CommandService<AddTrackInput, AddTrackOu
                                                 .resolve(ValidationException::new))
                                 .flatMap(
                                         addition -> albumRepository.save(addition.album())
-                                                .map(saved -> toOutput(saved, addition.track()))));
+                                                .map(
+                                                        saved -> toOutput(
+                                                                saved,
+                                                                addition.track(),
+                                                                tuneTitleSeparator))));
     }
 
     private static TrackAdditionService.TrackFields toTrackFields(AddTrackInput input) {
@@ -62,11 +71,15 @@ public class AddTrackService implements CommandService<AddTrackInput, AddTrackOu
                 TrackTuneInput.toFields(input.tunes()));
     }
 
-    private static AddTrackOutput toOutput(Album album, Track track) {
+    /* 応答が返すのは入力の写しではなくトラックの名（#360）。タイトルを省いたトラックはチューン名で名乗る */
+    private static AddTrackOutput toOutput(
+            Album album,
+            Track track,
+            String tuneTitleSeparator) {
         return new AddTrackOutput(
                 album.id().value(),
                 track.id().value(),
                 track.trackNo(),
-                track.title().value());
+                track.name(tuneTitleSeparator).value());
     }
 }
