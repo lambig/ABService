@@ -51,6 +51,18 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
 
     {
       /*
+      書体が届くまで覆う印（#361）。描かれる前に付ける必要があるため、ここで同期に実行する
+      （`is:inline` はバンドルへ回さない指示）。**書体の stylesheet より前に置く**——後ろに置くと、
+      パーサは保留中の stylesheet が片付くまでこのスクリプトを実行できず、その間 body のパースごと
+      止まる。JS が動かない環境では印が付かず、覆いも出ない。
+    */
+    }
+    <script is:inline>
+      document.documentElement.setAttribute('data-fonts-loading', '');
+    </script>
+
+    {
+      /*
       本文の書体（#341）。取得元は CSP の style-src / font-src が許す必要があり、許可の実体は #240 が持つ。
       読み込みが済むまでは global.css の後段（OS の標準）で表示する。
     */
@@ -60,17 +72,8 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
     <link
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&display=swap"
+      data-font-stylesheet
     />
-
-    {
-      /*
-      書体が届くまで覆う印（#361）。描かれる前に付ける必要があるため、ここで同期に実行する
-      （`is:inline` はバンドルへ回さない指示）。JS が動かない環境では印が付かず、覆いも出ない。
-    */
-    }
-    <script is:inline>
-      document.documentElement.setAttribute('data-fonts-loading', '');
-    </script>
     <title>{documentTitle}</title>
     {metaDescription ? <meta name="description" content={metaDescription} /> : null}
 
@@ -131,19 +134,42 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
 
     {
       /*
-      覆いを外す（#361）。書体が使えるようになったとき、または待ち時間の上限に達したときの早い方で
-      外す。**上限が要るのは、取得元へ届かない回線でも内容を読めなければならないため。** 外した後に
-      書体が届いた場合は、`display=swap` がそのまま差し替える。
+      覆いを外す（#361）。外すのは「書体が使える」と分かったとき、「届かない」と分かったとき、待ち時間の
+      上限に達したときのいずれか早いもの。**上限が要るのは、応答が返らない回線でも内容を読めなければ
+      ならないため。** 外した後に書体が届いた場合は、`display=swap` がそのまま差し替える。
+
+      `document.fonts.ready` だけでは足りない。あれは「読み込み中のフォント面が無い」状態を返すだけで、
+      取得元の stylesheet がまだ届いていなければ面そのものが登録されておらず、即座に解決してしまう。
+      stylesheet の到着を待ってから、書体の実体を要求する。要求だけでも足りない——`load` が取りに行くのは
+      渡した文字が属する範囲（`unicode-range`）だけで、画面の仮名や漢字は別の範囲にある。実体の要求で
+      「読み込み中」に入れてから `ready` で締める。
     */
     }
     <script is:inline>
       (() => {
         const SHOW_CONTENT_AFTER_MS = 3000;
+        const BODY_FONT = '1em "Klee One"';
+
         const uncover = () => {
           document.documentElement.removeAttribute('data-fonts-loading');
         };
 
-        void document.fonts.ready.then(uncover);
+        const stylesheet = document.querySelector('link[data-font-stylesheet]');
+        const settled = (link) => (link === null ? true : link.sheet !== null);
+
+        const delivered = new Promise((resolve) => {
+          if (settled(stylesheet)) {
+            resolve();
+            return;
+          }
+          stylesheet.addEventListener('load', () => resolve());
+          stylesheet.addEventListener('error', () => resolve());
+        });
+
+        const usable = () => document.fonts.load(BODY_FONT).then(() => document.fonts.ready);
+
+        /* 失敗したときも外す。取得元へ届かない回線で、上限まで塞いだままにしないため */
+        void delivered.then(usable).then(uncover, uncover);
         setTimeout(uncover, SHOW_CONTENT_AFTER_MS);
       })();
     </script>
