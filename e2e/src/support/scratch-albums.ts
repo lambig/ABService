@@ -30,6 +30,9 @@ export interface ScratchAlbum {
   readonly title: string;
 }
 
+/** 検査のためだけに作る作品の基準額。編集画面が読み込んだ値を欄へ入れることを見るために持たせる */
+export const SCRATCH_BASE_PRICE = 1200;
+
 /**
  * 検査のためだけの作品を1つ作る（下書き）。
  *
@@ -51,6 +54,7 @@ export const seedScratchAlbumDetail = async (purpose: string): Promise<ScratchAl
     artistDisplayName: `E2E ${purpose}アーティスト`,
     artistSortKey: `E2E ${purpose}`,
     catalogNumber: `${SCRATCH_CATALOG_PREFIX}${stamp}`,
+    basePrice: { amount: SCRATCH_BASE_PRICE },
   });
 
   return { albumId, title };

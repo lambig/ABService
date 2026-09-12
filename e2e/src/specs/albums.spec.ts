@@ -17,6 +17,9 @@ const AUDIO_FALLBACK_LINK = 'SoundCloud で開く';
 /** 試聴の節の見出し。文言は画面の実装が持つ */
 const AUDIO_SECTION_HEADING = '試聴';
 
+/** 額の整形が出す通貨の記号。額が出ていないことは、記号の不在でしか言えない */
+const CURRENCY_SIGN = '￥';
+
 const albumPathOf = async (catalogNumber: string): Promise<string> => {
   const album = await findAlbumByCatalogNumber(catalogNumber);
   return album === undefined
@@ -71,6 +74,18 @@ test.describe('作品の一覧', () => {
     await page.goto('/albums');
 
     await expect(page.getByText(draft.title)).toHaveCount(0);
+  });
+
+  /*
+   * 額を持つ作品（`showcase`）でも、一覧と詳細には額を出さない。頒布の額が要るのは作品紹介の記事で、
+   * 作品のページは作品の事実を読む場のため（#349）。
+   */
+  test('額を持つ作品でも、一覧と詳細に額は出ない', async ({ page }) => {
+    await page.goto('/albums');
+    await expect(page.getByText(CURRENCY_SIGN)).toHaveCount(0);
+
+    await page.goto(await albumPathOf(showcase.catalogNumber));
+    await expect(page.getByText(CURRENCY_SIGN)).toHaveCount(0);
   });
 });
 

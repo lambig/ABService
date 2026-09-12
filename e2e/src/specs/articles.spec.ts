@@ -4,6 +4,8 @@ import {
   draftArticle,
   pagination,
   plainArticle,
+  quiet,
+  quietArticle,
   showcase,
 } from '../support/build-fixtures.ts';
 import { capture, clickWithEvidence } from '../support/evidence.ts';
@@ -28,6 +30,9 @@ const NEXT_PAGE_LINK = '次のページ';
 /** 404 の見出し。定型文のため画面の実装が持つ（#230） */
 const NOT_FOUND_HEADING = 'ページが見つかりません';
 
+/** 額の整形が出す通貨の記号。額が出ていないことは、記号の不在でしか言えない */
+const CURRENCY_SIGN = '￥';
+
 /**
  * 1ページ目に並ぶはずのタイトル。
  *
@@ -37,6 +42,7 @@ const NOT_FOUND_HEADING = 'ページが見つかりません';
 const firstPageTitles = [
   albumArticle.title,
   plainArticle.title,
+  quietArticle.title,
   ...Array.from({ length: pagination.filler - 1 }, (_unused, index) =>
     pagination.titleOf(pagination.filler - index),
   ),
@@ -121,6 +127,28 @@ test.describe('記事の詳細', () => {
     await clickWithEvidence(page, reference, '11-article-open-album');
 
     await expect(page.getByRole('heading', { level: 1, name: showcase.title })).toBeVisible();
+  });
+
+  test('作品を紹介する記事に、参照先の作品のスペース情報と基準額が出る', async ({ page }) => {
+    await page.goto(await articlePathOf(albumArticle.title));
+
+    const reference = page.getByRole('link').filter({ hasText: showcase.title });
+    await expect(reference).toContainText(showcase.eventName);
+    await expect(reference).toContainText(showcase.eventPlace);
+    await expect(reference).toContainText(showcase.eventSpaceNumber);
+    await expect(reference).toContainText(showcase.basePriceText);
+    /* 記事の詳細（10）と同じ画面の別の見どころのため、その枝番に置く */
+    await capture(page, '10a-article-album-reference-price');
+  });
+
+  test('額を持たない作品を紹介する記事には、額の区画が出ない', async ({ page }) => {
+    await page.goto(await articlePathOf(quietArticle.title));
+
+    const reference = page.getByRole('link').filter({ hasText: quiet.title });
+    await expect(reference).toBeVisible();
+
+    /* 通貨の記号で見る。額そのものは作品ごとに違い、出ないことは記号の不在でしか言えない */
+    await expect(reference).not.toContainText(CURRENCY_SIGN);
   });
 
   test('作品を紹介する記事のリンクプレビューは、参照先の作品のもの', async ({ page }) => {
