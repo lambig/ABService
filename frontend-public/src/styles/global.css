@@ -112,12 +112,14 @@
 
   --font-*: initial;
   /*
-   * 本文と見出しは Noto Sans JP（#341）。ポートフォリオとして字面を閲覧環境ごとに変えないことを取り、
+   * 本文と見出しは Klee One（#341）。ポートフォリオとして字面を閲覧環境ごとに変えないことを取り、
    * 読み込みの重さを引き受ける。読み込めない間と失敗したときのために OS の標準を後段へ置く。
    * 読み込みの軽量化（サブセット・自己ホスト）は公開後に扱う。
+   *
+   * 持つ太さは 400 と 600 の2つだけ。`font-medium`（500）は CSS の突き合わせにより 400 で描かれ、
+   * 太字は 600 が当たる。トークン名は役割名のままで、字体がゴシックであることは意味しない。
    */
-  --font-sans:
-    'Noto Sans JP', system-ui, -apple-system, 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
+  --font-sans: 'Klee One', system-ui, -apple-system, 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
   --radius-*: initial;
