@@ -37,7 +37,8 @@ export interface AlbumSeed {
 /** 作るトラックの指定 */
 export interface TrackSeed {
   readonly trackNo: number;
-  readonly title: string;
+  /** トラック名。省略すると、チューン名を繋いだものが名になる（#360） */
+  readonly title?: string;
   readonly artistDisplayName?: string;
   readonly tunes?: readonly TuneSeed[];
 }
@@ -45,7 +46,8 @@ export interface TrackSeed {
 /** トラック内のチューン構成 */
 export interface TuneSeed {
   readonly seq: number;
-  readonly tuneTitle: string;
+  /** チューン名。省略すると名を持たない構成要素（MC・環境音など）になる */
+  readonly tuneTitle?: string;
   readonly composerCreditOverride?: string;
   readonly arrangerCreditOverride?: string;
 }

@@ -1,4 +1,5 @@
 import { deleteAlbum, findAlbumsByCatalogNumberPrefix, seedDraftAlbum } from './admin-api.ts';
+import { longTextOf } from './long-text.ts';
 
 /**
  * シナリオの中だけで使う作品。
@@ -69,6 +70,34 @@ export const seedScratchAlbumDetail = async (purpose: string): Promise<ScratchAl
  */
 export const seedScratchAlbum = async (purpose: string): Promise<string> =>
   (await seedScratchAlbumDetail(purpose)).title;
+
+/**
+ * 作品のタイトルに使える長さの上限。
+ *
+ * ドメインの `AlbumTitle` と列（`AlbumTableRecord` の `title`）が持つ値と揃える。ずれても検査は
+ * 落ちない（作れる長さのままなので）が、そのときここは「起こりうる上限」を指していない。
+ */
+export const ALBUM_TITLE_MAX_LENGTH = 255;
+
+/**
+ * 上限いっぱいのタイトルを持つ作品を1つ作る（下書き）。
+ *
+ * @returns 一覧で行を指すためのタイトル
+ */
+export const seedScratchAlbumWithLongestTitle = async (): Promise<string> => {
+  const stamp = String(Date.now());
+  const title = longTextOf(`E2E 長いタイトルのアルバム ${stamp} `, ALBUM_TITLE_MAX_LENGTH);
+
+  await seedDraftAlbum({
+    title,
+    releaseDate: '2026-09-01',
+    artistDisplayName: longTextOf('E2E 長い名義のアーティスト ', ALBUM_TITLE_MAX_LENGTH),
+    artistSortKey: 'E2E ながいたいとる',
+    catalogNumber: `${SCRATCH_CATALOG_PREFIX}${stamp}`,
+  });
+
+  return title;
+};
 
 /** 検査のためだけに作った作品を片付ける。作るシナリオを持つ spec の `afterEach` に置く */
 export const deleteScratchAlbums = async (): Promise<void> => {

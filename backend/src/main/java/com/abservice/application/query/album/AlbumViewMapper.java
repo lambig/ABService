@@ -4,6 +4,7 @@ import com.abservice.application.query.album.model.AlbumView;
 import com.abservice.application.query.album.model.AlbumView.ExternalAudioView;
 import com.abservice.application.query.album.model.AlbumView.TrackTuneView;
 import com.abservice.application.query.album.model.AlbumView.TrackView;
+import com.abservice.domain.model.vo.album.TrackName;
 import com.abservice.infrastructure.persistence.datasource.AlbumExternalAudioRow;
 import com.abservice.infrastructure.persistence.datasource.AlbumTrackRow;
 import com.abservice.infrastructure.persistence.datasource.AlbumTrackTuneRow;
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -101,14 +103,27 @@ final class AlbumViewMapper {
      * チューン構成は所属トラックのドメインIDで突き合わせます（トラック件数分のクエリを避け、まとめて引いた 結果を振り分けるため）。
      * </p>
      *
+     * <p>
+     * トラックの名は、入力されたタイトルを持つならそれ、持たないならチューン名を繋いだものになります（#360）。
+     * 読み取り側でも名の決め方をドメインの値オブジェクト（{@link TrackName}）へ委ね、規則が2箇所に割れないように します。
+     * </p>
+     *
      * @param tracks
      *            トラックの投影（トラック番号の昇順）
      * @param trackTunes
      *            チューン構成の投影（所属トラックを問わない全件）
+     * @param tuneTitleSeparator
+     *            チューン名を繋ぐ区切り（{@code abservice.track.tune-title-separator}）
      * @return トラックの Read Model のリスト
      */
-    static List<TrackView> toTrackViews(List<AlbumTrackRow> tracks, List<AlbumTrackTuneRow> trackTunes) {
-        return toTrackViewsWith(tracks, groupByTrackId(trackTunes));
+    static List<TrackView> toTrackViews(
+            List<AlbumTrackRow> tracks,
+            List<AlbumTrackTuneRow> trackTunes,
+            String tuneTitleSeparator) {
+        return toTrackViewsWith(
+                tracks,
+                groupByTrackId(trackTunes),
+                tuneTitleSeparator);
     }
 
     private static Map<String, List<AlbumTrackTuneRow>> groupByTrackId(List<AlbumTrackTuneRow> trackTunes) {
@@ -117,26 +132,54 @@ final class AlbumViewMapper {
 
     private static List<TrackView> toTrackViewsWith(
             List<AlbumTrackRow> tracks,
-            Map<String, List<AlbumTrackTuneRow>> tunesByTrackId) {
+            Map<String, List<AlbumTrackTuneRow>> tunesByTrackId,
+            String tuneTitleSeparator) {
         return tracks.stream()
                 .sorted(Comparator.comparing(AlbumTrackRow::trackNo))
-                .map(track -> toTrackView(track, tunesByTrackId.getOrDefault(track.trackId(), List.of())))
+                .map(
+                        track -> toTrackView(
+                                track,
+                                tunesByTrackId.getOrDefault(track.trackId(), List.of()),
+                                tuneTitleSeparator))
                 .toList();
     }
 
-    private static TrackView toTrackView(AlbumTrackRow track, List<AlbumTrackTuneRow> tunes) {
+    private static TrackView toTrackView(
+            AlbumTrackRow track,
+            List<AlbumTrackTuneRow> tunes,
+            String tuneTitleSeparator) {
         return new TrackView(
                 track.trackId(),
                 track.trackNo(),
-                track.title(),
+                trackName(
+                        track,
+                        tunes,
+                        tuneTitleSeparator),
                 track.artistDisplayName(),
                 track.artistSortKey(),
                 toTrackTuneViews(tunes));
     }
 
+    /* 並び順が名の綴りを決めるため、繋ぐ前に seq で並べる（投影の並びは保証されない）。 */
+    private static String trackName(
+            AlbumTrackRow track,
+            List<AlbumTrackTuneRow> tunes,
+            String tuneTitleSeparator) {
+        return TrackName.of(
+                track.title(),
+                tuneTitlesOf(tunes),
+                tuneTitleSeparator)
+                .value();
+    }
+
+    private static List<@Nullable String> tuneTitlesOf(List<AlbumTrackTuneRow> tunes) {
+        return orderedBySeq(tunes)
+                .<@Nullable String>map(AlbumTrackTuneRow::tuneTitle)
+                .toList();
+    }
+
     private static List<TrackTuneView> toTrackTuneViews(List<AlbumTrackTuneRow> tunes) {
-        return tunes.stream()
-                .sorted(Comparator.comparing(AlbumTrackTuneRow::seq))
+        return orderedBySeq(tunes)
                 .map(
                         tune -> new TrackTuneView(
                                 tune.seq(),
@@ -145,6 +188,10 @@ final class AlbumViewMapper {
                                 tune.arrangerCreditOverride(),
                                 tune.linkUrl()))
                 .toList();
+    }
+
+    private static Stream<AlbumTrackTuneRow> orderedBySeq(List<AlbumTrackTuneRow> tunes) {
+        return tunes.stream().sorted(Comparator.comparing(AlbumTrackTuneRow::seq));
     }
 
     private static List<ExternalAudioView> toExternalAudioViews(List<AlbumExternalAudioRow> externalAudios) {

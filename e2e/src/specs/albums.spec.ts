@@ -1,5 +1,13 @@
+import type { Locator, Page } from '@playwright/test';
+
 import { findAlbumByCatalogNumber } from '../support/admin-api.ts';
-import { draft, quiet, showcase } from '../support/build-fixtures.ts';
+import {
+  draft,
+  quiet,
+  showcase,
+  showcaseTrackNames,
+  showcaseTracks,
+} from '../support/build-fixtures.ts';
 import { capture, clickWithEvidence, focusOn } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 
@@ -7,15 +15,29 @@ import { expect, test } from '../support/fixtures.ts';
  * 公開サイトの作品（#123）のジャーニー。
  *
  * 見るのは #197 が確定した内容が画面に出ているかで、項目の並びや文字装飾は対象にしない。外部サービスの
- * 埋め込みは遮断されている（`fixtures.ts`）ため、埋め込み枠は「音源が渡っていること」と
- * 「表示できなくても音源へ辿れること」で確かめる。
+ * 埋め込みは遮断されている（`fixtures.ts`）ため、埋め込み枠は「音源が渡っていること」で確かめる。
  */
-
-/** 埋め込みが表示できない環境向けのリンク。文言は画面の実装が持つ */
-const AUDIO_FALLBACK_LINK = 'SoundCloud で開く';
 
 /** 試聴の節の見出し。文言は画面の実装が持つ */
 const AUDIO_SECTION_HEADING = '試聴';
+
+/**
+ * 曲目の一覧。
+ *
+ * 罫線つきの `ol`（`TrackList.astro`）で指す。役割（listitem）だけでは概要説明の箇条書きや、トラックの
+ * 中のチューンまで拾ってしまい、トラックの行を数え上げられない。
+ */
+const TRACK_LIST = 'ol.divide-y';
+
+/** 曲目の1行の中で、トラックの名を持つ箇所。`TrackList.astro` の構造（名の div → チューンの ol）に沿う */
+const TRACK_NAME = `${TRACK_LIST} > li > div > div:first-child`;
+
+/** トラックの行の中の、チューン1件の行。トラックの行を起点に引く */
+const TUNE_ROW = 'ol > li';
+
+/** 名で曲目の1行を指す。チューンの行にも同じ文字列が現れうるため、外側の行を取る */
+const trackRowOf = (page: Page, name: string): Locator =>
+  page.locator(`${TRACK_LIST} > li`).filter({ hasText: name }).first();
 
 /** 額の整形が出す通貨の記号。額が出ていないことは、記号の不在でしか言えない */
 const CURRENCY_SIGN = '￥';
@@ -90,28 +112,32 @@ test.describe('作品の一覧', () => {
 });
 
 test.describe('作品の詳細', () => {
-  test('試聴は埋め込みが表示できなくても音源へ辿れる', async ({ page }) => {
+  test('試聴は埋め込みで完結し、取得元へ出る導線を置かない', async ({ page }) => {
     await page.goto(await albumPathOf(showcase.catalogNumber));
 
-    await expect(
-      page.getByRole('heading', { level: 2, name: AUDIO_SECTION_HEADING }),
-    ).toBeVisible();
+    const audioSection = page.getByRole('heading', { level: 2, name: AUDIO_SECTION_HEADING });
+    await expect(audioSection).toBeVisible();
 
     /*
      * 埋め込み枠には音源の URL がそのまま渡る（許可リストはバックエンドの ExternalAudioUrl が持つ）。
      * プレイヤーの組み立て方そのものは画面の実装で変わるため、渡っていることだけを見る。
      */
-    const embedSrc = await page.locator('iframe').getAttribute('src');
+    const embed = page.locator('iframe');
+    const embedSrc = await embed.getAttribute('src');
     expect(embedSrc).toContain(encodeURIComponent(showcase.audioUrl));
 
-    const fallbackLink = page.getByRole('link', { name: AUDIO_FALLBACK_LINK });
-    await expect(fallbackLink).toHaveAttribute('href', showcase.audioUrl);
+    /*
+     * 取得元へ出るリンクは置かない（#356）。埋め込みが表示できないのにリンクだけ辿れる状態が
+     * 起こるのはプレイヤー側の障害くらいで、そのために常設の導線を置く理由がない。音源の URL を
+     * href に持つリンクの不在で見る（文言はいつでも変わりうる）。
+     */
+    await expect(page.locator(`a[href="${showcase.audioUrl}"]`)).toHaveCount(0);
 
     /*
      * 埋め込み枠から下は曲目まで1画面に収まる。同じ絵を複数の名前で撮ると、レビューでは同じものを
      * 二度見ることになるため、この帯の証跡はここだけで撮る。
      */
-    await focusOn(fallbackLink);
+    await focusOn(embed);
     await capture(page, '06-album-detail-audio-and-tracks');
   });
 
@@ -131,9 +157,74 @@ test.describe('作品の詳細', () => {
   test('曲目にチューンとクレジットが出る', async ({ page }) => {
     await page.goto(await albumPathOf(showcase.catalogNumber));
 
-    const tracks = page.getByRole('listitem').filter({ hasText: showcase.trackTitle });
-    await expect(tracks.first()).toContainText(showcase.tuneTitle);
-    await expect(tracks.first()).toContainText(showcase.composerCredit);
+    const track = trackRowOf(page, showcaseTracks.titledWithTune.name);
+    await expect(track).toContainText(showcaseTracks.titledWithTune.tuneTitle);
+    await expect(track).toContainText(showcaseTracks.titledWithTune.composerCredit);
+  });
+
+  test('作曲と編曲の両方のクレジットが並ぶ', async ({ page }) => {
+    await page.goto(await albumPathOf(showcase.catalogNumber));
+
+    const track = trackRowOf(page, showcaseTracks.titledWithArrangedTune.name);
+    await expect(track).toContainText(showcaseTracks.titledWithArrangedTune.composerCredit);
+    await expect(track).toContainText(showcaseTracks.titledWithArrangedTune.arrangerCredit);
+  });
+
+  test('トラック名を持たないトラックは、チューン名を繋いだものが名になる', async ({ page }) => {
+    await page.goto(await albumPathOf(showcase.catalogNumber));
+
+    /*
+     * 名の綴りそのものを見る（#360）。「チューン名が出ている」だけでは、繋ぎ方も順序も確かめられない。
+     */
+    const joined = showcaseTracks.untitledWithTunes;
+    const track = trackRowOf(page, joined.name);
+    await expect(track).toBeVisible();
+    await expect(track).toContainText(joined.firstTuneTitle);
+    await expect(track).toContainText(joined.secondTuneTitle);
+  });
+
+  test('名もクレジットも持たないチューンは、名にも曲目の行にも出ない', async ({ page }) => {
+    await page.goto(await albumPathOf(showcase.catalogNumber));
+
+    /*
+     * 間奏（名もクレジットも持たないチューン）を挟んだトラック。名に現れないだけでなく、曲目の行にも
+     * 出ない——位置だけを表す空の行になり、何も読めないため（#360）。名の元にならないチューンが
+     * あることが、不変条件を「チューンを持つこと」ではなく「名を持つチューンを持つこと」にしている理由。
+     *
+     * 行の数まで見る。名だけを見ていると、空の行が増えていても通ってしまう。
+     */
+    const interlude = showcaseTracks.untitledWithUnnamedTune;
+    const track = trackRowOf(page, interlude.name);
+    await expect(track).toBeVisible();
+    await expect(track.locator(TUNE_ROW)).toHaveText([
+      interlude.firstTuneTitle,
+      interlude.lastTuneTitle,
+    ]);
+
+    /*
+     * 落とすのは「名もクレジットも無い」行だけ。名が無くてもクレジットがあれば読めるため残す
+     * （このトラックのチューンは語りのクレジットだけを持つ）。
+     */
+    const narration = showcaseTracks.titledWithUnnamedTune;
+    const narrationTunes = trackRowOf(page, narration.name).locator(TUNE_ROW);
+    await expect(narrationTunes).toHaveCount(1);
+    await expect(narrationTunes).toContainText(narration.tuneCredit);
+  });
+
+  test('曲目はトラック番号の順に、組み合わせごとの名で並ぶ', async ({ page }) => {
+    await page.goto(await albumPathOf(showcase.catalogNumber));
+
+    /*
+     * 曲目の見出しの下の一覧を、名だけ取り出して並びごと突き合わせる。組み合わせは8通りあり、
+     * 1件ずつ見ると「どれが抜けているか」が分からない（#360）。
+     */
+    const names = await page.locator(TRACK_NAME).allInnerTexts();
+
+    expect(names).toEqual(showcaseTrackNames);
+
+    /* 曲目は詳細（05）とは別の見どころのため、その枝番に置く。8件あるので一覧の先頭へ寄せて撮る */
+    await focusOn(page.locator(TRACK_LIST));
+    await capture(page, '05a-album-detail-tracks');
   });
 
   test('外部音源を持つ作品のリンクプレビューはプレイヤーカードで、カバー画像を本体に出さない', async ({

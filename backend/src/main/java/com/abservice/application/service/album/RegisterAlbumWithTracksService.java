@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 import lombok.AllArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -50,6 +51,10 @@ public class RegisterAlbumWithTracksService
     private final AlbumCreationService albumCreationService;
     private final TrackAdditionService trackAdditionService;
 
+    /** チューン名を繋ぐ区切り（#360）。応答はトラックの名を返すため、組み立てにここでも要る */
+    @ConfigProperty(name = "abservice.track.tune-title-separator")
+    private final String tuneTitleSeparator;
+
     @WithTransaction
     @Override
     public Uni<RegisterAlbumWithTracksOutput> execute(RegisterAlbumWithTracksInput input) {
@@ -70,7 +75,7 @@ public class RegisterAlbumWithTracksService
                                 .resolve(ValidationException::new))
                 .flatMap(album -> addTracks(album, tracksOf(input)))
                 .flatMap(albumRepository::save)
-                .map(RegisterAlbumWithTracksService::toOutput);
+                .map(saved -> toOutput(saved, tuneTitleSeparator));
     }
 
     private static List<RegisterAlbumWithTracksInput.TrackInput> tracksOf(
@@ -207,7 +212,8 @@ public class RegisterAlbumWithTracksService
         }
     }
 
-    private static RegisterAlbumWithTracksOutput toOutput(Album album) {
+    /* 応答が返すのは入力の写しではなくトラックの名（#360）。タイトルを省いたトラックはチューン名で名乗る */
+    private static RegisterAlbumWithTracksOutput toOutput(Album album, String tuneTitleSeparator) {
         return new RegisterAlbumWithTracksOutput(
                 album.id().value(),
                 album.title().value(),
@@ -218,7 +224,7 @@ public class RegisterAlbumWithTracksService
                                 track -> new RegisterAlbumWithTracksOutput.TrackSummary(
                                         track.id().value(),
                                         track.trackNo(),
-                                        track.title().value()))
+                                        track.name(tuneTitleSeparator).value()))
                         .toList());
     }
 }

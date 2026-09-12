@@ -39,9 +39,6 @@ export const showcase = {
   releaseDate: '2026-08-15',
   /** 画面に出る形。投入値と並べて置き、整形の結果をシナリオから読めるようにする */
   releaseDateText: '2026年8月15日',
-  trackTitle: 'E2E 確認トラック',
-  tuneTitle: 'E2E 確認チューン',
-  composerCredit: 'Trad.',
   audioUrl: 'https://soundcloud.com/example/e2e',
   eventName: 'E2E 確認イベント',
   /* リリース日と別の日にする。同じ日にすると、整形後の表示がどちらの日付か区別できない */
@@ -60,6 +57,108 @@ export const showcase = {
     emphasis: '強調',
   },
 } as const;
+
+/**
+ * `showcase` の曲目（#360）。
+ *
+ * <p>
+ * トラック名とチューンの組み合わせを網羅する。1つの作品にまとめるのは、**並び方と名の出かたを同じ画面で
+ * 見比べるため**で、作品を分けると証跡も分かれて比較できない。
+ * </p>
+ *
+ * <p>
+ * `name` は画面に出る名。トラック名を持つトラックはその名、持たないトラックはチューン名を繋いだものになる。
+ * 繋ぎの区切りはバックエンドの設定（`abservice.track.tune-title-separator`）が持ち、その既定を
+ * {@link TUNE_TITLE_SEPARATOR} に写している。名を持たないチューン（MC・環境音）は名に現れない。
+ * さらに、名もクレジットも持たないチューンは曲目の行にも出ない——位置だけを表す空の行になるため。
+ * </p>
+ */
+export const TUNE_TITLE_SEPARATOR = ' / ';
+
+const joinTuneTitles = (...titles: readonly string[]): string => titles.join(TUNE_TITLE_SEPARATOR);
+
+export const showcaseTracks = {
+  /** 名あり・チューン1件（作曲のクレジット） */
+  titledWithTune: {
+    trackNo: 1,
+    title: 'E2E 確認トラック',
+    tuneTitle: 'E2E 確認チューン',
+    composerCredit: 'Trad.',
+    get name(): string {
+      return this.title;
+    },
+  },
+  /** 名あり・チューンなし */
+  titledWithoutTunes: {
+    trackNo: 2,
+    title: 'E2E 単独トラック',
+    get name(): string {
+      return this.title;
+    },
+  },
+  /** 名あり・チューン1件（作曲と編曲の両方のクレジット） */
+  titledWithArrangedTune: {
+    trackNo: 3,
+    title: 'E2E 編曲トラック',
+    tuneTitle: 'E2E 編曲チューン',
+    composerCredit: 'E2E 作曲者',
+    arrangerCredit: 'E2E 編曲者',
+    get name(): string {
+      return this.title;
+    },
+  },
+  /** 名あり・チューン複数（1件目だけクレジットを持つ） */
+  titledWithTunes: {
+    trackNo: 4,
+    title: 'E2E 組曲トラック',
+    firstTuneTitle: 'E2E 組曲チューン1',
+    secondTuneTitle: 'E2E 組曲チューン2',
+    composerCredit: 'E2E 組曲作曲者',
+    get name(): string {
+      return this.title;
+    },
+  },
+  /** 名なし・チューン1件 */
+  untitledWithTune: {
+    trackNo: 5,
+    tuneTitle: 'E2E 名なしトラックのチューン',
+    get name(): string {
+      return this.tuneTitle;
+    },
+  },
+  /** 名なし・チューン複数（区切りで繋がる） */
+  untitledWithTunes: {
+    trackNo: 6,
+    firstTuneTitle: 'E2E 連結チューンA',
+    secondTuneTitle: 'E2E 連結チューンB',
+    get name(): string {
+      return joinTuneTitles(this.firstTuneTitle, this.secondTuneTitle);
+    },
+  },
+  /** 名なし・名もクレジットも持たないチューンを挟む（そのチューンは名にも曲目の行にも出ない） */
+  untitledWithUnnamedTune: {
+    trackNo: 7,
+    firstTuneTitle: 'E2E 間奏前チューン',
+    lastTuneTitle: 'E2E 間奏後チューン',
+    get name(): string {
+      return joinTuneTitles(this.firstTuneTitle, this.lastTuneTitle);
+    },
+  },
+  /** 名あり・名を持たないチューンだけ（名の元はトラック名しかない。クレジットを持つので行は出る） */
+  titledWithUnnamedTune: {
+    trackNo: 8,
+    title: 'E2E MCトラック',
+    tuneCredit: 'E2E 語り',
+    get name(): string {
+      return this.title;
+    },
+  },
+} as const;
+
+/** 曲目に並ぶ名を、トラック番号の順に並べたもの */
+export const showcaseTrackNames: readonly string[] = Object.values(showcaseTracks)
+  .toSorted((left, right) => left.trackNo - right.trackNo)
+  .map((track) => track.name);
 
 /**
  * 外部音源を持たない作品。
@@ -219,11 +318,69 @@ const showcaseSeed: AlbumSeed = {
   basePrice: { amount: showcase.basePrice },
   tracks: [
     {
-      trackNo: 1,
-      title: showcase.trackTitle,
+      trackNo: showcaseTracks.titledWithTune.trackNo,
+      title: showcaseTracks.titledWithTune.title,
       tunes: [
-        { seq: 1, tuneTitle: showcase.tuneTitle, composerCreditOverride: showcase.composerCredit },
+        {
+          seq: 1,
+          tuneTitle: showcaseTracks.titledWithTune.tuneTitle,
+          composerCreditOverride: showcaseTracks.titledWithTune.composerCredit,
+        },
       ],
+    },
+    {
+      trackNo: showcaseTracks.titledWithoutTunes.trackNo,
+      title: showcaseTracks.titledWithoutTunes.title,
+    },
+    {
+      trackNo: showcaseTracks.titledWithArrangedTune.trackNo,
+      title: showcaseTracks.titledWithArrangedTune.title,
+      tunes: [
+        {
+          seq: 1,
+          tuneTitle: showcaseTracks.titledWithArrangedTune.tuneTitle,
+          composerCreditOverride: showcaseTracks.titledWithArrangedTune.composerCredit,
+          arrangerCreditOverride: showcaseTracks.titledWithArrangedTune.arrangerCredit,
+        },
+      ],
+    },
+    {
+      trackNo: showcaseTracks.titledWithTunes.trackNo,
+      title: showcaseTracks.titledWithTunes.title,
+      tunes: [
+        {
+          seq: 1,
+          tuneTitle: showcaseTracks.titledWithTunes.firstTuneTitle,
+          composerCreditOverride: showcaseTracks.titledWithTunes.composerCredit,
+        },
+        { seq: 2, tuneTitle: showcaseTracks.titledWithTunes.secondTuneTitle },
+      ],
+    },
+    /* ここから下はトラック名を持たない。名はチューン名から決まる（#360） */
+    {
+      trackNo: showcaseTracks.untitledWithTune.trackNo,
+      tunes: [{ seq: 1, tuneTitle: showcaseTracks.untitledWithTune.tuneTitle }],
+    },
+    {
+      trackNo: showcaseTracks.untitledWithTunes.trackNo,
+      tunes: [
+        { seq: 1, tuneTitle: showcaseTracks.untitledWithTunes.firstTuneTitle },
+        { seq: 2, tuneTitle: showcaseTracks.untitledWithTunes.secondTuneTitle },
+      ],
+    },
+    {
+      trackNo: showcaseTracks.untitledWithUnnamedTune.trackNo,
+      tunes: [
+        { seq: 1, tuneTitle: showcaseTracks.untitledWithUnnamedTune.firstTuneTitle },
+        /* 名もクレジットも持たない間奏。名にも曲目の行にも出ない（#360） */
+        { seq: 2 },
+        { seq: 3, tuneTitle: showcaseTracks.untitledWithUnnamedTune.lastTuneTitle },
+      ],
+    },
+    {
+      trackNo: showcaseTracks.titledWithUnnamedTune.trackNo,
+      title: showcaseTracks.titledWithUnnamedTune.title,
+      tunes: [{ seq: 1, composerCreditOverride: showcaseTracks.titledWithUnnamedTune.tuneCredit }],
     },
   ],
   externalAudioUrls: [showcase.audioUrl],

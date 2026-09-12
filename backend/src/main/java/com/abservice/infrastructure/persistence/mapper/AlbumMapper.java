@@ -304,9 +304,16 @@ public final class AlbumMapper {
         return Track.reconstruct(
                 new Track.Id(entity.getDomainId()),
                 entity.getTrackNo(),
-                new TrackTitle(entity.getTitle()),
+                buildTrackTitle(entity),
                 buildTrackArtistCredit(entity),
                 buildTrackTunes(entity));
+    }
+
+    /* タイトルの列がNULLの行は、名をチューンから取るトラック（#360）。 */
+    private static @Nullable TrackTitle buildTrackTitle(TrackTableRecord entity) {
+        return Optional.ofNullable(entity.getTitle())
+                .map(TrackTitle::new)
+                .orElse(null);
     }
 
     private static @Nullable ArtistCredit buildTrackArtistCredit(TrackTableRecord entity) {
@@ -335,10 +342,20 @@ public final class AlbumMapper {
                 .setDomainId(track.id().value())
                 .setAlbum(albumEntity)
                 .setTrackNo(track.trackNo())
-                .setTitle(track.title().value());
+                .setTitle(titleValueOf(track));
         Optional.ofNullable(track.artistCredit())
                 .ifPresent(ac -> setTrackArtistCredit(trackEntity, ac));
         return trackEntity;
+    }
+
+    /*
+     * 名は導出せず、入力されたタイトルだけを列へ書く（#360）。導出した名を埋めると、以後チューンを編集しても
+     * 列が古いまま残り、「チューン名を繋いだものが正」が成り立たなくなる。
+     */
+    private static @Nullable String titleValueOf(Track track) {
+        return Optional.ofNullable(track.title())
+                .map(TrackTitle::value)
+                .orElse(null);
     }
 
     private static void setTrackArtistCredit(TrackTableRecord entity, ArtistCredit credit) {
