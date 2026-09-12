@@ -89,6 +89,14 @@ const SLOW_FONT_MS = 1_000;
  */
 const BEFORE_CAP_MS = 2_000;
 
+/**
+ * 上限を越えさせるために進める時間。
+ *
+ * 画面側の上限（3秒）より**長く**する。上限そのものの値は画面の中に閉じていて読めないため、外から
+ * 越えたと言える大きさを置く。上限を少し延ばしても通り、**取り去ると通らない**。
+ */
+const BEYOND_CAP_MS = 10_000;
+
 test.describe('書体が届くまでの覆い', () => {
   test('届くまでは覆い、長引けば印を出す', async ({ page }) => {
     await page.route(FONT_FILE, stall);
@@ -116,6 +124,29 @@ test.describe('書体が届くまでの覆い', () => {
     await expect.poll(() => hintOpacityOf(page)).toBeGreaterThan(0);
     await captureWhileCovered(page, '01a-font-loading-cover');
     await expect(page.locator(COVER)).toBeVisible();
+
+    await page.unroute(FONT_FILE);
+  });
+
+  test('応答が返らなくても、上限で覆いを外して内容を見せる', async ({ page }) => {
+    /*
+     * 時計を差し替えて進める。実時間で上限を待つと、上限を延ばしたぶんだけ実行が延びる。
+     * 取得を保留にしたままなので、覆いが外れる契機は画面側の上限しか残らない。
+     */
+    await page.clock.install();
+    await page.route(FONT_FILE, stall);
+
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator(COVER)).toBeVisible();
+
+    await page.clock.fastForward(BEYOND_CAP_MS);
+
+    /*
+     * **上限が無いとここで止まる。** 応答が返らない回線からでも内容へ辿り着けることが #361 の
+     * 安全側の核で、失敗系の2件（取得が失敗したと分かる経路）では代わりにならない。
+     */
+    await expect(page.locator(COVER)).toBeHidden();
+    await expect(page.getByRole('heading', { level: 1, name: siteContent.name })).toBeVisible();
 
     await page.unroute(FONT_FILE);
   });
