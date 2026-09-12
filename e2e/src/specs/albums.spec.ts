@@ -32,6 +32,9 @@ const TRACK_LIST = 'ol.divide-y';
 /** 曲目の1行の中で、トラックの名を持つ箇所。`TrackList.astro` の構造（名の div → チューンの ol）に沿う */
 const TRACK_NAME = `${TRACK_LIST} > li > div > div:first-child`;
 
+/** トラックの行の中の、チューン1件の行。トラックの行を起点に引く */
+const TUNE_ROW = 'ol > li';
+
 /** 名で曲目の1行を指す。チューンの行にも同じ文字列が現れうるため、外側の行を取る */
 const trackRowOf = (page: Page, name: string): Locator =>
   page.locator(`${TRACK_LIST} > li`).filter({ hasText: name }).first();
@@ -180,16 +183,32 @@ test.describe('作品の詳細', () => {
     await expect(track).toContainText(joined.secondTuneTitle);
   });
 
-  test('名を持たないチューンは、トラックの名に現れない', async ({ page }) => {
+  test('名もクレジットも持たないチューンは、名にも曲目の行にも出ない', async ({ page }) => {
     await page.goto(await albumPathOf(showcase.catalogNumber));
 
     /*
-     * 間奏（名を持たないチューン）を挟んだトラック。名には前後のチューン名だけが並び、間奏は曲目の
-     * 行としてだけ残る。名の元にならないチューンがあることが、不変条件を「チューンを持つこと」ではなく
-     * 「名を持つチューンを持つこと」にしている理由（#360）。
+     * 間奏（名もクレジットも持たないチューン）を挟んだトラック。名に現れないだけでなく、曲目の行にも
+     * 出ない——位置だけを表す空の行になり、何も読めないため（#360）。名の元にならないチューンが
+     * あることが、不変条件を「チューンを持つこと」ではなく「名を持つチューンを持つこと」にしている理由。
+     *
+     * 行の数まで見る。名だけを見ていると、空の行が増えていても通ってしまう。
      */
-    const track = trackRowOf(page, showcaseTracks.untitledWithUnnamedTune.name);
+    const interlude = showcaseTracks.untitledWithUnnamedTune;
+    const track = trackRowOf(page, interlude.name);
     await expect(track).toBeVisible();
+    await expect(track.locator(TUNE_ROW)).toHaveText([
+      interlude.firstTuneTitle,
+      interlude.lastTuneTitle,
+    ]);
+
+    /*
+     * 落とすのは「名もクレジットも無い」行だけ。名が無くてもクレジットがあれば読めるため残す
+     * （このトラックのチューンは語りのクレジットだけを持つ）。
+     */
+    const narration = showcaseTracks.titledWithUnnamedTune;
+    const narrationTunes = trackRowOf(page, narration.name).locator(TUNE_ROW);
+    await expect(narrationTunes).toHaveCount(1);
+    await expect(narrationTunes).toContainText(narration.tuneCredit);
   });
 
   test('曲目はトラック番号の順に、組み合わせごとの名で並ぶ', async ({ page }) => {

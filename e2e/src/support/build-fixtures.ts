@@ -70,6 +70,7 @@ export const showcase = {
  * `name` は画面に出る名。トラック名を持つトラックはその名、持たないトラックはチューン名を繋いだものになる。
  * 繋ぎの区切りはバックエンドの設定（`abservice.track.tune-title-separator`）が持ち、その既定を
  * {@link TUNE_TITLE_SEPARATOR} に写している。名を持たないチューン（MC・環境音）は名に現れない。
+ * さらに、名もクレジットも持たないチューンは曲目の行にも出ない——位置だけを表す空の行になるため。
  * </p>
  */
 export const TUNE_TITLE_SEPARATOR = ' / ';
@@ -134,7 +135,7 @@ export const showcaseTracks = {
       return joinTuneTitles(this.firstTuneTitle, this.secondTuneTitle);
     },
   },
-  /** 名なし・名を持たないチューンを挟む（そのチューンは名に現れない） */
+  /** 名なし・名もクレジットも持たないチューンを挟む（そのチューンは名にも曲目の行にも出ない） */
   untitledWithUnnamedTune: {
     trackNo: 7,
     firstTuneTitle: 'E2E 間奏前チューン',
@@ -143,7 +144,7 @@ export const showcaseTracks = {
       return joinTuneTitles(this.firstTuneTitle, this.lastTuneTitle);
     },
   },
-  /** 名あり・名を持たないチューンだけ（名の元はトラック名しかない） */
+  /** 名あり・名を持たないチューンだけ（名の元はトラック名しかない。クレジットを持つので行は出る） */
   titledWithUnnamedTune: {
     trackNo: 8,
     title: 'E2E MCトラック',
@@ -371,7 +372,7 @@ const showcaseSeed: AlbumSeed = {
       trackNo: showcaseTracks.untitledWithUnnamedTune.trackNo,
       tunes: [
         { seq: 1, tuneTitle: showcaseTracks.untitledWithUnnamedTune.firstTuneTitle },
-        /* 名を持たないチューン（間奏）。名には現れないが、曲目には行として残る */
+        /* 名もクレジットも持たない間奏。名にも曲目の行にも出ない（#360） */
         { seq: 2 },
         { seq: 3, tuneTitle: showcaseTracks.untitledWithUnnamedTune.lastTuneTitle },
       ],
