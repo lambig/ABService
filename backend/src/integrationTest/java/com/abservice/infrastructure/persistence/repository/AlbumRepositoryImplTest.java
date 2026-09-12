@@ -407,6 +407,60 @@ class AlbumRepositoryImplTest {
                 found -> assertThat(found.description().isEmpty()).isTrue());
     }
 
+    /** 概要説明も、作成の後の保存で書き換わる（基準額と同じく、写す項目の列挙から落ちていた）。 */
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldReplaceDescriptionOnResave(UniAsserter asserter) {
+        initTestData();
+
+        final var album = Album.create(
+                new AlbumTitle("Album rewriting Description"),
+                testReleaseDate,
+                testArtistCredit,
+                MarkupContent.plainText("最初の説明"),
+                null,
+                null,
+                null,
+                null,
+                null);
+
+        asserter.execute(() -> repository.save(album));
+        asserter.execute(
+                () -> repository.save(album.changeDescription(MarkupContent.markdown("## 書き換えた説明"))));
+
+        asserter.assertThat(() -> repository.findById(album.id()), found -> {
+            assertThat(found.description().content()).isEqualTo("## 書き換えた説明");
+            assertThat(found.description().format()).isEqualTo(MarkupFormat.MARKDOWN);
+        });
+    }
+
+    /** 説明を外す保存は、本文の列を空へ戻す（形式の列は NOT NULL のため既定が残る）。 */
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldClearDescriptionOnResave(UniAsserter asserter) {
+        initTestData();
+
+        final var album = Album.create(
+                new AlbumTitle("Album losing Description"),
+                testReleaseDate,
+                testArtistCredit,
+                MarkupContent.markdown("あとで消される説明"),
+                null,
+                null,
+                null,
+                null,
+                null);
+
+        asserter.execute(() -> repository.save(album));
+        asserter.execute(() -> repository.save(album.changeDescription(MarkupContent.EMPTY)));
+
+        asserter.assertThat(
+                () -> repository.findById(album.id()),
+                found -> assertThat(found.description().isEmpty()).isTrue());
+    }
+
     @Test
     @TestReactiveTransaction
     @RunOnVertxContext

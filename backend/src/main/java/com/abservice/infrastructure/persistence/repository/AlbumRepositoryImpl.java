@@ -91,6 +91,8 @@ public class AlbumRepositoryImpl implements AlbumRepository {
                         .setEventPlace(entity.getEventPlace())
                         .setEventSpaceNumber(entity.getEventSpaceNumber())
                         .setEventNote(entity.getEventNote())
+                        .setDescription(entity.getDescription())
+                        .setDescriptionFormat(entity.getDescriptionFormat())
                         .setCatalogNumber(entity.getCatalogNumber())
                         .setIsdn(entity.getIsdn())
                         .setCoverImageKey(entity.getCoverImageKey())
