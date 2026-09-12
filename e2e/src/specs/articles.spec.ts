@@ -93,6 +93,12 @@ test.describe('記事の一覧', () => {
     const next = page.getByRole('link', { name: NEXT_PAGE_LINK });
     await clickWithEvidence(page, next, '12-articles-next-page');
 
+    /*
+     * 見出しを読む前に、遷移が終わったことを URL で確かめる。要素の一覧を取る操作は「まだ無い」を
+     * 待たずに空を返すため、遷移の途中で読むと 0 件を正解として受け取ってしまう。
+     */
+    await page.waitForURL(/\/articles\/page\/2$/u);
+
     /* 公開した記事は1ページを1件だけ超える。2ページ目には最初に公開した1件だけが残る */
     const titles = await page.getByRole('heading', { level: 2 }).allInnerTexts();
     expect(titles).toEqual([pagination.titleOf(1)]);

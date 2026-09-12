@@ -112,11 +112,14 @@
 
   --font-*: initial;
   /*
-   * 本文は OS のUIフォントに委ね、Webフォントを読み込まない。外部から取得すると配信元の可用性と
-   * CSP の font-src を受け入れることになり、閲覧者ごとに描画開始が遅れる。日本語は各OSの標準に任せる。
+   * 本文と見出しは Klee One（#341）。ポートフォリオとして字面を閲覧環境ごとに変えないことを取り、
+   * 読み込みの重さを引き受ける。読み込めない間と失敗したときのために OS の標準を後段へ置く。
+   * 読み込みの軽量化（サブセット・自己ホスト）は公開後に扱う。
+   *
+   * 持つ太さは 400 と 600 の2つだけ。`font-medium`（500）は CSS の突き合わせにより 400 で描かれ、
+   * 太字は 600 が当たる。トークン名は役割名のままで、字体がゴシックであることは意味しない。
    */
-  --font-sans:
-    system-ui, -apple-system, 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif;
+  --font-sans: 'Klee One', system-ui, -apple-system, 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
   --radius-*: initial;
@@ -150,31 +153,32 @@
 }
 
 /*
- * 配色は無彩色で置く。作品（アルバムのカバー画像・埋め込みプレイヤー）が画面の色を担うため、
- * 器の側は色を主張しない。確定した配色はここの値を差し替えて与える。
+ * 配色（#341）。地はオフホワイト、インクは焦茶、差し色は深緑の1色だけ。作品（アルバムのカバー画像・
+ * 埋め込みプレイヤー）が画面の色を担うため、器の側は彩度を抑えて画像の色を選ばない。角は 0.125rem で
+ * ほぼ落とさず、区切りは罫線と余白で作る。
  */
 :root {
-  --radius: 0.5rem;
+  --radius: 0.125rem;
 
-  --background: oklch(0.99 0 0);
-  --foreground: oklch(0.21 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.21 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.21 0 0);
-  --primary: oklch(0.24 0 0);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.96 0 0);
-  --secondary-foreground: oklch(0.24 0 0);
-  --muted: oklch(0.96 0 0);
-  --muted-foreground: oklch(0.52 0 0);
-  --accent: oklch(0.94 0 0);
-  --accent-foreground: oklch(0.24 0 0);
-  --destructive: oklch(0.58 0.22 27);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.9 0 0);
-  --input: oklch(0.9 0 0);
-  --ring: oklch(0.62 0 0);
+  --background: oklch(0.97 0.009 78);
+  --foreground: oklch(0.25 0.016 45);
+  --card: oklch(0.992 0.004 78);
+  --card-foreground: oklch(0.25 0.016 45);
+  --popover: oklch(0.992 0.004 78);
+  --popover-foreground: oklch(0.25 0.016 45);
+  --primary: oklch(0.445 0.068 155);
+  --primary-foreground: oklch(0.98 0.006 78);
+  --secondary: oklch(0.935 0.01 78);
+  --secondary-foreground: oklch(0.29 0.016 45);
+  --muted: oklch(0.935 0.01 78);
+  --muted-foreground: oklch(0.495 0.014 45);
+  --accent: oklch(0.915 0.016 150);
+  --accent-foreground: oklch(0.29 0.016 45);
+  --destructive: oklch(0.52 0.2 28);
+  --destructive-foreground: oklch(0.98 0.006 78);
+  --border: oklch(0.875 0.012 78);
+  --input: oklch(0.875 0.012 78);
+  --ring: oklch(0.445 0.068 155);
 }
 
 /*
@@ -184,25 +188,25 @@
  */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: oklch(0.17 0 0);
-    --foreground: oklch(0.95 0 0);
-    --card: oklch(0.21 0 0);
-    --card-foreground: oklch(0.95 0 0);
-    --popover: oklch(0.21 0 0);
-    --popover-foreground: oklch(0.95 0 0);
-    --primary: oklch(0.93 0 0);
-    --primary-foreground: oklch(0.2 0 0);
-    --secondary: oklch(0.27 0 0);
-    --secondary-foreground: oklch(0.95 0 0);
-    --muted: oklch(0.27 0 0);
-    --muted-foreground: oklch(0.71 0 0);
-    --accent: oklch(0.32 0 0);
-    --accent-foreground: oklch(0.95 0 0);
-    --destructive: oklch(0.7 0.19 25);
-    --destructive-foreground: oklch(0.2 0 0);
-    --border: oklch(0.3 0 0);
-    --input: oklch(0.33 0 0);
-    --ring: oklch(0.56 0 0);
+    --background: oklch(0.19 0.011 45);
+    --foreground: oklch(0.92 0.007 78);
+    --card: oklch(0.232 0.012 45);
+    --card-foreground: oklch(0.92 0.007 78);
+    --popover: oklch(0.232 0.012 45);
+    --popover-foreground: oklch(0.92 0.007 78);
+    --primary: oklch(0.675 0.075 155);
+    --primary-foreground: oklch(0.17 0.011 45);
+    --secondary: oklch(0.285 0.012 45);
+    --secondary-foreground: oklch(0.92 0.007 78);
+    --muted: oklch(0.285 0.012 45);
+    --muted-foreground: oklch(0.715 0.01 78);
+    --accent: oklch(0.318 0.02 155);
+    --accent-foreground: oklch(0.94 0.007 78);
+    --destructive: oklch(0.62 0.18 28);
+    --destructive-foreground: oklch(0.17 0.011 45);
+    --border: oklch(0.312 0.012 45);
+    --input: oklch(0.312 0.012 45);
+    --ring: oklch(0.675 0.075 155);
   }
 }
 
@@ -215,6 +219,85 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
+  }
+
+  /*
+   * 書体が届くまでの覆い（#361）。届いた瞬間に字面が入れ替わるのを見せないため、それまで地の色で
+   * 覆う。**出す判断は印（`data-fonts-loading`）が付いているときだけ**で、印を付けるのは
+   * `BaseLayout.astro` の inline script。JS が動かない環境では印が付かず、覆いも出ない——覆いを
+   * 既定にすると、外す側が動かないまま内容へ辿り着けなくなる。
+   */
+  .font-loading-cover {
+    display: none;
+  }
+
+  html[data-fonts-loading] .font-loading-cover {
+    /*
+     * 印が出るまでの間。**この値が唯一の出所**で、E2E は計算済みスタイルから読む（数を写すと、
+     * 片方だけ変えたときに検査が意味を失う）。
+     */
+    --font-loading-hint-delay: 600ms;
+
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: block;
+    background-color: var(--color-background);
+  }
+
+  /*
+   * 覆いが長引いたときだけ出す印（#361）。地の色だけの画面は壊れた画面と見分けが付かず、そのまま
+   * 離脱する理由になる。和文の書体は取得が細かく分かれるため、遅い回線では上限（3秒）まで覆いが残りうる。
+   *
+   * **遅らせて出す。** それより早く外れた読み込みでは一度も出ない——すぐ消える印は、覆いそのものより
+   * 目に残る。文字は使わない。その文字自体がまだ届いていない書体に当たるうえ、言い回しを決める話になる。
+   */
+  html[data-fonts-loading] .font-loading-cover::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 8rem;
+    /* 罫線より一段太い。1px だと、地の色だけの画面の中では気付かれずに終わる */
+    height: 2px;
+    margin-left: -4rem;
+    /* 地の罫線は常に見える。走る帯だけだと、端に居る瞬間に線が消えて印が無いのと同じになる */
+    background-color: var(--color-border);
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--color-muted-foreground) 50%,
+      transparent 100%
+    );
+    background-repeat: no-repeat;
+    background-size: 40% 100%;
+    opacity: 0;
+    animation:
+      font-loading-hint-appear 200ms ease-out var(--font-loading-hint-delay) forwards,
+      font-loading-hint-sweep 1.2s ease-in-out var(--font-loading-hint-delay) infinite;
+  }
+
+  @keyframes font-loading-hint-appear {
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes font-loading-hint-sweep {
+    from {
+      background-position: -40% 0;
+    }
+    to {
+      background-position: 140% 0;
+    }
+  }
+
+  /* 動きを減らす設定では走らせない。印は出すが、位置を中央に置いたまま動かさない */
+  @media (prefers-reduced-motion: reduce) {
+    html[data-fonts-loading] .font-loading-cover::after {
+      background-position: 50% 0;
+      animation: font-loading-hint-appear 200ms ease-out var(--font-loading-hint-delay) forwards;
+    }
   }
 }
 

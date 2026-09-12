@@ -25,6 +25,13 @@ const documentTitle = title === undefined ? name : `${title} ― ${name}`;
  */
 const SiteNameTag = title === undefined ? 'h1' : 'p';
 
+/*
+ * サイト名はロゴとして扱い、**どのページでも画面で一番大きい**（#358）。見出しを務めるかどうかで
+ * 大きさを変えない——ロゴは同じ形で出てこそ記号として働く。ページの見出しはこの一段下に置く
+ * （`text-3xl`）。書体が持つ太さは 400 と 600 の2つだけなので、段の差は大きさが担う。
+ */
+const SITE_NAME_CLASS = 'text-4xl font-semibold';
+
 /* ページ固有の説明が無ければサイトの説明を出す。どちらも無ければメタ説明そのものを出さない */
 const metaDescription = description ?? (await siteDescription());
 
@@ -41,6 +48,32 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="canonical" href={canonicalUrl} />
+
+    {
+      /*
+      書体が届くまで覆う印（#361）。描かれる前に付ける必要があるため、ここで同期に実行する
+      （`is:inline` はバンドルへ回さない指示）。**書体の stylesheet より前に置く**——後ろに置くと、
+      パーサは保留中の stylesheet が片付くまでこのスクリプトを実行できず、その間 body のパースごと
+      止まる。JS が動かない環境では印が付かず、覆いも出ない。
+    */
+    }
+    <script is:inline>
+      document.documentElement.setAttribute('data-fonts-loading', '');
+    </script>
+
+    {
+      /*
+      本文の書体（#341）。取得元は CSP の style-src / font-src が許す必要があり、許可の実体は #240 が持つ。
+      読み込みが済むまでは global.css の後段（OS の標準）で表示する。
+    */
+    }
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&display=swap"
+      data-font-stylesheet
+    />
     <title>{documentTitle}</title>
     {metaDescription ? <meta name="description" content={metaDescription} /> : null}
 
@@ -57,6 +90,14 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
   <body class="bg-background text-foreground min-h-screen">
     {
       /*
+      書体が届くまでの覆い（#361）。見た目と、長引いたときに出す印は `global.css` が持つ。支援技術は
+      覆いの下の内容を読むため、覆いは `aria-hidden` にする。
+    */
+    }
+    <div class="font-loading-cover" aria-hidden="true"></div>
+
+    {
+      /*
       広い幅では器ごと広げる（#357）。導線を脇へ出したぶん本文の幅が削られるため、器を据え置くと
       読む幅だけが狭くなる。広げた先で本文が受け持つのは 60rem ほどで、導線を持たないときの
       64rem とほぼ同じになる。
@@ -65,7 +106,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
     <div class="mx-auto flex min-h-screen max-w-5xl flex-col px-4 lg:max-w-6xl">
       <header class="py-6">
         {/* 書体が持つ太さは 400 と 600 の2つだけのため、階層は大きさと 600 で付ける（#344） */}
-        <SiteNameTag class="text-2xl font-semibold">
+        <SiteNameTag class={SITE_NAME_CLASS}>
           <a class="underline-offset-4 hover:underline" href="/">{name}</a>
         </SiteNameTag>
       </header>
@@ -78,7 +119,16 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
       */
       }
       <div class="flex-1 lg:grid lg:grid-cols-[9rem_1fr] lg:gap-10">
-        <slot name="nav" />
+        {
+          /*
+          導線の始まりを本文の見出しと揃える（#357）。本文側は各ページが先頭に `py-6` を持つため、
+          導線を段の先頭から始めると**その分だけ上へ寄って見える**。同じ量をここで足す。
+          導線を包むのは、貼り付き（`sticky`）が段の高さいっぱいを動ける場所を要るため。
+        */
+        }
+        <div class="lg:pt-6">
+          <slot name="nav" />
+        </div>
 
         <main class="min-w-0">
           <slot />
@@ -89,5 +139,47 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
         <slot name="footer" />
       </footer>
     </div>
+
+    {
+      /*
+      覆いを外す（#361）。外すのは「書体が使える」と分かったとき、「届かない」と分かったとき、待ち時間の
+      上限に達したときのいずれか早いもの。**上限が要るのは、応答が返らない回線でも内容を読めなければ
+      ならないため。** 外した後に書体が届いた場合は、`display=swap` がそのまま差し替える。
+
+      `document.fonts.ready` だけでは足りない。あれは「読み込み中のフォント面が無い」状態を返すだけで、
+      取得元の stylesheet がまだ届いていなければ面そのものが登録されておらず、即座に解決してしまう。
+      stylesheet の到着を待ってから、書体の実体を要求する。要求だけでも足りない——`load` が取りに行くのは
+      渡した文字が属する範囲（`unicode-range`）だけで、画面の仮名や漢字は別の範囲にある。実体の要求で
+      「読み込み中」に入れてから `ready` で締める。
+    */
+    }
+    <script is:inline>
+      (() => {
+        const SHOW_CONTENT_AFTER_MS = 3000;
+        const BODY_FONT = '1em "Klee One"';
+
+        const uncover = () => {
+          document.documentElement.removeAttribute('data-fonts-loading');
+        };
+
+        const stylesheet = document.querySelector('link[data-font-stylesheet]');
+        const settled = (link) => (link === null ? true : link.sheet !== null);
+
+        const delivered = new Promise((resolve) => {
+          if (settled(stylesheet)) {
+            resolve();
+            return;
+          }
+          stylesheet.addEventListener('load', () => resolve());
+          stylesheet.addEventListener('error', () => resolve());
+        });
+
+        const usable = () => document.fonts.load(BODY_FONT).then(() => document.fonts.ready);
+
+        /* 失敗したときも外す。取得元へ届かない回線で、上限まで塞いだままにしないため */
+        void delivered.then(usable).then(uncover, uncover);
+        setTimeout(uncover, SHOW_CONTENT_AFTER_MS);
+      })();
+    </script>
   </body>
 </html>
