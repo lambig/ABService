@@ -386,7 +386,8 @@
                 </Badge>
               </Table.Cell>
               <Table.Cell>
-                <div class="flex items-center gap-2">
+                <!-- 操作ごとに幅を固定する（#345）。作品一覧と同じ理由 -->
+                <div class="grid grid-cols-[5rem_8rem_auto] items-center gap-2">
                   <a
                     class="text-sm underline underline-offset-4"
                     href={editArticlePath(article.articleId)}
