@@ -94,6 +94,8 @@ public class AlbumRepositoryImpl implements AlbumRepository {
                         .setCatalogNumber(entity.getCatalogNumber())
                         .setIsdn(entity.getIsdn())
                         .setCoverImageKey(entity.getCoverImageKey())
+                        .setBasePriceAmount(entity.getBasePriceAmount())
+                        .setBasePriceCurrency(entity.getBasePriceCurrency())
                         .setPublishedAt(entity.getPublishedAt()))
                 .flatMap(saved -> applyTrackTunes(saved, aggregate.tracks()));
     }
