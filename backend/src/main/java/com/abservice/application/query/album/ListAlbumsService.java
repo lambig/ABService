@@ -1,6 +1,8 @@
 package com.abservice.application.query.album;
 
 import com.abservice.application.query.AudienceVisibility;
+import com.abservice.application.exception.Failure;
+import com.abservice.application.exception.FailureContract;
 import com.abservice.application.query.QueryService;
 import com.abservice.application.query.PageCounts;
 import com.abservice.application.query.SortKeys;
@@ -40,6 +42,7 @@ import org.jspecify.annotations.Nullable;
  */
 @ApplicationScoped
 @AllArgsConstructor
+@FailureContract(Failure.VALIDATION)
 public class ListAlbumsService implements QueryService<ListAlbumsQuery, ListAlbumsResult> {
 
     private static final int DEFAULT_SIZE = 20;

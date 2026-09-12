@@ -5,6 +5,7 @@ import {
   publishArticle,
   seedDraftArticle,
 } from './admin-api.ts';
+import { longTextOf } from './long-text.ts';
 
 /**
  * シナリオの中だけで使う記事。
@@ -23,10 +24,19 @@ import {
 /** 検査のためだけに作る記事のタイトルの接頭辞。シードした記事（`E2E 確認〜`）には当たらない */
 export const SCRATCH_TITLE_PREFIX = 'E2E-SCRATCH 記事';
 
-/** 作った記事。画面から指すためのタイトルと、APIから操作するためのIDを持つ */
+/**
+ * 作った記事。
+ *
+ * <p>
+ * 画面から指すためのタイトル、APIから操作するためのID、そして編集画面に**入っているはずの値**を持つ。
+ * 期待値の出所を投入した値そのものにするため、シナリオ側へ文字列を書き写さない。
+ * </p>
+ */
 export interface ScratchArticle {
   readonly articleId: string;
   readonly title: string;
+  readonly introShort: string;
+  readonly body: string;
 }
 
 const scratchTitle = (purpose: string): string =>
@@ -37,17 +47,22 @@ const scratchTitle = (purpose: string): string =>
  *
  * @param purpose
  *            何のための記事かを表す短い語。タイトルに入る
- * @returns 作った記事のIDとタイトル
+ * @returns 作った記事のIDと、投入した値
  */
 export const seedScratchArticle = async (purpose: string): Promise<ScratchArticle> => {
   const title = scratchTitle(purpose);
+  const introShort = `E2E ${purpose}のショート紹介文。`;
+  const body = `E2E ${purpose}の本文。`;
+
   const articleId = await seedDraftArticle({
     articleType: 'NOTE',
     title,
-    introShort: `E2E ${purpose}のショート紹介文。`,
+    body,
+    bodyFormat: 'PLAIN_TEXT',
+    introShort,
   });
 
-  return { articleId, title };
+  return { articleId, title, introShort, body };
 };
 
 /**
@@ -61,6 +76,38 @@ export const seedPublishedScratchArticle = async (purpose: string): Promise<Scra
   const article = await seedScratchArticle(purpose);
   await publishArticle(article.articleId);
   return article;
+};
+
+/**
+ * 記事のタイトルに使える長さの上限。
+ *
+ * ドメインの `ArticleTitle` と列（`ArticleTableRecord` の `title`）が持つ値と揃える。ずれても検査は
+ * 落ちない（作れる長さのままなので）が、そのときここは「起こりうる上限」を指していない。
+ */
+export const ARTICLE_TITLE_MAX_LENGTH = 500;
+
+/**
+ * 上限いっぱいのタイトルを持つ記事を1つ作る（下書き）。
+ *
+ * <p>
+ * 長くするのはタイトルだけにする。管理の一覧が並べるのはタイトル・種別・公開日・状態・操作で、
+ * 行の幅を動かしうるのはタイトルしかない。
+ * </p>
+ */
+export const seedScratchArticleWithLongestTitle = async (): Promise<ScratchArticle> => {
+  const title = longTextOf(`${scratchTitle('長いタイトル')} `, ARTICLE_TITLE_MAX_LENGTH);
+  const introShort = 'E2E 長いタイトルの記事のショート紹介文。';
+  const body = 'E2E 長いタイトルの記事の本文。';
+
+  const articleId = await seedDraftArticle({
+    articleType: 'NOTE',
+    title,
+    body,
+    bodyFormat: 'PLAIN_TEXT',
+    introShort,
+  });
+
+  return { articleId, title, introShort, body };
 };
 
 /**

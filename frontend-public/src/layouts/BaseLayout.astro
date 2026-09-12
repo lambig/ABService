@@ -55,17 +55,35 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
   </head>
 
   <body class="bg-background text-foreground min-h-screen">
-    <div class="mx-auto flex min-h-screen max-w-5xl flex-col px-4">
-      <header class="space-y-3 py-6">
-        <SiteNameTag class="text-lg font-medium">
+    {
+      /*
+      広い幅では器ごと広げる（#357）。導線を脇へ出したぶん本文の幅が削られるため、器を据え置くと
+      読む幅だけが狭くなる。広げた先で本文が受け持つのは 60rem ほどで、導線を持たないときの
+      64rem とほぼ同じになる。
+    */
+    }
+    <div class="mx-auto flex min-h-screen max-w-5xl flex-col px-4 lg:max-w-6xl">
+      <header class="py-6">
+        {/* 書体が持つ太さは 400 と 600 の2つだけのため、階層は大きさと 600 で付ける（#344） */}
+        <SiteNameTag class="text-2xl font-semibold">
           <a class="underline-offset-4 hover:underline" href="/">{name}</a>
         </SiteNameTag>
-        <slot name="header" />
       </header>
 
-      <main class="flex-1">
-        <slot />
-      </main>
+      {
+        /*
+        広い幅では導線を本文の脇へ置く（#357）。狭い幅では段が落ち、導線は本文の上に戻る——脇へ
+        置いたままだと、読む幅が導線のぶんだけ削られる。切り替えは `lg`（1024px）で、E2E が見る
+        広い幅（1280）と狭い幅（390）の両方がこの境の反対側に来る。
+      */
+      }
+      <div class="flex-1 lg:grid lg:grid-cols-[9rem_1fr] lg:gap-10">
+        <slot name="nav" />
+
+        <main class="min-w-0">
+          <slot />
+        </main>
+      </div>
 
       <footer class="text-muted-foreground border-border border-t py-6 text-sm">
         <slot name="footer" />

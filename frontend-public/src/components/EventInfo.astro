@@ -2,7 +2,12 @@
 import ProperNoun from '$components/ProperNoun.astro';
 import { formatCalendarDate } from '$lib/format';
 
-/** 初出イベントの5項目。一覧と詳細で同じ形を出す */
+/**
+ * 初出イベントの情報。
+ *
+ * 出す範囲は置く側が決める。作品の一覧は作品を見分ける場で頒布の詳細を読む場ではないため、イベント名
+ * だけにする（#347）。詳細と、記事から作品への導線では5項目すべてを出す。
+ */
 interface Props {
   readonly event: {
     readonly eventName: string | null;
@@ -11,29 +16,39 @@ interface Props {
     readonly eventSpaceNumber: string | null;
     readonly eventNote: string | null;
   };
+  /** 出す範囲。`name` はイベント名だけ、`full` は5項目すべて */
+  readonly scope?: 'name' | 'full';
 }
 
-const { event } = Astro.props;
+const { event, scope = 'full' } = Astro.props;
+
+const showsDetails = scope === 'full';
 
 /*
+ * 出さない項目は「値が無い」へ畳む。テンプレートが見るのは有無だけになり、範囲の判定が1か所に残る。
+ *
  * イベント名を持たない作品では、他の項目も意味を成さないため何も出さない
  * （場所やスペース番号だけが残っても読み手が文脈を取れない）。
  */
-const place = [event.eventPlace, event.eventSpaceNumber].filter((part) => part !== null).join(' ');
+const eventDate = showsDetails ? event.eventDate : null;
+const eventNote = showsDetails ? event.eventNote : null;
+const place = showsDetails
+  ? [event.eventPlace, event.eventSpaceNumber].filter((part) => part !== null).join(' ')
+  : '';
 ---
 
 {
   event.eventName === null ? null : (
     <div class="text-muted-foreground text-sm">
       <ProperNoun>{event.eventName}</ProperNoun>
-      {event.eventDate === null ? null : (
+      {eventDate === null ? null : (
         <>
           {' '}
-          <time datetime={event.eventDate}>{formatCalendarDate(event.eventDate)}</time>
+          <time datetime={eventDate}>{formatCalendarDate(eventDate)}</time>
         </>
       )}
       {place === '' ? null : <> {place}</>}
-      {event.eventNote === null ? null : <p>{event.eventNote}</p>}
+      {eventNote === null ? null : <p>{eventNote}</p>}
     </div>
   )
 }

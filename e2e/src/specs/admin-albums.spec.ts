@@ -6,7 +6,11 @@ import { albumArticle, draft, showcase } from '../support/build-fixtures.ts';
 import { stack } from '../support/config.ts';
 import { capture, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
-import { deleteScratchAlbums, seedScratchAlbum } from '../support/scratch-albums.ts';
+import {
+  deleteScratchAlbums,
+  seedScratchAlbum,
+  seedScratchAlbumWithLongestTitle,
+} from '../support/scratch-albums.ts';
 
 /**
  * 管理画面の作品一覧（#122）のジャーニー。
@@ -66,6 +70,21 @@ const openAdmin = async (page: Page): Promise<void> => {
 const rowOf = (page: Page, title: string): Locator =>
   page.getByRole('row').filter({ hasText: title });
 
+/** 行の中の操作の左端。行によって動かないことを見るため、位置を数で取る */
+const leftEdgeOf = async (locator: Locator): Promise<number> => {
+  const box = await locator.boundingBox();
+  return box === null ? Promise.reject(new Error('操作が画面に無いため、位置を取れません')) : box.x;
+};
+
+/**
+ * 表が器から横へはみ出した量。0 でなければ横スクロールが出ている。
+ *
+ * 画面（`documentElement`）ではなく表の器で見る。表は器の中で横スクロールできるため、画面の側だけを
+ * 見ていると**表が横へ伸びきって操作が画面の外にある状態**を素通りさせてしまう。
+ */
+const tableOverflowOf = async (page: Page): Promise<number> =>
+  page.locator('[data-slot="table-container"]').evaluate((el) => el.scrollWidth - el.clientWidth);
+
 /* 検査の中で作った作品を残さない。残ると次回の組み立てに混ざり、公開サイトの母集団の前提を壊す */
 test.afterEach(deleteScratchAlbums);
 
@@ -92,6 +111,32 @@ test.describe('管理画面の作品一覧', () => {
      */
     await expect(page.getByRole('row').filter({ hasText: draft.title })).toContainText(DRAFT_LABEL);
     await capture(page, '16-admin-albums');
+  });
+
+  test('文言が長い行でも、操作の位置は動かない', async ({ page }) => {
+    /*
+     * 長さは列の上限に揃える（#359）。半端な長さで確かめても、上限で崩れないことは言えない。
+     * 下書きのまま置くため、公開サイトの母集団には入らない。
+     */
+    const longTitle = await seedScratchAlbumWithLongestTitle();
+
+    await openAdmin(page);
+    await expect(rowOf(page, longTitle)).toBeVisible();
+
+    /*
+     * 右端の破壊的な操作が、長い行と短い行で同じ位置に来る（#345）。操作ごとに幅を固定している
+     * 前提は、タイトルの列が伸び縮みしても崩れないことにある。
+     */
+    const longRowDelete = rowOf(page, longTitle).getByRole('button', { name: DELETE_LABEL });
+    const shortRowDelete = rowOf(page, showcase.title).getByRole('button', { name: DELETE_LABEL });
+    expect(await leftEdgeOf(longRowDelete)).toBe(await leftEdgeOf(shortRowDelete));
+
+    /* 長い文言が表を横へ押し広げず、操作が画面の中に残る */
+    expect(await tableOverflowOf(page)).toBe(0);
+    await expect(longRowDelete).toBeInViewport();
+
+    /* 一覧（16）と同じ画面の別の見どころのため、その枝番に置く */
+    await capture(page, '16a-admin-albums-long-text');
   });
 
   test('管理APIへ到達できないときは、同じ鍵でやり直せる', async ({ page }) => {

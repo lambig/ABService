@@ -47,7 +47,11 @@ Terraform適用は`terraform plan`で差分を確認してから`apply`する運
 | `ecr_repository_url`のリポジトリ名部分 | `ECR_REPOSITORY` |
 | `ec2_instance_id` | `EC2_INSTANCE_ID` |
 
-デプロイは**mainへのpushに対するCIが成功したときだけ**自動実行される（ビルド→ECR push→SSM Run Command経由でEC2上の`/opt/abservice/deploy.sh`を実行しpull・再起動）。対象はそのCIが検査したcommitのSHAに固定されるため、CI完了後にmainが進んでいても、検査していないcommitが出ることはない。GitHub ActionsはOIDC連携で一時認証情報を取得するため、長期のAWSアクセスキーは発行・保存しない（`aws_iam_openid_connect_provider.github_actions`）。
+デプロイは**mainへのpushに対するCIが成功したときだけ**自動実行される（ビルド→ECR push→SSM Run Command経由で、そのSHAの`infra/host/deploy.sh`と`docker-compose.prod.yml`をEC2の`/opt/abservice`へ配ってから実行しpull・再起動）。イメージを動かす手順も検査済みのcommitに揃うため、稼働中のホストが古い手順のまま残ることがない（`user_data`が置くのはDockerの準備とインスタンス固有の値`/opt/abservice/deploy.env`まで）。対象はそのCIが検査したcommitのSHAに固定されるため、CI完了後にmainが進んでいても、検査していないcommitが出ることはない。GitHub ActionsはOIDC連携で一時認証情報を取得するため、長期のAWSアクセスキーは発行・保存しない（`aws_iam_openid_connect_provider.github_actions`）。
+
+デプロイの成否は、`deploy.sh`がcompose の healthcheck（readinessを引く）を待って決める。起動に失敗するか期限内にhealthyへ至らなければ、コンテナのログを出したうえで非0で終わり、SSMの実行もActionsも失敗する。
+
+イメージはarm64のランナーでビルドし、push前に架構がarm64であることを確かめる（EC2は`data.aws_ami.al2023_arm64`のためamd64のイメージは動かせない）。EC2のbootstrap（`user_data`）が担うのはDockerとdocker composeプラグイン（版を固定し、配布されているsha256と突き合わせる）の導入と、`/opt/abservice/deploy.env`の配置まで。
 
 `AWS_DEPLOY_ROLE_ARN`未設定の間は`deploy.yml`のjobがskipされ、CIが成功しても何も実行されない。上表のAction variables設定後、次回のCI成功から自動的に有効化される。
 
@@ -64,11 +68,21 @@ aws ssm get-parameter --name "/<project>/<environment>/app/admin-api-key" \
 
 ローテーションは Parameter Store の値を更新し、backend を再デプロイ（再起動）して反映する。
 
+## オリジンへの到達制限（#286）
+
+EC2のセキュリティグループが許すのは`com.amazonaws.global.cloudfront.origin-facing`の範囲で、これは**CloudFront全体**の送信元であり、他人のdistributionも含む。prefix listだけでは自分の配信に限定できず、別のdistributionが同じEC2を指せばWAFと`/api/*`の振り分けを経ずにbackendへ届く。
+
+Terraformが生成した値（`random_password.origin_verify_token`）をCloudFrontの`custom_header`（`X-Origin-Verify`）とParameter Storeの`/<project>/<environment>/app/origin-verify-token`（SecureString）の両方へ渡し、backendが`OriginVerificationFilter`で照合する。一致しない要求は本文なしの403で拒む。
+
+**コンテナ自身からの`/q/*`は検査しない。** compose のhealthcheckがloopback経由で引くため。この緩和は、同じコンテナの中のプロセスが管理エンドポイントへ到達できることを意味する。外から`/q/*`へ届く経路は、CloudFrontが`/api/*`しか流さないことと、この検査の両方で塞ぐ。
+
+値のrotationはCloudFrontとbackendの両方を同時に切り替えられないため、切り替えの瞬間に断が生じる。手順は#127で扱う。
+
 ## DB接続情報（#117）
 
 RDSの接続先とパスワードはTerraformが Parameter Store へ保存する（`/<project>/<environment>/db/host` `.../port` `.../name` `.../username`、パスワードのみ SecureString の `.../password`）。`deploy.sh` がこれらを取得して backend コンテナへ `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USERNAME` / `DB_PASSWORD` として渡す。backend は JDBC（Flywayが使う）とreactiveの接続URLをこのホスト・ポート・DB名から組み立てるため、用途ごとのURLを個別に渡すことはしない（両者が別のデータベースを指し得る形を残さない）。
 
-backend の prod プロファイルはこれらに既定値を持たないため、注入が漏れた状態ではローカル向けの値にフォールバックせず起動に失敗する。
+backend の prod プロファイルはこれらに既定値を持たない。注入が漏れた状態では、`docker-compose.prod.yml` が `${VAR:?}` でコンテナを作る前に止める（空の値をそのまま渡すと、接続URLの式に空が埋まったまま起動してしまう。#330）。
 
 ## スキーマ移行（Flyway）
 
@@ -92,6 +106,7 @@ schemaの正はマイグレーションであり、起動時に適用される�
 - 確定に至らなかった `pending/` の実体はライフサイクル（`aws_s3_bucket_lifecycle_configuration.assets`）で1日後に期限切れにする。バケットは versioning 有効なので旧バージョンと未完了マルチパートも同時に掃除する
 - クロスオリジンの PUT を許可するため、バケットに CORS（`allowed_methods = ["PUT"]`、オリジンはサイトのドメイン）を設定している
 - backend の実行ロールには assets バケットへの `GetObject` / `PutObject` / `DeleteObject` / `ListBucket` を付与済み（署名付きURLの発行と確定時のコピーに追加権限は不要）
+- バケット名はTerraformが Parameter Store の `/<project>/<environment>/assets/bucket` へ保存し、`deploy.sh` が backend コンテナへ `ASSETS_BUCKET` として渡す。prod プロファイルは既定値を持たないため、渡し漏れは起動失敗になる
 
 ## 静的サイト配信
 
@@ -112,9 +127,9 @@ OAC 経由の S3 は REST エンドポイントで、ディレクトリ索引を
 
 ## ロールバック（backendデプロイ）
 
-ECRのライフサイクルポリシーにより直近10件のタグ付きイメージが保持される。障害時は`.github/workflows/deploy.yml`を`workflow_dispatch`で手動起動し、`image_tag`に直前の正常なタグ（gitのshort SHA）を指定して再デプロイする（再ビルドは行わず、ECRの既存イメージをそのままEC2へpull・再起動するだけなので数十秒で完了する）。ロールバック後、mainブランチの履歴は`git revert`で追随させる（force-push・履歴書き換えはしない）。
+ECRのライフサイクルポリシーにより直近10件のタグ付きイメージが保持される。障害時は`.github/workflows/deploy.yml`を`workflow_dispatch`で手動起動し、`commit_sha`に直前の正常なcommitのfull SHAを指定して再デプロイする（再ビルドは行わず、ECRの既存イメージをそのままEC2へpull・再起動するだけなので数十秒で完了する）。ロールバック後、mainブランチの履歴は`git revert`で追随させる（force-push・履歴書き換えはしない）。
 
-手動起動は`image_tag`を必須とし、既存イメージの再デプロイだけを行う。新しいcommitを本番へ出す経路はmainへのpush（＋CI成功）だけで、手動起動から検査していないcommitをビルドして出すことはできない。
+手動起動は`commit_sha`を必須とし、既存イメージの再デプロイだけを行う。イメージのタグもEC2へ配る`deploy.sh`・`docker-compose.prod.yml`も、そのcommitから決まる（戻すのはイメージだけで手順は現在のまま、という組み合わせを作らない）。新しいcommitを本番へ出す経路はmainへのpush（＋CI成功）だけで、手動起動から検査していないcommitをビルドして出すことはできない。
 
 ## 未着手・依存関係
 

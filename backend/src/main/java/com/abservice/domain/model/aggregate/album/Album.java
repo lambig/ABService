@@ -27,6 +27,7 @@ import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
+import com.abservice.domain.model.vo.album.Price;
 import com.abservice.domain.model.vo.album.Publication;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.AssetKey;
@@ -88,6 +89,17 @@ public final class Album implements Aggregate<Album, Album.Id> {
     @Nullable
     private final AssetKey coverImageKey;
     /**
+     * 頒布の基準額（nullable。null は額が決まっていない状態）
+     *
+     * <p>
+     * 実際に手に取るときの額は、経路・担い手・地域の組で決まる（同じ作品でも、委託先ごと・国ごとに
+     * 変わる）。それは作品の属性ではなく、作品が誰にどこで頒布されたかの属性のため、発表の側が持つ
+     * （#201）。作品が持つのは、そこから上書きされる基準の額までに留める。
+     * </p>
+     */
+    @Nullable
+    private final Price basePrice;
+    /**
      * 公開情報（Null
      * Objectパターン。{@code Publication.Draft}=下書き、{@code Publication.Published}=公開中）
      */
@@ -129,6 +141,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
             @NonNull ArtistCredit artistCredit, @NonNull MarkupContent description,
             @Nullable EventReleasedAt eventReleasedAt,
             @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn, @Nullable AssetKey coverImageKey,
+            @Nullable Price basePrice,
             @NonNull Publication publication, @NonNull List<Track> tracks,
             @NonNull List<ExternalAudio> externalAudios) {
         this.id = id;
@@ -140,6 +153,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
         this.catalogNumber = catalogNumber;
         this.isdn = isdn;
         this.coverImageKey = coverImageKey;
+        this.basePrice = basePrice;
         this.publication = publication;
         this.tracks = tracks;
         this.externalAudios = externalAudios;
@@ -150,7 +164,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
             @Nullable BusinessDate releaseDate, @Nullable ArtistCredit artistCredit,
             @Nullable MarkupContent description,
             @Nullable EventReleasedAt eventReleasedAt, @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn,
-            @Nullable AssetKey coverImageKey, @Nullable Publication publication, @Nullable List<Track> tracks,
+            @Nullable AssetKey coverImageKey, @Nullable Price basePrice,
+            @Nullable Publication publication, @Nullable List<Track> tracks,
             @Nullable List<ExternalAudio> externalAudios) {
         return Policy.<Stub>all(
                 Policy.of(
@@ -176,6 +191,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                                 catalogNumber,
                                 isdn,
                                 coverImageKey,
+                                basePrice,
                                 publication,
                                 tracks,
                                 externalAudios),
@@ -186,7 +202,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
     @NullUnmarked
     private record Stub(Id id, AlbumTitle title, BusinessDate releaseDate, ArtistCredit artistCredit,
             MarkupContent description, EventReleasedAt eventReleasedAt, CatalogNumber catalogNumber, Isdn isdn,
-            AssetKey coverImageKey, Publication publication, List<Track> tracks,
+            AssetKey coverImageKey, Price basePrice, Publication publication, List<Track> tracks,
             List<ExternalAudio> externalAudios) {
 
         @AggregateFactory
@@ -202,6 +218,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                     catalogNumber(),
                     isdn(),
                     coverImageKey(),
+                    basePrice(),
                     Objects.requireNonNull(publication),
                     Objects.requireNonNull(tracks),
                     Objects.requireNonNull(externalAudios));
@@ -227,13 +244,16 @@ public final class Album implements Aggregate<Album, Album.Id> {
      *            ISDN（nullable）
      * @param coverImageKey
      *            カバー画像のアセットキー（nullable）
+     * @param basePrice
+     *            頒布の基準額（nullable。null は額が決まっていない）
      * @return 新規Album
      */
     @DomainFactory
     public static @NonNull Album create(@NonNull AlbumTitle title, @NonNull BusinessDate releaseDate,
             @NonNull ArtistCredit artistCredit, @NonNull MarkupContent description,
             @Nullable EventReleasedAt eventReleasedAt,
-            @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn, @Nullable AssetKey coverImageKey) {
+            @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn, @Nullable AssetKey coverImageKey,
+            @Nullable Price basePrice) {
         return Album.factory(
                 Id.generate(),
                 title,
@@ -244,6 +264,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 catalogNumber,
                 isdn,
                 coverImageKey,
+                basePrice,
                 Publication.draft(),
                 Collections.emptyList(),
                 Collections.emptyList());
@@ -270,6 +291,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
      *            ISDN（nullable）
      * @param coverImageKey
      *            カバー画像のアセットキー（nullable）
+     * @param basePrice
+     *            頒布の基準額（nullable。null は額が決まっていない）
      * @param publication
      *            公開情報（non-null。{@code Publication.draft()}=下書き）
      * @param tracks
@@ -283,7 +306,8 @@ public final class Album implements Aggregate<Album, Album.Id> {
             @NonNull BusinessDate releaseDate, @NonNull ArtistCredit artistCredit,
             @NonNull MarkupContent description,
             @Nullable EventReleasedAt eventReleasedAt, @Nullable CatalogNumber catalogNumber, @Nullable Isdn isdn,
-            @Nullable AssetKey coverImageKey, @NonNull Publication publication, @NonNull List<Track> tracks,
+            @Nullable AssetKey coverImageKey, @Nullable Price basePrice,
+            @NonNull Publication publication, @NonNull List<Track> tracks,
             @NonNull List<ExternalAudio> externalAudios) {
         return Album.factory(
                 id,
@@ -295,6 +319,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 catalogNumber,
                 isdn,
                 coverImageKey,
+                basePrice,
                 publication,
                 tracks,
                 externalAudios);
@@ -318,6 +343,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 catalogNumber,
                 isdn,
                 coverImageKey,
+                basePrice,
                 publication,
                 tracks,
                 externalAudios);
@@ -341,6 +367,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 catalogNumber,
                 isdn,
                 coverImageKey,
+                basePrice,
                 publication,
                 tracks,
                 externalAudios);
@@ -364,6 +391,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 catalogNumber,
                 isdn,
                 coverImageKey,
+                basePrice,
                 publication,
                 tracks,
                 externalAudios);
@@ -387,6 +415,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 catalogNumber,
                 isdn,
                 coverImageKey,
+                basePrice,
                 publication,
                 tracks,
                 externalAudios);
@@ -410,6 +439,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 catalogNumber,
                 isdn,
                 coverImageKey,
+                basePrice,
                 publication,
                 tracks,
                 externalAudios);
@@ -433,6 +463,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 newCatalogNumber,
                 isdn,
                 coverImageKey,
+                basePrice,
                 publication,
                 tracks,
                 externalAudios);
@@ -456,6 +487,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 catalogNumber,
                 newIsdn,
                 coverImageKey,
+                basePrice,
                 publication,
                 tracks,
                 externalAudios);
@@ -479,6 +511,31 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 catalogNumber,
                 isdn,
                 newCoverImageKey,
+                basePrice,
+                publication,
+                tracks,
+                externalAudios);
+    }
+
+    /**
+     * 頒布の基準額を変更
+     *
+     * @param newBasePrice
+     *            新しい基準額（nullable。null で額が決まっていない状態に戻す）
+     * @return 更新されたAlbum
+     */
+    public @NonNull Album changeBasePrice(@Nullable Price newBasePrice) {
+        return Album.factory(
+                id,
+                title,
+                releaseDate,
+                artistCredit,
+                description,
+                eventReleasedAt,
+                catalogNumber,
+                isdn,
+                coverImageKey,
+                newBasePrice,
                 publication,
                 tracks,
                 externalAudios);
@@ -506,6 +563,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 catalogNumber,
                 isdn,
                 coverImageKey,
+                basePrice,
                 Publication.published(publication.publishedAt().orElse(currentDateTime)),
                 tracks,
                 externalAudios);
@@ -527,6 +585,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 catalogNumber,
                 isdn,
                 coverImageKey,
+                basePrice,
                 Publication.draft(),
                 tracks,
                 externalAudios);
@@ -575,6 +634,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 catalogNumber,
                 isdn,
                 coverImageKey,
+                basePrice,
                 publication,
                 Stream.concat(tracks.stream(), Stream.of(validatedTrack)).toList(),
                 externalAudios);
@@ -608,6 +668,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 catalogNumber,
                 isdn,
                 coverImageKey,
+                basePrice,
                 publication,
                 tracks.stream().filter(not(t -> t.hasId(validatedTrackId))).toList(),
                 externalAudios);
@@ -658,6 +719,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                                 catalogNumber,
                                 isdn,
                                 coverImageKey,
+                                basePrice,
                                 publication,
                                 newTracks,
                                 externalAudios))
@@ -682,6 +744,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 catalogNumber,
                 isdn,
                 coverImageKey,
+                basePrice,
                 publication,
                 Collections.unmodifiableList(renumberByOrder(validateOrderedTrackIds(orderedTrackIds))),
                 externalAudios);
@@ -794,6 +857,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                         catalogNumber,
                         isdn,
                         coverImageKey,
+                        basePrice,
                         publication,
                         tracks,
                         Stream.concat(externalAudios.stream(), Stream.of(added)).toList()),
@@ -833,6 +897,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 catalogNumber,
                 isdn,
                 coverImageKey,
+                basePrice,
                 publication,
                 tracks,
                 renumberSequentially(externalAudiosExcluding(validatedId)));
@@ -861,6 +926,7 @@ public final class Album implements Aggregate<Album, Album.Id> {
                 catalogNumber,
                 isdn,
                 coverImageKey,
+                basePrice,
                 publication,
                 tracks,
                 Collections.unmodifiableList(

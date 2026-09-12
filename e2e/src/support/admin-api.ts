@@ -24,6 +24,12 @@ export interface AlbumSeed {
     readonly spaceNumber?: string;
     readonly note?: string;
   };
+  /** 頒布の基準額。省略すると額が決まっていない作品になる */
+  readonly basePrice?: {
+    readonly amount: number;
+    /** 通貨コード（ISO 4217）。省略は円 */
+    readonly currency?: string;
+  };
   readonly tracks?: readonly TrackSeed[];
   readonly externalAudioUrls?: readonly string[];
 }
@@ -31,7 +37,8 @@ export interface AlbumSeed {
 /** 作るトラックの指定 */
 export interface TrackSeed {
   readonly trackNo: number;
-  readonly title: string;
+  /** トラック名。省略すると、チューン名を繋いだものが名になる（#360） */
+  readonly title?: string;
   readonly artistDisplayName?: string;
   readonly tunes?: readonly TuneSeed[];
 }
@@ -39,7 +46,8 @@ export interface TrackSeed {
 /** トラック内のチューン構成 */
 export interface TuneSeed {
   readonly seq: number;
-  readonly tuneTitle: string;
+  /** チューン名。省略すると名を持たない構成要素（MC・環境音など）になる */
+  readonly tuneTitle?: string;
   readonly composerCreditOverride?: string;
   readonly arrangerCreditOverride?: string;
 }
@@ -102,6 +110,7 @@ export const seedDraftAlbum = async (album: AlbumSeed): Promise<string> => {
     description: album.description,
     descriptionFormat: album.descriptionFormat,
     event: album.event,
+    basePrice: album.basePrice,
     tracks: (album.tracks ?? []).map((track) => ({
       trackNo: track.trackNo,
       title: track.title,
@@ -171,6 +180,7 @@ interface AdminAlbumDetail {
   readonly coverImageKey: string | null;
   readonly description: string | null;
   readonly descriptionFormat: string;
+  readonly basePrice: { readonly amount: number; readonly currency: string } | null;
 }
 
 /**
@@ -203,6 +213,7 @@ export const renameAlbumOutsideTheScreen = async (
     coverImageKey: detail.coverImageKey,
     description: detail.description,
     descriptionFormat: detail.descriptionFormat,
+    basePrice: detail.basePrice ?? undefined,
   });
 };
 
@@ -293,11 +304,19 @@ export const seedDraftArticle = async (article: ArticleSeed): Promise<string> =>
 
   const articleId = articleIdOf(created);
 
-  /* 参照の設定は全項目置換の PUT（作成時のリクエストは参照を持たない） */
+  /*
+   * 参照の設定は全項目置換の PUT（作成時のリクエストは参照を持たない）。作成直後のため世代は0
+   * （紐付けも記事の世代を進める契約、#323）。
+   */
   await Promise.all(
     article.albumId === undefined
       ? []
-      : [putAdmin(`/api/v1/articles/${articleId}/album`, { albumId: article.albumId })],
+      : [
+          putAdmin(`/api/v1/articles/${articleId}/album`, {
+            albumId: article.albumId,
+            expectedRevision: 0,
+          }),
+        ],
   );
 
   /*
@@ -364,6 +383,45 @@ export const deleteArticle = async (articleId: string): Promise<void> => {
           `DELETE /api/v1/articles/${articleId} が失敗しました（HTTP ${String(response.status)}）`,
         ),
       );
+};
+
+/** 管理向け記事詳細のうち、画面の外から更新を送るために要る項目 */
+interface AdminArticleDetail {
+  readonly revision: number;
+  readonly articleType: string;
+  readonly title: string;
+  readonly body: string;
+  readonly bodyFormat: string;
+  readonly introShort: string;
+}
+
+/**
+ * 別のタブが保存した状態を作る（タイトルだけを変えて全項目置換する）。
+ *
+ * <p>
+ * 更新は編集を始めた時点の世代（`expectedRevision`）を要求するため、詳細を読んでから送る（#287）。画面が
+ * 同じ記事を開いたまま古い世代で保存しようとしたときに、競合として拒まれることを見るために使う。
+ * </p>
+ *
+ * @param articleId
+ *            対象の記事のドメインID
+ * @param title
+ *            置き換え後のタイトル
+ */
+export const renameArticleOutsideTheScreen = async (
+  articleId: string,
+  title: string,
+): Promise<void> => {
+  const detail = (await getAdmin(`/api/v1/admin/articles/${articleId}`)) as AdminArticleDetail;
+
+  await sendAdmin('PUT', `/api/v1/articles/${articleId}`, {
+    expectedRevision: detail.revision,
+    articleType: detail.articleType,
+    title,
+    body: detail.body,
+    bodyFormat: detail.bodyFormat,
+    introShort: detail.introShort,
+  });
 };
 
 /** 管理向け一覧の1件。同定に使う項目だけを持つ */

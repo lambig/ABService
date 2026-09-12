@@ -20,6 +20,9 @@ class AlbumViewMapperTest {
 
     private static final String ASSET_BASE_PATH = "/assets";
 
+    /** チューン名を繋ぐ区切り。設定値（{@code abservice.track.tune-title-separator}）の既定と揃える */
+    private static final String TUNE_TITLE_SEPARATOR = " / ";
+
     @Test
     @DisplayName("全項目が Read Model に写像される")
     void toViewShouldMapAllFields() {
@@ -165,7 +168,8 @@ class AlbumViewMapperTest {
                                 "チューン1",
                                 "Trad.",
                                 "Arranger",
-                                "https://example.com/tune")));
+                                "https://example.com/tune")),
+                TUNE_TITLE_SEPARATOR);
 
         // Assert
         assertThat(tracks).extracting(TrackView::trackNo, TrackView::title)
@@ -194,5 +198,49 @@ class AlbumViewMapperTest {
                                 null,
                                 null));
         assertThat(tracks.getLast().tunes()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("タイトルを持たないトラックの名は、チューン名を登場順に繋いだものになる")
+    void toTrackViewsShouldNameUntitledTracksAfterTheirTunes() {
+        // Arrange
+        final var trackId = "0192f8a0-0000-7000-8000-0000000000c1";
+
+        // Act
+        final var tracks = AlbumViewMapper.toTrackViews(
+                List.of(
+                        new AlbumTrackRow(
+                                trackId,
+                                1,
+                                null,
+                                null,
+                                null)),
+                List.of(
+                        new AlbumTrackTuneRow(
+                                trackId,
+                                2,
+                                "チューン2",
+                                null,
+                                null,
+                                null),
+                        /* 名を持たないチューン（MC・環境音）は名に現れない */
+                        new AlbumTrackTuneRow(
+                                trackId,
+                                3,
+                                null,
+                                null,
+                                null,
+                                null),
+                        new AlbumTrackTuneRow(
+                                trackId,
+                                1,
+                                "チューン1",
+                                null,
+                                null,
+                                null)),
+                TUNE_TITLE_SEPARATOR);
+
+        // Assert
+        assertThat(tracks.getFirst().title()).isEqualTo("チューン1 / チューン2");
     }
 }

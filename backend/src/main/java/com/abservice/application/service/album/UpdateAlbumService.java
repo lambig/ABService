@@ -1,6 +1,8 @@
 package com.abservice.application.service.album;
 
 import com.abservice.application.exception.ConflictingEditException;
+import com.abservice.application.exception.Failure;
+import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.domain.exception.ValidationException;
@@ -8,6 +10,7 @@ import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
+import com.abservice.domain.model.vo.album.Price;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.AssetKey;
 import com.abservice.domain.model.vo.common.BusinessDate;
@@ -47,6 +50,7 @@ import org.jspecify.annotations.Nullable;
  */
 @ApplicationScoped
 @AllArgsConstructor
+@FailureContract({Failure.VALIDATION, Failure.NOT_FOUND, Failure.CONFLICT})
 public class UpdateAlbumService implements CommandService<UpdateAlbumInput, UpdateAlbumOutput> {
 
     private final AlbumRepository albumRepository;
@@ -139,6 +143,7 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
                         resolveOptional(AssetKey::fromInput, input.coverImageKey())
                                 .mapErrorFields(field -> "coverImageKey"),
                         resolveDescription(input.description(), input.descriptionFormat()),
+                        resolveBasePrice(input.basePrice()),
                         CoverAndDescription::new),
                 (base, optional, extra) -> existing.changeTitle(base.title())
                         .changeReleaseDate(base.releaseDate())
@@ -147,7 +152,21 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
                         .changeEventReleasedAt(optional.event().orElse(null))
                         .changeCatalogNumber(optional.catalogNumber().orElse(null))
                         .changeIsdn(optional.isdn().orElse(null))
-                        .changeCoverImageKey(extra.coverImageKey().orElse(null)));
+                        .changeCoverImageKey(extra.coverImageKey().orElse(null))
+                        .changeBasePrice(extra.basePrice().orElse(null)));
+    }
+
+    private static Result<Optional<Price>> resolveBasePrice(
+            UpdateAlbumInput.@Nullable BasePriceInput basePrice) {
+        return Optional.ofNullable(basePrice)
+                .map(UpdateAlbumService::validateBasePrice)
+                .orElseGet(() -> Result.<Optional<Price>>success(Optional.empty()));
+    }
+
+    private static Result<Optional<Price>> validateBasePrice(UpdateAlbumInput.BasePriceInput basePrice) {
+        return Price.fromInput(basePrice.amount(), basePrice.currency())
+                .mapErrorFields(field -> "basePrice." + field)
+                .map(Optional::of);
     }
 
     /** 説明なし（blank 入力）を表す検証結果。完全に使い回せる定数。 */
@@ -174,7 +193,10 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
             Optional<EventReleasedAt> event) {
     }
 
-    private record CoverAndDescription(Optional<AssetKey> coverImageKey, MarkupContent description) {
+    private record CoverAndDescription(
+            Optional<AssetKey> coverImageKey,
+            MarkupContent description,
+            Optional<Price> basePrice) {
     }
 
     private static Result<BusinessDate> resolveReleaseDate(@Nullable String value) {

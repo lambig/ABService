@@ -4,6 +4,8 @@ import {
   draftArticle,
   pagination,
   plainArticle,
+  quiet,
+  quietArticle,
   showcase,
 } from '../support/build-fixtures.ts';
 import { capture, clickWithEvidence } from '../support/evidence.ts';
@@ -16,9 +18,8 @@ import { expect, test } from '../support/fixtures.ts';
  * 決める文言のため、シナリオ側に置く。
  */
 
-/** 種別ラベル。文言は画面の実装が持つ */
+/** 詳細には出さないことを確かめるための種別ラベル（#346） */
 const ALBUM_TYPE_LABEL = '作品紹介';
-const NOTE_TYPE_LABEL = 'ノート';
 
 /** 参照先の作品への導線の見出し。文言は画面の実装が持つ */
 const ALBUM_REFERENCE_HEADING = 'この記事の作品';
@@ -29,6 +30,9 @@ const NEXT_PAGE_LINK = '次のページ';
 /** 404 の見出し。定型文のため画面の実装が持つ（#230） */
 const NOT_FOUND_HEADING = 'ページが見つかりません';
 
+/** 額の整形が出す通貨の記号。額が出ていないことは、記号の不在でしか言えない */
+const CURRENCY_SIGN = '￥';
+
 /**
  * 1ページ目に並ぶはずのタイトル。
  *
@@ -38,6 +42,7 @@ const NOT_FOUND_HEADING = 'ページが見つかりません';
 const firstPageTitles = [
   albumArticle.title,
   plainArticle.title,
+  quietArticle.title,
   ...Array.from({ length: pagination.filler - 1 }, (_unused, index) =>
     pagination.titleOf(pagination.filler - index),
   ),
@@ -63,8 +68,8 @@ test.describe('記事の一覧', () => {
 
     await expect(page.getByRole('heading', { level: 1, name: albumArticle.title })).toBeVisible();
 
-    /* 完全一致で見る。種別ラベルはフィクスチャのタイトルにも現れる語のため */
-    await expect(page.getByText(ALBUM_TYPE_LABEL, { exact: true })).toBeVisible();
+    /* 種別は詳細に出さない（#346）。完全一致で見るのは、同じ語がフィクスチャのタイトルにも現れるため */
+    await expect(page.getByText(ALBUM_TYPE_LABEL, { exact: true })).toHaveCount(0);
     /* 記事の見出しの中の日付を見る。参照先の作品も初出イベントの日付を持つため */
     await expect(page.locator('article header time[datetime]')).toBeVisible();
     await expect(
@@ -124,6 +129,28 @@ test.describe('記事の詳細', () => {
     await expect(page.getByRole('heading', { level: 1, name: showcase.title })).toBeVisible();
   });
 
+  test('作品を紹介する記事に、参照先の作品のスペース情報と基準額が出る', async ({ page }) => {
+    await page.goto(await articlePathOf(albumArticle.title));
+
+    const reference = page.getByRole('link').filter({ hasText: showcase.title });
+    await expect(reference).toContainText(showcase.eventName);
+    await expect(reference).toContainText(showcase.eventPlace);
+    await expect(reference).toContainText(showcase.eventSpaceNumber);
+    await expect(reference).toContainText(showcase.basePriceText);
+    /* 記事の詳細（10）と同じ画面の別の見どころのため、その枝番に置く */
+    await capture(page, '10a-article-album-reference-price');
+  });
+
+  test('額を持たない作品を紹介する記事には、額の区画が出ない', async ({ page }) => {
+    await page.goto(await articlePathOf(quietArticle.title));
+
+    const reference = page.getByRole('link').filter({ hasText: quiet.title });
+    await expect(reference).toBeVisible();
+
+    /* 通貨の記号で見る。額そのものは作品ごとに違い、出ないことは記号の不在でしか言えない */
+    await expect(reference).not.toContainText(CURRENCY_SIGN);
+  });
+
   test('作品を紹介する記事のリンクプレビューは、参照先の作品のもの', async ({ page }) => {
     await page.goto(await articlePathOf(albumArticle.title));
 
@@ -137,7 +164,6 @@ test.describe('記事の詳細', () => {
   test('作品を参照しない記事には、作品への導線もリンクプレビューも出ない', async ({ page }) => {
     await page.goto(await articlePathOf(plainArticle.title));
 
-    await expect(page.getByText(NOTE_TYPE_LABEL, { exact: true })).toBeVisible();
     await expect(
       page.getByRole('heading', { level: 2, name: ALBUM_REFERENCE_HEADING }),
     ).toHaveCount(0);

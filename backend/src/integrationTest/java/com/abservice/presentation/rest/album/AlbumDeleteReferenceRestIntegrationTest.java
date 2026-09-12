@@ -127,7 +127,7 @@ class AlbumDeleteReferenceRestIntegrationTest {
                                 .formatted(title))
                 .when().post("/api/v1/articles").then().statusCode(201).extract().path("articleId");
         authorized().contentType(ContentType.JSON)
-                .body("{\"albumId\":\"%s\"}".formatted(albumId))
+                .body("{\"albumId\":\"%s\",\"expectedRevision\":0}".formatted(albumId))
                 .when().put("/api/v1/articles/" + articleId + "/album").then().statusCode(200);
         return articleId;
     }

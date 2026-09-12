@@ -1,5 +1,7 @@
 package com.abservice.application.service.tune;
 
+import com.abservice.application.exception.Failure;
+import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.tune.Tune;
@@ -32,6 +34,7 @@ import org.jspecify.annotations.Nullable;
  */
 @ApplicationScoped
 @AllArgsConstructor
+@FailureContract(Failure.VALIDATION)
 public class CreateTuneService implements CommandService<CreateTuneInput, CreateTuneOutput> {
 
     private final TuneRepository tuneRepository;

@@ -1,0 +1,13 @@
+---
+import ArticleForm from '$components/ArticleForm.svelte';
+import AdminLayout from '$layouts/AdminLayout.astro';
+
+/*
+ * 入力は組み立てでは描かない（鍵の保持に sessionStorage を使い、保存はブラウザから管理APIを叩く）。
+ * client:only を指定する。
+ */
+---
+
+<AdminLayout title="記事を追加">
+  <ArticleForm client:only="svelte" mode="new" />
+</AdminLayout>

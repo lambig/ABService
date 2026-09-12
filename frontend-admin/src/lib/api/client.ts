@@ -219,6 +219,40 @@ export const unpublishAlbum = (
 export type AdminArticle = Schemas['AdminArticleResponse'];
 
 /**
+ * 管理向け記事詳細。編集の初期値として読む。
+ *
+ * <p>
+ * 種別ごとのサブタイプの合併で、`ALBUM` だけが作品への参照を持つ。編集が扱うのはどの種別にも共通の
+ * 項目だけのため、この段では枝を分けない（参照の操作は #309 の別スライス）。
+ * </p>
+ */
+export type AdminArticleDetail = Schemas['AdminArticleDetailResponse'];
+
+/**
+ * 作成・更新が送る項目。
+ *
+ * <p>
+ * 作成（`CreateArticleRequest`）と更新（`UpdateArticleRequest`）は同じ項目を持ち、違うのは経路と、
+ * 更新が全項目置換で編集開始時点の世代を伴うこと。片方の型だけを使うと、生成した型が食い違ったときに
+ * 検査が通ってしまうため、両方を満たす形として宣言する。
+ * </p>
+ */
+export type ArticleFields = Schemas['UpdateArticleRequest'] & Schemas['CreateArticleRequest'];
+
+/** 記事タグ1件。名前で同定し、外すときだけ `tagId` を使う（DECISIONS 23） */
+export type AdminArticleTag = Schemas['AdminArticleTagResponse'];
+
+/**
+ * 記事から参照する作品を探した結果。
+ *
+ * <p>
+ * 下書きを含む（管理向けの一覧を引くため）。参照できるかどうかの判定はバックエンドが持ち、画面は
+ * 返った候補を並べるだけ。
+ * </p>
+ */
+export type AlbumCandidate = AdminAlbum;
+
+/**
  * 管理向け記事一覧の1ページ。
  *
  * <p>
@@ -249,6 +283,57 @@ export const listArticles = (apiKey: string, page: number): Promise<ApiResult<Ad
     'GET',
     `/api/v1/admin/articles?page=${String(page)}&size=${String(PAGE_SIZE)}&sort=${ARTICLE_LIST_SORT}`,
     apiKey,
+  );
+
+/**
+ * 編集する記事を1件引く（下書きを含む）。
+ *
+ * 公開向けの詳細ではなく管理向けを引く。編集の対象は下書きも含み、公開向けには出ないため。
+ */
+export const getArticle = (
+  apiKey: string,
+  articleId: string,
+): Promise<ApiResult<AdminArticleDetail>> =>
+  request<AdminArticleDetail>(
+    'GET',
+    `/api/v1/admin/articles/${encodeURIComponent(articleId)}`,
+    apiKey,
+  );
+
+/**
+ * 記事を作る（下書きとして作られる）。
+ *
+ * <p>
+ * 応答は世代を返さない。作った記事をそのまま編集し続けるには、作成の後に管理向け詳細を引き直して
+ * 世代を得る（世代を推測すると、最初の保存が別の編集を消しかねない）。
+ * </p>
+ */
+export const createArticle = (
+  apiKey: string,
+  fields: ArticleFields,
+): Promise<ApiResult<Schemas['CreateArticleResponse']>> =>
+  request<Schemas['CreateArticleResponse']>('POST', '/api/v1/articles', apiKey, fields);
+
+/**
+ * 記事を更新する（PUT風の全項目置換。公開状態とタグは対象外）。
+ *
+ * <p>
+ * 編集を始めた時点の世代（`expectedRevision`）を必ず送る。全項目置換のため、これを持たない更新は編集の
+ * 間に入った別の保存を消す。世代が古ければ 409 が返る（#287）。応答は保存後の世代を返すため、画面に
+ * 留まったまま続けて編集できる。
+ * </p>
+ */
+export const updateArticle = (
+  apiKey: string,
+  articleId: string,
+  fields: ArticleFields,
+  expectedRevision: number,
+): Promise<ApiResult<Schemas['UpdateArticleResponse']>> =>
+  request<Schemas['UpdateArticleResponse']>(
+    'PUT',
+    `/api/v1/articles/${encodeURIComponent(articleId)}`,
+    apiKey,
+    { ...fields, expectedRevision },
   );
 
 /** 記事を公開する。 */
@@ -283,3 +368,135 @@ export const unpublishArticle = (
  */
 export const deleteArticle = (apiKey: string, articleId: string): Promise<ApiResult<void>> =>
   requestNoContent('DELETE', `/api/v1/articles/${encodeURIComponent(articleId)}`, apiKey);
+
+/**
+ * 付けられるタグの一覧。
+ *
+ * <p>
+ * 既にある名前を選ばせるために引く。画面が候補を持たないと、同じ意味のタグが表記違いで増える。
+ * </p>
+ */
+export const listArticleTags = async (
+  apiKey: string,
+): Promise<ApiResult<readonly AdminArticleTag[]>> => {
+  const result = await request<Schemas['AdminArticleTagListResponse']>(
+    'GET',
+    '/api/v1/admin/article-tags',
+    apiKey,
+  );
+
+  return result.kind === 'ok' ? { kind: 'ok', value: result.value.items } : result;
+};
+
+/**
+ * 記事にタグを付ける。
+ *
+ * <p>
+ * 送るのは**名前**で、同じ名前のタグが無ければ作られる（DECISIONS 23）。画面は同名かどうかを判定
+ * しない——判定の規則はバックエンドが持ち、写すと2箇所へ散る。
+ * </p>
+ */
+export const addArticleTag = (
+  apiKey: string,
+  articleId: string,
+  name: string,
+): Promise<ApiResult<Schemas['AddArticleTagResponse']>> =>
+  request<Schemas['AddArticleTagResponse']>(
+    'POST',
+    `/api/v1/articles/${encodeURIComponent(articleId)}/tags`,
+    apiKey,
+    { name },
+  );
+
+/**
+ * 記事からタグを外す。
+ *
+ * <p>
+ * 外す対象は `tagId` で指す（付けるときは名前だが、外すのは既に付いている1件のため）。応答は 204 で
+ * 本体を持たない。
+ * </p>
+ */
+export const removeArticleTag = (
+  apiKey: string,
+  articleId: string,
+  tagId: string,
+): Promise<ApiResult<void>> =>
+  requestNoContent(
+    'DELETE',
+    `/api/v1/articles/${encodeURIComponent(articleId)}/tags/${encodeURIComponent(tagId)}`,
+    apiKey,
+  );
+
+/** 検索の取得件数。選ぶための候補で、全件を辿るための一覧ではない */
+const ALBUM_SEARCH_SIZE = 20;
+
+/**
+ * 参照する作品を探す。
+ *
+ * <p>
+ * タイトルとカタログナンバーの両方を同じ語で問い合わせる経路は無いため、入力された語をどちらの絞り込みに
+ * 渡すかは呼び出し側が決める（#208）。絞り込みは部分一致で、判定はバックエンドが持つ。
+ * </p>
+ *
+ * @param apiKey 管理APIの鍵
+ * @param by 絞り込む項目
+ * @param keyword 入力された語
+ */
+export const searchAlbums = async (
+  apiKey: string,
+  by: 'title' | 'catalogNumber',
+  keyword: string,
+): Promise<ApiResult<readonly AlbumCandidate[]>> => {
+  const result = await request<Schemas['AdminAlbumListResponse']>(
+    'GET',
+    `/api/v1/admin/albums?page=0&size=${String(ALBUM_SEARCH_SIZE)}&${by}=${encodeURIComponent(keyword)}`,
+    apiKey,
+  );
+
+  return result.kind === 'ok' ? { kind: 'ok', value: result.value.items } : result;
+};
+
+/**
+ * 記事が参照する作品を設定する。
+ *
+ * <p>
+ * 参照を持てるのは `ALBUM` 種別だけで、未存在・非公開などの判定はバックエンドが返す（DECISIONS 21）。
+ * 画面は結果を扱うだけで、参照できるかどうかを先に判定しない。
+ * </p>
+ *
+ * <p>
+ * 紐付けは記事の世代を進めるため、編集を始めた時点の世代（`expectedRevision`）を送る。世代が古ければ
+ * 409 が返る。応答は紐付け後の世代を返すため、GETで取り直さずそのまま次の条件にできる（#323）。
+ * </p>
+ */
+export const setArticleAlbum = (
+  apiKey: string,
+  articleId: string,
+  albumId: string,
+  expectedRevision: number,
+): Promise<ApiResult<Schemas['SetArticleAlbumResponse']>> =>
+  request<Schemas['SetArticleAlbumResponse']>(
+    'PUT',
+    `/api/v1/articles/${encodeURIComponent(articleId)}/album`,
+    apiKey,
+    { albumId, expectedRevision },
+  );
+
+/**
+ * 記事から作品への参照を外す。
+ *
+ * <p>
+ * 解除も記事の世代を進めるため、紐付けと同じ `expectedRevision` 契約を適用する。応答は解除後の世代を
+ * 返すため、GETで取り直さずそのまま次の条件にできる（#323）。
+ * </p>
+ */
+export const removeArticleAlbum = (
+  apiKey: string,
+  articleId: string,
+  expectedRevision: number,
+): Promise<ApiResult<Schemas['RemoveArticleAlbumResponse']>> =>
+  request<Schemas['RemoveArticleAlbumResponse']>(
+    'DELETE',
+    `/api/v1/articles/${encodeURIComponent(articleId)}/album?expectedRevision=${String(expectedRevision)}`,
+    apiKey,
+  );

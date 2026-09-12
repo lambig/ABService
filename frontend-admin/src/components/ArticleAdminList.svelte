@@ -20,8 +20,10 @@
     type AdminArticlePage,
     type ApiResult,
   } from '$lib/api/client';
+  import { ARTICLE_TYPE_LABELS } from '$lib/article-labels';
   import { KEY_STORE, forgetApiKey, storedApiKey } from '$lib/credentials';
   import { formatPublishedDate } from '$lib/format';
+  import { NEW_ARTICLE_PATH, editArticlePath } from '$lib/paths';
 
   /**
    * 記事の一覧と、公開・非公開・削除。
@@ -326,15 +328,6 @@
         : null;
 
   const deletion = $derived(deletionOf(activity));
-
-  /** 種別の表示。値は管理APIの列挙子名で、そのままでは画面に出せない */
-  const ARTICLE_TYPE_LABELS: Readonly<Record<string, string>> = {
-    ALBUM: '作品紹介',
-    NOTE: '記事',
-    NEWS: 'ニュース',
-    EVENT: 'イベント',
-    OTHER: 'その他',
-  };
 </script>
 
 {#if view.kind === 'locked'}
@@ -356,9 +349,12 @@
   <div class="space-y-4">
     <div class="flex items-baseline justify-between">
       <p class="text-muted-foreground text-sm">{page.totalElements} 件</p>
-      <button class="text-sm underline underline-offset-4" type="button" onclick={lock}>
-        鍵を破棄する
-      </button>
+      <div class="flex items-center gap-4">
+        <a class="text-sm underline underline-offset-4" href={NEW_ARTICLE_PATH}>記事を追加する</a>
+        <button class="text-sm underline underline-offset-4" type="button" onclick={lock}>
+          鍵を破棄する
+        </button>
+      </div>
     </div>
 
     {#if articles.length === 0}
@@ -377,7 +373,10 @@
         <Table.Body>
           {#each articles as article (article.articleId)}
             <Table.Row>
-              <Table.Cell>{article.title}</Table.Cell>
+              <!-- 文言の長い列だけ折り返させ、行数を抑える（#359）。幅を指定しない理由も作品一覧と同じ -->
+              <Table.Cell class="whitespace-normal">
+                <span class="line-clamp-2 break-words">{article.title}</span>
+              </Table.Cell>
               <Table.Cell>
                 {ARTICLE_TYPE_LABELS[article.articleType] ?? article.articleType}
               </Table.Cell>
@@ -390,7 +389,14 @@
                 </Badge>
               </Table.Cell>
               <Table.Cell>
-                <div class="flex items-center gap-2">
+                <!-- 操作ごとに幅を固定する（#345）。作品一覧と同じ理由 -->
+                <div class="grid grid-cols-[5rem_8rem_auto] items-center gap-2">
+                  <a
+                    class="text-sm underline underline-offset-4"
+                    href={editArticlePath(article.articleId)}
+                  >
+                    編集する
+                  </a>
                   {#if article.publicFlag}
                     <Button
                       size="sm"

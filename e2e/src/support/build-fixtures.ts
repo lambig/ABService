@@ -39,13 +39,16 @@ export const showcase = {
   releaseDate: '2026-08-15',
   /** 画面に出る形。投入値と並べて置き、整形の結果をシナリオから読めるようにする */
   releaseDateText: '2026年8月15日',
-  trackTitle: 'E2E 確認トラック',
-  tuneTitle: 'E2E 確認チューン',
-  composerCredit: 'Trad.',
   audioUrl: 'https://soundcloud.com/example/e2e',
   eventName: 'E2E 確認イベント',
   /* リリース日と別の日にする。同じ日にすると、整形後の表示がどちらの日付か区別できない */
   eventDate: '2026-08-13',
+  eventPlace: 'E2E 会場',
+  eventSpaceNumber: 'A-01',
+  /** 頒布の基準額（#349）。作品紹介の記事にだけ出る */
+  basePrice: 1500,
+  /** 画面に出る形。投入値と並べて置き、整形の結果をシナリオから読めるようにする */
+  basePriceText: '￥1,500',
   /** Markdown として描画されることを、要素ごとに確かめるための断片 */
   description: {
     heading: '概要',
@@ -56,11 +59,118 @@ export const showcase = {
 } as const;
 
 /**
+ * `showcase` の曲目（#360）。
+ *
+ * <p>
+ * トラック名とチューンの組み合わせを網羅する。1つの作品にまとめるのは、**並び方と名の出かたを同じ画面で
+ * 見比べるため**で、作品を分けると証跡も分かれて比較できない。
+ * </p>
+ *
+ * <p>
+ * `name` は画面に出る名。トラック名を持つトラックはその名、持たないトラックはチューン名を繋いだものになる。
+ * 繋ぎの区切りはバックエンドの設定（`abservice.track.tune-title-separator`）が持ち、その既定を
+ * {@link TUNE_TITLE_SEPARATOR} に写している。名を持たないチューン（MC・環境音）は名に現れない。
+ * さらに、名もクレジットも持たないチューンは曲目の行にも出ない——位置だけを表す空の行になるため。
+ * </p>
+ */
+export const TUNE_TITLE_SEPARATOR = ' / ';
+
+const joinTuneTitles = (...titles: readonly string[]): string => titles.join(TUNE_TITLE_SEPARATOR);
+
+export const showcaseTracks = {
+  /** 名あり・チューン1件（作曲のクレジット） */
+  titledWithTune: {
+    trackNo: 1,
+    title: 'E2E 確認トラック',
+    tuneTitle: 'E2E 確認チューン',
+    composerCredit: 'Trad.',
+    get name(): string {
+      return this.title;
+    },
+  },
+  /** 名あり・チューンなし */
+  titledWithoutTunes: {
+    trackNo: 2,
+    title: 'E2E 単独トラック',
+    get name(): string {
+      return this.title;
+    },
+  },
+  /** 名あり・チューン1件（作曲と編曲の両方のクレジット） */
+  titledWithArrangedTune: {
+    trackNo: 3,
+    title: 'E2E 編曲トラック',
+    tuneTitle: 'E2E 編曲チューン',
+    composerCredit: 'E2E 作曲者',
+    arrangerCredit: 'E2E 編曲者',
+    get name(): string {
+      return this.title;
+    },
+  },
+  /** 名あり・チューン複数（1件目だけクレジットを持つ） */
+  titledWithTunes: {
+    trackNo: 4,
+    title: 'E2E 組曲トラック',
+    firstTuneTitle: 'E2E 組曲チューン1',
+    secondTuneTitle: 'E2E 組曲チューン2',
+    composerCredit: 'E2E 組曲作曲者',
+    get name(): string {
+      return this.title;
+    },
+  },
+  /** 名なし・チューン1件 */
+  untitledWithTune: {
+    trackNo: 5,
+    tuneTitle: 'E2E 名なしトラックのチューン',
+    get name(): string {
+      return this.tuneTitle;
+    },
+  },
+  /** 名なし・チューン複数（区切りで繋がる） */
+  untitledWithTunes: {
+    trackNo: 6,
+    firstTuneTitle: 'E2E 連結チューンA',
+    secondTuneTitle: 'E2E 連結チューンB',
+    get name(): string {
+      return joinTuneTitles(this.firstTuneTitle, this.secondTuneTitle);
+    },
+  },
+  /** 名なし・名もクレジットも持たないチューンを挟む（そのチューンは名にも曲目の行にも出ない） */
+  untitledWithUnnamedTune: {
+    trackNo: 7,
+    firstTuneTitle: 'E2E 間奏前チューン',
+    lastTuneTitle: 'E2E 間奏後チューン',
+    get name(): string {
+      return joinTuneTitles(this.firstTuneTitle, this.lastTuneTitle);
+    },
+  },
+  /** 名あり・名を持たないチューンだけ（名の元はトラック名しかない。クレジットを持つので行は出る） */
+  titledWithUnnamedTune: {
+    trackNo: 8,
+    title: 'E2E MCトラック',
+    tuneCredit: 'E2E 語り',
+    get name(): string {
+      return this.title;
+    },
+  },
+} as const;
+
+/** 曲目に並ぶ名を、トラック番号の順に並べたもの */
+export const showcaseTrackNames: readonly string[] = Object.values(showcaseTracks)
+  .toSorted((left, right) => left.trackNo - right.trackNo)
+  .map((track) => track.name);
+
+/**
  * 外部音源を持たない作品。
  *
  * <p>
  * カバー画像とプレイヤーの出し分け（#197）は、音源が0件の側も見なければ検証にならない。ISDN と
  * 初出イベントの5項目も、この作品で確かめる。
+ * </p>
+ *
+ * <p>
+ * 頒布の基準額は持たせない。額を持たない作品では記事に額の区画が出ないことを、この作品を参照する
+ * 記事で見る（#349）。
  * </p>
  */
 export const quiet = {
@@ -100,6 +210,32 @@ export const albumArticle = {
     heading: '記事の見出し',
     lead: 'E2E で記事の本文を確かめる。',
   },
+  /**
+   * 画像の配信ベース判定を確かめるための `src`。
+   *
+   * <p>
+   * 配信ベース配下のものは描かれ、`/assets/../api/...` のように解決後は配下から出るものは画像ごと
+   * 落ちる（#289）。**プレビューと公開が同じ設定で判定していること**を同じ本文から見るため、この
+   * 記事の本文へ両方を入れておく。
+   * </p>
+   */
+  image: {
+    allowedSrc: '/assets/e2e-body-image.png',
+    allowedAlt: 'E2E 本文の画像',
+    deviantSrc: '/assets/../api/v1/albums',
+    deviantAlt: 'E2E 配下から出る画像',
+  },
+} as const;
+
+/**
+ * 額を持たない作品を紹介する記事。
+ *
+ * 額の区画が出るかどうかは参照先の作品で決まるため、額を持つ側（`albumArticle`）と持たない側の
+ * 両方を1回の実行で見る（#349）。
+ */
+export const quietArticle = {
+  title: 'E2E 額なし作品紹介記事',
+  introShort: '額を持たない作品を紹介する記事のショート紹介文。',
 } as const;
 
 /** 作品への参照を持たない記事 */
@@ -120,7 +256,7 @@ export const draftArticle = {
  *
  * <p>
  * 文言はリポジトリに置かず管理画面から入れるため、画面に出る文字列はここが唯一の出所になる。未登録の
- * キーは区画ごと出ない仕様のため、E2E では3つとも入れて「出る」側を確かめる。
+ * キーは区画ごと出ない仕様のため、E2E では入れて「出る」側を確かめる。
  * </p>
  */
 export const siteContent = {
@@ -131,6 +267,13 @@ export const siteContent = {
     heading: 'ようこそ',
     lead: 'E2E でトップの紹介文を確かめる。',
   },
+  /**
+   * 既定の名義（#348）。
+   *
+   * 画面に名義が出るのは既定と違うときだけ。`showcase` をこの名義に揃え、`quiet` を別の名義のまま
+   * 残すことで、出る側と出ない側の両方を1回の実行で見る。
+   */
+  defaultArtist: showcase.artistDisplayName,
 } as const;
 
 /**
@@ -145,8 +288,8 @@ export const siteContent = {
 export const pagination = {
   /** 画面が1ページに並べる件数 */
   perPage: 20,
-  /** 作品紹介・ノートの2件と合わせて1ページを1件だけ超える */
-  filler: 19,
+  /** 作品紹介2件・ノート1件と合わせて1ページを1件だけ超える */
+  filler: 18,
   titleOf: (index: number): string => `E2E ページ送り記事 ${String(index)}`,
 } as const;
 
@@ -169,16 +312,75 @@ const showcaseSeed: AlbumSeed = {
   event: {
     name: showcase.eventName,
     date: showcase.eventDate,
-    place: 'E2E 会場',
-    spaceNumber: 'A-01',
+    place: showcase.eventPlace,
+    spaceNumber: showcase.eventSpaceNumber,
   },
+  basePrice: { amount: showcase.basePrice },
   tracks: [
     {
-      trackNo: 1,
-      title: showcase.trackTitle,
+      trackNo: showcaseTracks.titledWithTune.trackNo,
+      title: showcaseTracks.titledWithTune.title,
       tunes: [
-        { seq: 1, tuneTitle: showcase.tuneTitle, composerCreditOverride: showcase.composerCredit },
+        {
+          seq: 1,
+          tuneTitle: showcaseTracks.titledWithTune.tuneTitle,
+          composerCreditOverride: showcaseTracks.titledWithTune.composerCredit,
+        },
       ],
+    },
+    {
+      trackNo: showcaseTracks.titledWithoutTunes.trackNo,
+      title: showcaseTracks.titledWithoutTunes.title,
+    },
+    {
+      trackNo: showcaseTracks.titledWithArrangedTune.trackNo,
+      title: showcaseTracks.titledWithArrangedTune.title,
+      tunes: [
+        {
+          seq: 1,
+          tuneTitle: showcaseTracks.titledWithArrangedTune.tuneTitle,
+          composerCreditOverride: showcaseTracks.titledWithArrangedTune.composerCredit,
+          arrangerCreditOverride: showcaseTracks.titledWithArrangedTune.arrangerCredit,
+        },
+      ],
+    },
+    {
+      trackNo: showcaseTracks.titledWithTunes.trackNo,
+      title: showcaseTracks.titledWithTunes.title,
+      tunes: [
+        {
+          seq: 1,
+          tuneTitle: showcaseTracks.titledWithTunes.firstTuneTitle,
+          composerCreditOverride: showcaseTracks.titledWithTunes.composerCredit,
+        },
+        { seq: 2, tuneTitle: showcaseTracks.titledWithTunes.secondTuneTitle },
+      ],
+    },
+    /* ここから下はトラック名を持たない。名はチューン名から決まる（#360） */
+    {
+      trackNo: showcaseTracks.untitledWithTune.trackNo,
+      tunes: [{ seq: 1, tuneTitle: showcaseTracks.untitledWithTune.tuneTitle }],
+    },
+    {
+      trackNo: showcaseTracks.untitledWithTunes.trackNo,
+      tunes: [
+        { seq: 1, tuneTitle: showcaseTracks.untitledWithTunes.firstTuneTitle },
+        { seq: 2, tuneTitle: showcaseTracks.untitledWithTunes.secondTuneTitle },
+      ],
+    },
+    {
+      trackNo: showcaseTracks.untitledWithUnnamedTune.trackNo,
+      tunes: [
+        { seq: 1, tuneTitle: showcaseTracks.untitledWithUnnamedTune.firstTuneTitle },
+        /* 名もクレジットも持たない間奏。名にも曲目の行にも出ない（#360） */
+        { seq: 2 },
+        { seq: 3, tuneTitle: showcaseTracks.untitledWithUnnamedTune.lastTuneTitle },
+      ],
+    },
+    {
+      trackNo: showcaseTracks.titledWithUnnamedTune.trackNo,
+      title: showcaseTracks.titledWithUnnamedTune.title,
+      tunes: [{ seq: 1, composerCreditOverride: showcaseTracks.titledWithUnnamedTune.tuneCredit }],
     },
   ],
   externalAudioUrls: [showcase.audioUrl],
@@ -208,11 +410,27 @@ const draftSeed: AlbumSeed = {
 const albumArticleSeed = (albumId: string): ArticleSeed => ({
   articleType: 'ALBUM',
   title: albumArticle.title,
-  body: [`## ${albumArticle.body.heading}`, '', albumArticle.body.lead, ''].join('\n'),
+  body: [
+    `## ${albumArticle.body.heading}`,
+    '',
+    albumArticle.body.lead,
+    '',
+    `![${albumArticle.image.allowedAlt}](${albumArticle.image.allowedSrc})`,
+    '',
+    `![${albumArticle.image.deviantAlt}](${albumArticle.image.deviantSrc})`,
+    '',
+  ].join('\n'),
   bodyFormat: 'MARKDOWN',
   introShort: albumArticle.introShort,
   albumId,
   tags: albumArticle.tags,
+});
+
+const quietArticleSeed = (albumId: string): ArticleSeed => ({
+  articleType: 'ALBUM',
+  title: quietArticle.title,
+  introShort: quietArticle.introShort,
+  albumId,
 });
 
 const plainArticleSeed: ArticleSeed = {
@@ -295,6 +513,15 @@ const ensureArticle = async (seed: ArticleSeed, state: SeedState): Promise<void>
   return state === 'PUBLISHED' ? publishArticle(articleId) : undefined;
 };
 
+/** シードした作品のID。揃えたはずの作品が無いのは前提が崩れているため、続けずに落とす */
+const seededAlbumId = async (catalogNumber: string): Promise<string> => {
+  const album = await findAlbumByCatalogNumber(catalogNumber);
+
+  return album === undefined
+    ? Promise.reject(new Error(`シードした作品が見つかりません: ${catalogNumber}`))
+    : album.albumId;
+};
+
 /**
  * 画面確認用のデータを揃える。
  *
@@ -305,7 +532,7 @@ const ensureArticle = async (seed: ArticleSeed, state: SeedState): Promise<void>
  * </p>
  *
  * <p>
- * 作品紹介の記事だけは参照先の作品を要するため、作品を揃えたあとに作る。
+ * 作品紹介の記事は参照先の作品を要するため、作品を揃えたあとに作る。
  * </p>
  */
 export const seedForBuild = async (): Promise<void> => {
@@ -326,21 +553,24 @@ export const seedForBuild = async (): Promise<void> => {
     ),
     contentFormat: 'MARKDOWN',
   });
+  await upsertSiteContent({
+    key: 'site.artist',
+    content: siteContent.defaultArtist,
+    contentFormat: 'PLAIN_TEXT',
+  });
 
   await ensureAlbum(showcase.catalogNumber, showcaseSeed, 'PUBLISHED');
   await ensureAlbum(quiet.catalogNumber, quietSeed, 'PUBLISHED');
   await ensureAlbum(draft.catalogNumber, draftSeed, 'DRAFT');
 
-  const showcaseAlbum = await findAlbumByCatalogNumber(showcase.catalogNumber);
-  const showcaseAlbumId =
-    showcaseAlbum === undefined
-      ? await Promise.reject(new Error(`シードした作品が見つかりません: ${showcase.catalogNumber}`))
-      : showcaseAlbum.albumId;
+  const showcaseAlbumId = await seededAlbumId(showcase.catalogNumber);
+  const quietAlbumId = await seededAlbumId(quiet.catalogNumber);
 
   for (const index of Array.from({ length: pagination.filler }, (_unused, i) => i + 1)) {
     await ensureArticle(fillerArticleSeed(index), 'PUBLISHED');
   }
 
+  await ensureArticle(quietArticleSeed(quietAlbumId), 'PUBLISHED');
   await ensureArticle(plainArticleSeed, 'PUBLISHED');
   await ensureArticle(albumArticleSeed(showcaseAlbumId), 'PUBLISHED');
   await ensureArticle(draftArticleSeed, 'DRAFT');

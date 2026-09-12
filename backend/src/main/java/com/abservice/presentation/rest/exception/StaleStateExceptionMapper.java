@@ -3,6 +3,7 @@ package com.abservice.presentation.rest.exception;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.hibernate.StaleStateException;
 
 /**
@@ -14,6 +15,7 @@ import org.hibernate.StaleStateException;
  * </p>
  */
 @Provider
+@APIResponse(responseCode = "409")
 public class StaleStateExceptionMapper implements ExceptionMapper<StaleStateException> {
 
     @Override

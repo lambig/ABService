@@ -1,5 +1,8 @@
 package com.abservice.application.service.article;
 
+import com.abservice.application.exception.ConflictingEditException;
+import com.abservice.application.exception.Failure;
+import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.exception.EntityNotFoundException;
@@ -29,9 +32,15 @@ import lombok.AllArgsConstructor;
  * 対象記事の種別が{@link ArticleType#ALBUM}でない場合は、参照という概念自体を持たないため
  * {@link BusinessRuleViolationException}（409）とします。
  * </p>
+ *
+ * <p>
+ * 解除もArticleの世代を進めるため、{@link SetArticleAlbumService}と同じ{@code expectedRevision}契約を
+ * 適用します（#323）。
+ * </p>
  */
 @ApplicationScoped
 @AllArgsConstructor
+@FailureContract({Failure.VALIDATION, Failure.NOT_FOUND, Failure.CONFLICT})
 public class RemoveArticleAlbumService implements CommandService<RemoveArticleAlbumInput, RemoveArticleAlbumOutput> {
 
     private final ArticleRepository articleRepository;
@@ -41,11 +50,12 @@ public class RemoveArticleAlbumService implements CommandService<RemoveArticleAl
     @Override
     public Uni<RemoveArticleAlbumOutput> execute(RemoveArticleAlbumInput input) {
         return input.asValidated()
-                .map(RemoveArticleAlbumService::toArticleId)
                 .flatMap(
-                        articleId -> findExistingAlbumArticle(articleId)
+                        valid -> findExisting(toArticleId(valid))
+                                .map(claimed -> claimedAsOf(claimed, valid))
+                                .flatMap(RemoveArticleAlbumService::requireAlbumType)
                                 .flatMap(this::detached)
-                                .flatMap(articleRepository::save)
+                                .flatMap(articleRepository::saveWithRevision)
                                 .map(RemoveArticleAlbumService::toOutput));
     }
 
@@ -53,16 +63,33 @@ public class RemoveArticleAlbumService implements CommandService<RemoveArticleAl
         return Article.Id.of(Objects.requireNonNull(valid.articleId()));
     }
 
+    private Uni<ArticleRepository.Revisioned> findExisting(Article.Id id) {
+        return articleRepository.findByIdWithRevision(id)
+                .onItem().ifNull()
+                .failWith(() -> EntityNotFoundException.of("Article", id.value()));
+    }
+
+    /**
+     * 掴んだ行の世代が、編集を始めた時点と同じであることを確かめる。
+     *
+     * <p>
+     * 違っていれば、この解除が持っている値は既に古い。届いた値を最新へ適用すると、間に入った保存を消すため拒む。
+     * </p>
+     */
+    private static Article claimedAsOf(ArticleRepository.Revisioned claimed, RemoveArticleAlbumInput input) {
+        return Objects.equals(claimed.revision().value(), input.expectedRevision())
+                ? claimed.article()
+                : conflicting(claimed);
+    }
+
+    private static Article conflicting(ArticleRepository.Revisioned claimed) {
+        throw new ConflictingEditException(
+                "記事 %s は編集を始めた後に更新されています".formatted(claimed.article().id().value()));
+    }
+
     private Uni<AlbumArticle> detached(AlbumArticle article) {
         return businessDateTimeProvider.now()
                 .map(article::detachAlbum);
-    }
-
-    private Uni<AlbumArticle> findExistingAlbumArticle(Article.Id id) {
-        return articleRepository.findById(id)
-                .onItem().ifNull()
-                .failWith(() -> EntityNotFoundException.of("Article", id.value()))
-                .flatMap(RemoveArticleAlbumService::requireAlbumType);
     }
 
     /*
@@ -79,10 +106,11 @@ public class RemoveArticleAlbumService implements CommandService<RemoveArticleAl
                                                 "ALBUM種別の記事のみアルバムの紐付けを解除できます")));
     }
 
-    private static RemoveArticleAlbumOutput toOutput(Article article) {
+    private static RemoveArticleAlbumOutput toOutput(ArticleRepository.Revisioned saved) {
         return new RemoveArticleAlbumOutput(
-                article.id().value(),
-                article.articleType().name(),
-                article.title().value());
+                saved.article().id().value(),
+                saved.revision().value(),
+                saved.article().articleType().name(),
+                saved.article().title().value());
     }
 }

@@ -1,5 +1,7 @@
 package com.abservice.application.query.tune;
 
+import com.abservice.application.exception.Failure;
+import com.abservice.application.exception.FailureResult;
 import com.abservice.application.query.QueryService;
 import com.abservice.application.query.tune.model.TuneView;
 
@@ -26,6 +28,7 @@ public sealed interface GetTuneResult extends QueryService.Result
     /**
      * チューンが見つからなかった結果（→ 404）
      */
+    @FailureResult(Failure.NOT_FOUND)
     record NotFound() implements GetTuneResult {
     }
 }

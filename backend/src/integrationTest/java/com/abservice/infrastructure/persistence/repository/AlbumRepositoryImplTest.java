@@ -6,6 +6,7 @@ import com.abservice.domain.model.aggregate.album.TrackTune;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
+import com.abservice.domain.model.vo.album.Price;
 import com.abservice.domain.model.vo.album.Publication;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
@@ -82,6 +83,7 @@ class AlbumRepositoryImplTest {
                         null,
                         null,
                         null,
+                        null,
                         null);
 
         // Save the album
@@ -123,6 +125,7 @@ class AlbumRepositoryImplTest {
                         null,
                         null,
                         null,
+                        null,
                         null)
                 .addTrack(track1).addTrack(track2);
 
@@ -152,6 +155,7 @@ class AlbumRepositoryImplTest {
                         testReleaseDate,
                         testArtistCredit,
                         MarkupContent.EMPTY,
+                        null,
                         null,
                         null,
                         null,
@@ -203,6 +207,7 @@ class AlbumRepositoryImplTest {
                         testReleaseDate,
                         testArtistCredit,
                         MarkupContent.EMPTY,
+                        null,
                         null,
                         null,
                         null,
@@ -261,6 +266,7 @@ class AlbumRepositoryImplTest {
                         null,
                         null,
                         null,
+                        null,
                         null)
                 .addTrack(track1).addTrack(track2);
 
@@ -291,6 +297,67 @@ class AlbumRepositoryImplTest {
                 });
     }
 
+    /**
+     * 基準額は、作成の後の保存でも書き換わる。
+     *
+     * <p>
+     * 既存の行がある保存は、掴んだ行へ項目を写して更新する。写す項目の列挙から漏れた列は、作成のときだけ
+     * 入って以後どう変えても動かない。作成の往復だけでは気付けないため、変更まで見る。
+     * </p>
+     */
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldReplaceBasePriceOnResave(UniAsserter asserter) {
+        initTestData();
+
+        final var album = Album.create(
+                new AlbumTitle("Album with Base Price"),
+                testReleaseDate,
+                testArtistCredit,
+                MarkupContent.EMPTY,
+                null,
+                null,
+                null,
+                null,
+                Price.of(1500));
+
+        asserter.execute(() -> repository.save(album));
+        asserter.execute(() -> repository.save(album.changeBasePrice(Price.of(1800))));
+
+        asserter.assertThat(() -> repository.findById(album.id()), found -> {
+            assertThat(found.basePrice()).isNotNull();
+            assertThat(found.basePrice().amount()).isEqualTo(1800);
+            assertThat(found.basePrice().currencyCode()).isEqualTo("JPY");
+        });
+    }
+
+    /** 額を消す保存は、列を NULL へ戻す（額が決まっていない状態）。 */
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldClearBasePriceOnResave(UniAsserter asserter) {
+        initTestData();
+
+        final var album = Album.create(
+                new AlbumTitle("Album losing Base Price"),
+                testReleaseDate,
+                testArtistCredit,
+                MarkupContent.EMPTY,
+                null,
+                null,
+                null,
+                null,
+                Price.of(1500));
+
+        asserter.execute(() -> repository.save(album));
+        asserter.execute(() -> repository.save(album.changeBasePrice(null)));
+
+        asserter.assertThat(
+                () -> repository.findById(album.id()),
+                found -> assertThat(found.basePrice()).isNull());
+    }
+
     @Test
     @TestReactiveTransaction
     @RunOnVertxContext
@@ -302,6 +369,7 @@ class AlbumRepositoryImplTest {
                 testReleaseDate,
                 testArtistCredit,
                 MarkupContent.markdown("## 概要\n\n往復確認用の説明"),
+                null,
                 null,
                 null,
                 null,
@@ -329,9 +397,64 @@ class AlbumRepositoryImplTest {
                 null,
                 null,
                 null,
+                null,
                 null);
 
         asserter.execute(() -> repository.save(album));
+
+        asserter.assertThat(
+                () -> repository.findById(album.id()),
+                found -> assertThat(found.description().isEmpty()).isTrue());
+    }
+
+    /** 概要説明も、作成の後の保存で書き換わる（基準額と同じく、写す項目の列挙から落ちていた）。 */
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldReplaceDescriptionOnResave(UniAsserter asserter) {
+        initTestData();
+
+        final var album = Album.create(
+                new AlbumTitle("Album rewriting Description"),
+                testReleaseDate,
+                testArtistCredit,
+                MarkupContent.plainText("最初の説明"),
+                null,
+                null,
+                null,
+                null,
+                null);
+
+        asserter.execute(() -> repository.save(album));
+        asserter.execute(
+                () -> repository.save(album.changeDescription(MarkupContent.markdown("## 書き換えた説明"))));
+
+        asserter.assertThat(() -> repository.findById(album.id()), found -> {
+            assertThat(found.description().content()).isEqualTo("## 書き換えた説明");
+            assertThat(found.description().format()).isEqualTo(MarkupFormat.MARKDOWN);
+        });
+    }
+
+    /** 説明を外す保存は、本文の列を空へ戻す（形式の列は NOT NULL のため既定が残る）。 */
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldClearDescriptionOnResave(UniAsserter asserter) {
+        initTestData();
+
+        final var album = Album.create(
+                new AlbumTitle("Album losing Description"),
+                testReleaseDate,
+                testArtistCredit,
+                MarkupContent.markdown("あとで消される説明"),
+                null,
+                null,
+                null,
+                null,
+                null);
+
+        asserter.execute(() -> repository.save(album));
+        asserter.execute(() -> repository.save(album.changeDescription(MarkupContent.EMPTY)));
 
         asserter.assertThat(
                 () -> repository.findById(album.id()),
@@ -351,6 +474,7 @@ class AlbumRepositoryImplTest {
                 MarkupContent.EMPTY,
                 null,
                 new CatalogNumber("TEST-001"),
+                null,
                 null,
                 null);
 
@@ -374,6 +498,7 @@ class AlbumRepositoryImplTest {
                 null,
                 null,
                 new Isdn("2784702901978"),
+                null,
                 null);
 
         asserter.assertThat(() -> repository.save(album), saved -> {
@@ -404,6 +529,7 @@ class AlbumRepositoryImplTest {
                 eventReleasedAt,
                 null,
                 null,
+                null,
                 null);
 
         asserter.assertThat(() -> repository.save(album), saved -> {
@@ -428,6 +554,7 @@ class AlbumRepositoryImplTest {
                         null,
                         null,
                         null,
+                        null,
                         null);
 
         // Save original
@@ -442,6 +569,7 @@ class AlbumRepositoryImplTest {
                 testReleaseDate,
                 testArtistCredit,
                 MarkupContent.EMPTY,
+                null,
                 null,
                 null,
                 null,
@@ -468,6 +596,7 @@ class AlbumRepositoryImplTest {
                         testReleaseDate,
                         testArtistCredit,
                         MarkupContent.EMPTY,
+                        null,
                         null,
                         null,
                         null,
@@ -512,6 +641,7 @@ class AlbumRepositoryImplTest {
                         testReleaseDate,
                         testArtistCredit,
                         MarkupContent.EMPTY,
+                        null,
                         null,
                         null,
                         null,
@@ -567,6 +697,7 @@ class AlbumRepositoryImplTest {
                         null,
                         null,
                         null,
+                        null,
                         null);
 
         // Save
@@ -595,6 +726,7 @@ class AlbumRepositoryImplTest {
                         null,
                         null,
                         null,
+                        null,
                         null);
         final var album2 = Album
                 .create(
@@ -602,6 +734,7 @@ class AlbumRepositoryImplTest {
                         testReleaseDate,
                         testArtistCredit,
                         MarkupContent.EMPTY,
+                        null,
                         null,
                         null,
                         null,

@@ -22,6 +22,17 @@ const creditOf = (tune: TrackTune): string | null => {
   ].filter((credit) => credit !== null);
   return credits.length === 0 ? null : credits.join(' / ');
 };
+
+/**
+ * 曲目に行として出すチューン。
+ *
+ * 名もクレジットも持たないチューン（#360 の曲目にある間奏など）は、行にしても何も読めない。位置だけを
+ * 表す空の行になるため落とす。トラックの名にも現れない（名はチューン名を繋いだもの）。
+ */
+const isReadable = (tune: TrackTune): boolean =>
+  [tune.tuneTitle, creditOf(tune)].some((part) => part !== null);
+
+const shownTunesOf = (track: PublicTrack): readonly TrackTune[] => track.tunes.filter(isReadable);
 ---
 
 <ol class="divide-border divide-y">
@@ -42,9 +53,9 @@ const creditOf = (tune: TrackTune): string | null => {
             )}
           </div>
 
-          {track.tunes.length === 0 ? null : (
+          {shownTunesOf(track).length === 0 ? null : (
             <ol class="text-muted-foreground space-y-0.5 text-sm">
-              {track.tunes.map((tune) => (
+              {shownTunesOf(track).map((tune) => (
                 <li>
                   {tune.tuneTitle === null ? null : <ProperNoun>{tune.tuneTitle}</ProperNoun>}
                   {creditOf(tune) === null ? null : <span>（{creditOf(tune)}）</span>}

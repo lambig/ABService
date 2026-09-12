@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EMPTY_DRAFT, albumFieldsOf, draftOf, withValue } from './album-form';
+import { EMPTY_DRAFT, albumFieldsOf, draftOf, withCleared, withValue } from './album-form';
 import type { AdminAlbumDetail } from './client';
 
 const detail = {
@@ -21,6 +21,7 @@ const detail = {
   publishedAt: null,
   coverImageKey: 'covers/album-1.png',
   coverImageUrl: 'https://example.com/covers/album-1.png',
+  basePrice: { amount: 1500, currency: 'JPY' },
   externalAudios: [],
   tracks: [],
 } satisfies AdminAlbumDetail;
@@ -98,6 +99,75 @@ describe('要求への写し取り', () => {
       place: '会場',
       spaceNumber: undefined,
       note: undefined,
+    });
+  });
+
+  it('基準額の項目がどれも空なら、基準額を送らない', () => {
+    const fields = albumFieldsOf(EMPTY_DRAFT);
+
+    expect(fields.basePrice).toBeUndefined();
+  });
+
+  it('額は数値へ写して送る', () => {
+    const fields = albumFieldsOf(withValue(EMPTY_DRAFT, 'basePrice.amount', '1500'));
+
+    expect(fields.basePrice).toEqual({ amount: 1500, currency: undefined });
+  });
+
+  it('通貨だけが入力されていても入れ子を送る（額の必須はバックエンドが返す）', () => {
+    const fields = albumFieldsOf(withValue(EMPTY_DRAFT, 'basePrice.currency', 'USD'));
+
+    expect(fields.basePrice).toEqual({ amount: undefined, currency: 'USD' });
+  });
+});
+
+describe('基準額の初期値', () => {
+  it('読み込んだ額と通貨を欄へ写す', () => {
+    const draft = draftOf(detail);
+
+    expect(draft['basePrice.amount']).toBe('1500');
+    expect(draft['basePrice.currency']).toBe('JPY');
+  });
+
+  it('額を持たない作品では、どちらの欄も空になる', () => {
+    const draft = draftOf({ ...detail, basePrice: null });
+
+    expect(draft['basePrice.amount']).toBe('');
+    expect(draft['basePrice.currency']).toBe('');
+  });
+});
+
+describe('まとまりの解除', () => {
+  it('指定した欄をまとめて空へ戻す', () => {
+    const cleared = withCleared(draftOf(detail), ['basePrice.amount', 'basePrice.currency']);
+
+    expect(cleared['basePrice.amount']).toBe('');
+    expect(cleared['basePrice.currency']).toBe('');
+  });
+
+  it('解除した入力は、そのまとまりを送らない（額が決まっていない状態への置換）', () => {
+    const cleared = withCleared(draftOf(detail), ['basePrice.amount', 'basePrice.currency']);
+
+    expect(albumFieldsOf(cleared).basePrice).toBeUndefined();
+  });
+
+  it('解除しても、まとまりの外は変わらない', () => {
+    const cleared = withCleared(draftOf(detail), ['basePrice.amount', 'basePrice.currency']);
+
+    expect(cleared.title).toBe('アルバム');
+    expect(cleared['event.name']).toBe('イベント');
+  });
+
+  /*
+   * 額の欄だけを空にした入力は、通貨が残るためまとまりごと送られる。額の必須はバックエンドが返す
+   * （画面が規則を持たない）。解除の操作が要るのはこのため。
+   */
+  it('額の欄だけを空にした入力は、通貨が残る限りまとまりを送る', () => {
+    const halfCleared = withValue(draftOf(detail), 'basePrice.amount', '');
+
+    expect(albumFieldsOf(halfCleared).basePrice).toEqual({
+      amount: undefined,
+      currency: 'JPY',
     });
   });
 });
