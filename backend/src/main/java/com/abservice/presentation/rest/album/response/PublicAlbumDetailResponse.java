@@ -46,6 +46,8 @@ import org.jspecify.annotations.Nullable;
  *            公開日時（UTC。公開向けは公開中のものだけを返すため常に値を持つ）
  * @param coverImageUrl
  *            カバー画像の配信URL（nullable。サイト相対）
+ * @param basePrice
+ *            頒布の基準額（nullable。null は額が決まっていない）
  * @param externalAudios
  *            外部音源（外部サービスの埋め込み元URL）の一覧。表示順の昇順
  * @param tracks
@@ -67,6 +69,20 @@ public record PublicAlbumDetailResponse(
         @Nullable String eventNote,
         Instant publishedAt,
         @Nullable String coverImageUrl,
+        @Nullable PublicBasePriceResponse basePrice,
         List<PublicExternalAudioResponse> externalAudios,
         List<PublicTrackResponse> tracks) {
+
+    /**
+     * 頒布の基準額の公開向け応答
+     *
+     * @param amount
+     *            金額（通貨の最小単位）
+     * @param currency
+     *            通貨コード（ISO 4217）
+     */
+    public record PublicBasePriceResponse(
+            int amount,
+            String currency) {
+    }
 }

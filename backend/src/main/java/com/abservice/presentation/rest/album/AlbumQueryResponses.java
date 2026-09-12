@@ -24,7 +24,9 @@ import com.abservice.presentation.rest.album.response.TrackTuneResponse;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 /**
  * アルバム照会結果から HTTP 応答への変換
@@ -198,8 +200,19 @@ final class AlbumQueryResponses {
                 view.eventNote(),
                 publicPublishedAt(view),
                 view.coverImageUrl(),
+                toPublicBasePriceResponse(view),
                 toPublicExternalAudioResponses(view),
                 toPublicTrackResponses(view));
+    }
+
+    private static PublicAlbumDetailResponse.@Nullable PublicBasePriceResponse toPublicBasePriceResponse(
+            AlbumView view) {
+        return Optional.ofNullable(view.basePrice())
+                .map(
+                        basePrice -> new PublicAlbumDetailResponse.PublicBasePriceResponse(
+                                basePrice.amount(),
+                                basePrice.currency()))
+                .orElse(null);
     }
 
     private static PublicAlbumResponse toPublicAlbumResponse(AlbumView view) {
@@ -239,8 +252,18 @@ final class AlbumQueryResponses {
                 view.publishedAt(),
                 view.coverImageKey(),
                 view.coverImageUrl(),
+                toAdminBasePriceResponse(view),
                 toAdminExternalAudioResponses(view),
                 toAdminTrackResponses(view));
+    }
+
+    private static AdminAlbumDetailResponse.@Nullable AdminBasePriceResponse toAdminBasePriceResponse(AlbumView view) {
+        return Optional.ofNullable(view.basePrice())
+                .map(
+                        basePrice -> new AdminAlbumDetailResponse.AdminBasePriceResponse(
+                                basePrice.amount(),
+                                basePrice.currency()))
+                .orElse(null);
     }
 
     private static AdminAlbumResponse toAdminAlbumResponse(AlbumView view) {

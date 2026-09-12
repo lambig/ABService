@@ -141,7 +141,7 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 ## 10. 観測性はアプリ固有の実装を持たず拡張の標準経路に載せる
 
-**判断**: ヘルスチェックは自前のリソースクラスを持たず `quarkus-smallrye-health` の `/q/health/{live,ready}` に委ね、readiness のDB接続確認も datasource 拡張の自動登録に任せる。メトリクスは micrometer が `/q/metrics` に Prometheus 形式で公開する。いずれも `/q/*` のため本番で外部から到達しない。ログは prod のみ JSON（1レコード1行）で標準出力へ出す。
+**判断**: ヘルスチェックは自前のリソースクラスを持たず `quarkus-smallrye-health` の `/q/health/{live,ready}` に委ね、readiness のDB接続確認も datasource 拡張の自動登録に任せる。メトリクスは micrometer が `/q/metrics` に Prometheus 形式で公開する。いずれも `/q/*` で、本番で外部から到達しないことは経路の振り分けと配信の識別（35）の両方が担う。ログは prod のみ JSON（1レコード1行）で標準出力へ出す。
 
 **なぜ**: 手書きの `/api/v1/health` は固定文字列を返すだけで、依存先が落ちても UP を返す（＝監視として機能しない）状態だった。拡張の自動登録に載せれば、データソースを増やしたときも検査対象が追随する。公開APIのパス（`/api/v1/**`）に監視用のエンドポイントを混ぜないことで、CloudFront が backend へ流す経路を `/api/*` に限ったまま監視を内側に閉じられる。ログのJSON化を prod 限定にするのは、収集側（CloudWatch Logs）が構造化を求める一方、開発中はプレーン出力の可読性が要るため。
 
@@ -224,15 +224,31 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 ## 16. 本番へ出せるのはCIが成功したcommitだけとする
 
-**判断**: デプロイは main への push を直接のトリガーにせず、CI の完了を受けて起動し、対象を**そのCIが検査したSHA**へ固定する。手動起動は既存イメージの再デプロイ（ロールバック）に限り、タグの指定を必須にする。CIとデプロイを1つのワークフローへ統合する形は採らない。
+**判断**: デプロイは main への push を直接のトリガーにせず、CI の完了を受けて起動し、対象を**そのCIが検査したSHA**へ固定する。手動起動は既存イメージの再デプロイ（ロールバック）に限り、commit の指定を必須にする。CIとデプロイを1つのワークフローへ統合する形は採らない。
 
 **なぜ**: トリガーが独立していると、CIが失敗するcommitでもデプロイが先に完了しうる。SHAを固定するのは、CI完了後に main が進んでいた場合に「検査していないcommitを出す」ことを避けるため。手動起動から任意のcommitをビルドできると、そこが検査を通らない抜け道として残るため、手動経路は既存イメージの差し替えだけに閉じる。
 
 統合しないのは、CIの並行制御が「同一ブランチの古い実行を打ち切る」形であり、同じワークフローに乗せると連続pushでデプロイ中の実行が打ち切られうるため。ジョブ単位で並行制御を分ければ回避できるが、打ち切ってよい処理と打ち切ってはならない処理を同じ実行単位に同居させること自体を避ける。
 
+**デプロイ手順そのものも、検査済みのSHAのものを配る**。`deploy.sh` と `docker-compose.prod.yml` は、イメージを差し替える直前に SSM Run Command が実機へ置いてから実行する。インスタンスを作るときに一度だけ動く仕組み（`user_data` の cloud-init はインスタンスごとに初回しか実行しない）で配ると、ファイルを git で直しても稼働中のホストは古いままで、Terraform を apply しても届かない。イメージだけを検査済みのSHAへ固定しても、それを動かす手順が別の速さで変わるなら、本番で走る組み合わせは検査したものと一致しない。
+
+インスタンスに固有の値（リージョン、Parameter Store のパス）は `user_data` が `/opt/abservice/deploy.env` へ置く。こちらはインスタンスを作るときに決まり、アプリと同じ速さでは変わらない。
+
+**ビルドする架構を実機に合わせ、実機のツールは版を固定する**。イメージは arm64 のランナーで作る。本番の EC2 が arm64 のため、amd64 で作ると実機が動かせない manifest が ECR へ入り、気付くのはデプロイの最中になる（押し込む前に架構を確かめる）。エミュレーションでも作れるが、コンテナの中で Gradle を回すビルドを QEMU に載せることになる。`docker compose` は AL2023 のリポジトリに無いため `user_data` が公式の手順どおりプラグインの置き場へ入れる。版を固定したうえで、**ダイジェストをリポジトリ側に持って突き合わせる**。版の名前だけでは実体が決まらず（GitHub の release は差し替えられる）、配布物と一緒に置かれた `.sha256` を使う形では、両方を差し替えられたときに突き合わせが素通りするため。インスタンスを作った時期だけで実機の compose が変わらないようにする意図（8 と同じ理由）は、bytes まで固定してはじめて満たせる。
+
+**デプロイの成否は、起動を始めたことではなく healthy になったことで決める**。`deploy.sh` は compose の healthcheck（readiness を引き、DB 接続を含む）が通るまで待ち、期限を切って失敗させる。待たずに終えると、起動に失敗しても unhealthy のままでも SSM の実行は成功で終わり、Actions も緑になる。古いイメージを片付けるのは healthy を確かめた後にする（失敗したときに手元へ残しておけば、戻すときに pull を待たない）。
+
+**デプロイが叩く API と、それを実行する主体のロールを突き合わせる**。権限の不足は実行して初めて分かり、しかもそれはデプロイやロールバックの最中になる。呼び出す側（ワークフローとホストのスクリプト）から必要なアクションを求め、対応するロールの定義に在ることを CI が見る（`scripts/check-deploy-permissions.sh`）。求め方は2通りで、AWS CLI の呼び出しはコマンド名が API の名前と綴りが対応するため機械的に導き、綴りに現れないもの——`docker push` / `docker compose pull` が ECR に対して行う操作や、`amazon-ecr-login` が取る認証トークン——は表に持つ。CLI だけを見る形にすると、既存イメージを再デプロイする経路（pull の権限）が検査の外に残る。見るのはアクションの有無までで、条件やリソースの範囲は実際の実行が受け持つ。
+
+**Actions が失敗を確定する時点で、SSM のコマンドも成功しえない状態になっていること**を守る。SSM の期限は配信（`--timeout-seconds`。Agent が受け取るまで）と実行（`executionTimeout`）で別に管理されるため両方を明示し、Actions の待機期限をその合計より長く取る。配信されないまま期限を過ぎれば `DeliveryTimedOut`、実行が期限を過ぎれば `ExecutionTimedOut` になるので、諦めた後に配信されて走り出す経路も、走り続ける経路も残らない。待機期限を延ばすだけでは、どちらも塞げず「Actions は赤だが本番は後から更新済み」が残る。既定の waiter（約100秒で打ち切る）を使わないのも同じ理由。
+
+**手動のロールバックも、イメージと手順を同じ commit から決める**。入力は commit の SHA で、その commit を checkout してタグを導く。イメージのタグだけを受け取る形にすると、戻したいイメージと、いま配られる `deploy.sh` / `docker-compose.prod.yml` が別の commit のものになりうる。
+
 **トレードオフ**: CIの完了を受けて起動する形はデフォルトブランチ上の定義で実行されるため、デプロイ手順の変更は main に入るまで効かず、PR上では検証できない。またCIとデプロイが別実行になるため、デプロイの成否はCIの実行画面には現れない。
 
-**実体**: `.github/workflows/deploy.yml`、`.github/workflows/ci.yml`、`infra/README.md`（運用手順）。
+配るファイルは SSM のコマンドへ base64 で埋め込むため、パラメータの上限（100KB）に収まる大きさに限られる。オブジェクトストアを経由すればこの制限は外れるが、バケットと権限が増える。収まっていることは CI が見る。
+
+**実体**: `.github/workflows/deploy.yml`、`.github/workflows/ci.yml`、`infra/host/deploy.sh`、`infra/templates/user_data.sh.tpl`、`scripts/check-deploy-payload.sh`、`scripts/check-deploy-permissions.sh`、`infra/cicd.tf`、`infra/README.md`（運用手順）。
 
 ---
 
@@ -252,11 +268,15 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **判断**: 署名付きURLの宛先は受け入れ前の置き場（配信パスの外）とし、確定（confirm）で検査に通った実体を保管先の内部コピーで配信対象へ移す。配信対象のキーへ書き込める署名付きURLは発行しない。確定に至らなかった実体はライフサイクルで期限切れにする。
 
+確定の正しさはコピー操作自身の条件に置く。コピー元が検査したその実体であること（ETagの一致）と、コピー先がまだ無いことを、1回の操作の条件として同時に判定する。前者は検査から確定までの置き換わりを、後者は確定済みキーの上書きを退ける。確定済みかどうかを事前に問い合わせるのは要求を早く断るためであり、同時に走る確定を退けるのはこの問い合わせではない。やり直しは別のキーを払い出して行う。
+
 **なぜ**: 署名付きURLは一度発行すると有効期限内は何度でも使える（S3の署名は単回使用にできない）。配信キーへ直接アップロードさせると、確定で検査した実体と、その後にCDNが配信する実体が同一である保証が確定の瞬間に切れる。書き込める場所と配信される場所を分ければ、「確定した実体が配信される」が期限や運用の注意ではなく構造で決まる。受け入れ前を配信パスの外に置くのは、検査前・破棄予定の実体がCDNから到達しないようにするため。
 
 **トレードオフ**: 確定のたびに保管先内のコピーが1回入る（実体はバックエンドを経由しないため転送費と待ち時間は保管先の内部に収まる）。受け入れ前の実体が一時的に二重に存在し、放置分の掃除をライフサイクルに依存する。バージョン固定（同一キーのまま検査したバージョンを配信する）でも同じ不変性は作れるが、バージョンIDを集約が保持することになり「集約が持つのは保管キー、配信URLは組み立てる」（9）とDBスキーマに影響が及ぶため採らない。
 
-**実体**: `application/port/AssetStorage`（`presignUpload` / `publish` / `discard`）、`infrastructure/storage/S3AssetStorage`、`abservice.assets.pending-prefix`、`infra/data.tf`（`pending/` のライフサイクル）。
+コピー先の条件はS3が受け持ち、ローカルのMinIOはこれを無視して素通りさせる。同時確定の退けはローカルでは観測できず、条件を要求へ載せていることを単体テストで固定する。ローカルで通る同時確定が本番で通るとは限らない（逆は起きない）。
+
+**実体**: `application/port/AssetStorage`（`presignUpload` / `readHead` / `publish` / `isPublished` / `discard`）、`application/port/StoredAssetHead` の `entityTag`、`application/port/AssetConfirmConflictException`、`infrastructure/storage/S3AssetStorage` の `publishRequest`、`abservice.assets.pending-prefix`、`infra/data.tf`（`pending/` のライフサイクル）。
 
 ---
 
@@ -473,3 +493,141 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 **トレードオフ**: 本体と子を1画面で同時に編集する形にするなら、編集単位の定義を見直す必要がある（そのときは子の操作側にも同じ仕組みを入れる）。また、409 に世代を載せないため、画面は差分を示すのに読み直しを要する（差分の突き合わせは持たない）。
 
 **実体**: `AlbumRepository` / `ArticleRepository`（`Revision` / `Revisioned` と、世代つきの取得・保存）、`UpdateAlbumService` / `UpdateArticleService` / `SetArticleAlbumService` / `RemoveArticleAlbumService`（`expectedRevision` の必須検証と突き合わせ）、`ConflictingEditException` とその Mapper、`AlbumEditRevisionRestIntegrationTest` / `ArticleEditRevisionRestIntegrationTest`（対象ごとの編集単位もここで固定）、`frontend-admin` の `AlbumForm.svelte` / `ArticleForm.svelte`（`Target` と競合の枝）。
+
+---
+
+## 31. 資源を作る操作は 201・Location・表現の3つを返し、定義は宣言から書く
+
+**判断**: 資源を作る POST は 201 と、作られた資源を指す `Location`、作られた資源の表現を返す。RFC 9110 §9.3.3・§15.3.2 が SHOULD とする3つをすべて満たす。
+
+`Location` は**同一オリジンの相対参照**にする。要求元は同じオリジンへ戻るため絶対化して得るものがなく、絶対 URI は配信経路（CloudFront）より内側のホストを応答へ載せる。
+
+どの操作が資源を作るかは `CreatesResource` が宣言する。実装は `CreatedResponses` が3つを組み、API 定義は `CreatedResourceResponseFilter` が同じ宣言から書く。状態コードをエンドポイントごとの `@APIResponse` として定義側へ書き写さない（契約の正は実装）。
+
+**なぜ**: smallrye-openapi は `@ResponseStatus` も戻り値型も読まないため、実装が 201 を返しても定義には 200 として現れ、`Location` は現れない。要求元はこの定義から型を生成するので、実在しない 200 を待ち、位置を型として受け取れない。
+
+3つのうち一部だけを満たす形は、標準から外れる理由を永続的に説明し続けることになる。201 を捨てて 200 にすれば `Location` の SHOULD は消えるが、「資源を作ったのに 201 を送らない」という状態コード自体の逸脱が残る。3つとも満たす形だけが説明を要しない。
+
+作られた資源の情報は呼び出し側が即座に使う（記事作成は応答の `articleId` で編集画面へ結び、タグ追加は応答をそのまま画面の状態へ反映する）。表現を返さず位置だけを返す設計にすると、いずれの経路も1往復増える。
+
+宣言（`CreatesResource`）は定義側しか動かさず、実応答は `CreatedResponses` が組む。別経路であるため、**両者の対応は ArchUnit が双方向に縛る**（宣言したなら組む・組むなら宣言する）。片方だけ書けると、定義 201 / 実装 200 とその逆がどちらも成立し、#282 の元症状に戻れる。
+
+**トレードオフ**: 状態コードとヘッダは戻り値型に現れないため、定義へ写す機構が要る。ビルド時フィルタはクラスパスを走査できないので走査対象を数え上げで持ち、その漏れは ArchUnit が `@Path` を持つリソースと突き合わせて落とす。
+
+相対参照のため `ResponseBuilder.location(URI)` は使えない（JAX-RS の規定でベース URI へ解決され絶対化する）。ヘッダへ直接与える。
+
+子資源の `Location`（記事タグ・トラック・外部音源）が指す先は GET を持たない。SHOULD が求めるのは作られた資源への URI 参照であり取得経路ではないため、識別子として成り立つ限りは許容する。
+
+**実体**: `CreatesResource` / `CreatedResponses` / `CreatedResourceResponseFilter`、`LayeredArchitectureTest`（数え上げ漏れの検出）、`OpenApiSchemaRestIntegrationTest`（定義側の 201 と `Location`）、各 REST 統合テストの `createRespondsWithCreatedAndLocation` / `addRespondsWithCreatedAndLocation` / `registerRespondsWithCreatedAndLocation`（実応答の位置）。
+
+---
+
+## 32. 失敗はユースケースが宣言し、状態コードへの写像は境界が持つ
+
+**判断**: エラー応答の契約を分ける。
+
+- **どの失敗を返し得るか**は、その判断を持つ場所が持つ。語彙は `Failure`（`VALIDATION` / `NOT_FOUND` / `CONFLICT`）で、HTTP を含まない
+  - ユースケース自身が発生させる失敗（入力の検証など）は宣言する（`FailureContract`）
+  - 照会が**正常な結果の一種として返す**もの（対象が無い）は、結果型の並びから読む（`FailureResult`）。sealed な結果型がすでにその可能性を持っているため、宣言で重ねると同じ事実を二度書くことになる
+- **どの状態コードで返すか**は例外マッパーが宣言し、`ProblemDetailErrorContract` が集める
+
+エンドポイントは失敗を宣言せず、実行するユースケースを指すだけ（`Executes`）。API 定義は「エンドポイント → ユースケース → 失敗 → 状態コード」と辿って組む。応答本体はどのエラーでも `ProblemDetail`（RFC 9457・`application/problem+json`）一つで、本体の型と説明は `ProblemDetailResponseFilter` が与える。
+
+`Failure` から状態コードへの写像は境界（`ProblemDetailResponseFilter`）が1箇所で持つ。`VALIDATION` → 400、`NOT_FOUND` → 404、`CONFLICT` → 409。想定外の失敗の 500 は能力ではないので宣言に含めず、全オペレーションへ足す。認証・認可の 401/403 は Quarkus が `@RolesAllowed` から状態コードだけを付けるため、本体の型を与える側で拾う。
+
+**なぜ**: 失敗はユースケースの能力であり、経路の形から導けない。形からの推定（「本体か問合せ文字列があれば 400」「パスパラメータがあれば 404」）は実装と系統的に食い違う。
+
+- 経路の識別子を値オブジェクトへ通す操作は、本体を持たなくても検証の失敗を返す（アルバムの公開）
+- 対象の不在を成功として扱う操作は、経路で対象を指しても未存在を返さない（べき等な削除・upsert）
+- 非排他に版つきの行を更新する操作は、明示的な業務ルール違反が無くても基盤由来の競合を返す（記事の非公開化）
+
+これらを状態コードごとのマーカー（`@MayBadRequest` / `@MayNotFound` のような）でエンドポイントへ足していくと、`@APIResponse` を列挙するのと同じ構造を別名で再発明することになる。失敗の判断を持つ場所は1つ（ユースケース）であり、宣言もそこに置く。
+
+一律に全オペレーションへ足さないのは、返らない状態コードを宣言すると要求元がそれを扱う枝を書き、決して通らない経路がクライアントに残るため。
+
+**トレードオフ**: 宣言と実装の対応は完全には機械化できない。守れるのは次まで。
+
+- 更新のユースケースが宣言を持つこと、エンドポイントがユースケースを指すこと、指した先を実際に実行すること、照会が `QueryService` を**直接**実装することは ArchUnit が落とす。最後の1つは、抽象クラスや派生インターフェースを挟むと結果型の型引数へ辿り着けず、照会は動いたまま結果型由来の失敗だけが定義から消えるため。同じ条件で組み立ても落ちる
+- **宣言の中身の誤り**（返す失敗を書き忘れる・返さない失敗を書く）は静的には検出できない。実応答との一致は統合テストが固定する
+- 宣言を必須にできるのは更新だけ。照会は失敗を1つも発生させないものがあり（一覧の全件照会）、必須にすると「失敗が無いこと」を空の宣言で書かせることになる。照会の失敗は結果型と、実際に発生させるものだけが持つ宣言の2つから読む
+
+**実体**: `Failure`（失敗の語彙）、`FailureContract`（ユースケースが発生させる失敗の宣言）、`FailureResult`（照会結果のバリアントが境界で失敗になること）、`Executes`（エンドポイントが実行するユースケース）、`DeclaredEndpoints`（宣言と結果型から失敗を読み、操作を同定する）、`ProblemDetailErrorContract`（マッパーの数え上げ）、`ProblemDetailResponseFilter`（写像と反映）、`LayeredArchitectureTest`（宣言の欠落・指し先のずれ・数え上げ漏れの検出）、`OpenApiSchemaRestIntegrationTest` の `errorsFollowTheUseCaseFailureContract` / `errorResponsesCarryProblemDetail` / `unreachableErrorsAreAbsent`。
+
+---
+
+## 33. 生成物はコミットし、入力からの再生成との一致をCIが検査する
+
+**判断**: フロントエンドが使う API の型（`schema.d.ts`）は生成物だが、リポジトリへコミットする。入力（バックエンドのビルドが出す OpenAPI 定義）から作り直した結果とツリーが一致することを CI の独立したジョブ（`api-types-check`）が検査し、食い違えば落とす。フロントエンドのビルドや型検査のたびに生成し直す形は採らない。
+
+対象のワークスペースはルートの `generate:api-types` が `--workspaces --if-present` で拾い、CI の側には列挙しない。この経路は2か所で黙って切れる。script が消えれば `--if-present` が飛ばし、ルートの `workspaces` から外れていれば `--workspaces` がそもそも拾わない。どちらでもその生成物は作り直されないまま差分の検査を通るため、追跡中の生成物を持つワークスペースが `generate:api-types` を持ち、かつ npm がワークスペースとして認識していることを、生成の前に検査する（`scripts/check-api-type-generators.mjs`）。対象は生成物の実体から、ワークスペースの集合は npm 自身（`npm query .workspace`）から求める。どちらの一覧もここへ写さないので、生成物を持つワークスペースが増えても検査の側は古くならない。
+
+**なぜ**: 生成物をコミットするだけでは、API 定義を変えて再生成を忘れたときに**古い型のまま CI が通る**。フロントエンドは古い形に対して型検査が成功し、食い違いは実行時まで現れない（#323 で公開サイトの型が実際に古いまま入った）。
+
+生成を常時走らせる形にすると、フロントエンドの型検査とビルドがバックエンドの成果物を前提にする。画面だけを触る作業でも JDK と Gradle が要り、`npm ci` の直後に lint・型検査へ入れなくなる。生成物をコミットしておけば、この依存は一致を検査する1ジョブの内側だけで済む。
+
+ジョブをバックエンド側にもフロントエンド側にも寄せずに分けるのは、検査しているのが**両者の継ぎ目**だから。落ちたときに直す先が「型を再生成して commit する」の一点に定まる。
+
+**トレードオフ**: 生成物の差分がレビューに乗る。openapi-typescript の出力は大きく、API 定義を変えるたびに数百行動く。lint と prettier の対象からは外している。
+
+検査は入力を作るところから回すため、`quarkusBuild` の分だけ CI の総実行時間が増える。他のジョブと並列に走るので待ち時間は変わらない。
+
+定義の出力先（`build/openapi`）は `quarkusBuild` の宣言された出力ではないため、タスクがキャッシュや前回の状態で実行されないと**定義が書かれないまま成功する**。検査の側はビルドキャッシュを使わずに作り直し、書かれたことを確かめてから型を生成する。
+
+**実体**: `.github/workflows/ci.yml` の `api-types-check`、ルート `package.json` の `generate:api-types`、`scripts/check-api-type-generators.mjs`、`frontend-public` / `frontend-admin` の `src/lib/api/schema.d.ts`。
+
+---
+
+## 34. 本番の形（イメージ・compose・IaC）はアプリのE2Eと別に検査する
+
+**判断**: CI に2つのジョブを置く。
+
+- `container-check`: デプロイと同じ `Dockerfile.jvm` でイメージを作り、`docker-compose.prod.yml`（EC2 が動かす構成そのもの）で起動して readiness を引く。本番の必須設定が宣言から値の運搬まで通っていること、その設定を1つずつ欠くと起動しないことも、あわせて確かめる
+- `iac-check`: `terraform fmt -check` と `validate`（`-backend=false`）
+
+**なぜ**: E2E が起動するのは dev プロファイルの JAR で、本番が動かす形とは別物。prod でしか効かない設定（必須の環境変数、JSON ログ、S3 の資格情報の取り方）も、イメージの中身（ベースイメージに何が入っているか）も、E2E では通らない。
+
+**構成の受け渡しは compose のファイルを通す**。ワークフローが環境変数をコンテナへ直接渡す形にすると、compose のファイルが渡していない値まで CI では届き、検査が本番と食い違う。compose を通せば、渡し漏れはそのまま起動失敗として出る。
+
+**検査は本番と同じ架構（arm64）のランナーで行う**。デプロイが arm のランナーでイメージを作る経路は CI では走らない（`deploy.yml` は CI の対象外で、資格情報が揃うまで実行もされない）ため、その架構で組み上がること自体をここで見る。架構が違えば ECR へ入るのは実機が動かせないイメージだが、それが分かるのはデプロイの最中になる。
+
+**本番の必須設定は、列挙・運搬・起動に分けて検査する**。
+
+- **列挙**（`scripts/prod-required-settings.sh`）: 本番で効く宣言（`%prod` と、`%prod` に上書きの無いプロファイル無しの宣言）のうち、既定値を持たないものを正として自動で拾う。新しい必須設定を足したときに検査の側へ名前を写す作業が要らず、写し忘れでその設定だけが検査の外に残ることもない
+- **運搬**（`scripts/check-prod-config-wiring.sh`）: 列挙した全件を `docker-compose.prod.yml` がコンテナへ渡し、`infra/host/deploy.sh` が export すること。宣言だけがあって運ぶ経路が無い形は、起動してみるまで表に出ない
+- **起動**（`scripts/check-prod-required-settings.sh`）: 他の値を揃えたうえで1つずつ欠くと起動が失敗し、失敗が欠いた環境変数の名前を挙げること。まとめて欠かす形では、1つが通る側へ戻っても残りの欠落で失敗し続けるため、戻ったことに気付けない
+
+**「いま何が必須か」と「何が必須であり続けるべきか」は別に持つ**。宣言を正にした列挙は、宣言そのものを弱める変更——`${VAR}` を `${VAR:...}` へ戻す、`%prod` の行を消す——を「必須が1つ減った」としか見ない。本番が開発向けの弱い値（既定のバケット名、開発用の API キー、ローカルのデータベース）で動くことを意味する設定は、`scripts/check-prod-settings-stay-required.sh` が名指しで守る。前者は発見、後者は方針であり、片方に寄せると新規設定の取りこぼしか宣言の後退のどちらかが素通りする。
+
+**値が届かないことは compose が弾く**。`docker-compose.prod.yml` は必須の値を `${VAR:?}` で受け、未定義と空文字の両方をコンテナの作成前に止める。空文字は設定によって挙動が分かれ、型へ変換される設定（`abservice.assets.bucket`）は「値なし」として設定名を挙げて落ちるが、接続URLの式の材料になる DB 系は空のまま URL へ埋まる。ホストが空の URL を JDBC は `localhost` と解釈し、データベース名が空なら既定のデータベースへ繋いでマイグレーションまで進む（#330）。アプリ側で一律に弾くには起動時の検証を別に持つ必要があり、値の運搬が切れていることは運ぶ層で止める方が、直す先（Parameter Store / `deploy.sh` / compose）と一致する。
+
+**application.properties 側も、必須の宣言に既定値を持たせない**。`%prod.x=${VAR}` と `x=${VAR:...}` の対は「prod では必須」と読めるのに、プロファイル無しの宣言が既定値を持つ限り、そちらが使われる経路が残る。必須の側をプロファイル無しの宣言に置き、開発・テスト向けの既定値は `%dev` / `%test` が持つ。
+
+検査は列挙した全件について1件ずつ結果を出力し、一覧が空のまま素通りした状態と見分けられるようにする。
+
+Terraform は資格情報を要さない範囲に限る。`plan` は state と実アカウントを要求するため CI からは行わない。検査に使う版は `versions.tf` の `required_version` の下限に合わせ、宣言した下限で通らない書き方が入ったら落ちるようにする。
+
+**トレードオフ**: イメージのビルドはコンテナの中で Gradle を回すため、CI の総実行時間が増える。他のジョブと並列に走るので待ち時間は変わらない。
+
+CI 用の compose の上書き（`docker-compose.ci.yml`）が1つ増える。prod のファイルはネットワークを宣言しておらず、ローカル用 PostgreSQL と同じネットワークへ載せる必要があるため。上書きの内容はネットワークだけに留め、prod の定義には触らない。
+
+`validate` が見るのは構文と参照であり、権限やリソースの整合までは見ない。
+
+**実体**: `.github/workflows/ci.yml` の `container-check` と `iac-check`、`scripts/prod-required-settings.sh`、`scripts/check-prod-settings-stay-required.sh`、`scripts/check-prod-config-wiring.sh`、`scripts/check-prod-required-settings.sh`、`docker-compose.prod.yml`、`docker-compose.ci.yml`、`backend/src/main/docker/Dockerfile.jvm`、`infra/host/deploy.sh`。
+
+---
+
+## 35. オリジンへの到達は、送信元の範囲ではなく配信の識別で限定する
+
+**判断**: EC2 のセキュリティグループは CloudFront のオリジン向け送信元範囲へ絞るが、自分の配信に限定するのは backend が検査する識別ヘッダで行う。Terraform が生成した値を、配信の `custom_header` と Parameter Store（backend の設定）の両方へ渡し、一致しない要求は本文なしの 403 で拒む。
+
+**なぜ**: `com.amazonaws.global.cloudfront.origin-facing` は CloudFront 全体の送信元で、他人の配信も同じ範囲から出る。別の配信が同じオリジンを指せば、こちらの WAF も経路の振り分け（`/api/*` だけを backend へ流す）も経ずに届く。prefix list は範囲を狭めるだけで、どの配信から来たかを表さない。「`/q/*` は本番で外部に露出しない」（10）は、振り分けとこの検査の両方があってはじめて成立する。
+
+本文を返さないのは、経由していない相手へ何を期待しているかを教えないため。照合はタイミング攻撃を避けて定数時間で行う。
+
+**稼働確認の経路を自分自身から引く場合だけ素通しにする**。コンテナの healthcheck が通る道であり（10）、ここを塞ぐと readiness が引けない。**この緩和は、同じコンテナの中のプロセスが管理エンドポイントへ到達できることを意味する**。コンテナの中に backend 以外のプロセスを置かない前提に依存しており、前提が変わるなら見直す。
+
+**トレードオフ**: 値を切り替える瞬間、配信と backend のどちらかが古い値を持つため断が生じる。新旧を同時に受け付ける形は持たせていない。rotation の手順は #127 が扱う。
+
+検査そのものは実機でしか確かめられない部分がある。ヘッダの有無による拒否は統合テストと CI（公開ポート経由）で見るが、「別の配信からは到達できない」は AWS 上でしか再現できない。
+
+**実体**: `presentation.rest.security.OriginVerificationFilter`、`application.properties` の `abservice.origin.verify-token`、`infra/data.tf`（値の生成と保管）、`infra/edge.tf`（配信の `custom_header`）、`infra/security_groups.tf`、`docker-compose.prod.yml`、`infra/host/deploy.sh`。

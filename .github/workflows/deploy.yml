@@ -8,8 +8,8 @@ on:
     types: [completed]
   workflow_dispatch:
     inputs:
-      image_tag:
-        description: "再デプロイする既存ECRタグ（ロールバック用。gitのshort SHA）。ビルドは行わない"
+      commit_sha:
+        description: "再デプロイする commit の full SHA（ロールバック用）。そのSHAのイメージ・deploy.sh・compose を使い、ビルドは行わない"
         required: true
         type: string
 
@@ -25,7 +25,10 @@ concurrency:
 jobs:
   deploy:
     name: Build, push, and deploy backend
-    runs-on: ubuntu-latest
+    # 本番の EC2 は arm64（infra/compute.tf が arm64 の AMI を選ぶ）。amd64 のランナーで作ると、
+    # ECR へ入るのは実機が動かせないイメージになる。エミュレーションでも作れるが、コンテナの中で
+    # Gradle を回すビルドを QEMU に載せることになるため、ランナー自体を arm にする
+    runs-on: ubuntu-24.04-arm
     # terraform apply（#129のドメイン準備待ち）でリポジトリ変数が設定されるまでは何もしない。
     # CI経由の起動は、mainへのpushに対するCIが成功した場合だけに限る（PRのCIや失敗・中断は対象外）。
     if: >-
@@ -36,11 +39,12 @@ jobs:
           github.event.workflow_run.event == 'push'))
 
     steps:
-      # CIが検査したSHAをそのまま対象にする（デプロイ時点のmain先端ではない）。
+      # CIが検査したSHAをそのまま対象にする（デプロイ時点のmain先端ではない）。手動起動では指定された
+      # commit を取る。動かすイメージも、それを配る手順（deploy.sh / compose）も、同じ commit から決まる。
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.workflow_run.head_sha || inputs.commit_sha }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -56,27 +60,32 @@ jobs:
         id: resolve
         env:
           EVENT_NAME: ${{ github.event_name }}
-          IMAGE_TAG: ${{ inputs.image_tag }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
           CI_RUN_ID: ${{ github.event.workflow_run.id }}
           CI_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
+          # commit_sha が空だと checkout が既定のブランチへ倒れ、配るファイルと対象イメージが
+          # 別の commit のものになる。ビルドも配布もする前に止める
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -z "$COMMIT_SHA" ]; then
+            echo "commit_sha is required: manual deploy only redeploys the image built from that commit." >&2
+            echo "To ship a new commit, push it to main and let CI gate the deploy." >&2
+            exit 1
+          fi
+
+          # タグは checkout した commit から決まる。手動起動でも、配るファイルと同じ commit の
+          # イメージだけが対象になる（そのタグが ECR に在ることは次のステップが確かめる）
+          echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            if [ -z "$IMAGE_TAG" ]; then
-              echo "image_tag is required: manual deploy only redeploys an existing ECR image." >&2
-              echo "To ship a new commit, push it to main and let CI gate the deploy." >&2
-              exit 1
-            fi
-            echo "Redeploying existing image tag: $IMAGE_TAG"
-            echo "tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+            echo "Redeploying the image built from $(git rev-parse HEAD) without rebuilding"
             echo "build=false" >> "$GITHUB_OUTPUT"
           else
             echo "Deploying commit $CI_HEAD_SHA verified by CI run $CI_RUN_ID"
-            echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
 
       # 通常経路: CIが成功したcommitのイメージをビルドしてpushする。
-      - name: Build and push image
+      - name: Build image
         if: steps.resolve.outputs.build == 'true'
         env:
           REGISTRY: ${{ steps.ecr-login.outputs.registry }}
@@ -87,6 +96,30 @@ jobs:
             -t "$REGISTRY/$REPOSITORY:$TAG" \
             -t "$REGISTRY/$REPOSITORY:latest" \
             backend
+
+      # ECR へ入れる前に、実機が動かせる架構であることを確かめる。ランナーの種類が変わっても
+      # ここで気付ける（動かない manifest を push してからでは、失敗するのはデプロイの最中になる）
+      - name: Verify the image architecture matches the host
+        if: steps.resolve.outputs.build == 'true'
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          ARCH="$(docker image inspect "$REGISTRY/$REPOSITORY:$TAG" --format '{{.Architecture}}')"
+          if [ "$ARCH" != "arm64" ]; then
+            echo "The image is $ARCH, but the instance runs arm64 (infra/compute.tf uses the arm64 AMI)." >&2
+            exit 1
+          fi
+          echo "image architecture: $ARCH"
+
+      - name: Push image
+        if: steps.resolve.outputs.build == 'true'
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
           docker push "$REGISTRY/$REPOSITORY:$TAG"
           docker push "$REGISTRY/$REPOSITORY:latest"
 
@@ -98,6 +131,9 @@ jobs:
           TAG: ${{ steps.resolve.outputs.tag }}
         run: aws ecr describe-images --repository-name "$REPOSITORY" --image-ids imageTag="$TAG"
 
+      # イメージだけでなく、それを動かす手順も検査済みのSHAのものへ揃える（DECISIONS 16）。
+      # deploy.sh と docker-compose.prod.yml を毎回配ってから実行する。インスタンスを作るときに
+      # 一度だけ動く user_data で配ると、git で直しても稼働中のホストは古いままになる。
       - name: Deploy via SSM Run Command
         env:
           REGISTRY: ${{ steps.ecr-login.outputs.registry }}
@@ -106,18 +142,65 @@ jobs:
           INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
         run: |
           IMAGE="$REGISTRY/$REPOSITORY:$TAG"
+
+          # 守りたいのは「失敗を確定する時点で、SSM コマンドも成功しえない terminal 状態になって
+          # いること」。SSM の期限は配信と実行で別に管理されるため、両方を明示したうえで、こちらの
+          # 待機をその合計より長く取る。配信されないまま期限を過ぎれば DeliveryTimedOut、実行が
+          # 期限を過ぎれば ExecutionTimedOut になるので、諦めた後に配信されて走り出す経路も、
+          # 走り続ける経路も残らない。待機を延ばすだけでは、どちらの経路も塞げない。
+          #
+          # 実行の内訳は、ホストの health 待機（deploy.sh の --wait-timeout 240）に、ECR login・
+          # Parameter Store からの取得・pull の余白を足したもの。
+          SSM_DELIVERY_TIMEOUT=60
+          SSM_EXECUTION_TIMEOUT=360
+          POLL_SECONDS=450
+
+          PARAMETERS=$(jq -n \
+            --arg deploy "$(base64 -w0 infra/host/deploy.sh)" \
+            --arg compose "$(base64 -w0 docker-compose.prod.yml)" \
+            --arg image "$IMAGE" \
+            --arg timeout "$SSM_EXECUTION_TIMEOUT" \
+            '{
+              commands: [
+                "set -eu",
+                "install -d -m 755 /opt/abservice",
+                "echo \($deploy) | base64 -d > /opt/abservice/deploy.sh",
+                "chmod +x /opt/abservice/deploy.sh",
+                "echo \($compose) | base64 -d > /opt/abservice/docker-compose.prod.yml",
+                "/opt/abservice/deploy.sh \($image)"
+              ],
+              executionTimeout: [$timeout]
+            }')
+
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy $IMAGE" \
-            --parameters "commands=[\"/opt/abservice/deploy.sh $IMAGE\"]" \
+            --timeout-seconds "$SSM_DELIVERY_TIMEOUT" \
+            --parameters "$PARAMETERS" \
             --query "Command.CommandId" --output text)
           echo "SSM command id: $COMMAND_ID"
 
-          set +e
-          aws ssm wait command-executed --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID"
-          WAIT_EXIT=$?
-          set -e
+          # 既定の waiter は 5秒 × 20回（約100秒）で打ち切るため使わない。terminal status に
+          # なるまで自分で追う。送信直後は invocation がまだ見えないことがあり、その間は Pending
+          # として扱う。
+          DEADLINE=$((SECONDS + POLL_SECONDS))
+          STATUS=Pending
+
+          while [ "$SECONDS" -lt "$DEADLINE" ]; do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+              --query "Status" --output text 2>/dev/null || echo Pending)
+
+            case "$STATUS" in
+            Pending | InProgress | Delayed) sleep 5 ;;
+            *) break ;;
+            esac
+          done
 
           aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID"
-          exit $WAIT_EXIT
+
+          if [ "$STATUS" != "Success" ]; then
+            echo "The deploy command ended as $STATUS." >&2
+            exit 1
+          fi

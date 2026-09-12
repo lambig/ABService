@@ -8,6 +8,7 @@ import com.abservice.domain.model.aggregate.album.ExternalAudio;
 import com.abservice.domain.model.aggregate.album.Track;
 import com.abservice.domain.model.aggregate.album.TrackTune;
 import com.abservice.domain.model.aggregate.tune.Tune;
+import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.album.TrackTuneTitle;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.Url;
@@ -91,9 +92,13 @@ public class AlbumRepositoryImpl implements AlbumRepository {
                         .setEventPlace(entity.getEventPlace())
                         .setEventSpaceNumber(entity.getEventSpaceNumber())
                         .setEventNote(entity.getEventNote())
+                        .setDescription(entity.getDescription())
+                        .setDescriptionFormat(entity.getDescriptionFormat())
                         .setCatalogNumber(entity.getCatalogNumber())
                         .setIsdn(entity.getIsdn())
                         .setCoverImageKey(entity.getCoverImageKey())
+                        .setBasePriceAmount(entity.getBasePriceAmount())
+                        .setBasePriceCurrency(entity.getBasePriceCurrency())
                         .setPublishedAt(entity.getPublishedAt()))
                 .flatMap(saved -> applyTrackTunes(saved, aggregate.tracks()));
     }
@@ -192,7 +197,11 @@ public class AlbumRepositoryImpl implements AlbumRepository {
 
     private static void copyTrackScalarFields(TrackTableRecord target, Track source) {
         target.setTrackNo(source.trackNo());
-        target.setTitle(source.title().value());
+        /* 名は導出せず、入力されたタイトルだけを書く（#360）。落としたときは列もNULLへ戻す */
+        target.setTitle(
+                Optional.ofNullable(source.title())
+                        .map(TrackTitle::value)
+                        .orElse(null));
         Optional.ofNullable(source.artistCredit())
                 .ifPresentOrElse(
                         ac -> target.setArtistDisplayName(ac.displayName().value())

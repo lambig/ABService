@@ -5,6 +5,7 @@ import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
+import com.abservice.domain.model.vo.album.Price;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.AssetKey;
 import com.abservice.domain.model.vo.common.BusinessDate;
@@ -70,6 +71,8 @@ public class AlbumCreationService implements DomainService {
      *            概要説明のマークアップ形式（{@code description}を指定する場合のみ必須）
      * @param event
      *            初出イベント情報（nullable）
+     * @param basePrice
+     *            頒布の基準額（nullable。null は額が決まっていない）
      * @return 成功時は検証・生成されたAlbum、失敗時はエラー
      */
     @DomainFactory
@@ -83,7 +86,8 @@ public class AlbumCreationService implements DomainService {
             @Nullable String coverImageKey,
             @Nullable String description,
             @Nullable String descriptionFormat,
-            @Nullable EventFields event) {
+            @Nullable EventFields event,
+            @Nullable BasePriceFields basePrice) {
         return validate(
                 title,
                 releaseDate,
@@ -94,7 +98,8 @@ public class AlbumCreationService implements DomainService {
                 coverImageKey,
                 description,
                 descriptionFormat,
-                event);
+                event,
+                basePrice);
     }
 
     @DomainFactory
@@ -108,7 +113,8 @@ public class AlbumCreationService implements DomainService {
             @Nullable String coverImageKey,
             @Nullable String description,
             @Nullable String descriptionFormat,
-            @Nullable EventFields event) {
+            @Nullable EventFields event,
+            @Nullable BasePriceFields basePrice) {
         return Result.zip(
                 Result.zip(
                         AlbumTitle.fromInput(title)
@@ -128,6 +134,7 @@ public class AlbumCreationService implements DomainService {
                         resolveOptional(AssetKey::fromInput, coverImageKey)
                                 .withErrorField("coverImageKey"),
                         resolveDescription(description, descriptionFormat),
+                        resolveBasePrice(basePrice),
                         CoverAndDescription::new),
                 (base, optional, extra) -> Album.create(
                         base.title(),
@@ -137,7 +144,8 @@ public class AlbumCreationService implements DomainService {
                         optional.event().orElse(null),
                         optional.catalogNumber().orElse(null),
                         optional.isdn().orElse(null),
-                        extra.coverImageKey().orElse(null)));
+                        extra.coverImageKey().orElse(null),
+                        extra.basePrice().orElse(null)));
     }
 
     /** 説明なし（blank 入力）を表す検証結果。完全に使い回せる定数。 */
@@ -191,7 +199,39 @@ public class AlbumCreationService implements DomainService {
             Optional<EventReleasedAt> event) {
     }
 
-    private record CoverAndDescription(Optional<AssetKey> coverImageKey, MarkupContent description) {
+    private record CoverAndDescription(
+            Optional<AssetKey> coverImageKey,
+            MarkupContent description,
+            Optional<Price> basePrice) {
+    }
+
+    /**
+     * 頒布の基準額の入力
+     *
+     * <p>
+     * 経路・担い手・地域ごとの額は作品が持ちません（発表の側が持つ。#201）。ここで受け取るのは、 そこから上書きされる基準の額だけです。
+     * </p>
+     *
+     * @param amount
+     *            金額（基準額を指定する場合は必須）
+     * @param currency
+     *            通貨コード（nullable。未指定は円）
+     */
+    public record BasePriceFields(
+            @Nullable Integer amount,
+            @Nullable String currency) {
+    }
+
+    private static Result<Optional<Price>> resolveBasePrice(@Nullable BasePriceFields basePrice) {
+        return Optional.ofNullable(basePrice)
+                .map(AlbumCreationService::validateBasePrice)
+                .orElseGet(() -> Result.<Optional<Price>>success(Optional.empty()));
+    }
+
+    private static Result<Optional<Price>> validateBasePrice(BasePriceFields basePrice) {
+        return Price.fromInput(basePrice.amount(), basePrice.currency())
+                .mapErrorFields(field -> "basePrice." + field)
+                .map(Optional::of);
     }
 
     private static Result<Optional<EventReleasedAt>> resolveEvent(@Nullable EventFields event) {

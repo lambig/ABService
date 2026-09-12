@@ -1,6 +1,7 @@
 package com.abservice.domain.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.abservice.domain.service.TrackAdditionService.TrackFields;
 import com.abservice.domain.service.TrackAdditionService.TuneFields;
@@ -68,7 +69,7 @@ class TrackAdditionServiceTest {
     }
 
     @Test
-    @DisplayName("トラック番号・タイトルが不正なら全てのエラーを集約する")
+    @DisplayName("トラック番号が無く、名を答えられないなら全てのエラーを集約する")
     void invalidRequiredFieldsAggregatesErrors() {
         final var result = TrackAdditionService.validate(
                 new TrackFields(
@@ -80,7 +81,51 @@ class TrackAdditionServiceTest {
 
         assertThat(result).isInstanceOf(Result.Failure.class);
         assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
-                .contains("TRACK_NO_REQUIRED", "TRACK_TITLE_REQUIRED");
+                .contains("TRACK_NO_REQUIRED", "TRACK_NAME_UNRESOLVABLE");
+    }
+
+    @Test
+    @DisplayName("タイトルが無くても、名を持つチューンがあれば成功する（#360）")
+    void untitledTrackSucceedsWhenANamedTuneIsPresent() {
+        final var result = TrackAdditionService.validate(
+                new TrackFields(
+                        1,
+                        null,
+                        null,
+                        null,
+                        List.of(
+                                new TuneFields(
+                                        1,
+                                        "チューン1",
+                                        null,
+                                        null,
+                                        null))));
+
+        assertThat(result).isInstanceOf(Result.Success.class);
+        assertThat(result.resolve().title()).isNull();
+    }
+
+    @Test
+    @DisplayName("タイトルも名を持つチューンも無いトラックは、タイトルの位置にエラーを返す（#360）")
+    void untitledTrackFailsWhenNoTuneIsNamed() {
+        final var result = TrackAdditionService.validate(
+                new TrackFields(
+                        1,
+                        null,
+                        null,
+                        null,
+                        List.of(
+                                new TuneFields(
+                                        1,
+                                        null,
+                                        "Trad.",
+                                        null,
+                                        null))));
+
+        assertThat(result).isInstanceOf(Result.Failure.class);
+        assertThat(((Result.Failure<?>) result).errors())
+                .extracting(ErrorResult::field, ErrorResult::code)
+                .containsExactly(tuple("title", "TRACK_NAME_UNRESOLVABLE"));
     }
 
     @Test

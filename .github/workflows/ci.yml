@@ -121,6 +121,18 @@ jobs:
       - name: Typecheck (installation)
         run: npm run typecheck:installation
 
+      - name: Typecheck (player)
+        run: npm run typecheck:player
+
+      - name: Build player PoC
+        run: npm run build:player
+
+      - name: Typecheck (offline storage)
+        run: npm run typecheck:offline-storage
+
+      - name: Build storage browser harness
+        run: npm run build:offline-storage
+
       - name: Typecheck (offline shell)
         run: npm run typecheck:offline-shell
 
@@ -144,6 +156,218 @@ jobs:
       # ルールの実装・設定が退行したらここで落ちる（#232）
       - name: Unit tests (frontend workspaces)
         run: npm run test:frontend
+
+  api-types-check:
+    name: Generated API types in sync (OpenAPI -> schema.d.ts)
+    runs-on: ubuntu-latest
+
+    # backend と frontend の継ぎ目の検査。生成物（`schema.d.ts`）はコミットする運用のため、
+    # 入力（backend のビルドが出す OpenAPI 定義）から作り直した結果と一致することを機械で確かめる。
+    # DB も MinIO も要らない（定義の生成は型情報だけで完結し、実行時の依存を持たない）。
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25 (Corretto)
+        uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # 生成器の検査が npm へワークスペースの集合を聞くため、依存の取得はその前に置く
+      - name: Install dependencies
+        run: npm ci
+
+      # ルートの `generate:api-types` は `--workspaces --if-present` で回すため、生成器が消えても、
+      # ルートの workspaces から外れても、その生成物は作り直されないまま下の差分検査を通る。
+      # どちらもバックエンドのビルドより前に見る
+      - name: Check every generated schema has a generator
+        run: scripts/check-api-type-generators.mjs
+
+      - name: Ensure gradlew is executable
+        run: chmod +x backend/gradlew
+
+      # 型生成の入力。build/openapi は quarkusBuild の宣言された出力に入っていないため、
+      # タスクがキャッシュや前回の状態で実行されないと、定義は古いまま・無いまま成功する。
+      # 検査したいのは今のソースから出る定義なので、キャッシュを使わず作り直す。
+      - name: Build backend (OpenAPI definition)
+        run: backend/gradlew -p backend --no-daemon --console=plain --no-build-cache clean quarkusBuild
+
+      # 定義が書かれないまま先へ進むと、型生成は「入力が無い」で落ちる。原因が読めないので手前で止める
+      - name: Verify the definition was produced
+        run: |
+          if [ ! -f backend/build/openapi/openapi.yaml ]; then
+            echo "The build did not write backend/build/openapi/openapi.yaml." >&2
+            echo "Check that quarkusBuild actually ran the augmentation step." >&2
+            exit 1
+          fi
+
+      # 対象のワークスペースは `generate:api-types` が持つ。ここへ列挙すると、生成物を持つ
+      # ワークスペースが増えたときに名前だけが古くなる（実体は落ちないため気付けない）
+      - name: Regenerate API types
+        run: npm run generate:api-types
+
+      # 追跡していない生成物（新しいワークスペースのもの）も差分へ出すため intent-to-add してから比べる。
+      # 落ちたときの直し方は差分そのものが示す（手元で同じ生成を回して commit する）
+      - name: Fail if the committed types differ from the regenerated ones
+        run: |
+          git add --all --intent-to-add
+          git diff --exit-code
+
+  container-check:
+    name: Container and prod configuration (image build / boot)
+    # 本番の EC2 は arm64（infra/compute.tf が arm64 の AMI を選ぶ）。deploy.yml が arm の
+    # ランナーで作る経路は CI では走らないため、本番の形の検査を同じ架構で行い、イメージが
+    # その架構で組み上がるところまでここで見る
+    runs-on: ubuntu-24.04-arm
+
+    # E2E が起動するのは dev プロファイルの JAR であり、本番が動かす形とは別物。ここで見るのは
+    # 本番と同じ経路（Dockerfile.jvm のイメージを docker-compose.prod.yml で起動する）。
+    # 起動に必要な値は compose のファイルが渡すものだけなので、受け渡しの漏れは起動の失敗として出る。
+    env:
+      COMPOSE_FILE: docker-compose.yml:docker-compose.prod.yml:docker-compose.ci.yml
+      BACKEND_IMAGE: abservice-backend:ci
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: abservice
+      DB_USERNAME: abservice
+      DB_PASSWORD: abservice
+      ADMIN_API_KEY: ci-admin-api-key
+      ASSETS_BUCKET: abservice-assets
+      ORIGIN_VERIFY_TOKEN: ci-origin-verify-token
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 必須の一覧は宣言から自動で拾うため、宣言そのものを弱める変更は「必須が1つ減った」としか
+      # 見えず、後続の検査も素通りする。弱い値で本番が動くことを意味する設定はここで名指しして守る
+      - name: Check the required prod settings stay required
+        run: scripts/check-prod-settings-stay-required.sh
+
+      # 宣言があるだけでは値は本番へ届かない。Parameter Store から取って compose へ渡すまでの経路が
+      # 繋がっていることを、イメージを作る前に見る。運ぶ経路が無い形は、起動してみるまで表に出ない
+      - name: Check the prod configuration reaches the container
+        run: scripts/check-prod-config-wiring.sh
+
+      # デプロイのたびに SSM が実機へ配るファイル。リポジトリでもコンテナでも動かないため、
+      # 壊れていても他の検査には現れず、差し替えの最中の実機で初めて分かる
+      - name: Check the files the deploy sends to the host
+        run: scripts/check-deploy-payload.sh
+
+      # デプロイと同じ Dockerfile。壊れていることに気付けるのが deploy.yml の実行時では遅い
+      - name: Build the production image
+        run: docker build -f backend/src/main/docker/Dockerfile.jvm -t abservice-backend:ci backend
+
+      # 実機が動かせる架構であること。ランナーの種類が変わると、ECR へ入るのは実機で動かない
+      # イメージになるが、それが分かるのはデプロイの最中になる
+      - name: Verify the image architecture matches the host
+        run: |
+          ARCH="$(docker image inspect "$BACKEND_IMAGE" --format '{{.Architecture}}')"
+          if [ "$ARCH" != "arm64" ]; then
+            echo "The image is $ARCH, but the instance runs arm64 (infra/compute.tf uses the arm64 AMI)." >&2
+            exit 1
+          fi
+          echo "image architecture: $ARCH"
+
+      # prod の compose は DB の起動を待たない（本番の接続先は RDS で、同じ compose には居ない）。
+      # backend は起動時にマイグレーションを行うため、先に DB を用意しておく
+      - name: Start PostgreSQL
+        run: docker compose up -d --wait --wait-timeout 120 postgres
+
+      # prod は設定が無いときに弱い既定値へ倒れず起動を失敗させる（DECISIONS 34）。倒れる側へ戻ると、
+      # 本番が既定のバケットや開発用の API キーで動きうる。欠かす設定は1つずつで、
+      # まとめて欠かすと1つが既定値を持つ側へ戻っても残りの欠落で失敗し続け、戻ったことに気付けない
+      - name: Fail to start when any single required setting is missing
+        run: scripts/check-prod-required-settings.sh
+
+      - name: Start the production stack
+        run: docker compose up -d --wait --wait-timeout 240 backend
+
+      # readiness は DB 接続確認を含む。マイグレーションまで通っていることがここで分かる。
+      # 公開ポート経由はコンテナの外から来るため、配信が付ける値を添える（コンテナ自身の
+      # healthcheck は loopback から引くので添えない）
+      - name: Check readiness through the published port
+        run: |
+          curl -fsS -H "X-Origin-Verify: $ORIGIN_VERIFY_TOKEN" http://localhost:8080/q/health/ready
+
+      # 自分の配信を経由しない要求は届かない。ここが素通りするなら、別の配信から WAF と
+      # 経路の振り分けを迂回してオリジンへ届く（#286）
+      - name: Reject requests that did not come through the distribution
+        run: |
+          if curl -fsS http://localhost:8080/q/health/ready; then
+            echo "The origin answered a request that carried no verification header." >&2
+            exit 1
+          fi
+          if curl -fsS -H "X-Origin-Verify: wrong-token" http://localhost:8080/q/health/ready; then
+            echo "The origin answered a request that carried a wrong verification header." >&2
+            exit 1
+          fi
+
+      # 起動を始めたことを成功にしていないこと。データベースを止めれば backend は起動に失敗し、
+      # --wait はそれを unhealthy として返す。ここが素通りするなら、本番でも壊れたデプロイが緑で
+      # 終わる（deploy.sh も同じ待ち方をする）。期限は、起動し続けるが healthy にならない場合の保険
+      - name: Fail when the stack does not become healthy
+        run: |
+          docker compose rm -sf backend
+          docker compose stop postgres
+          if docker compose up -d --wait --wait-timeout 120 backend; then
+            echo "The stack reported success while the database was down." >&2
+            exit 1
+          fi
+
+      - name: Show backend log
+        if: ${{ failure() }}
+        run: docker compose logs backend
+
+      - name: Stop the stack
+        if: ${{ always() }}
+        run: docker compose down -v
+
+  iac-check:
+    name: IaC (terraform fmt / validate)
+    runs-on: ubuntu-latest
+
+    # 資格情報を要さない静的な検査だけを行う。state を触らないよう backend は初期化しない。
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # versions.tf の required_version の下限で検査する。手元が新しくても、宣言した下限で
+      # 通らない書き方が入ったらここで落ちる
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+
+      # user_data はインスタンスの初回起動時にしか走らない。構文が壊れていればそのインスタンスは
+      # bootstrap されないまま立ち上がるが、terraform validate はテンプレートの中身を見ない
+      - name: Check the bootstrap script syntax
+        run: bash -n infra/templates/user_data.sh.tpl
+
+      # 権限の不足は実行して初めて分かり、しかもそれはデプロイの最中になる。叩く API と
+      # ロールの定義がずれていないかを、実行の前に見る
+      - name: Check the deploy roles allow what the deploy calls
+        run: scripts/check-deploy-permissions.sh
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive infra
+
+      - name: Initialize without the backend
+        run: terraform -chdir=infra init -backend=false
+
+      - name: Validate
+        run: terraform -chdir=infra validate
 
   e2e:
     name: E2E (Playwright / 実スタック)
@@ -257,6 +481,56 @@ jobs:
             e2e/playwright-report/
             e2e/evidence/
           if-no-files-found: ignore
+          retention-days: 7
+
+  player-browser:
+    name: Player browser (Chromium / FLAC)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npm exec -w abservice-player -- playwright install --with-deps --only-shell chromium
+      - name: Run production player browser tests
+        run: npm run test:player:browser
+      - name: Upload browser evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: player-browser
+          path: packages/player/test-results/
+          if-no-files-found: error
+          retention-days: 7
+
+  storage-browser:
+    name: Storage browser (Chromium / OPFS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npm exec -w abservice-offline-storage -- playwright install --with-deps --only-shell chromium
+      - name: Run production storage browser tests
+        run: npm run test:offline-storage:browser
+      - name: Upload browser results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: storage-browser
+          path: packages/offline-storage/test-results/
+          if-no-files-found: error
           retention-days: 7
 
   shell-browser:

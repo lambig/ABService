@@ -24,6 +24,12 @@ export interface AlbumSeed {
     readonly spaceNumber?: string;
     readonly note?: string;
   };
+  /** 頒布の基準額。省略すると額が決まっていない作品になる */
+  readonly basePrice?: {
+    readonly amount: number;
+    /** 通貨コード（ISO 4217）。省略は円 */
+    readonly currency?: string;
+  };
   readonly tracks?: readonly TrackSeed[];
   readonly externalAudioUrls?: readonly string[];
 }
@@ -31,7 +37,8 @@ export interface AlbumSeed {
 /** 作るトラックの指定 */
 export interface TrackSeed {
   readonly trackNo: number;
-  readonly title: string;
+  /** トラック名。省略すると、チューン名を繋いだものが名になる（#360） */
+  readonly title?: string;
   readonly artistDisplayName?: string;
   readonly tunes?: readonly TuneSeed[];
 }
@@ -39,7 +46,8 @@ export interface TrackSeed {
 /** トラック内のチューン構成 */
 export interface TuneSeed {
   readonly seq: number;
-  readonly tuneTitle: string;
+  /** チューン名。省略すると名を持たない構成要素（MC・環境音など）になる */
+  readonly tuneTitle?: string;
   readonly composerCreditOverride?: string;
   readonly arrangerCreditOverride?: string;
 }
@@ -102,6 +110,7 @@ export const seedDraftAlbum = async (album: AlbumSeed): Promise<string> => {
     description: album.description,
     descriptionFormat: album.descriptionFormat,
     event: album.event,
+    basePrice: album.basePrice,
     tracks: (album.tracks ?? []).map((track) => ({
       trackNo: track.trackNo,
       title: track.title,
@@ -171,6 +180,7 @@ interface AdminAlbumDetail {
   readonly coverImageKey: string | null;
   readonly description: string | null;
   readonly descriptionFormat: string;
+  readonly basePrice: { readonly amount: number; readonly currency: string } | null;
 }
 
 /**
@@ -203,6 +213,7 @@ export const renameAlbumOutsideTheScreen = async (
     coverImageKey: detail.coverImageKey,
     description: detail.description,
     descriptionFormat: detail.descriptionFormat,
+    basePrice: detail.basePrice ?? undefined,
   });
 };
 

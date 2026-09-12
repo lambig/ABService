@@ -9,11 +9,19 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 import static java.util.function.Predicate.not;
 
+import com.abservice.application.exception.FailureContract;
+import com.abservice.application.query.QueryService;
 import com.abservice.domain.repository.album.AlbumRepository;
+import com.abservice.presentation.rest.CreatedResponses;
+import com.abservice.presentation.rest.openapi.CreatesResource;
+import com.abservice.presentation.rest.openapi.DeclaredEndpoints;
+import com.abservice.presentation.rest.openapi.Executes;
+import com.abservice.presentation.rest.openapi.ProblemDetailErrorContract;
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaAccess;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -22,6 +30,8 @@ import com.tngtech.archunit.lang.ConditionEvent;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.library.GeneralCodingRules;
+import jakarta.ws.rs.HttpMethod;
+import jakarta.ws.rs.ext.ExceptionMapper;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -374,6 +384,317 @@ class LayeredArchitectureTest {
                 "%s の単純名 %s が他の応答 record と重複している".formatted(
                         javaClass.getFullName(),
                         javaClass.getSimpleName()));
+    }
+
+    /**
+     * REST リソースは、応答の宣言を読む側の数え上げに含まれていなければならない。
+     *
+     * <p>
+     * ビルド時フィルタはクラスパスを走査できないため、走査対象を {@link DeclaredEndpoints} が数え上げで持つ。漏れた
+     * リソースの宣言（{@link CreatesResource} / {@link Executes}）は読まれず、その操作の定義だけが実装と
+     * ずれる。ずれは定義を見に行くまで現れないので、リソースを足した時点で落とす。宣言を持たない Query 側も同じ 数え上げに置き、検査を1つに保つ。
+     * </p>
+     */
+    @ArchTest
+    void restResourcesShouldBeListedInTheDeclaredEndpoints(JavaClasses classes) {
+        classes().that().resideInAPackage(PRESENTATION).and().areAnnotatedWith("jakarta.ws.rs.Path")
+                .should(beListedIn("DeclaredEndpoints.RESOURCES", declaredResourceNames()))
+                .as("REST リソースは DeclaredEndpoints.RESOURCES に数え上げる")
+                .allowEmptyShould(true).check(classes);
+    }
+
+    private static List<String> declaredResourceNames() {
+        return DeclaredEndpoints.RESOURCES.stream()
+                .map(Class::getName)
+                .toList();
+    }
+
+    /**
+     * 資源を作ると宣言した操作は、その応答を {@code CreatedResponses} で組まなければならない。
+     *
+     * <p>
+     * 宣言（{@link CreatesResource}）は定義側だけを動かし、実応答は {@code CreatedResponses} が組む。両者が
+     * 別経路であるため、宣言だけがある状態（定義 201 / 実装 200）が成立してしまう。#282 の元症状は定義と実装の
+     * 不一致そのものなので、片方だけ書ける余地を残さない。
+     * </p>
+     */
+    @ArchTest
+    void creatingOperationsShouldBuildTheirResponseWithCreatedResponses(JavaClasses classes) {
+        methods().that().areAnnotatedWith(CreatesResource.class)
+                .should(buildResponsesWithCreatedResponses())
+                .as("@CreatesResource を宣言した操作は CreatedResponses で 201 と Location を組む")
+                .allowEmptyShould(true).check(classes);
+    }
+
+    /**
+     * {@code CreatedResponses} で応答を組む操作は、資源を作ると宣言していなければならない。
+     *
+     * <p>
+     * 逆向きの取りこぼし（実装 201 / 定義 200）を塞ぐ。宣言を忘れた操作は定義上 200 のままになり、要求元は 実在しない 200 を待つ。
+     * </p>
+     */
+    @ArchTest
+    void operationsBuildingCreatedResponsesShouldDeclareIt(JavaClasses classes) {
+        methods().that(buildCreatedResponses())
+                .should().beAnnotatedWith(CreatesResource.class)
+                .as("CreatedResponses で応答を組む操作は @CreatesResource を宣言する")
+                .allowEmptyShould(true).check(classes);
+    }
+
+    private static boolean buildsCreatedResponses(JavaMethod method) {
+        return reaches(method, CreatedResponses.class);
+    }
+
+    private static DescribedPredicate<JavaMethod> buildCreatedResponses() {
+        return DescribedPredicate.describe(
+                "build their response with CreatedResponses",
+                LayeredArchitectureTest::buildsCreatedResponses);
+    }
+
+    private static ArchCondition<JavaMethod> buildResponsesWithCreatedResponses() {
+        return new ArchCondition<>("build their response with CreatedResponses") {
+            @Override
+            public void check(JavaMethod method, ConditionEvents events) {
+                Optional.of(method)
+                        .filter(not(LayeredArchitectureTest::buildsCreatedResponses))
+                        .map(LayeredArchitectureTest::missingCreatedResponsesViolation)
+                        .ifPresent(events::add);
+            }
+        };
+    }
+
+    private static ConditionEvent missingCreatedResponsesViolation(JavaMethod method) {
+        return SimpleConditionEvent.violated(
+                method,
+                "%s は資源を作ると宣言しているが CreatedResponses で応答を組んでいない（定義だけが 201 になる）"
+                        .formatted(method.getFullName()));
+    }
+
+    /**
+     * ビルド時フィルタが持つ数え上げに含まれていることを検査する。
+     *
+     * <p>
+     * フィルタはクラスパスを走査できないため走査対象を数え上げで持つ。漏れたものは定義へ反映されないまま残り、
+     * そのことは定義を見に行くまで分からない。数え上げの綴りは実行時に読むため、リストの中身ではなく名前で照合する。
+     * </p>
+     */
+    private static ArchCondition<JavaClass> beListedIn(String listName, List<String> listedNames) {
+        return new ArchCondition<>("be listed in " + listName) {
+            @Override
+            public void check(JavaClass javaClass, ConditionEvents events) {
+                Optional.of(javaClass)
+                        .filter(not(type -> listedNames.contains(type.getFullName())))
+                        .map(type -> unlistedViolation(type, listName))
+                        .ifPresent(events::add);
+            }
+        };
+    }
+
+    private static ConditionEvent unlistedViolation(JavaClass javaClass, String listName) {
+        return SimpleConditionEvent.violated(
+                javaClass,
+                "%s が %s に数え上げられていない（API 定義へ反映されないまま残る）".formatted(
+                        javaClass.getFullName(),
+                        listName));
+    }
+
+    /**
+     * 更新のユースケースは、返し得る失敗を宣言していなければならない。
+     *
+     * <p>
+     * エラー応答の契約はユースケースが持ち、API 定義はそこから組む。宣言の無いユースケースを実行する操作は、定義側で
+     * 失敗を1つも持たないまま公開され、要求元は実際に返る 400/404/409 を型として扱えない。更新は失敗を必ず1つ以上
+     * 持つ（少なくとも入力の検証）ため、宣言を必須にできる。
+     * </p>
+     *
+     * <p>
+     * 照会は対象になれない。「対象が無い」は例外ではなく結果のバリアントで表され（{@code FailureResult}）、失敗を
+     * 1つも発生させない照会もあるため、空の宣言を強制することになる。照会の失敗は結果型と、実際に失敗を発生させる ものだけが持つ宣言の2つから読む。
+     * </p>
+     */
+    @ArchTest
+    void commandUseCasesShouldDeclareTheirFailures(JavaClasses classes) {
+        classes().that().resideInAPackage("..application.service..").and()
+                .haveSimpleNameEndingWith("Service").and().areNotInterfaces()
+                .should().beAnnotatedWith(FailureContract.class)
+                .as("更新のユースケースは @FailureContract で返し得る失敗を宣言する")
+                .allowEmptyShould(true).check(classes);
+    }
+
+    /**
+     * 照会のユースケースは、{@code QueryService} を直接実装していなければならない。
+     *
+     * <p>
+     * 照会が結果として返す失敗（対象が無いなど）は、実装した {@code QueryService<Q, R>} の {@code R} を辿って
+     * 読む。抽象クラスや派生インターフェースを挟むと型引数へ辿り着けず、照会は動いたまま定義からその失敗だけが
+     * 消える。組み立て側も同じ条件で落ちるが、制約そのものはここで明示する。
+     * </p>
+     */
+    @ArchTest
+    void queryUseCasesShouldImplementQueryServiceDirectly(JavaClasses classes) {
+        classes().that().resideInAPackage(APPLICATION_QUERY).and()
+                .haveSimpleNameEndingWith("Service").and().areNotInterfaces()
+                .should(implementQueryServiceDirectly())
+                .as("照会のユースケースは QueryService を直接実装する（結果型を型引数から辿るため）")
+                .allowEmptyShould(true).check(classes);
+    }
+
+    private static ArchCondition<JavaClass> implementQueryServiceDirectly() {
+        return new ArchCondition<>("implement QueryService directly") {
+            @Override
+            public void check(JavaClass javaClass, ConditionEvents events) {
+                Optional.of(javaClass)
+                        .filter(not(LayeredArchitectureTest::implementsQueryServiceDirectly))
+                        .map(LayeredArchitectureTest::indirectQueryServiceViolation)
+                        .ifPresent(events::add);
+            }
+        };
+    }
+
+    private static boolean implementsQueryServiceDirectly(JavaClass javaClass) {
+        return javaClass.getRawInterfaces().stream()
+                .anyMatch(implemented -> implemented.isEquivalentTo(QueryService.class));
+    }
+
+    private static ConditionEvent indirectQueryServiceViolation(JavaClass javaClass) {
+        return SimpleConditionEvent.violated(
+                javaClass,
+                "%s は QueryService を直接実装していない（結果型を辿れず、結果として返す失敗が定義から消える）"
+                        .formatted(javaClass.getFullName()));
+    }
+
+    /**
+     * エンドポイントは、実行するユースケースを指していなければならない。
+     *
+     * <p>
+     * 失敗の契約はユースケースが持つため、定義側はエンドポイントからユースケースへ辿れなければ失敗を写せない。指して
+     * いない操作は、失敗を1つも持たない定義として公開される。読み取りも対象に含める——一覧は並び順の検証で 400 を、 個別取得は対象の不在で 404
+     * を返すため、宣言が無ければどちらも定義から落ちる。
+     * </p>
+     */
+    @ArchTest
+    void endpointsShouldPointAtTheirUseCase(JavaClasses classes) {
+        methods().that().areDeclaredInClassesThat().haveSimpleNameEndingWith("Resource").and(
+                areHttpEndpoints())
+                .should().beAnnotatedWith(Executes.class)
+                .as("エンドポイントは @Executes で実行するユースケースを指す")
+                .allowEmptyShould(true).check(classes);
+    }
+
+    /**
+     * 指したユースケースを、そのエンドポイントが実際に実行していなければならない。
+     *
+     * <p>
+     * {@link Executes} は定義側の失敗契約を引くためだけに読まれるので、指す先が実装とずれても動いてしまう。ずれた
+     * ままだと、定義には呼んでいないユースケースの失敗が並ぶ。宣言を実装と結び付けておく。
+     * </p>
+     */
+    @ArchTest
+    void endpointsShouldExecuteTheUseCaseTheyPointAt(JavaClasses classes) {
+        methods().that().areAnnotatedWith(Executes.class)
+                .should(executeTheDeclaredUseCase())
+                .as("@Executes が指すユースケースを、そのエンドポイントが実際に実行する")
+                .allowEmptyShould(true).check(classes);
+    }
+
+    /*
+     * LAMBDA-AND-REFERENCE: ユースケースの実行は map(...) の内側や メソッド参照でも書かれる。呼び出しと参照の
+     * 両方を集めないと、書き方によって検査から漏れる。
+     */
+    private static ArchCondition<JavaMethod> executeTheDeclaredUseCase() {
+        return new ArchCondition<>("execute the use case they point at") {
+            @Override
+            public void check(JavaMethod method, ConditionEvents events) {
+                Optional.of(method)
+                        .filter(not(LayeredArchitectureTest::executesItsDeclaredUseCase))
+                        .map(LayeredArchitectureTest::unexecutedUseCaseViolation)
+                        .ifPresent(events::add);
+            }
+        };
+    }
+
+    private static boolean executesItsDeclaredUseCase(JavaMethod method) {
+        return reaches(method, declaredUseCaseOf(method));
+    }
+
+    /**
+     * そのメソッドから対象の型へ届くかどうか。
+     *
+     * <p>
+     * エンドポイントは組み立てや問い合わせを同じクラスの private メソッドへ委ねることがある。直接の呼び出しだけを
+     * 見ると、その書き方が検査から漏れて「宣言はあるが実装していない」と誤判定する。実装の書き方を検査の都合で 縛らないよう、同一クラス内の委譲を1段だけ辿る。
+     * </p>
+     */
+    private static boolean reaches(JavaMethod method, Class<?> target) {
+        return Stream.concat(
+                accessesOf(method),
+                delegatesOf(method).flatMap(LayeredArchitectureTest::accessesOf))
+                .anyMatch(access -> access.getTargetOwner().isAssignableTo(target));
+    }
+
+    /*
+     * LAMBDA-AND-REFERENCE: 呼び出しは map(...) のラムダの中にも、メソッド参照の形でも現れる。両方を集めないと
+     * 書き方によって検査から漏れる。
+     */
+    private static Stream<JavaAccess<?>> accessesOf(JavaMethod method) {
+        return Stream.<JavaAccess<?>>concat(
+                method.getMethodCallsFromSelf().stream(),
+                method.getMethodReferencesFromSelf().stream());
+    }
+
+    private static Stream<JavaMethod> delegatesOf(JavaMethod method) {
+        return accessesOf(method)
+                .filter(access -> access.getTargetOwner().equals(method.getOwner()))
+                .map(access -> access.getTarget().resolveMember())
+                .flatMap(Optional::stream)
+                .filter(JavaMethod.class::isInstance)
+                .map(JavaMethod.class::cast);
+    }
+
+    private static Class<?> declaredUseCaseOf(JavaMethod method) {
+        return method.getAnnotationOfType(Executes.class).value();
+    }
+
+    private static ConditionEvent unexecutedUseCaseViolation(JavaMethod method) {
+        return SimpleConditionEvent.violated(
+                method,
+                "%s は %s を指しているが実行していない（定義に載る失敗が実装とずれる）".formatted(
+                        method.getFullName(),
+                        declaredUseCaseOf(method).getSimpleName()));
+    }
+
+    /*
+     * META-ANNOTATION: @GET/@POST などは jakarta.ws.rs.HttpMethod を持つ注釈で、種類を数え上げると新しい
+     * メソッドを足したときに漏れる。メタ注釈の有無で判定する。
+     */
+    private static DescribedPredicate<JavaMethod> areHttpEndpoints() {
+        return DescribedPredicate.describe(
+                "are HTTP endpoints",
+                method -> method.getAnnotations().stream()
+                        .anyMatch(annotation -> annotation.getRawType().isAnnotatedWith(HttpMethod.class)));
+    }
+
+    /**
+     * エラー応答を返す例外マッパーは、エラー契約の集約に数え上げられていなければならない。
+     *
+     * <p>
+     * {@link ProblemDetailErrorContract} が集めた状態コードだけが、応答本体の型と説明を定義側へ与えられる。
+     * 漏れたマッパーの状態コードは、本体の型を持たないまま定義に残るか、定義に現れない。どちらも要求元は本体を型として 読めず、生成した型では
+     * {@code content} が無いものとして扱われる。
+     * </p>
+     */
+    @ArchTest
+    void exceptionMappersShouldBeListedInTheErrorContract(JavaClasses classes) {
+        classes().that().resideInAPackage(PRESENTATION).and().areAssignableTo(ExceptionMapper.class)
+                .should(beListedIn("ProblemDetailErrorContract.MAPPERS", contractMapperNames()))
+                .as("エラー応答を返す例外マッパーは ProblemDetailErrorContract.MAPPERS に数え上げる")
+                .allowEmptyShould(true).check(classes);
+    }
+
+    private static List<String> contractMapperNames() {
+        return ProblemDetailErrorContract.MAPPERS.stream()
+                .map(Class::getName)
+                .toList();
     }
 
     /*

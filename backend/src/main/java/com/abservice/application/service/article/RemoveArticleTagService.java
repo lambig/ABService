@@ -1,5 +1,7 @@
 package com.abservice.application.service.article;
 
+import com.abservice.application.exception.Failure;
+import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.domain.exception.ValidationException;
@@ -27,6 +29,7 @@ import lombok.AllArgsConstructor;
  */
 @ApplicationScoped
 @AllArgsConstructor
+@FailureContract({Failure.VALIDATION, Failure.NOT_FOUND, Failure.CONFLICT})
 public class RemoveArticleTagService implements CommandService<RemoveArticleTagInput, RemoveArticleTagOutput> {
 
     private final ArticleRepository articleRepository;
