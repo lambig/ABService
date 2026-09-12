@@ -8,7 +8,7 @@ import {
   quietArticle,
   showcase,
 } from '../support/build-fixtures.ts';
-import { capture, clickWithEvidence } from '../support/evidence.ts';
+import { capture, captureFocused, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 
 /**
@@ -144,7 +144,7 @@ test.describe('記事の詳細', () => {
     await expect(reference).toContainText(showcase.eventSpaceNumber);
     await expect(reference).toContainText(showcase.basePriceText);
     /* 記事の詳細（10）と同じ画面の別の見どころのため、その枝番に置く */
-    await capture(page, '10a-article-album-reference-price');
+    await captureFocused(page, reference, '10a-article-album-reference-price');
   });
 
   test('額を持たない作品を紹介する記事には、額の区画が出ない', async ({ page }) => {

@@ -8,7 +8,7 @@ import {
   showcaseTrackNames,
   showcaseTracks,
 } from '../support/build-fixtures.ts';
-import { capture, clickWithEvidence, focusOn } from '../support/evidence.ts';
+import { capture, captureFocused, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 
 /**
@@ -138,8 +138,7 @@ test.describe('作品の詳細', () => {
      * 埋め込み枠から下は曲目まで1画面に収まる。同じ絵を複数の名前で撮ると、レビューでは同じものを
      * 二度見ることになるため、この帯の証跡はここだけで撮る。
      */
-    await focusOn(embed);
-    await capture(page, '06-album-detail-audio-and-tracks');
+    await captureFocused(page, embed, '06-album-detail-audio-and-tracks');
   });
 
   test('概要説明が Markdown として描かれる', async ({ page }) => {
@@ -224,8 +223,7 @@ test.describe('作品の詳細', () => {
     expect(names).toEqual(showcaseTrackNames);
 
     /* 曲目は詳細（05）とは別の見どころのため、その枝番に置く。8件あるので一覧の先頭へ寄せて撮る */
-    await focusOn(page.locator(TRACK_LIST));
-    await capture(page, '05a-album-detail-tracks');
+    await captureFocused(page, page.locator(TRACK_LIST), '05a-album-detail-tracks');
   });
 
   test('外部音源を持つ作品のリンクプレビューはプレイヤーカードで、カバー画像を本体に出さない', async ({

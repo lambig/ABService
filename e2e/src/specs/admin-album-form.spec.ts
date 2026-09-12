@@ -4,7 +4,7 @@ import type { Locator, Page } from '@playwright/test';
 
 import { renameAlbumOutsideTheScreen } from '../support/admin-api.ts';
 import { stack } from '../support/config.ts';
-import { capture, clickWithEvidence, focusOn } from '../support/evidence.ts';
+import { capture, captureFocused, captureWhole, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 import {
   SCRATCH_BASE_PRICE,
@@ -116,7 +116,9 @@ test.describe('管理画面の作品の編集', () => {
       new RegExp(`^${SCRATCH_CATALOG_PREFIX}`, 'u'),
     );
     await expect(page.getByLabel(BASE_PRICE_LABEL)).toHaveValue(String(SCRATCH_BASE_PRICE));
-    await capture(page, '23-admin-edit-loaded');
+
+    /* 確かめているのはタイトルから基準額までで、1画面に収まらない（#369） */
+    await captureWhole(page, '23-admin-edit-loaded');
   });
 
   test('基準額を変えて保存すると、読み直した編集にその額が入っている', async ({ page }) => {
@@ -138,7 +140,7 @@ test.describe('管理画面の作品の編集', () => {
     /* 保存できたことは、保存後の値を読み直して確かめる（一覧は額を出さない） */
     await openEdit(page, title);
     await expect(page.getByLabel(BASE_PRICE_LABEL)).toHaveValue(raised);
-    await capture(page, '39-admin-edit-base-price-saved');
+    await captureFocused(page, page.getByLabel(BASE_PRICE_LABEL), '39-admin-edit-base-price-saved');
   });
 
   test('基準額を解除して保存すると、読み直した編集で額を持たない', async ({ page }) => {
@@ -168,7 +170,11 @@ test.describe('管理画面の作品の編集', () => {
     await openEdit(page, title);
     await expect(page.getByLabel(BASE_PRICE_LABEL)).toHaveValue('');
     await expect(page.getByLabel(CURRENCY_LABEL)).toHaveValue('');
-    await capture(page, '39b-admin-edit-base-price-cleared');
+    await captureFocused(
+      page,
+      page.getByLabel(BASE_PRICE_LABEL),
+      '39b-admin-edit-base-price-cleared',
+    );
   });
 
   test('原作の出典を入れて保存すると、読み直した編集に同じ綴りが入っている', async ({ page }) => {
@@ -193,10 +199,11 @@ test.describe('管理画面の作品の編集', () => {
     /* 保存できたことは、保存後の値を読み直して確かめる（一覧は記述を出さない） */
     await openEdit(page, title);
     await expect(page.getByLabel(ORIGINAL_WORK_NOTE_LABEL)).toHaveValue(note);
-
-    /* 欄は画面の下の方にある。寄せてから撮らないと、証跡に欄そのものが写らない（#359） */
-    await focusOn(page.getByLabel(ORIGINAL_WORK_NOTE_LABEL));
-    await capture(page, '39d-admin-edit-original-work-note-saved');
+    await captureFocused(
+      page,
+      page.getByLabel(ORIGINAL_WORK_NOTE_LABEL),
+      '39d-admin-edit-original-work-note-saved',
+    );
   });
 
   test('額の欄だけを空にした保存は、額が必須として断られる', async ({ page }) => {
@@ -260,7 +267,9 @@ test.describe('管理画面の作品の編集', () => {
 
     await expect(page.getByLabel(TITLE_LABEL)).toHaveAttribute('aria-invalid', 'true');
     await expect(page.getByLabel(ARTIST_LABEL)).toHaveAttribute('aria-invalid', 'false');
-    await capture(page, '25-admin-edit-field-errors');
+
+    /* 見どころは「どの欄に出て、どの欄に出ていないか」。欄をまたぐため丸ごと撮る（#369） */
+    await captureWhole(page, '25-admin-edit-field-errors');
   });
 
   test('直して保存すると、一覧に反映される', async ({ page }) => {
@@ -284,7 +293,7 @@ test.describe('管理画面の作品の編集', () => {
 
     await expect(page.getByRole('table')).toBeVisible();
     await expect(rowOf(page, renamed)).toBeVisible();
-    await capture(page, '27-admin-edit-saved');
+    await captureFocused(page, rowOf(page, renamed), '27-admin-edit-saved');
   });
 
   test('保存に到達できないときは、入力を保ったまま理由を出す', async ({ page }) => {
@@ -301,7 +310,9 @@ test.describe('管理画面の作品の編集', () => {
 
     await expect(page.getByRole('alert')).toBeVisible();
     await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(renamed);
-    await capture(page, '28-admin-edit-unreachable');
+
+    /* 理由の提示と、保たれた入力の両方が見どころ（#369） */
+    await captureWhole(page, '28-admin-edit-unreachable');
 
     /* 検証エラーではないため、欄には出さない */
     await expect(fieldOf(page, 'title').getByRole('alert')).toHaveCount(0);
@@ -324,7 +335,9 @@ test.describe('管理画面の作品の編集', () => {
 
     await expect(page.getByLabel(TITLE_LABEL)).toBeDisabled();
     await expect(page.getByLabel(EVENT_PLACE_LABEL)).toBeDisabled();
-    await capture(page, '32-admin-edit-saving');
+
+    /* 塞がっていることは欄の全体で見る（#369） */
+    await captureWhole(page, '32-admin-edit-saving');
 
     /* 応答が返れば保存は成立し、一覧へ戻る */
     await expect(page.getByRole('table')).toBeVisible();
@@ -356,7 +369,9 @@ test.describe('管理画面の作品の編集', () => {
     await expect(page.getByText(CONFLICT_HEADING)).toBeVisible();
     await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(renamed);
     await expect(fieldOf(page, 'title').getByRole('alert')).toHaveCount(0);
-    await capture(page, '36-admin-edit-conflicted');
+
+    /* 競合の伝え方と、保たれた入力の両方が見どころ（#369） */
+    await captureWhole(page, '36-admin-edit-conflicted');
 
     /* 別タブの保存は消えていない */
     await expect(page.getByRole('table')).toHaveCount(0);
@@ -410,7 +425,7 @@ test.describe('管理画面の作品の追加', () => {
 
     await expect(page.getByRole('table')).toBeVisible();
     await expect(rowOf(page, title)).toContainText(DRAFT_LABEL);
-    await capture(page, '31-admin-new-created');
+    await captureFocused(page, rowOf(page, title), '31-admin-new-created');
   });
 
   test('鍵が断られても入力は残り、入れ直せば続けて作成できる', async ({ page }) => {
@@ -443,7 +458,9 @@ test.describe('管理画面の作品の追加', () => {
     /* 書いた内容がそのまま戻る（読み直しも初期化もしない） */
     await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(title);
     await expect(page.getByLabel(ARTIST_LABEL)).toHaveValue('E2E 再認証アーティスト');
-    await capture(page, '34-admin-new-key-accepted');
+
+    /* 書いた内容が欄をまたいで戻っていることが見どころ（#369） */
+    await captureWhole(page, '34-admin-new-key-accepted');
 
     await page.getByRole('button', { name: CREATE_LABEL }).click();
 
