@@ -26,7 +26,7 @@ class TuneTitleSeparatorConfigIntegrationTest {
 
     @Inject
     @ConfigProperty(name = "abservice.track.tune-title-separator")
-    String tuneTitleSeparator;
+    private String tuneTitleSeparator;
 
     @Test
     @DisplayName("既定の区切りは、前後に半角スペースを持つスラッシュである")

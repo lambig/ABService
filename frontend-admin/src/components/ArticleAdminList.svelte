@@ -373,8 +373,8 @@
         <Table.Body>
           {#each articles as article (article.articleId)}
             <Table.Row>
-              <!-- 文言の長い列だけ折り返させ、幅と行数を抑える（#359）。作品一覧と同じ理由 -->
-              <Table.Cell class="w-[34rem] whitespace-normal">
+              <!-- 文言の長い列だけ折り返させ、行数を抑える（#359）。幅を指定しない理由も作品一覧と同じ -->
+              <Table.Cell class="whitespace-normal">
                 <span class="line-clamp-2 break-words">{article.title}</span>
               </Table.Cell>
               <Table.Cell>
