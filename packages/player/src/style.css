@@ -1,0 +1,254 @@
+:root {
+  font-family: Inter, "Noto Sans", Arial, sans-serif;
+  color: #23332f;
+  background: #f5f4ee;
+  font-synthesis: none;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+header,
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28px 5vw;
+  border-bottom: 1px solid #d6dbd0;
+}
+.brand {
+  font-weight: 800;
+  font-size: 27px;
+  color: inherit;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+.brand span,
+.edition,
+.eyebrow,
+.album-meta {
+  font-size: 11px;
+  letter-spacing: 2px;
+  font-weight: 600;
+}
+.edition {
+  color: #68746b;
+}
+main {
+  max-width: 1180px;
+  margin: auto;
+  padding: 35px 40px 50px;
+}
+.intro {
+  padding-bottom: 30px;
+}
+.intro h1 {
+  font-size: clamp(32px, 4vw, 48px);
+  letter-spacing: -2px;
+  font-weight: 500;
+  margin: 14px 0;
+}
+.intro > p:last-child {
+  color: #677269;
+  font-size: 14px;
+}
+.workspace {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  gap: 64px;
+}
+#library section {
+  padding: 20px 0;
+  border-top: 1px solid #d2d9cf;
+}
+#library h2 {
+  font-size: 23px;
+  margin: 12px 0 20px;
+  font-weight: 500;
+}
+.album-meta {
+  color: #717c73;
+  font-size: 10px;
+}
+ol {
+  padding-left: 28px;
+}
+li {
+  padding-left: 7px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #6c7970;
+}
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid #bbc7bb;
+  background: transparent;
+  color: #263d30;
+  border-radius: 4px;
+  padding: 11px 16px;
+  min-height: 44px;
+}
+li button {
+  width: 100%;
+  text-align: left;
+  border-color: transparent;
+  font-size: 15px;
+}
+li button[aria-pressed="true"] {
+  background: #e0e7d9;
+  border-color: #c2cfb9;
+}
+button:hover:enabled {
+  background: #d4dfcb;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 3px solid #8b5a28;
+  outline-offset: 3px;
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.player {
+  background: #fffef9;
+  border: 1px solid #d6dbd0;
+  padding: 25px;
+  border-radius: 6px;
+  box-shadow: 0 12px 30px #20342808;
+}
+.cover {
+  height: 190px;
+  background: linear-gradient(130deg, #335a4b, #7e9874);
+  color: #f1f2d4;
+  position: relative;
+  overflow: hidden;
+  padding: 20px;
+}
+.cover > span {
+  font-size: 9px;
+  letter-spacing: 2px;
+}
+.cover strong {
+  position: absolute;
+  right: 22px;
+  bottom: 10px;
+  font-size: 60px;
+  font-weight: 300;
+}
+.rings {
+  position: absolute;
+  top: 44px;
+  left: 36%;
+  width: 170px;
+  height: 170px;
+  border: 1px solid #d7dfb8;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 10px #ffffff10,
+    0 0 0 21px #ffffff16,
+    0 0 0 32px #ffffff10;
+}
+.now {
+  margin: 23px 0 16px;
+}
+.now h2 {
+  font-size: 27px;
+  letter-spacing: -0.6px;
+  font-weight: 500;
+  margin: 10px 0;
+}
+.now p:last-child {
+  font-size: 13px;
+  color: #68746b;
+}
+label {
+  font-size: 12px;
+  color: #5d6a62;
+}
+input[type="range"] {
+  width: 100%;
+  accent-color: #385d46;
+  margin: 12px 0;
+}
+.time {
+  display: flex;
+  justify-content: space-between;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  color: #677269;
+}
+.controls {
+  display: flex;
+  gap: 10px;
+  margin-top: 22px;
+}
+.primary {
+  background: #2d4b37;
+  color: #fff;
+  flex: 1;
+}
+.primary:hover:enabled {
+  background: #45684e;
+}
+#error {
+  color: #a03924;
+  font-size: 13px;
+  line-height: 1.6;
+}
+#error:empty {
+  margin: 0;
+}
+footer {
+  border-top: 1px solid #d6dbd0;
+  border-bottom: 0;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: #758075;
+  gap: 16px;
+}
+@media (max-width: 650px) {
+  header {
+    padding: 20px;
+  }
+  .brand span {
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
+  .edition {
+    display: none;
+  }
+  main {
+    padding: 22px 20px 35px;
+  }
+  .workspace {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .intro {
+    padding-bottom: 15px;
+  }
+  .player {
+    padding: 20px;
+  }
+  .cover {
+    height: 165px;
+  }
+  footer {
+    padding: 22px;
+    flex-direction: column;
+    align-items: start;
+  }
+  .controls {
+    flex-wrap: wrap;
+  }
+  .intro h1 {
+    letter-spacing: -1px;
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "name": "abservice-offline-player",
+  "version": "1.0.0",
+  "description": "Offline listening integration PoC",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "vite build && node build.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test:browser": "playwright test",
+    "preview": "vite preview --host 127.0.0.1 --port 4179 --strictPort"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "abservice-eslint-config": "*",
+    "eslint": "^10.0.0",
+    "eslint-plugin-functional": "^10.0.0",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.0.0",
+    "vite": "8.2.2",
+    "@playwright/test": "^1.62.0",
+    "@types/node": "^24.0.0"
+  },
+  "engines": {
+    "node": "24.20.0",
+    "npm": "11.19.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lambig/ABService.git",
+    "directory": "packages/offline-player"
+  },
+  "keywords": [
+    "audio",
+    "player"
+  ],
+  "author": "Lambig",
+  "license": "MIT",
+  "dependencies": {
+    "abservice-installation": "*",
+    "abservice-player": "*",
+    "abservice-offline-storage": "*",
+    "abservice-offline-shell": "*"
+  }
+}
