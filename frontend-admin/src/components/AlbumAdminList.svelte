@@ -440,9 +440,12 @@
                 ではない（全文は編集の画面が持つ）。隠れるのは見た目だけで、文言は要素の中に残る。
                 他の列（品番・日付・状態・操作）は短く、折り返すと読みにくくなるため既定のまま。
 
-                幅は指定しない。指定すると表がその幅まで縮まなくなり、折り返さない列（品番・操作）の
+                幅は指定しない。指定すると表がその幅まで縮まなくなり、折り返さない列（日付・状態・操作）の
                 幅と合わせて器を超える——字幅は環境で変わるので、収まるかどうかも環境で変わる。
                 折り返せる列が要るだけ縮めば、表は必ず器へ収まる。
+
+                品番も長くなりうる（100文字まで）ため折り返させる。語の切れ目を持たないので、
+                どこでも折る（`break-all`）。実際の品番は短く、折れるのは長いものだけ。
               -->
               <Table.Cell class="whitespace-normal">
                 <span class="line-clamp-2 break-words">{album.title}</span>
@@ -450,7 +453,9 @@
               <Table.Cell class="whitespace-normal">
                 <span class="line-clamp-2 break-words">{album.artistDisplayName}</span>
               </Table.Cell>
-              <Table.Cell>{album.catalogNumber ?? '―'}</Table.Cell>
+              <Table.Cell class="whitespace-normal">
+                <span class="line-clamp-2 break-all">{album.catalogNumber ?? '―'}</span>
+              </Table.Cell>
               <Table.Cell>{formatCalendarDate(album.releaseDate)}</Table.Cell>
               <Table.Cell>
                 <Badge variant={album.publishedAt === null ? 'secondary' : 'default'}>
