@@ -156,7 +156,15 @@ const waitForFonts = async (page: Page): Promise<void> => {
 /**
  * 操作箇所へ寄せ、クリックポイントに印を付けて撮ってから、クリックする。
  *
+ * <p>
  * 印は撮影のためだけに置き、クリック前に取り除く（印がクリックを受け取ってしまうのを避ける）。
+ * </p>
+ *
+ * <p>
+ * 寄ったことは {@link captureFocused} と同じく撮る前に確かめる。クリック自体は Playwright が
+ * 必要に応じて自力で寄せてから押すため、<b>操作は成功したのに直前の証跡には対象が写っていない</b>
+ * という食い違いが起こりうる（#369）。
+ * </p>
  */
 export const clickWithEvidence = async (
   page: Page,
@@ -164,6 +172,7 @@ export const clickWithEvidence = async (
   name: string,
 ): Promise<void> => {
   await focusOn(locator);
+  await expect(locator).toBeInViewport();
   const box = await locator.boundingBox();
   const point = centerOf(box);
 
