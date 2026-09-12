@@ -7,12 +7,8 @@ import { expect, test } from '../support/fixtures.ts';
  * 公開サイトの作品（#123）のジャーニー。
  *
  * 見るのは #197 が確定した内容が画面に出ているかで、項目の並びや文字装飾は対象にしない。外部サービスの
- * 埋め込みは遮断されている（`fixtures.ts`）ため、埋め込み枠は「音源が渡っていること」と
- * 「表示できなくても音源へ辿れること」で確かめる。
+ * 埋め込みは遮断されている（`fixtures.ts`）ため、埋め込み枠は「音源が渡っていること」で確かめる。
  */
-
-/** 埋め込みが表示できない環境向けのリンク。文言は画面の実装が持つ */
-const AUDIO_FALLBACK_LINK = 'SoundCloud で開く';
 
 /** 試聴の節の見出し。文言は画面の実装が持つ */
 const AUDIO_SECTION_HEADING = '試聴';
@@ -90,28 +86,32 @@ test.describe('作品の一覧', () => {
 });
 
 test.describe('作品の詳細', () => {
-  test('試聴は埋め込みが表示できなくても音源へ辿れる', async ({ page }) => {
+  test('試聴は埋め込みで完結し、取得元へ出る導線を置かない', async ({ page }) => {
     await page.goto(await albumPathOf(showcase.catalogNumber));
 
-    await expect(
-      page.getByRole('heading', { level: 2, name: AUDIO_SECTION_HEADING }),
-    ).toBeVisible();
+    const audioSection = page.getByRole('heading', { level: 2, name: AUDIO_SECTION_HEADING });
+    await expect(audioSection).toBeVisible();
 
     /*
      * 埋め込み枠には音源の URL がそのまま渡る（許可リストはバックエンドの ExternalAudioUrl が持つ）。
      * プレイヤーの組み立て方そのものは画面の実装で変わるため、渡っていることだけを見る。
      */
-    const embedSrc = await page.locator('iframe').getAttribute('src');
+    const embed = page.locator('iframe');
+    const embedSrc = await embed.getAttribute('src');
     expect(embedSrc).toContain(encodeURIComponent(showcase.audioUrl));
 
-    const fallbackLink = page.getByRole('link', { name: AUDIO_FALLBACK_LINK });
-    await expect(fallbackLink).toHaveAttribute('href', showcase.audioUrl);
+    /*
+     * 取得元へ出るリンクは置かない（#356）。埋め込みが表示できないのにリンクだけ辿れる状態が
+     * 起こるのはプレイヤー側の障害くらいで、そのために常設の導線を置く理由がない。音源の URL を
+     * href に持つリンクの不在で見る（文言はいつでも変わりうる）。
+     */
+    await expect(page.locator(`a[href="${showcase.audioUrl}"]`)).toHaveCount(0);
 
     /*
      * 埋め込み枠から下は曲目まで1画面に収まる。同じ絵を複数の名前で撮ると、レビューでは同じものを
      * 二度見ることになるため、この帯の証跡はここだけで撮る。
      */
-    await focusOn(fallbackLink);
+    await focusOn(embed);
     await capture(page, '06-album-detail-audio-and-tracks');
   });
 
