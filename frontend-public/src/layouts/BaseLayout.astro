@@ -90,9 +90,8 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
   <body class="bg-background text-foreground min-h-screen">
     {
       /*
-      書体が届くまでの覆い（#361）。見た目は地の色だけで、読み込み中の印は出さない——数百ミリ秒で
-      外れるものに印を出すと、そちらの方が目に残る。支援技術は覆いの下の内容を読むため、覆いは
-      `aria-hidden` にする。
+      書体が届くまでの覆い（#361）。見た目と、長引いたときに出す印は `global.css` が持つ。支援技術は
+      覆いの下の内容を読むため、覆いは `aria-hidden` にする。
     */
     }
     <div class="font-loading-cover" aria-hidden="true"></div>

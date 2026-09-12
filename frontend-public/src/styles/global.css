@@ -232,11 +232,72 @@
   }
 
   html[data-fonts-loading] .font-loading-cover {
+    /*
+     * 印が出るまでの間。**この値が唯一の出所**で、E2E は計算済みスタイルから読む（数を写すと、
+     * 片方だけ変えたときに検査が意味を失う）。
+     */
+    --font-loading-hint-delay: 600ms;
+
     position: fixed;
     inset: 0;
     z-index: 50;
     display: block;
     background-color: var(--color-background);
+  }
+
+  /*
+   * 覆いが長引いたときだけ出す印（#361）。地の色だけの画面は壊れた画面と見分けが付かず、そのまま
+   * 離脱する理由になる。和文の書体は取得が細かく分かれるため、遅い回線では上限（3秒）まで覆いが残りうる。
+   *
+   * **遅らせて出す。** それより早く外れた読み込みでは一度も出ない——すぐ消える印は、覆いそのものより
+   * 目に残る。文字は使わない。その文字自体がまだ届いていない書体に当たるうえ、言い回しを決める話になる。
+   */
+  html[data-fonts-loading] .font-loading-cover::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 8rem;
+    /* 罫線より一段太い。1px だと、地の色だけの画面の中では気付かれずに終わる */
+    height: 2px;
+    margin-left: -4rem;
+    /* 地の罫線は常に見える。走る帯だけだと、端に居る瞬間に線が消えて印が無いのと同じになる */
+    background-color: var(--color-border);
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--color-muted-foreground) 50%,
+      transparent 100%
+    );
+    background-repeat: no-repeat;
+    background-size: 40% 100%;
+    opacity: 0;
+    animation:
+      font-loading-hint-appear 200ms ease-out var(--font-loading-hint-delay) forwards,
+      font-loading-hint-sweep 1.2s ease-in-out var(--font-loading-hint-delay) infinite;
+  }
+
+  @keyframes font-loading-hint-appear {
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes font-loading-hint-sweep {
+    from {
+      background-position: -40% 0;
+    }
+    to {
+      background-position: 140% 0;
+    }
+  }
+
+  /* 動きを減らす設定では走らせない。印は出すが、位置を中央に置いたまま動かさない */
+  @media (prefers-reduced-motion: reduce) {
+    html[data-fonts-loading] .font-loading-cover::after {
+      background-position: 50% 0;
+      animation: font-loading-hint-appear 200ms ease-out var(--font-loading-hint-delay) forwards;
+    }
   }
 }
 
