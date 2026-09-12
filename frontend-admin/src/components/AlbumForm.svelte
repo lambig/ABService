@@ -55,7 +55,7 @@
   type FieldSpec = Readonly<{
     path: AlbumFieldPath;
     label: string;
-    kind: 'text' | 'date' | 'multiline' | 'choice';
+    kind: 'text' | 'date' | 'number' | 'multiline' | 'choice';
     /** 選択肢。`choice` 以外では空 */
     choices: readonly string[];
   }>;
@@ -97,6 +97,13 @@
         text('event.place', '会場'),
         text('event.spaceNumber', 'スペース番号'),
         text('event.note', '補足'),
+      ],
+    },
+    {
+      heading: '頒布',
+      fields: [
+        { path: 'basePrice.amount', label: '基準額', kind: 'number', choices: [] },
+        text('basePrice.currency', '通貨コード（未指定は円）'),
       ],
     },
   ];
@@ -424,6 +431,22 @@
   /** 欄の識別子。位置の綴りに含まれる `.` は識別子に使えない */
   const idOf = (path: AlbumFieldPath): string => `album-${path.replace('.', '-')}`;
 
+  /**
+   * 1行の入力欄が受け取る型。
+   *
+   * 複数行・選択肢は別の枝が描くため、ここへは来ない。来ない種別も表へ載せるのは、種別が増えたときに
+   * 抜けをコンパイルで気付くため。
+   */
+  const INPUT_TYPES = {
+    text: 'text',
+    date: 'date',
+    number: 'number',
+    multiline: 'text',
+    choice: 'text',
+  } as const satisfies Record<FieldSpec['kind'], string>;
+
+  const inputTypeOf = (kind: FieldSpec['kind']): string => INPUT_TYPES[kind];
+
   const SAVE_LABELS = { new: '作成する', edit: '保存する' } satisfies Record<Props['mode'], string>;
 </script>
 
@@ -492,7 +515,7 @@
                 <input
                   id={idOf(field.path)}
                   class="border-input bg-background w-full rounded-md border px-3 py-2"
-                  type={field.kind === 'date' ? 'date' : 'text'}
+                  type={inputTypeOf(field.kind)}
                   value={draft[field.path]}
                   aria-invalid={messagesOf(field.path).length > 0}
                   oninput={(event) => {
