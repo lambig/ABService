@@ -12,10 +12,11 @@
 ---
 
 <nav
-  class="border-border border-y py-2 lg:sticky lg:top-6 lg:self-start lg:border-y-0 lg:py-0"
+  class="border-border border-y py-2 lg:sticky lg:top-6 lg:border-y-0 lg:py-0"
   aria-label="主要な導線"
 >
-  <ul class="flex gap-6 text-sm lg:flex-col lg:gap-3">
+  {/* 広い幅では見出しと同じ行の高さにする。先頭の項目がページの見出しと同じ高さに載る（#357） */}
+  <ul class="flex gap-6 text-sm lg:flex-col lg:gap-0 lg:leading-9">
     <li><a class="underline underline-offset-4" href="/">トップ</a></li>
     <li><a class="underline underline-offset-4" href="/albums">作品</a></li>
     <li><a class="underline underline-offset-4" href="/articles">記事</a></li>

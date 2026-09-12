@@ -119,7 +119,16 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
       */
       }
       <div class="flex-1 lg:grid lg:grid-cols-[9rem_1fr] lg:gap-10">
-        <slot name="nav" />
+        {
+          /*
+          導線の始まりを本文の見出しと揃える（#357）。本文側は各ページが先頭に `py-6` を持つため、
+          導線を段の先頭から始めると**その分だけ上へ寄って見える**。同じ量をここで足す。
+          導線を包むのは、貼り付き（`sticky`）が段の高さいっぱいを動ける場所を要るため。
+        */
+        }
+        <div class="lg:pt-6">
+          <slot name="nav" />
+        </div>
 
         <main class="min-w-0">
           <slot />
