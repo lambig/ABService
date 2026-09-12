@@ -26,11 +26,11 @@ const documentTitle = title === undefined ? name : `${title} ― ${name}`;
 const SiteNameTag = title === undefined ? 'h1' : 'p';
 
 /*
- * サイト名の大きさは、そのページで見出しを務めるかどうかで決める（#358）。務めるとき（トップ）は
- * 各ページの見出しと同じ段に置き、務めないときは一段落として、そのページの主題が勝つようにする。
- * 書体が持つ太さは 400 と 600 の2つだけなので、段の差は大きさが担う。
+ * サイト名はロゴとして扱い、**どのページでも画面で一番大きい**（#358）。見出しを務めるかどうかで
+ * 大きさを変えない——ロゴは同じ形で出てこそ記号として働く。ページの見出しはこの一段下に置く
+ * （`text-3xl`）。書体が持つ太さは 400 と 600 の2つだけなので、段の差は大きさが担う。
  */
-const siteNameClass = title === undefined ? 'text-3xl font-semibold' : 'text-lg font-semibold';
+const SITE_NAME_CLASS = 'text-4xl font-semibold';
 
 /* ページ固有の説明が無ければサイトの説明を出す。どちらも無ければメタ説明そのものを出さない */
 const metaDescription = description ?? (await siteDescription());
@@ -85,7 +85,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
     <div class="mx-auto flex min-h-screen max-w-5xl flex-col px-4 lg:max-w-6xl">
       <header class="py-6">
         {/* 書体が持つ太さは 400 と 600 の2つだけのため、階層は大きさと 600 で付ける（#344） */}
-        <SiteNameTag class={siteNameClass}>
+        <SiteNameTag class={SITE_NAME_CLASS}>
           <a class="underline-offset-4 hover:underline" href="/">{name}</a>
         </SiteNameTag>
       </header>
