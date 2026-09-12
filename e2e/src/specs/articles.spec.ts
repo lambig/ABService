@@ -16,9 +16,8 @@ import { expect, test } from '../support/fixtures.ts';
  * 決める文言のため、シナリオ側に置く。
  */
 
-/** 種別ラベル。文言は画面の実装が持つ */
+/** 詳細には出さないことを確かめるための種別ラベル（#346） */
 const ALBUM_TYPE_LABEL = '作品紹介';
-const NOTE_TYPE_LABEL = 'ノート';
 
 /** 参照先の作品への導線の見出し。文言は画面の実装が持つ */
 const ALBUM_REFERENCE_HEADING = 'この記事の作品';
@@ -63,8 +62,8 @@ test.describe('記事の一覧', () => {
 
     await expect(page.getByRole('heading', { level: 1, name: albumArticle.title })).toBeVisible();
 
-    /* 完全一致で見る。種別ラベルはフィクスチャのタイトルにも現れる語のため */
-    await expect(page.getByText(ALBUM_TYPE_LABEL, { exact: true })).toBeVisible();
+    /* 種別は詳細に出さない（#346）。完全一致で見るのは、同じ語がフィクスチャのタイトルにも現れるため */
+    await expect(page.getByText(ALBUM_TYPE_LABEL, { exact: true })).toHaveCount(0);
     /* 記事の見出しの中の日付を見る。参照先の作品も初出イベントの日付を持つため */
     await expect(page.locator('article header time[datetime]')).toBeVisible();
     await expect(
@@ -137,7 +136,6 @@ test.describe('記事の詳細', () => {
   test('作品を参照しない記事には、作品への導線もリンクプレビューも出ない', async ({ page }) => {
     await page.goto(await articlePathOf(plainArticle.title));
 
-    await expect(page.getByText(NOTE_TYPE_LABEL, { exact: true })).toBeVisible();
     await expect(
       page.getByRole('heading', { level: 2, name: ALBUM_REFERENCE_HEADING }),
     ).toHaveCount(0);
