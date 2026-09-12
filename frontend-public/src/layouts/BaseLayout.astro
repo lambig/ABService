@@ -70,7 +70,8 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
   <body class="bg-background text-foreground min-h-screen">
     <div class="mx-auto flex min-h-screen max-w-5xl flex-col px-4">
       <header class="space-y-3 py-6">
-        <SiteNameTag class="text-lg font-medium">
+        {/* 書体が持つ太さは 400 と 600 の2つだけのため、階層は大きさと 600 で付ける（#344） */}
+        <SiteNameTag class="text-2xl font-semibold">
           <a class="underline-offset-4 hover:underline" href="/">{name}</a>
         </SiteNameTag>
         <slot name="header" />

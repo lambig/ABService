@@ -1,13 +1,16 @@
 ---
 /*
  * 主要な導線（#197）。トップ・アルバム一覧・記事一覧の3つ。
+ *
+ * 押せる導線の集まりだと hover の前に分かる形にする（#344）。下線は常に引き、上下の罫線で帯として
+ * 囲う。区切りを罫線と余白で作るのは配色の方針と同じ（DECISIONS 25 / #341）。
  */
 ---
 
-<nav aria-label="主要な導線">
-  <ul class="flex gap-4 text-sm">
-    <li><a class="underline-offset-4 hover:underline" href="/">トップ</a></li>
-    <li><a class="underline-offset-4 hover:underline" href="/albums">作品</a></li>
-    <li><a class="underline-offset-4 hover:underline" href="/articles">記事</a></li>
+<nav class="border-border border-y py-2" aria-label="主要な導線">
+  <ul class="flex gap-6 text-sm">
+    <li><a class="underline underline-offset-4" href="/">トップ</a></li>
+    <li><a class="underline underline-offset-4" href="/albums">作品</a></li>
+    <li><a class="underline underline-offset-4" href="/articles">記事</a></li>
   </ul>
 </nav>
