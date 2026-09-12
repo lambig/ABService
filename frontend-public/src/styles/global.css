@@ -220,6 +220,24 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
   }
+
+  /*
+   * 書体が届くまでの覆い（#361）。届いた瞬間に字面が入れ替わるのを見せないため、それまで地の色で
+   * 覆う。**出す判断は印（`data-fonts-loading`）が付いているときだけ**で、印を付けるのは
+   * `BaseLayout.astro` の inline script。JS が動かない環境では印が付かず、覆いも出ない——覆いを
+   * 既定にすると、外す側が動かないまま内容へ辿り着けなくなる。
+   */
+  .font-loading-cover {
+    display: none;
+  }
+
+  html[data-fonts-loading] .font-loading-cover {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: block;
+    background-color: var(--color-background);
+  }
 }
 
 /*

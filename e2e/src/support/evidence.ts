@@ -49,14 +49,20 @@ export const capture = async (page: Page, name: string): Promise<void> => {
 };
 
 /*
- * FONT-SWAP: 公開サイトは書体を読み込む（#341）。`display=swap` のため、届くまでは OS の標準で
- * 描かれる。待たずに撮ると、同じ実行でも読み込みが間に合ったページと間に合わなかったページが混ざり、
- * 証跡から字面を読めなくなる。
+ * FONT-SWAP: 公開サイトは書体を読み込み、届くまで画面を覆う（#361）。待たずに撮ると、同じ実行でも
+ * 覆いが写ったページと外れたページが混ざる。
+ *
+ * 覆いが外れたことは印（`data-fonts-loading`）の消滅で見る。`document.fonts.ready` を直接待つ形は
+ * 取らない——あれは「読み込み中のものが無い」状態を返すだけで、取得元の stylesheet 自体が届いて
+ * いなければそのまま抜ける。印は取得できなかった場合も待ち時間の上限で消えるため、届かない環境でも
+ * 撮影は進む（その回の字面は OS の標準になる）。
+ *
+ * 管理画面は書体を読み込まないため印を持たない。印が最初から無いページでは、この待機は即座に返る。
  */
 const waitForFonts = async (page: Page): Promise<void> => {
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-  });
+  await page.waitForFunction(
+    () => document.documentElement.getAttribute('data-fonts-loading') === null,
+  );
 };
 
 /**
