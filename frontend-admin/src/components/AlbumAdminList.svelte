@@ -443,7 +443,12 @@
                 </Badge>
               </Table.Cell>
               <Table.Cell>
-                <div class="flex items-center gap-2">
+                <!--
+                  操作ごとに幅を固定する（#345）。公開の切り替えは状態で文言が変わるため、詰めて並べると
+                  その右にある削除の位置が行ごとに動く。一覧は同じ操作を縦に目で追う場で、右端が破壊的な
+                  操作であるため、位置が動かないことを優先する。
+                -->
+                <div class="grid grid-cols-[5rem_8rem_auto] items-center gap-2">
                   <a
                     class="text-sm underline underline-offset-4"
                     href={editAlbumPath(album.albumId)}

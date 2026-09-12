@@ -65,7 +65,8 @@ public class RegisterAlbumWithTracksService
                                 input.coverImageKey(),
                                 input.description(),
                                 input.descriptionFormat(),
-                                toEventFields(input.event()))
+                                toEventFields(input.event()),
+                                toBasePriceFields(input.basePrice()))
                                 .resolve(ValidationException::new))
                 .flatMap(album -> addTracks(album, tracksOf(input)))
                 .flatMap(albumRepository::save)
@@ -147,6 +148,16 @@ public class RegisterAlbumWithTracksService
                                 e.place(),
                                 e.spaceNumber(),
                                 e.note()))
+                .orElse(null);
+    }
+
+    private static AlbumCreationService.@Nullable BasePriceFields toBasePriceFields(
+            RegisterAlbumWithTracksInput.@Nullable BasePriceInput basePrice) {
+        return Optional.ofNullable(basePrice)
+                .map(
+                        p -> new AlbumCreationService.BasePriceFields(
+                                p.amount(),
+                                p.currency()))
                 .orElse(null);
     }
 

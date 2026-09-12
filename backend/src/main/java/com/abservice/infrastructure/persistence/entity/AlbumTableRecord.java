@@ -86,6 +86,12 @@ public class AlbumTableRecord extends AuditableTableRecord<AlbumTableRecord> {
     @Column(name = "cover_image_key", length = 255)
     private String coverImageKey;
 
+    @Column(name = "base_price_amount")
+    private Integer basePriceAmount;
+
+    @Column(name = "base_price_currency", length = 3)
+    private String basePriceCurrency;
+
     @Column(name = "published_at")
     private Instant publishedAt;
 

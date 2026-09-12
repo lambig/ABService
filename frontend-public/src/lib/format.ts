@@ -27,3 +27,22 @@ const PUBLISHED_DATE_FORMAT = new Intl.DateTimeFormat('ja-JP', {
  */
 export const formatPublishedDate = (isoDateTime: string): string =>
   PUBLISHED_DATE_FORMAT.format(new Date(isoDateTime));
+
+/**
+ * 頒布額を表示用へ整形する。
+ *
+ * 額は通貨の最小単位で持つ（円なら1円、ドルならセント）。主要単位への直し方は通貨ごとに違うため、
+ * 桁数を持たず整形器へ聞く。書き並べると、通貨が増えるたびにここも直すことになる。
+ */
+export const formatPrice = (amount: number, currency: string): string => {
+  const format = new Intl.NumberFormat('ja-JP', { style: 'currency', currency });
+
+  return format.format(amount / 10 ** minorUnitDigitsOf(format));
+};
+
+/*
+ * 通貨の小数桁。整形器は通貨を指定されていれば必ず持つが、型の上では省略されうる。取れないときは
+ * 桁を動かさない（最小単位と主要単位が同じ通貨の扱い）。額を10倍・100倍にして出すよりは安全側。
+ */
+const minorUnitDigitsOf = (format: Intl.NumberFormat): number =>
+  format.resolvedOptions().maximumFractionDigits ?? 0;

@@ -66,6 +66,7 @@ class ArticleAlbumAttachmentServiceTest {
                 null,
                 null,
                 null,
+                null,
                 null);
     }
 

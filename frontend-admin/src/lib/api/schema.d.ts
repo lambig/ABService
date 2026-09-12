@@ -3274,6 +3274,7 @@ export interface components {
             publishedAt: components["schemas"]["Instant"] | null;
             coverImageKey: string | null;
             coverImageUrl: string | null;
+            basePrice: components["schemas"]["AdminBasePriceResponse"] | null;
             externalAudios: components["schemas"]["AdminExternalAudioResponse"][];
             tracks: components["schemas"]["AdminTrackResponse"][];
         };
@@ -3330,6 +3331,11 @@ export interface components {
             tagId: string;
             name: string;
         };
+        AdminBasePriceResponse: {
+            /** Format: int32 */
+            amount: number;
+            currency: string;
+        };
         AdminExternalAudioResponse: {
             externalAudioId: string;
             /** Format: int32 */
@@ -3381,6 +3387,21 @@ export interface components {
             /** Format: int64 */
             maxBytes: number;
         };
+        BasePriceRequest: {
+            /** Format: int32 */
+            amount?: number;
+            currency?: string;
+        };
+        BasePriceRequest1: {
+            /** Format: int32 */
+            amount?: number;
+            currency?: string;
+        };
+        BasePriceRequest2: {
+            /** Format: int32 */
+            amount?: number;
+            currency?: string;
+        };
         CascadeUnpublishedArticle: {
             articleId: string;
             title: string;
@@ -3407,6 +3428,7 @@ export interface components {
             description?: string;
             descriptionFormat?: string;
             event?: components["schemas"]["EventRequest2"];
+            basePrice?: components["schemas"]["BasePriceRequest2"];
         };
         CreateAlbumResponse: {
             albumId: string;
@@ -3547,6 +3569,7 @@ export interface components {
             eventNote: string | null;
             publishedAt: components["schemas"]["Instant"];
             coverImageUrl: string | null;
+            basePrice: components["schemas"]["PublicBasePriceResponse"] | null;
             externalAudios: components["schemas"]["PublicExternalAudioResponse"][];
             tracks: components["schemas"]["PublicTrackResponse"][];
         };
@@ -3589,6 +3612,11 @@ export interface components {
             totalPages: number;
         };
         PublicArticleResponse: components["schemas"]["PublicAlbumArticleResponse"] | components["schemas"]["PublicPlainArticleResponse"];
+        PublicBasePriceResponse: {
+            /** Format: int32 */
+            amount: number;
+            currency: string;
+        };
         PublicExternalAudioResponse: {
             /** Format: int32 */
             displayOrder: number;
@@ -3647,6 +3675,7 @@ export interface components {
             description?: string;
             descriptionFormat?: string;
             event?: components["schemas"]["EventRequest1"];
+            basePrice?: components["schemas"]["BasePriceRequest1"];
             tracks?: components["schemas"]["TrackRequest"][];
         };
         RegisterAlbumWithTracksResponse: {
@@ -3782,6 +3811,7 @@ export interface components {
             description?: string;
             descriptionFormat?: string;
             event?: components["schemas"]["EventRequest"];
+            basePrice?: components["schemas"]["BasePriceRequest"];
         };
         UpdateAlbumResponse: {
             albumId: string;
