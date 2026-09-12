@@ -57,7 +57,8 @@ public class CreateAlbumService implements CommandService<CreateAlbumInput, Crea
                                 input.coverImageKey(),
                                 input.description(),
                                 input.descriptionFormat(),
-                                toEventFields(input.event()))
+                                toEventFields(input.event()),
+                                toBasePriceFields(input.basePrice()))
                                 .resolve(ValidationException::new))
                 .flatMap(albumRepository::save)
                 .map(CreateAlbumService::toOutput);
@@ -73,6 +74,16 @@ public class CreateAlbumService implements CommandService<CreateAlbumInput, Crea
                                 e.place(),
                                 e.spaceNumber(),
                                 e.note()))
+                .orElse(null);
+    }
+
+    private static AlbumCreationService.@Nullable BasePriceFields toBasePriceFields(
+            CreateAlbumInput.@Nullable BasePriceInput basePrice) {
+        return Optional.ofNullable(basePrice)
+                .map(
+                        p -> new AlbumCreationService.BasePriceFields(
+                                p.amount(),
+                                p.currency()))
                 .orElse(null);
     }
 

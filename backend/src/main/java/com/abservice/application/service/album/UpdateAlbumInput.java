@@ -41,6 +41,8 @@ import org.jspecify.annotations.Nullable;
  *            の列挙子名。 {@code description} を指定する場合のみ必須）
  * @param event
  *            初出イベント情報（nullable）
+ * @param basePrice
+ *            頒布の基準額（nullable。未指定は額が決まっていない状態への置換）
  */
 public record UpdateAlbumInput(
         @Nullable String albumId,
@@ -54,7 +56,21 @@ public record UpdateAlbumInput(
         @Nullable String coverImageKey,
         @Nullable String description,
         @Nullable String descriptionFormat,
-        @Nullable EventInput event) implements CommandService.Input {
+        @Nullable EventInput event,
+        @Nullable BasePriceInput basePrice) implements CommandService.Input {
+
+    /**
+     * 頒布の基準額の入力DTO
+     *
+     * @param amount
+     *            金額（基準額を指定する場合は必須）
+     * @param currency
+     *            通貨コード（ISO 4217。nullable。未指定は円）
+     */
+    public record BasePriceInput(
+            @Nullable Integer amount,
+            @Nullable String currency) {
+    }
 
     /**
      * 初出イベント情報の入力DTO

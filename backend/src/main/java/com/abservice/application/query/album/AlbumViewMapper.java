@@ -71,9 +71,28 @@ final class AlbumViewMapper {
                 entity.getPublishedAt(),
                 entity.getCoverImageKey(),
                 toCoverImageUrl(entity.getCoverImageKey(), assetBasePath),
+                toBasePriceView(entity),
                 toExternalAudioViews(externalAudios),
                 tracks);
     }
+
+    /* 額の列がNULLの行は、額が決まっていない状態として扱う。 */
+    private static AlbumView.@Nullable BasePriceView toBasePriceView(AlbumTableRecord entity) {
+        return Optional.ofNullable(entity.getBasePriceAmount())
+                .map(
+                        amount -> new AlbumView.BasePriceView(
+                                amount,
+                                currencyCodeOf(entity)))
+                .orElse(null);
+    }
+
+    private static String currencyCodeOf(AlbumTableRecord entity) {
+        return Optional.ofNullable(entity.getBasePriceCurrency())
+                .orElse(DEFAULT_CURRENCY_CODE);
+    }
+
+    /** 通貨列が空の行の通貨。値オブジェクト側の既定（円）と揃える */
+    private static final String DEFAULT_CURRENCY_CODE = "JPY";
 
     /**
      * トラックとチューン構成の投影を Read Model へ組み立てます。

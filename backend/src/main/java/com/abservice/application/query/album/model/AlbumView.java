@@ -61,6 +61,8 @@ import org.jspecify.annotations.Nullable;
  *            カバー画像の保管キー（nullable。編集の更新要求が受け取るのはこの値で、配信URLではない）
  * @param coverImageUrl
  *            カバー画像の配信URL（nullable。保管キーと配信設定から組み立てた値で、DBに保存されるのはキーのみ）
+ * @param basePrice
+ *            頒布の基準額（nullable。null は額が決まっていない）
  * @param externalAudios
  *            外部音源（外部サービスの埋め込み元URL）の一覧。表示順の昇順
  * @param tracks
@@ -85,8 +87,22 @@ public record AlbumView(
         @Nullable Instant publishedAt,
         @Nullable String coverImageKey,
         @Nullable String coverImageUrl,
+        @Nullable BasePriceView basePrice,
         List<ExternalAudioView> externalAudios,
         List<TrackView> tracks) {
+
+    /**
+     * 頒布の基準額の Read Model
+     *
+     * @param amount
+     *            金額（通貨の最小単位）
+     * @param currency
+     *            通貨コード（ISO 4217）
+     */
+    public record BasePriceView(
+            int amount,
+            String currency) {
+    }
 
     /**
      * 外部音源1件の Read Model

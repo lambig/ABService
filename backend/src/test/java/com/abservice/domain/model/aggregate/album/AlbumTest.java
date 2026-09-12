@@ -13,6 +13,7 @@ import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
+import com.abservice.domain.model.vo.album.Price;
 import com.abservice.domain.model.vo.album.Publication;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
@@ -56,6 +57,7 @@ class AlbumTest {
                     null,
                     null,
                     null,
+                    null,
                     null);
 
             // Assert
@@ -67,6 +69,7 @@ class AlbumTest {
             assertThat(album.eventReleasedAt()).isNull();
             assertThat(album.catalogNumber()).isNull();
             assertThat(album.isdn()).isNull();
+            assertThat(album.basePrice()).isNull();
             assertThat(album.getTracks().isEmpty()).isTrue();
             assertThat(album.isPublished()).isFalse();
             assertThat(album.publication()).isEqualTo(Publication.draft());
@@ -91,6 +94,7 @@ class AlbumTest {
             // 278-4-000000-00-7: チェックデジット計算 sum=43 -> (10-(43%10))%10 = 7
             final var isdn = Isdn.of("2784000000007");
             final var coverImageKey = AssetKey.of("01a0233d-d25a-7c3b-924f-236ee154fecc.png");
+            final var basePrice = Price.of(1500);
 
             // Act
             final var album = Album.create(
@@ -101,7 +105,8 @@ class AlbumTest {
                     eventReleasedAt,
                     catalogNumber,
                     isdn,
-                    coverImageKey);
+                    coverImageKey,
+                    basePrice);
 
             // Assert
             assertThat(album).isNotNull();
@@ -109,6 +114,7 @@ class AlbumTest {
             assertThat(album.catalogNumber()).isEqualTo(catalogNumber);
             assertThat(album.isdn()).isEqualTo(isdn);
             assertThat(album.coverImageKey()).isEqualTo(coverImageKey);
+            assertThat(album.basePrice()).isEqualTo(basePrice);
         }
 
         @Test
@@ -128,6 +134,7 @@ class AlbumTest {
                             releaseDate,
                             artistCredit,
                             MarkupContent.EMPTY,
+                            null,
                             null,
                             null,
                             null,
@@ -152,6 +159,7 @@ class AlbumTest {
                             releaseDate,
                             null,
                             MarkupContent.EMPTY,
+                            null,
                             null,
                             null,
                             null,
@@ -837,6 +845,7 @@ class AlbumTest {
                         1),
                 ArtistCredit.of("Test Artist"),
                 MarkupContent.EMPTY,
+                null,
                 null,
                 null,
                 null,
