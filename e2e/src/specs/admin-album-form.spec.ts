@@ -4,7 +4,7 @@ import type { Locator, Page } from '@playwright/test';
 
 import { renameAlbumOutsideTheScreen } from '../support/admin-api.ts';
 import { stack } from '../support/config.ts';
-import { capture, clickWithEvidence } from '../support/evidence.ts';
+import { capture, clickWithEvidence, focusOn } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 import {
   SCRATCH_BASE_PRICE,
@@ -43,6 +43,7 @@ const EVENT_NAME_LABEL = 'イベント名';
 const EVENT_PLACE_LABEL = '会場';
 const BASE_PRICE_LABEL = '基準額';
 const CURRENCY_LABEL = '通貨コード（未指定は円）';
+const ORIGINAL_WORK_NOTE_LABEL = '原作の出典（例:「○○」より各曲）';
 
 /** 頒布のまとまりを外す操作 */
 const CLEAR_BASE_PRICE_LABEL = '基準額を解除';
@@ -168,6 +169,34 @@ test.describe('管理画面の作品の編集', () => {
     await expect(page.getByLabel(BASE_PRICE_LABEL)).toHaveValue('');
     await expect(page.getByLabel(CURRENCY_LABEL)).toHaveValue('');
     await capture(page, '39b-admin-edit-base-price-cleared');
+  });
+
+  test('原作の出典を入れて保存すると、読み直した編集に同じ綴りが入っている', async ({ page }) => {
+    const title = await seedScratchAlbum('原作の出典');
+    const note = '「E2E 管理原作」より各曲';
+
+    await openAdmin(page);
+    await openEdit(page, title);
+
+    /* 作品は記述を持たない状態で作られる。空欄から入れて、往復で綴りが変わらないことを見る（#365） */
+    await expect(page.getByLabel(ORIGINAL_WORK_NOTE_LABEL)).toHaveValue('');
+
+    await page.getByLabel(ORIGINAL_WORK_NOTE_LABEL).fill(note);
+    await clickWithEvidence(
+      page,
+      page.getByRole('button', { name: SAVE_LABEL }),
+      '39c-admin-edit-original-work-note',
+    );
+
+    await expect(page.getByRole('table')).toBeVisible();
+
+    /* 保存できたことは、保存後の値を読み直して確かめる（一覧は記述を出さない） */
+    await openEdit(page, title);
+    await expect(page.getByLabel(ORIGINAL_WORK_NOTE_LABEL)).toHaveValue(note);
+
+    /* 欄は画面の下の方にある。寄せてから撮らないと、証跡に欄そのものが写らない（#359） */
+    await focusOn(page.getByLabel(ORIGINAL_WORK_NOTE_LABEL));
+    await capture(page, '39d-admin-edit-original-work-note-saved');
   });
 
   test('額の欄だけを空にした保存は、額が必須として断られる', async ({ page }) => {
