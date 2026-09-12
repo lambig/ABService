@@ -433,8 +433,19 @@
         <Table.Body>
           {#each albums as album (album.albumId)}
             <Table.Row>
-              <Table.Cell>{album.title}</Table.Cell>
-              <Table.Cell>{album.artistDisplayName}</Table.Cell>
+              <!--
+                文言の長い列だけ折り返させ、幅と行数を抑える（#359）。表のセルは既定で折り返さないため、
+                長いタイトルが表を横へ押し広げ、右端の操作が画面の外へ出る。折り返しだけを許すと今度は
+                1行が何十行にもなり、一覧を目で追えなくなる。**一覧は行を見分ける場**で、全文を読む場
+                ではない（全文は編集の画面が持つ）。隠れるのは見た目だけで、文言は要素の中に残る。
+                他の列（品番・日付・状態・操作）は短く、折り返すと読みにくくなるため既定のまま。
+              -->
+              <Table.Cell class="w-[22rem] whitespace-normal">
+                <span class="line-clamp-2 break-words">{album.title}</span>
+              </Table.Cell>
+              <Table.Cell class="w-[12rem] whitespace-normal">
+                <span class="line-clamp-2 break-words">{album.artistDisplayName}</span>
+              </Table.Cell>
               <Table.Cell>{album.catalogNumber ?? '―'}</Table.Cell>
               <Table.Cell>{formatCalendarDate(album.releaseDate)}</Table.Cell>
               <Table.Cell>
