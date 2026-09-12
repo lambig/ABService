@@ -6,6 +6,7 @@
     EMPTY_DRAFT,
     albumFieldsOf,
     draftOf,
+    withCleared,
     withValue,
     type AlbumDraft,
     type AlbumFieldPath,
@@ -60,8 +61,21 @@
     choices: readonly string[];
   }>;
 
-  /** 見出しでまとめた入力欄。初出イベントは入れ子の位置（`event.*`）を持つため、まとまりを分ける */
-  type Section = Readonly<{ heading: string; fields: readonly FieldSpec[] }>;
+  /**
+   * 見出しでまとめた入力欄。初出イベントは入れ子の位置（`event.*`）を持つため、まとまりを分ける。
+   *
+   * <p>
+   * `clearing` を持つまとまりは、その欄をまとめて空へ戻す操作を添える。入れ子の項目は1つでも値が
+   * 残っていれば送られ、残りの欄が必須として断られるため、外す操作を画面が持たないと利用者が
+   * その規則を知っている必要がある。
+   * </p>
+   */
+  type Section = Readonly<{
+    heading: string;
+    fields: readonly FieldSpec[];
+    /** まとまりを外す操作の文言。持たないまとまりは操作を出さない */
+    clearing?: string;
+  }>;
 
   const text = (path: AlbumFieldPath, label: string): FieldSpec => ({
     path,
@@ -105,6 +119,7 @@
         { path: 'basePrice.amount', label: '基準額', kind: 'number', choices: [] },
         text('basePrice.currency', '通貨コード（未指定は円）'),
       ],
+      clearing: '基準額を解除',
     },
   ];
 
@@ -295,6 +310,21 @@
         : current;
   };
 
+  /** まとまりの欄をまとめて空へ戻す。保存すれば、そのまとまりは持たない状態になる */
+  const clearSection = (section: Section): void => {
+    const current = view;
+    view =
+      current.kind === 'editing'
+        ? {
+            ...current,
+            draft: withCleared(
+              current.draft,
+              section.fields.map((field) => field.path),
+            ),
+          }
+        : current;
+  };
+
   /** 保存の状態だけを差し替えた画面。入力値は保つ（直す先が入力にあるため、消さない） */
   const withSubmissionOf = (submission: Submission): View => {
     const current = view;
@@ -481,7 +511,21 @@
     <fieldset class="space-y-8" disabled={saving}>
       {#each SECTIONS as section (section.heading)}
         <section class="space-y-4">
-          <h2 class="text-base font-medium">{section.heading}</h2>
+          <div class="flex items-center justify-between gap-4">
+            <h2 class="text-base font-medium">{section.heading}</h2>
+            {#if section.clearing !== undefined}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onclick={() => {
+                  clearSection(section);
+                }}
+              >
+                {section.clearing}
+              </Button>
+            {/if}
+          </div>
 
           {#each section.fields as field (field.path)}
             <div class="space-y-1" data-field={field.path}>

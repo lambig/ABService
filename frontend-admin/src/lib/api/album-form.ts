@@ -101,6 +101,18 @@ export const withValue = (draft: AlbumDraft, path: AlbumFieldPath, value: string
 });
 
 /**
+ * まとまりの欄をまとめて空へ戻す。
+ *
+ * <p>
+ * 入れ子の項目（基準額・初出イベント）は、**まとまりごと外すのに全部の欄を空にする必要がある。**
+ * 1つでも値が残っていれば入れ子が送られ、残りの欄が必須として断られる。欄を1つずつ消す操作は
+ * その規則を画面の利用者に求めることになるため、まとまりを外す操作を画面が持つ。
+ * </p>
+ */
+export const withCleared = (draft: AlbumDraft, paths: readonly AlbumFieldPath[]): AlbumDraft =>
+  paths.reduce((cleared, path) => withValue(cleared, path, ''), draft);
+
+/**
  * 入力された値。空白だけなら未指定として扱う。
  *
  * <p>

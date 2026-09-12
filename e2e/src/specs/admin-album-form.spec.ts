@@ -42,6 +42,10 @@ const ISDN_LABEL = 'ISDN';
 const EVENT_NAME_LABEL = 'イベント名';
 const EVENT_PLACE_LABEL = '会場';
 const BASE_PRICE_LABEL = '基準額';
+const CURRENCY_LABEL = '通貨コード（未指定は円）';
+
+/** 頒布のまとまりを外す操作 */
+const CLEAR_BASE_PRICE_LABEL = '基準額を解除';
 
 /** 保存の操作 */
 const SAVE_LABEL = '保存する';
@@ -134,6 +138,50 @@ test.describe('管理画面の作品の編集', () => {
     await openEdit(page, title);
     await expect(page.getByLabel(BASE_PRICE_LABEL)).toHaveValue(raised);
     await capture(page, '39-admin-edit-base-price-saved');
+  });
+
+  test('基準額を解除して保存すると、読み直した編集で額を持たない', async ({ page }) => {
+    const title = await seedScratchAlbum('基準額の解除');
+
+    await openAdmin(page);
+    await openEdit(page, title);
+    await expect(page.getByLabel(BASE_PRICE_LABEL)).toHaveValue(String(SCRATCH_BASE_PRICE));
+
+    /*
+     * 額の欄だけを空にすると通貨が残り、まとまりごと送られて額の必須で断られる。外す操作はその規則を
+     * 利用者に求めないために置いている（#352 のレビュー）。
+     */
+    await clickWithEvidence(
+      page,
+      page.getByRole('button', { name: CLEAR_BASE_PRICE_LABEL }),
+      '39a-admin-edit-base-price-clear',
+    );
+
+    await expect(page.getByLabel(BASE_PRICE_LABEL)).toHaveValue('');
+    await expect(page.getByLabel(CURRENCY_LABEL)).toHaveValue('');
+
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+    await expect(page.getByRole('table')).toBeVisible();
+
+    /* 保存できたことは、保存後の値を読み直して確かめる（一覧は額を出さない） */
+    await openEdit(page, title);
+    await expect(page.getByLabel(BASE_PRICE_LABEL)).toHaveValue('');
+    await expect(page.getByLabel(CURRENCY_LABEL)).toHaveValue('');
+    await capture(page, '39b-admin-edit-base-price-cleared');
+  });
+
+  test('額の欄だけを空にした保存は、額が必須として断られる', async ({ page }) => {
+    const title = await seedScratchAlbum('額だけ空');
+
+    await openAdmin(page);
+    await openEdit(page, title);
+
+    await page.getByLabel(BASE_PRICE_LABEL).fill('');
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+
+    /* 通貨が残る限り頒布のまとまりは送られる。捨てずにエラーとして返す（黙って消さない） */
+    await expect(fieldOf(page, 'basePrice.amount').getByRole('alert')).toBeVisible();
+    await expect(page.getByLabel(CURRENCY_LABEL)).toHaveValue('JPY');
   });
 
   test('額が負なら、その欄にエラーが出る', async ({ page }) => {
