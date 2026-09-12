@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AB Listening Room — 起動準備</title>
+    <link rel="stylesheet" href="__BASE__style.css" />
+    <script type="module" src="__BASE__app.js"></script>
+  </head>
+  <body>
+    <header>
+      <strong>AB</strong><span>LISTENING ROOM</span
+      ><span class="edition">OFFLINE STUDY / __LABEL__</span>
+    </header>
+    <main>
+      <p class="eyebrow">会場へ持ち出す、その前に</p>
+      <h1>通信のない場所でも。</h1>
+      <p class="intro">アプリを保存して、オフラインでの起動を確かめます。</p>
+      <section aria-labelledby="status">
+        <span class="badge">APP PREPARATION</span>
+        <h2 id="status" aria-live="polite">準備状態を確認しています</h2>
+        <p id="detail">保存したアプリの状態を確認します。</p>
+        <div class="actions">
+          <button id="prepare">保存・更新を確認</button
+          ><button id="reopen" class="secondary">画面を開き直す</button>
+        </div>
+      </section>
+      <aside>
+        <h2>今回確認できること</h2>
+        <p>この画面を閉じて、通信を切ってから開き直せること。</p>
+        <p>音源の保存と再生は、別の準備工程で接続します。</p>
+      </aside>
+    </main>
+    <footer>AB / LISTENING ROOM <span>アプリ起動の検証用画面</span></footer>
+  </body>
+</html>

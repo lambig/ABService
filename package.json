@@ -28,7 +28,7 @@
     "test:admin": "npm run test -w abservice-frontend-admin",
     "test:frontend": "npm run test:markup && npm run test:patterns && npm run test:eslint-config && npm run test:audio-dsp && npm run test:installation && npm run test:admin",
     "test:e2e": "npm run test -w abservice-e2e",
-    "lint": "npm run lint:markup && npm run lint:patterns && npm run lint:public && npm run lint:admin && npm run lint:e2e && npm run lint:audio-dsp && npm run lint:installation && npm run lint:player && npm run lint:offline-storage",
+    "lint": "npm run lint:markup && npm run lint:patterns && npm run lint:public && npm run lint:admin && npm run lint:e2e && npm run lint:audio-dsp && npm run lint:installation && npm run lint:player && npm run lint:offline-storage && npm run lint:offline-shell",
     "lint:markup": "npm run lint -w abservice-markup",
     "lint:patterns": "npm run lint -w abservice-patterns",
     "lint:public": "npm run lint -w abservice-frontend-public",
@@ -70,7 +70,11 @@
     "lint:offline-storage": "npm run lint -w abservice-offline-storage",
     "typecheck:offline-storage": "npm run typecheck -w abservice-offline-storage",
     "build:offline-storage": "npm run build -w abservice-offline-storage",
-    "test:offline-storage:browser": "npm run test:browser -w abservice-offline-storage"
+    "test:offline-storage:browser": "npm run test:browser -w abservice-offline-storage",
+    "lint:offline-shell": "npm run lint -w abservice-offline-shell",
+    "typecheck:offline-shell": "npm run typecheck -w abservice-offline-shell",
+    "build:offline-shell": "npm run build -w abservice-offline-shell",
+    "test:offline-shell:browser": "npm run test:browser -w abservice-offline-shell"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

@@ -1,0 +1,39 @@
+{
+  "name": "abservice-offline-shell",
+  "version": "1.0.0",
+  "description": "Service Worker shell lifecycle PoC",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "node build.ts",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p worker/tsconfig.json",
+    "lint": "eslint .",
+    "test:browser": "playwright test",
+    "preview": "node e2e/server.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "abservice-eslint-config": "*",
+    "eslint": "^10.0.0",
+    "eslint-plugin-functional": "^10.0.0",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.0.0",
+    "@playwright/test": "^1.62.0",
+    "@types/node": "^24.0.0"
+  },
+  "engines": {
+    "node": "24.20.0",
+    "npm": "11.19.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lambig/ABService.git",
+    "directory": "packages/offline-shell"
+  },
+  "keywords": [
+    "offline",
+    "service-worker"
+  ],
+  "author": "Lambig",
+  "license": "MIT"
+}
