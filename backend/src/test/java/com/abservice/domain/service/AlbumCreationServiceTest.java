@@ -38,6 +38,7 @@ class AlbumCreationServiceTest {
                 "01a0233d-d25a-7c3b-924f-236ee154fecc.png",
                 null,
                 null,
+                null,
                 null);
 
         assertThat(result).isInstanceOf(Result.Success.class);
@@ -63,6 +64,7 @@ class AlbumCreationServiceTest {
                 null,
                 "## 概要\n\n説明本文",
                 "MARKDOWN",
+                null,
                 null);
 
         assertThat(result).isInstanceOf(Result.Success.class);
@@ -83,6 +85,7 @@ class AlbumCreationServiceTest {
                 null,
                 "   ",
                 null,
+                null,
                 null);
 
         assertThat(result).isInstanceOf(Result.Success.class);
@@ -102,6 +105,7 @@ class AlbumCreationServiceTest {
                 null,
                 "説明本文",
                 null,
+                null,
                 null);
 
         assertThat(result).isInstanceOf(Result.Failure.class);
@@ -120,6 +124,7 @@ class AlbumCreationServiceTest {
                 null,
                 null,
                 "/assets/01a0233d-d25a-7c3b-924f-236ee154fecc.png",
+                null,
                 null,
                 null,
                 null);
@@ -142,6 +147,7 @@ class AlbumCreationServiceTest {
                 "   ",
                 invalidReleaseDate,
                 "   ",
+                null,
                 null,
                 null,
                 null,
@@ -177,6 +183,7 @@ class AlbumCreationServiceTest {
                 null,
                 null,
                 null,
+                null,
                 null);
 
         assertThat(result).isInstanceOf(Result.Failure.class);
@@ -194,6 +201,7 @@ class AlbumCreationServiceTest {
                 null,
                 "   ",
                 "",
+                null,
                 null,
                 null,
                 null,
@@ -215,6 +223,7 @@ class AlbumCreationServiceTest {
                 null,
                 null,
                 "0000000000000",
+                null,
                 null,
                 null,
                 null,
@@ -252,7 +261,8 @@ class AlbumCreationServiceTest {
                         eventDate,
                         "東京ビッグサイト",
                         "東ホ-01a",
-                        "新譜あります"));
+                        "新譜あります"),
+                null);
 
         assertThat(result).isInstanceOf(Result.Success.class);
         final var event = result.resolve().eventReleasedAt();
@@ -288,7 +298,8 @@ class AlbumCreationServiceTest {
                         invalidEventDate,
                         null,
                         null,
-                        null));
+                        null),
+                null);
 
         assertThat(result).isInstanceOf(Result.Failure.class);
         assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
@@ -305,6 +316,7 @@ class AlbumCreationServiceTest {
                 null,
                 null,
                 "0000000000000",
+                null,
                 null,
                 null,
                 null,
@@ -333,7 +345,8 @@ class AlbumCreationServiceTest {
                         NO_EVENT_DATE,
                         null,
                         null,
-                        null));
+                        null),
+                null);
 
         assertThat(result).isInstanceOf(Result.Failure.class);
         assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
@@ -350,6 +363,7 @@ class AlbumCreationServiceTest {
                 null,
                 "a".repeat(101),
                 "not-an-isdn",
+                null,
                 null,
                 null,
                 null,
@@ -375,6 +389,7 @@ class AlbumCreationServiceTest {
                 "/assets/01a0233d-d25a-7c3b-924f-236ee154fecc.png",
                 null,
                 null,
+                null,
                 null);
         final var descriptionFormat = AlbumCreationService.validate(
                 "アルバムタイトル",
@@ -385,6 +400,7 @@ class AlbumCreationServiceTest {
                 null,
                 null,
                 "説明本文",
+                null,
                 null,
                 null);
         final var eventName = AlbumCreationService.validate(
@@ -402,7 +418,8 @@ class AlbumCreationServiceTest {
                         NO_EVENT_DATE,
                         null,
                         null,
-                        null));
+                        null),
+                null);
 
         assertThat(artistAndCover.errors().stream().map(ErrorResult::field).toList())
                 .contains(

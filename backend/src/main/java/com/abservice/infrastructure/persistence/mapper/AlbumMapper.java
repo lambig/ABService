@@ -10,6 +10,7 @@ import com.abservice.domain.model.aggregate.album.TrackTune;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
+import com.abservice.domain.model.vo.album.Price;
 import com.abservice.domain.model.vo.album.Publication;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.album.TrackTuneTitle;
@@ -32,6 +33,7 @@ import com.abservice.infrastructure.persistence.entity.TrackTuneId;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Currency;
 import java.util.List;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -72,9 +74,23 @@ public final class AlbumMapper {
                 Optional.ofNullable(entity.getCoverImageKey())
                         .map(AssetKey::new)
                         .orElse(null),
+                buildBasePrice(entity),
                 buildPublication(entity),
                 buildTracks(entity),
                 buildExternalAudios(entity));
+    }
+
+    /* 額の列がNULLの行は、額が決まっていない状態として扱う。 */
+    private static @Nullable Price buildBasePrice(AlbumTableRecord entity) {
+        return Optional.ofNullable(entity.getBasePriceAmount())
+                .map(amount -> new Price(amount, currencyOf(entity)))
+                .orElse(null);
+    }
+
+    private static Currency currencyOf(AlbumTableRecord entity) {
+        return Optional.ofNullable(entity.getBasePriceCurrency())
+                .map(Currency::getInstance)
+                .orElse(Price.DEFAULT_CURRENCY);
     }
 
     private static ArtistCredit buildArtistCredit(AlbumTableRecord entity) {
@@ -139,6 +155,7 @@ public final class AlbumMapper {
         Optional.ofNullable(album.eventReleasedAt())
                 .ifPresent(event -> populateEventFields(albumEntity, event));
         setCatalogFields(albumEntity, album);
+        setBasePriceFields(albumEntity, album.basePrice());
         setPublicationField(albumEntity, album.publication());
         setTracksField(albumEntity, album);
         setExternalAudiosField(albumEntity, album);
@@ -175,6 +192,20 @@ public final class AlbumMapper {
                 .setCoverImageKey(
                         Optional.ofNullable(album.coverImageKey())
                                 .map(AssetKey::value)
+                                .orElse(null));
+    }
+
+    /*
+     * 額が決まっていない状態へ戻った場合に既存の値を確実に消すため、公開情報と同じく常に値を設定する。
+     */
+    private static void setBasePriceFields(AlbumTableRecord entity, @Nullable Price basePrice) {
+        entity.setBasePriceAmount(
+                Optional.ofNullable(basePrice)
+                        .map(Price::amount)
+                        .orElse(null))
+                .setBasePriceCurrency(
+                        Optional.ofNullable(basePrice)
+                                .map(Price::currencyCode)
                                 .orElse(null));
     }
 

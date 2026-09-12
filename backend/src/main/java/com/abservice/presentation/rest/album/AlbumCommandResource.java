@@ -140,7 +140,18 @@ public class AlbumCommandResource {
                 request.coverImageKey(),
                 request.description(),
                 request.descriptionFormat(),
-                toEventInput(request.event()));
+                toEventInput(request.event()),
+                toBasePriceInput(request.basePrice()));
+    }
+
+    private static CreateAlbumInput.@Nullable BasePriceInput toBasePriceInput(
+            CreateAlbumRequest.@Nullable BasePriceRequest basePrice) {
+        return Optional.ofNullable(basePrice)
+                .map(
+                        p -> new CreateAlbumInput.BasePriceInput(
+                                p.amount(),
+                                p.currency()))
+                .orElse(null);
     }
 
     private static @Nullable EventInput toEventInput(@Nullable EventRequest event) {
@@ -195,7 +206,18 @@ public class AlbumCommandResource {
                 request.coverImageKey(),
                 request.description(),
                 request.descriptionFormat(),
-                toEventInput(request.event()));
+                toEventInput(request.event()),
+                toBasePriceInput(request.basePrice()));
+    }
+
+    private static UpdateAlbumInput.@Nullable BasePriceInput toBasePriceInput(
+            UpdateAlbumRequest.@Nullable BasePriceRequest basePrice) {
+        return Optional.ofNullable(basePrice)
+                .map(
+                        p -> new UpdateAlbumInput.BasePriceInput(
+                                p.amount(),
+                                p.currency()))
+                .orElse(null);
     }
 
     private static UpdateAlbumInput.@Nullable EventInput toEventInput(
@@ -343,7 +365,18 @@ public class AlbumCommandResource {
                 request.description(),
                 request.descriptionFormat(),
                 toEventInput(request.event()),
+                toBasePriceInput(request.basePrice()),
                 toTrackInputs(request.tracks()));
+    }
+
+    private static RegisterAlbumWithTracksInput.@Nullable BasePriceInput toBasePriceInput(
+            RegisterAlbumWithTracksRequest.@Nullable BasePriceRequest basePrice) {
+        return Optional.ofNullable(basePrice)
+                .map(
+                        p -> new RegisterAlbumWithTracksInput.BasePriceInput(
+                                p.amount(),
+                                p.currency()))
+                .orElse(null);
     }
 
     private static RegisterAlbumWithTracksInput.@Nullable EventInput toEventInput(

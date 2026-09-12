@@ -82,6 +82,7 @@ class AlbumRepositoryImplTest {
                         null,
                         null,
                         null,
+                        null,
                         null);
 
         // Save the album
@@ -123,6 +124,7 @@ class AlbumRepositoryImplTest {
                         null,
                         null,
                         null,
+                        null,
                         null)
                 .addTrack(track1).addTrack(track2);
 
@@ -152,6 +154,7 @@ class AlbumRepositoryImplTest {
                         testReleaseDate,
                         testArtistCredit,
                         MarkupContent.EMPTY,
+                        null,
                         null,
                         null,
                         null,
@@ -203,6 +206,7 @@ class AlbumRepositoryImplTest {
                         testReleaseDate,
                         testArtistCredit,
                         MarkupContent.EMPTY,
+                        null,
                         null,
                         null,
                         null,
@@ -261,6 +265,7 @@ class AlbumRepositoryImplTest {
                         null,
                         null,
                         null,
+                        null,
                         null)
                 .addTrack(track1).addTrack(track2);
 
@@ -305,6 +310,7 @@ class AlbumRepositoryImplTest {
                 null,
                 null,
                 null,
+                null,
                 null);
 
         asserter.execute(() -> repository.save(album));
@@ -326,6 +332,7 @@ class AlbumRepositoryImplTest {
                 testReleaseDate,
                 testArtistCredit,
                 MarkupContent.EMPTY,
+                null,
                 null,
                 null,
                 null,
@@ -352,6 +359,7 @@ class AlbumRepositoryImplTest {
                 null,
                 new CatalogNumber("TEST-001"),
                 null,
+                null,
                 null);
 
         asserter.assertThat(() -> repository.save(album), saved -> {
@@ -374,6 +382,7 @@ class AlbumRepositoryImplTest {
                 null,
                 null,
                 new Isdn("2784702901978"),
+                null,
                 null);
 
         asserter.assertThat(() -> repository.save(album), saved -> {
@@ -404,6 +413,7 @@ class AlbumRepositoryImplTest {
                 eventReleasedAt,
                 null,
                 null,
+                null,
                 null);
 
         asserter.assertThat(() -> repository.save(album), saved -> {
@@ -428,6 +438,7 @@ class AlbumRepositoryImplTest {
                         null,
                         null,
                         null,
+                        null,
                         null);
 
         // Save original
@@ -442,6 +453,7 @@ class AlbumRepositoryImplTest {
                 testReleaseDate,
                 testArtistCredit,
                 MarkupContent.EMPTY,
+                null,
                 null,
                 null,
                 null,
@@ -468,6 +480,7 @@ class AlbumRepositoryImplTest {
                         testReleaseDate,
                         testArtistCredit,
                         MarkupContent.EMPTY,
+                        null,
                         null,
                         null,
                         null,
@@ -512,6 +525,7 @@ class AlbumRepositoryImplTest {
                         testReleaseDate,
                         testArtistCredit,
                         MarkupContent.EMPTY,
+                        null,
                         null,
                         null,
                         null,
@@ -567,6 +581,7 @@ class AlbumRepositoryImplTest {
                         null,
                         null,
                         null,
+                        null,
                         null);
 
         // Save
@@ -595,6 +610,7 @@ class AlbumRepositoryImplTest {
                         null,
                         null,
                         null,
+                        null,
                         null);
         final var album2 = Album
                 .create(
@@ -602,6 +618,7 @@ class AlbumRepositoryImplTest {
                         testReleaseDate,
                         testArtistCredit,
                         MarkupContent.EMPTY,
+                        null,
                         null,
                         null,
                         null,

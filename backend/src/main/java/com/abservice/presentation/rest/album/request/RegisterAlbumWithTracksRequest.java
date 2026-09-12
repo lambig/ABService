@@ -32,6 +32,8 @@ import org.jspecify.annotations.Nullable;
  *            を指定する場合のみ必須）
  * @param event
  *            初出イベント情報（nullable）
+ * @param basePrice
+ *            頒布の基準額（nullable。未指定は額が決まっていない状態）
  * @param tracks
  *            初期トラック一覧（nullable。未指定・空リストの場合はトラックなしで登録）
  */
@@ -46,7 +48,21 @@ public record RegisterAlbumWithTracksRequest(
         @Nullable String description,
         @Nullable String descriptionFormat,
         @Nullable EventRequest event,
+        @Nullable BasePriceRequest basePrice,
         @Nullable List<TrackRequest> tracks) {
+
+    /**
+     * 頒布の基準額のリクエスト契約
+     *
+     * @param amount
+     *            金額（基準額を指定する場合は必須）
+     * @param currency
+     *            通貨コード（ISO 4217。nullable。未指定は円）
+     */
+    public record BasePriceRequest(
+            @Nullable Integer amount,
+            @Nullable String currency) {
+    }
 
     /**
      * 初出イベント情報のリクエスト契約
