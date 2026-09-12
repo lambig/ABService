@@ -44,7 +44,19 @@ export const focusOn = async (locator: Locator): Promise<void> => {
 export const capture = async (page: Page, name: string): Promise<void> => {
   const path = join(EVIDENCE_DIR, `${name}.png`);
   await mkdir(dirname(path), { recursive: true });
+  await waitForFonts(page);
   await page.screenshot({ path, animations: 'disabled' });
+};
+
+/*
+ * FONT-SWAP: 公開サイトは書体を読み込む（#341）。`display=swap` のため、届くまでは OS の標準で
+ * 描かれる。待たずに撮ると、同じ実行でも読み込みが間に合ったページと間に合わなかったページが混ざり、
+ * 証跡から字面を読めなくなる。
+ */
+const waitForFonts = async (page: Page): Promise<void> => {
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
 };
 
 /**
