@@ -6,6 +6,7 @@ import com.abservice.domain.model.aggregate.album.TrackTune;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
+import com.abservice.domain.model.vo.album.Price;
 import com.abservice.domain.model.vo.album.Publication;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
@@ -294,6 +295,67 @@ class AlbumRepositoryImplTest {
                     assertThat(remaining.getTrackId()).isEqualTo(capturedTrackId[0]);
                     assertThat(remaining.getCreatedAt()).isEqualTo(capturedCreatedAt[0]);
                 });
+    }
+
+    /**
+     * 基準額は、作成の後の保存でも書き換わる。
+     *
+     * <p>
+     * 既存の行がある保存は、掴んだ行へ項目を写して更新する。写す項目の列挙から漏れた列は、作成のときだけ
+     * 入って以後どう変えても動かない。作成の往復だけでは気付けないため、変更まで見る。
+     * </p>
+     */
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldReplaceBasePriceOnResave(UniAsserter asserter) {
+        initTestData();
+
+        final var album = Album.create(
+                new AlbumTitle("Album with Base Price"),
+                testReleaseDate,
+                testArtistCredit,
+                MarkupContent.EMPTY,
+                null,
+                null,
+                null,
+                null,
+                Price.of(1500));
+
+        asserter.execute(() -> repository.save(album));
+        asserter.execute(() -> repository.save(album.changeBasePrice(Price.of(1800))));
+
+        asserter.assertThat(() -> repository.findById(album.id()), found -> {
+            assertThat(found.basePrice()).isNotNull();
+            assertThat(found.basePrice().amount()).isEqualTo(1800);
+            assertThat(found.basePrice().currencyCode()).isEqualTo("JPY");
+        });
+    }
+
+    /** 額を消す保存は、列を NULL へ戻す（額が決まっていない状態）。 */
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldClearBasePriceOnResave(UniAsserter asserter) {
+        initTestData();
+
+        final var album = Album.create(
+                new AlbumTitle("Album losing Base Price"),
+                testReleaseDate,
+                testArtistCredit,
+                MarkupContent.EMPTY,
+                null,
+                null,
+                null,
+                null,
+                Price.of(1500));
+
+        asserter.execute(() -> repository.save(album));
+        asserter.execute(() -> repository.save(album.changeBasePrice(null)));
+
+        asserter.assertThat(
+                () -> repository.findById(album.id()),
+                found -> assertThat(found.basePrice()).isNull());
     }
 
     @Test
