@@ -37,5 +37,12 @@ export const formatPublishedDate = (isoDateTime: string): string =>
 export const formatPrice = (amount: number, currency: string): string => {
   const format = new Intl.NumberFormat('ja-JP', { style: 'currency', currency });
 
-  return format.format(amount / 10 ** format.resolvedOptions().maximumFractionDigits);
+  return format.format(amount / 10 ** minorUnitDigitsOf(format));
 };
+
+/*
+ * 通貨の小数桁。整形器は通貨を指定されていれば必ず持つが、型の上では省略されうる。取れないときは
+ * 桁を動かさない（最小単位と主要単位が同じ通貨の扱い）。額を10倍・100倍にして出すよりは安全側。
+ */
+const minorUnitDigitsOf = (format: Intl.NumberFormat): number =>
+  format.resolvedOptions().maximumFractionDigits ?? 0;
