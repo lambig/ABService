@@ -34,25 +34,42 @@ const APPLICATION_NAME = 'ABService 管理';
   </head>
 
   <body class="bg-background text-foreground min-h-screen">
-    <div class="mx-auto flex min-h-screen max-w-5xl flex-col px-4">
+    {/* 広い幅では器ごと広げる（#357）。理由と幅は公開サイトと揃える */}
+    <div class="mx-auto flex min-h-screen max-w-5xl flex-col px-4 lg:max-w-6xl">
+      {
+        /*
+        アプリ名と画面名はヘッダーに残す（#357）。画面名は「いまどこにいるか」で、導線とは役割が違う。
+        導線だけを脇へ移す。
+      */
+      }
       <header class="border-border flex items-baseline gap-3 border-b py-6">
         <p class="text-lg font-medium">{APPLICATION_NAME}</p>
         <p class="text-muted-foreground text-sm">{title}</p>
-
-        <nav class="ml-auto flex items-center gap-4">
-          {
-            ENTRIES.map((entry) => (
-              <a class="text-sm underline underline-offset-4" href={entry.href}>
-                {entry.label}
-              </a>
-            ))
-          }
-        </nav>
       </header>
 
-      <main class="flex-1 py-6">
-        <slot />
-      </main>
+      {/* 広い幅では導線を本文の脇へ置く（#357）。切り替えと追従の扱いは公開サイトと揃える */}
+      <div class="flex-1 py-6 lg:grid lg:grid-cols-[9rem_1fr] lg:gap-10">
+        <nav
+          class="border-border mb-6 border-b pb-4 lg:sticky lg:top-6 lg:mb-0 lg:self-start lg:border-b-0 lg:pb-0"
+          aria-label="主要な導線"
+        >
+          <ul class="flex items-center gap-4 lg:flex-col lg:items-start lg:gap-3">
+            {
+              ENTRIES.map((entry) => (
+                <li>
+                  <a class="text-sm underline underline-offset-4" href={entry.href}>
+                    {entry.label}
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+        </nav>
+
+        <main class="min-w-0">
+          <slot />
+        </main>
+      </div>
     </div>
   </body>
 </html>

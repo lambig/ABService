@@ -55,7 +55,7 @@ const bodyHtml = article.bodyFormat === 'MARKDOWN' ? renderBody(article.body) : 
 <BaseLayout title={article.title}>
   {album === null ? null : <AlbumPreviewMeta album={album} slot="head" />}
 
-  <SiteNav slot="header" />
+  <SiteNav slot="nav" />
 
   <article class="space-y-8 py-6">
     <header class="space-y-2">
