@@ -46,6 +46,12 @@ export const showcase = {
   eventName: 'E2E 確認イベント',
   /* リリース日と別の日にする。同じ日にすると、整形後の表示がどちらの日付か区別できない */
   eventDate: '2026-08-13',
+  eventPlace: 'E2E 会場',
+  eventSpaceNumber: 'A-01',
+  /** 頒布の基準額（#349）。作品紹介の記事にだけ出る */
+  basePrice: 1500,
+  /** 画面に出る形。投入値と並べて置き、整形の結果をシナリオから読めるようにする */
+  basePriceText: '￥1,500',
   /** Markdown として描画されることを、要素ごとに確かめるための断片 */
   description: {
     heading: '概要',
@@ -61,6 +67,11 @@ export const showcase = {
  * <p>
  * カバー画像とプレイヤーの出し分け（#197）は、音源が0件の側も見なければ検証にならない。ISDN と
  * 初出イベントの5項目も、この作品で確かめる。
+ * </p>
+ *
+ * <p>
+ * 頒布の基準額は持たせない。額を持たない作品では記事に額の区画が出ないことを、この作品を参照する
+ * 記事で見る（#349）。
  * </p>
  */
 export const quiet = {
@@ -117,6 +128,17 @@ export const albumArticle = {
   },
 } as const;
 
+/**
+ * 額を持たない作品を紹介する記事。
+ *
+ * 額の区画が出るかどうかは参照先の作品で決まるため、額を持つ側（`albumArticle`）と持たない側の
+ * 両方を1回の実行で見る（#349）。
+ */
+export const quietArticle = {
+  title: 'E2E 額なし作品紹介記事',
+  introShort: '額を持たない作品を紹介する記事のショート紹介文。',
+} as const;
+
 /** 作品への参照を持たない記事 */
 export const plainArticle = {
   title: 'E2E ノート記事',
@@ -167,8 +189,8 @@ export const siteContent = {
 export const pagination = {
   /** 画面が1ページに並べる件数 */
   perPage: 20,
-  /** 作品紹介・ノートの2件と合わせて1ページを1件だけ超える */
-  filler: 19,
+  /** 作品紹介2件・ノート1件と合わせて1ページを1件だけ超える */
+  filler: 18,
   titleOf: (index: number): string => `E2E ページ送り記事 ${String(index)}`,
 } as const;
 
@@ -191,9 +213,10 @@ const showcaseSeed: AlbumSeed = {
   event: {
     name: showcase.eventName,
     date: showcase.eventDate,
-    place: 'E2E 会場',
-    spaceNumber: 'A-01',
+    place: showcase.eventPlace,
+    spaceNumber: showcase.eventSpaceNumber,
   },
+  basePrice: { amount: showcase.basePrice },
   tracks: [
     {
       trackNo: 1,
@@ -244,6 +267,13 @@ const albumArticleSeed = (albumId: string): ArticleSeed => ({
   introShort: albumArticle.introShort,
   albumId,
   tags: albumArticle.tags,
+});
+
+const quietArticleSeed = (albumId: string): ArticleSeed => ({
+  articleType: 'ALBUM',
+  title: quietArticle.title,
+  introShort: quietArticle.introShort,
+  albumId,
 });
 
 const plainArticleSeed: ArticleSeed = {
@@ -326,6 +356,15 @@ const ensureArticle = async (seed: ArticleSeed, state: SeedState): Promise<void>
   return state === 'PUBLISHED' ? publishArticle(articleId) : undefined;
 };
 
+/** シードした作品のID。揃えたはずの作品が無いのは前提が崩れているため、続けずに落とす */
+const seededAlbumId = async (catalogNumber: string): Promise<string> => {
+  const album = await findAlbumByCatalogNumber(catalogNumber);
+
+  return album === undefined
+    ? Promise.reject(new Error(`シードした作品が見つかりません: ${catalogNumber}`))
+    : album.albumId;
+};
+
 /**
  * 画面確認用のデータを揃える。
  *
@@ -336,7 +375,7 @@ const ensureArticle = async (seed: ArticleSeed, state: SeedState): Promise<void>
  * </p>
  *
  * <p>
- * 作品紹介の記事だけは参照先の作品を要するため、作品を揃えたあとに作る。
+ * 作品紹介の記事は参照先の作品を要するため、作品を揃えたあとに作る。
  * </p>
  */
 export const seedForBuild = async (): Promise<void> => {
@@ -367,16 +406,14 @@ export const seedForBuild = async (): Promise<void> => {
   await ensureAlbum(quiet.catalogNumber, quietSeed, 'PUBLISHED');
   await ensureAlbum(draft.catalogNumber, draftSeed, 'DRAFT');
 
-  const showcaseAlbum = await findAlbumByCatalogNumber(showcase.catalogNumber);
-  const showcaseAlbumId =
-    showcaseAlbum === undefined
-      ? await Promise.reject(new Error(`シードした作品が見つかりません: ${showcase.catalogNumber}`))
-      : showcaseAlbum.albumId;
+  const showcaseAlbumId = await seededAlbumId(showcase.catalogNumber);
+  const quietAlbumId = await seededAlbumId(quiet.catalogNumber);
 
   for (const index of Array.from({ length: pagination.filler }, (_unused, i) => i + 1)) {
     await ensureArticle(fillerArticleSeed(index), 'PUBLISHED');
   }
 
+  await ensureArticle(quietArticleSeed(quietAlbumId), 'PUBLISHED');
   await ensureArticle(plainArticleSeed, 'PUBLISHED');
   await ensureArticle(albumArticleSeed(showcaseAlbumId), 'PUBLISHED');
   await ensureArticle(draftArticleSeed, 'DRAFT');
