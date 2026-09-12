@@ -36,6 +36,8 @@ import org.jspecify.annotations.Nullable;
  *            初出イベント情報（nullable）
  * @param basePrice
  *            頒布の基準額（nullable。未指定は額が決まっていない状態）
+ * @param originalWorkNote
+ *            原作の出典の記述（nullable。空白のみは記述なしとして扱う）
  * @param tracks
  *            初期トラック一覧（nullable。未指定・空リストの場合はトラックなしで登録）
  */
@@ -51,6 +53,7 @@ public record RegisterAlbumWithTracksInput(
         @Nullable String descriptionFormat,
         @Nullable EventInput event,
         @Nullable BasePriceInput basePrice,
+        @Nullable String originalWorkNote,
         @Nullable List<TrackInput> tracks) implements CommandService.Input {
 
     /**

@@ -49,6 +49,13 @@ export const showcase = {
   basePrice: 1500,
   /** 画面に出る形。投入値と並べて置き、整形の結果をシナリオから読めるようにする */
   basePriceText: '￥1,500',
+  /**
+   * 原作の出典の記述（#365）。
+   *
+   * 作品名と言い回しがひとつながりの一文で、構造としては分けていない。トラックとの対応も述べていない
+   * （この作品は8つのトラックを持つが、記述はどのトラックがどれに当たるかを言わない）。
+   */
+  originalWorkNote: '「E2E 原作ゲーム」より各曲',
   /** Markdown として描画されることを、要素ごとに確かめるための断片 */
   description: {
     heading: '概要',
@@ -171,6 +178,10 @@ export const showcaseTrackNames: readonly string[] = Object.values(showcaseTrack
  * <p>
  * 頒布の基準額は持たせない。額を持たない作品では記事に額の区画が出ないことを、この作品を参照する
  * 記事で見る（#349）。
+ * </p>
+ *
+ * <p>
+ * 原作の出典の記述も持たせない。記述を持たない作品では、その行ごと出ないことをこの作品で見る（#365）。
  * </p>
  */
 export const quiet = {
@@ -316,6 +327,7 @@ const showcaseSeed: AlbumSeed = {
     spaceNumber: showcase.eventSpaceNumber,
   },
   basePrice: { amount: showcase.basePrice },
+  originalWorkNote: showcase.originalWorkNote,
   tracks: [
     {
       trackNo: showcaseTracks.titledWithTune.trackNo,

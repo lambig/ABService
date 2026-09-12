@@ -87,6 +87,19 @@ const coverImageForBody = album.externalAudios.length === 0 ? album.coverImageUr
             </p>
           ) : null
         }
+        {
+          /*
+          原作の出典は、作者が書いた一文をそのまま出す（#365）。ラベル（「原作:」等）を前に付けない——
+          記述自体が「「○○」より各曲」のように主語を持っており、ラベルはシステムの側が対応を述べたこと
+          になる（#89）。`ProperNoun` で包まないのも同じ理由で、これは一文であって固有名詞ではなく、
+          作品名がどこまでかを構造として持っていない（持たないことが #365 の判断そのもの）。
+        */
+        }
+        {
+          album.originalWorkNote === null ? null : (
+            <p class="text-muted-foreground">{album.originalWorkNote}</p>
+          )
+        }
         <p class="text-muted-foreground text-sm">
           <time datetime={album.releaseDate}>{formatCalendarDate(album.releaseDate)}</time>
         </p>

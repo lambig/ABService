@@ -3275,6 +3275,7 @@ export interface components {
             coverImageKey: string | null;
             coverImageUrl: string | null;
             basePrice: components["schemas"]["AdminBasePriceResponse"] | null;
+            originalWorkNote: string | null;
             externalAudios: components["schemas"]["AdminExternalAudioResponse"][];
             tracks: components["schemas"]["AdminTrackResponse"][];
         };
@@ -3429,6 +3430,7 @@ export interface components {
             descriptionFormat?: string;
             event?: components["schemas"]["EventRequest2"];
             basePrice?: components["schemas"]["BasePriceRequest2"];
+            originalWorkNote?: string;
         };
         CreateAlbumResponse: {
             albumId: string;
@@ -3570,6 +3572,7 @@ export interface components {
             publishedAt: components["schemas"]["Instant"];
             coverImageUrl: string | null;
             basePrice: components["schemas"]["PublicBasePriceResponse"] | null;
+            originalWorkNote: string | null;
             externalAudios: components["schemas"]["PublicExternalAudioResponse"][];
             tracks: components["schemas"]["PublicTrackResponse"][];
         };
@@ -3676,6 +3679,7 @@ export interface components {
             descriptionFormat?: string;
             event?: components["schemas"]["EventRequest1"];
             basePrice?: components["schemas"]["BasePriceRequest1"];
+            originalWorkNote?: string;
             tracks?: components["schemas"]["TrackRequest"][];
         };
         RegisterAlbumWithTracksResponse: {
@@ -3812,6 +3816,7 @@ export interface components {
             descriptionFormat?: string;
             event?: components["schemas"]["EventRequest"];
             basePrice?: components["schemas"]["BasePriceRequest"];
+            originalWorkNote?: string;
         };
         UpdateAlbumResponse: {
             albumId: string;

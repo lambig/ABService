@@ -77,6 +77,7 @@ test.describe('作品の一覧', () => {
     await expect(page.getByText(showcase.releaseDateText)).toBeVisible();
     await expect(page.getByText(showcase.catalogNumber)).toBeVisible();
     await expect(page.getByText(showcase.eventName)).toBeVisible();
+    await expect(page.getByText(showcase.originalWorkNote)).toBeVisible();
     await capture(page, '05-album-detail');
   });
 
@@ -255,6 +256,33 @@ test.describe('作品の詳細', () => {
     await expect(page.locator('meta[property="og:image"]')).toHaveCount(0);
 
     await capture(page, '07-album-detail-without-audio');
+  });
+
+  test('原作の出典は、書かれた綴りのまま出る', async ({ page }) => {
+    await page.goto(await albumPathOf(showcase.catalogNumber));
+
+    /*
+     * 綴りをそのまま見る（#365）。作品名だけを持って画面で言い回しを組み立てる形にすると、
+     * 「より各曲」と言っていない盤でも同じ文が出てしまう。ここで見ているのは、入れた一文が
+     * 加工されずに出ることそのもの。
+     */
+    await expect(page.getByText(showcase.originalWorkNote, { exact: true })).toBeVisible();
+
+    /*
+     * トラックの行には出ない。トラックと原作の対応は述べていない（述べない意図がある）ため、
+     * 曲目の側に置くと、システムが対応を主張したことになる（#89）。
+     */
+    await expect(page.locator(TRACK_LIST)).not.toContainText(showcase.originalWorkNote);
+  });
+
+  test('原作の出典を持たない作品には、その行が出ない', async ({ page }) => {
+    await page.goto(await albumPathOf(quiet.catalogNumber));
+
+    /*
+     * 未入力を空欄として見せない。「原作:」のようなラベルごと出さないため、記述を持つ作品の
+     * 綴りが画面のどこにも無いことで見る。
+     */
+    await expect(page.getByText(showcase.originalWorkNote)).toHaveCount(0);
   });
 
   test('既定と違う名義は出る', async ({ page }) => {

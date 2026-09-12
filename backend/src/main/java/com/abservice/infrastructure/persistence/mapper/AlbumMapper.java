@@ -10,6 +10,7 @@ import com.abservice.domain.model.aggregate.album.TrackTune;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
+import com.abservice.domain.model.vo.album.OriginalWorkNote;
 import com.abservice.domain.model.vo.album.Price;
 import com.abservice.domain.model.vo.album.Publication;
 import com.abservice.domain.model.vo.album.TrackTitle;
@@ -75,9 +76,17 @@ public final class AlbumMapper {
                         .map(AssetKey::new)
                         .orElse(null),
                 buildBasePrice(entity),
+                buildOriginalWorkNote(entity),
                 buildPublication(entity),
                 buildTracks(entity),
                 buildExternalAudios(entity));
+    }
+
+    /* 出典の列がNULLの行は、原作を持たないか、述べていない状態として扱う（#365）。 */
+    private static @Nullable OriginalWorkNote buildOriginalWorkNote(AlbumTableRecord entity) {
+        return Optional.ofNullable(entity.getOriginalWorkNote())
+                .map(OriginalWorkNote::new)
+                .orElse(null);
     }
 
     /* 額の列がNULLの行は、額が決まっていない状態として扱う。 */
@@ -192,6 +201,10 @@ public final class AlbumMapper {
                 .setCoverImageKey(
                         Optional.ofNullable(album.coverImageKey())
                                 .map(AssetKey::value)
+                                .orElse(null))
+                .setOriginalWorkNote(
+                        Optional.ofNullable(album.originalWorkNote())
+                                .map(OriginalWorkNote::value)
                                 .orElse(null));
     }
 
