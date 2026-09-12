@@ -135,7 +135,7 @@ export const draftArticle = {
  *
  * <p>
  * 文言はリポジトリに置かず管理画面から入れるため、画面に出る文字列はここが唯一の出所になる。未登録の
- * キーは区画ごと出ない仕様のため、E2E では3つとも入れて「出る」側を確かめる。
+ * キーは区画ごと出ない仕様のため、E2E では入れて「出る」側を確かめる。
  * </p>
  */
 export const siteContent = {
@@ -146,6 +146,13 @@ export const siteContent = {
     heading: 'ようこそ',
     lead: 'E2E でトップの紹介文を確かめる。',
   },
+  /**
+   * 既定の名義（#348）。
+   *
+   * 画面に名義が出るのは既定と違うときだけ。`showcase` をこの名義に揃え、`quiet` を別の名義のまま
+   * 残すことで、出る側と出ない側の両方を1回の実行で見る。
+   */
+  defaultArtist: showcase.artistDisplayName,
 } as const;
 
 /**
@@ -349,6 +356,11 @@ export const seedForBuild = async (): Promise<void> => {
       '\n',
     ),
     contentFormat: 'MARKDOWN',
+  });
+  await upsertSiteContent({
+    key: 'site.artist',
+    content: siteContent.defaultArtist,
+    contentFormat: 'PLAIN_TEXT',
   });
 
   await ensureAlbum(showcase.catalogNumber, showcaseSeed, 'PUBLISHED');

@@ -30,15 +30,25 @@ test.describe('作品の一覧', () => {
 
     const card = page.getByRole('link').filter({ hasText: showcase.title });
     await expect(card).toBeVisible();
-    await expect(card).toContainText(showcase.artistDisplayName);
+
+    /* `showcase` は既定の名義のため、名義は出ない（#348） */
+    await expect(card).not.toContainText(showcase.artistDisplayName);
+
     await expect(card).toContainText(showcase.catalogNumber);
     await expect(card).toContainText(showcase.eventName);
+
+    /*
+     * 一覧が出す日付は作品自身のリリース日だけ（#347）。イベントの開催日まで出すと、カード1枚に
+     * 意味の違う日付が2つ並ぶ。時刻要素の数で見る。
+     */
+    await expect(card.locator('time')).toHaveCount(1);
+
     await capture(page, '03-albums-list');
 
     await clickWithEvidence(page, card, '04-albums-list-open-detail');
 
     await expect(page.getByRole('heading', { level: 1, name: showcase.title })).toBeVisible();
-    await expect(page.getByText(showcase.artistDisplayName)).toBeVisible();
+    await expect(page.getByText(showcase.artistDisplayName)).toHaveCount(0);
     await expect(page.getByText(showcase.releaseDateText)).toBeVisible();
     await expect(page.getByText(showcase.catalogNumber)).toBeVisible();
     await expect(page.getByText(showcase.eventName)).toBeVisible();
@@ -139,6 +149,13 @@ test.describe('作品の詳細', () => {
     await expect(page.locator('meta[property="og:image"]')).toHaveCount(0);
 
     await capture(page, '07-album-detail-without-audio');
+  });
+
+  test('既定と違う名義は出る', async ({ page }) => {
+    await page.goto(await albumPathOf(quiet.catalogNumber));
+
+    /* 既定の名義（`showcase` 側）と違うため、こちらは出る（#348） */
+    await expect(page.getByText(quiet.artistDisplayName)).toBeVisible();
   });
 
   test('品番と ISDN、初出イベントの5項目が出る', async ({ page }) => {
