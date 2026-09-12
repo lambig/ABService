@@ -1,4 +1,4 @@
-import { showcase, siteContent } from '../support/build-fixtures.ts';
+import { showcase, showcaseTracks, siteContent } from '../support/build-fixtures.ts';
 import { stack } from '../support/config.ts';
 import { capture, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
@@ -59,7 +59,7 @@ test.describe('ビルド前のシード', () => {
       externalAudios: readonly { url: string }[];
     };
 
-    expect(album.tracks[0]?.tunes[0]?.tuneTitle).toBe(showcase.tuneTitle);
+    expect(album.tracks[0]?.tunes[0]?.tuneTitle).toBe(showcaseTracks.titledWithTune.tuneTitle);
     expect(album.externalAudios).toHaveLength(1);
   });
 });
