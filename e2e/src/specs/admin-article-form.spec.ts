@@ -5,7 +5,7 @@ import type { Locator, Page } from '@playwright/test';
 import { renameArticleOutsideTheScreen } from '../support/admin-api.ts';
 import { albumArticle, showcase } from '../support/build-fixtures.ts';
 import { stack } from '../support/config.ts';
-import { capture, clickWithEvidence, focusOn } from '../support/evidence.ts';
+import { capture, captureFocused, captureWhole, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 import {
   SCRATCH_TITLE_PREFIX,
@@ -179,7 +179,9 @@ test.describe('管理画面の記事の編集', () => {
     await expect(page.getByLabel(BODY_LABEL, { exact: true })).toHaveValue(article.body);
     await expect(page.getByLabel(TYPE_LABEL)).toHaveValue('NOTE');
     await expect(page.getByLabel(BODY_FORMAT_LABEL)).toHaveValue('PLAIN_TEXT');
-    await capture(page, '45-admin-article-edit-loaded');
+
+    /* 確かめているのはタイトルから本文の形式までで、1画面に収まらない（#369） */
+    await captureWhole(page, '45-admin-article-edit-loaded');
   });
 
   test('検証エラーは、応答が返した位置のとおりに各欄へ出る', async ({ page }) => {
@@ -194,7 +196,7 @@ test.describe('管理画面の記事の編集', () => {
     await page.getByRole('button', { name: SAVE_LABEL }).click();
 
     await expect(fieldOf(page, 'title').getByRole('alert')).toBeVisible();
-    await capture(page, '46-admin-article-field-errors');
+    await captureFocused(page, fieldOf(page, 'title'), '46-admin-article-field-errors');
 
     /* 入力は失わない。直す先が入力にあるため、消さずに残す */
     await expect(page.getByLabel(INTRO_SHORT_LABEL)).toHaveValue(article.introShort);
@@ -217,7 +219,9 @@ test.describe('管理画面の記事の編集', () => {
 
     await expect(page.getByText(SAVED_NOTICE)).toBeVisible();
     await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(renamed);
-    await capture(page, '48-admin-article-saved');
+
+    /* 保存の知らせと、画面に留まって直せる入力の両方が見どころ（#369） */
+    await captureWhole(page, '48-admin-article-saved');
 
     /*
      * 続けてもう一度保存できる。保存後の世代を持ち直していなければ、2回目は競合として断られる（#287）。
@@ -247,7 +251,9 @@ test.describe('管理画面の記事の編集', () => {
 
     await expect(page.getByRole('alert')).toBeVisible();
     await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(`${article.title} 未達`);
-    await capture(page, '49-admin-article-unreachable');
+
+    /* 理由の提示と、保たれた入力の両方が見どころ（#369） */
+    await captureWhole(page, '49-admin-article-unreachable');
 
     await page.unroute(ARTICLE_COMMAND_API);
   });
@@ -266,7 +272,9 @@ test.describe('管理画面の記事の編集', () => {
     await page.getByRole('button', { name: SAVE_LABEL }).click();
 
     await expect(page.getByLabel(TITLE_LABEL)).toBeDisabled();
-    await capture(page, '50-admin-article-saving');
+
+    /* 塞がっていることは欄の全体で見る（#369） */
+    await captureWhole(page, '50-admin-article-saving');
 
     await page.unroute(ARTICLE_COMMAND_API);
     await expect(page.getByText(SAVED_NOTICE)).toBeVisible();
@@ -288,7 +296,9 @@ test.describe('管理画面の記事の編集', () => {
 
     await expect(page.getByText(CONFLICT_HEADING)).toBeVisible();
     await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(`${article.title} こちらの編集`);
-    await capture(page, '51-admin-article-conflicted');
+
+    /* 競合の伝え方と、保たれた入力の両方が見どころ（#369） */
+    await captureWhole(page, '51-admin-article-conflicted');
 
     /* 読み直すと、保存されている内容へ置き換わる（古い値を自動で再送しない） */
     await page.getByRole('button', { name: RELOAD_LABEL }).click();
@@ -326,7 +336,9 @@ test.describe('管理画面の記事の追加', () => {
     /* 作成の後は更新になる。文言も、経路もその記事のものへ変わる */
     await expect(page.getByRole('button', { name: SAVE_LABEL })).toBeVisible();
     await expect(page).toHaveURL(/articleId=/u);
-    await capture(page, '54-admin-article-created');
+
+    /* 作成の後が更新になっていることは、知らせと操作の文言の両方で見る（#369） */
+    await captureWhole(page, '54-admin-article-created');
 
     /* 続けて直して保存できる（作成の後に世代を持ち直している） */
     await page.getByLabel(BODY_LABEL, { exact: true }).fill('作成の直後に書いた本文。');
@@ -480,7 +492,7 @@ test.describe('管理画面の記事のタグ', () => {
     );
 
     await expect(attachedTagsOf(page)).toContainText(albumArticle.tags[0]);
-    await capture(page, '61-admin-article-tag-attached');
+    await captureFocused(page, attachedTagsOf(page), '61-admin-article-tag-attached');
 
     /*
      * タグを付けた後も、読み直さずに本体を保存できる。ここで使う世代は記事を開いたとき（タグを付ける前）
@@ -536,7 +548,9 @@ test.describe('管理画面の記事のタグ', () => {
     /* 入力は保ったまま、候補も新しい鍵で引き直せる */
     await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(article.title);
     await expect(page.getByLabel(TAG_SELECT_LABEL)).toBeVisible();
-    await capture(page, '62-admin-article-tag-reauth');
+
+    /* 保たれた入力と、引き直せる候補の両方が見どころ（#369） */
+    await captureWhole(page, '62-admin-article-tag-reauth');
   });
 });
 
@@ -564,7 +578,7 @@ test.describe('管理画面の記事の作品参照', () => {
     );
 
     await expect(linkedAlbumOf(page)).toContainText(showcase.title);
-    await capture(page, '64-admin-article-album-linked');
+    await captureFocused(page, linkedAlbumOf(page), '64-admin-article-album-linked');
 
     /* 保存を挟まずに反映されている。読み直しても参照したまま */
     await page.reload();
@@ -614,7 +628,9 @@ test.describe('管理画面の記事の作品参照', () => {
     await expect(page.getByText(NO_ALBUM_TEXT)).toBeVisible();
     await expect(page.getByText(CONFLICT_HEADING)).toBeVisible();
     await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(`${article.title} こちらの編集`);
-    await capture(page, '66-admin-article-album-conflicted');
+
+    /* 参照が付かないことと、保たれた入力の両方が見どころ（#369） */
+    await captureWhole(page, '66-admin-article-album-conflicted');
 
     /* 読み直すと、タブAの保存が残っている（タブBの編集で上書きされていない） */
     await page.getByRole('button', { name: RELOAD_LABEL }).click();
@@ -687,8 +703,7 @@ test.describe('管理画面の本文のプレビュー', () => {
     await expect(preview.locator('strong')).toHaveText(MARKDOWN_BODY.emphasis);
 
     /* 証跡は、入力と描画結果が同じ画面に並んでいることが分かる位置で撮る */
-    await focusOn(preview);
-    await capture(page, '57-admin-article-preview');
+    await captureFocused(page, preview, '57-admin-article-preview');
   });
 
   test('プレーンテキストは記法として解釈されない', async ({ page }) => {

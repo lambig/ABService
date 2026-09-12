@@ -3,7 +3,7 @@ import type { Locator, Page } from '@playwright/test';
 import { findArticleByTitle } from '../support/admin-api.ts';
 import { albumArticle } from '../support/build-fixtures.ts';
 import { stack } from '../support/config.ts';
-import { capture, focusOn } from '../support/evidence.ts';
+import { captureFocused } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 
 /**
@@ -53,8 +53,7 @@ test.describe('プレビューと公開の一致', () => {
      * 出ない**ことが読み取れる（実体を置いていないため、残った1つは壊れ画像として写る。実アセットで
      * 見た目まで確かめるのは #164 のカバー画像のジャーニー）。
      */
-    await focusOn(publicBodyOf(page));
-    await capture(page, '58-article-body-images-public');
+    await captureFocused(page, publicBodyOf(page), '58-article-body-images-public');
 
     /* 同じ記事を管理画面で開く。プレビューが描くのは、公開ページと同じ本文である */
     await page.goto(`${stack.adminBaseUrl}/articles/edit?articleId=${articleId}`);
@@ -67,7 +66,6 @@ test.describe('プレビューと公開の一致', () => {
     await expectOnlyAllowedImage(previewOf(page));
 
     /* 公開ページと並べて読めるよう、同じ本文のプレビューも撮る */
-    await focusOn(previewOf(page));
-    await capture(page, '59-article-body-images-preview');
+    await captureFocused(page, previewOf(page), '59-article-body-images-preview');
   });
 });
