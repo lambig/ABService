@@ -23,6 +23,8 @@ export const ALBUM_FIELD_PATHS = [
   'event.place',
   'event.spaceNumber',
   'event.note',
+  'basePrice.amount',
+  'basePrice.currency',
 ] as const;
 
 /** 入力欄の位置 */
@@ -57,6 +59,8 @@ export const EMPTY_DRAFT: AlbumDraft = {
   'event.place': '',
   'event.spaceNumber': '',
   'event.note': '',
+  'basePrice.amount': '',
+  'basePrice.currency': '',
 };
 
 /**
@@ -82,7 +86,13 @@ export const draftOf = (album: AdminAlbumDetail): AlbumDraft => ({
   'event.place': album.eventPlace ?? '',
   'event.spaceNumber': album.eventSpaceNumber ?? '',
   'event.note': album.eventNote ?? '',
+  'basePrice.amount': amountText(album.basePrice?.amount),
+  'basePrice.currency': album.basePrice?.currency ?? '',
 });
+
+/** 額は欄の値として文字列で持つ（入力欄が返すのは文字列で、両方の形を混ぜない） */
+const amountText = (amount: number | undefined): string =>
+  amount === undefined ? '' : String(amount);
 
 /** 1つの欄だけを差し替えた入力値を返す */
 export const withValue = (draft: AlbumDraft, path: AlbumFieldPath, value: string): AlbumDraft => ({
@@ -124,6 +134,35 @@ const eventOf = (draft: AlbumDraft): AlbumFields['event'] => {
 };
 
 /**
+ * 頒布の基準額。
+ *
+ * <p>
+ * 額と通貨のどちらも入力されていなければ、基準額そのものを送らない（更新は全項目置換のため、これが
+ * 額の指定を消すことになる）。片方だけでも入力されていれば入れ子を送り、必須の判定はバックエンドへ
+ * 委ねる。ここで「額が無ければ基準額なし」と決めると、通貨だけを入れた入力が黙って捨てられる。
+ * </p>
+ *
+ * <p>
+ * 数値への写し取りだけは画面が行う（要求の契約が数値のため）。数として読めない入力は `NaN` のまま
+ * 送り、額が未指定として断られる——捨ててしまうと、入力したのに何も起きない保存になる。
+ * </p>
+ */
+const basePriceOf = (draft: AlbumDraft): AlbumFields['basePrice'] => {
+  const basePrice = {
+    amount: amountOf(draft['basePrice.amount']),
+    currency: presence(draft['basePrice.currency']),
+  };
+
+  return Object.values(basePrice).some((value) => value !== undefined) ? basePrice : undefined;
+};
+
+const amountOf = (value: string): number | undefined => {
+  const entered = presence(value);
+
+  return entered === undefined ? undefined : Number(entered);
+};
+
+/**
  * 入力値を、作成・更新の要求へ写す。
  *
  * <p>
@@ -147,4 +186,5 @@ export const albumFieldsOf = (draft: AlbumDraft): AlbumFields => ({
   description: presence(draft.description),
   descriptionFormat: presence(draft.descriptionFormat),
   event: eventOf(draft),
+  basePrice: basePriceOf(draft),
 });
