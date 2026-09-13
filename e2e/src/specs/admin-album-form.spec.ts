@@ -4,7 +4,11 @@ import type { Locator, Page } from '@playwright/test';
 
 import { renameAlbumOutsideTheScreen } from '../support/admin-api.ts';
 import { stack } from '../support/config.ts';
-import { acceptedCoverImage, rejectedCoverImage } from '../support/cover-image.ts';
+import {
+  acceptedCoverImage,
+  unconfirmableCoverImage,
+  unsupportedCoverImage,
+} from '../support/cover-image.ts';
 import { capture, captureFocused, captureWhole, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 import {
@@ -118,6 +122,18 @@ const chooseCover = async (page: Page): Promise<void> => {
   await page.getByLabel(COVER_CHOOSE_LABEL).setInputFiles(acceptedCoverImage);
   await expect(coverImage(page)).toBeVisible();
   await expectCoverDrawn(page);
+};
+
+/**
+ * いま出ているカバー画像の配信先。
+ *
+ * 差し替わっていないことを見るために控える。鍵そのものは画面に出ないが、配信先は確定の応答が返した
+ * 鍵から組まれるため、これが変わらないことは鍵が変わっていないことを表す。
+ */
+const coverSourceOf = async (page: Page): Promise<string> => {
+  const source = await coverImage(page).getAttribute('src');
+
+  return source === null ? Promise.reject(new Error('カバー画像が src を持っていません')) : source;
 };
 
 /** 一覧から対象の編集を開く */
@@ -266,7 +282,7 @@ test.describe('管理画面の作品の編集', () => {
     await openAdmin(page);
     await openEdit(page, title);
 
-    await page.getByLabel(COVER_CHOOSE_LABEL).setInputFiles(rejectedCoverImage);
+    await page.getByLabel(COVER_CHOOSE_LABEL).setInputFiles(unsupportedCoverImage);
 
     /* 断られた理由はバックエンドの文言をそのまま出す。画面は受け入れる形式の一覧を持たない */
     await expect(coverSection(page).getByRole('alert')).toBeVisible();
@@ -276,6 +292,39 @@ test.describe('管理画面の作品の編集', () => {
     /* 断られた後も選び直せる。直す先は画像の選び直しにあり、入力を作り直してそこへ戻す */
     await chooseCover(page);
     await expect(coverSection(page).getByRole('alert')).toHaveCount(0);
+  });
+
+  test('送れても確定に通らない実体は、いま出ているカバー画像を置き換えない', async ({ page }) => {
+    const title = await seedScratchAlbum('カバー画像の確定拒否');
+
+    await openAdmin(page);
+    await openEdit(page, title);
+    await chooseCover(page);
+
+    const confirmed = await coverSourceOf(page);
+
+    /*
+     * 申告は PNG で中身が PNG でない実体。払い出しも保管先への送信も通り、確定の検査で初めて落ちる。
+     * 3段のうち最後だけが拒む唯一の経路で、「送れた実体でも確定に通らなければ鍵にしない」はここでしか
+     * 踏めない（形式そのものが弾かれる場合は、送信も確定も起きない）。
+     */
+    await page.getByLabel(COVER_CHOOSE_LABEL).setInputFiles(unconfirmableCoverImage);
+
+    await expect(coverSection(page).getByRole('alert')).toBeVisible();
+    await expect(coverImage(page)).toHaveAttribute('src', confirmed);
+    await expectCoverDrawn(page);
+    await captureFocused(page, coverSection(page), '39j-admin-edit-cover-unconfirmable');
+
+    /*
+     * 保存して読み直す。断られた実体が入力の鍵に触れていないことは、画面に出ている配信先だけでは
+     * 言い切れない——**保存されたのがどちらの鍵か**は、保存を通してからでないと分からない。
+     */
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+    await expect(page.getByRole('table')).toBeVisible();
+
+    await openEdit(page, title);
+    await expect(coverImage(page)).toHaveAttribute('src', confirmed);
+    await expectCoverDrawn(page);
   });
 
   test('カバー画像を外して保存すると、読み直した編集で持たない', async ({ page }) => {

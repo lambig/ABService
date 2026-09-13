@@ -34,15 +34,34 @@ export const acceptedCoverImage = {
 } as const;
 
 /**
- * 受け入れられない画像。
+ * 形式そのものが受け入れられない画像。
  *
  * <p>
  * GIF は受け入れる形式に無いため、**払い出しの段で断られる**（送信も確定も起きない）。ファイルを
  * 選ぶ窓は `image/*` で絞っており、この形式も選べてしまう——断り方を見る必要があるのはそのため。
  * </p>
  */
-export const rejectedCoverImage = {
+export const unsupportedCoverImage = {
   name: 'e2e-cover.gif',
   mimeType: 'image/gif',
   buffer: Buffer.from('GIF89a', 'ascii'),
+} as const;
+
+/**
+ * 保管先へは送れるが、確定に通らない実体。
+ *
+ * <p>
+ * 申告は PNG で、中身は PNG ではない。バックエンドは申告を信用せず先頭バイト列で形式を判定するため、
+ * 払い出し（申告だけを見る）も保管先への送信も通り、**確定の検査で初めて落ちる**。
+ * </p>
+ *
+ * <p>
+ * 3段のうち最後だけが拒む唯一の経路である。「送れた実体でも、確定に通らなければその鍵を入力へ
+ * 入れない」という契約は、形式そのものが弾かれる {@link unsupportedCoverImage} では踏めない。
+ * </p>
+ */
+export const unconfirmableCoverImage = {
+  name: 'e2e-cover-mismatch.png',
+  mimeType: 'image/png',
+  buffer: Buffer.from('this is not a PNG', 'ascii'),
 } as const;
