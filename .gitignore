@@ -116,7 +116,9 @@ dist
 
 # Gatsby files
 .cache/
-public
+# `public` はここに置かない。Gatsby では生成先だが、このリポジトリでは Astro の静的資産の置き場
+# （`frontend-public/public/`）で、追跡する対象である。置いたままだと、そこへ足したファイルが
+# 黙って無視される。生成物は個別に挙げる。
 
 # Vuepress build output
 .vuepress/dist
