@@ -1,5 +1,6 @@
 ---
 import AlbumReference from '$components/AlbumReference.astro';
+import KindMark from '$components/KindMark.astro';
 import SiteNav from '$components/SiteNav.astro';
 import {
   getAlbum,
@@ -54,41 +55,50 @@ const bodyHtml = article.bodyFormat === 'MARKDOWN' ? renderBody(article.body) : 
 <BaseLayout title={article.title} previewAlbum={album ?? undefined}>
   <SiteNav slot="nav" />
 
-  <article class="space-y-8 py-6">
-    <header class="space-y-2">
-      {/* 種別は出さない。記事を開いた読み手には、本文と作品への導線から分かる（#346） */}
-      <h1 class="text-3xl font-semibold">{article.title}</h1>
+  <article class="flex gap-3 py-6">
+    {
+      /*
+      記事の種別（作品紹介・ノート…）は出さない（#346）。出すのはページの種類で、軸が違う——作品の
+      ページと内容が近いため、どちらを見ているかの手がかりが要る（#353）。
+    */
+    }
+    <KindMark kind="article" />
 
-      <p class="text-muted-foreground text-sm">
-        <time datetime={article.publishedAt}>{formatPublishedDate(article.publishedAt)}</time>
-      </p>
+    <div class="min-w-0 flex-1 space-y-8">
+      <header class="space-y-2">
+        <h1 class="text-3xl font-semibold">{article.title}</h1>
+
+        <p class="text-muted-foreground text-sm">
+          <time datetime={article.publishedAt}>{formatPublishedDate(article.publishedAt)}</time>
+        </p>
+
+        {
+          article.tags.length === 0 ? null : (
+            <ul class="text-muted-foreground flex flex-wrap gap-2 text-sm">
+              {article.tags.map((tag) => (
+                <li class="border-border rounded-full border px-2 py-0.5">{tag}</li>
+              ))}
+            </ul>
+          )
+        }
+      </header>
 
       {
-        article.tags.length === 0 ? null : (
-          <ul class="text-muted-foreground flex flex-wrap gap-2 text-sm">
-            {article.tags.map((tag) => (
-              <li class="border-border rounded-full border px-2 py-0.5">{tag}</li>
-            ))}
-          </ul>
+        article.body === '' ? null : bodyHtml === null ? (
+          <p class="whitespace-pre-wrap">{article.body}</p>
+        ) : (
+          <div class="prose-body" set:html={bodyHtml} />
         )
       }
-    </header>
 
-    {
-      article.body === '' ? null : bodyHtml === null ? (
-        <p class="whitespace-pre-wrap">{article.body}</p>
-      ) : (
-        <div class="prose-body" set:html={bodyHtml} />
-      )
-    }
-
-    {
-      album === null ? null : (
-        <section class="space-y-4">
-          <h2 class="text-lg font-medium">この記事の作品</h2>
-          <AlbumReference album={album} />
-        </section>
-      )
-    }
+      {
+        album === null ? null : (
+          <section class="space-y-4">
+            <h2 class="text-lg font-medium">この記事の作品</h2>
+            <AlbumReference album={album} />
+          </section>
+        )
+      }
+    </div>
   </article>
 </BaseLayout>
