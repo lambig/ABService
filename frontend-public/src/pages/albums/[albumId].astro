@@ -1,6 +1,7 @@
 ---
 import EventInfo from '$components/EventInfo.astro';
 import ExternalAudioEmbed from '$components/ExternalAudioEmbed.astro';
+import KindMark from '$components/KindMark.astro';
 import ProperNoun from '$components/ProperNoun.astro';
 import SiteNav from '$components/SiteNav.astro';
 import TrackList from '$components/TrackList.astro';
@@ -74,6 +75,9 @@ const coverImageForBody = album.externalAudios.length === 0 ? album.coverImageUr
       }
 
       <div class="space-y-2">
+        {/* 見出しの上に、いま見ているのが作品そのものであることを示す（#353） */}
+        <KindMark kind="work" />
+
         <h1 class="text-3xl font-semibold">
           <ProperNoun>{album.title}</ProperNoun>
         </h1>
