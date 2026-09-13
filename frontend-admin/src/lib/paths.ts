@@ -43,3 +43,11 @@ export const editArticlePath = (articleId: string): string =>
 /** 編集画面が受け取った対象。指定が無ければ null */
 export const articleIdIn = (search: string): string | null =>
   new URLSearchParams(search).get('articleId');
+
+/**
+ * サイトの文言（#230 / #383）。
+ *
+ * 一覧と編集を1つの画面が持つ。作品・記事と違い、文言はキーで引く小さな値で、一覧から編集へ移る
+ * 途中に読むものが無い。
+ */
+export const SITE_CONTENT_PATH = `${BASE}/site-contents`;

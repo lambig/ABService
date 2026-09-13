@@ -256,6 +256,49 @@ export const unpublishAlbum = (
     apiKey,
   );
 
+/** サイトの文言1件。キーで引く（#230） */
+export type SiteContent = Schemas['SiteContentResponse'];
+
+/**
+ * サイトの文言を全件引く。
+ *
+ * <p>
+ * 照会は認証を要さない（公開サイトが組み立てで使うのと同じ経路）。それでも鍵を添えるのは、この画面の
+ * 他の操作と経路を分けないため。**鍵の正しさはこの照会では分からない**——誤った鍵でも一覧は返るので、
+ * 断られるのは保存のときになる。
+ * </p>
+ */
+export const listSiteContents = async (
+  apiKey: string,
+): Promise<ApiResult<readonly SiteContent[]>> => {
+  const result = await request<Schemas['SiteContentListResponse']>(
+    'GET',
+    '/api/v1/site-contents',
+    apiKey,
+  );
+
+  return result.kind === 'ok' ? { kind: 'ok', value: result.value.items } : result;
+};
+
+/**
+ * サイトの文言を登録・更新する（キー単位の upsert）。
+ *
+ * <p>
+ * 同じキーがあれば差し替え、無ければ作る。**世代（`expectedRevision`）を持たない**——文言は「そのキーの
+ * 現在の内容」であって履歴を持たず、最後の保存が残る契約のため（作品・記事とはここが違う）。
+ * </p>
+ */
+export const upsertSiteContent = (
+  apiKey: string,
+  key: string,
+  content: string,
+  contentFormat: string,
+): Promise<ApiResult<SiteContent>> =>
+  request<SiteContent>('PUT', `/api/v1/site-contents/${encodeURIComponent(key)}`, apiKey, {
+    content,
+    contentFormat,
+  });
+
 /** 管理向け記事一覧の1件。下書き（`publicFlag` が false）を含む */
 export type AdminArticle = Schemas['AdminArticleResponse'];
 

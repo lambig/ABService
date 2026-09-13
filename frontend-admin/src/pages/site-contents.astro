@@ -1,0 +1,17 @@
+---
+import SiteContentEditor from '$components/SiteContentEditor.svelte';
+import AdminLayout from '$layouts/AdminLayout.astro';
+
+/*
+ * 文言はブラウザで引く。組み立ての時点の内容を配ると、運営者が直した直後に古い値を編集することに
+ * なる。client:only を指定するのは、鍵の保持に sessionStorage を使っておりサーバ側で動かないため
+ * （他の管理画面と同じ）。
+ *
+ * 一覧と編集を1つの画面が持つ（#383）。文言はキーで引く小さな値で、一覧から編集へ移る途中に読む
+ * ものが無い。
+ */
+---
+
+<AdminLayout title="サイトの文言">
+  <SiteContentEditor client:only="svelte" />
+</AdminLayout>
