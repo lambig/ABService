@@ -89,8 +89,12 @@ test.describe('管理画面のサイトの文言', () => {
     await expect(page.getByLabel(KEY_LABEL)).toHaveAttribute('readonly', '');
   });
 
-  test('キーと本文を入れて保存すると、一覧に並び、読み直しても残っている', async ({ page }) => {
-    const written = `E2E で保存した文言 ${String(Date.now())}`;
+  test('キーを足して保存し、その文言を書き換えると、どちらも読み直して残っている', async ({
+    page,
+  }) => {
+    const stamp = String(Date.now());
+    const written = `E2E で保存した文言 ${stamp}`;
+    const rewritten = `E2E で書き換えた文言 ${stamp}`;
 
     await openSiteContents(page);
 
@@ -107,6 +111,35 @@ test.describe('管理画面のサイトの文言', () => {
      */
     await reopenSiteContents(page);
     await expect(rowOf(page, SCRATCH_KEY)).toContainText(written);
+
+    /*
+     * ここからが書き換え。この画面の中心の用途は、既にある文言を直すことである（#343 が管理画面へ
+     * 求めているのもそれ）。一覧の行から編集へ移し、本文だけを変えて保存する。
+     */
+    await rowOf(page, SCRATCH_KEY).getByRole('button', { name: EDIT_LABEL }).click();
+    await expect(page.getByLabel(CONTENT_LABEL)).toHaveValue(written);
+    await expect(page.getByLabel(KEY_LABEL)).toHaveAttribute('readonly', '');
+
+    await page.getByLabel(CONTENT_LABEL).fill(rewritten);
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+
+    /*
+     * 一覧へ入るのを待ってから読み直す。**押した直後に画面を離れると、送信の途中で中断される**
+     * ——保存が終わったかどうかは、応答を受けた一覧が変わったことでしか分からない。
+     */
+    await expect(rowOf(page, SCRATCH_KEY)).toContainText(rewritten);
+
+    await reopenSiteContents(page);
+
+    /*
+     * 書き換えであって、もう1件作ったのではない。**同じキーの行が1つだけ**で、前の文言がどこにも
+     * 残っていないことまで見る——upsert が更新として効いていなければ、行が2つ並ぶか古い値が残る。
+     */
+    await expect(rowOf(page, SCRATCH_KEY)).toHaveCount(1);
+    await expect(rowOf(page, SCRATCH_KEY)).toContainText(rewritten);
+    await expect(page.getByText(written)).toHaveCount(0);
+
+    await captureFocused(page, rowOf(page, SCRATCH_KEY), '68a-admin-site-content-updated');
   });
 
   test('キーの形式が受け付けられないときは、その欄にエラーが出る', async ({ page }) => {
