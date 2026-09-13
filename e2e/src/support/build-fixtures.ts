@@ -286,6 +286,13 @@ export const siteContent = {
     lead: 'E2E でトップの紹介文を確かめる。',
   },
   /**
+   * コピーライト表示の主体（#343）。
+   *
+   * 画面に出るのは、これに年と記号を足して組み立てたもの。データ側が持つのは主体だけで、年は
+   * 組み立てる時点のものになる。
+   */
+  copyrightHolder: 'E2E 確認サークル',
+  /**
    * 既定の名義（#348）。
    *
    * 画面に名義が出るのは既定と違うときだけ。`showcase` をこの名義に揃え、`quiet` を別の名義のまま
@@ -576,6 +583,11 @@ export const seedForBuild = async (): Promise<void> => {
   await upsertSiteContent({
     key: 'site.artist',
     content: siteContent.defaultArtist,
+    contentFormat: 'PLAIN_TEXT',
+  });
+  await upsertSiteContent({
+    key: 'footer.copyright.holder',
+    content: siteContent.copyrightHolder,
     contentFormat: 'PLAIN_TEXT',
   });
 

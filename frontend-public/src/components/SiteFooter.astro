@@ -1,0 +1,31 @@
+---
+import { copyrightHolder } from '$lib/site';
+
+/**
+ * ページの末尾（#343）。
+ *
+ * <p>
+ * いま置くのはコピーライト表示だけ。主体は文言としてデータ側が持ち（#230 の線引きの「内容のある文言」
+ * 側）、年と記号は画面が組み立てる。**未登録なら区画ごと出さない**——罫線と余白だけの帯が残ると、
+ * 何かが入るはずの場所が空いているように見える。
+ * </p>
+ */
+const holder = await copyrightHolder();
+
+/*
+ * 年は組み立てる時点のもの。**静的出力のため、ここで決まった年は次に作り直すまで変わらない**
+ * （DECISIONS 24）。作り直しが起きるのは内容を変えたときなので（#374）、年が明けても内容を触らなければ
+ * 古い年のまま出る。年を必ず合わせたい場合は、作り直すか、主体の文言の側へ年を含める形へ変える。
+ */
+const year = new Date().getFullYear();
+---
+
+{
+  holder === undefined ? null : (
+    <footer class="text-muted-foreground border-border border-t py-6 text-sm">
+      <p>
+        © {year} {holder}
+      </p>
+    </footer>
+  )
+}
