@@ -1,5 +1,4 @@
 ---
-import KindMark from '$components/KindMark.astro';
 import type { PublicArticle } from '$lib/api/client';
 
 /**
@@ -42,17 +41,12 @@ const Heading = headingLevel;
     )
   }
 
-  <div class="flex min-w-0 gap-3">
-    {/* 見分けの言語をサイト全体で揃える（#353）。詳細と同じ印を、同じ位置に置く */}
-    <KindMark kind="article" />
-
-    <div class="min-w-0 space-y-1">
-      <Heading class="font-medium">{article.title}</Heading>
-      {
-        article.introShort === '' ? null : (
-          <p class="text-muted-foreground line-clamp-2 text-sm">{article.introShort}</p>
-        )
-      }
-    </div>
+  <div class="min-w-0 space-y-1">
+    <Heading class="font-medium">{article.title}</Heading>
+    {
+      article.introShort === '' ? null : (
+        <p class="text-muted-foreground line-clamp-2 text-sm">{article.introShort}</p>
+      )
+    }
   </div>
 </a>
