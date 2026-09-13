@@ -10,10 +10,11 @@ export default tseslint.config(
       'node_modules/**',
       'dist/**',
       '.astro/**',
-      // 設定ファイル自身は tsconfig の include 外のため型情報を使う検査にかけられない
+      // 設定ファイルと補助スクリプトは tsconfig の include 外のため型情報を使う検査にかけられない
       'eslint.config.js',
       'astro.config.mjs',
       'svelte.config.js',
+      'scripts/**',
       /*
        * shadcn-svelte が置くコンポーネントは、このリポジトリが書いたコードではなく上流の生成物である。
        * 規約（if 禁止・否定禁止・immutable-data）はここへ効かせない。手を入れる場合も、上流の更新を

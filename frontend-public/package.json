@@ -5,7 +5,9 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "predev": "node scripts/render-og-image.mjs",
     "dev": "astro dev",
+    "prebuild": "node scripts/render-og-image.mjs",
     "build": "astro build",
     "preview": "astro preview",
     "typecheck": "astro check",
@@ -41,6 +43,7 @@
     "prettier-plugin-svelte": "^4.0.0",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "shadcn-svelte": "^1.0.0",
+    "sharp": "^0.35.0",
     "typescript": "^5.0.0",
     "typescript-eslint": "^8.0.0"
   },

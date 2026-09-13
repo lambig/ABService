@@ -1,5 +1,4 @@
 ---
-import AlbumPreviewMeta from '$components/AlbumPreviewMeta.astro';
 import AlbumReference from '$components/AlbumReference.astro';
 import SiteNav from '$components/SiteNav.astro';
 import {
@@ -52,9 +51,7 @@ const bodyHtml = article.bodyFormat === 'MARKDOWN' ? renderBody(article.body) : 
  */
 ---
 
-<BaseLayout title={article.title}>
-  {album === null ? null : <AlbumPreviewMeta album={album} slot="head" />}
-
+<BaseLayout title={article.title} previewAlbum={album ?? undefined}>
   <SiteNav slot="nav" />
 
   <article class="space-y-8 py-6">
