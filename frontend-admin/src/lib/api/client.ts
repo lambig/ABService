@@ -256,6 +256,67 @@ export const unpublishAlbum = (
     apiKey,
   );
 
+/** 作品が持つ外部音源1件。表示順は常に 1..n の連番で保たれる */
+export type AdminExternalAudio = Schemas['AdminExternalAudioResponse'];
+
+/**
+ * 外部音源を追加する（表示順は末尾に採番される）。
+ *
+ * <p>
+ * 埋め込めるホストかどうかはバックエンドの値オブジェクトが判定し、通らないURLは 400 で返る。同じURLの
+ * 重複は 409。**画面は先に判定しない**——許可するホストの一覧を写すと、増減のたびに2箇所を直すことになる。
+ * </p>
+ */
+export const addExternalAudio = (
+  apiKey: string,
+  albumId: string,
+  url: string,
+): Promise<ApiResult<Schemas['AddExternalAudioResponse']>> =>
+  request<Schemas['AddExternalAudioResponse']>(
+    'POST',
+    `/api/v1/albums/${encodeURIComponent(albumId)}/external-audios`,
+    apiKey,
+    { url },
+  );
+
+/**
+ * 外部音源を1件外す。
+ *
+ * <p>
+ * 対象が無ければ 409 が返る（べき等ではない）。残った分の表示順は詰め直される。
+ * </p>
+ */
+export const removeExternalAudio = (
+  apiKey: string,
+  albumId: string,
+  externalAudioId: string,
+): Promise<ApiResult<void>> =>
+  requestNoContent(
+    'DELETE',
+    `/api/v1/albums/${encodeURIComponent(albumId)}/external-audios/${encodeURIComponent(externalAudioId)}`,
+    apiKey,
+  );
+
+/**
+ * 外部音源を並べ替える。
+ *
+ * <p>
+ * 作品が持つ全件を1件ずつ含む必要がある（部分的な指定は受け付けない）。差し替えの操作は持たない——
+ * 保持するのはURLだけで、差し替えは外して足すことで表せる。
+ * </p>
+ */
+export const reorderExternalAudios = (
+  apiKey: string,
+  albumId: string,
+  orderedExternalAudioIds: readonly string[],
+): Promise<ApiResult<Schemas['ReorderExternalAudiosResponse']>> =>
+  request<Schemas['ReorderExternalAudiosResponse']>(
+    'PUT',
+    `/api/v1/albums/${encodeURIComponent(albumId)}/external-audios/order`,
+    apiKey,
+    { orderedExternalAudioIds },
+  );
+
 /** サイトの文言1件。キーで引く（#230） */
 export type SiteContent = Schemas['SiteContentResponse'];
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AlbumExternalAudios from '$components/AlbumExternalAudios.svelte';
   import ApiKeyForm from '$components/ApiKeyForm.svelte';
   import { Button } from '$components/ui/button/index.js';
   import {
@@ -17,6 +18,7 @@
     getAlbum,
     updateAlbum,
     type AdminAlbumDetail,
+    type AdminExternalAudio,
     type ApiResult,
     type ConfirmedAsset,
   } from '$lib/api/client';
@@ -39,7 +41,8 @@
    * </p>
    *
    * <p>
-   * トラック・チューン構成・外部音源の編集は持たない（#122 の別スライス）。
+   * トラック・チューン構成の編集は持たない（#122 の別スライス）。外部音源は持つが、保存とは別の経路で
+   * 反映されるため、区画ごと保存のフォームの外に置く。
    * </p>
    */
   type Props = {
@@ -192,8 +195,17 @@
   type Pending = Readonly<{
     target: Target | null;
     draft: AlbumDraft;
+    /**
+     * 保存されている内容。`draft` と突き合わせて、未保存の差分があるかを決める。
+     *
+     * 外部音源の操作は作品の世代を進めるため、未保存の入力を抱えたまま操作すると、その後の保存が
+     * 競合として断られる。それを避けるために、先に保存するかを尋ねる必要がある。
+     */
+    saved: AlbumDraft;
     /** 確定済みのカバー画像の配信先。鍵は `draft` が持ち、こちらは見せる先だけを持つ */
     coverImageUrl: string | null;
+    /** いま持っている外部音源。表示順に並んでいる */
+    audios: readonly AdminExternalAudio[];
   }>;
 
   /**
@@ -218,8 +230,14 @@
         /** 更新する対象と、読み込んだ時点の世代。null は新規作成 */
         readonly target: Target | null;
         readonly draft: AlbumDraft;
+        /** 保存されている内容。未保存の差分があるかは、これと `draft` の突き合わせで決まる */
+        readonly saved: AlbumDraft;
         /** 確定済みのカバー画像の配信先。持たないときは null */
         readonly coverImageUrl: string | null;
+        /** いま持っている外部音源。表示順に並んでいる */
+        readonly audios: readonly AdminExternalAudio[];
+        /** 外部音源の操作が走っている間。作品の入力は、その間は触らせない */
+        readonly audioBusy: boolean;
         /**
          * 選ぶ入力を作り直した回数。
          *
@@ -252,7 +270,10 @@
     apiKey,
     target: pending.target,
     draft: pending.draft,
+    saved: pending.saved,
     coverImageUrl: pending.coverImageUrl,
+    audios: pending.audios,
+    audioBusy: false,
     attempts: 0,
     submission: { kind: 'idle' },
     upload: { kind: 'idle' },
@@ -267,7 +288,9 @@
       ? editing(apiKey, {
           target: { albumId, revision: result.value.revision },
           draft: draftOf(result.value),
+          saved: draftOf(result.value),
           coverImageUrl: result.value.coverImageUrl,
+          audios: result.value.externalAudios,
         })
       : result.kind === 'unauthorized'
         ? { kind: 'locked', message: failureTextOf(result), pending: null }
@@ -283,7 +306,13 @@
 
   /** 新規作成は読み込むものが無い。鍵だけを確かめて入力へ入る */
   const start = (apiKey: string): void => {
-    view = editing(apiKey, { target: null, draft: EMPTY_DRAFT, coverImageUrl: null });
+    view = editing(apiKey, {
+      target: null,
+      draft: EMPTY_DRAFT,
+      saved: EMPTY_DRAFT,
+      coverImageUrl: null,
+      audios: [],
+    });
   };
 
   const unspecify = (): void => {
@@ -533,9 +562,16 @@
       ? {
           target: current.target,
           draft: current.draft,
+          saved: current.saved,
           coverImageUrl: current.coverImageUrl,
+          audios: current.audios,
         }
       : null;
+
+  /** 鍵が断られたら、入力を抱えたまま鍵待ちへ戻す。入れ直せば同じ入力から続けられる */
+  const lockWithInput = (message: string): void => {
+    lock(message, pendingOf(view));
+  };
 
   const viewAfterFailure = (failure: ApiFailure): View =>
     failure.kind === 'unauthorized'
@@ -593,6 +629,82 @@
     void (current.kind === 'editing' ? open(current.apiKey) : Promise.resolve());
   };
 
+  /**
+   * 外部音源の操作の前に、この画面を保存する。
+   *
+   * <p>
+   * 保存できたときだけ操作へ進ませる。断られた（入力の誤り・競合・鍵切れ）ときは、理由をこの画面へ出し
+   * `aborted` を返す——音源の側は、行わなかったことだけを伝える。
+   * </p>
+   *
+   * <p>
+   * 成功したら、返った世代と、いま送った入力を「保存されている内容」として持ち直す。**GETで取り直さない**
+   * ——応答が返した値をそのまま次の条件にする（#323）。
+   * </p>
+   */
+  const applyAutoSave = <T extends { readonly revision: number }>(
+    apiKey: string,
+    result: ApiResult<T>,
+    target: Target,
+    draft: AlbumDraft,
+  ): 'saved' | 'aborted' => {
+    const current = view;
+
+    KEY_STORE[result.kind](apiKey);
+    view =
+      result.kind === 'ok'
+        ? current.kind === 'editing'
+          ? {
+              ...current,
+              target: { albumId: target.albumId, revision: result.value.revision },
+              saved: draft,
+              submission: { kind: 'idle' },
+            }
+          : current
+        : viewAfterFailure(result);
+
+    return result.kind === 'ok' ? 'saved' : 'aborted';
+  };
+
+  const saveThen = async (
+    apiKey: string,
+    target: Target,
+    draft: AlbumDraft,
+  ): Promise<'saved' | 'aborted'> => {
+    withSubmission({ kind: 'saving' });
+
+    return applyAutoSave(
+      apiKey,
+      await updateAlbum(apiKey, target.albumId, albumFieldsOf(draft), target.revision),
+      target,
+      draft,
+    );
+  };
+
+  const saveFirst = (): Promise<'saved' | 'aborted'> => {
+    const current = view;
+
+    return current.kind === 'editing' && current.target !== null
+      ? saveThen(current.apiKey, current.target, current.draft)
+      : Promise.resolve('aborted');
+  };
+
+  /** 音源の操作が走っている間は、作品の入力を触らせない。読み直しで黙って消えることになる */
+  const audioBusyChanged = (busy: boolean): void => {
+    const current = view;
+    view = current.kind === 'editing' ? { ...current, audioBusy: busy } : current;
+  };
+
+  /**
+   * 音源が変わったら読み直す。
+   *
+   * 操作の前に保存を済ませているため、ここで読み直しても失う入力は無い。世代も音源の並びも、操作の
+   * 結果として進んだものを一度に取り直す。
+   */
+  const audioChanged = (): void => {
+    reload();
+  };
+
   /*
    * NARROWING-IN-TEMPLATE: テンプレートの分岐は型の絞り込みを持ち越せないため、状態から取り出した
    * 値をここで用意する。
@@ -617,6 +729,25 @@
   const saving = $derived(submission.kind === 'saving');
   const conflicted = $derived(submission.kind === 'conflicted');
 
+  const apiKey = $derived(view.kind === 'editing' ? view.apiKey : '');
+  const albumId = $derived(
+    view.kind === 'editing' && view.target !== null ? view.target.albumId : null,
+  );
+  const audios = $derived<readonly AdminExternalAudio[]>(
+    view.kind === 'editing' ? view.audios : [],
+  );
+  const audioBusy = $derived(view.kind === 'editing' ? view.audioBusy : false);
+
+  /** 保存されている内容。編集中でなければ突き合わせる相手が無い */
+  const savedDraft = $derived<AlbumDraft>(view.kind === 'editing' ? view.saved : EMPTY_DRAFT);
+
+  /** 未保存の差分。欄は全て文字列のため、綴りの一致だけで足りる */
+  const dirty = $derived(
+    (Object.keys(savedDraft) as readonly AlbumFieldPath[]).some(
+      (path) => savedDraft[path] !== draft[path],
+    ),
+  );
+
   const coverImageUrl = $derived(view.kind === 'editing' ? view.coverImageUrl : null);
   const coverAttempts = $derived(view.kind === 'editing' ? view.attempts : 0);
   const upload = $derived<Upload>(view.kind === 'editing' ? view.upload : { kind: 'idle' });
@@ -631,7 +762,7 @@
    * 画像を送っている最中の保存も塞ぐ。送り終える前に保存すると、差し替え前の鍵のまま作品が保存され、
    * 画面には新しい画像が出ているのに保存されたのは古い画像、という食い違いが残る。
    */
-  const busy = $derived([saving, sendingCover].some(Boolean));
+  const busy = $derived([saving, sendingCover, audioBusy].some(Boolean));
 
   const messagesOf = (path: AlbumFieldPath): readonly string[] => errors.byField.get(path) ?? [];
 
@@ -680,175 +811,192 @@
     </div>
   </div>
 {:else}
-  <form class="max-w-2xl space-y-8" onsubmit={submit}>
-    <!--
+  <div class="space-y-8">
+    <form class="max-w-2xl space-y-8" onsubmit={submit}>
+      <!--
       送ったのはクリックした時点の入力である。保存中も入力を受け付けると、その後の変更は要求に
       入らないまま、成功して一覧へ移ったときに黙って消える。
     -->
-    <fieldset class="space-y-8" disabled={saving}>
-      {#each SECTIONS as section (section.heading)}
-        <section class="space-y-4">
+      <fieldset class="space-y-8" disabled={saving}>
+        {#each SECTIONS as section (section.heading)}
+          <section class="space-y-4">
+            <div class="flex items-center justify-between gap-4">
+              <h2 class="text-base font-medium">{section.heading}</h2>
+              {#if section.clearing !== undefined}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onclick={() => {
+                    clearSection(section);
+                  }}
+                >
+                  {section.clearing}
+                </Button>
+              {/if}
+            </div>
+
+            {#each section.fields as field (field.path)}
+              <div class="space-y-1" data-field={field.path}>
+                <label class="text-sm font-medium" for={idOf(field.path)}>{field.label}</label>
+
+                {#if field.kind === 'choice'}
+                  <select
+                    id={idOf(field.path)}
+                    class="border-input bg-background w-full rounded-md border px-3 py-2"
+                    value={draft[field.path]}
+                    aria-invalid={messagesOf(field.path).length > 0}
+                    onchange={(event) => {
+                      update(field.path, event.currentTarget.value);
+                    }}
+                  >
+                    {#each field.choices as choice (choice)}
+                      <option value={choice}>{CHOICE_LABELS[choice] ?? choice}</option>
+                    {/each}
+                  </select>
+                {:else if field.kind === 'multiline'}
+                  <textarea
+                    id={idOf(field.path)}
+                    class="border-input bg-background w-full rounded-md border px-3 py-2"
+                    rows="4"
+                    value={draft[field.path]}
+                    aria-invalid={messagesOf(field.path).length > 0}
+                    oninput={(event) => {
+                      update(field.path, event.currentTarget.value);
+                    }}></textarea>
+                {:else}
+                  <input
+                    id={idOf(field.path)}
+                    class="border-input bg-background w-full rounded-md border px-3 py-2"
+                    type={inputTypeOf(field.kind)}
+                    value={draft[field.path]}
+                    aria-invalid={messagesOf(field.path).length > 0}
+                    oninput={(event) => {
+                      update(field.path, event.currentTarget.value);
+                    }}
+                  />
+                {/if}
+
+                {#each messagesOf(field.path) as message (message)}
+                  <p class="text-destructive text-sm" role="alert">{message}</p>
+                {/each}
+              </div>
+            {/each}
+          </section>
+        {/each}
+
+        <!--
+        画像は選んだ時点で送られ、確定できたものだけがここに出る。作品へ反映するのは保存で、
+        送るのと反映するのを分けているため、状態の出し方も保存とは別に持つ。
+      -->
+        <section class="space-y-4" data-field="coverImageKey">
           <div class="flex items-center justify-between gap-4">
-            <h2 class="text-base font-medium">{section.heading}</h2>
-            {#if section.clearing !== undefined}
+            <h2 class="text-base font-medium">カバー画像</h2>
+            {#if coverImageUrl !== null}
+              <!-- 送っている最中は外せない。外した後に送り終えた画像が入ると、外した操作が黙って覆る -->
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onclick={() => {
-                  clearSection(section);
-                }}
+                disabled={sendingCover}
+                onclick={clearCover}
               >
-                {section.clearing}
+                カバー画像を外す
               </Button>
             {/if}
           </div>
 
-          {#each section.fields as field (field.path)}
-            <div class="space-y-1" data-field={field.path}>
-              <label class="text-sm font-medium" for={idOf(field.path)}>{field.label}</label>
-
-              {#if field.kind === 'choice'}
-                <select
-                  id={idOf(field.path)}
-                  class="border-input bg-background w-full rounded-md border px-3 py-2"
-                  value={draft[field.path]}
-                  aria-invalid={messagesOf(field.path).length > 0}
-                  onchange={(event) => {
-                    update(field.path, event.currentTarget.value);
-                  }}
-                >
-                  {#each field.choices as choice (choice)}
-                    <option value={choice}>{CHOICE_LABELS[choice] ?? choice}</option>
-                  {/each}
-                </select>
-              {:else if field.kind === 'multiline'}
-                <textarea
-                  id={idOf(field.path)}
-                  class="border-input bg-background w-full rounded-md border px-3 py-2"
-                  rows="4"
-                  value={draft[field.path]}
-                  aria-invalid={messagesOf(field.path).length > 0}
-                  oninput={(event) => {
-                    update(field.path, event.currentTarget.value);
-                  }}></textarea>
-              {:else}
-                <input
-                  id={idOf(field.path)}
-                  class="border-input bg-background w-full rounded-md border px-3 py-2"
-                  type={inputTypeOf(field.kind)}
-                  value={draft[field.path]}
-                  aria-invalid={messagesOf(field.path).length > 0}
-                  oninput={(event) => {
-                    update(field.path, event.currentTarget.value);
-                  }}
-                />
-              {/if}
-
-              {#each messagesOf(field.path) as message (message)}
-                <p class="text-destructive text-sm" role="alert">{message}</p>
-              {/each}
-            </div>
-          {/each}
-        </section>
-      {/each}
-
-      <!--
-        画像は選んだ時点で送られ、確定できたものだけがここに出る。作品へ反映するのは保存で、
-        送るのと反映するのを分けているため、状態の出し方も保存とは別に持つ。
-      -->
-      <section class="space-y-4" data-field="coverImageKey">
-        <div class="flex items-center justify-between gap-4">
-          <h2 class="text-base font-medium">カバー画像</h2>
-          {#if coverImageUrl !== null}
-            <!-- 送っている最中は外せない。外した後に送り終えた画像が入ると、外した操作が黙って覆る -->
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={sendingCover}
-              onclick={clearCover}
-            >
-              カバー画像を外す
-            </Button>
+          {#if coverImageUrl === null}
+            <p class="text-muted-foreground text-sm">カバー画像はありません。</p>
+          {:else}
+            <img
+              class="border-input h-40 w-40 rounded-md border object-cover"
+              src={coverImageUrl}
+              alt="いま選ばれているカバー画像"
+              data-cover-image
+            />
           {/if}
-        </div>
 
-        {#if coverImageUrl === null}
-          <p class="text-muted-foreground text-sm">カバー画像はありません。</p>
-        {:else}
-          <img
-            class="border-input h-40 w-40 rounded-md border object-cover"
-            src={coverImageUrl}
-            alt="いま選ばれているカバー画像"
-            data-cover-image
-          />
-        {/if}
-
-        <div class="space-y-1">
-          <label class="text-sm font-medium" for="album-cover-image">画像を選ぶ</label>
-          <!--
+          <div class="space-y-1">
+            <label class="text-sm font-medium" for="album-cover-image">画像を選ぶ</label>
+            <!--
             受け入れる形式を並べない。`image/*` はファイルを選ぶ窓の絞り込みで、どの画像形式を
             受け入れるかの判定はバックエンドが持つ。ここへ写すと、増減のたびに2箇所を変えることになる。
           -->
-          {#key coverAttempts}
-            <input
-              id="album-cover-image"
-              class="border-input bg-background w-full rounded-md border px-3 py-2"
-              type="file"
-              accept="image/*"
-              disabled={sendingCover}
-              onchange={(event) => {
-                pickCover(event.currentTarget.files);
-              }}
-            />
-          {/key}
+            {#key coverAttempts}
+              <input
+                id="album-cover-image"
+                class="border-input bg-background w-full rounded-md border px-3 py-2"
+                type="file"
+                accept="image/*"
+                disabled={sendingCover}
+                onchange={(event) => {
+                  pickCover(event.currentTarget.files);
+                }}
+              />
+            {/key}
+            <p class="text-muted-foreground text-sm">
+              選ぶとすぐに送ります。作品へ反映するには、そのあと保存してください。
+            </p>
+          </div>
+
+          {#if sendingCover}
+            <p class="text-muted-foreground text-sm">画像を送っています…</p>
+          {/if}
+
+          {#each coverMessages as message (message)}
+            <p class="text-destructive text-sm" role="alert">{message}</p>
+          {/each}
+        </section>
+      </fieldset>
+
+      {#if errors.unassigned.length > 0}
+        <section class="space-y-1">
+          <h2 class="text-base font-medium">どの項目にも紐付かないエラー</h2>
+          {#each errors.unassigned as message (message)}
+            <p class="text-destructive text-sm" role="alert">{message}</p>
+          {/each}
+        </section>
+      {/if}
+
+      {#if conflicted}
+        <section class="space-y-2" role="alert">
+          <h2 class="text-destructive text-base font-medium">
+            編集を始めた後に、別の操作がこの作品を保存しています
+          </h2>
           <p class="text-muted-foreground text-sm">
-            選ぶとすぐに送ります。作品へ反映するには、そのあと保存してください。
+            いまの入力はそのまま保持しています。このまま保存し直しても、同じ理由で断られます。最新を読み込むと、
+            入力は保存されている内容に置き換わります。
           </p>
-        </div>
+          <Button type="button" variant="outline" onclick={reload}>最新を読み込む</Button>
+        </section>
+      {/if}
 
-        {#if sendingCover}
-          <p class="text-muted-foreground text-sm">画像を送っています…</p>
-        {/if}
+      {#if refusedMessage !== null}
+        <p class="text-destructive text-sm" role="alert">{refusedMessage}</p>
+      {/if}
 
-        {#each coverMessages as message (message)}
-          <p class="text-destructive text-sm" role="alert">{message}</p>
-        {/each}
-      </section>
-    </fieldset>
+      <div class="flex items-center gap-4">
+        <Button type="submit" disabled={busy}>
+          {saving ? '保存しています…' : SAVE_LABELS[mode]}
+        </Button>
+        <a class="text-sm underline underline-offset-4" href={ALBUM_LIST_PATH}>やめる</a>
+      </div>
+    </form>
 
-    {#if errors.unassigned.length > 0}
-      <section class="space-y-1">
-        <h2 class="text-base font-medium">どの項目にも紐付かないエラー</h2>
-        {#each errors.unassigned as message (message)}
-          <p class="text-destructive text-sm" role="alert">{message}</p>
-        {/each}
-      </section>
-    {/if}
-
-    {#if conflicted}
-      <section class="space-y-2" role="alert">
-        <h2 class="text-destructive text-base font-medium">
-          編集を始めた後に、別の操作がこの作品を保存しています
-        </h2>
-        <p class="text-muted-foreground text-sm">
-          いまの入力はそのまま保持しています。このまま保存し直しても、同じ理由で断られます。最新を読み込むと、
-          入力は保存されている内容に置き換わります。
-        </p>
-        <Button type="button" variant="outline" onclick={reload}>最新を読み込む</Button>
-      </section>
-    {/if}
-
-    {#if refusedMessage !== null}
-      <p class="text-destructive text-sm" role="alert">{refusedMessage}</p>
-    {/if}
-
-    <div class="flex items-center gap-4">
-      <Button type="submit" disabled={busy}>
-        {saving ? '保存しています…' : SAVE_LABELS[mode]}
-      </Button>
-      <a class="text-sm underline underline-offset-4" href={ALBUM_LIST_PATH}>やめる</a>
-    </div>
-  </form>
+    <!--
+      保存とは別の経路で反映されるため、保存のフォームの外に置く。中に置くと、この区画の入力と
+      ボタンが作品の保存を巻き込む。
+    -->
+    <AlbumExternalAudios
+      {apiKey}
+      {albumId}
+      {audios}
+      {dirty}
+      {saveFirst}
+      onBusy={audioBusyChanged}
+      onChanged={audioChanged}
+      onUnauthorized={lockWithInput}
+    />
+  </div>
 {/if}
