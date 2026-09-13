@@ -1,5 +1,5 @@
 ---
-import { ALBUM_LIST_PATH, ARTICLE_LIST_PATH } from '$lib/paths';
+import { ALBUM_LIST_PATH, ARTICLE_LIST_PATH, SITE_CONTENT_PATH } from '$lib/paths';
 
 import '../styles/global.css';
 
@@ -14,11 +14,13 @@ const { title } = Astro.props;
 const ENTRIES = [
   { label: '作品', href: ALBUM_LIST_PATH },
   { label: '記事', href: ARTICLE_LIST_PATH },
+  { label: 'サイトの文言', href: SITE_CONTENT_PATH },
 ] as const;
 
 /*
- * 管理画面はサイト名や紹介文（SiteContent。#230）を引かない。あれは公開サイトの見えかたを決める
- * ものであり、運用者が使う画面の見出しではない。名前はリポジトリ側に置く。
+ * 管理画面は自分の見出しにサイト名や紹介文（SiteContent。#230）を使わない。あれは公開サイトの
+ * 見えかたを決めるもので、運用者が使う画面の名前ではない。名前はリポジトリ側に置く。
+ * 文言そのものを編集する画面は持つ（#383）。
  */
 const APPLICATION_NAME = 'ABService 管理';
 ---
