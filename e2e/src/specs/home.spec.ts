@@ -1,4 +1,10 @@
-import { albumArticle, pagination, plainArticle, siteContent } from '../support/build-fixtures.ts';
+import {
+  albumArticle,
+  pagination,
+  plainArticle,
+  quietArticle,
+  siteContent,
+} from '../support/build-fixtures.ts';
 import { expect, test } from '../support/fixtures.ts';
 
 /**
@@ -17,10 +23,11 @@ const HOME_ARTICLE_COUNT = 5;
  * 記事の並びは公開日の降順で、最後に公開した作品紹介・ノートが先頭へ来る。続きは詰め物が番号の大きい方
  * から埋め、5件で打ち切られる。
  */
+const leadingTitles = [albumArticle.title, plainArticle.title, quietArticle.title];
+
 const homeArticleTitles = [
-  albumArticle.title,
-  plainArticle.title,
-  ...Array.from({ length: HOME_ARTICLE_COUNT - 2 }, (_unused, index) =>
+  ...leadingTitles,
+  ...Array.from({ length: HOME_ARTICLE_COUNT - leadingTitles.length }, (_unused, index) =>
     pagination.titleOf(pagination.filler - index),
   ),
 ];

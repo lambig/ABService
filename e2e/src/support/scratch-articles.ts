@@ -5,6 +5,7 @@ import {
   publishArticle,
   seedDraftArticle,
 } from './admin-api.ts';
+import { longTextOf } from './long-text.ts';
 
 /**
  * シナリオの中だけで使う記事。
@@ -75,6 +76,38 @@ export const seedPublishedScratchArticle = async (purpose: string): Promise<Scra
   const article = await seedScratchArticle(purpose);
   await publishArticle(article.articleId);
   return article;
+};
+
+/**
+ * 記事のタイトルに使える長さの上限。
+ *
+ * ドメインの `ArticleTitle` と列（`ArticleTableRecord` の `title`）が持つ値と揃える。ずれても検査は
+ * 落ちない（作れる長さのままなので）が、そのときここは「起こりうる上限」を指していない。
+ */
+export const ARTICLE_TITLE_MAX_LENGTH = 500;
+
+/**
+ * 上限いっぱいのタイトルを持つ記事を1つ作る（下書き）。
+ *
+ * <p>
+ * 長くするのはタイトルだけにする。管理の一覧が並べるのはタイトル・種別・公開日・状態・操作で、
+ * 行の幅を動かしうるのはタイトルしかない。
+ * </p>
+ */
+export const seedScratchArticleWithLongestTitle = async (): Promise<ScratchArticle> => {
+  const title = longTextOf(`${scratchTitle('長いタイトル')} `, ARTICLE_TITLE_MAX_LENGTH);
+  const introShort = 'E2E 長いタイトルの記事のショート紹介文。';
+  const body = 'E2E 長いタイトルの記事の本文。';
+
+  const articleId = await seedDraftArticle({
+    articleType: 'NOTE',
+    title,
+    body,
+    bodyFormat: 'PLAIN_TEXT',
+    introShort,
+  });
+
+  return { articleId, title, introShort, body };
 };
 
 /**

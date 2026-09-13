@@ -6,6 +6,7 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
 import java.util.List;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 
 /**
  * 楽観ロックの競合を 409 Problem Details へ変換する JAX-RS ExceptionMapper
@@ -28,6 +29,7 @@ import java.util.List;
  * </p>
  */
 @Provider
+@APIResponse(responseCode = "409")
 public class ConflictingUpdateExceptionMapper implements ExceptionMapper<OptimisticLockException> {
 
     /** 競合の安定したエラーコード（`type` URN の末尾になる） */

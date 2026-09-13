@@ -91,6 +91,8 @@ services:
       - abservice-network
 
   # MinIO (S3 Compatible Object Storage)
+  # 取得元は MinIO 自身が配るレジストリ。Docker Hub の minio/minio は引けない
+  # （repository does not exist）ため、そちらは指せない。
   minio:
     image: quay.io/minio/minio:latest
     container_name: abservice-minio

@@ -157,6 +157,8 @@ class DeleteTuneServiceIntegrationTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 null);
     }
 }

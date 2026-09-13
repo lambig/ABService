@@ -61,6 +61,8 @@ class UnpublishAlbumServiceIntegrationTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 null)
                 .publish(NOW);
     }

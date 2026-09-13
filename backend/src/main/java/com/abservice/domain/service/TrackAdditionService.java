@@ -61,7 +61,7 @@ public class TrackAdditionService implements DomainService {
      * @param trackNo
      *            トラック番号
      * @param title
-     *            トラックタイトル
+     *            トラックタイトル（nullable。省略したときはチューン名を繋いだものが名になる。#360）
      * @param artistDisplayName
      *            アーティスト表示名（nullable。未指定時はAlbumのartistCreditを継承）
      * @param artistSortKey
@@ -137,8 +137,8 @@ public class TrackAdditionService implements DomainService {
                         resolved -> Track.fromInput(
                                 fields.trackNo(),
                                 fields.title(),
-                                resolved.artistCredit().orElse(null))
-                                .map(track -> track.replaceTunes(resolved.tunes())));
+                                resolved.artistCredit().orElse(null),
+                                resolved.tunes()));
     }
 
     private record ResolvedFields(Optional<ArtistCredit> artistCredit, List<TrackTune> tunes) {

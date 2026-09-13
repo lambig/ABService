@@ -373,7 +373,10 @@
         <Table.Body>
           {#each articles as article (article.articleId)}
             <Table.Row>
-              <Table.Cell>{article.title}</Table.Cell>
+              <!-- 文言の長い列だけ折り返させ、行数を抑える（#359）。幅を指定しない理由も作品一覧と同じ -->
+              <Table.Cell class="whitespace-normal">
+                <span class="line-clamp-2 break-words">{article.title}</span>
+              </Table.Cell>
               <Table.Cell>
                 {ARTICLE_TYPE_LABELS[article.articleType] ?? article.articleType}
               </Table.Cell>
@@ -386,7 +389,8 @@
                 </Badge>
               </Table.Cell>
               <Table.Cell>
-                <div class="flex items-center gap-2">
+                <!-- 操作ごとに幅を固定する（#345）。作品一覧と同じ理由 -->
+                <div class="grid grid-cols-[5rem_8rem_auto] items-center gap-2">
                   <a
                     class="text-sm underline underline-offset-4"
                     href={editArticlePath(article.articleId)}

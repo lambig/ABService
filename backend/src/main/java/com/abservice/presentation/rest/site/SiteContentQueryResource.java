@@ -4,6 +4,7 @@ import com.abservice.application.query.site.ListSiteContentsQuery;
 import com.abservice.application.query.site.ListSiteContentsResult;
 import com.abservice.application.query.site.ListSiteContentsService;
 import com.abservice.application.query.site.model.SiteContentView;
+import com.abservice.presentation.rest.openapi.Executes;
 import com.abservice.presentation.rest.site.response.SiteContentListResponse;
 import com.abservice.presentation.rest.site.response.SiteContentResponse;
 import io.smallrye.mutiny.Uni;
@@ -45,6 +46,7 @@ public class SiteContentQueryResource {
      */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(ListSiteContentsService.class)
     public Uni<SiteContentListResponse> list() {
         return listSiteContentsService.query(new ListSiteContentsQuery())
                 .map(SiteContentQueryResource::toListResponse);

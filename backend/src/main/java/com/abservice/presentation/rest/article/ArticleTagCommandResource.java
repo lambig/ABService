@@ -5,9 +5,13 @@ import com.abservice.application.service.article.AddArticleTagOutput;
 import com.abservice.application.service.article.AddArticleTagService;
 import com.abservice.application.service.article.RemoveArticleTagInput;
 import com.abservice.application.service.article.RemoveArticleTagService;
+import com.abservice.presentation.rest.CreatedResponses;
 import com.abservice.presentation.rest.article.request.AddArticleTagRequest;
 import com.abservice.presentation.rest.article.response.AddArticleTagResponse;
+import com.abservice.presentation.rest.openapi.CreatesResource;
+import com.abservice.presentation.rest.openapi.Executes;
 import com.abservice.presentation.rest.security.SecurityRoles;
+import io.github.lambig.textescape.TextEscape;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.Consumes;
@@ -17,7 +21,6 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import org.jboss.resteasy.reactive.ResponseStatus;
 import org.jboss.resteasy.reactive.RestResponse;
 
 /**
@@ -38,6 +41,9 @@ import org.jboss.resteasy.reactive.RestResponse;
 @Path("/api/v1/articles/{articleId}/tags")
 @RolesAllowed(SecurityRoles.ADMIN)
 public class ArticleTagCommandResource {
+
+    /** 記事に付けたタグの位置。クラスの {@code @Path} と、外す操作の {@code @Path} に対応する */
+    private static final String ARTICLE_TAG_LOCATION = "/api/v1/articles/${articleId}/tags/${tagId}";
 
     private final AddArticleTagService addArticleTagService;
     private final RemoveArticleTagService removeArticleTagService;
@@ -62,15 +68,26 @@ public class ArticleTagCommandResource {
      *            対象記事のID
      * @param request
      *            タグ追加リクエスト
-     * @return 201 Created と付与結果
+     * @return 201 Created、付けたタグの位置、付与結果
      */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    @ResponseStatus(RestResponse.StatusCode.CREATED)
-    public Uni<AddArticleTagResponse> add(@PathParam("articleId") String articleId, AddArticleTagRequest request) {
+    @CreatesResource
+    @Executes(AddArticleTagService.class)
+    public Uni<RestResponse<AddArticleTagResponse>> add(
+            @PathParam("articleId") String articleId,
+            AddArticleTagRequest request) {
         return addArticleTagService.execute(new AddArticleTagInput(articleId, request.name()))
-                .map(ArticleTagCommandResource::toResponse);
+                .map(ArticleTagCommandResource::toResponse)
+                .map(tag -> CreatedResponses.at(locationOf(tag.articleId(), tag.tagId()), tag));
+    }
+
+    private static String locationOf(String articleId, String tagId) {
+        return TextEscape.escape(ARTICLE_TAG_LOCATION)
+                .where("articleId", articleId)
+                .where("tagId", tagId)
+                .compile();
     }
 
     /**
@@ -84,6 +101,7 @@ public class ArticleTagCommandResource {
      */
     @DELETE
     @Path("/{tagId}")
+    @Executes(RemoveArticleTagService.class)
     public Uni<Void> remove(@PathParam("articleId") String articleId, @PathParam("tagId") String tagId) {
         return removeArticleTagService.execute(new RemoveArticleTagInput(articleId, tagId))
                 .replaceWithVoid();

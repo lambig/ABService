@@ -1,6 +1,7 @@
 package com.abservice.presentation.rest.album;
 
 import static com.abservice.presentation.rest.AdminAuth.authorized;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 
@@ -38,6 +39,19 @@ class RegisterAlbumWithTracksRestIntegrationTest {
                 .body("title", equalTo("ワンリクエスト登録アルバム")).body("tracks.size()", equalTo(2))
                 .body("tracks[0].trackNo", equalTo(1)).body("tracks[0].title", equalTo("1曲目"))
                 .body("tracks[1].trackNo", equalTo(2)).body("tracks[1].title", equalTo("2曲目"));
+    }
+
+    @Test
+    @DisplayName("ワンリクエスト登録は201と、登録したアルバムを指すLocationを返す")
+    void registerRespondsWithCreatedAndLocation() {
+        final var response = authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"title\":\"位置確認の一括登録アルバム\",\"releaseDate\":\"2026-01-01\","
+                                + "\"artistDisplayName\":\"アーティスト\","
+                                + "\"tracks\":[{\"trackNo\":1,\"title\":\"1曲目\"}]}")
+                .when().post("/api/v1/albums/with-tracks").then().statusCode(201).extract();
+
+        assertThat(response.header("Location")).isEqualTo("/api/v1/albums/" + response.path("albumId"));
     }
 
     @Test

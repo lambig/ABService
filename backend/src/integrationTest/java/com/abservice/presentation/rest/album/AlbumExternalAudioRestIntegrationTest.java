@@ -2,6 +2,7 @@ package com.abservice.presentation.rest.album;
 
 import static com.abservice.presentation.rest.AdminAuth.authorized;
 import static io.restassured.RestAssured.given;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 
@@ -148,6 +149,18 @@ class AlbumExternalAudioRestIntegrationTest {
         authorized().when().delete("/api/v1/albums/" + albumId + "/external-audios/" + firstId).then()
                 .statusCode(409).contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:BUSINESS_RULE_VIOLATION"));
+    }
+
+    @Test
+    @DisplayName("外部音源の追加は201と、追加した外部音源を指すLocationを返す")
+    void addRespondsWithCreatedAndLocation() {
+        final String albumId = createAlbum("外部音源の位置確認アルバム");
+
+        final var response = authorized().contentType(ContentType.JSON).body(urlBody(FIRST_URL))
+                .when().post("/api/v1/albums/" + albumId + "/external-audios").then().statusCode(201).extract();
+
+        assertThat(response.header("Location"))
+                .isEqualTo("/api/v1/albums/" + albumId + "/external-audios/" + response.path("externalAudioId"));
     }
 
     private static String urlBody(String url) {

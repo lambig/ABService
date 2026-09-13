@@ -1,6 +1,8 @@
 package com.abservice.application.service.asset;
 
 import com.abservice.application.port.AssetStorage;
+import com.abservice.application.exception.Failure;
+import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.EntityId;
@@ -24,6 +26,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * </p>
  */
 @ApplicationScoped
+@FailureContract(Failure.VALIDATION)
 public class IssueAssetUploadUrlService
         implements
             CommandService<IssueAssetUploadUrlInput, IssueAssetUploadUrlOutput> {

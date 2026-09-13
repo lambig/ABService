@@ -1,0 +1,6 @@
+# CI のコンテナ検査だけが使う上書き。docker-compose.prod.yml（EC2 が動かす構成そのもの）を、
+# ローカル用 PostgreSQL と同じネットワークへ載せる。prod 側のサービス定義には触らない。
+services:
+  backend:
+    networks:
+      - abservice-network

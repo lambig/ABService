@@ -1,6 +1,7 @@
 package com.abservice.presentation.rest.album;
 
 import static com.abservice.presentation.rest.AdminAuth.authorized;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
 import com.abservice.test.CleanDatabase;
@@ -205,6 +206,19 @@ class AlbumTrackRestIntegrationTest {
                 .put("/api/v1/albums/" + albumId + "/tracks/order").then().statusCode(409)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:BUSINESS_RULE_VIOLATION"));
+    }
+
+    @Test
+    @DisplayName("トラックの追加は201と、追加したトラックを指すLocationを返す")
+    void addRespondsWithCreatedAndLocation() {
+        final String albumId = createAlbum("トラックの位置確認アルバム");
+
+        final var response = authorized().contentType(ContentType.JSON)
+                .body("{\"trackNo\":1,\"title\":\"位置確認トラック\"}")
+                .when().post("/api/v1/albums/" + albumId + "/tracks").then().statusCode(201).extract();
+
+        assertThat(response.header("Location"))
+                .isEqualTo("/api/v1/albums/" + albumId + "/tracks/" + response.path("trackId"));
     }
 
     private static String createAlbum(String title) {

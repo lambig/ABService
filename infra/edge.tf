@@ -176,6 +176,13 @@ resource "aws_cloudfront_distribution" "main" {
       origin_protocol_policy = "http-only"
       origin_ssl_protocols   = ["TLSv1.2"]
     }
+
+    # セキュリティグループが許すのはCloudFront共通の送信元範囲で、他の配信も含まれる。この配信だけが
+    # 付ける値をbackendが検査し、一致しない要求を拒む（#286）。値はParameter Store経由でbackendへも渡る。
+    custom_header {
+      name  = "X-Origin-Verify"
+      value = random_password.origin_verify_token.result
+    }
   }
 
   default_cache_behavior {

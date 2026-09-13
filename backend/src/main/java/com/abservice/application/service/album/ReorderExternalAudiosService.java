@@ -1,5 +1,7 @@
 package com.abservice.application.service.album;
 
+import com.abservice.application.exception.Failure;
+import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.application.service.album.ReorderExternalAudiosOutput.ExternalAudioOrderEntry;
 import com.abservice.domain.exception.ValidationException;
@@ -30,6 +32,7 @@ import org.jspecify.annotations.Nullable;
  */
 @ApplicationScoped
 @AllArgsConstructor
+@FailureContract({Failure.VALIDATION, Failure.NOT_FOUND, Failure.CONFLICT})
 public class ReorderExternalAudiosService
         implements
             CommandService<ReorderExternalAudiosInput, ReorderExternalAudiosOutput> {

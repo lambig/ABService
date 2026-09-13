@@ -13,6 +13,8 @@ import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
+import com.abservice.domain.model.vo.album.OriginalWorkNote;
+import com.abservice.domain.model.vo.album.Price;
 import com.abservice.domain.model.vo.album.Publication;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
@@ -56,6 +58,8 @@ class AlbumTest {
                     null,
                     null,
                     null,
+                    null,
+                    null,
                     null);
 
             // Assert
@@ -67,6 +71,7 @@ class AlbumTest {
             assertThat(album.eventReleasedAt()).isNull();
             assertThat(album.catalogNumber()).isNull();
             assertThat(album.isdn()).isNull();
+            assertThat(album.basePrice()).isNull();
             assertThat(album.getTracks().isEmpty()).isTrue();
             assertThat(album.isPublished()).isFalse();
             assertThat(album.publication()).isEqualTo(Publication.draft());
@@ -91,6 +96,8 @@ class AlbumTest {
             // 278-4-000000-00-7: チェックデジット計算 sum=43 -> (10-(43%10))%10 = 7
             final var isdn = Isdn.of("2784000000007");
             final var coverImageKey = AssetKey.of("01a0233d-d25a-7c3b-924f-236ee154fecc.png");
+            final var basePrice = Price.of(1500);
+            final var originalWorkNote = OriginalWorkNote.of("「○○」より各曲");
 
             // Act
             final var album = Album.create(
@@ -101,7 +108,9 @@ class AlbumTest {
                     eventReleasedAt,
                     catalogNumber,
                     isdn,
-                    coverImageKey);
+                    coverImageKey,
+                    basePrice,
+                    originalWorkNote);
 
             // Assert
             assertThat(album).isNotNull();
@@ -109,6 +118,8 @@ class AlbumTest {
             assertThat(album.catalogNumber()).isEqualTo(catalogNumber);
             assertThat(album.isdn()).isEqualTo(isdn);
             assertThat(album.coverImageKey()).isEqualTo(coverImageKey);
+            assertThat(album.basePrice()).isEqualTo(basePrice);
+            assertThat(album.originalWorkNote()).isEqualTo(originalWorkNote);
         }
 
         @Test
@@ -128,6 +139,8 @@ class AlbumTest {
                             releaseDate,
                             artistCredit,
                             MarkupContent.EMPTY,
+                            null,
+                            null,
                             null,
                             null,
                             null,
@@ -152,6 +165,8 @@ class AlbumTest {
                             releaseDate,
                             null,
                             MarkupContent.EMPTY,
+                            null,
+                            null,
                             null,
                             null,
                             null,
@@ -188,6 +203,40 @@ class AlbumTest {
             // Act & Assert
             assertThatThrownBy(() -> album.changeTitle(null)).isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Album title cannot be null");
+        }
+    }
+
+    @Nested
+    @DisplayName("原作の出典の記述の変更テスト")
+    class ChangeOriginalWorkNoteTest {
+
+        @Test
+        @DisplayName("原作の出典の記述を変更できること")
+        void changeOriginalWorkNoteShouldSucceed() {
+            // Arrange
+            final var album = createTestAlbum();
+            final var note = OriginalWorkNote.of("「○○」より各曲");
+
+            // Act
+            final var updated = album.changeOriginalWorkNote(note);
+
+            // Assert
+            assertThat(updated.originalWorkNote()).isEqualTo(note);
+            assertThat(updated.id()).isEqualTo(album.id());
+        }
+
+        @Test
+        @DisplayName("nullを渡すと記述なしへ戻せること")
+        void changeOriginalWorkNoteToNullShouldClearIt() {
+            // Arrange
+            final var album = createTestAlbum()
+                    .changeOriginalWorkNote(OriginalWorkNote.of("「○○」より各曲"));
+
+            // Act
+            final var updated = album.changeOriginalWorkNote(null);
+
+            // Assert
+            assertThat(updated.originalWorkNote()).isNull();
         }
     }
 
@@ -837,6 +886,8 @@ class AlbumTest {
                         1),
                 ArtistCredit.of("Test Artist"),
                 MarkupContent.EMPTY,
+                null,
+                null,
                 null,
                 null,
                 null,

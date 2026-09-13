@@ -8,6 +8,7 @@ import com.abservice.application.query.article.ListArticlesQuery;
 import com.abservice.application.query.article.ListArticlesService;
 import com.abservice.presentation.rest.article.response.AdminArticleDetailResponse;
 import com.abservice.presentation.rest.article.response.AdminArticleListResponse;
+import com.abservice.presentation.rest.openapi.Executes;
 import com.abservice.presentation.rest.security.SecurityRoles;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
@@ -60,6 +61,7 @@ public class ArticleAdminQueryResource {
     @GET
     @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(GetArticleService.class)
     public Uni<AdminArticleDetailResponse> get(@PathParam("id") String id) {
         return getArticleService.query(
                 new GetArticleQuery(
@@ -87,6 +89,7 @@ public class ArticleAdminQueryResource {
      */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(ListArticlesService.class)
     public Uni<AdminArticleListResponse> list(
             @QueryParam("page") @DefaultValue("0") int page,
             @QueryParam("size") @DefaultValue("20") int size,

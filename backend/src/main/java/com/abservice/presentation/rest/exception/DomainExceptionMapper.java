@@ -36,7 +36,8 @@ import org.eclipse.microprofile.openapi.annotations.responses.APIResponses;
 @APIResponses({
         @APIResponse(responseCode = "400", content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
         @APIResponse(responseCode = "404", content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
-        @APIResponse(responseCode = "409", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+        @APIResponse(responseCode = "409", content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+        @APIResponse(responseCode = "500", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
 })
 public class DomainExceptionMapper implements ExceptionMapper<DomainException> {
 

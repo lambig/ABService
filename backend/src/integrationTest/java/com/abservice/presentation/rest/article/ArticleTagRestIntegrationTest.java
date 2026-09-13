@@ -179,6 +179,17 @@ class ArticleTagRestIntegrationTest {
         given().when().get("/api/v1/admin/article-tags").then().statusCode(401);
     }
 
+    @Test
+    @DisplayName("タグの付与は201と、付けたタグを指すLocationを返す")
+    void addRespondsWithCreatedAndLocation() {
+        final String articleId = createDraftArticle("タグの位置確認記事");
+
+        final var response = addTag(articleId, uniqueName("位置確認")).then().statusCode(201).extract();
+
+        assertThat(response.header("Location"))
+                .isEqualTo("/api/v1/articles/" + articleId + "/tags/" + response.path("tagId"));
+    }
+
     private static Response addTag(String articleId, String name) {
         return authorized().contentType(ContentType.JSON)
                 .body("{\"name\":\"" + name + "\"}")

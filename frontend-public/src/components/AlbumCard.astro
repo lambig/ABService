@@ -3,12 +3,16 @@ import EventInfo from '$components/EventInfo.astro';
 import ProperNoun from '$components/ProperNoun.astro';
 import type { PublicAlbum } from '$lib/api/client';
 import { formatCalendarDate } from '$lib/format';
+import { showsArtistName } from '$lib/site';
 
 interface Props {
   readonly album: PublicAlbum;
 }
 
 const { album } = Astro.props;
+
+/* 名義は既定と違うときだけ出す（#348） */
+const showsArtist = await showsArtistName(album.artistDisplayName);
 
 /** 品番と ISDN は並べて出す。どちらも持たない作品では行ごと出さない */
 const identifiers = [album.catalogNumber, album.isdn].filter((value) => value !== null);
@@ -36,9 +40,13 @@ const identifiers = [album.catalogNumber, album.isdn].filter((value) => value !=
     <h2 class="truncate font-medium">
       <ProperNoun>{album.title}</ProperNoun>
     </h2>
-    <p class="text-muted-foreground truncate text-sm">
-      <ProperNoun>{album.artistDisplayName}</ProperNoun>
-    </p>
+    {
+      showsArtist ? (
+        <p class="text-muted-foreground truncate text-sm">
+          <ProperNoun>{album.artistDisplayName}</ProperNoun>
+        </p>
+      ) : null
+    }
     <p class="text-muted-foreground text-sm">
       <time datetime={album.releaseDate}>{formatCalendarDate(album.releaseDate)}</time>
     </p>
@@ -49,6 +57,6 @@ const identifiers = [album.catalogNumber, album.isdn].filter((value) => value !=
         </p>
       )
     }
-    <EventInfo event={album} />
+    <EventInfo event={album} scope="name" />
   </div>
 </a>

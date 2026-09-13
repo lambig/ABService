@@ -1,5 +1,7 @@
 package com.abservice.application.query.album;
 
+import com.abservice.application.exception.Failure;
+import com.abservice.application.exception.FailureResult;
 import com.abservice.application.query.QueryService;
 import com.abservice.application.query.album.model.DeletionEffectView;
 import com.abservice.application.query.album.model.UnpublicationEffectView;
@@ -54,6 +56,7 @@ public sealed interface GetAlbumPreconditionsResult extends QueryService.Result
     /**
      * アルバムが見つからなかった結果（→ 404）
      */
+    @FailureResult(Failure.NOT_FOUND)
     record NotFound() implements GetAlbumPreconditionsResult {
     }
 }

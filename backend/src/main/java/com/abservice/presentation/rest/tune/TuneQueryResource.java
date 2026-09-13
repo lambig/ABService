@@ -8,6 +8,7 @@ import com.abservice.application.query.tune.ListTunesResult;
 import com.abservice.application.query.tune.ListTunesService;
 import com.abservice.application.query.tune.model.TuneView;
 import com.abservice.domain.exception.EntityNotFoundException;
+import com.abservice.presentation.rest.openapi.Executes;
 import com.abservice.presentation.rest.security.SecurityRoles;
 import com.abservice.presentation.rest.tune.response.TuneListResponse;
 import com.abservice.presentation.rest.tune.response.TuneResponse;
@@ -63,6 +64,7 @@ public class TuneQueryResource {
     @GET
     @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(GetTuneService.class)
     public Uni<TuneResponse> get(@PathParam("id") String id) {
         return getTuneService.query(new GetTuneQuery(id))
                 .map(result -> toDetail(result, id));
@@ -104,6 +106,7 @@ public class TuneQueryResource {
      */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(ListTunesService.class)
     public Uni<TuneListResponse> list(
             @QueryParam("page") @DefaultValue("0") int page,
             @QueryParam("size") @DefaultValue("20") int size,

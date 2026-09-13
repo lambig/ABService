@@ -33,3 +33,22 @@ export const siteDescription = async (): Promise<string | undefined> =>
 /** トップの紹介文。未登録なら undefined（紹介の区画ごと出さない） */
 export const homeIntroduction = async (): Promise<SiteContent | undefined> =>
   contentOf('home.introduction');
+
+/**
+ * 既定の名義。未登録なら undefined。
+ *
+ * サイト全体が1つの名義の作品を並べる場のため、既定の名義はどの作品にも同じ値が並ぶ。読み手にとって
+ * 情報量が無く、そのぶん臨時ユニットのような例外が目立たなくなる（#348）。
+ */
+export const defaultArtistName = async (): Promise<string | undefined> =>
+  (await contentOf('site.artist'))?.content;
+
+/**
+ * その作品の名義を画面に出すか。
+ *
+ * 既定の名義が未登録のときは出す。未登録を「すべて既定」と読むと、名義そのものが画面から消える
+ * （#230 の「未設定ならその区画を出さない」は、文言が無いときに区画を出さない話であって、
+ * 作品の持つ事実を消してよいという話ではない）。
+ */
+export const showsArtistName = async (artistDisplayName: string): Promise<boolean> =>
+  artistDisplayName !== (await defaultArtistName());

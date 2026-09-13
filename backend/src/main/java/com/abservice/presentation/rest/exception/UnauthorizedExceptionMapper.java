@@ -4,6 +4,7 @@ import io.quarkus.security.UnauthorizedException;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 
 /**
  * 認証されていないリクエストを 401 の RFC 9457 Problem Details へ変換する JAX-RS ExceptionMapper
@@ -13,6 +14,7 @@ import jakarta.ws.rs.ext.Provider;
  * </p>
  */
 @Provider
+@APIResponse(responseCode = "401")
 public class UnauthorizedExceptionMapper implements ExceptionMapper<UnauthorizedException> {
 
     @Override

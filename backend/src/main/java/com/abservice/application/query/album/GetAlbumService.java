@@ -36,6 +36,16 @@ public class GetAlbumService implements QueryService<GetAlbumQuery, GetAlbumResu
     @ConfigProperty(name = "abservice.assets.public-base-path")
     private final String assetBasePath;
 
+    /**
+     * チューン名を繋ぐ区切り（#360）。
+     *
+     * <p>
+     * タイトルを持たないトラックの名を組み立てるときに使う。運用で変えうるため設定値として持ち、コードへ埋めない。
+     * </p>
+     */
+    @ConfigProperty(name = "abservice.track.tune-title-separator")
+    private final String tuneTitleSeparator;
+
     @WithSession
     @Override
     public Uni<GetAlbumResult> query(GetAlbumQuery query) {
@@ -94,7 +104,11 @@ public class GetAlbumService implements QueryService<GetAlbumQuery, GetAlbumResu
         return dataSource.findTracksByAlbumId(albumId)
                 .flatMap(
                         tracks -> dataSource.findTrackTunesByTrackIds(trackIds(tracks))
-                                .map(trackTunes -> AlbumViewMapper.toTrackViews(tracks, trackTunes)));
+                                .map(
+                                        trackTunes -> AlbumViewMapper.toTrackViews(
+                                                tracks,
+                                                trackTunes,
+                                                tuneTitleSeparator)));
     }
 
     private static List<String> trackIds(List<AlbumTrackRow> tracks) {

@@ -8,11 +8,15 @@ import com.abservice.application.service.tune.DeleteTuneService;
 import com.abservice.application.service.tune.UpdateTuneInput;
 import com.abservice.application.service.tune.UpdateTuneOutput;
 import com.abservice.application.service.tune.UpdateTuneService;
+import com.abservice.presentation.rest.CreatedResponses;
+import com.abservice.presentation.rest.openapi.CreatesResource;
+import com.abservice.presentation.rest.openapi.Executes;
 import com.abservice.presentation.rest.tune.request.CreateTuneRequest;
 import com.abservice.presentation.rest.tune.request.UpdateTuneRequest;
 import com.abservice.presentation.rest.tune.response.CreateTuneResponse;
 import com.abservice.presentation.rest.security.SecurityRoles;
 import com.abservice.presentation.rest.tune.response.UpdateTuneResponse;
+import io.github.lambig.textescape.TextEscape;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.Consumes;
@@ -23,7 +27,6 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import org.jboss.resteasy.reactive.ResponseStatus;
 import org.jboss.resteasy.reactive.RestResponse;
 
 /**
@@ -39,6 +42,9 @@ import org.jboss.resteasy.reactive.RestResponse;
 @Path("/api/v1/tunes")
 @RolesAllowed(SecurityRoles.ADMIN)
 public class TuneCommandResource {
+
+    /** 作成したチューンの位置。クラスの {@code @Path} と対応する */
+    private static final String TUNE_LOCATION = "/api/v1/tunes/${tuneId}";
 
     private final CreateTuneService createTuneService;
     private final UpdateTuneService updateTuneService;
@@ -66,15 +72,23 @@ public class TuneCommandResource {
      *
      * @param request
      *            チューン作成リクエスト
-     * @return 201 Created と作成結果
+     * @return 201 Created、作成したチューンの位置、作成結果
      */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    @ResponseStatus(RestResponse.StatusCode.CREATED)
-    public Uni<CreateTuneResponse> create(CreateTuneRequest request) {
+    @CreatesResource
+    @Executes(CreateTuneService.class)
+    public Uni<RestResponse<CreateTuneResponse>> create(CreateTuneRequest request) {
         return createTuneService.execute(toInput(request))
-                .map(TuneCommandResource::toResponse);
+                .map(TuneCommandResource::toResponse)
+                .map(tune -> CreatedResponses.at(locationOf(tune.tuneId()), tune));
+    }
+
+    private static String locationOf(String tuneId) {
+        return TextEscape.escape(TUNE_LOCATION)
+                .where("tuneId", tuneId)
+                .compile();
     }
 
     private static CreateTuneInput toInput(CreateTuneRequest request) {
@@ -110,6 +124,7 @@ public class TuneCommandResource {
     @Path("/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(UpdateTuneService.class)
     public Uni<UpdateTuneResponse> update(@PathParam("id") String id, UpdateTuneRequest request) {
         return updateTuneService.execute(toInput(id, request))
                 .map(TuneCommandResource::toResponse);
@@ -145,6 +160,7 @@ public class TuneCommandResource {
      */
     @DELETE
     @Path("/{id}")
+    @Executes(DeleteTuneService.class)
     public Uni<Void> delete(@PathParam("id") String id) {
         return deleteTuneService.execute(new DeleteTuneInput(id))
                 .replaceWithVoid();

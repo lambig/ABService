@@ -16,7 +16,7 @@ import org.jspecify.annotations.Nullable;
  * @param trackNo
  *            アルバム内のトラック番号
  * @param title
- *            トラックタイトル
+ *            入力されたトラックタイトル（nullable。null のトラックの名はチューン名を繋いだものになる。#360）
  * @param artistDisplayName
  *            トラック個別のアーティスト表示名（nullable。null はアルバムの名義を継承）
  * @param artistSortKey
@@ -25,7 +25,7 @@ import org.jspecify.annotations.Nullable;
 public record AlbumTrackRow(
         String trackId,
         Integer trackNo,
-        String title,
+        @Nullable String title,
         @Nullable String artistDisplayName,
         @Nullable String artistSortKey) {
 }

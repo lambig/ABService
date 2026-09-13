@@ -9,6 +9,7 @@ import com.abservice.application.service.asset.IssueAssetUploadUrlService;
 import com.abservice.presentation.rest.asset.request.IssueAssetUploadUrlRequest;
 import com.abservice.presentation.rest.asset.response.AssetUploadUrlResponse;
 import com.abservice.presentation.rest.asset.response.ConfirmAssetUploadResponse;
+import com.abservice.presentation.rest.openapi.Executes;
 import com.abservice.presentation.rest.security.SecurityRoles;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
@@ -61,6 +62,7 @@ public class AssetCommandResource {
     @Path("/upload-url")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(IssueAssetUploadUrlService.class)
     public Uni<AssetUploadUrlResponse> issueUploadUrl(IssueAssetUploadUrlRequest request) {
         return issueAssetUploadUrlService.execute(new IssueAssetUploadUrlInput(request.contentType()))
                 .map(AssetCommandResource::toUploadUrlResponse);
@@ -84,6 +86,7 @@ public class AssetCommandResource {
     @POST
     @Path("/{assetKey}/confirm")
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(ConfirmAssetUploadService.class)
     public Uni<ConfirmAssetUploadResponse> confirm(@PathParam("assetKey") String assetKey) {
         return confirmAssetUploadService.execute(new ConfirmAssetUploadInput(assetKey))
                 .map(AssetCommandResource::toConfirmResponse);

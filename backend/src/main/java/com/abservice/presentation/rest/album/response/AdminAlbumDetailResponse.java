@@ -57,6 +57,10 @@ import org.jspecify.annotations.Nullable;
  *            返す値。全項目置換のため、画像を変えない保存でもこれを送らないとカバー画像が外れる）
  * @param coverImageUrl
  *            カバー画像の配信URL（nullable。サイト相対。表示に使う。更新要求が受け取るのはこの値ではない）
+ * @param basePrice
+ *            頒布の基準額（nullable。null は額が決まっていない）
+ * @param originalWorkNote
+ *            原作の出典の記述（nullable。null は記述なし。人が書いた一文で、トラックとの対応は述べない）
  * @param externalAudios
  *            外部音源（外部サービスの埋め込み元URL）の一覧。表示順の昇順
  * @param tracks
@@ -81,6 +85,25 @@ public record AdminAlbumDetailResponse(
         @Nullable Instant publishedAt,
         @Nullable String coverImageKey,
         @Nullable String coverImageUrl,
+        @Nullable AdminBasePriceResponse basePrice,
+        @Nullable String originalWorkNote,
         List<AdminExternalAudioResponse> externalAudios,
         List<AdminTrackResponse> tracks) {
+
+    /**
+     * 頒布の基準額の管理向け応答
+     *
+     * <p>
+     * 編集の入力へそのまま戻せる形で返します。
+     * </p>
+     *
+     * @param amount
+     *            金額（通貨の最小単位）
+     * @param currency
+     *            通貨コード（ISO 4217）
+     */
+    public record AdminBasePriceResponse(
+            int amount,
+            String currency) {
+    }
 }

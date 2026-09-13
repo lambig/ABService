@@ -51,7 +51,8 @@ public class TrackTableRecord extends AuditableTableRecord<TrackTableRecord> {
     @Column(name = "track_no", nullable = false)
     private Integer trackNo;
 
-    @Column(name = "title", nullable = false, length = 255)
+    /** NULLの場合は、チューン名を繋いだものが名になる（#360） */
+    @Column(name = "title", length = 255)
     private String title;
 
     /** nullの場合はAlbumのartistCreditを継承 */

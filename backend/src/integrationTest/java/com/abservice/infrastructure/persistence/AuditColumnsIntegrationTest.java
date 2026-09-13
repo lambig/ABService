@@ -101,6 +101,8 @@ class AuditColumnsIntegrationTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 null);
     }
 }

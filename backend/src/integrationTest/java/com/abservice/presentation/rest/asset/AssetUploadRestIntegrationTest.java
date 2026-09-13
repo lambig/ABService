@@ -96,7 +96,7 @@ class AssetUploadRestIntegrationTest {
     }
 
     @Test
-    @DisplayName("確定後に同じ署名付きURLへ再アップロードしても、配信される実体は変わらない")
+    @DisplayName("確定後に同じ署名付きURLへ再アップロードして確定し直そうとしても、409で拒否され配信される実体は変わらない")
     void reuploadAfterConfirmDoesNotChangePublishedContent() {
         final var issued = issueUploadUrl("image/png");
         final String assetKey = issued.path("assetKey");
@@ -113,6 +113,10 @@ class AssetUploadRestIntegrationTest {
                 uploadUrl,
                 "image/png",
                 pngBytes(512));
+
+        authorized().when().post("/api/v1/assets/" + assetKey + "/confirm").then().statusCode(409)
+                .contentType("application/problem+json")
+                .body("type", equalTo("urn:abservice:error:BUSINESS_RULE_VIOLATION"));
 
         assertThat(objectBytes(publishedKey(assetKey)))
                 .as("確定済みの配信実体は差し替わらない")

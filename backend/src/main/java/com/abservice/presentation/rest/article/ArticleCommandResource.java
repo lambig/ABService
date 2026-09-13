@@ -20,6 +20,7 @@ import com.abservice.application.service.article.UnpublishArticleService;
 import com.abservice.application.service.article.UpdateArticleInput;
 import com.abservice.application.service.article.UpdateArticleOutput;
 import com.abservice.application.service.article.UpdateArticleService;
+import com.abservice.presentation.rest.CreatedResponses;
 import com.abservice.presentation.rest.article.request.CreateArticleRequest;
 import com.abservice.presentation.rest.article.request.SetArticleAlbumRequest;
 import com.abservice.presentation.rest.article.request.UpdateArticleRequest;
@@ -29,7 +30,10 @@ import com.abservice.presentation.rest.article.response.RemoveArticleAlbumRespon
 import com.abservice.presentation.rest.article.response.SetArticleAlbumResponse;
 import com.abservice.presentation.rest.article.response.UnpublishArticleResponse;
 import com.abservice.presentation.rest.article.response.UpdateArticleResponse;
+import com.abservice.presentation.rest.openapi.CreatesResource;
+import com.abservice.presentation.rest.openapi.Executes;
 import com.abservice.presentation.rest.security.SecurityRoles;
+import io.github.lambig.textescape.TextEscape;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.Consumes;
@@ -41,7 +45,6 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
-import org.jboss.resteasy.reactive.ResponseStatus;
 import org.jboss.resteasy.reactive.RestResponse;
 
 /**
@@ -60,6 +63,9 @@ import org.jboss.resteasy.reactive.RestResponse;
 @Path("/api/v1/articles")
 @RolesAllowed(SecurityRoles.ADMIN)
 public class ArticleCommandResource {
+
+    /** 作成した記事の位置。クラスの {@code @Path} と対応する */
+    private static final String ARTICLE_LOCATION = "/api/v1/articles/${articleId}";
 
     private final CreateArticleService createArticleService;
     private final UpdateArticleService updateArticleService;
@@ -107,15 +113,23 @@ public class ArticleCommandResource {
      *
      * @param request
      *            記事作成リクエスト
-     * @return 201 Created と作成結果
+     * @return 201 Created、作成した記事の位置、作成結果
      */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    @ResponseStatus(RestResponse.StatusCode.CREATED)
-    public Uni<CreateArticleResponse> create(CreateArticleRequest request) {
+    @CreatesResource
+    @Executes(CreateArticleService.class)
+    public Uni<RestResponse<CreateArticleResponse>> create(CreateArticleRequest request) {
         return createArticleService.execute(toInput(request))
-                .map(ArticleCommandResource::toResponse);
+                .map(ArticleCommandResource::toResponse)
+                .map(article -> CreatedResponses.at(locationOf(article.articleId()), article));
+    }
+
+    private static String locationOf(String articleId) {
+        return TextEscape.escape(ARTICLE_LOCATION)
+                .where("articleId", articleId)
+                .compile();
     }
 
     private static CreateArticleInput toInput(CreateArticleRequest request) {
@@ -148,6 +162,7 @@ public class ArticleCommandResource {
     @Path("/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(UpdateArticleService.class)
     public Uni<UpdateArticleResponse> update(@PathParam("id") String id, UpdateArticleRequest request) {
         return updateArticleService.execute(toInput(id, request))
                 .map(ArticleCommandResource::toResponse);
@@ -182,6 +197,7 @@ public class ArticleCommandResource {
      */
     @DELETE
     @Path("/{id}")
+    @Executes(DeleteArticleService.class)
     public Uni<Void> delete(@PathParam("id") String id) {
         return deleteArticleService.execute(new DeleteArticleInput(id))
                 .replaceWithVoid();
@@ -197,6 +213,7 @@ public class ArticleCommandResource {
     @POST
     @Path("/{id}/publish")
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(PublishArticleService.class)
     public Uni<PublishArticleResponse> publish(@PathParam("id") String id) {
         return publishArticleService.execute(new PublishArticleInput(id))
                 .map(ArticleCommandResource::toResponse);
@@ -220,6 +237,7 @@ public class ArticleCommandResource {
     @POST
     @Path("/{id}/unpublish")
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(UnpublishArticleService.class)
     public Uni<UnpublishArticleResponse> unpublish(@PathParam("id") String id) {
         return unpublishArticleService.execute(new UnpublishArticleInput(id))
                 .map(ArticleCommandResource::toResponse);
@@ -251,6 +269,7 @@ public class ArticleCommandResource {
     @Path("/{id}/album")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(SetArticleAlbumService.class)
     public Uni<SetArticleAlbumResponse> setAlbum(@PathParam("id") String id, SetArticleAlbumRequest request) {
         return setArticleAlbumService.execute(
                 new SetArticleAlbumInput(
@@ -277,6 +296,7 @@ public class ArticleCommandResource {
     @DELETE
     @Path("/{id}/album")
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(RemoveArticleAlbumService.class)
     public Uni<RemoveArticleAlbumResponse> removeAlbum(
             @PathParam("id") String id,
             @QueryParam("expectedRevision") Integer expectedRevision) {

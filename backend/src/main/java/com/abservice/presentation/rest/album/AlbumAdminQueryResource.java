@@ -12,6 +12,7 @@ import com.abservice.application.query.album.ListAlbumsService;
 import com.abservice.presentation.rest.album.response.AdminAlbumDetailResponse;
 import com.abservice.presentation.rest.album.response.AdminAlbumListResponse;
 import com.abservice.presentation.rest.album.response.AlbumPreconditionsResponse;
+import com.abservice.presentation.rest.openapi.Executes;
 import com.abservice.presentation.rest.security.SecurityRoles;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
@@ -84,6 +85,7 @@ public class AlbumAdminQueryResource {
     @GET
     @Path("/{id}/preconditions")
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(GetAlbumPreconditionsService.class)
     public Uni<AlbumPreconditionsResponse> preconditions(
             @PathParam("id") String id,
             @QueryParam("operation") @Nullable String operation) {
@@ -111,6 +113,7 @@ public class AlbumAdminQueryResource {
     @GET
     @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(GetAlbumService.class)
     public Uni<AdminAlbumDetailResponse> get(@PathParam("id") String id) {
         return getAlbumService.query(
                 new GetAlbumQuery(
@@ -138,6 +141,7 @@ public class AlbumAdminQueryResource {
      */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(ListAlbumsService.class)
     public Uni<AdminAlbumListResponse> list(
             @QueryParam("page") @DefaultValue("0") int page,
             @QueryParam("size") @DefaultValue("20") int size,

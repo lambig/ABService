@@ -57,6 +57,16 @@ class AlbumRestIntegrationTest {
     }
 
     @Test
+    @DisplayName("アルバムの作成は201と、作られたアルバムを指すLocationを返す")
+    void createRespondsWithCreatedAndLocation() {
+        final var response = authorized().contentType(ContentType.JSON)
+                .body("{\"title\":\"位置確認アルバム\",\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"アーティスト\"}")
+                .when().post("/api/v1/albums").then().statusCode(201).extract();
+
+        assertThat(response.header("Location")).isEqualTo("/api/v1/albums/" + response.path("albumId"));
+    }
+
+    @Test
     @DisplayName("カバー画像のアセットキーを登録すると配信URLとして返る")
     void createWithCoverImageKeyReturnsDeliveryUrl() {
         final String albumId = authorized().contentType(ContentType.JSON)
@@ -126,6 +136,18 @@ class AlbumRestIntegrationTest {
         authorized().when().get("/api/v1/admin/albums/" + albumId).then().statusCode(200)
                 .body("coverImageKey", nullValue())
                 .body("coverImageUrl", nullValue());
+    }
+
+    @Test
+    @DisplayName("形式が不正なIDも未存在として404 problem+jsonを返す")
+    void malformedIdIsNotFound() {
+        /*
+         * IDは値オブジェクトを通さず文字列で扱うため、形式の不正は入力の検証（400）ではなく「その対象は無い」 （404）として現れる。定義側で 400
+         * を足す対象を「本体か問合せ文字列を受け取るオペレーション」に 限れるのはこの挙動が根拠であり、変わればAPI定義も変わる。
+         */
+        given().when().get("/api/v1/albums/not-a-uuid").then().statusCode(404)
+                .contentType("application/problem+json")
+                .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
     }
 
     @Test

@@ -37,6 +37,11 @@ class OpenApiSchemaRestIntegrationTest {
 
     private static final String SCHEMAS = "components.schemas.";
 
+    private static final String PROBLEM_REF = "#/components/schemas/ProblemDetail";
+
+    /** エラー応答の本体を指す GPath。状態コードを差し込んで使う */
+    private static final String PROBLEM_BODY = ".'%s'.content.'application/problem+json'.schema.$ref";
+
     @Test
     @DisplayName("応答の項目は値の有無によらず必須で、nullを取り得る項目だけが null 許容になる")
     void responsePropertiesAreRequiredAndNullableWhereDeclared() {
@@ -110,13 +115,97 @@ class OpenApiSchemaRestIntegrationTest {
     @DisplayName("本体を持たない Command は 204 で、本体の宣言を持たない")
     void bodylessCommandRespondsWithNoContent() {
         /*
-         * 記事の削除は本体を返さない（Uni<Void>）。200 と空の本体で宣言されると、要求元は返らない本体を 読もうとする。201
-         * の定義上の状態コードは別（#282）のため、ここでは 204 の操作だけを見る。
+         * 記事の削除は本体を返さない（Uni<Void>）。200 と空の本体で宣言されると、要求元は返らない本体を 読もうとする。資源を作る 操作の 201 は
+         * {@link #creatingCommandRespondsWithCreatedAndLocation} が見るため、ここでは 204
+         * の操作だけを見る。
          */
         openApi()
                 .body(responsesOf("delete", "/api/v1/articles/{id}"), hasKey("204"))
                 .body(responsesOf("delete", "/api/v1/articles/{id}"), not(hasKey("200")))
                 .body(responsesOf("delete", "/api/v1/articles/{id}") + ".'204'", not(hasKey("content")));
+    }
+
+    @Test
+    @DisplayName("資源を作る操作は 201 と、作られた資源を指す Location を持つ")
+    void creatingCommandRespondsWithCreatedAndLocation() {
+        /*
+         * CREATED-IS-NOT-IN-THE-RETURN-TYPE: 実装は RestResponse で 201 と Location を返すが、
+         * smallrye は戻り値から状態コードもヘッダも読まない。定義が 200 のままだと、要求元は実在しない 200 を待ち、
+         * 位置を型として受け取れない（#282）。集約直下と子資源の両方を見る。
+         */
+        openApi()
+                .body(responsesOf("post", "/api/v1/albums"), hasKey("201"))
+                .body(responsesOf("post", "/api/v1/albums"), not(hasKey("200")))
+                .body(createdBodyRefOf("post", "/api/v1/albums"), equalTo("#/components/schemas/CreateAlbumResponse"))
+                .body(locationOf("post", "/api/v1/albums") + ".required", equalTo(true))
+                .body(locationOf("post", "/api/v1/albums") + ".schema.format", equalTo("uri-reference"))
+                .body(responsesOf("post", "/api/v1/articles/{articleId}/tags"), hasKey("201"))
+                .body(responsesOf("post", "/api/v1/articles/{articleId}/tags"), not(hasKey("200")))
+                .body(locationOf("post", "/api/v1/articles/{articleId}/tags") + ".required", equalTo(true));
+    }
+
+    @Test
+    @DisplayName("エラー応答はどの状態コードでも problem+json の ProblemDetail を本体に持つ")
+    void errorResponsesCarryProblemDetail() {
+        /*
+         * ERROR-CONTRACT-IS-NOT-IN-THE-SIGNATURE: エラーは例外マッパーが返すため、リソースの
+         * 戻り値型にも注釈にも現れない。要求元は定義から型を生成するので、状態コードだけがあって本体の型が無いと Problem Details
+         * を型として読めない（生成物では content を持たない応答になる）。#282
+         */
+        openApi()
+                // 管理操作は認証・認可の失敗を返す
+                .body(responsesOf("post", "/api/v1/albums") + PROBLEM_BODY.formatted("401"), equalTo(PROBLEM_REF))
+                .body(responsesOf("post", "/api/v1/albums") + PROBLEM_BODY.formatted("403"), equalTo(PROBLEM_REF))
+                // 本体を受け取る操作は入力の検証失敗を返す
+                .body(responsesOf("post", "/api/v1/albums") + PROBLEM_BODY.formatted("400"), equalTo(PROBLEM_REF))
+                // 状態を変える操作は業務ルール違反と競合を返す
+                .body(responsesOf("put", "/api/v1/albums/{id}") + PROBLEM_BODY.formatted("409"), equalTo(PROBLEM_REF))
+                // パスで対象を指す操作は未存在を返す
+                .body(responsesOf("put", "/api/v1/albums/{id}") + PROBLEM_BODY.formatted("404"), equalTo(PROBLEM_REF))
+                // 想定外の失敗はどの操作でも起こり得る
+                .body(responsesOf("get", "/api/v1/albums") + PROBLEM_BODY.formatted("500"), equalTo(PROBLEM_REF));
+    }
+
+    @Test
+    @DisplayName("エラーは経路の形ではなくユースケースの失敗契約から決まる")
+    void errorsFollowTheUseCaseFailureContract() {
+        /*
+         * FORM-DOES-NOT-IMPLY-FAILURE: 「本体か問合せ文字列があれば400」「パスパラメータがあれば404」という
+         * 推定は実装と食い違う。経路の識別子を検証する操作は本体を持たなくても 400 を返し、対象の不在を成功と 扱う削除や upsert は 404
+         * を返さない。ここで見るのはその食い違いが起きる4つの操作（#282）。
+         */
+        openApi()
+                // 本体も問合せ文字列も持たないが、経路の識別子を値オブジェクトへ通すため検証の失敗を返す
+                .body(responsesOf("post", "/api/v1/albums/{id}/publish"), hasKey("400"))
+                // べき等な削除は対象の不在を成功として扱う
+                .body(responsesOf("delete", "/api/v1/articles/{id}"), hasKey("400"))
+                .body(responsesOf("delete", "/api/v1/articles/{id}"), not(hasKey("404")))
+                // upsert は対象が無くても作るため、未存在で失敗しない
+                .body(responsesOf("put", "/api/v1/site-contents/{key}"), not(hasKey("404")))
+                // 非排他に版つきの行を更新する操作は、基盤由来の競合を返し得る
+                .body(responsesOf("post", "/api/v1/articles/{id}/unpublish"), hasKey("409"));
+    }
+
+    @Test
+    @DisplayName("返らないエラーは定義に現れない")
+    void unreachableErrorsAreAbsent() {
+        /*
+         * 全オペレーションへ一律に足すと、返らない状態コードを契約として宣言することになる。要求元はそれを
+         * 扱う枝を書くため、宣言する範囲は返し得る条件と対で決める。
+         */
+        openApi()
+                // 公開の読み取りは認証を要さない
+                .body(responsesOf("get", "/api/v1/albums"), not(hasKey("401")))
+                .body(responsesOf("get", "/api/v1/albums"), not(hasKey("403")))
+                // 読み取りは他の操作と競合しない
+                .body(responsesOf("get", "/api/v1/albums"), not(hasKey("409")))
+                // 並び順を問合せ文字列で受け取るため、入力の検証失敗は返し得る
+                .body(responsesOf("get", "/api/v1/albums"), hasKey("400"))
+                // 個別取得は対象の不在を失敗として返すが、一覧は返さない
+                .body(responsesOf("get", "/api/v1/albums/{id}"), hasKey("404"))
+                .body(responsesOf("get", "/api/v1/albums"), not(hasKey("404")))
+                // 資源を書き換えない操作は競合しない（署名付きURLの払い出しは検証の失敗だけを返す）
+                .body(responsesOf("post", "/api/v1/assets/upload-url"), not(hasKey("409")));
     }
 
     @Test
@@ -147,5 +236,13 @@ class OpenApiSchemaRestIntegrationTest {
 
     private static String okBodyRefOf(String method, String path) {
         return responsesOf(method, path) + ".'200'.content.'application/json'.schema.$ref";
+    }
+
+    private static String createdBodyRefOf(String method, String path) {
+        return responsesOf(method, path) + ".'201'.content.'application/json'.schema.$ref";
+    }
+
+    private static String locationOf(String method, String path) {
+        return responsesOf(method, path) + ".'201'.headers.Location";
     }
 }

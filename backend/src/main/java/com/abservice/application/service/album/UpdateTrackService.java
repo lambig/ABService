@@ -1,17 +1,16 @@
 package com.abservice.application.service.album;
 
+import com.abservice.application.exception.Failure;
+import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.album.Track;
 import com.abservice.domain.model.aggregate.album.TrackTune;
-import com.abservice.domain.model.policy.Policy;
-import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.domain.service.AlbumAccessService;
 import com.abservice.domain.service.TrackAdditionService;
-import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -19,9 +18,9 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Function;
 import lombok.AllArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -36,10 +35,15 @@ import org.jspecify.annotations.Nullable;
  */
 @ApplicationScoped
 @AllArgsConstructor
+@FailureContract({Failure.VALIDATION, Failure.NOT_FOUND, Failure.CONFLICT})
 public class UpdateTrackService implements CommandService<UpdateTrackInput, UpdateTrackOutput> {
 
     private final AlbumRepository albumRepository;
     private final AlbumAccessService albumAccessService;
+
+    /** チューン名を繋ぐ区切り（#360）。応答はトラックの名を返すため、組み立てにここでも要る */
+    @ConfigProperty(name = "abservice.track.tune-title-separator")
+    private final String tuneTitleSeparator;
 
     @WithTransaction
     @Override
@@ -64,7 +68,11 @@ public class UpdateTrackService implements CommandService<UpdateTrackInput, Upda
                                                                 .resolve(ValidationException::new))
                                                 .map(album::updateTrack))
                                 .flatMap(albumRepository::save)
-                                .map(saved -> toOutput(saved, Track.Id.of(Objects.requireNonNull(input.trackId())))));
+                                .map(
+                                        saved -> toOutput(
+                                                saved,
+                                                Track.Id.of(Objects.requireNonNull(input.trackId())),
+                                                tuneTitleSeparator)));
     }
 
     static Result<Track> validate(UpdateTrackInput input, Track existing) {
@@ -73,28 +81,15 @@ public class UpdateTrackService implements CommandService<UpdateTrackInput, Upda
                 TrackAdditionService.resolveTunes(TrackTuneInput.toFields(input.tunes())),
                 ResolvedFields::new)
                 .flatMap(
-                        resolved -> Result.zip(
-                                trackNoPolicy().verify(input.trackNo(), Function.identity()),
-                                TrackTitle.fromInput(input.title())
-                                        .mapErrorFields(field -> "title"),
-                                (trackNo, title) -> Track.reconstruct(
-                                        existing.id(),
-                                        trackNo,
-                                        title,
-                                        resolved.artistCredit().orElse(null),
-                                        resolved.tunes())));
+                        resolved -> Track.fromInput(
+                                existing.id(),
+                                input.trackNo(),
+                                input.title(),
+                                resolved.artistCredit().orElse(null),
+                                resolved.tunes()));
     }
 
     private record ResolvedFields(Optional<ArtistCredit> artistCredit, List<TrackTune> tunes) {
-    }
-
-    private static Policy<Integer> trackNoPolicy() {
-        return Policy.of(
-                Objects::nonNull,
-                () -> new ErrorResult(
-                        "trackNo",
-                        "Track number is required",
-                        "TRACK_NO_REQUIRED"));
     }
 
     private static Result<Optional<ArtistCredit>> resolveArtistCredit(
@@ -109,12 +104,16 @@ public class UpdateTrackService implements CommandService<UpdateTrackInput, Upda
                 .orElseGet(() -> Result.<Optional<ArtistCredit>>success(Optional.empty()));
     }
 
-    private static UpdateTrackOutput toOutput(Album album, Track.Id trackId) {
+    /* 応答が返すのは入力の写しではなくトラックの名（#360）。タイトルを省いたトラックはチューン名で名乗る */
+    private static UpdateTrackOutput toOutput(
+            Album album,
+            Track.Id trackId,
+            String tuneTitleSeparator) {
         final var track = album.getTrack(trackId);
         return new UpdateTrackOutput(
                 album.id().value(),
                 track.id().value(),
                 track.trackNo(),
-                track.title().value());
+                track.name(tuneTitleSeparator).value());
     }
 }

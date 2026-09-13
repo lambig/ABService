@@ -1,5 +1,7 @@
 package com.abservice.application.query.article;
 
+import com.abservice.application.exception.Failure;
+import com.abservice.application.exception.FailureResult;
 import com.abservice.application.query.QueryService;
 import com.abservice.application.query.article.model.ArticleView;
 
@@ -27,6 +29,7 @@ public sealed interface GetArticleResult extends QueryService.Result
     /**
      * 記事が見つからなかった結果（→ 404）
      */
+    @FailureResult(Failure.NOT_FOUND)
     record NotFound() implements GetArticleResult {
     }
 }

@@ -66,6 +66,8 @@ class TrackCommandServiceIntegrationTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 null);
     }
 

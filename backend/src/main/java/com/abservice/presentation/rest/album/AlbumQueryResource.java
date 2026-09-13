@@ -7,6 +7,7 @@ import com.abservice.application.query.album.GetAlbumService;
 import com.abservice.application.query.album.ListAlbumsQuery;
 import com.abservice.application.query.album.ListAlbumsService;
 import com.abservice.presentation.rest.album.response.PublicAlbumDetailResponse;
+import com.abservice.presentation.rest.openapi.Executes;
 import com.abservice.presentation.rest.album.response.PublicAlbumListResponse;
 import io.smallrye.mutiny.Uni;
 import jakarta.ws.rs.DefaultValue;
@@ -56,6 +57,7 @@ public class AlbumQueryResource {
     @GET
     @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(GetAlbumService.class)
     public Uni<PublicAlbumDetailResponse> get(@PathParam("id") String id) {
         return getAlbumService.query(
                 new GetAlbumQuery(
@@ -79,6 +81,7 @@ public class AlbumQueryResource {
      */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(ListAlbumsService.class)
     public Uni<PublicAlbumListResponse> list(
             @QueryParam("page") @DefaultValue("0") int page,
             @QueryParam("size") @DefaultValue("20") int size,

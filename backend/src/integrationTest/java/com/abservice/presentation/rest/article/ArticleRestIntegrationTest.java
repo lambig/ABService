@@ -512,6 +512,16 @@ class ArticleRestIntegrationTest {
                 .body("size", equalTo(20));
     }
 
+    @Test
+    @DisplayName("記事の作成は201と、作られた記事を指すLocationを返す")
+    void createRespondsWithCreatedAndLocation() {
+        final var response = authorized().contentType(ContentType.JSON)
+                .body("{\"articleType\":\"NOTE\",\"title\":\"位置確認記事\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract();
+
+        assertThat(response.header("Location")).isEqualTo("/api/v1/articles/" + response.path("articleId"));
+    }
+
     private static String createArticle(String title) {
         return authorized().contentType(ContentType.JSON)
                 .body("{\"articleType\":\"NOTE\",\"title\":\"" + title + "\"}").when().post("/api/v1/articles")

@@ -1,6 +1,8 @@
 package com.abservice.application.query.article;
 
 import com.abservice.application.query.AudienceVisibility;
+import com.abservice.application.exception.Failure;
+import com.abservice.application.exception.FailureContract;
 import com.abservice.application.query.QueryService;
 import com.abservice.application.query.PageCounts;
 import com.abservice.application.query.SortKeys;
@@ -31,6 +33,7 @@ import lombok.AllArgsConstructor;
  */
 @ApplicationScoped
 @AllArgsConstructor
+@FailureContract(Failure.VALIDATION)
 public class ListArticlesService implements QueryService<ListArticlesQuery, ListArticlesResult> {
 
     private static final int DEFAULT_SIZE = 20;

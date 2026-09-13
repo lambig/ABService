@@ -10,12 +10,18 @@ import org.junit.jupiter.api.Test;
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.domain.model.vo.album.TrackTitle;
+import com.abservice.domain.model.vo.album.TrackTuneTitle;
 import com.abservice.domain.model.vo.common.ArtistCredit;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.Url;
 
+import java.util.List;
+
 @DisplayName("Trackエンティティのテスト")
 class TrackTest {
+
+    /** チューン名を繋ぐ区切り。設定値（{@code abservice.track.tune-title-separator}）の既定と揃える */
+    private static final String TUNE_TITLE_SEPARATOR = " / ";
 
     @Nested
     @DisplayName("生成テスト")
@@ -45,8 +51,8 @@ class TrackTest {
         }
 
         @Test
-        @DisplayName("タイトルがnullの場合は例外が発生すること")
-        void createWithNullTitleShouldThrowException() {
+        @DisplayName("タイトルもチューンも無い場合は、名を答えられないため例外が発生すること")
+        void createWithoutTitleNorTunesShouldThrowException() {
             // Arrange
             final var trackNo = 1;
             final var artistCredit = ArtistCredit.of("Artist");
@@ -57,7 +63,51 @@ class TrackTest {
                         trackNo,
                         null,
                         artistCredit);
-            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Track title cannot be null");
+            }).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Track title is required unless the track has at least one named tune");
+        }
+
+        @Test
+        @DisplayName("タイトルが無くても、名を持つチューンがあれば生成できること")
+        void createWithoutTitleShouldSucceedWhenANamedTuneIsPresent() {
+            // Act
+            final var track = Track.create(
+                    1,
+                    null,
+                    null,
+                    List.of(
+                            TrackTune.create(
+                                    1,
+                                    null,
+                                    TrackTuneTitle.of("チューン1"),
+                                    null,
+                                    null,
+                                    null)));
+
+            // Assert
+            assertThat(track.title()).isNull();
+            assertThat(track.name(TUNE_TITLE_SEPARATOR).value()).isEqualTo("チューン1");
+        }
+
+        @Test
+        @DisplayName("名を持たないチューンしか無いトラックは、タイトルが無いと生成できないこと")
+        void createWithoutTitleShouldFailWhenNoTuneIsNamed() {
+            // Act & Assert
+            assertThatThrownBy(() -> {
+                Track.create(
+                        1,
+                        null,
+                        null,
+                        List.of(
+                                TrackTune.create(
+                                        1,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null)));
+            }).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Track title is required unless the track has at least one named tune");
         }
 
         @Test
@@ -104,8 +154,8 @@ class TrackTest {
         }
 
         @Test
-        @DisplayName("nullのタイトルに変更しようとすると例外が発生すること")
-        void changeTitleToNullShouldThrowException() {
+        @DisplayName("チューンを持たないトラックからタイトルを落とすと、名を答えられないため例外が発生すること")
+        void changeTitleToNullShouldThrowExceptionWhenNoTuneCanNameTheTrack() {
             // Arrange
             final var track = Track
                     .create(
@@ -116,7 +166,33 @@ class TrackTest {
             // Act & Assert
             assertThatThrownBy(() -> {
                 track.changeTitle(null);
-            }).isInstanceOf(IllegalArgumentException.class).hasMessage("Track title cannot be null");
+            }).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Track title is required unless the track has at least one named tune");
+        }
+
+        @Test
+        @DisplayName("名を持つチューンがあれば、タイトルを落として名をチューンへ委ねられること")
+        void changeTitleToNullShouldSucceedWhenANamedTuneIsPresent() {
+            // Arrange
+            final var track = Track.create(
+                    1,
+                    TrackTitle.of("Original"),
+                    null,
+                    List.of(
+                            TrackTune.create(
+                                    1,
+                                    null,
+                                    TrackTuneTitle.of("チューン1"),
+                                    null,
+                                    null,
+                                    null)));
+
+            // Act
+            final var untitled = track.changeTitle(null);
+
+            // Assert
+            assertThat(untitled.title()).isNull();
+            assertThat(untitled.name(TUNE_TITLE_SEPARATOR).value()).isEqualTo("チューン1");
         }
     }
 

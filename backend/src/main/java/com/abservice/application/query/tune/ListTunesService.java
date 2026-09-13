@@ -1,6 +1,8 @@
 package com.abservice.application.query.tune;
 
 import com.abservice.application.query.Audience;
+import com.abservice.application.exception.Failure;
+import com.abservice.application.exception.FailureContract;
 import com.abservice.application.query.QueryService;
 import com.abservice.application.query.PageCounts;
 import com.abservice.application.query.SortKeys;
@@ -24,6 +26,7 @@ import lombok.AllArgsConstructor;
  */
 @ApplicationScoped
 @AllArgsConstructor
+@FailureContract(Failure.VALIDATION)
 public class ListTunesService implements QueryService<ListTunesQuery, ListTunesResult> {
 
     private static final int DEFAULT_SIZE = 20;

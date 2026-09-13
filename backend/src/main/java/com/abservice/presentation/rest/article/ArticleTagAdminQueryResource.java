@@ -5,6 +5,7 @@ import com.abservice.application.query.article.ListArticleTagsResult;
 import com.abservice.application.query.article.ListArticleTagsService;
 import com.abservice.presentation.rest.article.response.AdminArticleTagListResponse;
 import com.abservice.presentation.rest.article.response.AdminArticleTagResponse;
+import com.abservice.presentation.rest.openapi.Executes;
 import com.abservice.presentation.rest.security.SecurityRoles;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
@@ -43,6 +44,7 @@ public class ArticleTagAdminQueryResource {
      */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(ListArticleTagsService.class)
     public Uni<AdminArticleTagListResponse> list() {
         return listArticleTagsService.query(new ListArticleTagsQuery())
                 .map(ArticleTagAdminQueryResource::toResponse);

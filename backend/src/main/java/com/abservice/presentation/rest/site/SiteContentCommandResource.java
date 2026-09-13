@@ -3,6 +3,7 @@ package com.abservice.presentation.rest.site;
 import com.abservice.application.service.site.UpsertSiteContentInput;
 import com.abservice.application.service.site.UpsertSiteContentOutput;
 import com.abservice.application.service.site.UpsertSiteContentService;
+import com.abservice.presentation.rest.openapi.Executes;
 import com.abservice.presentation.rest.security.SecurityRoles;
 import com.abservice.presentation.rest.site.request.UpsertSiteContentRequest;
 import com.abservice.presentation.rest.site.response.SiteContentResponse;
@@ -55,6 +56,7 @@ public class SiteContentCommandResource {
     @Path("/{key}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @Executes(UpsertSiteContentService.class)
     public Uni<SiteContentResponse> upsert(@PathParam("key") String key, UpsertSiteContentRequest request) {
         return upsertSiteContentService.execute(
                 new UpsertSiteContentInput(

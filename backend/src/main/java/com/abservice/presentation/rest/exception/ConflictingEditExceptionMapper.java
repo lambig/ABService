@@ -4,6 +4,7 @@ import com.abservice.application.exception.ConflictingEditException;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 
 /**
  * 古いフォームからの保存（編集世代の不一致）を 409 とするマッパー
@@ -15,6 +16,7 @@ import jakarta.ws.rs.ext.Provider;
  * </p>
  */
 @Provider
+@APIResponse(responseCode = "409")
 public class ConflictingEditExceptionMapper implements ExceptionMapper<ConflictingEditException> {
 
     @Override

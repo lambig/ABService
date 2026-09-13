@@ -91,7 +91,7 @@ class UpdateTrackServiceTest {
     }
 
     @Test
-    @DisplayName("トラック番号・タイトルが不正なら全てのエラーを集約する")
+    @DisplayName("トラック番号が無く、名を答えられないなら全てのエラーを集約する")
     void invalidRequiredFieldsAggregatesErrors() {
         final var existing = existingTrackWithTune();
 
@@ -108,7 +108,7 @@ class UpdateTrackServiceTest {
 
         assertThat(result).isInstanceOf(Result.Failure.class);
         assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
-                .contains("TRACK_NO_REQUIRED", "TRACK_TITLE_REQUIRED");
+                .contains("TRACK_NO_REQUIRED", "TRACK_NAME_UNRESOLVABLE");
         assertThat(result.errors().stream().map(ErrorResult::field).toList())
                 .contains("trackNo", "title");
     }

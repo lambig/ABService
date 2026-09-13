@@ -433,9 +433,29 @@
         <Table.Body>
           {#each albums as album (album.albumId)}
             <Table.Row>
-              <Table.Cell>{album.title}</Table.Cell>
-              <Table.Cell>{album.artistDisplayName}</Table.Cell>
-              <Table.Cell>{album.catalogNumber ?? '―'}</Table.Cell>
+              <!--
+                文言の長い列だけ折り返させ、行数を抑える（#359）。表のセルは既定で折り返さないため、
+                長いタイトルが表を横へ押し広げ、右端の操作が画面の外へ出る。折り返しだけを許すと今度は
+                1行が何十行にもなり、一覧を目で追えなくなる。**一覧は行を見分ける場**で、全文を読む場
+                ではない（全文は編集の画面が持つ）。隠れるのは見た目だけで、文言は要素の中に残る。
+                他の列（品番・日付・状態・操作）は短く、折り返すと読みにくくなるため既定のまま。
+
+                幅は指定しない。指定すると表がその幅まで縮まなくなり、折り返さない列（日付・状態・操作）の
+                幅と合わせて器を超える——字幅は環境で変わるので、収まるかどうかも環境で変わる。
+                折り返せる列が要るだけ縮めば、表は必ず器へ収まる。
+
+                品番も長くなりうる（100文字まで）ため折り返させる。語の切れ目を持たないので、
+                どこでも折る（`break-all`）。実際の品番は短く、折れるのは長いものだけ。
+              -->
+              <Table.Cell class="whitespace-normal">
+                <span class="line-clamp-2 break-words">{album.title}</span>
+              </Table.Cell>
+              <Table.Cell class="whitespace-normal">
+                <span class="line-clamp-2 break-words">{album.artistDisplayName}</span>
+              </Table.Cell>
+              <Table.Cell class="whitespace-normal">
+                <span class="line-clamp-2 break-all">{album.catalogNumber ?? '―'}</span>
+              </Table.Cell>
               <Table.Cell>{formatCalendarDate(album.releaseDate)}</Table.Cell>
               <Table.Cell>
                 <Badge variant={album.publishedAt === null ? 'secondary' : 'default'}>
@@ -443,7 +463,12 @@
                 </Badge>
               </Table.Cell>
               <Table.Cell>
-                <div class="flex items-center gap-2">
+                <!--
+                  操作ごとに幅を固定する（#345）。公開の切り替えは状態で文言が変わるため、詰めて並べると
+                  その右にある削除の位置が行ごとに動く。一覧は同じ操作を縦に目で追う場で、右端が破壊的な
+                  操作であるため、位置が動かないことを優先する。
+                -->
+                <div class="grid grid-cols-[5rem_8rem_auto] items-center gap-2">
                   <a
                     class="text-sm underline underline-offset-4"
                     href={editAlbumPath(album.albumId)}

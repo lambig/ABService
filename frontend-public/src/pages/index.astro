@@ -27,7 +27,7 @@ const articles = (await listArticles()).slice(0, ARTICLE_COUNT);
 ---
 
 <BaseLayout>
-  <SiteNav slot="header" />
+  <SiteNav slot="nav" />
 
   {
     introduction === undefined ? null : introductionHtml === null ? (
