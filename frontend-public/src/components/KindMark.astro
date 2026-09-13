@@ -20,7 +20,14 @@
  * </p>
  *
  * <p>
- * 罫は言葉の幅だけに引く。見出しの上にもう1本の区切りを足すと、ページの構造が1段増えて見える。
+ * 罫は縦に引いたまま、文言の方を横倒しにして、罫がその文言の下線になるように置く。文言を正立させて罫を
+ * 横に倒すと、見出しの上に区切りが1本増えてページの構造が1段深く見える——罫が縦のままなら、見出しの左に
+ * 立つ1本の手がかりに留まる。罫の長さは文言の長さで決まる。
+ * </p>
+ *
+ * <p>
+ * 縦に組んでから 180 度回すのは、文言を下から上へ読ませるため（`sideways-lr` は読み手の処理系に届いて
+ * いないことがある）。回すことで、下線として引いた罫が見出しの側へ来る。
  * </p>
  */
 interface Props {
@@ -34,7 +41,7 @@ const LABELS = { work: 'Work', article: 'Article' } as const;
 ---
 
 <p
-  class="border-primary text-primary inline-block border-b-2 pb-0.5 text-xs font-medium tracking-widest"
+  class="border-primary text-primary shrink-0 rotate-180 self-start border-l-2 pl-1 text-xs font-medium tracking-widest [writing-mode:vertical-rl]"
 >
   {LABELS[kind]}
 </p>

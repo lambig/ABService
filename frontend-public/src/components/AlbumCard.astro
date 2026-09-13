@@ -37,30 +37,32 @@ const identifiers = [album.catalogNumber, album.isdn].filter((value) => value !=
     )
   }
 
-  <div class="min-w-0 space-y-1">
+  <div class="flex min-w-0 gap-3">
     {/* 見分けの言語をサイト全体で揃える（#353）。詳細と同じ印を、同じ位置に置く */}
     <KindMark kind="work" />
 
-    <h2 class="truncate font-medium">
-      <ProperNoun>{album.title}</ProperNoun>
-    </h2>
-    {
-      showsArtist ? (
-        <p class="text-muted-foreground truncate text-sm">
-          <ProperNoun>{album.artistDisplayName}</ProperNoun>
-        </p>
-      ) : null
-    }
-    <p class="text-muted-foreground text-sm">
-      <time datetime={album.releaseDate}>{formatCalendarDate(album.releaseDate)}</time>
-    </p>
-    {
-      identifiers.length === 0 ? null : (
-        <p class="text-muted-foreground truncate text-sm">
-          <ProperNoun>{identifiers.join(' / ')}</ProperNoun>
-        </p>
-      )
-    }
-    <EventInfo event={album} scope="name" />
+    <div class="min-w-0 space-y-1">
+      <h2 class="truncate font-medium">
+        <ProperNoun>{album.title}</ProperNoun>
+      </h2>
+      {
+        showsArtist ? (
+          <p class="text-muted-foreground truncate text-sm">
+            <ProperNoun>{album.artistDisplayName}</ProperNoun>
+          </p>
+        ) : null
+      }
+      <p class="text-muted-foreground text-sm">
+        <time datetime={album.releaseDate}>{formatCalendarDate(album.releaseDate)}</time>
+      </p>
+      {
+        identifiers.length === 0 ? null : (
+          <p class="text-muted-foreground truncate text-sm">
+            <ProperNoun>{identifiers.join(' / ')}</ProperNoun>
+          </p>
+        )
+      }
+      <EventInfo event={album} scope="name" />
+    </div>
   </div>
 </a>

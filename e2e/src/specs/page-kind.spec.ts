@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 import { findAlbumByCatalogNumber, findArticleByTitle } from '../support/admin-api.ts';
 import { albumArticle, quiet, showcase } from '../support/build-fixtures.ts';
@@ -10,12 +10,17 @@ import { expect, test } from '../support/fixtures.ts';
  *
  * <p>
  * 内容が近く、見出しの下の1行目まで同じ形になる。読み手が「いま作品そのものを見ているのか、作品に
- * ついて書かれた記事を見ているのか」を掴む手がかりとして、見出しの上に印を置く。
+ * ついて書かれた記事を見ているのか」を掴む手がかりとして、見出しの左に印を置く。
  * </p>
  *
  * <p>
  * ここで見るのは**取り違えないこと**である。片方に印があることだけを見ると、両方に同じ印が出ていても
  * 通る。それぞれのページで、相手の印が出ていないことまで確かめる。
+ * </p>
+ *
+ * <p>
+ * 文言の有無だけでは、印の**形**が変わっても通ってしまう。横倒しの文言と縦の罫という組み方そのものが
+ * #353 の判断であるため、そこまで見る。
  * </p>
  */
 
@@ -42,11 +47,33 @@ const articlePathOf = async (title: string): Promise<string> => {
     : `/articles/${article.articleId}`;
 };
 
-/** ページの見出しの区画。印は見出しの上に置く */
+/** ページの見出しの区画。印は見出しの左に置く */
 const headerOf = (page: Page) => page.locator('article header');
 
+/**
+ * 印の組み方。文言が横倒しで、罫が縦に立っているかを見る。
+ *
+ * 罫は文言の下線として引くため、横倒しにすると物理的には左右のどちらかに来る。上下の罫が無いことまで
+ * 見ないと、横線を足しただけの形が通る。
+ */
+interface MarkLayout {
+  readonly writingMode: string;
+  readonly sideRule: string;
+  readonly bottomRule: string;
+}
+
+const layoutOf = (mark: Locator): Promise<MarkLayout> =>
+  mark.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      writingMode: style.writingMode,
+      sideRule: style.borderLeftWidth,
+      bottomRule: style.borderBottomWidth,
+    };
+  });
+
 test.describe('作品のページと記事のページの見分け', () => {
-  test('作品の詳細は、見出しの上で作品と名乗る', async ({ page }) => {
+  test('作品の詳細は、見出しの左で作品と名乗る', async ({ page }) => {
     await page.goto(await albumPathOf(showcase.catalogNumber));
 
     await expect(headerOf(page)).toContainText(WORK_MARK);
@@ -55,7 +82,7 @@ test.describe('作品のページと記事のページの見分け', () => {
     await captureFocused(page, headerOf(page), '05b-album-detail-kind');
   });
 
-  test('記事の詳細は、見出しの上で記事と名乗る', async ({ page }) => {
+  test('記事の詳細は、見出しの左で記事と名乗る', async ({ page }) => {
     await page.goto(await articlePathOf(albumArticle.title));
 
     await expect(headerOf(page)).toContainText(ARTICLE_MARK);
@@ -68,6 +95,16 @@ test.describe('作品のページと記事のページの見分け', () => {
     await expect(page.getByText(ALBUM_TYPE_LABEL, { exact: true })).toHaveCount(0);
 
     await captureFocused(page, headerOf(page), '10c-article-detail-kind');
+  });
+
+  test('印は、横倒しの文言を縦の罫が受ける形で置く', async ({ page }) => {
+    await page.goto(await albumPathOf(showcase.catalogNumber));
+
+    expect(await layoutOf(headerOf(page).getByText(WORK_MARK, { exact: true }))).toEqual({
+      writingMode: 'vertical-rl',
+      sideRule: '2px',
+      bottomRule: '0px',
+    });
   });
 
   test('一覧のカードも、詳細と同じ印を持つ', async ({ page }) => {
