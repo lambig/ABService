@@ -24,7 +24,7 @@ import { createServer } from 'node:http';
 import { extname, join, normalize } from 'node:path';
 import { runInNewContext } from 'node:vm';
 
-import { apps, basePathOf, portOf } from '../src/support/config.ts';
+import { apps, basePathOf, portOf, stack } from '../src/support/config.ts';
 
 const repositoryRoot = new URL('../../', import.meta.url).pathname;
 
@@ -110,19 +110,55 @@ const respondNotFound = (response) =>
       })
     : response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('Not Found');
 
-createServer((request, response) => {
-  const pathname = new URL(request.url ?? '/', `http://127.0.0.1:${String(port)}`).pathname;
+/*
+ * 配信対象のアセットは保管先から取り次ぐ。本番はこの経路を CloudFront の別のビヘイビアが受け、S3 を
+ * 読む（`infra/README.md`）。組み上がった成果物の中にこの経路のファイルは無いため、取り次がなければ
+ * カバー画像はどのページでも出ない。受け入れ前（`pending/`）は配信パスの外にあり、ここからも届かない。
+ */
+const ASSET_PREFIX = `${stack.assetBasePath}/`;
+
+const relayBody = async (upstream, response) => {
+  const body = Buffer.from(await upstream.arrayBuffer());
+  response.writeHead(200, {
+    'Content-Type': upstream.headers.get('content-type') ?? 'application/octet-stream',
+    'Content-Length': body.byteLength,
+  });
+  response.end(body);
+};
+
+const relayAsset = async (pathname, response) => {
+  const upstream = await fetch(`${stack.assetOrigin}${pathname}`).catch(() => null);
+
+  return upstream === null
+    ? response
+        .writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' })
+        .end('アセットの保管先へ接続できません')
+    : upstream.ok
+      ? relayBody(upstream, response)
+      : response.writeHead(upstream.status).end();
+};
+
+const respondFile = (file, response) =>
+  readFile(file).then((body) => {
+    response.writeHead(200, {
+      'Content-Type': CONTENT_TYPES[extname(file)] ?? 'application/octet-stream',
+      'Content-Length': body.byteLength,
+    });
+    response.end(body);
+  });
+
+const respondStatic = (pathname, response) => {
   const file = resolveFile(pathname);
 
-  return file === undefined
-    ? respondNotFound(response)
-    : readFile(file).then((body) => {
-        response.writeHead(200, {
-          'Content-Type': CONTENT_TYPES[extname(file)] ?? 'application/octet-stream',
-          'Content-Length': body.byteLength,
-        });
-        response.end(body);
-      });
+  return file === undefined ? respondNotFound(response) : respondFile(file, response);
+};
+
+createServer((request, response) => {
+  const pathname = new URL(request.url ?? '/', `http://127.0.0.1:${String(port)}`).pathname;
+
+  return pathname.startsWith(ASSET_PREFIX)
+    ? relayAsset(pathname, response)
+    : respondStatic(pathname, response);
 }).listen(port, '127.0.0.1', () => {
   console.log(`${appName} を配信しています: http://127.0.0.1:${String(port)}`);
 });
