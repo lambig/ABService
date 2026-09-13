@@ -12,6 +12,7 @@ import {
 import { coverImageAsset } from '../support/cover-image.ts';
 import { capture, captureFocused, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
+import { DEFAULT_PREVIEW_IMAGE } from '../support/site-marks.ts';
 
 /**
  * 公開サイトの記事（#123）のジャーニー。
@@ -214,13 +215,24 @@ test.describe('記事の詳細', () => {
     await captureFocused(page, reference, '10b-article-album-reference-cover');
   });
 
-  test('作品を参照しない記事には、作品への導線もリンクプレビューも出ない', async ({ page }) => {
+  test('作品を参照しない記事には作品への導線が出ず、リンクプレビューは既定の画像になる', async ({
+    page,
+  }) => {
     await page.goto(await articlePathOf(plainArticle.title));
 
     await expect(
       page.getByRole('heading', { level: 2, name: ALBUM_REFERENCE_HEADING }),
     ).toHaveCount(0);
-    await expect(page.locator('meta[name="twitter:card"]')).toHaveCount(0);
+
+    /*
+     * 参照が無くてもリンクプレビューは空にしない（#341）。参照先から採る画像が無いだけで、サイトの
+     * 記号は出せる。プレイヤーカードにならないことは、その札の不在で見る。
+     */
+    await expect(page.locator('meta[name="twitter:player"]')).toHaveCount(0);
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+      'content',
+      new RegExp(`${DEFAULT_PREVIEW_IMAGE}$`, 'u'),
+    );
   });
 
   test('プレーンテキストの本文は記法として解釈されない', async ({ page }) => {

@@ -1,5 +1,4 @@
 ---
-import AlbumPreviewMeta from '$components/AlbumPreviewMeta.astro';
 import EventInfo from '$components/EventInfo.astro';
 import ExternalAudioEmbed from '$components/ExternalAudioEmbed.astro';
 import ProperNoun from '$components/ProperNoun.astro';
@@ -58,9 +57,7 @@ const coverImageForBody = album.externalAudios.length === 0 ? album.coverImageUr
  */
 ---
 
-<BaseLayout title={album.title}>
-  <AlbumPreviewMeta album={album} slot="head" />
-
+<BaseLayout title={album.title} previewAlbum={album}>
   <SiteNav slot="nav" />
 
   <article class="space-y-8 py-6">

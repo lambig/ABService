@@ -1,0 +1,55 @@
+---
+import type { PublicAlbumDetail } from '$lib/api/client';
+import { toEmbedUrl } from '$lib/embed';
+
+/**
+ * リンクプレビュー（#197 / #341）。
+ *
+ * <p>
+ * 出すのは常に1つだけ。外部音源があれば先頭をプレイヤーカードにし、無ければカバー画像、それも無ければ
+ * サイトの既定画像にする。**どのページも必ずどれかを持つ。** 層を分けて複数の `og:image` を並べると、
+ * 読む側がどれを採るかで見え方が変わり、こちらからは決められない。
+ * </p>
+ *
+ * <p>
+ * 作品のページと、作品を紹介する記事のページは同じ扱いをする（参照先について同じ判断をするため）。
+ * 作品を持たないページ（トップ・一覧・参照を持たない記事・404）は既定の画像になる。
+ * </p>
+ */
+interface Props {
+  /** プレビューの元になる作品。持たないページは省く */
+  readonly album?: PublicAlbumDetail;
+}
+
+const { album } = Astro.props;
+
+const audio = album?.externalAudios[0];
+const playerUrl = audio === undefined ? null : toEmbedUrl(audio.url);
+
+/**
+ * サイトの既定画像。
+ *
+ * 印（`public/favicon.svg`）から組み立てのときに焼いた生成物（`scripts/render-og-image.mjs`）。
+ * 名前は入らない——サイト名はデータ側にあり（#230）、リポジトリからは読み取れない。
+ */
+const DEFAULT_IMAGE = '/og-default.png';
+
+/* 絶対URLの基準は site（環境変数で与える）で、ドメインをコードへ書かない */
+const imageUrl = new URL(album?.coverImageUrl ?? DEFAULT_IMAGE, Astro.site).href;
+---
+
+{
+  playerUrl === null ? (
+    <>
+      <meta property="og:image" content={imageUrl} />
+      <meta name="twitter:card" content="summary_large_image" />
+    </>
+  ) : (
+    <>
+      <meta name="twitter:card" content="player" />
+      <meta name="twitter:player" content={playerUrl} />
+      <meta name="twitter:player:width" content="435" />
+      <meta name="twitter:player:height" content="166" />
+    </>
+  )
+}
