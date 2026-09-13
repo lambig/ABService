@@ -24,27 +24,40 @@ const hasNext = totalPages > currentPage;
 ---
 
 {
+  /*
+   * 前後が無い側は出さない（#343）。押せるように見える文字が押せないのは、たどれない理由が端にあると
+   * 読ませてしまう。
+   *
+   * 3つの列で置き、それぞれが自分の列を名指しする。詰める形（横並びのまま端を落とす）にすると、
+   * 現在地の表示が端の有無でページごとに左右へ動く——読み手が同じ場所を見続けられなくなる。
+   */
+}
+{
   hasMultiplePages ? (
-    <nav class="flex items-center justify-between py-6 text-sm" aria-label="ページ送り">
+    <nav class="grid grid-cols-3 items-center py-6 text-sm" aria-label="ページ送り">
       {hasPrevious ? (
-        <a class="underline underline-offset-4" href={hrefOf(currentPage - 1)} rel="prev">
+        <a
+          class="justify-self-start underline underline-offset-4"
+          href={hrefOf(currentPage - 1)}
+          rel="prev"
+        >
           前のページ
         </a>
-      ) : (
-        <span class="text-muted-foreground">前のページ</span>
-      )}
+      ) : null}
 
-      <span class="text-muted-foreground tabular-nums">
+      <span class="text-muted-foreground col-start-2 justify-self-center tabular-nums">
         {currentPage} / {totalPages}
       </span>
 
       {hasNext ? (
-        <a class="underline underline-offset-4" href={hrefOf(currentPage + 1)} rel="next">
+        <a
+          class="col-start-3 justify-self-end underline underline-offset-4"
+          href={hrefOf(currentPage + 1)}
+          rel="next"
+        >
           次のページ
         </a>
-      ) : (
-        <span class="text-muted-foreground">次のページ</span>
-      )}
+      ) : null}
     </nav>
   ) : null
 }

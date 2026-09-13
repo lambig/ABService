@@ -1,5 +1,6 @@
 ---
 import PreviewMeta from '$components/PreviewMeta.astro';
+import SiteFooter from '$components/SiteFooter.astro';
 import type { PublicAlbumDetail } from '$lib/api/client';
 import { siteDescription, siteName } from '$lib/site';
 import '../styles/global.css';
@@ -153,9 +154,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
         </main>
       </div>
 
-      <footer class="text-muted-foreground border-border border-t py-6 text-sm">
-        <slot name="footer" />
-      </footer>
+      <SiteFooter />
     </div>
 
     {
