@@ -1,7 +1,9 @@
+import { setTimeout as delay } from 'node:timers/promises';
+
 import type { Locator, Page } from '@playwright/test';
 
 import { stack } from '../support/config.ts';
-import { capture, captureFocused, clickWithEvidence } from '../support/evidence.ts';
+import { capture, captureFocused, captureWhole, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 import { deleteScratchAlbums, seedScratchAlbum } from '../support/scratch-albums.ts';
 
@@ -32,6 +34,7 @@ const EDIT_LABEL = '編集する';
 /** 入力欄のラベル */
 const TITLE_LABEL = 'タイトル';
 const URL_LABEL = '音源のURL';
+const COVER_CHOOSE_LABEL = '画像を選ぶ';
 
 /** 外部音源のまとまりの操作 */
 const ADD_LABEL = '追加する';
@@ -58,6 +61,12 @@ const SECOND_URL = 'https://soundcloud.com/example/e2e-second';
 
 /** 埋め込めないホストのURL。断られることを見るために使う */
 const REJECTED_URL = 'https://example.com/e2e-not-embeddable';
+
+/** 音源を足す経路。応答を遅らせて、操作中の状態を観測する余地を作る */
+const ADD_AUDIO_API = `${stack.backendBaseUrl}/api/v1/albums/*/external-audios`;
+
+/** 音源の応答を遅らせる時間 */
+const SLOW_AUDIO_MS = 2_000;
 
 /** 鍵を入れて一覧が出た状態にする */
 const openAdmin = async (page: Page): Promise<void> => {
@@ -156,6 +165,34 @@ test.describe('管理画面の外部音源', () => {
     await expect(audioRows(page).last()).toContainText('2');
 
     await captureFocused(page, audioList(page), '39m-admin-external-audio-reordered');
+  });
+
+  test('操作の最中は、作品の入力を受け付けない', async ({ page }) => {
+    await openAlbumFor(page, '音源操作中');
+
+    /* 応答を遅らせて、操作中の状態を観測できるようにする（要求そのものは通す） */
+    await page.route(ADD_AUDIO_API, async (route) => {
+      await delay(SLOW_AUDIO_MS);
+      await route.continue();
+    });
+
+    await addAudio(page, FIRST_URL);
+
+    /*
+     * 操作が済むと読み直すため、その間に書いた入力は保存されないまま消える。塞いでいなければ、
+     * 消えたことにも気付けない。
+     */
+    await expect(page.getByLabel(TITLE_LABEL)).toBeDisabled();
+    await expect(page.getByLabel(COVER_CHOOSE_LABEL)).toBeDisabled();
+
+    /* 塞がっていることは欄の全体で見る（#369） */
+    await captureWhole(page, '39q-admin-external-audio-running');
+
+    /* 応答が返れば操作は成立し、読み直して入力へ戻る */
+    await expect(audioRows(page)).toHaveCount(1);
+    await expect(page.getByLabel(TITLE_LABEL)).toBeEnabled();
+
+    await page.unroute(ADD_AUDIO_API);
   });
 
   test('端では、それ以上動かせない', async ({ page }) => {

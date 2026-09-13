@@ -816,8 +816,11 @@
       <!--
       送ったのはクリックした時点の入力である。保存中も入力を受け付けると、その後の変更は要求に
       入らないまま、成功して一覧へ移ったときに黙って消える。
+
+      外部音源の操作中も同じ理由で塞ぐ。操作が済むと読み直すため、その間に書いた入力は保存されない
+      まま消える。画像を送っている最中は塞がない——送り終えても読み直さないので、入力は残る。
     -->
-      <fieldset class="space-y-8" disabled={saving}>
+      <fieldset class="space-y-8" disabled={[saving, audioBusy].some(Boolean)}>
         {#each SECTIONS as section (section.heading)}
           <section class="space-y-4">
             <div class="flex items-center justify-between gap-4">
