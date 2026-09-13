@@ -11,12 +11,14 @@
     type AlbumDraft,
     type AlbumFieldPath,
   } from '$lib/api/album-form';
+  import { uploadAsset } from '$lib/api/asset-upload';
   import {
     createAlbum,
     getAlbum,
     updateAlbum,
     type AdminAlbumDetail,
     type ApiResult,
+    type ConfirmedAsset,
   } from '$lib/api/client';
   import {
     NO_ERRORS,
@@ -37,8 +39,7 @@
    * </p>
    *
    * <p>
-   * トラック・チューン構成・外部音源・カバー画像の編集は持たない（#122 の別スライス）。カバー画像の
-   * 鍵は読み込んだ値をそのまま送り返す（更新は全項目置換のため、送らないと画像を外す指定になる）。
+   * トラック・チューン構成・外部音源の編集は持たない（#122 の別スライス）。
    * </p>
    */
   type Props = {
@@ -150,6 +151,25 @@
     | { readonly kind: 'refused'; readonly message: string };
 
   /**
+   * カバー画像を差し替えている途中の状態。
+   *
+   * <p>
+   * 保存（{@link Submission}）と分けて持つ。画像は**選んだ時点で保管先へ送られて確定し**、作品への
+   * 反映はその後の保存が行う。1つの状態に畳むと、「画像を送っている最中」と「作品を保存している最中」が
+   * 区別できなくなる。
+   * </p>
+   *
+   * <p>
+   * 断られた理由は文言の列で持つ。位置（`field`）は `file` / `contentType` で返るが、対応する入力欄は
+   * 画像を選ぶ操作の1つしかないため、位置ごとに出し分けるものが無い。
+   * </p>
+   */
+  type Upload =
+    | { readonly kind: 'idle' }
+    | { readonly kind: 'sending' }
+    | { readonly kind: 'rejected'; readonly messages: readonly string[] };
+
+  /**
    * 更新する対象。
    *
    * <p>
@@ -169,7 +189,12 @@
    * 誤った鍵でフォームを埋めた場合、これを持たないと最初の保存で全入力が消える。
    * </p>
    */
-  type Pending = Readonly<{ target: Target | null; draft: AlbumDraft }>;
+  type Pending = Readonly<{
+    target: Target | null;
+    draft: AlbumDraft;
+    /** 確定済みのカバー画像の配信先。鍵は `draft` が持ち、こちらは見せる先だけを持つ */
+    coverImageUrl: string | null;
+  }>;
 
   /**
    * 画面の状態。
@@ -193,7 +218,24 @@
         /** 更新する対象と、読み込んだ時点の世代。null は新規作成 */
         readonly target: Target | null;
         readonly draft: AlbumDraft;
+        /** 確定済みのカバー画像の配信先。持たないときは null */
+        readonly coverImageUrl: string | null;
+        /**
+         * 選ぶ入力を作り直した回数。
+         *
+         * <p>
+         * 同じファイルをもう一度選んでも、入力の値が変わらない限りブラウザは選択を知らせない。**断られた
+         * 画像を直してから選び直す**経路と、**外した画像を選び直す**経路は、入力を作り直さないと塞がる。
+         * </p>
+         *
+         * <p>
+         * 受け入れられたときは作り直さない。選んだファイルの名が入力に残っているほうが、いま出ている
+         * 画像がどれなのかを読める。
+         * </p>
+         */
+        readonly attempts: number;
         readonly submission: Submission;
+        readonly upload: Upload;
       };
 
   let view = $state<View>({ kind: 'loading' });
@@ -205,12 +247,15 @@
   const failureTextOf = (failure: ApiFailure): string =>
     failure.kind === 'unauthorized' ? '鍵が受け付けられませんでした。' : failure.message;
 
-  const editing = (apiKey: string, target: Target | null, draft: AlbumDraft): View => ({
+  const editing = (apiKey: string, pending: Pending): View => ({
     kind: 'editing',
     apiKey,
-    target,
-    draft,
+    target: pending.target,
+    draft: pending.draft,
+    coverImageUrl: pending.coverImageUrl,
+    attempts: 0,
     submission: { kind: 'idle' },
+    upload: { kind: 'idle' },
   });
 
   const lock = (message: string | null, pending: Pending | null): void => {
@@ -219,7 +264,11 @@
 
   const loaded = (apiKey: string, albumId: string, result: ApiResult<AdminAlbumDetail>): View =>
     result.kind === 'ok'
-      ? editing(apiKey, { albumId, revision: result.value.revision }, draftOf(result.value))
+      ? editing(apiKey, {
+          target: { albumId, revision: result.value.revision },
+          draft: draftOf(result.value),
+          coverImageUrl: result.value.coverImageUrl,
+        })
       : result.kind === 'unauthorized'
         ? { kind: 'locked', message: failureTextOf(result), pending: null }
         : { kind: 'unavailable', apiKey, message: failureTextOf(result) };
@@ -234,7 +283,7 @@
 
   /** 新規作成は読み込むものが無い。鍵だけを確かめて入力へ入る */
   const start = (apiKey: string): void => {
-    view = editing(apiKey, null, EMPTY_DRAFT);
+    view = editing(apiKey, { target: null, draft: EMPTY_DRAFT, coverImageUrl: null });
   };
 
   const unspecify = (): void => {
@@ -279,7 +328,7 @@
     return pending === null
       ? open(apiKey)
       : settled(() => {
-          view = editing(apiKey, pending.target, pending.draft);
+          view = editing(apiKey, pending);
         });
   };
 
@@ -322,6 +371,109 @@
               current.draft,
               section.fields.map((field) => field.path),
             ),
+          }
+        : current;
+  };
+
+  /**
+   * カバー画像を差し替える。
+   *
+   * <p>
+   * 選ばれた時点で保管先へ送り、確定できた鍵だけを入力（`coverImageKey`）へ入れる。**送っただけの実体は
+   * 配信されない**ため、確定を待たずに鍵を入れると、保存はできるのに画像の出ない作品ができる。
+   * </p>
+   *
+   * <p>
+   * 作品への反映はこのあとの保存が行う。ここで作品を保存してしまうと、書きかけの他の欄まで一緒に
+   * 保存されることになる（更新は全項目置換のため）。
+   * </p>
+   */
+  const chooseCover = async (apiKey: string, file: File): Promise<void> => {
+    withUpload({ kind: 'sending' });
+    applyUploadOutcome(apiKey, await uploadAsset(apiKey, file));
+  };
+
+  /** 差し替えの状態だけを差し替えた画面 */
+  const withUploadOf = (upload: Upload): View => {
+    const current = view;
+    return current.kind === 'editing' ? { ...current, upload } : current;
+  };
+
+  const withUpload = (upload: Upload): void => {
+    view = withUploadOf(upload);
+  };
+
+  /** 確定できた画像を入力へ入れる。鍵は送る値、URLは画面に出す値で、出所は同じ1つの応答 */
+  const withCover = (asset: ConfirmedAsset): View => {
+    const current = view;
+    return current.kind === 'editing'
+      ? {
+          ...current,
+          draft: withValue(current.draft, 'coverImageKey', asset.assetKey),
+          coverImageUrl: asset.url,
+          upload: { kind: 'idle' },
+        }
+      : current;
+  };
+
+  /**
+   * 断られた理由。
+   *
+   * 位置つきの検証エラー（形式・サイズ）があればその文言をそのまま出す。無い失敗（通信断・保管先の
+   * 拒否）は失敗そのものの文言を出す。どちらも直す先は画像の選び直しにある。
+   */
+  const uploadMessagesOf = (failure: ApiFailure): readonly string[] => {
+    const errors = failure.problem?.errors ?? [];
+
+    return errors.length > 0 ? errors.map((error) => error.message) : [failureTextOf(failure)];
+  };
+
+  /** 断られた状態へ移る。選ぶ入力は作り直す（同じ画像を選び直す経路を残すため） */
+  const rejectedUpload = (messages: readonly string[]): View => {
+    const current = view;
+    return current.kind === 'editing'
+      ? { ...current, upload: { kind: 'rejected', messages }, attempts: current.attempts + 1 }
+      : current;
+  };
+
+  const viewAfterUploadFailure = (failure: ApiFailure): View =>
+    failure.kind === 'unauthorized'
+      ? { kind: 'locked', message: failureTextOf(failure), pending: pendingOf(view) }
+      : rejectedUpload(uploadMessagesOf(failure));
+
+  const applyUploadOutcome = (apiKey: string, result: ApiResult<ConfirmedAsset>): void => {
+    KEY_STORE[result.kind](apiKey);
+    view = result.kind === 'ok' ? withCover(result.value) : viewAfterUploadFailure(result);
+  };
+
+  /** 選ばれた画像を受け取る。選ばれていない（取り消された）ときは、いまの画像をそのままにする */
+  const pickCover = (files: FileList | null): void => {
+    const current = view;
+    const file = files?.[0];
+
+    void (current.kind === 'editing' && file !== undefined
+      ? chooseCover(current.apiKey, file)
+      : Promise.resolve());
+  };
+
+  /**
+   * カバー画像を外す。
+   *
+   * 保存すると、作品は画像を持たない状態になる。保管先の実体はそのまま残る——アセットを消す経路を
+   * 管理APIが持たないため（#122 で扱う範囲の外）。
+   *
+   * 選ぶ入力も作り直す。外したのと同じ画像を選び直す経路を残すため。
+   */
+  const clearCover = (): void => {
+    const current = view;
+    view =
+      current.kind === 'editing'
+        ? {
+            ...current,
+            draft: withValue(current.draft, 'coverImageKey', ''),
+            coverImageUrl: null,
+            upload: { kind: 'idle' },
+            attempts: current.attempts + 1,
           }
         : current;
   };
@@ -377,7 +529,13 @@
 
   /** いま抱えている入力。編集中でなければ持たない */
   const pendingOf = (current: View): Pending | null =>
-    current.kind === 'editing' ? { target: current.target, draft: current.draft } : null;
+    current.kind === 'editing'
+      ? {
+          target: current.target,
+          draft: current.draft,
+          coverImageUrl: current.coverImageUrl,
+        }
+      : null;
 
   const viewAfterFailure = (failure: ApiFailure): View =>
     failure.kind === 'unauthorized'
@@ -408,7 +566,9 @@
     event.preventDefault();
 
     const current = view;
-    void (current.kind === 'editing' && current.submission.kind !== 'saving'
+    void (current.kind === 'editing' &&
+    current.submission.kind !== 'saving' &&
+    current.upload.kind !== 'sending'
       ? submitWith(current.apiKey, current.target, current.draft)
       : Promise.resolve());
   };
@@ -456,6 +616,22 @@
   const refusedMessage = $derived(submission.kind === 'refused' ? submission.message : null);
   const saving = $derived(submission.kind === 'saving');
   const conflicted = $derived(submission.kind === 'conflicted');
+
+  const coverImageUrl = $derived(view.kind === 'editing' ? view.coverImageUrl : null);
+  const coverAttempts = $derived(view.kind === 'editing' ? view.attempts : 0);
+  const upload = $derived<Upload>(view.kind === 'editing' ? view.upload : { kind: 'idle' });
+  const sendingCover = $derived(upload.kind === 'sending');
+  const coverMessages = $derived<readonly string[]>(
+    upload.kind === 'rejected' ? upload.messages : [],
+  );
+
+  /**
+   * いま操作を受け付けない状態。
+   *
+   * 画像を送っている最中の保存も塞ぐ。送り終える前に保存すると、差し替え前の鍵のまま作品が保存され、
+   * 画面には新しい画像が出ているのに保存されたのは古い画像、という食い違いが残る。
+   */
+  const busy = $derived([saving, sendingCover].some(Boolean));
 
   const messagesOf = (path: AlbumFieldPath): readonly string[] => errors.byField.get(path) ?? [];
 
@@ -576,6 +752,70 @@
           {/each}
         </section>
       {/each}
+
+      <!--
+        画像は選んだ時点で送られ、確定できたものだけがここに出る。作品へ反映するのは保存で、
+        送るのと反映するのを分けているため、状態の出し方も保存とは別に持つ。
+      -->
+      <section class="space-y-4" data-field="coverImageKey">
+        <div class="flex items-center justify-between gap-4">
+          <h2 class="text-base font-medium">カバー画像</h2>
+          {#if coverImageUrl !== null}
+            <!-- 送っている最中は外せない。外した後に送り終えた画像が入ると、外した操作が黙って覆る -->
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={sendingCover}
+              onclick={clearCover}
+            >
+              カバー画像を外す
+            </Button>
+          {/if}
+        </div>
+
+        {#if coverImageUrl === null}
+          <p class="text-muted-foreground text-sm">カバー画像はありません。</p>
+        {:else}
+          <img
+            class="border-input h-40 w-40 rounded-md border object-cover"
+            src={coverImageUrl}
+            alt="いま選ばれているカバー画像"
+            data-cover-image
+          />
+        {/if}
+
+        <div class="space-y-1">
+          <label class="text-sm font-medium" for="album-cover-image">画像を選ぶ</label>
+          <!--
+            受け入れる形式を並べない。`image/*` はファイルを選ぶ窓の絞り込みで、どの画像形式を
+            受け入れるかの判定はバックエンドが持つ。ここへ写すと、増減のたびに2箇所を変えることになる。
+          -->
+          {#key coverAttempts}
+            <input
+              id="album-cover-image"
+              class="border-input bg-background w-full rounded-md border px-3 py-2"
+              type="file"
+              accept="image/*"
+              disabled={sendingCover}
+              onchange={(event) => {
+                pickCover(event.currentTarget.files);
+              }}
+            />
+          {/key}
+          <p class="text-muted-foreground text-sm">
+            選ぶとすぐに送ります。作品へ反映するには、そのあと保存してください。
+          </p>
+        </div>
+
+        {#if sendingCover}
+          <p class="text-muted-foreground text-sm">画像を送っています…</p>
+        {/if}
+
+        {#each coverMessages as message (message)}
+          <p class="text-destructive text-sm" role="alert">{message}</p>
+        {/each}
+      </section>
     </fieldset>
 
     {#if errors.unassigned.length > 0}
@@ -605,7 +845,7 @@
     {/if}
 
     <div class="flex items-center gap-4">
-      <Button type="submit" disabled={saving}>
+      <Button type="submit" disabled={busy}>
         {saving ? '保存しています…' : SAVE_LABELS[mode]}
       </Button>
       <a class="text-sm underline underline-offset-4" href={ALBUM_LIST_PATH}>やめる</a>

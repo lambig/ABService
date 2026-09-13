@@ -186,8 +186,8 @@ const amountOf = (value: string): number | undefined => {
  * </p>
  *
  * <p>
- * `coverImageKey` は欄を持たないが、読み込んだ値をそのまま送り返す。更新は全項目置換のため、
- * 送らないとカバー画像を消す指定になる（差し替えの操作は #122 の別スライス）。
+ * `coverImageKey` は文字を打ち込む欄を持たず、画像を選んだ結果として入る。触らなければ読み込んだ値が
+ * そのまま送り返される。更新は全項目置換のため、送らないことがカバー画像を外す指定になる。
  * </p>
  */
 export const albumFieldsOf = (draft: AlbumDraft): AlbumFields => ({
