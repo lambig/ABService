@@ -34,6 +34,26 @@ export const acceptedCoverImage = {
 } as const;
 
 /**
+ * 組み立ての前に管理API経由で入れるときの形。
+ *
+ * <p>
+ * 画面から選ぶときはファイルとして渡すため名前が要り、シードは実体と申告だけでよい。**実体は
+ * {@link acceptedCoverImage} と同じものを使う**——別に持つと、片方を差し替えたときに画面から入れた
+ * 画像とシードした画像が食い違い、証跡の見た目だけが理由なく変わる。
+ * </p>
+ *
+ * <p>
+ * 単色のため、どの大きさで描かれても見た目は変わらない。一覧のカード（実寸）と作品の詳細（拡大）で
+ * 同じ絵が出る。
+ * </p>
+ */
+export const coverImageAsset = {
+  contentType: acceptedCoverImage.mimeType,
+  body: new Blob([acceptedCoverImage.buffer], { type: acceptedCoverImage.mimeType }),
+  width: acceptedCoverImage.width,
+} as const;
+
+/**
  * 形式そのものが受け入れられない画像。
  *
  * <p>
