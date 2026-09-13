@@ -28,14 +28,6 @@ const WIDTH = 1200;
 const HEIGHT = 630;
 
 /**
- * 収めたときの余白を塗る色。
- *
- * 印の地と同じ値にする（`favicon.svg` の `--background` 相当）。違う色にすると、正方形の印の周りに
- * 額縁が出る。
- */
-const GROUND = '#f8f4ef';
-
-/**
  * 印そのものの大きさ。
  *
  * 面いっぱいにすると印だけの絵になり、リンクプレビューの中で圧が強い。地の余白を広く取って、印を
@@ -44,19 +36,44 @@ const GROUND = '#f8f4ef';
 const MARK_SIZE = 360;
 
 /**
- * 印を広い面の中央へ置く。
+ * SVG を読むときの解像度。
  *
- * `density` は SVG を読むときの解像度。既定（72dpi）のままだと 32 単位の印が 32px として読まれ、
- * 拡大したときに粗くなる。
+ * 既定（72dpi）のままだと 32 単位の印が 32px として読まれ、拡大したときに粗くなる。
  */
-const rendered = await sharp(MARK, { density: 1440 })
-  .resize({ width: MARK_SIZE, height: MARK_SIZE })
+const DENSITY = 1440;
+
+const markOf = () =>
+  sharp(MARK, { density: DENSITY }).resize({ width: MARK_SIZE, height: MARK_SIZE });
+
+/**
+ * 余白を塗る色を、印そのものから取る。
+ *
+ * <p>
+ * **ここで色を知らないことが、差し替えが1ファイルで済む条件である。** 同じ値を焼く側にも持つと、印を
+ * 差し替えて地の色が変わったとき、印の外側だけが旧い色のまま残って額縁になる。落ちないので、リンク
+ * プレビューを誰かが見るまで分からない。
+ * </p>
+ *
+ * <p>
+ * 左上の画素を見る。印が地を塗る限り、そこは地である（塗らない印なら透過が返り、余白も透過になる
+ * ——その場合の地は印の持ち主が決めたものになる）。
+ * </p>
+ */
+const groundOf = async () => {
+  const { data } = await markOf().ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const [red, green, blue, alpha] = data;
+
+  return { r: red, g: green, b: blue, alpha: alpha / 255 };
+};
+
+/** 印を広い面の中央へ置く */
+const rendered = await markOf()
   .extend({
     top: (HEIGHT - MARK_SIZE) / 2,
     bottom: (HEIGHT - MARK_SIZE) / 2,
     left: (WIDTH - MARK_SIZE) / 2,
     right: (WIDTH - MARK_SIZE) / 2,
-    background: GROUND,
+    background: await groundOf(),
   })
   .png()
   .toBuffer();
