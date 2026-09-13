@@ -32,8 +32,20 @@ export interface AlbumSeed {
   };
   /** 原作の出典の記述（#365）。省略すると記述を持たない作品になる */
   readonly originalWorkNote?: string;
+  /** カバー画像。省略すると画像を持たない作品になる */
+  readonly coverImage?: AssetSeed;
   readonly tracks?: readonly TrackSeed[];
   readonly externalAudioUrls?: readonly string[];
+}
+
+/**
+ * 送るアセットの実体。
+ *
+ * 形式はバックエンドが先頭バイト列で判定するため、申告（`contentType`）と中身が一致している必要がある。
+ */
+export interface AssetSeed {
+  readonly contentType: string;
+  readonly body: Blob;
 }
 
 /** 作るトラックの指定 */
@@ -96,12 +108,56 @@ const albumIdOf = (created: unknown): string => {
       })();
 };
 
+/** 払い出しの応答のうち、実体を送るために要る項目 */
+interface AssetUploadUrl {
+  readonly assetKey: string;
+  readonly uploadUrl: string;
+}
+
+/**
+ * アセットを保管先へ送り、確定して配信できる鍵にする。
+ *
+ * <p>
+ * 3段（払い出し・署名付きURLへの直接送信・確定）をそのまま通す。実体が管理APIを経由しないのは契約
+ * （#136）であり、シードもその経路を迂回しない——迂回すると、画面が通る経路とは別の入れ方だけを
+ * 検証したことになる。
+ * </p>
+ *
+ * @param asset
+ *            送る実体
+ * @returns 確定したアセットキー。確定できなかった実体は配信されないため、鍵は返らない
+ */
+export const seedAsset = async (asset: AssetSeed): Promise<string> => {
+  const issued = (await postAdmin('/api/v1/assets/upload-url', {
+    contentType: asset.contentType,
+  })) as AssetUploadUrl;
+
+  const stored = await fetch(issued.uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': asset.contentType },
+    body: asset.body,
+  });
+
+  await (stored.ok
+    ? postAdmin(`/api/v1/assets/${issued.assetKey}/confirm`, {})
+    : Promise.reject(
+        new Error(
+          `アセットを保管先へ送れませんでした（HTTP ${String(stored.status)}）: ${issued.assetKey}`,
+        ),
+      ));
+
+  return issued.assetKey;
+};
+
 /**
  * 作品を作り、トラックと外部音源を付ける（下書きのまま）。
  *
  * @returns 作った作品のドメインID
  */
 export const seedDraftAlbum = async (album: AlbumSeed): Promise<string> => {
+  const coverImageKey =
+    album.coverImage === undefined ? undefined : await seedAsset(album.coverImage);
+
   const created = await postAdmin('/api/v1/albums/with-tracks', {
     title: album.title,
     releaseDate: album.releaseDate,
@@ -114,6 +170,7 @@ export const seedDraftAlbum = async (album: AlbumSeed): Promise<string> => {
     event: album.event,
     basePrice: album.basePrice,
     originalWorkNote: album.originalWorkNote,
+    coverImageKey,
     tracks: (album.tracks ?? []).map((track) => ({
       trackNo: track.trackNo,
       title: track.title,

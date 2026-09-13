@@ -1,4 +1,5 @@
 import { findArticleByTitle } from '../support/admin-api.ts';
+import { attributeOf } from '../support/attributes.ts';
 import {
   albumArticle,
   draftArticle,
@@ -8,6 +9,7 @@ import {
   quietArticle,
   showcase,
 } from '../support/build-fixtures.ts';
+import { coverImageAsset } from '../support/cover-image.ts';
 import { capture, captureFocused, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 
@@ -109,6 +111,29 @@ test.describe('記事の一覧', () => {
 
     await expect(page.getByText(draftArticle.title)).toHaveCount(0);
   });
+
+  test('記事のカードの画像は、参照先の作品がカバー画像を持つときだけ出る', async ({ page }) => {
+    await page.goto('/articles');
+
+    /* 画像の出所は記事ではなく参照先の作品。カバー画像を持つのは `quiet` だけ（#377） */
+    const withCover = page.getByRole('link').filter({ hasText: quietArticle.title });
+    await expect(withCover.locator('img')).toHaveJSProperty('naturalWidth', coverImageAsset.width);
+
+    /*
+     * 作品を参照していても、参照先が画像を持たなければ出ない。**画像の有無を決めるのは記事が参照を
+     * 持つかどうかではなく、参照先の作品が画像を持つかどうか**である。参照の有無だけで対比すると、
+     * 「作品紹介の記事なら何か出す」という実装でも通ってしまう。
+     */
+    const referencingWithoutCover = page.getByRole('link').filter({ hasText: albumArticle.title });
+    await expect(referencingWithoutCover.locator('img')).toHaveCount(0);
+
+    /* 作品を参照しない記事のカードにも、画像そのものを置かない */
+    const withoutReference = page.getByRole('link').filter({ hasText: plainArticle.title });
+    await expect(withoutReference.locator('img')).toHaveCount(0);
+
+    /* 3枚が同じ絵に並ぶ。出る側とその2通りの出ない側を、対比として1枚に収める */
+    await captureFocused(page, withCover, '08a-articles-list-cover');
+  });
 });
 
 test.describe('記事の詳細', () => {
@@ -165,6 +190,28 @@ test.describe('記事の詳細', () => {
 
     const playerUrl = await page.locator('meta[name="twitter:player"]').getAttribute('content');
     expect(playerUrl).toContain(encodeURIComponent(showcase.audioUrl));
+  });
+
+  test('音源を持たない作品を紹介する記事のリンクプレビューは、その作品のカバー画像になる', async ({
+    page,
+  }) => {
+    await page.goto(await articlePathOf(quietArticle.title));
+
+    /* 参照先が音源を持たないため、プレイヤーカードではなくカバー画像のカードになる（#197） */
+    await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+      'content',
+      'summary_large_image',
+    );
+
+    const reference = page.getByRole('link').filter({ hasText: quiet.title });
+    const cover = reference.locator('img');
+    await expect(cover).toHaveJSProperty('naturalWidth', coverImageAsset.width);
+
+    /* 指しているのは、参照の区画に出ているのと同じ画像である */
+    const previewImage = await attributeOf(page.locator('meta[property="og:image"]'), 'content');
+    expect(previewImage).toContain(await attributeOf(cover, 'src'));
+
+    await captureFocused(page, reference, '10b-article-album-reference-cover');
   });
 
   test('作品を参照しない記事には、作品への導線もリンクプレビューも出ない', async ({ page }) => {

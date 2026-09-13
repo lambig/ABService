@@ -1,3 +1,4 @@
+import { coverImageAsset } from './cover-image.ts';
 import {
   deleteArticle,
   findAlbumByCatalogNumber,
@@ -168,11 +169,17 @@ export const showcaseTrackNames: readonly string[] = Object.values(showcaseTrack
   .map((track) => track.name);
 
 /**
- * 外部音源を持たない作品。
+ * 外部音源を持たず、カバー画像を持つ作品。
  *
  * <p>
  * カバー画像とプレイヤーの出し分け（#197）は、音源が0件の側も見なければ検証にならない。ISDN と
  * 初出イベントの5項目も、この作品で確かめる。
+ * </p>
+ *
+ * <p>
+ * **カバー画像を持つのはこの作品だけ**（#377）。音源を持たないため、画像は作品の本体にもリンク
+ * プレビュー（`og:image`）にも出る——音源を持つ側はプレイヤーカードが優先され、どちらも見えない。
+ * 画像を持たない側は `showcase` が受け持ち、一覧のカードで画像の区画が出ないことを同じ実行で見る。
  * </p>
  *
  * <p>
@@ -408,6 +415,7 @@ const quietSeed: AlbumSeed = {
   description: quiet.description,
   descriptionFormat: 'PLAIN_TEXT',
   event: quiet.event,
+  coverImage: coverImageAsset,
   tracks: [{ trackNo: 1, title: quiet.trackTitle }],
 };
 
