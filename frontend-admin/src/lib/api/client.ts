@@ -125,6 +125,47 @@ export const updateAlbum = (
   );
 
 /**
+ * アップロード先の払い出し。
+ *
+ * <p>
+ * 実体は管理APIを経由せず、ここで返る署名付きURLへ直接送る。`maxBytes` は受け入れる上限だが、画面は
+ * これで送る前に断らない——上限もサイズの測り方もバックエンドの検査が持ち、写すと2箇所へ散る。
+ * </p>
+ */
+export type AssetUploadUrl = Schemas['AssetUploadUrlResponse'];
+
+/** 確定したアセット。`url` は公開配信の経路で、作品の `coverImageUrl` と同じ形 */
+export type ConfirmedAsset = Schemas['ConfirmAssetUploadResponse'];
+
+/**
+ * アップロード先を払い出す。
+ *
+ * <p>
+ * 受け入れる形式の判定はバックエンドが持つ。対応していない `contentType` はここで断られ、鍵も
+ * 払い出されない。
+ * </p>
+ */
+export const issueAssetUploadUrl = (
+  apiKey: string,
+  contentType: string,
+): Promise<ApiResult<AssetUploadUrl>> =>
+  request<AssetUploadUrl>('POST', '/api/v1/assets/upload-url', apiKey, { contentType });
+
+/**
+ * 送り終えた実体を確定する。
+ *
+ * <p>
+ * 検査（サイズ・形式）はここで走り、通らなかった実体は保管先から破棄される。確定していない鍵は
+ * 配信されないため、**確定できた鍵だけを作品へ結び付ける**。
+ * </p>
+ */
+export const confirmAsset = (
+  apiKey: string,
+  assetKey: string,
+): Promise<ApiResult<ConfirmedAsset>> =>
+  request<ConfirmedAsset>('POST', `/api/v1/assets/${encodeURIComponent(assetKey)}/confirm`, apiKey);
+
+/**
  * 応答の枝から、その操作の前提だけを取り出す。
  *
  * <p>

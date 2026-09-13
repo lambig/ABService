@@ -31,6 +31,25 @@ export const stack = {
 
   /** 管理APIの鍵。ローカルと CI は application.properties の開発既定と同じ値を使う */
   adminApiKey: process.env['ADMIN_API_KEY'] ?? 'dev-admin-api-key',
+
+  /**
+   * アセットの配信元。
+   *
+   * <p>
+   * 本番は CloudFront の `/assets/*` ビヘイビアが S3 を読む（`infra/README.md`）。ローカルと CI には
+   * CloudFront が無いため、配信（`scripts/serve-app.mjs`）が同じ経路を保管先へ取り次ぐ。取り次がないと、
+   * カバー画像は**組み上がった側の不足ではなく配信の不足**で出ず、証跡に写らない。
+   * </p>
+   */
+  assetOrigin: process.env['E2E_ASSET_ORIGIN'] ?? 'http://127.0.0.1:9000/abservice-assets',
+
+  /**
+   * アセットの配信パス。
+   *
+   * バックエンドの `abservice.assets.public-base-path` と、両フロントの `PUBLIC_ASSET_BASE_PATH` の
+   * 既定に揃える。ずれると、画面が指す経路と配信が取り次ぐ経路が食い違う。
+   */
+  assetBasePath: '/assets',
 } as const;
 
 /** 配信するアプリ。組み上がった成果物の置き場と、listen する起点を対で持つ */

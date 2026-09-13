@@ -4,6 +4,11 @@ import type { Locator, Page } from '@playwright/test';
 
 import { renameAlbumOutsideTheScreen } from '../support/admin-api.ts';
 import { stack } from '../support/config.ts';
+import {
+  acceptedCoverImage,
+  unconfirmableCoverImage,
+  unsupportedCoverImage,
+} from '../support/cover-image.ts';
 import { capture, captureFocused, captureWhole, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 import {
@@ -48,6 +53,11 @@ const ORIGINAL_WORK_NOTE_LABEL = '原作の出典（例:「○○」より各曲
 /** 頒布のまとまりを外す操作 */
 const CLEAR_BASE_PRICE_LABEL = '基準額を解除';
 
+/** カバー画像のまとまり */
+const COVER_CHOOSE_LABEL = '画像を選ぶ';
+const CLEAR_COVER_LABEL = 'カバー画像を外す';
+const COVER_ABSENT_TEXT = 'カバー画像はありません。';
+
 /** 保存の操作 */
 const SAVE_LABEL = '保存する';
 const CREATE_LABEL = '作成する';
@@ -90,6 +100,41 @@ const rowOf = (page: Page, title: string): Locator =>
  * 出ていることを見るため、ラベルではなくまとまりを経由する。
  */
 const fieldOf = (page: Page, path: string): Locator => page.locator(`[data-field="${path}"]`);
+
+/** カバー画像のまとまりと、その中に出ている画像 */
+const coverSection = (page: Page): Locator => fieldOf(page, 'coverImageKey');
+const coverImage = (page: Page): Locator => coverSection(page).locator('[data-cover-image]');
+
+/**
+ * カバー画像が本当に届いて描かれていること。
+ *
+ * <p>
+ * `src` が入っただけの状態と区別する。配信が `/assets/*` を取り次いでいない場合も、実体が確定して
+ * いない場合も、画面には要素がある。読み込めたかどうかは実寸でしか分からない。
+ * </p>
+ */
+const expectCoverDrawn = async (page: Page): Promise<void> => {
+  await expect(coverImage(page)).toHaveJSProperty('naturalWidth', acceptedCoverImage.width);
+};
+
+/** 画像を選び、確定して画面に出るまで待つ */
+const chooseCover = async (page: Page): Promise<void> => {
+  await page.getByLabel(COVER_CHOOSE_LABEL).setInputFiles(acceptedCoverImage);
+  await expect(coverImage(page)).toBeVisible();
+  await expectCoverDrawn(page);
+};
+
+/**
+ * いま出ているカバー画像の配信先。
+ *
+ * 差し替わっていないことを見るために控える。鍵そのものは画面に出ないが、配信先は確定の応答が返した
+ * 鍵から組まれるため、これが変わらないことは鍵が変わっていないことを表す。
+ */
+const coverSourceOf = async (page: Page): Promise<string> => {
+  const source = await coverImage(page).getAttribute('src');
+
+  return source === null ? Promise.reject(new Error('カバー画像が src を持っていません')) : source;
+};
 
 /** 一覧から対象の編集を開く */
 const openEdit = async (page: Page, title: string): Promise<void> => {
@@ -204,6 +249,107 @@ test.describe('管理画面の作品の編集', () => {
       page.getByLabel(ORIGINAL_WORK_NOTE_LABEL),
       '39d-admin-edit-original-work-note-saved',
     );
+  });
+
+  test('カバー画像を選ぶと確定され、保存すると読み直した編集に残っている', async ({ page }) => {
+    const title = await seedScratchAlbum('カバー画像');
+
+    await openAdmin(page);
+    await openEdit(page, title);
+
+    /* 作品は画像を持たない状態で作られる。無い側から入れて、往復することを見る */
+    await expect(coverSection(page).getByText(COVER_ABSENT_TEXT)).toBeVisible();
+
+    await chooseCover(page);
+    await captureFocused(page, coverSection(page), '39e-admin-edit-cover-chosen');
+
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+    await expect(page.getByRole('table')).toBeVisible();
+
+    /*
+     * 確定は選んだ時点で済んでおり、作品へ結び付くのはこの保存。読み直して初めて、**送れたこと**と
+     * **保存されたこと**の両方が揃ったと言える。
+     */
+    await openEdit(page, title);
+    await expect(coverImage(page)).toBeVisible();
+    await expectCoverDrawn(page);
+    await captureFocused(page, coverSection(page), '39f-admin-edit-cover-saved');
+  });
+
+  test('対応していない形式を選ぶと断られ、カバー画像は変わらない', async ({ page }) => {
+    const title = await seedScratchAlbum('カバー画像の拒否');
+
+    await openAdmin(page);
+    await openEdit(page, title);
+
+    await page.getByLabel(COVER_CHOOSE_LABEL).setInputFiles(unsupportedCoverImage);
+
+    /* 断られた理由はバックエンドの文言をそのまま出す。画面は受け入れる形式の一覧を持たない */
+    await expect(coverSection(page).getByRole('alert')).toBeVisible();
+    await expect(coverSection(page).getByText(COVER_ABSENT_TEXT)).toBeVisible();
+    await captureFocused(page, coverSection(page), '39g-admin-edit-cover-rejected');
+
+    /* 断られた後も選び直せる。直す先は画像の選び直しにあり、入力を作り直してそこへ戻す */
+    await chooseCover(page);
+    await expect(coverSection(page).getByRole('alert')).toHaveCount(0);
+  });
+
+  test('送れても確定に通らない実体は、いま出ているカバー画像を置き換えない', async ({ page }) => {
+    const title = await seedScratchAlbum('カバー画像の確定拒否');
+
+    await openAdmin(page);
+    await openEdit(page, title);
+    await chooseCover(page);
+
+    const confirmed = await coverSourceOf(page);
+
+    /*
+     * 申告は PNG で中身が PNG でない実体。払い出しも保管先への送信も通り、確定の検査で初めて落ちる。
+     * 3段のうち最後だけが拒む唯一の経路で、「送れた実体でも確定に通らなければ鍵にしない」はここでしか
+     * 踏めない（形式そのものが弾かれる場合は、送信も確定も起きない）。
+     */
+    await page.getByLabel(COVER_CHOOSE_LABEL).setInputFiles(unconfirmableCoverImage);
+
+    await expect(coverSection(page).getByRole('alert')).toBeVisible();
+    await expect(coverImage(page)).toHaveAttribute('src', confirmed);
+    await expectCoverDrawn(page);
+    await captureFocused(page, coverSection(page), '39j-admin-edit-cover-unconfirmable');
+
+    /*
+     * 保存して読み直す。断られた実体が入力の鍵に触れていないことは、画面に出ている配信先だけでは
+     * 言い切れない——**保存されたのがどちらの鍵か**は、保存を通してからでないと分からない。
+     */
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+    await expect(page.getByRole('table')).toBeVisible();
+
+    await openEdit(page, title);
+    await expect(coverImage(page)).toHaveAttribute('src', confirmed);
+    await expectCoverDrawn(page);
+  });
+
+  test('カバー画像を外して保存すると、読み直した編集で持たない', async ({ page }) => {
+    const title = await seedScratchAlbum('カバー画像の解除');
+
+    await openAdmin(page);
+    await openEdit(page, title);
+    await chooseCover(page);
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+    await expect(page.getByRole('table')).toBeVisible();
+
+    await openEdit(page, title);
+    await clickWithEvidence(
+      page,
+      page.getByRole('button', { name: CLEAR_COVER_LABEL }),
+      '39h-admin-edit-cover-clear',
+    );
+
+    await expect(coverImage(page)).toHaveCount(0);
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+    await expect(page.getByRole('table')).toBeVisible();
+
+    await openEdit(page, title);
+    await expect(coverSection(page).getByText(COVER_ABSENT_TEXT)).toBeVisible();
+    await captureFocused(page, coverSection(page), '39i-admin-edit-cover-cleared');
   });
 
   test('額の欄だけを空にした保存は、額が必須として断られる', async ({ page }) => {

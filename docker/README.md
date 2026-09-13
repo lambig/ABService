@@ -119,6 +119,11 @@ docker-compose exec -T postgres psql -U abservice -d abservice -c "CREATE DATABA
 - **ユーザー**: minioadmin / minioadmin123
 - **バケット**: `abservice-assets`（アセット保管先）。`minio-init` サービスが起動時に作成する一過性コンテナで、
   MinIO が healthy になってから `mc mb` を実行して終了する
+- **配信対象の読み取り**: `minio-init` は配信対象の接頭辞（`assets/`）だけを鍵なしで読める状態にする。
+  本番は CloudFront が OAC で S3 を読み、配信するのは同じ接頭辞だけで、受け入れ前（`pending/`）は
+  配信パスの外にある（`infra/README.md`）。ローカルには CloudFront が無いため、同じ「配信対象だけが届く」
+  形をバケットの側で作る。画面が指す `/assets/*` を保管先へ取り次ぐのは、開発サーバでは Astro の
+  設定（両フロントの `astro.config.mjs`）、E2E では静的配信（`e2e/scripts/serve-app.mjs`）
 
 アセットの統合テストは実際に MinIO へ署名付きURLで PUT するため、テスト実行前に以下で起動する。
 

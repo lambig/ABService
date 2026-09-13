@@ -50,5 +50,20 @@ export default defineConfig({
 
   vite: {
     plugins: [tailwindcss()],
+
+    /*
+     * 開発サーバでもアセットを配る。本番はこの経路を CloudFront の別のビヘイビアが受けて S3 を読むため、
+     * 組み上がった成果物の中にこの経路のファイルは無い（`infra/README.md`）。取り次がないと、カバー画像は
+     * 開発中だけ出ない。取り次ぎ先はローカルの MinIO で、配信対象の接頭辞だけが鍵なしで読める
+     * （`docker-compose.yml` の minio-init）。E2E の配信は同じことを `e2e/scripts/serve-app.mjs` が行う。
+     */
+    server: {
+      proxy: {
+        '/assets': {
+          target: 'http://127.0.0.1:9000/abservice-assets',
+          changeOrigin: true,
+        },
+      },
+    },
   },
 });
