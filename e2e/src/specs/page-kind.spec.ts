@@ -60,18 +60,23 @@ const ruleOf = (mark: Locator) => mark.locator('xpath=..');
 const textColumnOf = (page: Page) => pageBodyOf(page).locator(':scope > div').last();
 
 /**
- * 印の組み方。文言が横倒しで、罫が縦に立っているかを見る。
+ * 印の組み方。文言が横倒しの斜体で、罫が縦に立っているかを見る。
  *
  * 罫は文言の下線として引くため、横倒しにすると物理的には左右のどちらかに来る。上下の罫が無いことまで
  * 見ないと、横線を足しただけの形が通る。
+ *
+ * 斜体は書体が実体を持たず、処理系が傾けて描く。指定が落ちても字が消えるわけではないため、指定そのもの
+ * を見る。
  */
 interface MarkLayout {
   readonly writingMode: string;
+  readonly fontStyle: string;
   readonly rules: readonly string[];
 }
 
 const layoutOf = async (mark: Locator): Promise<MarkLayout> => ({
   writingMode: await mark.evaluate((element) => getComputedStyle(element).writingMode),
+  fontStyle: await mark.evaluate((element) => getComputedStyle(element).fontStyle),
   rules: await ruleOf(mark).evaluate((element) => {
     const style = getComputedStyle(element);
     return [
@@ -123,6 +128,7 @@ test.describe('作品のページと記事のページの見分け', () => {
 
     expect(await layoutOf(markOf(page, WORK_MARK))).toEqual({
       writingMode: 'vertical-rl',
+      fontStyle: 'italic',
       rules: ['0px', '2px', '0px', '0px'],
     });
   });

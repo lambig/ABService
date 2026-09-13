@@ -35,6 +35,13 @@
  * </p>
  *
  * <p>
+ * 文言は斜体に倒し、罫に触れさせる。書体（Klee One）は斜体の実体を持たないため、描かれるのは処理系が
+ * 正立の字形を傾けた合成の斜体である。横倒しにしてあるので、傾きは読む向き——画面では上——へ出る。
+ * 罫に触れるところまで詰めると、罫が下線ではなく文字の一部として読める。組版上の印として読ませる形を
+ * 取り、そのための可読性の低下は引き受ける。
+ * </p>
+ *
+ * <p>
  * 置くのはページだけで、一覧のカードには置かない。
  * </p>
  */
@@ -49,8 +56,11 @@ const LABELS = { work: 'Work', article: 'Article' } as const;
 ---
 
 {/* 空ける分は余白で取る。外側の余白だと、内側の余白を持たないこの区画では上へ抜けて罫ごと下がる */}
-<div class="border-primary shrink-0 border-r-2 pt-12 pr-1">
-  <p class="text-primary rotate-180 text-xs font-medium tracking-widest [writing-mode:vertical-rl]">
+<div class="border-primary shrink-0 border-r-2 pt-12">
+  {/* 行の高さを字面まで詰めて、文字の下を罫に触れさせる */}
+  <p
+    class="text-primary rotate-180 text-xs leading-none font-medium tracking-widest italic [writing-mode:vertical-rl]"
+  >
     {LABELS[kind]}
   </p>
 </div>
