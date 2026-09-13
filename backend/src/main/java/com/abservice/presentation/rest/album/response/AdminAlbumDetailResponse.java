@@ -59,6 +59,8 @@ import org.jspecify.annotations.Nullable;
  *            カバー画像の配信URL（nullable。サイト相対。表示に使う。更新要求が受け取るのはこの値ではない）
  * @param basePrice
  *            頒布の基準額（nullable。null は額が決まっていない）
+ * @param originalWorkNote
+ *            原作の出典の記述（nullable。null は記述なし。人が書いた一文で、トラックとの対応は述べない）
  * @param externalAudios
  *            外部音源（外部サービスの埋め込み元URL）の一覧。表示順の昇順
  * @param tracks
@@ -84,6 +86,7 @@ public record AdminAlbumDetailResponse(
         @Nullable String coverImageKey,
         @Nullable String coverImageUrl,
         @Nullable AdminBasePriceResponse basePrice,
+        @Nullable String originalWorkNote,
         List<AdminExternalAudioResponse> externalAudios,
         List<AdminTrackResponse> tracks) {
 

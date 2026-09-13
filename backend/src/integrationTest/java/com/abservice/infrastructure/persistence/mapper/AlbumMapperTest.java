@@ -7,6 +7,7 @@ import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.CatalogNumber;
 import com.abservice.domain.model.vo.album.Isdn;
+import com.abservice.domain.model.vo.album.OriginalWorkNote;
 import com.abservice.domain.model.vo.album.Price;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.album.TrackTuneTitle;
@@ -186,7 +187,8 @@ class AlbumMapperTest {
                 CatalogNumber.of("MAPPED-CAT-001"),
                 Isdn.of("2794123456780"),
                 AssetKey.of("01a0233d-d25a-7c3b-924f-236ee154fecc.png"),
-                Price.of(1500))
+                Price.of(1500),
+                OriginalWorkNote.of("「マッピング確認原作」より各曲"))
                 .addTrack(
                         Track.create(
                                 1,
@@ -204,6 +206,7 @@ class AlbumMapperTest {
         assertThat(entity.getDescriptionFormat()).isEqualTo("MARKDOWN");
         assertThat(entity.getBasePriceAmount()).isEqualTo(1500);
         assertThat(entity.getBasePriceCurrency()).isEqualTo("JPY");
+        assertThat(entity.getOriginalWorkNote()).isEqualTo("「マッピング確認原作」より各曲");
         assertThat(entity.getPublishedAt()).isNull();
         assertThat(entity.getTracks()).hasSize(1);
         assertThat(entity.getTracks().get(0).getTitle()).isEqualTo("Mapped Track");
@@ -233,6 +236,7 @@ class AlbumMapperTest {
                 null,
                 null,
                 null,
+                null,
                 null)
                 .publish(publishedAt);
 
@@ -251,6 +255,7 @@ class AlbumMapperTest {
                         3),
                 ArtistCredit.of("Mapped Artist"),
                 MarkupContent.markdown("あとで消される概要説明"),
+                null,
                 null,
                 null,
                 null,
@@ -274,6 +279,7 @@ class AlbumMapperTest {
                         3),
                 ArtistCredit.of("Mapped Artist"),
                 MarkupContent.EMPTY,
+                null,
                 null,
                 null,
                 null,

@@ -71,7 +71,8 @@ public class RegisterAlbumWithTracksService
                                 input.description(),
                                 input.descriptionFormat(),
                                 toEventFields(input.event()),
-                                toBasePriceFields(input.basePrice()))
+                                toBasePriceFields(input.basePrice()),
+                                input.originalWorkNote())
                                 .resolve(ValidationException::new))
                 .flatMap(album -> addTracks(album, tracksOf(input)))
                 .flatMap(albumRepository::save)

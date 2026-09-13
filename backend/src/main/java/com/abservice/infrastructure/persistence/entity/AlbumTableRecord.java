@@ -92,6 +92,10 @@ public class AlbumTableRecord extends AuditableTableRecord<AlbumTableRecord> {
     @Column(name = "base_price_currency", length = 3)
     private String basePriceCurrency;
 
+    /** 原作の出典の記述（人が書いた一文。#365） */
+    @Column(name = "original_work_note", length = 255)
+    private String originalWorkNote;
+
     @Column(name = "published_at")
     private Instant publishedAt;
 

@@ -201,6 +201,7 @@ final class AlbumQueryResponses {
                 publicPublishedAt(view),
                 view.coverImageUrl(),
                 toPublicBasePriceResponse(view),
+                view.originalWorkNote(),
                 toPublicExternalAudioResponses(view),
                 toPublicTrackResponses(view));
     }
@@ -253,6 +254,7 @@ final class AlbumQueryResponses {
                 view.coverImageKey(),
                 view.coverImageUrl(),
                 toAdminBasePriceResponse(view),
+                view.originalWorkNote(),
                 toAdminExternalAudioResponses(view),
                 toAdminTrackResponses(view));
     }

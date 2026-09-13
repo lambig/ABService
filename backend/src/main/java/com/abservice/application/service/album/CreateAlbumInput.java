@@ -38,6 +38,8 @@ import org.jspecify.annotations.Nullable;
  *            初出イベント情報（nullable）
  * @param basePrice
  *            頒布の基準額（nullable。未指定は額が決まっていない状態）
+ * @param originalWorkNote
+ *            原作の出典の記述（nullable。空白のみは記述なしとして扱う）
  */
 public record CreateAlbumInput(
         @Nullable String title,
@@ -50,7 +52,8 @@ public record CreateAlbumInput(
         @Nullable String description,
         @Nullable String descriptionFormat,
         @Nullable EventInput event,
-        @Nullable BasePriceInput basePrice) implements CommandService.Input {
+        @Nullable BasePriceInput basePrice,
+        @Nullable String originalWorkNote) implements CommandService.Input {
 
     /**
      * 頒布の基準額の入力DTO

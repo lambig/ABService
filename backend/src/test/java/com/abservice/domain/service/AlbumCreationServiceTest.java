@@ -39,6 +39,7 @@ class AlbumCreationServiceTest {
                 null,
                 null,
                 null,
+                null,
                 null);
 
         assertThat(result).isInstanceOf(Result.Success.class);
@@ -65,6 +66,7 @@ class AlbumCreationServiceTest {
                 "## 概要\n\n説明本文",
                 "MARKDOWN",
                 null,
+                null,
                 null);
 
         assertThat(result).isInstanceOf(Result.Success.class);
@@ -86,6 +88,7 @@ class AlbumCreationServiceTest {
                 "   ",
                 null,
                 null,
+                null,
                 null);
 
         assertThat(result).isInstanceOf(Result.Success.class);
@@ -104,6 +107,7 @@ class AlbumCreationServiceTest {
                 null,
                 null,
                 "説明本文",
+                null,
                 null,
                 null,
                 null);
@@ -127,6 +131,7 @@ class AlbumCreationServiceTest {
                 null,
                 null,
                 null,
+                null,
                 null);
 
         assertThat(result).isInstanceOf(Result.Failure.class);
@@ -147,6 +152,7 @@ class AlbumCreationServiceTest {
                 "   ",
                 invalidReleaseDate,
                 "   ",
+                null,
                 null,
                 null,
                 null,
@@ -184,6 +190,7 @@ class AlbumCreationServiceTest {
                 null,
                 null,
                 null,
+                null,
                 null);
 
         assertThat(result).isInstanceOf(Result.Failure.class);
@@ -201,6 +208,7 @@ class AlbumCreationServiceTest {
                 null,
                 "   ",
                 "",
+                null,
                 null,
                 null,
                 null,
@@ -223,6 +231,7 @@ class AlbumCreationServiceTest {
                 null,
                 null,
                 "0000000000000",
+                null,
                 null,
                 null,
                 null,
@@ -262,6 +271,7 @@ class AlbumCreationServiceTest {
                         "東京ビッグサイト",
                         "東ホ-01a",
                         "新譜あります"),
+                null,
                 null);
 
         assertThat(result).isInstanceOf(Result.Success.class);
@@ -299,6 +309,7 @@ class AlbumCreationServiceTest {
                         null,
                         null,
                         null),
+                null,
                 null);
 
         assertThat(result).isInstanceOf(Result.Failure.class);
@@ -316,6 +327,7 @@ class AlbumCreationServiceTest {
                 null,
                 null,
                 "0000000000000",
+                null,
                 null,
                 null,
                 null,
@@ -346,6 +358,7 @@ class AlbumCreationServiceTest {
                         null,
                         null,
                         null),
+                null,
                 null);
 
         assertThat(result).isInstanceOf(Result.Failure.class);
@@ -363,6 +376,7 @@ class AlbumCreationServiceTest {
                 null,
                 "a".repeat(101),
                 "not-an-isdn",
+                null,
                 null,
                 null,
                 null,
@@ -390,6 +404,7 @@ class AlbumCreationServiceTest {
                 null,
                 null,
                 null,
+                null,
                 null);
         final var descriptionFormat = AlbumCreationService.validate(
                 "アルバムタイトル",
@@ -400,6 +415,7 @@ class AlbumCreationServiceTest {
                 null,
                 null,
                 "説明本文",
+                null,
                 null,
                 null,
                 null);
@@ -419,6 +435,7 @@ class AlbumCreationServiceTest {
                         null,
                         null,
                         null),
+                null,
                 null);
 
         assertThat(artistAndCover.errors().stream().map(ErrorResult::field).toList())
@@ -429,5 +446,68 @@ class AlbumCreationServiceTest {
                 .containsExactly("descriptionFormat");
         assertThat(eventName.errors().stream().map(ErrorResult::field).toList())
                 .containsExactly("event.name");
+    }
+
+    @Test
+    @DisplayName("原作の出典の記述は人が書いた綴りのまま保持される")
+    void originalWorkNoteIsKeptAsWritten() {
+        final var result = AlbumCreationService.validate(
+                "アルバムタイトル",
+                VALID_RELEASE_DATE,
+                "アーティスト名",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "「○○」より各曲");
+
+        assertThat(result).isInstanceOf(Result.Success.class);
+        assertThat(result.resolve().originalWorkNote().value()).isEqualTo("「○○」より各曲");
+    }
+
+    @Test
+    @DisplayName("原作の出典の記述が空白のみなら記述なしとして扱う")
+    void blankOriginalWorkNoteIsTreatedAsAbsent() {
+        final var result = AlbumCreationService.validate(
+                "アルバムタイトル",
+                VALID_RELEASE_DATE,
+                "アーティスト名",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "   ");
+
+        assertThat(result).isInstanceOf(Result.Success.class);
+        assertThat(result.resolve().originalWorkNote()).isNull();
+    }
+
+    @Test
+    @DisplayName("原作の出典の記述が長すぎるとき、エラーは引数の綴りで返る")
+    void originalWorkNoteErrorCarriesArgumentName() {
+        final var result = AlbumCreationService.validate(
+                "アルバムタイトル",
+                VALID_RELEASE_DATE,
+                "アーティスト名",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "あ".repeat(256));
+
+        assertThat(result.errors().stream().map(ErrorResult::field).toList())
+                .containsExactly("originalWorkNote");
     }
 }

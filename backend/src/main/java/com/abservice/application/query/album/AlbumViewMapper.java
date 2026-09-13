@@ -74,6 +74,7 @@ final class AlbumViewMapper {
                 entity.getCoverImageKey(),
                 toCoverImageUrl(entity.getCoverImageKey(), assetBasePath),
                 toBasePriceView(entity),
+                entity.getOriginalWorkNote(),
                 toExternalAudioViews(externalAudios),
                 tracks);
     }

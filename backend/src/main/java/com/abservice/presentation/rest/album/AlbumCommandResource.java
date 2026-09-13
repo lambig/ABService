@@ -141,7 +141,8 @@ public class AlbumCommandResource {
                 request.description(),
                 request.descriptionFormat(),
                 toEventInput(request.event()),
-                toBasePriceInput(request.basePrice()));
+                toBasePriceInput(request.basePrice()),
+                request.originalWorkNote());
     }
 
     private static CreateAlbumInput.@Nullable BasePriceInput toBasePriceInput(
@@ -207,7 +208,8 @@ public class AlbumCommandResource {
                 request.description(),
                 request.descriptionFormat(),
                 toEventInput(request.event()),
-                toBasePriceInput(request.basePrice()));
+                toBasePriceInput(request.basePrice()),
+                request.originalWorkNote());
     }
 
     private static UpdateAlbumInput.@Nullable BasePriceInput toBasePriceInput(
@@ -366,6 +368,7 @@ public class AlbumCommandResource {
                 request.descriptionFormat(),
                 toEventInput(request.event()),
                 toBasePriceInput(request.basePrice()),
+                request.originalWorkNote(),
                 toTrackInputs(request.tracks()));
     }
 

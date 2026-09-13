@@ -357,6 +357,7 @@ class ArticleRepositoryImplTest {
                 null,
                 null,
                 null,
+                null,
                 null);
         final var article = Article.create(
                 ArticleType.ALBUM,
@@ -386,6 +387,7 @@ class ArticleRepositoryImplTest {
                         1),
                 ArtistCredit.of("Test Artist"),
                 MarkupContent.EMPTY,
+                null,
                 null,
                 null,
                 null,

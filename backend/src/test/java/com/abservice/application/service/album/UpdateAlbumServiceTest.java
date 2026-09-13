@@ -43,6 +43,7 @@ class UpdateAlbumServiceTest {
                 null,
                 null,
                 null,
+                null,
                 null);
     }
 
@@ -61,6 +62,7 @@ class UpdateAlbumServiceTest {
                         "ABC-0001",
                         null,
                         "01a0233d-d25a-7c3b-924f-236ee154fecc.png",
+                        null,
                         null,
                         null,
                         null,
@@ -92,6 +94,7 @@ class UpdateAlbumServiceTest {
                         "## 概要\n\n新しい説明",
                         "MARKDOWN",
                         null,
+                        null,
                         null))
                 .resolve();
 
@@ -113,6 +116,7 @@ class UpdateAlbumServiceTest {
                         "新タイトル",
                         "2026-01-01",
                         "新アーティスト",
+                        null,
                         null,
                         null,
                         null,
@@ -144,6 +148,7 @@ class UpdateAlbumServiceTest {
                         "説明",
                         "MARKDOWNN",
                         null,
+                        null,
                         null));
 
         assertThat(result).isInstanceOf(Result.Failure.class);
@@ -172,6 +177,7 @@ class UpdateAlbumServiceTest {
                         null,
                         null,
                         null,
+                        null,
                         null))
                 .resolve();
 
@@ -193,6 +199,7 @@ class UpdateAlbumServiceTest {
                         null,
                         null,
                         "/assets/01a0233d-d25a-7c3b-924f-236ee154fecc.png",
+                        null,
                         null,
                         null,
                         null,
@@ -228,6 +235,7 @@ class UpdateAlbumServiceTest {
                         null,
                         null,
                         null,
+                        null,
                         null))
                 .resolve();
 
@@ -246,6 +254,7 @@ class UpdateAlbumServiceTest {
                         "   ",
                         "not-a-date",
                         "   ",
+                        null,
                         null,
                         null,
                         null,
@@ -286,6 +295,7 @@ class UpdateAlbumServiceTest {
                         null,
                         null,
                         null,
+                        null,
                         null));
 
         assertThat(result).isInstanceOf(Result.Failure.class);
@@ -316,6 +326,7 @@ class UpdateAlbumServiceTest {
                                 "東京ビッグサイト",
                                 "東ホ-01a",
                                 "新譜あります"),
+                        null,
                         null))
                 .resolve();
 

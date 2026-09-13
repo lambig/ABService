@@ -58,7 +58,8 @@ public class CreateAlbumService implements CommandService<CreateAlbumInput, Crea
                                 input.description(),
                                 input.descriptionFormat(),
                                 toEventFields(input.event()),
-                                toBasePriceFields(input.basePrice()))
+                                toBasePriceFields(input.basePrice()),
+                                input.originalWorkNote())
                                 .resolve(ValidationException::new))
                 .flatMap(albumRepository::save)
                 .map(CreateAlbumService::toOutput);

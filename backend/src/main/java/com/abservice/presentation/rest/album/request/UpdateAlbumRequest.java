@@ -35,6 +35,8 @@ import org.jspecify.annotations.Nullable;
  *            初出イベント情報（nullable）
  * @param basePrice
  *            頒布の基準額（nullable。未指定は額が決まっていない状態への置換）
+ * @param originalWorkNote
+ *            原作の出典の記述（nullable。未指定は記述なしへの置換）
  */
 public record UpdateAlbumRequest(
         @Nullable Integer expectedRevision,
@@ -48,7 +50,8 @@ public record UpdateAlbumRequest(
         @Nullable String description,
         @Nullable String descriptionFormat,
         @Nullable EventRequest event,
-        @Nullable BasePriceRequest basePrice) {
+        @Nullable BasePriceRequest basePrice,
+        @Nullable String originalWorkNote) {
 
     /**
      * 頒布の基準額のリクエスト契約
