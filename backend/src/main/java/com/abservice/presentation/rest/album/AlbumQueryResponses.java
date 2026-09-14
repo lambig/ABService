@@ -295,17 +295,22 @@ final class AlbumQueryResponses {
                 "公開向けの照会結果は公開中のものに限るため、publishedAt は値を持つ");
     }
 
+    /* 公開は出す名だけを持つ。省略されていたかどうかは読み手に関係が無い（#360）。 */
     private static List<PublicTrackResponse> toPublicTrackResponses(AlbumView view) {
         return view.tracks().stream()
                 .map(
                         track -> new PublicTrackResponse(
                                 track.trackNo(),
-                                track.title(),
+                                track.name(),
                                 track.artistDisplayName(),
                                 toTrackTuneResponses(track)))
                 .toList();
     }
 
+    /*
+     * RAW-TITLE-FOR-EDITING: 管理は編集の契約なので、出す名ではなく**入力されたタイトル**を返す。合成した名を返すと、
+     * 画面がそれを書き戻して、省略していたトラックが明示タイトルへ変わる（#360 / #122）。
+     */
     private static List<AdminTrackResponse> toAdminTrackResponses(AlbumView view) {
         return view.tracks().stream()
                 .map(

@@ -123,12 +123,20 @@ public record AlbumView(
     /**
      * トラック1件の Read Model
      *
+     * <p>
+     * <b>入力されたタイトルと、出す名を別々に持ちます。</b> タイトルは省略でき、省いたトラックの名はチューン名を繋いだものに
+     * なります（#360）。1つの項目に畳むと、名を出したい側が省略を知れないだけでなく、<b>読んだ名をそのまま書き戻す経路</b>が
+     * できてしまいます——省略していたトラックが、無関係な保存のたびに明示タイトルへ変わり、以後チューン名に追従しなくなります。
+     * </p>
+     *
      * @param trackId
      *            トラックID（ドメインID・UUIDv7形式の文字列）
      * @param trackNo
      *            アルバム内のトラック番号
      * @param title
-     *            トラックタイトル
+     *            入力されたトラックタイトル（nullable。null は省略で、名はチューン名から決まる）
+     * @param name
+     *            出すときの名。タイトルを省いたトラックではチューン名を繋いだもの
      * @param artistDisplayName
      *            トラック個別のアーティスト表示名（nullable。null はアルバムの名義を継承）
      * @param artistSortKey
@@ -139,7 +147,8 @@ public record AlbumView(
     public record TrackView(
             String trackId,
             int trackNo,
-            String title,
+            @Nullable String title,
+            String name,
             @Nullable String artistDisplayName,
             @Nullable String artistSortKey,
             List<TrackTuneView> tunes) {

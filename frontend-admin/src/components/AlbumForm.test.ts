@@ -108,11 +108,19 @@ const duplicatedAudioUrl = {
 const audioRows = (): readonly HTMLElement[] =>
   within(screen.getByRole('list')).getAllByRole('listitem');
 
+/*
+ * SECTIONS-START-COLLAPSED: 区画は既定で畳まれている。読み込めたことは、区画の見出しが出たところで
+ * 見る（欄はまだ描かれていない）。
+ */
 const openEditor = async (): Promise<void> => {
   window.history.replaceState({}, '', `?albumId=${ALBUM_ID}`);
   sessionStorage.setItem('abservice.admin.api-key', 'test-key');
   render(AlbumForm, { mode: 'edit' });
-  await screen.findByLabelText('タイトル');
+  await screen.findByRole('button', { name: '作品を開く' });
+};
+
+const openSection = async (heading: string): Promise<void> => {
+  await userEvent.click(screen.getByRole('button', { name: `${heading}を開く` }));
 };
 
 beforeEach(() => {
@@ -120,9 +128,64 @@ beforeEach(() => {
   updateAlbum.mockResolvedValue(rejectedSecondRow);
 });
 
+describe('区画の畳み', () => {
+  const summaryOf = (heading: string): string | undefined =>
+    document
+      .querySelector(`[data-section="${heading}"] [data-section-summary]`)
+      ?.textContent.trim();
+
+  it('既定はどの区画も畳まれている', async () => {
+    await openEditor();
+
+    expect(screen.queryByLabelText('タイトル')).toBeNull();
+    expect(screen.queryByLabelText('音源のURL')).toBeNull();
+  });
+
+  /*
+   * COLLAPSED-READS-LIKE-PUBLIC: 畳んだ区画は公開サイトと同じ読み方の要約で並ぶ。畳み切った画面が
+   * その作品の姿になっていないと、開くまで何が入っているのかが分からない。
+   */
+  it('畳んだ区画は、入っているものを要約で出す', async () => {
+    await openEditor();
+
+    expect(summaryOf('作品')).toBe('アルバム / アーティスト / 2026-01-01');
+    expect(summaryOf('外部音源')).toBe('3件');
+  });
+
+  it('何も入っていない区画は、無いことを示す', async () => {
+    await openEditor();
+
+    expect(summaryOf('初出イベント')).toBe('（未入力）');
+    expect(summaryOf('曲目')).toBe('（なし）');
+  });
+
+  it('開いた区画だけが入力に変わる', async () => {
+    await openEditor();
+
+    await openSection('作品');
+
+    expect(screen.getByLabelText('タイトル')).toBeTruthy();
+    expect(screen.queryByLabelText('音源のURL')).toBeNull();
+  });
+
+  /*
+   * REJECTED-SECTION-OPENS: 理由は欄の下に出る。断られた区画が畳まれたままだと、直す先が画面から
+   * 消える。
+   */
+  it('断られた区画は、畳んだままでも開く', async () => {
+    await openEditor();
+
+    await userEvent.click(screen.getByRole('button', { name: '保存する' }));
+
+    expect(await screen.findByLabelText('音源のURL')).toBeTruthy();
+    expect(screen.queryByLabelText('タイトル')).toBeNull();
+  });
+});
+
 describe('外部音源の行の誤り', () => {
   it('断られた行の下に理由が出る', async () => {
     await openEditor();
+    await openSection('外部音源');
 
     await userEvent.click(screen.getByRole('button', { name: '保存する' }));
 
@@ -132,6 +195,7 @@ describe('外部音源の行の誤り', () => {
 
   it('並べ替えると、前の誤りは付いて回らない', async () => {
     await openEditor();
+    await openSection('外部音源');
 
     await userEvent.click(screen.getByRole('button', { name: '保存する' }));
     await within(audioRows()[1] as HTMLElement).findByRole('alert');
@@ -150,6 +214,7 @@ describe('外部音源の行の誤り', () => {
   it('並べ替えても、本体の欄の誤りは残る', async () => {
     updateAlbum.mockResolvedValue(rejectedTitleAndSecondRow);
     await openEditor();
+    await openSection('外部音源');
 
     await userEvent.click(screen.getByRole('button', { name: '保存する' }));
     await within(audioRows()[1] as HTMLElement).findByRole('alert');
@@ -168,6 +233,7 @@ describe('外部音源の行の誤り', () => {
 
   it('前の行を外しても、誤りが繰り上がった別の行に出ない', async () => {
     await openEditor();
+    await openSection('外部音源');
 
     await userEvent.click(screen.getByRole('button', { name: '保存する' }));
     await within(audioRows()[1] as HTMLElement).findByRole('alert');
@@ -178,6 +244,257 @@ describe('外部音源の行の誤り', () => {
     );
 
     expect(screen.queryAllByRole('alert')).toEqual([]);
+  });
+});
+
+describe('曲目の行の誤り', () => {
+  /** 2つの行に誤りが返る作品。2行目はタイトルを省いている（名はチューン名から決まる） */
+  const withTracks = {
+    ...detail,
+    tracks: [
+      {
+        trackId: 'track-1',
+        trackNo: 1,
+        title: '1曲目',
+        artistDisplayName: null,
+        artistSortKey: null,
+        tunes: [],
+      },
+      {
+        trackId: 'track-2',
+        trackNo: 2,
+        title: null,
+        artistDisplayName: null,
+        artistSortKey: null,
+        tunes: [
+          {
+            seq: 1,
+            tuneTitle: 'チューン',
+            composerCreditOverride: null,
+            arrangerCreditOverride: null,
+            linkUrl: null,
+          },
+        ],
+      },
+    ],
+  } satisfies AdminAlbumDetail;
+
+  /* 1回の応答に複数の行の誤りが入る。backend は一覧をまとめて検証して積む */
+  const rejectedTwoRows = {
+    ...rejectedSecondRow,
+    problem: {
+      ...rejectedSecondRow.problem,
+      errors: [
+        { field: 'tracks[0].title', message: 'タイトルが長すぎます' },
+        { field: 'tracks[1].tunes[0].linkUrl', message: 'URLとして読めません' },
+      ],
+    },
+  };
+
+  /** 1曲目が2つのチューンを持つ作品。チューンを外したときの位置のずれを見るために使う */
+  const withTwoTunes = {
+    ...withTracks,
+    tracks: [
+      {
+        trackId: 'track-1',
+        trackNo: 1,
+        title: '1曲目',
+        artistDisplayName: null,
+        artistSortKey: null,
+        tunes: [
+          {
+            seq: 1,
+            tuneTitle: '前半',
+            composerCreditOverride: null,
+            arrangerCreditOverride: null,
+            linkUrl: null,
+          },
+          {
+            seq: 2,
+            tuneTitle: '後半',
+            composerCreditOverride: null,
+            arrangerCreditOverride: null,
+            linkUrl: null,
+          },
+        ],
+      },
+      {
+        trackId: 'track-2',
+        trackNo: 2,
+        title: null,
+        artistDisplayName: null,
+        artistSortKey: null,
+        tunes: [
+          {
+            seq: 1,
+            tuneTitle: 'チューン',
+            composerCreditOverride: null,
+            arrangerCreditOverride: null,
+            linkUrl: null,
+          },
+        ],
+      },
+    ],
+  } satisfies AdminAlbumDetail;
+
+  /* 1曲目の最初のチューンと、2曲目のチューンに同時に誤りが返る */
+  const rejectedFirstTuneAndSecondTrack = {
+    ...rejectedSecondRow,
+    problem: {
+      ...rejectedSecondRow.problem,
+      errors: [
+        { field: 'tracks[0].tunes[0].linkUrl', message: 'URLとして読めません' },
+        { field: 'tracks[1].tunes[0].linkUrl', message: '2曲目のURLが読めません' },
+      ],
+    },
+  };
+
+  const trackRows = (): readonly HTMLElement[] =>
+    [...(document.querySelector('[data-tracks]')?.children ?? [])] as HTMLElement[];
+
+  beforeEach(() => {
+    getAlbum.mockResolvedValue({ kind: 'ok', value: withTracks });
+    updateAlbum.mockResolvedValue(rejectedTwoRows);
+  });
+
+  it('読み込んだトラックのタイトルは、省略のまま持つ', async () => {
+    await openEditor();
+    await openSection('曲目');
+
+    /*
+     * RAW-TITLE: 省いたトラックの名はチューン名を繋いだもので、それは出すときの名であって入力では
+     * ない。受け取って書き戻すと、省略が明示タイトルへ変わる（#360）。
+     */
+    expect((trackRows()[1] as HTMLElement).textContent).toContain('（チューン名から組まれます）');
+  });
+
+  /*
+   * KEEP-OTHER-ROWS: 欄の書き換えでは行の位置が動かないため、位置つきの誤りは同じ行を指したまま。
+   * まとめて落とすと、1曲目を1文字直しただけで2曲目の理由まで消え、複数の誤りを1つずつ追いかける
+   * ことになる。
+   */
+  it('欄を1つ書き換えても、同じ応答の誤りは残る', async () => {
+    await openEditor();
+    await openSection('曲目');
+
+    await userEvent.click(screen.getByRole('button', { name: '保存する' }));
+    expect(await screen.findByText('タイトルが長すぎます')).toBeTruthy();
+
+    await userEvent.type(screen.getByLabelText(/トラック名/u), '改');
+
+    expect(screen.getByText('タイトルが長すぎます')).toBeTruthy();
+  });
+
+  /*
+   * FIX-WITHOUT-SAVING-IN-BETWEEN: 保存の前に人が1曲目を開いていても、断られた時点で選択は捨てられ、
+   * 最初の誤りの行が見える。そこから保存を挟まずに2曲目へ移って直せる——移った後も1曲目には誤りの
+   * 印が残る。
+   */
+  it('複数の誤りを、保存を挟まずに順に直せる', async () => {
+    await openEditor();
+    await openSection('曲目');
+
+    /* 保存の前から1曲目を開いている（利用者はふつうこの状態で保存する） */
+    await userEvent.click(screen.getByRole('button', { name: '1曲目を開く' }));
+
+    await userEvent.click(screen.getByRole('button', { name: '保存する' }));
+    expect(await screen.findByText('タイトルが長すぎます')).toBeTruthy();
+
+    /* 1曲目を直しても、入力欄は消えない（誤りは次の保存まで残るため、開いた行は動かない） */
+    await userEvent.type(screen.getByLabelText(/トラック名/u), '改');
+    expect(screen.getByLabelText(/トラック名/u)).toHaveProperty('value', '1曲目改');
+
+    /* 保存を挟まずに2曲目を開ける */
+    await userEvent.click(screen.getByRole('button', { name: '2曲目を開く' }));
+
+    expect(screen.getByText('URLとして読めません')).toBeTruthy();
+    expect(within(trackRows()[0] as HTMLElement).getByText('誤りがあります')).toBeTruthy();
+  });
+
+  /*
+   * NESTED-POSITIONS-SHIFT: チューンを外すと、そのトラックの中の位置は別の行を指す。残したままだと、
+   * 前の行を外したときは繰り上がった行に前の理由が付き、後ろの行を外したときはどの欄にも出ないまま
+   * 断られた状態だけが残る。
+   */
+  it('チューンを外すと、そのトラックの位置の誤りだけを落とす', async () => {
+    getAlbum.mockResolvedValue({ kind: 'ok', value: withTwoTunes });
+    updateAlbum.mockResolvedValue(rejectedFirstTuneAndSecondTrack);
+    await openEditor();
+    await openSection('曲目');
+
+    await userEvent.click(screen.getByRole('button', { name: '保存する' }));
+    expect(await screen.findByText('URLとして読めません')).toBeTruthy();
+
+    await userEvent.click(screen.getByRole('button', { name: '1チューン目を外す' }));
+
+    /* 外したチューンの理由は、繰り上がった行へ付かない */
+    expect(screen.queryByText('URLとして読めません')).toBeNull();
+
+    /*
+     * 他のトラックの理由は落とさない（位置が動いていない）。1曲目の誤りが消えたので、次の誤りの行が
+     * 開いて理由が読める。
+     */
+    expect(screen.getByText('2曲目のURLが読めません')).toBeTruthy();
+  });
+
+  it('行を外すと、位置が別の行を指すため落とす', async () => {
+    await openEditor();
+    await openSection('曲目');
+
+    await userEvent.click(screen.getByRole('button', { name: '保存する' }));
+    await screen.findByText('タイトルが長すぎます');
+
+    await userEvent.click(
+      within(trackRows()[0] as HTMLElement).getByRole('button', { name: /^外す$/u }),
+    );
+
+    expect(screen.queryAllByRole('alert')).toEqual([]);
+  });
+});
+
+describe('未保存の知らせ', () => {
+  const UNSAVED = '保存していない変更があります。';
+
+  it('読み込んだ直後は出さない', async () => {
+    await openEditor();
+
+    expect(screen.queryByText(UNSAVED)).toBeNull();
+  });
+
+  it('本体の欄を書き換えると出る', async () => {
+    await openEditor();
+    await openSection('作品');
+
+    await userEvent.type(screen.getByLabelText('タイトル'), '改');
+
+    expect(screen.getByText(UNSAVED)).toBeTruthy();
+  });
+
+  /*
+   * COLLAPSED-EDITS-ARE-INVISIBLE: 曲目は畳んだまま足せる。画面の外にある書きかけを知らせるのが、
+   * この要素を持つ理由である。
+   */
+  it('曲目を足しただけでも出る', async () => {
+    await openEditor();
+    await openSection('曲目');
+
+    await userEvent.click(screen.getByRole('button', { name: 'トラックを追加する' }));
+
+    expect(screen.getByText(UNSAVED)).toBeTruthy();
+  });
+
+  /*
+   * COMPARE-WHAT-IS-SENT: 触ったかどうかではなく、保存したときに何になるかで比べる。往復して元へ
+   * 戻った入力を未保存として数えない。
+   */
+  it('書き換えを元へ戻すと消える', async () => {
+    await openEditor();
+    await openSection('作品');
+
+    await userEvent.type(screen.getByLabelText('タイトル'), '改');
+    await userEvent.type(screen.getByLabelText('タイトル'), '{backspace}');
+
+    expect(screen.queryByText(UNSAVED)).toBeNull();
   });
 });
 

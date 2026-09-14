@@ -88,6 +88,32 @@ class AlbumAdminQueryRestIntegrationTest {
                 .body("tracks[0].tunes[0].arrangerCreditOverride", equalTo("Arranger"));
     }
 
+    /*
+     * RAW-TITLE-FOR-EDITING: 管理は編集の契約なので、入力されたタイトルをそのまま返す。ここで合成した名を返すと、
+     * 画面がそれを書き戻し、省略していたトラックが明示タイトルへ変わって、以後チューン名に追従しなくなる（#360）。
+     * 公開はその逆で、出すときの名しか要らない。
+     */
+    @Test
+    @DisplayName("タイトルを省いたトラックは、管理向けでは未指定のまま返り、公開向けではチューン名から組んだ名で返る")
+    void adminDetailKeepsUntitledTrackUntitled() {
+        final String albumId = authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"title\":\"管理Queryタイトル省略\",\"releaseDate\":\"2026-01-01\","
+                                + "\"artistDisplayName\":\"テストアーティスト\",\"tracks\":["
+                                + "{\"tunes\":[{\"tuneTitle\":\"前半\"},{\"tuneTitle\":\"後半\"}]}]}")
+                .when().post("/api/v1/albums/with-tracks").then().statusCode(201)
+                .extract().path("albumId");
+
+        authorized().when().get("/api/v1/admin/albums/" + albumId).then().statusCode(200)
+                .body("tracks[0].title", nullValue())
+                .body("tracks[0].tunes[0].tuneTitle", equalTo("前半"));
+
+        authorized().when().post("/api/v1/albums/" + albumId + "/publish").then().statusCode(200);
+
+        given().when().get("/api/v1/albums/" + albumId).then().statusCode(200)
+                .body("tracks[0].title", equalTo("前半 / 後半"));
+    }
+
     @Test
     @DisplayName("管理向け詳細は編集フォームが使うソートキーを返す")
     void adminDetailKeepsEditingOnlyKeys() {

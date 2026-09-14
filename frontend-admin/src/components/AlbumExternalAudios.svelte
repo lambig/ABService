@@ -27,22 +27,34 @@
     readonly disabled: boolean;
     /** その行に割り当てられた誤り。位置は `externalAudios[i].url` で返る */
     readonly messagesOf: (index: number) => readonly string[];
-    /** 変えた並びを画面全体へ返す。保存はこの区画では行わない */
-    readonly onChange: (audios: readonly ExternalAudioDraft[]) => void;
+    /**
+     * 末尾に足した並び。
+     *
+     * <b>既存の行の位置は変わらない。</b> 位置つきの誤りは同じ行を指したままなので、受け取る側は
+     * 落とす必要が無い。
+     */
+    readonly onEdit: (audios: readonly ExternalAudioDraft[]) => void;
+    /**
+     * 行を外した／動かした並び。
+     *
+     * <b>以降、同じ位置は別の行を指す。</b> 位置つきの誤りを残すと、直っていない行から消えて関係の
+     * 無い行に出る。行は保存されるまでIDを持たないため、誤りを行へ追従させることもできない。
+     */
+    readonly onReposition: (audios: readonly ExternalAudioDraft[]) => void;
   };
 
-  const { audios, disabled, messagesOf, onChange }: Props = $props();
+  const { audios, disabled, messagesOf, onEdit, onReposition }: Props = $props();
 
   let url = $state('');
 
   const add = (event: SubmitEvent): void => {
     event.preventDefault();
-    onChange([...audios, { externalAudioId: null, url }]);
+    onEdit([...audios, { externalAudioId: null, url }]);
     url = '';
   };
 
   const remove = (index: number): void => {
-    onChange(audios.filter((_, position) => position !== index));
+    onReposition(audios.filter((_, position) => position !== index));
   };
 
   /**
@@ -60,15 +72,15 @@
     );
 
   const move = (index: number, other: number): void => {
-    onChange(swapped(index, other));
+    onReposition(swapped(index, other));
   };
 
   const addDisabled = $derived([disabled, url === ''].some(Boolean));
   const last = $derived(audios.length - 1);
 </script>
 
-<section class="max-w-2xl space-y-4">
-  <h2 class="text-base font-medium">外部音源</h2>
+<!-- 見出しは区画（`AlbumSection`）が持つ。畳んだときの要約と同じ場所に出すため -->
+<div class="space-y-4">
   <p class="text-muted-foreground text-sm">
     追加・取り外し・並べ替えは、作品を保存したときに反映されます。
   </p>
@@ -147,4 +159,4 @@
     </div>
     <Button type="submit" size="sm" variant="outline" disabled={addDisabled}>音源を追加する</Button>
   </form>
-</section>
+</div>

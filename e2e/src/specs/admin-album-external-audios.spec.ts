@@ -2,6 +2,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 import type { Locator, Page } from '@playwright/test';
 
+import { openAllSections } from '../support/album-editor.ts';
 import { stack } from '../support/config.ts';
 import { capture, captureFocused, captureWhole, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
@@ -68,13 +69,18 @@ const openAdmin = async (page: Page): Promise<void> => {
   await expect(page.getByRole('table')).toBeVisible();
 };
 
-/** 一覧から対象の編集を開く */
+/**
+ * 一覧から対象の編集を開き、区画をすべて開く。
+ *
+ * 区画は既定で畳まれている（#122）。ここで見るのは音源の行の振る舞いのため、先にまとめて開く。
+ */
 const openEdit = async (page: Page, title: string): Promise<void> => {
   await page
     .getByRole('row')
     .filter({ hasText: title })
     .getByRole('link', { name: EDIT_LABEL })
     .click();
+  await openAllSections(page);
   await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(title);
 };
 
@@ -164,6 +170,7 @@ test.describe('管理画面の外部音源', () => {
      * 読み直しで消えることが、入力に留まっていたことの証拠になる。
      */
     await page.reload();
+    await openAllSections(page);
     await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(title);
     await expect(page.getByText(AUDIOS_ABSENT_TEXT)).toBeVisible();
   });

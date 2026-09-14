@@ -1,5 +1,8 @@
 <script lang="ts">
   import AlbumExternalAudios from '$components/AlbumExternalAudios.svelte';
+  import AlbumFormField from '$components/AlbumFormField.svelte';
+  import AlbumSection from '$components/AlbumSection.svelte';
+  import AlbumTracks from '$components/AlbumTracks.svelte';
   import ApiKeyForm from '$components/ApiKeyForm.svelte';
   import { Button } from '$components/ui/button/index.js';
   import {
@@ -8,18 +11,27 @@
     albumFieldsOf,
     audioDraftsOf,
     draftOf,
+    trackDraftsOf,
     withCleared,
     withValue,
     type AlbumDraft,
     type AlbumFieldPath,
     type ExternalAudioDraft,
+    type FieldSpec,
   } from '$lib/api/album-form';
+  import {
+    TRACK_PATH_PREFIX,
+    trackPathsOf,
+    tunesPathPrefixOf,
+    type TrackDraft,
+  } from '$lib/api/track-form';
   import { uploadAsset } from '$lib/api/asset-upload';
   import {
     createAlbum,
     getAlbum,
     updateAlbum,
     type AdminAlbumDetail,
+    type AlbumFields,
     type ApiResult,
     type ConfirmedAsset,
   } from '$lib/api/client';
@@ -44,9 +56,9 @@
    * </p>
    *
    * <p>
-   * トラック・チューン構成の編集は持たない（#122 の別スライス）。外部音源は<b>この保存に乗る</b>——作品の子を
-   * 書く経路は集約ルートに1つしかなく（#391）、送った並びがそのまま作品の音源になる。区画が保存のフォームの
-   * 外に置かれているのは、行を足す入力が Enter で作品の保存を巻き込まないようにするためである。
+   * 曲目も外部音源も<b>この保存に乗る</b>——作品の子を書く経路は集約ルートに1つしかなく（#391）、送った
+   * 並びがそのまま作品の曲目・音源になる。区画が保存のフォームの外に置かれているのは、行を足す入力が
+   * Enter で作品の保存を巻き込まないようにするためである。
    * </p>
    */
   type Props = {
@@ -60,14 +72,15 @@
 
   const { mode }: Props = $props();
 
-  /** 入力欄1つの宣言。位置の綴りは管理APIの入力パスと同じ */
-  type FieldSpec = Readonly<{
-    path: AlbumFieldPath;
-    label: string;
-    kind: 'text' | 'date' | 'number' | 'multiline' | 'choice';
-    /** 選択肢。`choice` 以外では空 */
-    choices: readonly string[];
-  }>;
+  /**
+   * 横に並べる欄のまとまり。
+   *
+   * <p>
+   * 対になって読まれるもの（品番とタイトル、名義とそのソートキー、額と通貨）を1行に置く。縦に積むと、
+   * どれとどれが組なのかが行の並びからは読めない。
+   * </p>
+   */
+  type FieldRow = readonly FieldSpec[];
 
   /**
    * 見出しでまとめた入力欄。初出イベントは入れ子の位置（`event.*`）を持つため、まとまりを分ける。
@@ -75,14 +88,22 @@
    * <p>
    * `clearing` を持つまとまりは、その欄をまとめて空へ戻す操作を添える。入れ子の項目は1つでも値が
    * 残っていれば送られ、残りの欄が必須として断られるため、外す操作を画面が持たないと利用者が
-   * その規則を知っている必要がある。
+   * その規則を知っている必要がある。操作は**最後の行の末尾**に置く——外す対象の欄と離すと、何を外す
+   * のかが読めない。
    * </p>
    */
   type Section = Readonly<{
     heading: string;
-    fields: readonly FieldSpec[];
+    rows: readonly FieldRow[];
     /** まとまりを外す操作の文言。持たないまとまりは操作を出さない */
     clearing?: string;
+    /**
+     * 畳んだときに出す要約。
+     *
+     * まとまりごとに書く——公開サイトで何がどう読まれるかはまとまりによって違い、欄を機械的に並べると
+     * 「ラベル: 値」の羅列になって、畳んだ意味が無くなる。
+     */
+    summaryOf: (draft: AlbumDraft) => string;
   }>;
 
   const text = (path: AlbumFieldPath, label: string): FieldSpec => ({
@@ -92,63 +113,124 @@
     choices: [],
   });
 
+  /** 要約に出す値。空白だけの欄は入っていないものとして落とす */
+  const filled = (parts: readonly string[]): readonly string[] =>
+    parts.filter((part) => part.trim() !== '');
+
+  /** 何も入っていない区画は、無いことを示す。空の要約では畳んだ行が読めない */
+  const summaryLine = (parts: readonly string[], separator: string): string =>
+    filled(parts).length === 0 ? '（未入力）' : filled(parts).join(separator);
+
   const SECTIONS: readonly Section[] = [
     {
       heading: '作品',
-      fields: [
-        text('title', 'タイトル'),
-        { path: 'releaseDate', label: 'リリース日', kind: 'date', choices: [] },
-        text('artistDisplayName', 'アーティスト表示名'),
-        text('artistSortKey', 'アーティストのソートキー'),
-        text('catalogNumber', 'カタログナンバー'),
-        text('isdn', 'ISDN'),
-        { path: 'description', label: '概要説明', kind: 'multiline', choices: [] },
-        {
-          path: 'descriptionFormat',
-          label: '概要説明の形式',
-          kind: 'choice',
-          choices: DESCRIPTION_FORMATS,
-        },
-        text('originalWorkNote', '原作の出典（例:「○○」より各曲）'),
+      rows: [
+        [text('catalogNumber', 'カタログナンバー'), text('title', 'タイトル')],
+        [text('artistDisplayName', 'アーティスト表示名'), text('artistSortKey', 'ソートキー')],
+        [
+          { path: 'releaseDate', label: 'リリース日', kind: 'date', choices: [] },
+          text('isdn', 'ISDN'),
+        ],
+        [{ path: 'description', label: '概要説明', kind: 'multiline', choices: [] }],
+        [
+          {
+            path: 'descriptionFormat',
+            label: '概要説明の形式',
+            kind: 'choice',
+            choices: DESCRIPTION_FORMATS,
+          },
+        ],
       ],
+      /* 公開サイトが作品を名指すときの読み方（品番・タイトル・名義・リリース日） */
+      summaryOf: (draft) =>
+        summaryLine(
+          [draft.catalogNumber, draft.title, draft.artistDisplayName, draft.releaseDate],
+          ' / ',
+        ),
     },
     {
       heading: '初出イベント',
-      fields: [
-        text('event.name', 'イベント名'),
-        { path: 'event.date', label: '開催日', kind: 'date', choices: [] },
-        text('event.place', '会場'),
-        text('event.spaceNumber', 'スペース番号'),
-        text('event.note', '補足'),
+      rows: [
+        [
+          { path: 'event.date', label: '開催日', kind: 'date', choices: [] },
+          text('event.name', 'イベント名'),
+          text('event.spaceNumber', 'スペース番号'),
+        ],
+        [text('event.place', '会場'), text('event.note', '補足')],
       ],
+      /* 公開サイトの初出イベントと同じ並び（名・日付・会場・スペース番号） */
+      summaryOf: (draft) =>
+        summaryLine(
+          [
+            draft['event.name'],
+            draft['event.date'],
+            draft['event.place'],
+            draft['event.spaceNumber'],
+          ],
+          ' ',
+        ),
     },
     {
-      heading: '頒布',
-      fields: [
-        { path: 'basePrice.amount', label: '基準額', kind: 'number', choices: [] },
-        text('basePrice.currency', '通貨コード（未指定は円）'),
+      heading: '頒布額',
+      rows: [
+        [
+          { path: 'basePrice.amount', label: '基準額', kind: 'number', choices: [] },
+          text('basePrice.currency', '通貨コード（未指定は円）'),
+        ],
       ],
       clearing: '基準額を解除',
+      /*
+       * 入力された値をそのまま並べる。公開サイトの整形（通貨ごとの最小単位）は
+       * `frontend-public` の `formatPrice` が持っており、写すと規則が2箇所に散る。
+       */
+      summaryOf: (draft) =>
+        summaryLine([draft['basePrice.amount'], draft['basePrice.currency']], ' '),
     },
   ];
 
+  /**
+   * 原作の出典。
+   *
+   * <p>
+   * 欄の持ち主は作品だが、置き場は<b>曲目の区画の中</b>である。「「○○」より各曲」のように<b>曲単位で
+   * 特定しないまま曲目全体を指す一文</b>であり、読む場所も直す場所も曲目の並びの直後になる（#365）。
+   * 畳んだときの要約にも曲数と並べて出す——出典だけが消えると、入っていることが読めない。
+   * </p>
+   *
+   * <p>
+   * 保存は作品の保存に乗る。区画が保存のフォームの外にあるため、`form` 属性でそのフォームへ結び付ける。
+   * </p>
+   */
+  const ORIGINAL_WORK_NOTE: FieldSpec = text('originalWorkNote', '原作の出典（例:「○○」より各曲）');
+
+  /** そのまとまりが持つ欄の位置 */
+  const pathsIn = (section: Section): readonly string[] =>
+    section.rows.flatMap((row) => row.map((field) => field.path));
+
   /** 作品本体の欄を持つ位置 */
-  const FIELD_PATHS: readonly string[] = SECTIONS.flatMap((section) =>
-    section.fields.map((field) => field.path),
-  );
+  const FIELD_PATHS: readonly string[] = [...SECTIONS.flatMap(pathsIn), ORIGINAL_WORK_NOTE.path];
+
+  /**
+   * 保存のフォームの名。
+   *
+   * 曲目の直後に置く欄も、画面の下端に貼り付けた保存の操作も、フォームの囲みの外にある。`form` 属性で
+   * このフォームを名指すことで、置き場所に関わらず同じ保存へ乗る。
+   */
+  const ALBUM_FORM_ID = 'album-form';
 
   /**
    * 欄を持つ位置。ここに無い位置のエラーは、欄へ割り当てず全体へ出す。
    *
    * <p>
-   * 外部音源の位置（`externalAudios[i].url`）は行数で決まるため、いまの入力から組み立てる。行そのものが
-   * 無いことを指す位置（`externalAudios[i]`）は欄に対応しないので、そのまま全体のエラーになる
-   * （DECISIONS 29）。
+   * 子の位置（`externalAudios[i].url` / `tracks[i].tunes[j].tuneTitle`）は行数で決まるため、いまの入力から
+   * 組み立てる。行そのものが無いことを指す位置（`tracks[i]`）は欄に対応しないので、そのまま全体のエラーに
+   * なる（DECISIONS 29）。
    * </p>
    */
   const assignablePaths = $derived<readonly string[]>([
     ...FIELD_PATHS,
     ...audios.map((_, index) => audioPathOf(index)),
+    ...trackPathsOf(tracks),
   ]);
 
   /** 外部音源の行を指す位置の接頭辞。行の位置は並びが変われば別の行を指す */
@@ -156,12 +238,6 @@
 
   /** 外部音源の行の位置。管理APIが検証エラーの `field` として返す綴りと同じ */
   const audioPathOf = (index: number): string => `${AUDIO_PATH_PREFIX}${String(index)}].url`;
-
-  /** 選択肢の表示。値は管理APIの列挙子名で、そのままでは画面に出せない */
-  const CHOICE_LABELS: Readonly<Record<string, string>> = {
-    PLAIN_TEXT: 'プレーンテキスト',
-    MARKDOWN: 'Markdown',
-  };
 
   /**
    * 保存の状態。
@@ -223,6 +299,10 @@
     coverImageUrl: string | null;
     /** いま入力している外部音源。この並びがそのまま保存に乗る */
     audios: readonly ExternalAudioDraft[];
+    /** いま入力している曲目。この並びがそのまま保存に乗る */
+    tracks: readonly TrackDraft[];
+    /** 読み込んだ時点の内容。いまの入力と突き合わせて、未保存かどうかを決める */
+    baseline: string;
   }>;
 
   /**
@@ -251,6 +331,10 @@
         readonly coverImageUrl: string | null;
         /** いま入力している外部音源。この並びがそのまま保存に乗る */
         readonly audios: readonly ExternalAudioDraft[];
+        /** いま入力している曲目。この並びがそのまま保存に乗る */
+        readonly tracks: readonly TrackDraft[];
+        /** 読み込んだ時点の内容。いまの入力と突き合わせて、未保存かどうかを決める */
+        readonly baseline: string;
         /**
          * 選ぶ入力を作り直した回数。
          *
@@ -265,6 +349,16 @@
          * </p>
          */
         readonly attempts: number;
+        /**
+         * 検証で断られた回数。
+         *
+         * <p>
+         * <b>新しい検証結果が届いたことを子の区画へ伝えるために数える。</b> 誤りの中身で見分けると、
+         * 同じ誤りがもう一度返ったときに別の結果だと分からない。区画はこの数が変わったときだけ、
+         * 開く行を最初の誤りの行へ選び直す（それ以外は人が選んだ行を保つ）。
+         * </p>
+         */
+        readonly rejections: number;
         readonly submission: Submission;
         readonly upload: Upload;
       };
@@ -278,6 +372,20 @@
   const failureTextOf = (failure: ApiFailure): string =>
     failure.kind === 'unauthorized' ? '鍵が受け付けられませんでした。' : failure.message;
 
+  /**
+   * 入力の内容を1つの文字列に畳む。未保存かどうかは、これを読み込んだ時点のものと突き合わせて決める。
+   *
+   * <p>
+   * 畳む前に**送る形**（{@link albumFieldsOf}）へ写す。画面の持ち方ではなく保存したときに何になるかで
+   * 比べるため——空白だけの欄を空へ戻すような、送る内容の変わらない書き換えを未保存として数えない。
+   * </p>
+   */
+  const contentOf = (
+    draft: AlbumDraft,
+    audios: readonly ExternalAudioDraft[],
+    tracks: readonly TrackDraft[],
+  ): string => JSON.stringify(albumFieldsOf(draft, audios, tracks));
+
   const editing = (apiKey: string, pending: Pending): View => ({
     kind: 'editing',
     apiKey,
@@ -285,7 +393,10 @@
     draft: pending.draft,
     coverImageUrl: pending.coverImageUrl,
     audios: pending.audios,
+    tracks: pending.tracks,
+    baseline: pending.baseline,
     attempts: 0,
+    rejections: 0,
     submission: { kind: 'idle' },
     upload: { kind: 'idle' },
   });
@@ -294,14 +405,25 @@
     view = { kind: 'locked', message, pending };
   };
 
+  /** 読み込んだ作品を、編集の初期値へ写す。突き合わせる基準もここで作る */
+  const pendingOfAlbum = (albumId: string, album: AdminAlbumDetail): Pending => {
+    const draft = draftOf(album);
+    const audios = audioDraftsOf(album);
+    const tracks = trackDraftsOf(album);
+
+    return {
+      target: { albumId, revision: album.revision },
+      draft,
+      coverImageUrl: album.coverImageUrl,
+      audios,
+      tracks,
+      baseline: contentOf(draft, audios, tracks),
+    };
+  };
+
   const loaded = (apiKey: string, albumId: string, result: ApiResult<AdminAlbumDetail>): View =>
     result.kind === 'ok'
-      ? editing(apiKey, {
-          target: { albumId, revision: result.value.revision },
-          draft: draftOf(result.value),
-          coverImageUrl: result.value.coverImageUrl,
-          audios: audioDraftsOf(result.value),
-        })
+      ? editing(apiKey, pendingOfAlbum(albumId, result.value))
       : result.kind === 'unauthorized'
         ? { kind: 'locked', message: failureTextOf(result), pending: null }
         : { kind: 'unavailable', apiKey, message: failureTextOf(result) };
@@ -321,6 +443,8 @@
       draft: EMPTY_DRAFT,
       coverImageUrl: null,
       audios: [],
+      tracks: [],
+      baseline: contentOf(EMPTY_DRAFT, [], []),
     });
   };
 
@@ -407,7 +531,7 @@
             ...current,
             draft: withCleared(
               current.draft,
-              section.fields.map((field) => field.path),
+              section.rows.flatMap((row) => row.map((field) => field.path)),
             ),
           }
         : current;
@@ -516,10 +640,25 @@
         : current;
   };
 
+  /**
+   * 検証で断られた結果だけを数える。
+   *
+   * 同じ誤りがもう一度返っても別の結果として数える——子の区画はこの数の変化で「新しい検証結果が来た」
+   * と判じ、開く行を選び直す。
+   */
+  const rejectionsAfter = (current: number, submission: Submission): number =>
+    current + (submission.kind === 'invalid' ? 1 : 0);
+
   /** 保存の状態だけを差し替えた画面。入力値は保つ（直す先が入力にあるため、消さない） */
   const withSubmissionOf = (submission: Submission): View => {
     const current = view;
-    return current.kind === 'editing' ? { ...current, submission } : current;
+    return current.kind === 'editing'
+      ? {
+          ...current,
+          submission,
+          rejections: rejectionsAfter(current.rejections, submission),
+        }
+      : current;
   };
 
   const withSubmission = (submission: Submission): void => {
@@ -564,12 +703,11 @@
   const save = async (
     apiKey: string,
     target: Target | null,
-    draft: AlbumDraft,
-    audios: readonly ExternalAudioDraft[],
+    fields: AlbumFields,
   ): Promise<ApiResult<unknown>> =>
     target === null
-      ? createAlbum(apiKey, albumFieldsOf(draft, audios))
-      : updateAlbum(apiKey, target.albumId, albumFieldsOf(draft, audios), target.revision);
+      ? createAlbum(apiKey, fields)
+      : updateAlbum(apiKey, target.albumId, fields, target.revision);
 
   /** いま抱えている入力。編集中でなければ持たない */
   const pendingOf = (current: View): Pending | null =>
@@ -579,6 +717,8 @@
           draft: current.draft,
           coverImageUrl: current.coverImageUrl,
           audios: current.audios,
+          tracks: current.tracks,
+          baseline: current.baseline,
         }
       : null;
 
@@ -614,18 +754,21 @@
     void (current.kind === 'editing' &&
     current.submission.kind !== 'saving' &&
     current.upload.kind !== 'sending'
-      ? submitWith(current.apiKey, current.target, current.draft, current.audios)
+      ? submitWith(
+          current.apiKey,
+          current.target,
+          albumFieldsOf(current.draft, current.audios, current.tracks),
+        )
       : Promise.resolve());
   };
 
   const submitWith = async (
     apiKey: string,
     target: Target | null,
-    draft: AlbumDraft,
-    audios: readonly ExternalAudioDraft[],
+    fields: AlbumFields,
   ): Promise<void> => {
     withSubmission({ kind: 'saving' });
-    applySaveOutcome(apiKey, await save(apiKey, target, draft, audios));
+    applySaveOutcome(apiKey, await save(apiKey, target, fields));
   };
 
   /**
@@ -643,35 +786,86 @@
    * 外部音源の並びを入力として持ち直す。送るのは保存のときだけ。
    *
    * <p>
-   * <b>前回の検証エラーは、ここで落とす。</b> 行の誤りは位置（`externalAudios[i].url`）で返るため、並びが変われば
-   * その位置は別の行を指す。残したままにすると、直っていない行からエラーが消え、関係のない行に出る。行は
-   * 保存されるまでIDを持たないので、エラーを行へ追従させることもできない。
+   * <b>前回の検証エラーはそのまま残す。</b> 末尾へ足しただけでは既存の行の位置は変わらず、
+   * `externalAudios[i].url` は同じ行を指したままである。落とすと、何も直していない行から理由が消える。
    * </p>
    */
-  const audiosChanged = (audios: readonly ExternalAudioDraft[]): void => {
+  const audiosEdited = (audios: readonly ExternalAudioDraft[]): void => {
+    const current = view;
+    view = current.kind === 'editing' ? { ...current, audios } : current;
+  };
+
+  /**
+   * 外部音源の行を外した・動かした後。
+   *
+   * <p>
+   * <b>その子の行に割り当てられたエラーは、ここで落とす。</b> 位置（`externalAudios[i].url`）は並びが
+   * 変われば別の行を指す。残したままにすると、直っていない行から消えて関係のない行に出る。行は保存
+   * されるまでIDを持たないので、エラーを行へ追従させることもできない。
+   * </p>
+   */
+  const audiosRepositioned = (audios: readonly ExternalAudioDraft[]): void => {
     const current = view;
     view =
       current.kind === 'editing'
-        ? { ...current, audios, submission: submissionAfterAudioEdit(current.submission) }
+        ? {
+            ...current,
+            audios,
+            submission: submissionAfterReposition(current.submission, AUDIO_PATH_PREFIX),
+          }
         : current;
   };
 
   /**
-   * 外部音源の並びを変えた後の保存の状態。
+   * 曲目の並びを入力として持ち直す。送るのは保存のときだけ。
    *
    * <p>
-   * 落とすのは<b>音源の行に割り当てられたエラーだけ</b>。同じ応答には本体の欄の誤り（`title` など）も
-   * 一緒に入るため、まとめて捨てると、何も直していない欄のエラーまで消える。
+   * <b>前回の検証エラーはそのまま残す。</b> 欄の書き換えでも末尾への追加でも既存の行の位置は変わらず、
+   * `tracks[i].tunes[j].field` は同じ行を指したままである。1回の応答には複数の行の誤りが同時に入り得る
+   * ため（`Result.all` が積む）、ここで落とすと<b>1曲目を1文字直しただけで3曲目の理由まで消える</b>。
+   * </p>
+   */
+  const tracksEdited = (tracks: readonly TrackDraft[]): void => {
+    const current = view;
+    view = current.kind === 'editing' ? { ...current, tracks } : current;
+  };
+
+  /**
+   * 位置が変わった範囲。
+   *
+   * 曲目そのものを外した・動かしたときは曲目全体、行の中のチューンを外したときは<b>そのトラックの下
+   * だけ</b>。チューンの並びが変わっても、他のトラックの位置は動かない。
+   */
+  const stalePrefixOf = (within: number | null): string =>
+    within === null ? TRACK_PATH_PREFIX : tunesPathPrefixOf(within);
+
+  /** 曲目の行の位置が変わった後（理由は {@link audiosRepositioned} と同じ） */
+  const tracksRepositioned = (tracks: readonly TrackDraft[], within: number | null): void => {
+    const current = view;
+    view =
+      current.kind === 'editing'
+        ? {
+            ...current,
+            tracks,
+            submission: submissionAfterReposition(current.submission, stalePrefixOf(within)),
+          }
+        : current;
+  };
+
+  /**
+   * 子の並びが変わった後の保存の状態。
+   *
+   * <p>
+   * 落とすのは<b>その子の行に割り当てられたエラーだけ</b>。同じ応答には本体の欄の誤り（`title` など）も、
+   * もう一方の子の誤りも一緒に入るため、まとめて捨てると、何も直していない欄のエラーまで消える。
    * </p>
    *
    * <p>
    * 競合や通信断（`conflicted` / `refused`）は入力を変えても消えないため、そのまま残す。
    * </p>
    */
-  const submissionAfterAudioEdit = (current: Submission): Submission =>
-    current.kind === 'invalid'
-      ? invalidOrIdle(withoutPathsUnder(current.errors, AUDIO_PATH_PREFIX))
-      : current;
+  const submissionAfterReposition = (current: Submission, prefix: string): Submission =>
+    current.kind === 'invalid' ? invalidOrIdle(withoutPathsUnder(current.errors, prefix)) : current;
 
   /** 落とした後に残るものが無ければ、拒まれている状態そのものを解く */
   const invalidOrIdle = (errors: FormErrors): Submission =>
@@ -706,10 +900,29 @@
   const audios = $derived<readonly ExternalAudioDraft[]>(
     view.kind === 'editing' ? view.audios : [],
   );
+  const tracks = $derived<readonly TrackDraft[]>(view.kind === 'editing' ? view.tracks : []);
+
+  /** 検証で断られた回数。子の区画はこの変化で、開く行を最初の誤りの行へ選び直す */
+  const rejections = $derived(view.kind === 'editing' ? view.rejections : 0);
+
+  /**
+   * まだ保存していない書き換えがあるか。
+   *
+   * <p>
+   * 欄ごとに触ったかを覚えず、**いまの入力が保存したときに何になるか**を読み込んだ時点のものと
+   * 突き合わせる。曲目の行を足して外すような、往復して元へ戻る操作まで未保存として数えないため。
+   * </p>
+   */
+  const unsaved = $derived(
+    view.kind === 'editing' && contentOf(view.draft, view.audios, view.tracks) !== view.baseline,
+  );
 
   /** その行に割り当てられた誤り */
   const audioMessagesOf = (index: number): readonly string[] =>
     errors.byField.get(audioPathOf(index)) ?? [];
+
+  /** 位置に割り当てられた誤り。曲目は入れ子を持つため、位置そのものを受け取る */
+  const messagesAt = (path: string): readonly string[] => errors.byField.get(path) ?? [];
 
   const coverImageUrl = $derived(view.kind === 'editing' ? view.coverImageUrl : null);
   const coverAttempts = $derived(view.kind === 'editing' ? view.attempts : 0);
@@ -729,24 +942,66 @@
 
   const messagesOf = (path: AlbumFieldPath): readonly string[] => errors.byField.get(path) ?? [];
 
-  /** 欄の識別子。位置の綴りに含まれる `.` は識別子に使えない */
-  const idOf = (path: AlbumFieldPath): string => `album-${path.replace('.', '-')}`;
+  /**
+   * 人が開いた区画。
+   *
+   * <p>
+   * <b>既定はどれも畳んでいる。</b> 作品1件の入力は縦に長く、全部が開いたままでは、いま何を編集して
+   * いるのかを見失う。畳み切った画面はその作品の姿（公開サイトと同じ読み方）になり、直したい区画だけを
+   * 開いて入力に変える。
+   * </p>
+   *
+   * <p>
+   * 行（トラック・チューン）と違い、<b>同時にいくつ開いてもよい</b>。区画はそれぞれ別の事柄で、突き合わせ
+   * ながら直すことがある。
+   * </p>
+   */
+  let openSections = $state<ReadonlySet<string>>(new Set());
+
+  const toggleSection = (heading: string): void => {
+    openSections = openSections.has(heading)
+      ? new Set([...openSections].filter((open) => open !== heading))
+      : new Set([...openSections, heading]);
+  };
+
+  /** その位置のどれかに誤りが割り当てられているか */
+  const rejectedAt = (paths: readonly string[]): boolean =>
+    paths.some((path) => messagesAt(path).length > 0);
+
+  /** その接頭辞の下のどこかに誤りが割り当てられているか。子の位置は行数で決まるため綴りで引く */
+  const rejectedUnder = (prefix: string): boolean =>
+    [...errors.byField.keys()].some((path) => path.startsWith(prefix));
 
   /**
-   * 1行の入力欄が受け取る型。
+   * 開いている区画。
    *
-   * 複数行・選択肢は別の枝が描くため、ここへは来ない。来ない種別も表へ載せるのは、種別が増えたときに
-   * 抜けをコンパイルで気付くため。
+   * 断られた区画は畳めない——理由は欄の下に出るため、畳んだままでは直す先が画面から消える。
    */
-  const INPUT_TYPES = {
-    text: 'text',
-    date: 'date',
-    number: 'number',
-    multiline: 'text',
-    choice: 'text',
-  } as const satisfies Record<FieldSpec['kind'], string>;
+  const shown = (heading: string, rejected: boolean): boolean =>
+    [rejected, openSections.has(heading)].some(Boolean);
 
-  const inputTypeOf = (kind: FieldSpec['kind']): string => INPUT_TYPES[kind];
+  /*
+   * 畳んだ区画に出す要約。欄を持たない区画（カバー画像・曲目・外部音源）は入っているものの数で読む
+   * ——どれも中身が並びや画像で、1行へ畳むと元の読み方にならない。
+   */
+  const coverSummary = $derived(coverImageUrl === null ? '（なし）' : '設定済み');
+  const audiosSummary = $derived(audios.length === 0 ? '（なし）' : `${String(audios.length)}件`);
+
+  /* 曲目は原作の出典も抱える。畳んだときに出典が消えると、入っていることが読めない */
+  const trackParts = $derived(
+    filled([tracks.length === 0 ? '' : `${String(tracks.length)}曲`, draft.originalWorkNote]),
+  );
+  const tracksSummary = $derived(trackParts.length === 0 ? '（なし）' : trackParts.join(' / '));
+
+  /** 曲目の誤り。行の位置つきのものと、原作の出典のどちらも直す先はこの区画にある */
+  const tracksRejected = $derived(
+    [rejectedUnder(TRACK_PATH_PREFIX), rejectedAt([ORIGINAL_WORK_NOTE.path])].some(Boolean),
+  );
+
+  /** カバー画像の誤り。位置を持つ検証エラーと、送るのに失敗した理由のどちらも直す先はこの区画にある */
+  const coverRejected = $derived(
+    [rejectedAt(['coverImageKey']), coverMessages.length > 0].some(Boolean),
+  );
 
   const SAVE_LABELS = { new: '作成する', edit: '保存する' } satisfies Record<Props['mode'], string>;
 </script>
@@ -774,8 +1029,12 @@
     </div>
   </div>
 {:else}
-  <div class="space-y-8">
-    <form class="max-w-2xl space-y-8" onsubmit={submit}>
+  <!--
+    狭い幅では操作が本文の上に重なるため、その分だけ下を空ける。空けないと、いちばん下の入力へ永久に
+    届かない。広い幅は右へ逃げるので重ならない。
+  -->
+  <div class="space-y-8 pb-24 lg:pb-0">
+    <form id={ALBUM_FORM_ID} class="max-w-2xl space-y-8" onsubmit={submit}>
       <!--
       送ったのはクリックした時点の入力である。保存中も入力を受け付けると、その後の変更は要求に
       入らないまま、成功して一覧へ移ったときに黙って消える。
@@ -784,79 +1043,74 @@
     -->
       <fieldset class="space-y-8" disabled={saving}>
         {#each SECTIONS as section (section.heading)}
-          <section class="space-y-4">
-            <div class="flex items-center justify-between gap-4">
-              <h2 class="text-base font-medium">{section.heading}</h2>
-              {#if section.clearing !== undefined}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onclick={() => {
-                    clearSection(section);
-                  }}
-                >
-                  {section.clearing}
-                </Button>
-              {/if}
-            </div>
-
-            {#each section.fields as field (field.path)}
-              <div class="space-y-1" data-field={field.path}>
-                <label class="text-sm font-medium" for={idOf(field.path)}>{field.label}</label>
-
-                {#if field.kind === 'choice'}
-                  <select
-                    id={idOf(field.path)}
-                    class="border-input bg-background w-full rounded-md border px-3 py-2"
-                    value={draft[field.path]}
-                    aria-invalid={messagesOf(field.path).length > 0}
-                    onchange={(event) => {
-                      update(field.path, event.currentTarget.value);
-                    }}
-                  >
-                    {#each field.choices as choice (choice)}
-                      <option value={choice}>{CHOICE_LABELS[choice] ?? choice}</option>
-                    {/each}
-                  </select>
-                {:else if field.kind === 'multiline'}
-                  <textarea
-                    id={idOf(field.path)}
-                    class="border-input bg-background w-full rounded-md border px-3 py-2"
-                    rows="4"
-                    value={draft[field.path]}
-                    aria-invalid={messagesOf(field.path).length > 0}
-                    oninput={(event) => {
-                      update(field.path, event.currentTarget.value);
-                    }}></textarea>
-                {:else}
-                  <input
-                    id={idOf(field.path)}
-                    class="border-input bg-background w-full rounded-md border px-3 py-2"
-                    type={inputTypeOf(field.kind)}
-                    value={draft[field.path]}
-                    aria-invalid={messagesOf(field.path).length > 0}
-                    oninput={(event) => {
-                      update(field.path, event.currentTarget.value);
-                    }}
-                  />
-                {/if}
-
-                {#each messagesOf(field.path) as message (message)}
-                  <p class="text-destructive text-sm" role="alert">{message}</p>
+          <AlbumSection
+            heading={section.heading}
+            summary={section.summaryOf(draft)}
+            open={shown(section.heading, rejectedAt(pathsIn(section)))}
+            disabled={saving}
+            onToggle={() => {
+              toggleSection(section.heading);
+            }}
+          >
+            <!--
+              ROW-ALIGNS-AT-TOP: 上端で揃える。下端で揃えると、誤りの出た欄だけが高くなった分、同じ行の
+              他の欄が持ち上がって並びが崩れる（誤りは欄の下に出るため、高さは欄ごとに変わる）。
+            -->
+            {#each section.rows as row, index (row[0]?.path)}
+              <div class="flex flex-wrap items-start gap-4">
+                {#each row as field (field.path)}
+                  <div class="min-w-40 flex-1 space-y-1" data-field={field.path}>
+                    <AlbumFormField
+                      {field}
+                      value={draft[field.path]}
+                      formId={ALBUM_FORM_ID}
+                      messages={messagesOf(field.path)}
+                      onValue={(value: string) => {
+                        update(field.path, value);
+                      }}
+                    />
+                  </div>
                 {/each}
+
+                <!-- 外す操作は、外す対象の欄と同じ行に置く -->
+                {#if section.clearing !== undefined && index === section.rows.length - 1}
+                  <div class="space-y-1">
+                    <!--
+                      LABEL-HEIGHT-SPACER: 欄の名の分だけ下げて、入力そのものと同じ高さに置く。上端で
+                      揃えているため、これが無いと操作だけが名の行に並ぶ。
+                    -->
+                    <p class="text-sm font-medium" aria-hidden="true">&nbsp;</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onclick={() => {
+                        clearSection(section);
+                      }}
+                    >
+                      {section.clearing}
+                    </Button>
+                  </div>
+                {/if}
               </div>
             {/each}
-          </section>
+          </AlbumSection>
         {/each}
 
         <!--
         画像は選んだ時点で送られ、確定できたものだけがここに出る。作品へ反映するのは保存で、
         送るのと反映するのを分けているため、状態の出し方も保存とは別に持つ。
       -->
-        <section class="space-y-4" data-field="coverImageKey">
-          <div class="flex items-center justify-between gap-4">
-            <h2 class="text-base font-medium">カバー画像</h2>
+        <AlbumSection
+          heading="カバー画像"
+          summary={coverSummary}
+          open={shown('カバー画像', coverRejected)}
+          disabled={saving}
+          onToggle={() => {
+            toggleSection('カバー画像');
+          }}
+        >
+          <div class="space-y-4" data-field="coverImageKey">
             {#if coverImageUrl !== null}
               <!-- 送っている最中は外せない。外した後に送り終えた画像が入ると、外した操作が黙って覆る -->
               <Button
@@ -869,52 +1123,112 @@
                 カバー画像を外す
               </Button>
             {/if}
-          </div>
 
-          {#if coverImageUrl === null}
-            <p class="text-muted-foreground text-sm">カバー画像はありません。</p>
-          {:else}
-            <img
-              class="border-input h-40 w-40 rounded-md border object-cover"
-              src={coverImageUrl}
-              alt="いま選ばれているカバー画像"
-              data-cover-image
-            />
-          {/if}
+            {#if coverImageUrl === null}
+              <p class="text-muted-foreground text-sm">カバー画像はありません。</p>
+            {:else}
+              <img
+                class="border-input h-40 w-40 rounded-md border object-cover"
+                src={coverImageUrl}
+                alt="いま選ばれているカバー画像"
+                data-cover-image
+              />
+            {/if}
 
-          <div class="space-y-1">
-            <label class="text-sm font-medium" for="album-cover-image">画像を選ぶ</label>
-            <!--
+            <div class="space-y-1">
+              <label class="text-sm font-medium" for="album-cover-image">画像を選ぶ</label>
+              <!--
             受け入れる形式を並べない。`image/*` はファイルを選ぶ窓の絞り込みで、どの画像形式を
             受け入れるかの判定はバックエンドが持つ。ここへ写すと、増減のたびに2箇所を変えることになる。
           -->
-            {#key coverAttempts}
-              <input
-                id="album-cover-image"
-                class="border-input bg-background w-full rounded-md border px-3 py-2"
-                type="file"
-                accept="image/*"
-                disabled={sendingCover}
-                onchange={(event) => {
-                  pickCover(event.currentTarget.files);
-                }}
-              />
-            {/key}
-            <p class="text-muted-foreground text-sm">
-              選ぶとすぐに送ります。作品へ反映するには、そのあと保存してください。
-            </p>
+              {#key coverAttempts}
+                <input
+                  id="album-cover-image"
+                  class="border-input bg-background w-full rounded-md border px-3 py-2"
+                  type="file"
+                  accept="image/*"
+                  disabled={sendingCover}
+                  onchange={(event) => {
+                    pickCover(event.currentTarget.files);
+                  }}
+                />
+              {/key}
+              <p class="text-muted-foreground text-sm">
+                選ぶとすぐに送ります。作品へ反映するには、そのあと保存してください。
+              </p>
+            </div>
+
+            {#if sendingCover}
+              <p class="text-muted-foreground text-sm">画像を送っています…</p>
+            {/if}
+
+            {#each coverMessages as message (message)}
+              <p class="text-destructive text-sm" role="alert">{message}</p>
+            {/each}
           </div>
-
-          {#if sendingCover}
-            <p class="text-muted-foreground text-sm">画像を送っています…</p>
-          {/if}
-
-          {#each coverMessages as message (message)}
-            <p class="text-destructive text-sm" role="alert">{message}</p>
-          {/each}
-        </section>
+        </AlbumSection>
       </fieldset>
+    </form>
 
+    <!--
+      OUTSIDE-THE-FORM: 反映は上の保存に乗るが、区画は保存のフォームの外に置く。中に置くと、行を足す
+      入力とボタンが作品の保存を巻き込む（Enter も submit になる）。
+    -->
+    <AlbumSection
+      heading="曲目"
+      summary={tracksSummary}
+      open={shown('曲目', tracksRejected)}
+      disabled={saving}
+      onToggle={() => {
+        toggleSection('曲目');
+      }}
+    >
+      <AlbumTracks
+        {tracks}
+        {rejections}
+        disabled={busy}
+        messagesOf={messagesAt}
+        onEdit={tracksEdited}
+        onReposition={tracksRepositioned}
+      />
+
+      <!--
+        原作の出典は曲目の区画に入れる。「「○○」より各曲」のように<b>曲単位で特定しないまま曲目全体を
+        指す一文</b>であり、読む場所も直す場所も曲目の並びの直後になる（#365）。保存は作品の保存に乗る
+        ため、`form` 属性でそのフォームへ結び付けている。
+      -->
+      <fieldset class="space-y-1" data-field={ORIGINAL_WORK_NOTE.path} disabled={saving}>
+        <AlbumFormField
+          field={ORIGINAL_WORK_NOTE}
+          value={draft[ORIGINAL_WORK_NOTE.path]}
+          formId={ALBUM_FORM_ID}
+          messages={messagesOf(ORIGINAL_WORK_NOTE.path)}
+          onValue={(value: string) => {
+            update(ORIGINAL_WORK_NOTE.path, value);
+          }}
+        />
+      </fieldset>
+    </AlbumSection>
+
+    <AlbumSection
+      heading="外部音源"
+      summary={audiosSummary}
+      open={shown('外部音源', rejectedUnder(AUDIO_PATH_PREFIX))}
+      disabled={saving}
+      onToggle={() => {
+        toggleSection('外部音源');
+      }}
+    >
+      <AlbumExternalAudios
+        {audios}
+        disabled={busy}
+        messagesOf={audioMessagesOf}
+        onEdit={audiosEdited}
+        onReposition={audiosRepositioned}
+      />
+    </AlbumSection>
+
+    <div class="max-w-2xl space-y-8">
       {#if errors.unassigned.length > 0}
         <section class="space-y-1">
           <h2 class="text-base font-medium">どの項目にも紐付かないエラー</h2>
@@ -940,24 +1254,39 @@
       {#if refusedMessage !== null}
         <p class="text-destructive text-sm" role="alert">{refusedMessage}</p>
       {/if}
-
-      <div class="flex items-center gap-4">
-        <Button type="submit" disabled={busy}>
-          {saving ? '保存しています…' : SAVE_LABELS[mode]}
-        </Button>
-        <a class="text-sm underline underline-offset-4" href={ALBUM_LIST_PATH}>やめる</a>
-      </div>
-    </form>
+    </div>
 
     <!--
-      OUTSIDE-THE-FORM: 反映は上の保存に乗るが、区画は保存のフォームの外に置く。中に置くと、行を足す
-      入力とボタンが作品の保存を巻き込む（Enter も submit になる）。
+      FIXED-ACTIONS: 保存の操作を画面の下端に留め、未保存であることをそこに出す。
+
+      曲目も外部音源もこの保存に乗るようになり（#391）、畳んだ行の中にも書きかけが残る。操作が画面の
+      上端にしか無いと、**書きかけがあること自体が見えない**まま離脱できてしまう。知らせと操作を同じ
+      1箇所に置くのは、知らせを読んだ人がその場で保存できるようにするため。
+
+      広い幅では本文の右へ逃がす（#357 の導線と同じ切り替え）。本文は `max-w-2xl` で、器の右には
+      収まる空きが残る——本文の上に重ねずに済み、全体を撮った証跡でも欄を覆わない。
+
+      外側の器は `AdminLayout.astro` と同じ幅で組む。`fixed` は viewport からの位置しか持てないため、
+      本文の右端を指すには器の位置を再現するしかない。
     -->
-    <AlbumExternalAudios
-      {audios}
-      disabled={busy}
-      messagesOf={audioMessagesOf}
-      onChange={audiosChanged}
-    />
+    <div class="pointer-events-none fixed inset-x-0 bottom-0 z-10">
+      <div class="mx-auto max-w-5xl px-4 lg:max-w-6xl">
+        <div
+          class="bg-background/95 border-border pointer-events-auto ml-auto flex flex-wrap items-center gap-4 border-t py-3 backdrop-blur lg:w-56 lg:flex-col lg:items-start lg:gap-3 lg:rounded-md lg:border lg:px-4 lg:py-4"
+          data-album-actions
+        >
+          <Button type="submit" form={ALBUM_FORM_ID} disabled={busy}>
+            {saving ? '保存しています…' : SAVE_LABELS[mode]}
+          </Button>
+          <a class="text-sm underline underline-offset-4" href={ALBUM_LIST_PATH}>やめる</a>
+
+          {#if unsaved}
+            <p class="text-muted-foreground text-sm" role="status" data-unsaved>
+              保存していない変更があります。
+            </p>
+          {/if}
+        </div>
+      </div>
+    </div>
   </div>
 {/if}

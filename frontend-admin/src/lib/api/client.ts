@@ -301,6 +301,9 @@ export type ExternalAudioFields = Schemas['ExternalAudioRequest'];
  */
 export type TrackFields = Schemas['TrackRequest'];
 
+/** 作品が持つ曲目1行。読むときはトラック番号つきで返る */
+export type AdminTrack = Schemas['AdminTrackResponse'];
+
 /** サイトの文言1件。キーで引く（#230） */
 export type SiteContent = Schemas['SiteContentResponse'];
 
