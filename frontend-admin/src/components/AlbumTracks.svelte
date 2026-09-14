@@ -1,6 +1,7 @@
 <script lang="ts">
   import AlbumTrackEditor from '$components/AlbumTrackEditor.svelte';
   import { Button } from '$components/ui/button/index.js';
+  import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
   import {
     EMPTY_TRACK,
     TRACK_FIELDS,
@@ -67,6 +68,15 @@
   const toggleTrack = (index: number): void => {
     openTrack = openTrack === index ? null : index;
   };
+
+  /**
+   * 開く操作の名。
+   *
+   * 何番目の行なのかを名に持たせる。印だけの操作が縦に並ぶと、**どの行を開くのかが押す前に読めない**
+   * ——読み上げでは印そのものが読めない。
+   */
+  const toggleLabelOf = (index: number): string =>
+    shownTrack === index ? `${String(index + 1)}曲目を畳む` : `${String(index + 1)}曲目を開く`;
 
   const withTrack = (index: number, draft: TrackDraft): void => {
     onChange(tracks.map((track, position) => (position === index ? draft : track)));
@@ -146,6 +156,29 @@
       {#each tracks as track, index (index)}
         <li class="space-y-2 py-2">
           <div class="flex items-start gap-2">
+            <!--
+              DISCLOSURE-CHEVRON: 開く操作は行の先頭に置いた印で表す。畳んだ行がいくつも並ぶため、
+              文言のボタンを行ごとに置くと、その行が何なのかより「開く」の方が目に入る。
+
+              何番目の行なのかは `aria-label` が持つ。印だけでは、読み上げでどの行を開くのかが読めない。
+            -->
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              {disabled}
+              aria-expanded={shownTrack === index}
+              aria-label={toggleLabelOf(index)}
+              onclick={() => {
+                toggleTrack(index);
+              }}
+            >
+              <!-- 印の向きが開閉を表す。開いた行では右向きが下を向く -->
+              <ChevronRightIcon
+                class="transition-transform {shownTrack === index ? 'rotate-90' : ''}"
+              />
+            </Button>
+
             <span class="text-muted-foreground w-6 shrink-0 text-right tabular-nums">
               {index + 1}
             </span>
@@ -167,19 +200,6 @@
               {/if}
             </div>
 
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              {disabled}
-              onclick={() => {
-                toggleTrack(index);
-              }}
-            >
-              {shownTrack === index
-                ? `${String(index + 1)}曲目を畳む`
-                : `${String(index + 1)}曲目を開く`}
-            </Button>
             <Button
               type="button"
               size="sm"

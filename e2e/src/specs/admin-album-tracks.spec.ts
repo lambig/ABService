@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 
-import { capture, captureFocused, captureWhole } from '../support/evidence.ts';
+import { captureFocused, captureWhole } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 import { deleteScratchAlbums, seedScratchAlbum } from '../support/scratch-albums.ts';
 import { stack } from '../support/config.ts';
@@ -196,7 +196,11 @@ test.describe('管理画面の曲目', () => {
     );
     await expect(shownTunes(trackRows(page).first()).last()).toContainText('E2E 後半');
 
-    await capture(page, '39n-admin-track-reopened');
+    /*
+     * 畳んだ形そのものが見どころで、曲目の区画は画面の下の方にある。素の capture では、通っていても
+     * 何も写らない証跡になる（#369）。
+     */
+    await captureFocused(page, trackList(page), '39n-admin-track-reopened');
 
     await page.getByRole('button', { name: openTrackLabel(1) }).click();
     await expect(tuneRows(page)).toHaveCount(2);
@@ -232,6 +236,9 @@ test.describe('管理画面の曲目', () => {
      */
     await page.getByRole('button', { name: '1曲目を畳む' }).click();
     await expect(editor(page)).toHaveCount(0);
+
+    /* 畳んだトラックの姿。印の向きが開閉を表す */
+    await captureFocused(page, trackList(page), '39y-admin-track-collapsed');
 
     await page.getByRole('button', { name: openTrackLabel(1) }).click();
     await expect(page.getByLabel(TRACK_TITLE_LABEL)).toHaveValue('E2E 畳む曲');

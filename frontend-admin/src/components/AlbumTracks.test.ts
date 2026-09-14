@@ -73,6 +73,23 @@ describe('曲目の一覧', () => {
     expect(within(rows()[1] as HTMLElement).getByLabelText(/トラック名/u)).toBeTruthy();
   });
 
+  /*
+   * DISCLOSURE-STATE: 開閉は印の向きで示すため、開いているかどうかは文言に残らない。状態を要素が
+   * 持っていないと、読み上げでは畳まれていること自体が伝わらない。
+   */
+  it('開く操作は、その行が開いているかどうかを持つ', async () => {
+    render(AlbumTracks, propsOf(TRACKS));
+
+    const toggle = (): HTMLElement =>
+      within(rows()[0] as HTMLElement).getByRole('button', { name: /1曲目を/u });
+
+    expect(toggle().getAttribute('aria-expanded')).toBe('false');
+
+    await userEvent.click(toggle());
+
+    expect(toggle().getAttribute('aria-expanded')).toBe('true');
+  });
+
   it('別の行を開くと、前の行は畳まれる', async () => {
     render(AlbumTracks, propsOf(TRACKS));
 

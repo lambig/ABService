@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Button } from '$components/ui/button/index.js';
+  import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
   import {
     EMPTY_TUNE,
     TUNE_FIELDS,
@@ -68,6 +69,17 @@
   const toggleTune = (index: number): void => {
     openTune = openTune === index ? null : index;
   };
+
+  /**
+   * 開く操作の名。
+   *
+   * 何チューン目かを名に持たせる。印だけの操作が縦に並ぶと、**どの行を開くのかが押す前に読めない**
+   * ——読み上げでは印そのものが読めない。
+   */
+  const toggleLabelOf = (index: number): string =>
+    shownTune === index
+      ? `${String(index + 1)}チューン目を畳む`
+      : `${String(index + 1)}チューン目を開く`;
 
   /**
    * 足した行はそのまま開く。足した直後に書き始められないと、開く操作がもう1回要る。
@@ -210,23 +222,26 @@
           畳んだ行が並んだときにどれを開くのかを押す前に読めるようにするため。
         -->
         <div class="flex items-center gap-2">
-          <span class="min-w-0 flex-1 truncate text-sm" data-tune-summary>
-            {tuneSummaryOf(tune)}
-          </span>
-
+          <!-- 開く操作は行の先頭の印で表す。何チューン目かは `aria-label` が持つ -->
           <Button
             type="button"
-            size="sm"
-            variant="outline"
+            size="icon-sm"
+            variant="ghost"
             {disabled}
+            aria-expanded={shownTune === index}
+            aria-label={toggleLabelOf(index)}
             onclick={() => {
               toggleTune(index);
             }}
           >
-            {shownTune === index
-              ? `${String(index + 1)}チューン目を畳む`
-              : `${String(index + 1)}チューン目を開く`}
+            <ChevronRightIcon
+              class="transition-transform {shownTune === index ? 'rotate-90' : ''}"
+            />
           </Button>
+
+          <span class="min-w-0 flex-1 truncate text-sm" data-tune-summary>
+            {tuneSummaryOf(tune)}
+          </span>
 
           <!-- どの行を外すのかを文言に持たせる。「この行」では、押す前に対象が読めない -->
           <Button
