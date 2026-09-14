@@ -27,7 +27,13 @@ concurrency:
 
 jobs:
   frontend:
-    if: ${{ github.ref == 'refs/heads/main' && vars.AWS_FRONTEND_DEPLOY_ROLE_ARN != '' }}
+    if: >-
+      github.ref == 'refs/heads/main' && vars.AWS_FRONTEND_DEPLOY_ROLE_ARN != '' && (
+        github.event_name == 'workflow_dispatch' || (
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.head_branch == 'main' &&
+          github.event.workflow_run.head_repository.full_name == github.repository))
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -44,6 +50,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: delivery
+          fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version-file: delivery/.nvmrc
@@ -57,11 +65,18 @@ jobs:
         env:
           RELEASE_SHA: ${{ inputs.commit_sha }}
         run: node delivery/infra/release/frontend.mjs resolve "$ACTION"
+      - name: Require selected source to belong to main
+        if: env.ACTION != 'rollback'
+        working-directory: delivery
+        env:
+          SELECTED_SHA: ${{ steps.source.outputs.code_sha }}
+        run: git merge-base --is-ancestor "$SELECTED_SHA" origin/main
       - uses: actions/checkout@v4
         if: env.ACTION != 'rollback'
         with:
           ref: ${{ steps.source.outputs.code_sha }}
           path: source
+          persist-credentials: false
       - uses: actions/setup-node@v4
         if: env.ACTION != 'rollback'
         with:
