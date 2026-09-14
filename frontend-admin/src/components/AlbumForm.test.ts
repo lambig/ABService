@@ -181,6 +181,49 @@ describe('外部音源の行の誤り', () => {
   });
 });
 
+describe('未保存の知らせ', () => {
+  const UNSAVED = '保存していない変更があります。';
+
+  it('読み込んだ直後は出さない', async () => {
+    await openEditor();
+
+    expect(screen.queryByText(UNSAVED)).toBeNull();
+  });
+
+  it('本体の欄を書き換えると出る', async () => {
+    await openEditor();
+
+    await userEvent.type(screen.getByLabelText('タイトル'), '改');
+
+    expect(screen.getByText(UNSAVED)).toBeTruthy();
+  });
+
+  /*
+   * COLLAPSED-EDITS-ARE-INVISIBLE: 曲目は畳んだまま足せる。画面の外にある書きかけを知らせるのが、
+   * この要素を持つ理由である。
+   */
+  it('曲目を足しただけでも出る', async () => {
+    await openEditor();
+
+    await userEvent.click(screen.getByRole('button', { name: 'トラックを追加する' }));
+
+    expect(screen.getByText(UNSAVED)).toBeTruthy();
+  });
+
+  /*
+   * COMPARE-WHAT-IS-SENT: 触ったかどうかではなく、保存したときに何になるかで比べる。往復して元へ
+   * 戻った入力を未保存として数えない。
+   */
+  it('書き換えを元へ戻すと消える', async () => {
+    await openEditor();
+
+    await userEvent.type(screen.getByLabelText('タイトル'), '改');
+    await userEvent.type(screen.getByLabelText('タイトル'), '{backspace}');
+
+    expect(screen.queryByText(UNSAVED)).toBeNull();
+  });
+});
+
 describe('409 の見分け', () => {
   const CONFLICT_HEADING = '編集を始めた後に、別の操作がこの作品を保存しています';
 

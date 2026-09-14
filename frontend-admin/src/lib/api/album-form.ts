@@ -1,4 +1,5 @@
 import type { AdminAlbumDetail, AlbumFields, ExternalAudioFields } from './client';
+import { trackDraftOf, trackFieldsOf, type TrackDraft } from './track-form';
 
 /**
  * 入力欄の位置。
@@ -43,6 +44,18 @@ export type AlbumDraft = Readonly<Record<AlbumFieldPath, string>>;
 
 /** 概要説明のマークアップ形式。`description` を指定するときだけ意味を持つ */
 export const DESCRIPTION_FORMATS = ['PLAIN_TEXT', 'MARKDOWN'] as const;
+
+/** 入力欄1つの宣言。位置の綴りは管理APIの入力パスと同じ */
+export interface FieldSpec {
+  readonly path: AlbumFieldPath;
+  readonly label: string;
+  readonly kind: 'text' | 'date' | 'number' | 'multiline' | 'choice';
+  /** 選択肢。`choice` 以外では空 */
+  readonly choices: readonly string[];
+}
+
+/** 欄の識別子。位置の綴りに含まれる `.` は識別子に使えない */
+export const fieldIdOf = (path: AlbumFieldPath): string => `album-${path.replace('.', '-')}`;
 
 /** 新規作成の初期値。形式だけは既定を持つ（選択肢のどれでもない状態を作らない） */
 export const EMPTY_DRAFT: AlbumDraft = {
@@ -203,6 +216,10 @@ const audioFieldsOf = (audio: ExternalAudioDraft): ExternalAudioFields => ({
   url: audio.url,
 });
 
+/** 既存の作品が持つ曲目を、編集の初期値へ写す */
+export const trackDraftsOf = (album: AdminAlbumDetail): readonly TrackDraft[] =>
+  album.tracks.map(trackDraftOf);
+
 /**
  * 入力値を、作成・更新の要求へ写す。
  *
@@ -212,7 +229,8 @@ const audioFieldsOf = (audio: ExternalAudioDraft): ExternalAudioFields => ({
  * </p>
  *
  * <p>
- * 外部音源は並びごと送る。作成も更新も同じ形で、送った配列がそのまま作品の音源になる（#391）。
+ * 曲目と外部音源は並びごと送る。作成も更新も同じ形で、送った配列がそのまま作品の曲目・音源になる
+ * （#391）。番号は組み立てない——並びは配列の位置が表す。
  * </p>
  *
  * <p>
@@ -223,7 +241,9 @@ const audioFieldsOf = (audio: ExternalAudioDraft): ExternalAudioFields => ({
 export const albumFieldsOf = (
   draft: AlbumDraft,
   audios: readonly ExternalAudioDraft[],
+  tracks: readonly TrackDraft[],
 ): AlbumFields => ({
+  tracks: tracks.map(trackFieldsOf),
   externalAudios: audios.map(audioFieldsOf),
   title: presence(draft.title),
   releaseDate: presence(draft.releaseDate),
