@@ -646,3 +646,10 @@ CI 用の compose の上書き（`docker-compose.ci.yml`）が1つ増える。pr
 検査そのものは実機でしか確かめられない部分がある。ヘッダの有無による拒否は統合テストと CI（公開ポート経由）で見るが、「別の配信からは到達できない」は AWS 上でしか再現できない。
 
 **実体**: `presentation.rest.security.OriginVerificationFilter`、`application.properties` の `abservice.origin.verify-token`、`infra/data.tf`（値の生成と保管）、`infra/edge.tf`（配信の `custom_header`）、`infra/security_groups.tf`、`docker-compose.prod.yml`、`infra/host/deploy.sh`。
+
+
+## PR の CI を既存アプリケーションと試聴プレイヤーの影響範囲で分ける
+
+独立した試聴 PoC の失敗で、既存サイトの検査や無関係な PR のマージを止めないため、PR では変更箇所と workspace の依存関係に応じて検査を選ぶ。検査内容は各 workspace の scripts を正とし、CI に同じ対象一覧を写さない。所属が未決の workspace や判定できない変更は両系統で扱い、パッケージの追加や依存の変更によって検査が黙って消えることを避ける。
+
+集約判定が許容するのは意図した対象外だけであり、必要な検査の未実行・失敗・中断を成功へ置き換えない。main と手動実行は全件検査を維持する。main の CI 成功が本番デプロイの前提であるため、PR の待ち時間の削減とリリース時の確認範囲を分ける。
