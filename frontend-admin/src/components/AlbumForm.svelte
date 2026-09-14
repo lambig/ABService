@@ -19,7 +19,12 @@
     type ExternalAudioDraft,
     type FieldSpec,
   } from '$lib/api/album-form';
-  import { TRACK_PATH_PREFIX, trackPathsOf, type TrackDraft } from '$lib/api/track-form';
+  import {
+    TRACK_PATH_PREFIX,
+    trackPathsOf,
+    tunesPathPrefixOf,
+    type TrackDraft,
+  } from '$lib/api/track-form';
   import { uploadAsset } from '$lib/api/asset-upload';
   import {
     createAlbum,
@@ -825,15 +830,24 @@
     view = current.kind === 'editing' ? { ...current, tracks } : current;
   };
 
-  /** 曲目の行を外した・動かした後（理由は {@link audiosRepositioned} と同じ） */
-  const tracksRepositioned = (tracks: readonly TrackDraft[]): void => {
+  /**
+   * 位置が変わった範囲。
+   *
+   * 曲目そのものを外した・動かしたときは曲目全体、行の中のチューンを外したときは<b>そのトラックの下
+   * だけ</b>。チューンの並びが変わっても、他のトラックの位置は動かない。
+   */
+  const stalePrefixOf = (within: number | null): string =>
+    within === null ? TRACK_PATH_PREFIX : tunesPathPrefixOf(within);
+
+  /** 曲目の行の位置が変わった後（理由は {@link audiosRepositioned} と同じ） */
+  const tracksRepositioned = (tracks: readonly TrackDraft[], within: number | null): void => {
     const current = view;
     view =
       current.kind === 'editing'
         ? {
             ...current,
             tracks,
-            submission: submissionAfterReposition(current.submission, TRACK_PATH_PREFIX),
+            submission: submissionAfterReposition(current.submission, stalePrefixOf(within)),
           }
         : current;
   };

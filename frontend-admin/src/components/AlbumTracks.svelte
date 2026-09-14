@@ -68,12 +68,20 @@
      */
     readonly onEdit: (tracks: readonly TrackDraft[]) => void;
     /**
-     * 行を外した／動かした並び。
+     * 行の位置が変わった並び。
      *
+     * <p>
      * <b>以降、同じ位置は別の行を指す。</b> 位置つきの誤りを残すと、直っていない行から消えて関係の
      * 無い行に出る。行は保存されるまでIDを持たないため、誤りを行へ追従させることもできない。
+     * </p>
+     *
+     * <p>
+     * `within` は<b>どの範囲の位置が動いたか</b>。曲目そのものを外した・動かしたときは `null`
+     * （曲目全体）、行の中のチューンを外したときはそのトラックの位置になる——チューンの並びが変わっても、
+     * 他のトラックの位置は動かない。
+     * </p>
      */
-    readonly onReposition: (tracks: readonly TrackDraft[]) => void;
+    readonly onReposition: (tracks: readonly TrackDraft[], within: number | null) => void;
   };
 
   const { tracks, disabled, messagesOf, rejections, onEdit, onReposition }: Props = $props();
@@ -116,8 +124,17 @@
   const toggleLabelOf = (index: number): string =>
     shownTrack === index ? `${String(index + 1)}曲目を畳む` : `${String(index + 1)}曲目を開く`;
 
+  /** その行だけを差し替えた並び */
+  const replaced = (index: number, draft: TrackDraft): readonly TrackDraft[] =>
+    tracks.map((track, position) => (position === index ? draft : track));
+
   const withTrack = (index: number, draft: TrackDraft): void => {
-    onEdit(tracks.map((track, position) => (position === index ? draft : track)));
+    onEdit(replaced(index, draft));
+  };
+
+  /** 行の中のチューンを外した後。動いたのはその行の下の位置だけで、曲目の並びは変わらない */
+  const withRepositionedTunes = (index: number, draft: TrackDraft): void => {
+    onReposition(replaced(index, draft), index);
   };
 
   /**
@@ -135,7 +152,10 @@
 
   /** 外した後は畳む。位置がずれるため、開いたままにすると別の行が開いて見える */
   const removeTrack = (index: number): void => {
-    onReposition(tracks.filter((track, position) => position !== index));
+    onReposition(
+      tracks.filter((track, position) => position !== index),
+      null,
+    );
     choose(null);
   };
 
@@ -155,7 +175,7 @@
 
   /** 動かした行は追う。開いたまま動かすと、開いて見える行が入れ替わる */
   const move = (index: number, other: number): void => {
-    onReposition(swapped(index, other));
+    onReposition(swapped(index, other), null);
     choose(shownTrack === index ? other : shownTrack);
   };
 
@@ -304,6 +324,9 @@
               {rejections}
               onDraft={(draft: TrackDraft) => {
                 withTrack(index, draft);
+              }}
+              onTunesRepositioned={(draft: TrackDraft) => {
+                withRepositionedTunes(index, draft);
               }}
             />
           {/if}

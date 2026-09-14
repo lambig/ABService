@@ -39,10 +39,31 @@
      * 間は人が選んだ行を保つ（理由は曲目の行と同じ）。
      */
     readonly rejections: number;
+    /**
+     * 欄を書き換えた／チューンの行を末尾に足した後の入力。
+     *
+     * <b>既存の行の位置は変わらない。</b> 位置つきの誤りは同じ行を指したままなので、受け取る側は
+     * 落とす必要が無い。
+     */
     readonly onDraft: (draft: TrackDraft) => void;
+    /**
+     * チューンの行を外した後の入力。
+     *
+     * <b>以降、このトラックの中の同じ位置は別の行を指す。</b> 残したままにすると、直っていない行から
+     * 消えて関係のない行に出る——外したのが末尾側なら、どの欄にも出ないまま断られた状態だけが残る。
+     */
+    readonly onTunesRepositioned: (draft: TrackDraft) => void;
   };
 
-  const { trackIndex, draft, disabled, messagesOf, rejections, onDraft }: Props = $props();
+  const {
+    trackIndex,
+    draft,
+    disabled,
+    messagesOf,
+    rejections,
+    onDraft,
+    onTunesRepositioned,
+  }: Props = $props();
 
   const trackMessages = (field: 'title' | 'artistDisplayName' | 'artistSortKey') =>
     messagesOf(trackPathOf(trackIndex, field));
@@ -118,7 +139,10 @@
 
   /** 外した後は畳む。位置がずれるため、開いたままにすると別の行が開いて見える */
   const removeTune = (index: number): void => {
-    onDraft({ ...draft, tunes: draft.tunes.filter((tune, position) => position !== index) });
+    onTunesRepositioned({
+      ...draft,
+      tunes: draft.tunes.filter((tune, position) => position !== index),
+    });
     choose(null);
   };
 

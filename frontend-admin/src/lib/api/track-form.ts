@@ -171,8 +171,17 @@ export const TRACK_PATH_PREFIX = 'tracks[';
 export const trackPathOf = (index: number, field: TrackField): string =>
   `${TRACK_PATH_PREFIX}${String(index)}].${field}`;
 
+/**
+ * そのトラックのチューンの行を指す位置の接頭辞。
+ *
+ * 行の位置は並びが変われば別の行を指す。チューンを外したときに落とす範囲は<b>そのトラックの下だけ</b>で、
+ * 他のトラックの行の位置は動かない。
+ */
+export const tunesPathPrefixOf = (trackIndex: number): string =>
+  `${TRACK_PATH_PREFIX}${String(trackIndex)}].tunes[`;
+
 export const tunePathOf = (trackIndex: number, tuneIndex: number, field: TuneField): string =>
-  `${TRACK_PATH_PREFIX}${String(trackIndex)}].tunes[${String(tuneIndex)}].${field}`;
+  `${tunesPathPrefixOf(trackIndex)}${String(tuneIndex)}].${field}`;
 
 /**
  * いまの入力で欄へ割り当てられる位置。

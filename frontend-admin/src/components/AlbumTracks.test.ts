@@ -113,7 +113,8 @@ describe('曲目の一覧', () => {
 
     await userEvent.click(within(rows()[1] as HTMLElement).getByRole('button', { name: '外す' }));
 
-    expect(onReposition).toHaveBeenCalledWith([TRACKS[0], TRACKS[2]]);
+    /* 曲目そのものの並びが変わったので、範囲は曲目全体 */
+    expect(onReposition).toHaveBeenCalledWith([TRACKS[0], TRACKS[2]], null);
     expect(onEdit).not.toHaveBeenCalled();
   });
 
@@ -124,7 +125,26 @@ describe('曲目の一覧', () => {
 
     await userEvent.click(within(rows()[0] as HTMLElement).getByRole('button', { name: '下へ' }));
 
-    expect(onReposition).toHaveBeenCalledWith([TRACKS[1], TRACKS[0], TRACKS[2]]);
+    expect(onReposition).toHaveBeenCalledWith([TRACKS[1], TRACKS[0], TRACKS[2]], null);
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
+  /*
+   * NESTED-POSITIONS-SHIFT: チューンを外すと、そのトラックの中の位置だけが別の行を指すようになる。
+   * 曲目全体を落とすと他のトラックの理由まで消え、落とさないと外した行の理由が残った行へ付く。
+   */
+  it('チューンを外すと、そのトラックの範囲を指して返す', async () => {
+    const onEdit = vi.fn();
+    const onReposition = vi.fn();
+    render(AlbumTracks, { ...propsOf(TRACKS), onEdit, onReposition });
+
+    await userEvent.click(screen.getByRole('button', { name: '1曲目を開く' }));
+    await userEvent.click(screen.getByRole('button', { name: '1チューン目を外す' }));
+
+    expect(onReposition).toHaveBeenCalledWith(
+      [{ ...TRACKS[0], tunes: [] }, TRACKS[1], TRACKS[2]],
+      0,
+    );
     expect(onEdit).not.toHaveBeenCalled();
   });
 

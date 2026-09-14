@@ -291,6 +291,45 @@ describe('曲目の行の誤り', () => {
     },
   };
 
+  /** 1曲目が2つのチューンを持つ作品。チューンを外したときの位置のずれを見るために使う */
+  const withTwoTunes = {
+    ...withTracks,
+    tracks: [
+      {
+        ...withTracks.tracks[0],
+        tunes: [
+          {
+            seq: 1,
+            tuneTitle: '前半',
+            composerCreditOverride: null,
+            arrangerCreditOverride: null,
+            linkUrl: null,
+          },
+          {
+            seq: 2,
+            tuneTitle: '後半',
+            composerCreditOverride: null,
+            arrangerCreditOverride: null,
+            linkUrl: null,
+          },
+        ],
+      },
+      withTracks.tracks[1],
+    ],
+  } satisfies AdminAlbumDetail;
+
+  /* 1曲目の最初のチューンと、2曲目のチューンに同時に誤りが返る */
+  const rejectedFirstTuneAndSecondTrack = {
+    ...rejectedSecondRow,
+    problem: {
+      ...rejectedSecondRow.problem,
+      errors: [
+        { field: 'tracks[0].tunes[0].linkUrl', message: 'URLとして読めません' },
+        { field: 'tracks[1].tunes[0].linkUrl', message: '2曲目のURLが読めません' },
+      ],
+    },
+  };
+
   const trackRows = (): readonly HTMLElement[] =>
     [...(document.querySelector('[data-tracks]')?.children ?? [])] as HTMLElement[];
 
@@ -351,6 +390,32 @@ describe('曲目の行の誤り', () => {
 
     expect(screen.getByText('URLとして読めません')).toBeTruthy();
     expect(within(trackRows()[0] as HTMLElement).getByText('誤りがあります')).toBeTruthy();
+  });
+
+  /*
+   * NESTED-POSITIONS-SHIFT: チューンを外すと、そのトラックの中の位置は別の行を指す。残したままだと、
+   * 前の行を外したときは繰り上がった行に前の理由が付き、後ろの行を外したときはどの欄にも出ないまま
+   * 断られた状態だけが残る。
+   */
+  it('チューンを外すと、そのトラックの位置の誤りだけを落とす', async () => {
+    getAlbum.mockResolvedValue({ kind: 'ok', value: withTwoTunes });
+    updateAlbum.mockResolvedValue(rejectedFirstTuneAndSecondTrack);
+    await openEditor();
+    await openSection('曲目');
+
+    await userEvent.click(screen.getByRole('button', { name: '保存する' }));
+    expect(await screen.findByText('URLとして読めません')).toBeTruthy();
+
+    await userEvent.click(screen.getByRole('button', { name: '1チューン目を外す' }));
+
+    /* 外したチューンの理由は、繰り上がった行へ付かない */
+    expect(screen.queryByText('URLとして読めません')).toBeNull();
+
+    /*
+     * 他のトラックの理由は落とさない（位置が動いていない）。1曲目の誤りが消えたので、次の誤りの行が
+     * 開いて理由が読める。
+     */
+    expect(screen.getByText('2曲目のURLが読めません')).toBeTruthy();
   });
 
   it('行を外すと、位置が別の行を指すため落とす', async () => {
