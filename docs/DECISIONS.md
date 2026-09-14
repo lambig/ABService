@@ -646,3 +646,12 @@ CI 用の compose の上書き（`docker-compose.ci.yml`）が1つ増える。pr
 検査そのものは実機でしか確かめられない部分がある。ヘッダの有無による拒否は統合テストと CI（公開ポート経由）で見るが、「別の配信からは到達できない」は AWS 上でしか再現できない。
 
 **実体**: `presentation.rest.security.OriginVerificationFilter`、`application.properties` の `abservice.origin.verify-token`、`infra/data.tf`（値の生成と保管）、`infra/edge.tf`（配信の `custom_header`）、`infra/security_groups.tf`、`docker-compose.prod.yml`、`infra/host/deploy.sh`。
+
+
+## 試聴インスタレーションの解析と描画の失敗は再生を止めない
+
+音を聴く操作が主であるため、Workletの出力を可聴経路の必須部品にしない。解析は同じmedia sourceから分岐し、音声の直接出力を保つ。音声の別デコードや別プレイヤーでは再生位置や寿命が分かれるため、解析は既存プレイヤーのmediaを借用する。
+
+PCMをmain threadへ運ぶと音源のチャンネル数やsample rateに転送量が比例するため、Worklet内で特徴量へ縮約する。解析窓と通知周期は分け、通知間の立ち上がりの最大値を残す。シーク時は曲内位置が変わってもAudioContextの時刻は巻き戻らないので、明示的に窓と描画応答をリセットし、旧世代の通知を捨てる。
+
+WebGPUの初期化失敗・device lostは描画だけを止める。Worklet初期化中に停止・選曲されても、遅い完了から接続を復活させない。JS参照DSPは意味論を確認するために使い、会場端末の長時間性能や可聴出力の合格とは区別する。

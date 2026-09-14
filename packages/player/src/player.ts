@@ -1,12 +1,19 @@
 /* eslint-disable functional/immutable-data -- Media要素と現在のsession参照はブラウザ副作用の境界に閉じる。外へ通知する状態はimmutable snapshot。 */
 import type { InstallationManifest } from "abservice-installation";
-import type { LocalAssetResolver, Player, PlayerSnapshot } from "./index";
+import type {
+  ConnectPlayback,
+  LocalAssetResolver,
+  PlaybackConnection,
+  Player,
+  PlayerSnapshot,
+} from "./index";
 
 type Session = {
   audio: HTMLAudioElement;
   abort: AbortController;
   intent: AbortController;
   url: string | null;
+  connection: PlaybackConnection;
 };
 const idle: PlayerSnapshot = Object.freeze({
   phase: "idle",
@@ -16,6 +23,11 @@ const idle: PlayerSnapshot = Object.freeze({
   error: null,
 });
 const noop = (): void => {};
+const disconnected = (): PlaybackConnection => ({
+  play: noop,
+  pause: noop,
+  seek: noop,
+});
 const when = (condition: boolean, action: () => void): void => {
   (condition ? action : noop)();
 };
@@ -40,6 +52,7 @@ export const player = (
   manifest: InstallationManifest,
   resolve: LocalAssetResolver,
   changed: (state: PlayerSnapshot) => void,
+  connect: ConnectPlayback = disconnected,
 ): Player => {
   const cell: {
     session: Session | null;
@@ -82,11 +95,14 @@ export const player = (
   };
   const load = async (trackId: string, assetId: string): Promise<void> => {
     clear();
+    const audio = new Audio();
+    const abort = new AbortController();
     const session: Session = {
-      audio: new Audio(),
-      abort: new AbortController(),
+      audio,
+      abort,
       intent: new AbortController(),
       url: null,
+      connection: connect(audio, abort.signal),
     };
     cell.session = session;
     const listen = (event: string, handler: () => void): void => {
@@ -116,6 +132,7 @@ export const player = (
     });
     listen("ended", () => {
       when(current(session), () => {
+        session.connection.pause();
         publish({ phase: "ended", position: session.audio.duration });
       });
     });
@@ -171,6 +188,7 @@ export const player = (
             session.intent.abort();
             const intent = new AbortController();
             session.intent = intent;
+            session.connection.play();
             return session.audio
               .play()
               .then(() => {
@@ -180,6 +198,7 @@ export const player = (
               })
               .catch((error: unknown) => {
                 when(intent.signal.aborted ? false : current(session), () => {
+                  session.connection.pause();
                   publish({
                     phase: "paused",
                     error: `再生できません。再生ボタンで再試行してください。${message(error)}`,
@@ -201,6 +220,7 @@ export const player = (
       when(cell.state.phase !== "loading", () => {
         session.intent.abort();
         session.audio.pause();
+        session.connection.pause();
         publish({ phase: "paused", position: session.audio.currentTime });
       });
     });
@@ -208,6 +228,7 @@ export const player = (
   const seek = (seconds: number): void => {
     withSession((session) => {
       when(cell.state.duration > 0 && Number.isFinite(seconds), () => {
+        session.connection.seek();
         session.audio.currentTime = Math.max(
           0,
           Math.min(cell.state.duration, seconds),

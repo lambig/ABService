@@ -28,6 +28,19 @@ export type Player = Readonly<{
   dispose: () => void;
 }>;
 
+/** 再生操作と同じ寿命を持つ音声接続。実装は障害を自身で処理し、再生操作へ例外を返さない。 */
+export type PlaybackConnection = Readonly<{
+  play: () => void;
+  pause: () => void;
+  seek: () => void;
+}>;
+
+/** mediaは選曲単位で借用し、abort時に接続を解放する。URLや音源の取得は所有しない。 */
+export type ConnectPlayback = (
+  media: HTMLAudioElement,
+  signal: AbortSignal,
+) => PlaybackConnection;
+
 /**
  * 検証済みManifestとresolverを結ぶブラウザプレイヤー。自動再生・自動次曲送りはしない。
  * resolverとmedia要素の生存期間を選曲単位に閉じ、旧完了・旧イベントは通知しない。
@@ -37,4 +50,5 @@ export const createPlayer = (
   manifest: InstallationManifest,
   resolve: LocalAssetResolver,
   onChange: (state: PlayerSnapshot) => void,
-): Player => player(manifest, resolve, onChange);
+  connect?: ConnectPlayback,
+): Player => player(manifest, resolve, onChange, connect);
