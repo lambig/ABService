@@ -296,7 +296,11 @@ describe('曲目の行の誤り', () => {
     ...withTracks,
     tracks: [
       {
-        ...withTracks.tracks[0],
+        trackId: 'track-1',
+        trackNo: 1,
+        title: '1曲目',
+        artistDisplayName: null,
+        artistSortKey: null,
         tunes: [
           {
             seq: 1,
@@ -314,7 +318,22 @@ describe('曲目の行の誤り', () => {
           },
         ],
       },
-      withTracks.tracks[1],
+      {
+        trackId: 'track-2',
+        trackNo: 2,
+        title: null,
+        artistDisplayName: null,
+        artistSortKey: null,
+        tunes: [
+          {
+            seq: 1,
+            tuneTitle: 'チューン',
+            composerCreditOverride: null,
+            arrangerCreditOverride: null,
+            linkUrl: null,
+          },
+        ],
+      },
     ],
   } satisfies AdminAlbumDetail;
 
