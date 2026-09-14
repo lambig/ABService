@@ -53,6 +53,8 @@ terraform apply cutover.tfplan
 
 **切り戻しで false にするだけではいけない。** `prevent_destroy` が削除を拒否する。運用側の控えから A/AAAA（採用時は www も）を戻し、Terraform にも復旧後の管理方針を反映する。管理から外す場合は対象の DNS レコードだけを `terraform state rm` し、false に戻した plan に DNS 操作が無いことを確かめる。state 全体は巻き戻さない。
 
+公開サイトの検索対象化は `public_indexing_enabled` で切替と分ける。既定falseでは `X-Robots-Tag: noindex, nofollow` を付ける。受け入れ後にtrueにする。管理画面とAPIのnoindexは解除しない。noindexはアクセス制御ではない。
+
 実ドメイン・既存レコード・切替日時・復旧先は運用リポジトリが持つ。
 
 ## ロールバック（インフラ変更）

@@ -129,3 +129,9 @@ variable "serve_www" {
   type        = bool
   default     = false
 }
+
+variable "public_indexing_enabled" {
+  description = "公開サイトを検索対象にする。DNS切替と受け入れが終わるまで false"
+  type        = bool
+  default     = false
+}

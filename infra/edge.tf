@@ -187,11 +187,12 @@ resource "aws_cloudfront_distribution" "main" {
   }
 
   default_cache_behavior {
-    target_origin_id       = local.public_origin_id
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
-    compress               = true
+    target_origin_id           = local.public_origin_id
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD"]
+    cached_methods             = ["GET", "HEAD"]
+    compress                   = true
+    response_headers_policy_id = var.public_indexing_enabled ? null : aws_cloudfront_response_headers_policy.noindex.id
 
     function_association {
       event_type   = "viewer-request"
