@@ -187,9 +187,13 @@
    * 原作の出典。
    *
    * <p>
-   * まとまりに入れず、曲目の直後へ単独で置く。「「○○」より各曲」のように**曲目そのものを指す一文**で
-   * あり、曲目の並びを見た直後に読めるところにある必要がある（#365）。保存は作品の保存に乗るため、
-   * フォームの外に出しても `form` 属性でそのフォームへ結び付ける。
+   * 欄の持ち主は作品だが、置き場は<b>曲目の区画の中</b>である。「「○○」より各曲」のように<b>曲単位で
+   * 特定しないまま曲目全体を指す一文</b>であり、読む場所も直す場所も曲目の並びの直後になる（#365）。
+   * 畳んだときの要約にも曲数と並べて出す——出典だけが消えると、入っていることが読めない。
+   * </p>
+   *
+   * <p>
+   * 保存は作品の保存に乗る。区画が保存のフォームの外にあるため、`form` 属性でそのフォームへ結び付ける。
    * </p>
    */
   const ORIGINAL_WORK_NOTE: FieldSpec = text('originalWorkNote', '原作の出典（例:「○○」より各曲）');
@@ -911,8 +915,18 @@
    * ——どれも中身が並びや画像で、1行へ畳むと元の読み方にならない。
    */
   const coverSummary = $derived(coverImageUrl === null ? '（なし）' : '設定済み');
-  const tracksSummary = $derived(tracks.length === 0 ? '（なし）' : `${String(tracks.length)}曲`);
   const audiosSummary = $derived(audios.length === 0 ? '（なし）' : `${String(audios.length)}件`);
+
+  /* 曲目は原作の出典も抱える。畳んだときに出典が消えると、入っていることが読めない */
+  const trackParts = $derived(
+    filled([tracks.length === 0 ? '' : `${String(tracks.length)}曲`, draft.originalWorkNote]),
+  );
+  const tracksSummary = $derived(trackParts.length === 0 ? '（なし）' : trackParts.join(' / '));
+
+  /** 曲目の誤り。行の位置つきのものと、原作の出典のどちらも直す先はこの区画にある */
+  const tracksRejected = $derived(
+    [rejectedUnder(TRACK_PATH_PREFIX), rejectedAt([ORIGINAL_WORK_NOTE.path])].some(Boolean),
+  );
 
   /** カバー画像の誤り。位置を持つ検証エラーと、送るのに失敗した理由のどちらも直す先はこの区画にある */
   const coverRejected = $derived(
@@ -964,8 +978,12 @@
               toggleSection(section.heading);
             }}
           >
+            <!--
+              ROW-ALIGNS-AT-TOP: 上端で揃える。下端で揃えると、誤りの出た欄だけが高くなった分、同じ行の
+              他の欄が持ち上がって並びが崩れる（誤りは欄の下に出るため、高さは欄ごとに変わる）。
+            -->
             {#each section.rows as row, index (row[0]?.path)}
-              <div class="flex flex-wrap items-end gap-4">
+              <div class="flex flex-wrap items-start gap-4">
                 {#each row as field (field.path)}
                   <div class="min-w-40 flex-1 space-y-1" data-field={field.path}>
                     <AlbumFormField
@@ -982,16 +1000,23 @@
 
                 <!-- 外す操作は、外す対象の欄と同じ行に置く -->
                 {#if section.clearing !== undefined && index === section.rows.length - 1}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onclick={() => {
-                      clearSection(section);
-                    }}
-                  >
-                    {section.clearing}
-                  </Button>
+                  <div class="space-y-1">
+                    <!--
+                      LABEL-HEIGHT-SPACER: 欄の名の分だけ下げて、入力そのものと同じ高さに置く。上端で
+                      揃えているため、これが無いと操作だけが名の行に並ぶ。
+                    -->
+                    <p class="text-sm font-medium" aria-hidden="true">&nbsp;</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onclick={() => {
+                        clearSection(section);
+                      }}
+                    >
+                      {section.clearing}
+                    </Button>
+                  </div>
                 {/if}
               </div>
             {/each}
@@ -1078,30 +1103,31 @@
     <AlbumSection
       heading="曲目"
       summary={tracksSummary}
-      open={shown('曲目', rejectedUnder(TRACK_PATH_PREFIX))}
+      open={shown('曲目', tracksRejected)}
       disabled={saving}
       onToggle={() => {
         toggleSection('曲目');
       }}
     >
       <AlbumTracks {tracks} disabled={busy} messagesOf={messagesAt} onChange={tracksChanged} />
-    </AlbumSection>
 
-    <!--
-      曲目の直後に置くが、保存は作品の保存に乗る。`form` 属性でそのフォームへ結び付けているため、
-      フォームの外にあっても一緒に送られる。
-    -->
-    <fieldset class="max-w-2xl space-y-1" data-field={ORIGINAL_WORK_NOTE.path} disabled={saving}>
-      <AlbumFormField
-        field={ORIGINAL_WORK_NOTE}
-        value={draft[ORIGINAL_WORK_NOTE.path]}
-        formId={ALBUM_FORM_ID}
-        messages={messagesOf(ORIGINAL_WORK_NOTE.path)}
-        onValue={(value: string) => {
-          update(ORIGINAL_WORK_NOTE.path, value);
-        }}
-      />
-    </fieldset>
+      <!--
+        原作の出典は曲目の区画に入れる。「「○○」より各曲」のように<b>曲単位で特定しないまま曲目全体を
+        指す一文</b>であり、読む場所も直す場所も曲目の並びの直後になる（#365）。保存は作品の保存に乗る
+        ため、`form` 属性でそのフォームへ結び付けている。
+      -->
+      <fieldset class="space-y-1" data-field={ORIGINAL_WORK_NOTE.path} disabled={saving}>
+        <AlbumFormField
+          field={ORIGINAL_WORK_NOTE}
+          value={draft[ORIGINAL_WORK_NOTE.path]}
+          formId={ALBUM_FORM_ID}
+          messages={messagesOf(ORIGINAL_WORK_NOTE.path)}
+          onValue={(value: string) => {
+            update(ORIGINAL_WORK_NOTE.path, value);
+          }}
+        />
+      </fieldset>
+    </AlbumSection>
 
     <AlbumSection
       heading="外部音源"

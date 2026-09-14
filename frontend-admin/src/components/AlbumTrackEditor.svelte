@@ -165,8 +165,13 @@
     {/each}
   </div>
 
-  <!-- 名義とそのソートキーは対で読まれる。縦に積むと、どれとどれが組なのかが読めない -->
-  <div class="flex flex-wrap items-end gap-4">
+  <!--
+    名義とそのソートキーは対で読まれる。縦に積むと、どれとどれが組なのかが読めない。
+
+    ROW-ALIGNS-AT-TOP: 上端で揃える。下端で揃えると、誤りの出た欄だけが高くなった分、同じ行の他の欄が
+    持ち上がって並びが崩れる。
+  -->
+  <div class="flex flex-wrap items-start gap-4">
     <div
       class="min-w-40 flex-1 space-y-1"
       data-field={trackPathOf(trackIndex, 'artistDisplayName')}
@@ -259,7 +264,8 @@
 
         {#if shownTune === index}
           {#each TUNE_ROWS as row (row[0])}
-            <div class="flex flex-wrap items-end gap-4">
+            <!-- 上端で揃える。理由は上の名義の行と同じ（ROW-ALIGNS-AT-TOP） -->
+            <div class="flex flex-wrap items-start gap-4">
               {#each row as field (field)}
                 <div
                   class="min-w-40 flex-1 space-y-1"

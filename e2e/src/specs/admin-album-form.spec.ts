@@ -45,6 +45,7 @@ const RELEASE_DATE_LABEL = 'リリース日';
 const ARTIST_LABEL = 'アーティスト表示名';
 const CATALOG_NUMBER_LABEL = 'カタログナンバー';
 const ISDN_LABEL = 'ISDN';
+const EVENT_DATE_LABEL = '開催日';
 const EVENT_NAME_LABEL = 'イベント名';
 const EVENT_PLACE_LABEL = '会場';
 const BASE_PRICE_LABEL = '基準額';
@@ -135,6 +136,21 @@ const coverSourceOf = async (page: Page): Promise<string> => {
   const source = await coverImage(page).getAttribute('src');
 
   return source === null ? Promise.reject(new Error('カバー画像が src を持っていません')) : source;
+};
+
+/**
+ * 同じ行に並ぶ2つの欄が、上端で揃っていること。
+ *
+ * <p>
+ * 誤りは欄の下に出るため、欄ごとに高さが変わる。下端で揃えていると、誤りの出た欄だけが持ち上がって
+ * 行の並びが崩れる——**落ちない欠陥**なので、位置そのものを見る。
+ * </p>
+ */
+const expectAlignedRow = async (page: Page, left: string, right: string): Promise<void> => {
+  const leftBox = await page.getByLabel(left).boundingBox();
+  const rightBox = await page.getByLabel(right).boundingBox();
+
+  expect(leftBox?.y).toBe(rightBox?.y);
 };
 
 /**
@@ -386,6 +402,14 @@ test.describe('管理画面の作品の編集', () => {
 
     await expect(fieldOf(page, 'basePrice.amount').getByRole('alert')).toBeVisible();
     await expect(fieldOf(page, 'title').getByRole('alert')).toHaveCount(0);
+
+    /* 誤りが出ても、額と通貨と解除の操作は同じ行の上端で揃ったまま */
+    await expectAlignedRow(page, BASE_PRICE_LABEL, CURRENCY_LABEL);
+
+    const amountBox = await page.getByLabel(BASE_PRICE_LABEL).boundingBox();
+    const clearBox = await page.getByRole('button', { name: CLEAR_BASE_PRICE_LABEL }).boundingBox();
+
+    expect(amountBox?.y).toBe(clearBox?.y);
   });
 
   test('検証エラーは、応答が返した位置のとおりに各欄へ出る', async ({ page }) => {
@@ -422,6 +446,14 @@ test.describe('管理画面の作品の編集', () => {
 
     await expect(page.getByLabel(TITLE_LABEL)).toHaveAttribute('aria-invalid', 'true');
     await expect(page.getByLabel(ARTIST_LABEL)).toHaveAttribute('aria-invalid', 'false');
+
+    /*
+     * ROW-ALIGNS-AT-TOP: 理由は欄の下に出るため、誤りのある欄だけが高くなる。同じ行の欄が上端で
+     * 揃っていないと、誤りが1つ出るたびに並びが崩れて読めなくなる。
+     */
+    await expectAlignedRow(page, CATALOG_NUMBER_LABEL, TITLE_LABEL);
+    await expectAlignedRow(page, RELEASE_DATE_LABEL, ISDN_LABEL);
+    await expectAlignedRow(page, EVENT_DATE_LABEL, EVENT_NAME_LABEL);
 
     /* 見どころは「どの欄に出て、どの欄に出ていないか」。欄をまたぐため丸ごと撮る（#369） */
     await captureWhole(page, '25-admin-edit-field-errors');
