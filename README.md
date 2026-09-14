@@ -41,6 +41,10 @@ cd backend
 
 ### コード品質
 
+PR の CI は変更箇所と workspace の依存関係から検査対象を選ぶ。レビュー時は集約チェック **CI gate** を確認する。対象外の検査のスキップは許容するが、対象の検査の失敗・中断・スキップは通さない。GitHub 側で必須チェックを指定する場合も CI gate を使う。選択と判定の検査は `node --test scripts/ci-policy.test.mjs`。
+
+main と手動実行は全件を検査する。本番デプロイは引き続き main の CI 成功を前提とする。
+
 ABServiceでは以下のLinting/フォーマットツールを使用しています：
 
 - **Checkstyle**: Google Java Style Guideに基づくコードスタイルチェック＋独自ルール

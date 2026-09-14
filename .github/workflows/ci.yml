@@ -18,7 +18,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Select CI scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      application: ${{ steps.scope.outputs.application }}
+      listening: ${{ steps.scope.outputs.listening }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Include the PR merge base and both sides of renames/deletions.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Verify CI selection and aggregation
+        run: node --test scripts/ci-policy.test.mjs
+      - name: Select affected tracks
+        id: scope
+        run: node scripts/ci.mjs select
+
   backend-check:
+    needs: changes
+    if: ${{ needs.changes.outputs.application == 'true' }}
     name: Backend full check (spotless / checkstyle / unit+ArchUnit / integration)
     runs-on: ubuntu-latest
 
@@ -89,88 +112,39 @@ jobs:
           retention-days: 7
 
   frontend-check:
+    needs: changes
+    if: ${{ needs.changes.outputs.application == 'true' }}
     name: Frontend check (prettier / eslint / astro check / unit)
     runs-on: ubuntu-latest
 
-    # バックエンドを起動しない。lint と型検査はビルド時のデータ取得を伴わないため、
-    # 画面の組み立て（E2E ジョブが行う）とは独立に走らせられる。
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
+      - run: npm ci
+      - name: Check application workspaces and their dependencies
+        run: node scripts/ci.mjs frontend application
 
-      - name: Install dependencies
-        run: npm ci
-
-      # 全ワークスペースを対象にする。一部だけを並べると、対象外のワークスペースで有効にした規約が
-      # 一度も検査されない（#232）。対象の一覧は `lint` が持ち、ここには写さない。
-      - name: Lint (all workspaces)
-        run: npm run lint
-
-      - name: Typecheck (markup)
-        run: npm run typecheck:markup
-
-      - name: Typecheck (audio-dsp)
-        run: npm run typecheck:audio-dsp
-
-      - name: Typecheck (installation)
-        run: npm run typecheck:installation
-
-      - name: Typecheck (player)
-        run: npm run typecheck:player
-
-      - name: Build player PoC
-        run: npm run build:player
-
-      - name: Typecheck (offline storage)
-        run: npm run typecheck:offline-storage
-
-      - name: Build storage browser harness
-        run: npm run build:offline-storage
-
-      - name: Typecheck (offline shell)
-        run: npm run typecheck:offline-shell
-
-      - name: Build shell fixtures
-        run: npm run build:offline-shell
-
-      - name: Typecheck (offline player)
-        run: npm run typecheck:offline-player
-
-      - name: Build offline player
-        run: npm run build:offline-player
-
-      - name: Typecheck and build audio analysis and visualizer
-        run: |
-          npm run typecheck:audio-worklet
-          npm run typecheck:visualizer
-          npm run build:audio-worklet
-          npm run build:visualizer
-
-      - name: Typecheck (patterns)
-        run: npm run typecheck:patterns
-
-      - name: Typecheck (public)
-        run: npm run typecheck:public
-
-      - name: Typecheck (admin)
-        run: npm run typecheck:admin
-
-      - name: Typecheck (e2e)
-        run: npm run typecheck:e2e
-
-      # 対象のワークスペースは `test:frontend` が持つ。ここへ列挙すると、ワークスペースが増えたときに
-      # 名前だけが古くなる（実体は落ちないため気付けない）。規約ハーネス自身の検査もこの中に含まれ、
-      # ルールの実装・設定が退行したらここで落ちる（#232）
-      - name: Unit tests (frontend workspaces)
-        run: npm run test:frontend
+  listening-check:
+    needs: changes
+    if: ${{ needs.changes.outputs.listening == 'true' }}
+    name: Listening frontend (lint / typecheck / unit / build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Check listening workspaces and their dependencies
+        run: node scripts/ci.mjs frontend listening
 
   api-types-check:
+    needs: changes
+    if: ${{ needs.changes.outputs.application == 'true' }}
     name: Generated API types in sync (OpenAPI -> schema.d.ts)
     runs-on: ubuntu-latest
 
@@ -237,6 +211,8 @@ jobs:
           git diff --exit-code
 
   container-check:
+    needs: changes
+    if: ${{ needs.changes.outputs.application == 'true' }}
     name: Container and prod configuration (image build / boot)
     # 本番の EC2 は arm64（infra/compute.tf が arm64 の AMI を選ぶ）。deploy.yml が arm の
     # ランナーで作る経路は CI では走らないため、本番の形の検査を同じ架構で行い、イメージが
@@ -347,6 +323,8 @@ jobs:
         run: docker compose down -v
 
   iac-check:
+    needs: changes
+    if: ${{ needs.changes.outputs.application == 'true' }}
     name: IaC (terraform fmt / validate)
     runs-on: ubuntu-latest
 
@@ -383,6 +361,8 @@ jobs:
         run: terraform -chdir=infra validate
 
   e2e:
+    needs: changes
+    if: ${{ needs.changes.outputs.application == 'true' }}
     name: E2E (Playwright / 実スタック)
     runs-on: ubuntu-latest
 
@@ -497,6 +477,8 @@ jobs:
           retention-days: 7
 
   player-browser:
+    needs: changes
+    if: ${{ needs.changes.outputs.listening == 'true' }}
     name: Player browser (Chromium / FLAC)
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -525,6 +507,8 @@ jobs:
           retention-days: 7
 
   storage-browser:
+    needs: changes
+    if: ${{ needs.changes.outputs.listening == 'true' }}
     name: Storage browser (Chromium / OPFS)
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -553,6 +537,8 @@ jobs:
           retention-days: 7
 
   shell-browser:
+    needs: changes
+    if: ${{ needs.changes.outputs.listening == 'true' }}
     name: Shell browser (Chromium / Service Worker)
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -581,6 +567,8 @@ jobs:
           retention-days: 7
 
   offline-player-browser:
+    needs: changes
+    if: ${{ needs.changes.outputs.listening == 'true' }}
     name: Offline player integration (Chromium / SW / OPFS / FLAC)
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -607,3 +595,19 @@ jobs:
           path: packages/offline-player/test-results/
           if-no-files-found: error
           retention-days: 7
+
+  ci-gate:
+    name: CI gate
+    needs: [changes, backend-check, frontend-check, api-types-check, container-check, iac-check, e2e, listening-check, player-browser, storage-browser, shell-browser, offline-player-browser]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Require success from every selected job
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: node scripts/ci.mjs gate
