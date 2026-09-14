@@ -835,9 +835,53 @@ public final class Album implements Aggregate<Album, Album.Id> {
     }
 
     private @NonNull List<Track> renumberByOrder(@NonNull List<Track.Id> orderedTrackIds) {
+        return renumberTracksSequentially(orderedTrackIds.stream().map(this::getTrack).toList());
+    }
+
+    /**
+     * トラックを一覧ごと置き換える
+     *
+     * <p>
+     * トラック番号は受け取った並びから1で振り直します。番号は並びの表現でしかなく、送る側が持つ値ではありません
+     * （#391）。そのため欠番も重複も起こり得ず、番号の一意性はここでは問いません。
+     * </p>
+     *
+     * @param newTracks
+     *            置き換え後のトラック一覧。この並びがそのまま順になります
+     * @return 更新されたAlbum
+     */
+    public @NonNull Album replaceTracks(@NonNull List<@NonNull Track> newTracks) {
+        return Album.factory(
+                id,
+                title,
+                releaseDate,
+                artistCredit,
+                description,
+                eventReleasedAt,
+                catalogNumber,
+                isdn,
+                coverImageKey,
+                basePrice,
+                originalWorkNote,
+                publication,
+                renumberTracksSequentially(presentTracks(newTracks)),
+                externalAudios);
+    }
+
+    private static @NonNull List<Track> presentTracks(@NonNull List<Track> newTracks) {
+        return Policy.<List<Track>>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "tracks",
+                        "Tracks cannot be null",
+                        "TRACKS_REQUIRED"))
+                .verify(newTracks, Function.identity())
+                .resolve(Policy::illegalArgument);
+    }
+
+    private static @NonNull List<Track> renumberTracksSequentially(@NonNull List<Track> orderedTracks) {
         final var trackNo = new AtomicInteger(1);
-        return orderedTrackIds.stream()
-                .map(this::getTrack)
+        return orderedTracks.stream()
                 .map(
                         track -> Track.reconstruct(
                                 track.id(),
@@ -1036,6 +1080,52 @@ public final class Album implements Aggregate<Album, Album.Id> {
         return audios.stream()
                 .map(audio -> audio.changeDisplayOrder(displayOrder.getAndIncrement()))
                 .toList();
+    }
+
+    /**
+     * 外部音源を一覧ごと置き換える
+     *
+     * <p>
+     * 表示順は受け取った並びから1で振り直します。番号は並びの表現でしかなく、送る側が持つ値ではありません（#391）。
+     * 同一URLの重複だけは業務違反として拒みます——同じ埋め込み元が1つのアルバムに2度現れることに意味がないためです。
+     * </p>
+     *
+     * @param newExternalAudios
+     *            置き換え後の外部音源一覧。この並びがそのまま順になります
+     * @return 更新されたAlbum
+     */
+    public @NonNull Album replaceExternalAudios(@NonNull List<@NonNull ExternalAudio> newExternalAudios) {
+        final var validatedAudios = Policy.<List<ExternalAudio>>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "externalAudios",
+                        "External audios cannot be null",
+                        "EXTERNAL_AUDIOS_REQUIRED"))
+                .verify(newExternalAudios, Function.identity())
+                .resolve(Policy::illegalArgument);
+        Policy.<List<ExternalAudio>>of(
+                audios -> audios.stream().map(ExternalAudio::url).distinct().count() == audios.size(),
+                () -> new ErrorResult(
+                        "externalAudios",
+                        "External audio URL must be unique in this album",
+                        "EXTERNAL_AUDIO_URL_DUPLICATE"))
+                .verify(validatedAudios, Function.identity())
+                .resolve(BusinessRuleViolationException::fromErrors);
+        return Album.factory(
+                id,
+                title,
+                releaseDate,
+                artistCredit,
+                description,
+                eventReleasedAt,
+                catalogNumber,
+                isdn,
+                coverImageKey,
+                basePrice,
+                originalWorkNote,
+                publication,
+                tracks,
+                renumberSequentially(validatedAudios));
     }
 
     /**

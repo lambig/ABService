@@ -600,6 +600,93 @@ class AlbumTest {
     }
 
     @Nested
+    @DisplayName("トラック置き換えテスト")
+    class ReplaceTracksTest {
+
+        @Test
+        @DisplayName("受け取った並びの順にトラック番号が1から振り直されること")
+        void replaceTracksRenumbersByGivenOrder() {
+            // Arrange
+            final var album = createTestAlbum();
+            final var first = createTestTrack(7, "Track 1");
+            final var second = createTestTrack(3, "Track 2");
+
+            // Act
+            final var updated = album.replaceTracks(List.of(first, second));
+
+            // Assert
+            assertThat(updated.getTracks())
+                    .extracting(Track::trackNo)
+                    .containsExactly(1, 2);
+            assertThat(updated.getTracks())
+                    .extracting(Track::id)
+                    .containsExactly(first.id(), second.id());
+        }
+
+        @Test
+        @DisplayName("一覧に含まれない既存のトラックが消えること")
+        void replaceTracksDropsTracksNotGiven() {
+            // Arrange
+            final var kept = createTestTrack(1, "Kept");
+            final var dropped = createTestTrack(2, "Dropped");
+            final var album = createTestAlbum().addTrack(kept).addTrack(dropped);
+
+            // Act
+            final var updated = album.replaceTracks(List.of(kept));
+
+            // Assert
+            assertThat(updated.getTracks())
+                    .extracting(Track::id)
+                    .containsExactly(kept.id());
+        }
+
+        @Test
+        @DisplayName("空の一覧で置き換えるとトラックが無くなること")
+        void replaceTracksWithEmptyListClearsTracks() {
+            // Arrange
+            final var album = createTestAlbum().addTrack(createTestTrack(1, "Track 1"));
+
+            // Act
+            final var updated = album.replaceTracks(List.of());
+
+            // Assert
+            assertThat(updated.getTracks()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("同じトラック番号を持つ行を並べても、振り直しで一意になること")
+        void replaceTracksAcceptsDuplicateTrackNumbers() {
+            // Arrange
+            final var album = createTestAlbum();
+            final var first = createTestTrack(1, "Track 1");
+            final var second = createTestTrack(1, "Track 2");
+
+            // Act
+            final var updated = album.replaceTracks(List.of(first, second));
+
+            // Assert
+            assertThat(updated.getTracks())
+                    .extracting(Track::trackNo)
+                    .containsExactly(1, 2);
+        }
+
+        @Test
+        @DisplayName("外部音源は置き換えの影響を受けないこと")
+        void replaceTracksPreservesExternalAudios() {
+            // Arrange
+            final var album = createTestAlbum().addExternalAudio(ExternalAudioUrl.of(FIRST_AUDIO_URL)).album();
+
+            // Act
+            final var updated = album.replaceTracks(List.of(createTestTrack(1, "Track 1")));
+
+            // Assert
+            assertThat(updated.getExternalAudios())
+                    .extracting(audio -> audio.url().value().value())
+                    .containsExactly(FIRST_AUDIO_URL);
+        }
+    }
+
+    @Nested
     @DisplayName("トラック取得テスト")
     class GetTrackTest {
 
@@ -778,6 +865,84 @@ class AlbumTest {
 
             // Assert
             assertThat(updated.getExternalAudios()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("受け取った並びの順に表示順が1から振り直されること")
+        void replaceExternalAudiosRenumbersByGivenOrder() {
+            // Arrange
+            final var album = createTestAlbum();
+            final var first = ExternalAudio.create(9, ExternalAudioUrl.of(FIRST_AUDIO_URL));
+            final var second = ExternalAudio.create(4, ExternalAudioUrl.of(SECOND_AUDIO_URL));
+
+            // Act
+            final var updated = album.replaceExternalAudios(List.of(first, second));
+
+            // Assert
+            assertThat(updated.getExternalAudios())
+                    .extracting(ExternalAudio::displayOrder)
+                    .containsExactly(1, 2);
+            assertThat(updated.getExternalAudios())
+                    .extracting(audio -> audio.url().value().value())
+                    .containsExactly(FIRST_AUDIO_URL, SECOND_AUDIO_URL);
+        }
+
+        @Test
+        @DisplayName("一覧に含まれない既存の外部音源が消えること")
+        void replaceExternalAudiosDropsAudiosNotGiven() {
+            // Arrange
+            final var first = createTestAlbum().addExternalAudio(ExternalAudioUrl.of(FIRST_AUDIO_URL));
+            final var second = first.album().addExternalAudio(ExternalAudioUrl.of(SECOND_AUDIO_URL));
+
+            // Act
+            final var updated = second.album().replaceExternalAudios(List.of(second.externalAudio()));
+
+            // Assert
+            assertThat(updated.getExternalAudios())
+                    .extracting(ExternalAudio::id)
+                    .containsExactly(second.externalAudio().id());
+        }
+
+        @Test
+        @DisplayName("同じURLを2つ並べると例外が発生すること")
+        void replaceExternalAudiosWithDuplicateUrlShouldThrowException() {
+            // Arrange
+            final var album = createTestAlbum();
+            final var audios = List.of(
+                    ExternalAudio.create(1, ExternalAudioUrl.of(FIRST_AUDIO_URL)),
+                    ExternalAudio.create(2, ExternalAudioUrl.of(FIRST_AUDIO_URL)));
+
+            // Act & Assert
+            assertThatThrownBy(() -> album.replaceExternalAudios(audios))
+                    .isInstanceOf(BusinessRuleViolationException.class)
+                    .hasMessageContaining("unique");
+        }
+
+        @Test
+        @DisplayName("空の一覧で置き換えると外部音源が無くなること")
+        void replaceExternalAudiosWithEmptyListClearsAudios() {
+            // Arrange
+            final var album = createTestAlbum().addExternalAudio(ExternalAudioUrl.of(FIRST_AUDIO_URL)).album();
+
+            // Act
+            final var updated = album.replaceExternalAudios(List.of());
+
+            // Assert
+            assertThat(updated.getExternalAudios()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("トラックは外部音源の置き換えの影響を受けないこと")
+        void replaceExternalAudiosPreservesTracks() {
+            // Arrange
+            final var album = createTestAlbum().addTrack(createTestTrack(1, "Track 1"));
+
+            // Act
+            final var updated = album.replaceExternalAudios(
+                    List.of(ExternalAudio.create(1, ExternalAudioUrl.of(FIRST_AUDIO_URL))));
+
+            // Assert
+            assertThat(updated.getTracks()).hasSize(1);
         }
     }
 
