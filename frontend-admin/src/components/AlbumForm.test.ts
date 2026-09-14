@@ -247,6 +247,101 @@ describe('外部音源の行の誤り', () => {
   });
 });
 
+describe('曲目の行の誤り', () => {
+  /** 2つの行に誤りが返る作品。2行目はタイトルを省いている（名はチューン名から決まる） */
+  const withTracks = {
+    ...detail,
+    tracks: [
+      {
+        trackId: 'track-1',
+        trackNo: 1,
+        title: '1曲目',
+        artistDisplayName: null,
+        artistSortKey: null,
+        tunes: [],
+      },
+      {
+        trackId: 'track-2',
+        trackNo: 2,
+        title: null,
+        artistDisplayName: null,
+        artistSortKey: null,
+        tunes: [
+          {
+            seq: 1,
+            tuneTitle: 'チューン',
+            composerCreditOverride: null,
+            arrangerCreditOverride: null,
+            linkUrl: null,
+          },
+        ],
+      },
+    ],
+  } satisfies AdminAlbumDetail;
+
+  /* 1回の応答に複数の行の誤りが入る。backend は一覧をまとめて検証して積む */
+  const rejectedTwoRows = {
+    ...rejectedSecondRow,
+    problem: {
+      ...rejectedSecondRow.problem,
+      errors: [
+        { field: 'tracks[0].title', message: 'タイトルが長すぎます' },
+        { field: 'tracks[1].tunes[0].linkUrl', message: 'URLとして読めません' },
+      ],
+    },
+  };
+
+  const trackRows = (): readonly HTMLElement[] =>
+    [...(document.querySelector('[data-tracks]')?.children ?? [])] as HTMLElement[];
+
+  beforeEach(() => {
+    getAlbum.mockResolvedValue({ kind: 'ok', value: withTracks });
+    updateAlbum.mockResolvedValue(rejectedTwoRows);
+  });
+
+  it('読み込んだトラックのタイトルは、省略のまま持つ', async () => {
+    await openEditor();
+    await openSection('曲目');
+
+    /*
+     * RAW-TITLE: 省いたトラックの名はチューン名を繋いだもので、それは出すときの名であって入力では
+     * ない。受け取って書き戻すと、省略が明示タイトルへ変わる（#360）。
+     */
+    expect((trackRows()[1] as HTMLElement).textContent).toContain('（チューン名から組まれます）');
+  });
+
+  /*
+   * KEEP-OTHER-ROWS: 欄の書き換えでは行の位置が動かないため、位置つきの誤りは同じ行を指したまま。
+   * まとめて落とすと、1曲目を1文字直しただけで2曲目の理由まで消え、複数の誤りを1つずつ追いかける
+   * ことになる。
+   */
+  it('欄を1つ書き換えても、同じ応答の誤りは残る', async () => {
+    await openEditor();
+    await openSection('曲目');
+
+    await userEvent.click(screen.getByRole('button', { name: '保存する' }));
+    expect(await screen.findByText('タイトルが長すぎます')).toBeTruthy();
+
+    await userEvent.type(screen.getByLabelText(/トラック名/u), '改');
+
+    expect(screen.getByText('タイトルが長すぎます')).toBeTruthy();
+  });
+
+  it('行を外すと、位置が別の行を指すため落とす', async () => {
+    await openEditor();
+    await openSection('曲目');
+
+    await userEvent.click(screen.getByRole('button', { name: '保存する' }));
+    await screen.findByText('タイトルが長すぎます');
+
+    await userEvent.click(
+      within(trackRows()[0] as HTMLElement).getByRole('button', { name: /^外す$/u }),
+    );
+
+    expect(screen.queryAllByRole('alert')).toEqual([]);
+  });
+});
+
 describe('未保存の知らせ', () => {
   const UNSAVED = '保存していない変更があります。';
 

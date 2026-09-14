@@ -52,11 +52,23 @@
     readonly disabled: boolean;
     /** 位置に割り当てられた誤り */
     readonly messagesOf: (path: string) => readonly string[];
-    /** 変えた並びを画面全体へ返す。保存はこの区画では行わない */
-    readonly onChange: (tracks: readonly TrackDraft[]) => void;
+    /**
+     * 行の値を書き換えた／末尾に足した並び。
+     *
+     * <b>既存の行の位置は変わらない。</b> 位置つきの誤りは同じ行を指したままなので、受け取る側は
+     * 落とす必要が無い。
+     */
+    readonly onEdit: (tracks: readonly TrackDraft[]) => void;
+    /**
+     * 行を外した／動かした並び。
+     *
+     * <b>以降、同じ位置は別の行を指す。</b> 位置つきの誤りを残すと、直っていない行から消えて関係の
+     * 無い行に出る。行は保存されるまでIDを持たないため、誤りを行へ追従させることもできない。
+     */
+    readonly onReposition: (tracks: readonly TrackDraft[]) => void;
   };
 
-  const { tracks, disabled, messagesOf, onChange }: Props = $props();
+  const { tracks, disabled, messagesOf, onEdit, onReposition }: Props = $props();
 
   /**
    * 開いている行。
@@ -79,7 +91,7 @@
     shownTrack === index ? `${String(index + 1)}曲目を畳む` : `${String(index + 1)}曲目を開く`;
 
   const withTrack = (index: number, draft: TrackDraft): void => {
-    onChange(tracks.map((track, position) => (position === index ? draft : track)));
+    onEdit(tracks.map((track, position) => (position === index ? draft : track)));
   };
 
   /**
@@ -91,13 +103,13 @@
   const addTrack = (): void => {
     const added = tracks.length;
 
-    onChange([...tracks, EMPTY_TRACK]);
+    onEdit([...tracks, EMPTY_TRACK]);
     openTrack = added;
   };
 
   /** 外した後は畳む。位置がずれるため、開いたままにすると別の行が開いて見える */
   const removeTrack = (index: number): void => {
-    onChange(tracks.filter((track, position) => position !== index));
+    onReposition(tracks.filter((track, position) => position !== index));
     openTrack = null;
   };
 
@@ -117,7 +129,7 @@
 
   /** 動かした行は追う。開いたまま動かすと、開いて見える行が入れ替わる */
   const move = (index: number, other: number): void => {
-    onChange(swapped(index, other));
+    onReposition(swapped(index, other));
     openTrack = openTrack === index ? other : openTrack;
   };
 

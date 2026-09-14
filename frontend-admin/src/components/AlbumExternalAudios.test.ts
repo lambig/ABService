@@ -21,7 +21,8 @@ const propsOf = (audios: readonly ExternalAudioDraft[]) => ({
   audios,
   disabled: false,
   messagesOf: NO_MESSAGES,
-  onChange: (): void => undefined,
+  onEdit: (): void => undefined,
+  onReposition: (): void => undefined,
 });
 
 const rows = (): readonly HTMLElement[] => screen.getAllByRole('listitem');
@@ -62,32 +63,43 @@ describe('外部音源の一覧', () => {
     expect(screen.queryAllByRole('listitem')).toEqual([]);
   });
 
-  it('行を外すと、その行が抜けた並びを返す', async () => {
-    const onChange = vi.fn();
-    render(AlbumExternalAudios, { ...propsOf(AUDIOS), onChange });
+  /*
+   * POSITIONS-SHIFT: 外す・動かすは、以降その位置が別の行を指すようになる操作である。受け取る側が
+   * 位置つきの誤りを落とせるよう、追加とは別の口で返す。
+   */
+  it('行を外すと、その行が抜けた並びを、位置の変わる操作として返す', async () => {
+    const onEdit = vi.fn();
+    const onReposition = vi.fn();
+    render(AlbumExternalAudios, { ...propsOf(AUDIOS), onEdit, onReposition });
 
     await userEvent.click(within(rows()[1] as HTMLElement).getByRole('button', { name: '外す' }));
 
-    expect(onChange).toHaveBeenCalledWith([AUDIOS[0], AUDIOS[2]]);
+    expect(onReposition).toHaveBeenCalledWith([AUDIOS[0], AUDIOS[2]]);
+    expect(onEdit).not.toHaveBeenCalled();
   });
 
-  it('下へ動かすと、その行と次の行を入れ替えた並びを返す', async () => {
-    const onChange = vi.fn();
-    render(AlbumExternalAudios, { ...propsOf(AUDIOS), onChange });
+  it('下へ動かすと、入れ替えた並びを、位置の変わる操作として返す', async () => {
+    const onEdit = vi.fn();
+    const onReposition = vi.fn();
+    render(AlbumExternalAudios, { ...propsOf(AUDIOS), onEdit, onReposition });
 
     await userEvent.click(within(rows()[0] as HTMLElement).getByRole('button', { name: '下へ' }));
 
-    expect(onChange).toHaveBeenCalledWith([AUDIOS[1], AUDIOS[0], AUDIOS[2]]);
+    expect(onReposition).toHaveBeenCalledWith([AUDIOS[1], AUDIOS[0], AUDIOS[2]]);
+    expect(onEdit).not.toHaveBeenCalled();
   });
 
-  it('足した行はIDを持たない（新しい音源として送られる）', async () => {
-    const onChange = vi.fn();
-    render(AlbumExternalAudios, { ...propsOf(AUDIOS), onChange });
+  /* 末尾への追加では既存の行の位置が変わらない */
+  it('足した行はIDを持たず、位置の変わらない操作として返る', async () => {
+    const onEdit = vi.fn();
+    const onReposition = vi.fn();
+    render(AlbumExternalAudios, { ...propsOf(AUDIOS), onEdit, onReposition });
 
     await userEvent.type(screen.getByLabelText('音源のURL'), 'https://example.com/four');
     await userEvent.click(screen.getByRole('button', { name: '音源を追加する' }));
 
-    expect(onChange).toHaveBeenCalledWith([...AUDIOS, audioOf(null, 'https://example.com/four')]);
+    expect(onEdit).toHaveBeenCalledWith([...AUDIOS, audioOf(null, 'https://example.com/four')]);
+    expect(onReposition).not.toHaveBeenCalled();
   });
 
   it('行の誤りは、その行の下に出る', () => {

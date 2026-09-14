@@ -28,7 +28,8 @@ const propsOf = (tracks: readonly TrackDraft[]) => ({
   tracks,
   disabled: false,
   messagesOf: NO_MESSAGES,
-  onChange: (): void => undefined,
+  onEdit: (): void => undefined,
+  onReposition: (): void => undefined,
 });
 
 /*
@@ -100,31 +101,54 @@ describe('曲目の一覧', () => {
     expect(within(rows()[1] as HTMLElement).getByLabelText(/トラック名/u)).toBeTruthy();
   });
 
-  it('行を外すと、その行が抜けた並びを返す', async () => {
-    const onChange = vi.fn();
-    render(AlbumTracks, { ...propsOf(TRACKS), onChange });
+  /*
+   * POSITIONS-SHIFT: 外す・動かすは、以降その位置が別の行を指すようになる操作である。受け取る側が
+   * 位置つきの誤りを落とせるよう、値の書き換えとは別の口で返す。
+   */
+  it('行を外すと、その行が抜けた並びを、位置の変わる操作として返す', async () => {
+    const onEdit = vi.fn();
+    const onReposition = vi.fn();
+    render(AlbumTracks, { ...propsOf(TRACKS), onEdit, onReposition });
 
     await userEvent.click(within(rows()[1] as HTMLElement).getByRole('button', { name: '外す' }));
 
-    expect(onChange).toHaveBeenCalledWith([TRACKS[0], TRACKS[2]]);
+    expect(onReposition).toHaveBeenCalledWith([TRACKS[0], TRACKS[2]]);
+    expect(onEdit).not.toHaveBeenCalled();
   });
 
-  it('下へ動かすと、その行と次の行を入れ替えた並びを返す', async () => {
-    const onChange = vi.fn();
-    render(AlbumTracks, { ...propsOf(TRACKS), onChange });
+  it('下へ動かすと、入れ替えた並びを、位置の変わる操作として返す', async () => {
+    const onEdit = vi.fn();
+    const onReposition = vi.fn();
+    render(AlbumTracks, { ...propsOf(TRACKS), onEdit, onReposition });
 
     await userEvent.click(within(rows()[0] as HTMLElement).getByRole('button', { name: '下へ' }));
 
-    expect(onChange).toHaveBeenCalledWith([TRACKS[1], TRACKS[0], TRACKS[2]]);
+    expect(onReposition).toHaveBeenCalledWith([TRACKS[1], TRACKS[0], TRACKS[2]]);
+    expect(onEdit).not.toHaveBeenCalled();
   });
 
-  it('足した行はIDを持たない（新しいトラックとして送られる）', async () => {
-    const onChange = vi.fn();
-    render(AlbumTracks, { ...propsOf(TRACKS), onChange });
+  /* 末尾への追加では既存の行の位置が変わらない。書き換えと同じ口で返す */
+  it('足した行はIDを持たず、位置の変わらない操作として返る', async () => {
+    const onEdit = vi.fn();
+    const onReposition = vi.fn();
+    render(AlbumTracks, { ...propsOf(TRACKS), onEdit, onReposition });
 
     await userEvent.click(screen.getByRole('button', { name: 'トラックを追加する' }));
 
-    expect(onChange).toHaveBeenCalledWith([...TRACKS, EMPTY_TRACK]);
+    expect(onEdit).toHaveBeenCalledWith([...TRACKS, EMPTY_TRACK]);
+    expect(onReposition).not.toHaveBeenCalled();
+  });
+
+  it('行の欄を書き換えると、位置の変わらない操作として返る', async () => {
+    const onEdit = vi.fn();
+    const onReposition = vi.fn();
+    render(AlbumTracks, { ...propsOf(TRACKS), onEdit, onReposition });
+
+    await userEvent.click(screen.getByRole('button', { name: '1曲目を開く' }));
+    await userEvent.type(screen.getByLabelText(/トラック名/u), '改');
+
+    expect(onEdit).toHaveBeenCalledWith([{ ...TRACKS[0], title: '1曲目改' }, TRACKS[1], TRACKS[2]]);
+    expect(onReposition).not.toHaveBeenCalled();
   });
 
   it('1件も持たないことを文言で示す', () => {

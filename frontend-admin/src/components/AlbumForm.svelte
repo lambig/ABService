@@ -755,38 +755,65 @@
    * 外部音源の並びを入力として持ち直す。送るのは保存のときだけ。
    *
    * <p>
-   * <b>前回の検証エラーは、ここで落とす。</b> 行の誤りは位置（`externalAudios[i].url`）で返るため、並びが変われば
-   * その位置は別の行を指す。残したままにすると、直っていない行からエラーが消え、関係のない行に出る。行は
-   * 保存されるまでIDを持たないので、エラーを行へ追従させることもできない。
+   * <b>前回の検証エラーはそのまま残す。</b> 末尾へ足しただけでは既存の行の位置は変わらず、
+   * `externalAudios[i].url` は同じ行を指したままである。落とすと、何も直していない行から理由が消える。
    * </p>
    */
-  const audiosChanged = (audios: readonly ExternalAudioDraft[]): void => {
+  const audiosEdited = (audios: readonly ExternalAudioDraft[]): void => {
+    const current = view;
+    view = current.kind === 'editing' ? { ...current, audios } : current;
+  };
+
+  /**
+   * 外部音源の行を外した・動かした後。
+   *
+   * <p>
+   * <b>その子の行に割り当てられたエラーは、ここで落とす。</b> 位置（`externalAudios[i].url`）は並びが
+   * 変われば別の行を指す。残したままにすると、直っていない行から消えて関係のない行に出る。行は保存
+   * されるまでIDを持たないので、エラーを行へ追従させることもできない。
+   * </p>
+   */
+  const audiosRepositioned = (audios: readonly ExternalAudioDraft[]): void => {
     const current = view;
     view =
       current.kind === 'editing'
         ? {
             ...current,
             audios,
-            submission: submissionAfterChildEdit(current.submission, AUDIO_PATH_PREFIX),
+            submission: submissionAfterReposition(current.submission, AUDIO_PATH_PREFIX),
           }
         : current;
   };
 
-  /** 曲目の並びを入力として持ち直す。送るのは保存のときだけ（理由は {@link audiosChanged} と同じ） */
-  const tracksChanged = (tracks: readonly TrackDraft[]): void => {
+  /**
+   * 曲目の並びを入力として持ち直す。送るのは保存のときだけ。
+   *
+   * <p>
+   * <b>前回の検証エラーはそのまま残す。</b> 欄の書き換えでも末尾への追加でも既存の行の位置は変わらず、
+   * `tracks[i].tunes[j].field` は同じ行を指したままである。1回の応答には複数の行の誤りが同時に入り得る
+   * ため（`Result.all` が積む）、ここで落とすと<b>1曲目を1文字直しただけで3曲目の理由まで消える</b>。
+   * </p>
+   */
+  const tracksEdited = (tracks: readonly TrackDraft[]): void => {
+    const current = view;
+    view = current.kind === 'editing' ? { ...current, tracks } : current;
+  };
+
+  /** 曲目の行を外した・動かした後（理由は {@link audiosRepositioned} と同じ） */
+  const tracksRepositioned = (tracks: readonly TrackDraft[]): void => {
     const current = view;
     view =
       current.kind === 'editing'
         ? {
             ...current,
             tracks,
-            submission: submissionAfterChildEdit(current.submission, TRACK_PATH_PREFIX),
+            submission: submissionAfterReposition(current.submission, TRACK_PATH_PREFIX),
           }
         : current;
   };
 
   /**
-   * 子の並びを変えた後の保存の状態。
+   * 子の並びが変わった後の保存の状態。
    *
    * <p>
    * 落とすのは<b>その子の行に割り当てられたエラーだけ</b>。同じ応答には本体の欄の誤り（`title` など）も、
@@ -797,7 +824,7 @@
    * 競合や通信断（`conflicted` / `refused`）は入力を変えても消えないため、そのまま残す。
    * </p>
    */
-  const submissionAfterChildEdit = (current: Submission, prefix: string): Submission =>
+  const submissionAfterReposition = (current: Submission, prefix: string): Submission =>
     current.kind === 'invalid' ? invalidOrIdle(withoutPathsUnder(current.errors, prefix)) : current;
 
   /** 落とした後に残るものが無ければ、拒まれている状態そのものを解く */
@@ -1113,7 +1140,13 @@
         toggleSection('曲目');
       }}
     >
-      <AlbumTracks {tracks} disabled={busy} messagesOf={messagesAt} onChange={tracksChanged} />
+      <AlbumTracks
+        {tracks}
+        disabled={busy}
+        messagesOf={messagesAt}
+        onEdit={tracksEdited}
+        onReposition={tracksRepositioned}
+      />
 
       <!--
         原作の出典は曲目の区画に入れる。「「○○」より各曲」のように<b>曲単位で特定しないまま曲目全体を
@@ -1146,7 +1179,8 @@
         {audios}
         disabled={busy}
         messagesOf={audioMessagesOf}
-        onChange={audiosChanged}
+        onEdit={audiosEdited}
+        onReposition={audiosRepositioned}
       />
     </AlbumSection>
 
