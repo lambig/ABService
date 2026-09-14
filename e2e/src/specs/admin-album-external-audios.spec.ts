@@ -43,8 +43,9 @@ const UP_LABEL = '上へ';
 const DOWN_LABEL = '下へ';
 const AUDIOS_ABSENT_TEXT = '外部音源はありません。';
 
-/** 保存の操作 */
+/** 保存の操作と、世代が古いことを伝える見出し */
 const SAVE_LABEL = '保存する';
+const CONFLICT_HEADING = '編集を始めた後に、別の操作がこの作品を保存しています';
 
 /** 埋め込めるホストのURL。許可するホストの一覧はバックエンドが持つ */
 const FIRST_URL = 'https://soundcloud.com/example/e2e-first';
@@ -212,6 +213,30 @@ test.describe('管理画面の外部音源', () => {
     await expect(audioRows(page)).toHaveCount(2);
 
     await captureFocused(page, audioList(page), '39l-admin-external-audio-rejected');
+  });
+
+  test('同じURLを2行入れて保存すると、重複の理由が出る（読み直しを促さない）', async ({ page }) => {
+    await openAlbumFor(page, '音源重複');
+
+    await addAudio(page, FIRST_URL);
+    await addAudio(page, FIRST_URL);
+
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+
+    /*
+     * SAME-STATUS-DIFFERENT-CAUSE: 子を集約ルート経由で書くようになり、同じ PUT が世代の競合と集約の
+     * 業務違反の両方を 409 で返す（#391）。状態コードで見分けると、入力を直せば通る要求に「最新を
+     * 読み込む」を促すことになる。実スタックで見るのは、画面が見ている型と backend が返す型が
+     * 噛み合っていることまで含めるためである。
+     */
+    await expect(page.getByRole('alert')).toBeVisible();
+    await expect(page.getByText(CONFLICT_HEADING)).toHaveCount(0);
+
+    /* 断られたのだから、入力に留まる */
+    await expect(page.getByLabel(TITLE_LABEL)).toBeVisible();
+    await expect(audioRows(page)).toHaveCount(2);
+
+    await captureFocused(page, page.getByRole('alert'), '39o-admin-external-audio-duplicated');
   });
 
   test('保存の最中は、作品の入力も音源の操作も受け付けない', async ({ page }) => {

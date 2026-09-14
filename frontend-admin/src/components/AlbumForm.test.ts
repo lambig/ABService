@@ -69,6 +69,42 @@ const rejectedSecondRow = {
   },
 };
 
+/** 本体の欄と音源の行が同じ応答で断られた場合。1回の 400 に両方が入る */
+const rejectedTitleAndSecondRow = {
+  ...rejectedSecondRow,
+  problem: {
+    ...rejectedSecondRow.problem,
+    errors: [
+      { field: 'title', message: 'タイトルは必須です' },
+      { field: 'externalAudios[1].url', message: '埋め込めるホストではありません' },
+    ],
+  },
+};
+
+/** 編集を始めた後に別の保存が入った場合（世代が古い） */
+const staleRevision = {
+  kind: 'failed' as const,
+  reason: 'http' as const,
+  status: 409,
+  message: '編集を始めた後に更新されています。',
+  problem: { type: 'urn:abservice:error:CONFLICTING_UPDATE', status: 409 },
+};
+
+/** 集約の不変条件に反する要求（音源URLの重複）。同じ 409 でも直す先は入力にある */
+const duplicatedAudioUrl = {
+  kind: 'failed' as const,
+  reason: 'http' as const,
+  status: 409,
+  message: '同じURLの音源が2度含まれています。',
+  problem: {
+    type: 'urn:abservice:error:BUSINESS_RULE_VIOLATION',
+    status: 409,
+    errors: [
+      { field: 'externalAudios', message: 'External audio URL must be unique in this album' },
+    ],
+  },
+};
+
 const audioRows = (): readonly HTMLElement[] =>
   within(screen.getByRole('list')).getAllByRole('listitem');
 
@@ -111,6 +147,25 @@ describe('外部音源の行の誤り', () => {
     expect(screen.queryAllByRole('alert')).toEqual([]);
   });
 
+  it('並べ替えても、本体の欄の誤りは残る', async () => {
+    updateAlbum.mockResolvedValue(rejectedTitleAndSecondRow);
+    await openEditor();
+
+    await userEvent.click(screen.getByRole('button', { name: '保存する' }));
+    await within(audioRows()[1] as HTMLElement).findByRole('alert');
+
+    await userEvent.click(
+      within(audioRows()[1] as HTMLElement).getByRole('button', { name: '上へ' }),
+    );
+
+    /*
+     * KEEP-UNTOUCHED-FIELDS: 落とすのは位置が別の行を指すようになった音源の誤りだけ。1回の応答には
+     * 本体の欄の誤りも入るため、まとめて捨てると、何も直していない欄から理由が消える。
+     */
+    expect(screen.getByText('タイトルは必須です')).toBeTruthy();
+    expect(screen.queryByText('埋め込めるホストではありません')).toBeNull();
+  });
+
   it('前の行を外しても、誤りが繰り上がった別の行に出ない', async () => {
     await openEditor();
 
@@ -123,5 +178,32 @@ describe('外部音源の行の誤り', () => {
     );
 
     expect(screen.queryAllByRole('alert')).toEqual([]);
+  });
+});
+
+describe('409 の見分け', () => {
+  const CONFLICT_HEADING = '編集を始めた後に、別の操作がこの作品を保存しています';
+
+  it('世代が古いときは、読み直しへ導く', async () => {
+    updateAlbum.mockResolvedValue(staleRevision);
+    await openEditor();
+
+    await userEvent.click(screen.getByRole('button', { name: '保存する' }));
+
+    expect(await screen.findByText(CONFLICT_HEADING)).toBeTruthy();
+  });
+
+  it('集約の不変条件に反する要求は、理由を出して入力に留める', async () => {
+    updateAlbum.mockResolvedValue(duplicatedAudioUrl);
+    await openEditor();
+
+    await userEvent.click(screen.getByRole('button', { name: '保存する' }));
+
+    /*
+     * SAME-STATUS-DIFFERENT-CAUSE: 子を集約ルート経由で書くようになり、同じ PUT が世代の競合と業務
+     * 違反の両方を 409 で返す（#391）。後者は入力を直せば通るため、読み直しを促す枝へ入れない。
+     */
+    expect(await screen.findByText(/unique/u)).toBeTruthy();
+    expect(screen.queryByText(CONFLICT_HEADING)).toBeNull();
   });
 });

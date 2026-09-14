@@ -23,10 +23,12 @@
     type ApiResult,
     type ConfirmedAsset,
   } from '$lib/api/client';
+  import { isStaleRevisionConflict } from '$lib/api/http';
   import {
     NO_ERRORS,
     formErrorsOf,
     hasAssignedErrors,
+    withoutPathsUnder,
     type FormErrors,
   } from '$lib/api/form-errors';
   import { KEY_STORE, storedApiKey } from '$lib/credentials';
@@ -149,8 +151,11 @@
     ...audios.map((_, index) => audioPathOf(index)),
   ]);
 
+  /** 外部音源の行を指す位置の接頭辞。行の位置は並びが変われば別の行を指す */
+  const AUDIO_PATH_PREFIX = 'externalAudios[';
+
   /** 外部音源の行の位置。管理APIが検証エラーの `field` として返す綴りと同じ */
-  const audioPathOf = (index: number): string => `externalAudios[${String(index)}].url`;
+  const audioPathOf = (index: number): string => `${AUDIO_PATH_PREFIX}${String(index)}].url`;
 
   /** 選択肢の表示。値は管理APIの列挙子名で、そのままでは画面に出せない */
   const CHOICE_LABELS: Readonly<Record<string, string>> = {
@@ -532,17 +537,22 @@
       ? { kind: 'invalid', errors }
       : { kind: 'refused', message: failureTextOf(failure) };
 
-  /** 競合として返る状態コード。編集を始めた後に別の操作が保存している（#287） */
-  const CONFLICT_STATUS = 409;
-
   /**
    * 競合は入力の誤りと分けて扱う。
    *
+   * <p>
    * 直す先が入力ではなく「読み直し」にあるため、欄へも全体のエラーへも出さない。古い値を自動で再送も
    * しない（同じ世代で送り直せば再び競合する）。
+   * </p>
+   *
+   * <p>
+   * <b>状態コードでは見分けない。</b> 子を集約ルート経由で書くようになり、同じ PUT が集約の不変条件に
+   * 反する要求（音源URLの重複・この作品の子でないID）も 409 で返す（#391）。それらは入力を直せば通る
+   * ため、読み直しを促す枝へ入れない。
+   * </p>
    */
   const rejectionOf = (failure: ApiFailure): Submission =>
-    failure.status === CONFLICT_STATUS
+    isStaleRevisionConflict(failure)
       ? { kind: 'conflicted' }
       : rejection(failure, formErrorsOf(failure.problem, assignablePaths));
 
@@ -642,17 +652,32 @@
     const current = view;
     view =
       current.kind === 'editing'
-        ? { ...current, audios, submission: submissionAfterEdit(current.submission) }
+        ? { ...current, audios, submission: submissionAfterAudioEdit(current.submission) }
         : current;
   };
 
   /**
-   * 入力を変えた後の保存の状態。
+   * 外部音源の並びを変えた後の保存の状態。
    *
-   * 位置つきのエラー（`invalid`）だけを捨てる。競合や通信断は入力を変えても消えないため、そのまま残す。
+   * <p>
+   * 落とすのは<b>音源の行に割り当てられたエラーだけ</b>。同じ応答には本体の欄の誤り（`title` など）も
+   * 一緒に入るため、まとめて捨てると、何も直していない欄のエラーまで消える。
+   * </p>
+   *
+   * <p>
+   * 競合や通信断（`conflicted` / `refused`）は入力を変えても消えないため、そのまま残す。
+   * </p>
    */
-  const submissionAfterEdit = (current: Submission): Submission =>
-    current.kind === 'invalid' ? { kind: 'idle' } : current;
+  const submissionAfterAudioEdit = (current: Submission): Submission =>
+    current.kind === 'invalid'
+      ? invalidOrIdle(withoutPathsUnder(current.errors, AUDIO_PATH_PREFIX))
+      : current;
+
+  /** 落とした後に残るものが無ければ、拒まれている状態そのものを解く */
+  const invalidOrIdle = (errors: FormErrors): Submission =>
+    [hasAssignedErrors(errors), errors.unassigned.length > 0].some(Boolean)
+      ? { kind: 'invalid', errors }
+      : { kind: 'idle' };
 
   /*
    * NARROWING-IN-TEMPLATE: テンプレートの分岐は型の絞り込みを持ち越せないため、状態から取り出した
@@ -755,8 +780,7 @@
       送ったのはクリックした時点の入力である。保存中も入力を受け付けると、その後の変更は要求に
       入らないまま、成功して一覧へ移ったときに黙って消える。
 
-      外部音源の操作中も同じ理由で塞ぐ。操作が済むと読み直すため、その間に書いた入力は保存されない
-      まま消える。画像を送っている最中は塞がない——送り終えても読み直さないので、入力は残る。
+      画像を送っている最中は塞がない——送り終えても読み直さないので、入力は残る。
     -->
       <fieldset class="space-y-8" disabled={saving}>
         {#each SECTIONS as section (section.heading)}
