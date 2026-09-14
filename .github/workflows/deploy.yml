@@ -38,6 +38,9 @@ jobs:
           github.event.workflow_run.head_branch == 'main' &&
           github.event.workflow_run.event == 'push'))
 
+    outputs:
+      commit_sha: ${{ steps.resolve.outputs.commit_sha }}
+
     steps:
       # CIが検査したSHAをそのまま対象にする（デプロイ時点のmain先端ではない）。手動起動では指定された
       # commit を取る。動かすイメージも、それを配る手順（deploy.sh / compose）も、同じ commit から決まる。
@@ -75,6 +78,7 @@ jobs:
           # タグは checkout した commit から決まる。手動起動でも、配るファイルと同じ commit の
           # イメージだけが対象になる（そのタグが ECR に在ることは次のステップが確かめる）
           echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             echo "Redeploying the image built from $(git rev-parse HEAD) without rebuilding"
@@ -204,3 +208,11 @@ jobs:
             echo "The deploy command ended as $STATUS." >&2
             exit 1
           fi
+
+  frontend:
+    needs: deploy
+    # backendの手動rollbackはfrontendを再ビルドしない。そちらは保存済み成果物から別途戻す。
+    if: ${{ github.event_name == 'workflow_run' && needs.deploy.result == 'success' }}
+    uses: ./.github/workflows/deploy-frontend.yml
+    with:
+      commit_sha: ${{ needs.deploy.outputs.commit_sha }}
