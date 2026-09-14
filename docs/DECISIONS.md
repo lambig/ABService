@@ -648,6 +648,14 @@ CI 用の compose の上書き（`docker-compose.ci.yml`）が1つ増える。pr
 **実体**: `presentation.rest.security.OriginVerificationFilter`、`application.properties` の `abservice.origin.verify-token`、`infra/data.tf`（値の生成と保管）、`infra/edge.tf`（配信の `custom_header`）、`infra/security_groups.tf`、`docker-compose.prod.yml`、`infra/host/deploy.sh`。
 
 
+## 試聴インスタレーションの解析と描画の失敗は再生を止めない
+
+音を聴く操作が主であるため、Workletの出力を可聴経路の必須部品にしない。解析は同じmedia sourceから分岐し、音声の直接出力を保つ。音声の別デコードや別プレイヤーでは再生位置や寿命が分かれるため、解析は既存プレイヤーのmediaを借用する。
+
+PCMをmain threadへ運ぶと音源のチャンネル数やsample rateに転送量が比例するため、Worklet内で特徴量へ縮約する。解析窓と通知周期は分け、通知間の立ち上がりの最大値を残す。シーク時は曲内位置が変わってもAudioContextの時刻は巻き戻らないので、明示的に窓と描画応答をリセットし、旧世代の通知を捨てる。
+
+WebGPUの初期化失敗・device lostは描画だけを止める。Worklet初期化中に停止・選曲されても、遅い完了から接続を復活させない。JS参照DSPは意味論を確認するために使い、会場端末の長時間性能や可聴出力の合格とは区別する。
+
 ## PR の CI を既存アプリケーションと試聴プレイヤーの影響範囲で分ける
 
 独立した試聴 PoC の失敗で、既存サイトの検査や無関係な PR のマージを止めないため、PR では変更箇所と workspace の依存関係に応じて検査を選ぶ。検査内容は各 workspace の scripts を正とし、CI に同じ対象一覧を写さない。所属が未決の workspace や判定できない変更は両系統で扱い、パッケージの追加や依存の変更によって検査が黙って消えることを避ける。

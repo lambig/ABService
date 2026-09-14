@@ -32,11 +32,9 @@
       <div class="workspace">
         <nav id="library" aria-label="アルバムと曲目"></nav>
         <section class="player" aria-label="プレイヤー">
-          <div class="cover" aria-hidden="true">
-            <span>AB / SOUND STUDIES</span>
-            <div class="rings"></div>
-            <strong>01</strong>
-          </div>
+          <canvas id="visualizer" aria-label="音に反応するビジュアライザ"></canvas>
+          <p id="visualizer-status" role="status">再生すると音に合わせて描画します</p>
+          <p id="analysis-status" role="status"></p>
           <div class="now">
             <p id="album-title" class="eyebrow">YOUR SELECTION</p>
             <h2 id="track-title">曲を選んでください</h2>

@@ -26,9 +26,9 @@
     "test:patterns": "npm run test -w abservice-patterns",
     "test:eslint-config": "npm run test -w abservice-eslint-config",
     "test:admin": "npm run test -w abservice-frontend-admin",
-    "test:frontend": "npm run test:markup && npm run test:patterns && npm run test:eslint-config && npm run test:audio-dsp && npm run test:installation && npm run test:admin",
+    "test:frontend": "npm run test:markup && npm run test:patterns && npm run test:eslint-config && npm run test:audio-dsp && npm run test:installation && npm run test:admin && npm run test:audio-worklet && npm run test:visualizer",
     "test:e2e": "npm run test -w abservice-e2e",
-    "lint": "npm run lint:markup && npm run lint:patterns && npm run lint:public && npm run lint:admin && npm run lint:e2e && npm run lint:audio-dsp && npm run lint:installation && npm run lint:player && npm run lint:offline-storage && npm run lint:offline-shell && npm run lint:offline-player",
+    "lint": "npm run lint:markup && npm run lint:patterns && npm run lint:public && npm run lint:admin && npm run lint:e2e && npm run lint:audio-dsp && npm run lint:installation && npm run lint:player && npm run lint:offline-storage && npm run lint:offline-shell && npm run lint:offline-player && npm run lint:audio-worklet && npm run lint:visualizer",
     "lint:markup": "npm run lint -w abservice-markup",
     "lint:patterns": "npm run lint -w abservice-patterns",
     "lint:public": "npm run lint -w abservice-frontend-public",
@@ -78,7 +78,17 @@
     "build:offline-player": "npm run build -w abservice-offline-player",
     "typecheck:offline-player": "npm run typecheck -w abservice-offline-player",
     "lint:offline-player": "npm run lint -w abservice-offline-player",
-    "test:offline-player:browser": "npm run test:browser -w abservice-offline-player"
+    "test:offline-player:browser": "npm run test:browser -w abservice-offline-player",
+    "test:audio-worklet": "npm run test -w abservice-audio-worklet",
+    "lint:audio-worklet": "npm run lint -w abservice-audio-worklet",
+    "typecheck:audio-worklet": "npm run typecheck -w abservice-audio-worklet",
+    "build:audio-worklet": "npm run build -w abservice-audio-worklet",
+    "test:audio-worklet:browser": "npm run test:browser -w abservice-audio-worklet",
+    "test:visualizer": "npm run test -w abservice-visualizer",
+    "lint:visualizer": "npm run lint -w abservice-visualizer",
+    "typecheck:visualizer": "npm run typecheck -w abservice-visualizer",
+    "build:visualizer": "npm run build -w abservice-visualizer",
+    "test:visualizer:browser": "npm run test:browser -w abservice-visualizer"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

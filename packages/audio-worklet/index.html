@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AB Audio / RMS transport</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font:
+          16px system-ui,
+          sans-serif;
+        background: #101721;
+        color: #e3edf4;
+      }
+      main {
+        max-width: 760px;
+        margin: 8vh auto;
+        padding: 24px;
+      }
+      h1 {
+        font-size: 24px;
+        letter-spacing: 0.05em;
+      }
+      label {
+        display: block;
+        margin: 20px 0;
+      }
+      select,
+      button {
+        font: inherit;
+        padding: 10px 16px;
+        background: #24364a;
+        color: inherit;
+        border: 1px solid #597187;
+        border-radius: 4px;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:focus-visible,
+      select:focus-visible {
+        outline: 2px solid #8bd5de;
+      }
+      dl {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        padding: 24px;
+        background: #192532;
+        gap: 20px;
+      }
+      dd {
+        margin: 0;
+        font-variant-numeric: tabular-nums;
+      }
+      p {
+        line-height: 1.7;
+      }
+      small {
+        color: #a6bbca;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>AB AUDIO / RMS</h1>
+      <p>
+        合成音を再生し、音量の特徴量を観測します。開始すると440
+        Hzの音が鳴ります。
+      </p>
+      <label
+        >音源
+        <select id="fixture">
+          <option value="mono">Mono</option>
+          <option value="stereo">Stereo 同相</option>
+          <option value="opposed">Stereo 逆相</option>
+          <option value="left-only">Stereo 左のみ</option>
+          <option value="silence">無音</option>
+        </select></label
+      >
+      <label
+        >通知頻度
+        <select id="rate">
+          <option value="10">10 Hz</option>
+          <option value="30" selected>30 Hz</option>
+          <option value="60">60 Hz</option>
+        </select></label
+      >
+      <button id="start">開始／再開始</button> <button id="stop">停止</button>
+      <p id="status" role="status">停止中</p>
+      <dl>
+        <dt>RMS</dt>
+        <dd id="rms">0</dd>
+        <dt>音声時刻（秒）</dt>
+        <dd id="time">0</dd>
+        <dt>受信数</dt>
+        <dd id="count">0</dd>
+        <dt>通知頻度（音声時刻基準）</dt>
+        <dd id="frequency">0</dd>
+      </dl>
+      <small
+        >RMSは通知窓内の平均パワーから算出します。受信間隔にはaudio
+        block単位の揺れがあります。</small
+      >
+      <script type="module" src="/src/demo.ts"></script>
+    </main>
+  </body>
+</html>

@@ -13,3 +13,17 @@
 #readiness {
   font-weight: 700;
 }
+#visualizer {
+  display: block;
+  width: 100%;
+  height: 260px;
+  background: #173c3b;
+}
+#visualizer-status,
+#analysis-status {
+  font-size: 12px;
+  line-height: 1.6;
+}
+#analysis-status:empty {
+  display: none;
+}

@@ -16,7 +16,7 @@ http://127.0.0.1:4179/offline-player/ を開いて保存する。準備完了後
 `npm exec -w abservice-offline-player -- playwright install --with-deps --only-shell chromium` の後、`npm run test:offline-player:browser`。
 ブラウザ試験は同じbrowser contextでの全ページ終了と新ページ起動を扱う。ブラウザプロセス/OS再起動、Android実機の可聴出力・音切れ・長時間メモリ・消去耐性の評価とは区別する。
 
-Vite previewと同梱合成音は検証専用。本番配布時の旧shell世代保持、永続化許可、容量管理、失われたshellの修復、音響解析/Visualizerの接続は本PoCの範囲に含めない。
+Vite previewと同梱合成音は検証専用。本番配布時の旧shell世代保持、永続化許可、容量管理、失われたshellの修復、本番UIの確定は本PoCの範囲に含めない。
 
 ## shellのビルド
 

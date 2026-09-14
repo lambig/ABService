@@ -6,6 +6,8 @@ import { manifest } from "player-study/fixture";
 import "player-study/style.css";
 import "./style.css";
 import { assetStore, preparation, storageMessage } from "./preparation";
+import { connectMediaAnalysis } from "abservice-audio-worklet/media";
+import { presentation } from "./presentation";
 
 const element = <T extends HTMLElement>(
   selector: string,
@@ -24,6 +26,11 @@ const stop = element("#stop", HTMLButtonElement);
 const retry = element("#retry", HTMLButtonElement);
 const seek = element("#seek", HTMLInputElement);
 const status = element("#play-status", HTMLElement);
+const visual = presentation(
+  element("#visualizer", HTMLCanvasElement),
+  element("#visualizer-status", HTMLElement),
+);
+const analysisStatus = element("#analysis-status", HTMLElement);
 const tracks = manifest.albums.flatMap((album) =>
   album.tracks.map((track) => ({ album, track })),
 );
@@ -85,10 +92,26 @@ const start = (): void => {
       : (() => {
           throw new Error("Invalid fixture manifest");
         })();
-  const controller = createPlayer(contract, resolve, (state) => {
-    render(state);
-    (state.phase === "error" ? preparation.invalidate : () => undefined)();
-  });
+  const controller = createPlayer(
+    contract,
+    resolve,
+    (state) => {
+      render(state);
+      visual.sync(state);
+      (state.phase === "error" ? preparation.invalidate : () => undefined)();
+    },
+    (media, signal) => {
+      analysisStatus.textContent = "";
+      return connectMediaAnalysis(media, signal, {
+        onFeatures: visual.update,
+        onReset: visual.reset,
+        onError: () => {
+          analysisStatus.textContent =
+            "音響解析を利用できません。再生と操作は続けられます。";
+        },
+      });
+    },
+  );
   contract.albums.forEach((album, index) => {
     const section = document.createElement("section");
     const heading = document.createElement("h2");
@@ -125,6 +148,7 @@ const start = (): void => {
     controller.seek(Number(seek.value));
   });
   window.addEventListener("pagehide", controller.dispose, { once: true });
+  window.addEventListener("pagehide", visual.dispose, { once: true });
   render(controller.snapshot());
   preparation.mount();
 };
