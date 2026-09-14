@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { EMPTY_DRAFT, albumFieldsOf, draftOf, withCleared, withValue } from './album-form';
+import {
+  EMPTY_DRAFT,
+  albumFieldsOf,
+  audioDraftsOf,
+  draftOf,
+  withCleared,
+  withValue,
+} from './album-form';
 import type { AdminAlbumDetail } from './client';
 
 const detail = {
@@ -53,46 +60,46 @@ describe('編集の入力値', () => {
 
 describe('要求への写し取り', () => {
   it('空文字の項目は送らない（未指定として扱わせる）', () => {
-    const fields = albumFieldsOf(withValue(draftOf(detail), 'catalogNumber', ''));
+    const fields = albumFieldsOf(withValue(draftOf(detail), 'catalogNumber', ''), []);
 
     expect(fields.catalogNumber).toBeUndefined();
     expect(fields.title).toBe('アルバム');
   });
 
   it('空白だけの項目は送らない', () => {
-    const fields = albumFieldsOf(withValue(draftOf(detail), 'title', '   '));
+    const fields = albumFieldsOf(withValue(draftOf(detail), 'title', '   '), []);
 
     expect(fields.title).toBeUndefined();
   });
 
   it('入力された値は加工せず送る（前後の空白も保つ）', () => {
-    const fields = albumFieldsOf(withValue(EMPTY_DRAFT, 'description', '  本文  '));
+    const fields = albumFieldsOf(withValue(EMPTY_DRAFT, 'description', '  本文  '), []);
 
     expect(fields.description).toBe('  本文  ');
   });
 
   it('触っていない項目は、読み込んだ値のまま送り返す（全項目置換で書き換えない）', () => {
     const withSpaces = withValue(draftOf(detail), 'description', ' # 見出し\n\n本文 ');
-    const fields = albumFieldsOf(withValue(withSpaces, 'title', '改題'));
+    const fields = albumFieldsOf(withValue(withSpaces, 'title', '改題'), []);
 
     expect(fields.title).toBe('改題');
     expect(fields.description).toBe(' # 見出し\n\n本文 ');
   });
 
   it('カバー画像の鍵は欄を持たないが、読み込んだ値を送り返す', () => {
-    const fields = albumFieldsOf(draftOf(detail));
+    const fields = albumFieldsOf(draftOf(detail), []);
 
     expect(fields.coverImageKey).toBe('covers/album-1.png');
   });
 
   it('イベントの項目がどれも空なら、イベントを送らない', () => {
-    const fields = albumFieldsOf(EMPTY_DRAFT);
+    const fields = albumFieldsOf(EMPTY_DRAFT, []);
 
     expect(fields.event).toBeUndefined();
   });
 
   it('イベントの項目が1つでも入力されていれば、入れ子を送る（必須の判定はしない）', () => {
-    const fields = albumFieldsOf(withValue(EMPTY_DRAFT, 'event.place', '会場'));
+    const fields = albumFieldsOf(withValue(EMPTY_DRAFT, 'event.place', '会場'), []);
 
     expect(fields.event).toEqual({
       name: undefined,
@@ -104,19 +111,19 @@ describe('要求への写し取り', () => {
   });
 
   it('基準額の項目がどれも空なら、基準額を送らない', () => {
-    const fields = albumFieldsOf(EMPTY_DRAFT);
+    const fields = albumFieldsOf(EMPTY_DRAFT, []);
 
     expect(fields.basePrice).toBeUndefined();
   });
 
   it('額は数値へ写して送る', () => {
-    const fields = albumFieldsOf(withValue(EMPTY_DRAFT, 'basePrice.amount', '1500'));
+    const fields = albumFieldsOf(withValue(EMPTY_DRAFT, 'basePrice.amount', '1500'), []);
 
     expect(fields.basePrice).toEqual({ amount: 1500, currency: undefined });
   });
 
   it('通貨だけが入力されていても入れ子を送る（額の必須はバックエンドが返す）', () => {
-    const fields = albumFieldsOf(withValue(EMPTY_DRAFT, 'basePrice.currency', 'USD'));
+    const fields = albumFieldsOf(withValue(EMPTY_DRAFT, 'basePrice.currency', 'USD'), []);
 
     expect(fields.basePrice).toEqual({ amount: undefined, currency: 'USD' });
   });
@@ -149,7 +156,7 @@ describe('まとまりの解除', () => {
   it('解除した入力は、そのまとまりを送らない（額が決まっていない状態への置換）', () => {
     const cleared = withCleared(draftOf(detail), ['basePrice.amount', 'basePrice.currency']);
 
-    expect(albumFieldsOf(cleared).basePrice).toBeUndefined();
+    expect(albumFieldsOf(cleared, []).basePrice).toBeUndefined();
   });
 
   it('解除しても、まとまりの外は変わらない', () => {
@@ -166,7 +173,7 @@ describe('まとまりの解除', () => {
   it('額の欄だけを空にした入力は、通貨が残る限りまとまりを送る', () => {
     const halfCleared = withValue(draftOf(detail), 'basePrice.amount', '');
 
-    expect(albumFieldsOf(halfCleared).basePrice).toEqual({
+    expect(albumFieldsOf(halfCleared, []).basePrice).toEqual({
       amount: undefined,
       currency: 'JPY',
     });
@@ -183,14 +190,52 @@ describe('原作の出典の記述', () => {
   });
 
   it('入力された記述を、加工せずそのまま送る', () => {
-    const fields = albumFieldsOf(withValue(EMPTY_DRAFT, 'originalWorkNote', '「○○」より各曲'));
+    const fields = albumFieldsOf(withValue(EMPTY_DRAFT, 'originalWorkNote', '「○○」より各曲'), []);
 
     expect(fields.originalWorkNote).toBe('「○○」より各曲');
   });
 
   it('空にした欄は送らない（記述なしへの置換になる）', () => {
-    const fields = albumFieldsOf(withValue(draftOf(detail), 'originalWorkNote', ''));
+    const fields = albumFieldsOf(withValue(draftOf(detail), 'originalWorkNote', ''), []);
 
     expect(fields.originalWorkNote).toBeUndefined();
+  });
+});
+
+describe('外部音源', () => {
+  const withAudios = {
+    ...detail,
+    externalAudios: [
+      { externalAudioId: 'audio-1', displayOrder: 1, url: 'https://example.com/one' },
+      { externalAudioId: 'audio-2', displayOrder: 2, url: 'https://example.com/two' },
+    ],
+  } satisfies AdminAlbumDetail;
+
+  it('照会の表示順を捨て、並びだけを初期値にする', () => {
+    expect(audioDraftsOf(withAudios)).toEqual([
+      { externalAudioId: 'audio-1', url: 'https://example.com/one' },
+      { externalAudioId: 'audio-2', url: 'https://example.com/two' },
+    ]);
+  });
+
+  it('送るときも表示順を持たず、配列の並びがそのまま順になる', () => {
+    const fields = albumFieldsOf(EMPTY_DRAFT, audioDraftsOf(withAudios));
+
+    expect(fields.externalAudios).toEqual([
+      { externalAudioId: 'audio-1', url: 'https://example.com/one' },
+      { externalAudioId: 'audio-2', url: 'https://example.com/two' },
+    ]);
+  });
+
+  it('足したばかりの行はIDを送らない（新しい音源として作られる）', () => {
+    const fields = albumFieldsOf(EMPTY_DRAFT, [
+      { externalAudioId: null, url: 'https://example.com/new' },
+    ]);
+
+    expect(fields.externalAudios).toEqual([{ url: 'https://example.com/new' }]);
+  });
+
+  it('音源を持たない作品は空の並びを送る（音源なしへの置換になる）', () => {
+    expect(albumFieldsOf(EMPTY_DRAFT, []).externalAudios).toEqual([]);
   });
 });

@@ -1,4 +1,4 @@
-import type { AdminAlbumDetail, AlbumFields } from './client';
+import type { AdminAlbumDetail, AlbumFields, ExternalAudioFields } from './client';
 
 /**
  * 入力欄の位置。
@@ -178,6 +178,32 @@ const amountOf = (value: string): number | undefined => {
 };
 
 /**
+ * 編集中の外部音源1行。
+ *
+ * <p>
+ * 表示順は持たない——**並びは配列の位置がそのまま表す**（#391）。`externalAudioId` は既にある音源を指し、
+ * 足したばかりの行は持たない。送らなかった既存の行は、保存の時点で消える。
+ * </p>
+ */
+export type ExternalAudioDraft = Readonly<{
+  externalAudioId: string | null;
+  url: string;
+}>;
+
+/** 既存の作品が持つ外部音源を、編集の初期値へ写す */
+export const audioDraftsOf = (album: AdminAlbumDetail): readonly ExternalAudioDraft[] =>
+  album.externalAudios.map((audio) => ({
+    externalAudioId: audio.externalAudioId,
+    url: audio.url,
+  }));
+
+/** 足したばかりの行はIDを持たない。要求の契約でも省略として表す */
+const audioFieldsOf = (audio: ExternalAudioDraft): ExternalAudioFields => ({
+  externalAudioId: audio.externalAudioId ?? undefined,
+  url: audio.url,
+});
+
+/**
  * 入力値を、作成・更新の要求へ写す。
  *
  * <p>
@@ -186,11 +212,19 @@ const amountOf = (value: string): number | undefined => {
  * </p>
  *
  * <p>
+ * 外部音源は並びごと送る。作成も更新も同じ形で、送った配列がそのまま作品の音源になる（#391）。
+ * </p>
+ *
+ * <p>
  * `coverImageKey` は文字を打ち込む欄を持たず、画像を選んだ結果として入る。触らなければ読み込んだ値が
  * そのまま送り返される。更新は全項目置換のため、送らないことがカバー画像を外す指定になる。
  * </p>
  */
-export const albumFieldsOf = (draft: AlbumDraft): AlbumFields => ({
+export const albumFieldsOf = (
+  draft: AlbumDraft,
+  audios: readonly ExternalAudioDraft[],
+): AlbumFields => ({
+  externalAudios: audios.map(audioFieldsOf),
   title: presence(draft.title),
   releaseDate: presence(draft.releaseDate),
   artistDisplayName: presence(draft.artistDisplayName),
