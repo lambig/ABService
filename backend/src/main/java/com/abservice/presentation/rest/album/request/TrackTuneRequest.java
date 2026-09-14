@@ -10,16 +10,19 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>
  * 外部からの未検証入力。値検証はアプリケーション層（各値オブジェクトの {@code fromInput}）に委譲する。
- * トラックの追加・更新・同時登録の各リクエストが共有する。
+ * 作品の登録と更新のリクエストが共有する。
  * </p>
  *
  * <p>
- * {@code tuneId} は受け取らない。{@code Tune} マスタとの同定を行わないため、チューンの手がかりは
+ * <b>登場順は受け取らない</b>（#391）。並びは配列の位置がそのまま表す。番号を受け取ると、行を入れ替えるたびに
+ * 振り直す作業が要求側に生まれ、番号の重複・欠番という失敗も入力の側に生まれる。
+ * </p>
+ *
+ * <p>
+ * {@code tuneId} も受け取らない。{@code Tune} マスタとの同定を行わないため、チューンの手がかりは
  * {@code tuneTitle} だけである。
  * </p>
  *
- * @param seq
- *            トラック内での登場順（1, 2, 3, ...）
  * @param tuneTitle
  *            チューン名（nullable）
  * @param composerCreditOverride
@@ -30,7 +33,6 @@ import org.jspecify.annotations.Nullable;
  *            リンクURL（nullable）
  */
 public record TrackTuneRequest(
-        @Nullable Integer seq,
         @Nullable String tuneTitle,
         @Nullable String composerCreditOverride,
         @Nullable String arrangerCreditOverride,
@@ -41,7 +43,7 @@ public record TrackTuneRequest(
      *
      * <p>
      * 行そのものが無い（JSONの配列要素が {@code null}）場合はその位置を保ったまま渡す。行の欠落は検証エラーであり、
-     * 位置を合成できる場所（{@code TrackAdditionService}）まで届けなければ添字を失う。
+     * 位置を合成できる場所（{@code TrackAssemblyService}）まで届けなければ添字を失う。
      * </p>
      *
      * @param tunes
@@ -69,7 +71,6 @@ public record TrackTuneRequest(
 
     private TrackTuneInput toInput() {
         return new TrackTuneInput(
-                seq,
                 tuneTitle,
                 composerCreditOverride,
                 arrangerCreditOverride,

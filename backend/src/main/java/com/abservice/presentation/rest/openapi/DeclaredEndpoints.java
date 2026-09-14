@@ -6,9 +6,7 @@ import com.abservice.application.exception.FailureResult;
 import com.abservice.application.query.QueryService;
 import com.abservice.presentation.rest.album.AlbumAdminQueryResource;
 import com.abservice.presentation.rest.album.AlbumCommandResource;
-import com.abservice.presentation.rest.album.AlbumExternalAudioCommandResource;
 import com.abservice.presentation.rest.album.AlbumQueryResource;
-import com.abservice.presentation.rest.album.AlbumTrackCommandResource;
 import com.abservice.presentation.rest.article.ArticleAdminQueryResource;
 import com.abservice.presentation.rest.article.ArticleCommandResource;
 import com.abservice.presentation.rest.article.ArticleQueryResource;
@@ -57,9 +55,7 @@ public final class DeclaredEndpoints {
     public static final List<Class<?>> RESOURCES = List.of(
             AlbumAdminQueryResource.class,
             AlbumCommandResource.class,
-            AlbumExternalAudioCommandResource.class,
             AlbumQueryResource.class,
-            AlbumTrackCommandResource.class,
             ArticleAdminQueryResource.class,
             ArticleCommandResource.class,
             ArticleQueryResource.class,

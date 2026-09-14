@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.abservice.application.service.album.UpdateAlbumInput.EventInput;
 import com.abservice.domain.model.aggregate.album.Album;
+import com.abservice.domain.model.aggregate.album.ExternalAudio;
 import com.abservice.domain.model.aggregate.album.Track;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.TrackTitle;
@@ -12,8 +13,11 @@ import com.abservice.domain.model.vo.common.AssetKey;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.domain.model.vo.common.MarkupFormat;
+import com.abservice.domain.service.ExternalAudioAssemblyService;
+import com.abservice.domain.service.TrackAssemblyService;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -29,6 +33,20 @@ class UpdateAlbumServiceTest {
      * </p>
      */
     private static final Integer REVISION_UNUSED = 0;
+
+    /**
+     * 検証と適用だけを見る対象。
+     *
+     * <p>
+     * 集約を掴む側（リポジトリ・{@code AlbumAccessService}）はこの経路に現れないため渡さない。組み立ての
+     * ドメインサービスは実物を使う——曲目と外部音源の位置つきエラーは、この経路が返すものそのものである。
+     * </p>
+     */
+    private static final UpdateAlbumService SERVICE = new UpdateAlbumService(
+            null,
+            null,
+            new TrackAssemblyService(),
+            new ExternalAudioAssemblyService());
 
     private static Album existingAlbum() {
         return Album.create(
@@ -50,7 +68,7 @@ class UpdateAlbumServiceTest {
     @Test
     @DisplayName("正常な入力は成功しCreate相当フィールドを置換する")
     void validInputSucceeds() {
-        final var updated = UpdateAlbumService.validateAndApply(
+        final var updated = SERVICE.validateAndApply(
                 existingAlbum(),
                 new UpdateAlbumInput(
                         null,
@@ -66,7 +84,7 @@ class UpdateAlbumServiceTest {
                         null,
                         null,
                         null,
-                        null))
+                        null, null, null))
                 .resolve();
 
         assertThat(updated.title().value()).isEqualTo("新タイトル");
@@ -79,7 +97,7 @@ class UpdateAlbumServiceTest {
     @Test
     @DisplayName("概要説明は形式とともに置換される")
     void descriptionIsReplacedWithFormat() {
-        final var updated = UpdateAlbumService.validateAndApply(
+        final var updated = SERVICE.validateAndApply(
                 existingAlbum(),
                 new UpdateAlbumInput(
                         null,
@@ -95,7 +113,7 @@ class UpdateAlbumServiceTest {
                         "MARKDOWN",
                         null,
                         null,
-                        null))
+                        null, null, null))
                 .resolve();
 
         assertThat(updated.description().content()).isEqualTo("## 概要\n\n新しい説明");
@@ -108,7 +126,7 @@ class UpdateAlbumServiceTest {
         final var existing = existingAlbum()
                 .changeDescription(MarkupContent.markdown("消される説明"));
 
-        final var updated = UpdateAlbumService.validateAndApply(
+        final var updated = SERVICE.validateAndApply(
                 existing,
                 new UpdateAlbumInput(
                         null,
@@ -124,7 +142,7 @@ class UpdateAlbumServiceTest {
                         null,
                         null,
                         null,
-                        null))
+                        null, null, null))
                 .resolve();
 
         assertThat(updated.description().isEmpty()).isTrue();
@@ -133,7 +151,7 @@ class UpdateAlbumServiceTest {
     @Test
     @DisplayName("概要説明のマークアップ形式が不正なら検証エラーを集約する")
     void invalidDescriptionFormatAggregatesError() {
-        final var result = UpdateAlbumService.validateAndApply(
+        final var result = SERVICE.validateAndApply(
                 existingAlbum(),
                 new UpdateAlbumInput(
                         null,
@@ -149,7 +167,7 @@ class UpdateAlbumServiceTest {
                         "MARKDOWNN",
                         null,
                         null,
-                        null));
+                        null, null, null));
 
         assertThat(result).isInstanceOf(Result.Failure.class);
         assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
@@ -162,7 +180,7 @@ class UpdateAlbumServiceTest {
         final var existing = existingAlbum()
                 .changeCoverImageKey(AssetKey.of("01a0233d-d25a-7c3b-924f-236ee154fecc.png"));
 
-        final var updated = UpdateAlbumService.validateAndApply(
+        final var updated = SERVICE.validateAndApply(
                 existing,
                 new UpdateAlbumInput(
                         null,
@@ -178,7 +196,7 @@ class UpdateAlbumServiceTest {
                         null,
                         null,
                         null,
-                        null))
+                        null, null, null))
                 .resolve();
 
         assertThat(updated.coverImageKey()).isNull();
@@ -187,7 +205,7 @@ class UpdateAlbumServiceTest {
     @Test
     @DisplayName("カバー画像のキーが配信URLの形なら検証エラーにする")
     void invalidCoverImageKeyFails() {
-        final var result = UpdateAlbumService.validateAndApply(
+        final var result = SERVICE.validateAndApply(
                 existingAlbum(),
                 new UpdateAlbumInput(
                         null,
@@ -203,7 +221,7 @@ class UpdateAlbumServiceTest {
                         null,
                         null,
                         null,
-                        null));
+                        null, null, null));
 
         assertThat(result).isInstanceOf(Result.Failure.class);
         assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
@@ -211,8 +229,8 @@ class UpdateAlbumServiceTest {
     }
 
     @Test
-    @DisplayName("idとトラックはUpdateの対象外のため既存の値を維持する")
-    void idAndTracksAreUnaffected() {
+    @DisplayName("idは更新の対象外のため維持され、送られなかった曲目は消える")
+    void idIsKeptWhileAbsentTracksAreDropped() {
         final var existing = existingAlbum()
                 .addTrack(
                         Track.create(
@@ -220,7 +238,7 @@ class UpdateAlbumServiceTest {
                                 TrackTitle.of("既存トラック"),
                                 ArtistCredit.of("既存アーティスト")));
 
-        final var updated = UpdateAlbumService.validateAndApply(
+        final var updated = SERVICE.validateAndApply(
                 existing,
                 new UpdateAlbumInput(
                         null,
@@ -236,17 +254,128 @@ class UpdateAlbumServiceTest {
                         null,
                         null,
                         null,
-                        null))
+                        null, null, null))
                 .resolve();
 
         assertThat(updated.id()).isEqualTo(existing.id());
-        assertThat(updated.getTracks()).hasSize(1);
+        assertThat(updated.getTracks()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("曲目は送られた並びで置き換わり、トラック番号は1から振り直される")
+    void tracksAreReplacedInTheGivenOrder() {
+        final var existing = existingAlbum()
+                .addTrack(
+                        Track.create(
+                                1,
+                                TrackTitle.of("既存トラック"),
+                                ArtistCredit.of("既存アーティスト")));
+
+        final var updated = SERVICE.validateAndApply(
+                existing,
+                updateWithChildren(
+                        List.of(
+                                new TrackInput(
+                                        existing.getTracks().getFirst().id().value(),
+                                        "組み直したトラック",
+                                        null,
+                                        null,
+                                        null),
+                                new TrackInput(
+                                        null,
+                                        "足したトラック",
+                                        null,
+                                        null,
+                                        null)),
+                        null))
+                .resolve();
+
+        assertThat(updated.getTracks())
+                .extracting(Track::trackNo)
+                .containsExactly(1, 2);
+        assertThat(updated.getTracks().getFirst().id())
+                .isEqualTo(existing.getTracks().getFirst().id());
+        assertThat(updated.getTracks().getFirst().title().value()).isEqualTo("組み直したトラック");
+    }
+
+    @Test
+    @DisplayName("外部音源も送られた並びで置き換わり、表示順は1から振り直される")
+    void externalAudiosAreReplacedInTheGivenOrder() {
+        final var updated = SERVICE.validateAndApply(
+                existingAlbum(),
+                updateWithChildren(
+                        null,
+                        List.of(
+                                new ExternalAudioInput(null, "https://soundcloud.com/example/first"),
+                                new ExternalAudioInput(null, "https://soundcloud.com/example/second"))))
+                .resolve();
+
+        assertThat(updated.getExternalAudios())
+                .extracting(ExternalAudio::displayOrder)
+                .containsExactly(1, 2);
+    }
+
+    @Test
+    @DisplayName("曲目の誤りは、その行の位置で本体の誤りと並べて返る")
+    void childErrorsCarryTheirRowPosition() {
+        final var result = SERVICE.validateAndApply(
+                existingAlbum(),
+                new UpdateAlbumInput(
+                        null,
+                        REVISION_UNUSED,
+                        "   ",
+                        "2026-01-01",
+                        "新アーティスト",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        List.of(
+                                new TrackInput(
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null)),
+                        null));
+
+        assertThat(result).isInstanceOf(Result.Failure.class);
+        assertThat(result.errors().stream().map(ErrorResult::field).toList())
+                .contains("title", "tracks[0].title");
+    }
+
+    /** 本体は通る値で固め、曲目と外部音源だけを変える入力。 */
+    private static UpdateAlbumInput updateWithChildren(
+            List<TrackInput> tracks,
+            List<ExternalAudioInput> externalAudios) {
+        return new UpdateAlbumInput(
+                null,
+                REVISION_UNUSED,
+                "新タイトル",
+                "2026-01-01",
+                "新アーティスト",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                tracks,
+                externalAudios);
     }
 
     @Test
     @DisplayName("タイトル・リリース日・アーティスト名が不正なら全てのエラーを集約する")
     void invalidRequiredFieldsAggregatesErrors() {
-        final var result = UpdateAlbumService.validateAndApply(
+        final var result = SERVICE.validateAndApply(
                 existingAlbum(),
                 new UpdateAlbumInput(
                         null,
@@ -262,7 +391,7 @@ class UpdateAlbumServiceTest {
                         null,
                         null,
                         null,
-                        null));
+                        null, null, null));
 
         assertThat(result.errors().stream().map(ErrorResult::field).toList())
                 .contains(
@@ -280,7 +409,7 @@ class UpdateAlbumServiceTest {
     @Test
     @DisplayName("必須項目とISDNの両方が不正なら両方のエラーを集約する（zipによる独立検証の集約）")
     void invalidRequiredFieldAndIsdnAggregatesErrorsAcrossGroups() {
-        final var result = UpdateAlbumService.validateAndApply(
+        final var result = SERVICE.validateAndApply(
                 existingAlbum(),
                 new UpdateAlbumInput(
                         null,
@@ -296,7 +425,7 @@ class UpdateAlbumServiceTest {
                         null,
                         null,
                         null,
-                        null));
+                        null, null, null));
 
         assertThat(result).isInstanceOf(Result.Failure.class);
         assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
@@ -306,7 +435,7 @@ class UpdateAlbumServiceTest {
     @Test
     @DisplayName("ISDN・初出イベント情報を指定すると成功し置換される")
     void validIsdnAndEventSucceeds() {
-        final var updated = UpdateAlbumService.validateAndApply(
+        final var updated = SERVICE.validateAndApply(
                 existingAlbum(),
                 new UpdateAlbumInput(
                         null,
@@ -327,7 +456,7 @@ class UpdateAlbumServiceTest {
                                 "東ホ-01a",
                                 "新譜あります"),
                         null,
-                        null))
+                        null, null, null))
                 .resolve();
 
         assertThat(updated.isdn().value()).isEqualTo("2784702901978");

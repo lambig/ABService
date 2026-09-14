@@ -73,12 +73,14 @@ class AlbumAdminQueryRestIntegrationTest {
     @Test
     @DisplayName("管理向け詳細は下書きのまま曲目をチューン構成つきで返す")
     void adminDetailReturnsTracksWithTunes() {
-        final var albumId = createDraftAlbum("管理Query曲目");
-        authorized().contentType(ContentType.JSON)
+        final String albumId = authorized().contentType(ContentType.JSON)
                 .body(
-                        "{\"trackNo\":1,\"title\":\"1曲目\",\"tunes\":["
-                                + "{\"seq\":1,\"tuneTitle\":\"チューン1\",\"arrangerCreditOverride\":\"Arranger\"}]}")
-                .when().post("/api/v1/albums/" + albumId + "/tracks").then().statusCode(201);
+                        "{\"title\":\"管理Query曲目\",\"releaseDate\":\"2026-01-01\","
+                                + "\"artistDisplayName\":\"テストアーティスト\",\"tracks\":["
+                                + "{\"title\":\"1曲目\",\"tunes\":["
+                                + "{\"tuneTitle\":\"チューン1\",\"arrangerCreditOverride\":\"Arranger\"}]}]}")
+                .when().post("/api/v1/albums/with-tracks").then().statusCode(201)
+                .extract().path("albumId");
 
         authorized().when().get("/api/v1/admin/albums/" + albumId).then().statusCode(200)
                 .body("publishedAt", nullValue()).body("tracks[0].title", equalTo("1曲目"))
@@ -92,17 +94,13 @@ class AlbumAdminQueryRestIntegrationTest {
         final String albumId = authorized().contentType(ContentType.JSON)
                 .body(
                         "{\"title\":\"管理Query編集項目\",\"releaseDate\":\"2026-01-01\","
-                                + "\"artistDisplayName\":\"テストアーティスト\",\"artistSortKey\":\"てすとあーてぃすと\"}")
-                .when().post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
-        authorized().contentType(ContentType.JSON)
-                .body(
-                        "{\"trackNo\":1,\"title\":\"1曲目\",\"artistDisplayName\":\"トラックアーティスト\","
-                                + "\"artistSortKey\":\"とらっくあーてぃすと\"}")
-                .when().post("/api/v1/albums/" + albumId + "/tracks").then().statusCode(201);
-
-        authorized().contentType(ContentType.JSON)
-                .body("{\"url\":\"https://soundcloud.com/example/admin-key-check\"}")
-                .when().post("/api/v1/albums/" + albumId + "/external-audios").then().statusCode(201);
+                                + "\"artistDisplayName\":\"テストアーティスト\",\"artistSortKey\":\"てすとあーてぃすと\","
+                                + "\"tracks\":[{\"title\":\"1曲目\",\"artistDisplayName\":\"トラックアーティスト\","
+                                + "\"artistSortKey\":\"とらっくあーてぃすと\"}],"
+                                + "\"externalAudios\":["
+                                + "{\"url\":\"https://soundcloud.com/example/admin-key-check\"}]}")
+                .when().post("/api/v1/albums/with-tracks").then().statusCode(201)
+                .extract().path("albumId");
 
         authorized().when().get("/api/v1/admin/albums/" + albumId).then().statusCode(200)
                 .body("artistSortKey", equalTo("てすとあーてぃすと"))
