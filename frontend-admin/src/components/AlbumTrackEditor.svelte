@@ -32,10 +32,17 @@
     readonly disabled: boolean;
     /** 位置に割り当てられた誤り */
     readonly messagesOf: (path: string) => readonly string[];
+    /**
+     * 検証で断られた回数。
+     *
+     * <b>新しい検証結果が届いたことだけを表す。</b> これが変わったときに開く行を選び直し、それ以外の
+     * 間は人が選んだ行を保つ（理由は曲目の行と同じ）。
+     */
+    readonly rejections: number;
     readonly onDraft: (draft: TrackDraft) => void;
   };
 
-  const { trackIndex, draft, disabled, messagesOf, onDraft }: Props = $props();
+  const { trackIndex, draft, disabled, messagesOf, rejections, onDraft }: Props = $props();
 
   const trackMessages = (field: 'title' | 'artistDisplayName' | 'artistSortKey') =>
     messagesOf(trackPathOf(trackIndex, field));
@@ -53,7 +60,7 @@
   };
 
   /**
-   * 開いているチューンの行。
+   * 人が選んだチューンの行と、その選択がどの検証結果に対するものか。
    *
    * <p>
    * <b>一度に開くのは1行だけ。</b> 全部を開くと、1行あたり3〜4つの欄が縦に積まれて、編集している場所を
@@ -63,11 +70,26 @@
    * <p>
    * 畳んでも書きかけは消えない——入力は作品の下書きが持っており、この状態が持つのは<b>見え方だけ</b>である。
    * </p>
+   *
+   * <p>
+   * <b>選択は検証結果ごとに持つ。</b> 新しい検証結果が届いた時点で、その前に選んでいた行はもう
+   * 「いま直すべき場所」ではない（理由は曲目の行と同じ）。
+   * </p>
    */
-  let openTune = $state<number | null>(null);
+  let chosen = $state<{ readonly generation: number; readonly index: number | null }>({
+    generation: 0,
+    index: null,
+  });
+
+  /** 人が選んだ行。新しい検証結果が届いた後は、まだ誰も選んでいない */
+  const openTune = $derived(chosen.generation === rejections ? chosen.index : null);
+
+  const choose = (index: number | null): void => {
+    chosen = { generation: rejections, index };
+  };
 
   const toggleTune = (index: number): void => {
-    openTune = openTune === index ? null : index;
+    choose(shownTune === index ? null : index);
   };
 
   /**
@@ -91,13 +113,13 @@
     const added = draft.tunes.length;
 
     onDraft({ ...draft, tunes: [...draft.tunes, EMPTY_TUNE] });
-    openTune = added;
+    choose(added);
   };
 
   /** 外した後は畳む。位置がずれるため、開いたままにすると別の行が開いて見える */
   const removeTune = (index: number): void => {
     onDraft({ ...draft, tunes: draft.tunes.filter((tune, position) => position !== index) });
-    openTune = null;
+    choose(null);
   };
 
   /** 欄の名 */
@@ -135,13 +157,18 @@
   const hasErrorAt = (index: number): boolean =>
     TUNE_FIELDS.some((field) => tuneMessages(index, field).length > 0);
 
-  /** 断られた行。畳んだままでは理由が見えないため、畳む操作より優先して開く */
+  /** 最初に誤りのある行。新しい検証結果が届いた直後に開く先 */
   const rejectedTune = $derived(
     draft.tunes.map((tune, index) => index).find((index) => hasErrorAt(index)) ?? null,
   );
 
-  /** いま開いている行。誤りがあればその行で、無ければ人が開いた行 */
-  const shownTune = $derived(rejectedTune ?? openTune);
+  /**
+   * いま開いている行。
+   *
+   * 人が選んだ行が先で、選んでいなければ最初の誤りの行が開く。誤りの行を常に優先すると、誤りが次の
+   * 保存まで残るぶん<b>2件目の誤りを直せなくなる</b>（理由は曲目の行と同じ）。
+   */
+  const shownTune = $derived(openTune ?? rejectedTune);
 </script>
 
 <div class="border-input space-y-4 rounded-md border p-3" data-track-editor>
@@ -247,6 +274,11 @@
           <span class="min-w-0 flex-1 truncate text-sm" data-tune-summary>
             {tuneSummaryOf(tune)}
           </span>
+
+          <!-- 畳んだ行に誤りがあることを文言で出す。理由は曲目の行と同じ（REJECTED-ROW-IS-MARKED） -->
+          {#if shownTune !== index && hasErrorAt(index)}
+            <span class="text-destructive shrink-0 text-sm" data-tune-rejected>誤りがあります</span>
+          {/if}
 
           <!-- どの行を外すのかを文言に持たせる。「この行」では、押す前に対象が読めない -->
           <Button

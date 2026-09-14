@@ -28,6 +28,7 @@ const propsOf = (tracks: readonly TrackDraft[]) => ({
   tracks,
   disabled: false,
   messagesOf: NO_MESSAGES,
+  rejections: 0,
   onEdit: (): void => undefined,
   onReposition: (): void => undefined,
 });
@@ -157,19 +158,74 @@ describe('曲目の一覧', () => {
     expect(screen.getByText('曲目はありません。')).toBeTruthy();
   });
 
-  it('断られた行は、畳む操作より優先して開く', () => {
-    render(AlbumTracks, {
+  describe('誤りのある行', () => {
+    /** 1曲目と3曲目に同時に誤りが返った応答 */
+    const twoRejected = (path: string): readonly string[] =>
+      path === 'tracks[0].title'
+        ? ['1曲目が長すぎます']
+        : path === 'tracks[2].title'
+          ? ['3曲目が長すぎます']
+          : [];
+
+    const rejectedProps = (rejections: number) => ({
       ...propsOf(TRACKS),
-      messagesOf: (path: string): readonly string[] =>
-        path === 'tracks[2].title' ? ['タイトルが長すぎます'] : [],
+      messagesOf: twoRejected,
+      rejections,
     });
 
     /*
-     * REJECTED-ROW-OPENS: 畳まれたままでは理由が読めない。人が開いていなくても、誤りのある行が開く。
+     * REJECTED-ROW-OPENS: 畳まれたままでは理由が読めない。人がまだ選んでいなければ、最初の誤りの行が
+     * 開く。
      */
-    expect(within(rows()[2] as HTMLElement).getByRole('alert').textContent).toBe(
-      'タイトルが長すぎます',
-    );
+    it('人がまだ選んでいなければ、最初の誤りの行が開く', () => {
+      render(AlbumTracks, rejectedProps(1));
+
+      expect(within(rows()[0] as HTMLElement).getByRole('alert').textContent).toBe(
+        '1曲目が長すぎます',
+      );
+    });
+
+    /*
+     * SECOND-ERROR-IS-REACHABLE: 誤りは次の保存まで残るため、最初の誤りの行を常に優先すると2件目を
+     * 直せなくなる。人が選んだ行が先に来る。
+     */
+    it('誤りがあっても、別の行を開ける', async () => {
+      render(AlbumTracks, rejectedProps(1));
+
+      await userEvent.click(screen.getByRole('button', { name: '3曲目を開く' }));
+
+      expect(within(rows()[2] as HTMLElement).getByLabelText(/トラック名/u)).toBeTruthy();
+      expect(screen.getAllByLabelText(/トラック名/u)).toHaveLength(1);
+    });
+
+    /*
+     * REJECTED-ROW-IS-MARKED: 別の行を開けるようにしたぶん、畳んだ行の誤りが画面から消える。印が
+     * 残っていないと、直すべき行を見失う。
+     */
+    it('畳んだ誤りの行には、誤りがあることが残る', async () => {
+      render(AlbumTracks, rejectedProps(1));
+
+      await userEvent.click(screen.getByRole('button', { name: '3曲目を開く' }));
+
+      expect(within(rows()[0] as HTMLElement).getByText('誤りがあります')).toBeTruthy();
+      expect(within(rows()[1] as HTMLElement).queryByText('誤りがあります')).toBeNull();
+    });
+
+    /*
+     * FRESH-REJECTION-RESELECTS: 新しい検証結果が届いた時点で、その前に選んでいた行はもう「いま直す
+     * べき場所」ではない。世代が変わったときだけ選び直す。
+     */
+    it('新しい検証結果が届くと、最初の誤りの行へ開き直す', async () => {
+      const { rerender } = render(AlbumTracks, rejectedProps(1));
+
+      await userEvent.click(screen.getByRole('button', { name: '3曲目を開く' }));
+      expect(within(rows()[2] as HTMLElement).getByLabelText(/トラック名/u)).toBeTruthy();
+
+      await rerender(rejectedProps(2));
+
+      expect(within(rows()[0] as HTMLElement).getByLabelText(/トラック名/u)).toBeTruthy();
+      expect(screen.getAllByLabelText(/トラック名/u)).toHaveLength(1);
+    });
   });
 
   it('触らせない間は、どの操作も押せない', () => {

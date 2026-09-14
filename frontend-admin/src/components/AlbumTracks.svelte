@@ -53,6 +53,14 @@
     /** 位置に割り当てられた誤り */
     readonly messagesOf: (path: string) => readonly string[];
     /**
+     * 検証で断られた回数。
+     *
+     * <b>新しい検証結果が届いたことだけを表す。</b> これが変わったときに開く行を選び直し、それ以外の
+     * 間は人が選んだ行を保つ。誤りの中身で見分けると、同じ誤りがもう一度返ったときに別の結果だと
+     * 分からない。
+     */
+    readonly rejections: number;
+    /**
      * 行の値を書き換えた／末尾に足した並び。
      *
      * <b>既存の行の位置は変わらない。</b> 位置つきの誤りは同じ行を指したままなので、受け取る側は
@@ -68,17 +76,35 @@
     readonly onReposition: (tracks: readonly TrackDraft[]) => void;
   };
 
-  const { tracks, disabled, messagesOf, onEdit, onReposition }: Props = $props();
+  const { tracks, disabled, messagesOf, rejections, onEdit, onReposition }: Props = $props();
 
   /**
-   * 開いている行。
+   * 人が選んだ行と、その選択がどの検証結果に対するものか。
    *
+   * <p>
    * <b>一度に開くのは1行だけ。</b> 入れ子が全部開いていると縦に長すぎて、編集している場所を見失う。
+   * </p>
+   *
+   * <p>
+   * <b>選択は検証結果ごとに持つ。</b> 新しい検証結果が届いた時点で、その前に選んでいた行はもう
+   * 「いま直すべき場所」ではない。世代を添えて持つことで、選び直しを人の操作としてではなく
+   * 結果の到着として表せる。
+   * </p>
    */
-  let openTrack = $state<number | null>(null);
+  let chosen = $state<{ readonly generation: number; readonly index: number | null }>({
+    generation: 0,
+    index: null,
+  });
+
+  /** 人が選んだ行。新しい検証結果が届いた後は、まだ誰も選んでいない */
+  const openTrack = $derived(chosen.generation === rejections ? chosen.index : null);
+
+  const choose = (index: number | null): void => {
+    chosen = { generation: rejections, index };
+  };
 
   const toggleTrack = (index: number): void => {
-    openTrack = openTrack === index ? null : index;
+    choose(shownTrack === index ? null : index);
   };
 
   /**
@@ -104,13 +130,13 @@
     const added = tracks.length;
 
     onEdit([...tracks, EMPTY_TRACK]);
-    openTrack = added;
+    choose(added);
   };
 
   /** 外した後は畳む。位置がずれるため、開いたままにすると別の行が開いて見える */
   const removeTrack = (index: number): void => {
     onReposition(tracks.filter((track, position) => position !== index));
-    openTrack = null;
+    choose(null);
   };
 
   /**
@@ -130,7 +156,7 @@
   /** 動かした行は追う。開いたまま動かすと、開いて見える行が入れ替わる */
   const move = (index: number, other: number): void => {
     onReposition(swapped(index, other));
-    openTrack = openTrack === index ? other : openTrack;
+    choose(shownTrack === index ? other : shownTrack);
   };
 
   const hasErrorAt = (index: number): boolean =>
@@ -141,13 +167,26 @@
       ),
     ].some((path) => messagesOf(path).length > 0);
 
-  /** 断られた行。畳んだままでは理由が見えないため、畳む操作より優先して開く */
+  /** 最初に誤りのある行。新しい検証結果が届いた直後に開く先 */
   const rejectedTrack = $derived(
     tracks.map((track, index) => index).find((index) => hasErrorAt(index)) ?? null,
   );
 
-  /** いま開いている行。誤りがあればその行で、無ければ人が開いた行 */
-  const shownTrack = $derived(rejectedTrack ?? openTrack);
+  /**
+   * いま開いている行。
+   *
+   * <p>
+   * <b>人が選んだ行が先。</b> 選んでいなければ最初の誤りの行が開く——新しい検証結果が届いた時点で
+   * 選択は捨てられるため、断られた直後は必ず誤りの行が見える。
+   * </p>
+   *
+   * <p>
+   * 誤りの行を常に優先すると、<b>2件目の誤りを直せなくなる</b>。誤りは次の保存まで残るので、1件目を
+   * 直しても最初の誤りの行は変わらず、「2曲目を開く」が効かないままになる。畳んだ誤りの行には印を
+   * 出すので、別の行を開いても誤りが画面から消えることはない。
+   * </p>
+   */
+  const shownTrack = $derived(openTrack ?? rejectedTrack);
 
   const last = $derived(tracks.length - 1);
 </script>
@@ -203,6 +242,14 @@
                 {/if}
               </div>
 
+              <!--
+                REJECTED-ROW-IS-MARKED: 畳んだ行に誤りがあることを文言で出す。人は別の行を開けるため、
+                印が無いと直すべき行が画面から消える。色だけでは、色を読めない経路で伝わらない。
+              -->
+              {#if shownTrack !== index && hasErrorAt(index)}
+                <p class="text-destructive text-sm" data-track-rejected>誤りがあります</p>
+              {/if}
+
               {#if track.tunes.length > 0}
                 <ol class="text-muted-foreground space-y-0.5 text-sm" data-track-tunes>
                   {#each track.tunes as tune, tuneIndex (tuneIndex)}
@@ -254,6 +301,7 @@
               draft={track}
               {disabled}
               {messagesOf}
+              {rejections}
               onDraft={(draft: TrackDraft) => {
                 withTrack(index, draft);
               }}

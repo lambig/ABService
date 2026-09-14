@@ -327,6 +327,32 @@ describe('曲目の行の誤り', () => {
     expect(screen.getByText('タイトルが長すぎます')).toBeTruthy();
   });
 
+  /*
+   * FIX-WITHOUT-SAVING-IN-BETWEEN: 保存の前に人が1曲目を開いていても、断られた時点で選択は捨てられ、
+   * 最初の誤りの行が見える。そこから保存を挟まずに2曲目へ移って直せる——移った後も1曲目には誤りの
+   * 印が残る。
+   */
+  it('複数の誤りを、保存を挟まずに順に直せる', async () => {
+    await openEditor();
+    await openSection('曲目');
+
+    /* 保存の前から1曲目を開いている（利用者はふつうこの状態で保存する） */
+    await userEvent.click(screen.getByRole('button', { name: '1曲目を開く' }));
+
+    await userEvent.click(screen.getByRole('button', { name: '保存する' }));
+    expect(await screen.findByText('タイトルが長すぎます')).toBeTruthy();
+
+    /* 1曲目を直しても、入力欄は消えない（誤りは次の保存まで残るため、開いた行は動かない） */
+    await userEvent.type(screen.getByLabelText(/トラック名/u), '改');
+    expect(screen.getByLabelText(/トラック名/u)).toHaveProperty('value', '1曲目改');
+
+    /* 保存を挟まずに2曲目を開ける */
+    await userEvent.click(screen.getByRole('button', { name: '2曲目を開く' }));
+
+    expect(screen.getByText('URLとして読めません')).toBeTruthy();
+    expect(within(trackRows()[0] as HTMLElement).getByText('誤りがあります')).toBeTruthy();
+  });
+
   it('行を外すと、位置が別の行を指すため落とす', async () => {
     await openEditor();
     await openSection('曲目');

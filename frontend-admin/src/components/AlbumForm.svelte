@@ -344,6 +344,16 @@
          * </p>
          */
         readonly attempts: number;
+        /**
+         * 検証で断られた回数。
+         *
+         * <p>
+         * <b>新しい検証結果が届いたことを子の区画へ伝えるために数える。</b> 誤りの中身で見分けると、
+         * 同じ誤りがもう一度返ったときに別の結果だと分からない。区画はこの数が変わったときだけ、
+         * 開く行を最初の誤りの行へ選び直す（それ以外は人が選んだ行を保つ）。
+         * </p>
+         */
+        readonly rejections: number;
         readonly submission: Submission;
         readonly upload: Upload;
       };
@@ -381,6 +391,7 @@
     tracks: pending.tracks,
     baseline: pending.baseline,
     attempts: 0,
+    rejections: 0,
     submission: { kind: 'idle' },
     upload: { kind: 'idle' },
   });
@@ -624,10 +635,25 @@
         : current;
   };
 
+  /**
+   * 検証で断られた結果だけを数える。
+   *
+   * 同じ誤りがもう一度返っても別の結果として数える——子の区画はこの数の変化で「新しい検証結果が来た」
+   * と判じ、開く行を選び直す。
+   */
+  const rejectionsAfter = (current: number, submission: Submission): number =>
+    current + (submission.kind === 'invalid' ? 1 : 0);
+
   /** 保存の状態だけを差し替えた画面。入力値は保つ（直す先が入力にあるため、消さない） */
   const withSubmissionOf = (submission: Submission): View => {
     const current = view;
-    return current.kind === 'editing' ? { ...current, submission } : current;
+    return current.kind === 'editing'
+      ? {
+          ...current,
+          submission,
+          rejections: rejectionsAfter(current.rejections, submission),
+        }
+      : current;
   };
 
   const withSubmission = (submission: Submission): void => {
@@ -861,6 +887,9 @@
     view.kind === 'editing' ? view.audios : [],
   );
   const tracks = $derived<readonly TrackDraft[]>(view.kind === 'editing' ? view.tracks : []);
+
+  /** 検証で断られた回数。子の区画はこの変化で、開く行を最初の誤りの行へ選び直す */
+  const rejections = $derived(view.kind === 'editing' ? view.rejections : 0);
 
   /**
    * まだ保存していない書き換えがあるか。
@@ -1142,6 +1171,7 @@
     >
       <AlbumTracks
         {tracks}
+        {rejections}
         disabled={busy}
         messagesOf={messagesAt}
         onEdit={tracksEdited}

@@ -305,6 +305,42 @@ test.describe('管理画面の曲目', () => {
     await captureWhole(page, '39t-admin-track-tune-error');
   });
 
+  /*
+   * FIX-WITHOUT-SAVING-IN-BETWEEN: 誤りは次の保存まで残る。最初の誤りの行を常に開いたままにすると、
+   * 2件目を直すのに「1件目を直す→保存→2件目が開く」と1件ずつ保存を挟むことになる。人が選んだ行を
+   * 先にし、畳んだ誤りの行には印を残す。
+   */
+  test('複数の行が断られても、保存を挟まずに順に直せる', async ({ page }) => {
+    await openAlbumFor(page, '曲目の複数誤り');
+
+    await addTrack(page, 'E2E 1曲目');
+    await addTune(page, 0, 'E2E 1曲目のチューン');
+    await page.getByLabel(tuneLinkLabel(1)).fill(REJECTED_LINK);
+
+    await addTrack(page, 'E2E 2曲目');
+    await addTune(page, 0, 'E2E 2曲目のチューン');
+    await page.getByLabel(tuneLinkLabel(1)).fill(REJECTED_LINK);
+
+    /* 保存の前から2曲目を開いている（利用者はふつうこの状態で保存する） */
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+
+    /* 断られた時点で選択は捨てられ、最初の誤りの行が見える */
+    await expect(trackRows(page).first().getByRole('alert').first()).toBeVisible();
+
+    /* 1曲目を直しても入力欄は消えない（誤りは残るので、開いた行は動かない） */
+    await page.getByLabel(tuneLinkLabel(1)).fill('https://thesession.org/tunes/1');
+    await expect(page.getByLabel(tuneLinkLabel(1))).toHaveValue('https://thesession.org/tunes/1');
+
+    /* 保存を挟まずに2曲目を開ける */
+    await page.getByRole('button', { name: openTrackLabel(2) }).click();
+    await expect(page.getByLabel(tuneLinkLabel(1))).toHaveValue(REJECTED_LINK);
+
+    /* 移った後も、1曲目には誤りの印が残る */
+    await expect(trackRows(page).first()).toContainText('誤りがあります');
+
+    await captureFocused(page, trackList(page), '39t2-admin-track-second-error');
+  });
+
   test('外すと曲目から消える', async ({ page }) => {
     await openAlbumFor(page, '曲目取り外し');
 
