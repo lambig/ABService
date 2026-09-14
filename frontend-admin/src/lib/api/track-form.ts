@@ -46,10 +46,18 @@ export const EMPTY_TRACK: TrackDraft = {
   tunes: [],
 };
 
-/** 読み込んだトラックを入力へ写す */
+/**
+ * 読み込んだトラックを入力へ写す。
+ *
+ * <p>
+ * タイトルは<b>入力されたものが返る</b>（管理APIの契約。#360 / #122）。省いたトラックの名はチューン名を
+ * 繋いだもので、それは出すときの名であって入力ではない——受け取って書き戻すと、省略していたトラックが
+ * 明示タイトルへ変わり、以後チューン名に追従しなくなる。
+ * </p>
+ */
 export const trackDraftOf = (track: AdminTrack): TrackDraft => ({
   trackId: track.trackId,
-  title: track.title,
+  title: track.title ?? '',
   artistDisplayName: track.artistDisplayName ?? '',
   artistSortKey: track.artistSortKey ?? '',
   tunes: track.tunes.map((tune) => ({
@@ -60,8 +68,16 @@ export const trackDraftOf = (track: AdminTrack): TrackDraft => ({
   })),
 });
 
-/** 空の欄は送らない。省いた項目は「持たない」になる */
-const presence = (value: string): string | undefined => (value === '' ? undefined : value);
+/**
+ * 空の欄は送らない。省いた項目は「持たない」になる。
+ *
+ * <p>
+ * <b>空白だけの入力も省略として扱う</b>——バックエンドがそう読むため（トラックのタイトルは
+ * {@code StringUtils.isNotBlank}、チューンの各欄も空白のみを未指定とする）。ここで区別すると、
+ * 保存したときの姿が変わらない書き換えを未保存として数えることになる。作品本体の欄も同じ判定である。
+ * </p>
+ */
+const presence = (value: string): string | undefined => (value.trim() === '' ? undefined : value);
 
 /**
  * 送る形へ組み立てる。

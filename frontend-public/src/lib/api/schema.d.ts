@@ -2689,7 +2689,7 @@ export interface components {
             trackId: string;
             /** Format: int32 */
             trackNo: number;
-            title: string;
+            title: string | null;
             artistDisplayName: string | null;
             artistSortKey: string | null;
             tunes: components["schemas"]["TrackTuneResponse"][];

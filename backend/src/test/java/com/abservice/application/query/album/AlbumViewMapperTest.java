@@ -172,10 +172,20 @@ class AlbumViewMapperTest {
                 TUNE_TITLE_SEPARATOR);
 
         // Assert
-        assertThat(tracks).extracting(TrackView::trackNo, TrackView::title)
+        assertThat(tracks)
+                .extracting(
+                        TrackView::trackNo,
+                        TrackView::title,
+                        TrackView::name)
                 .containsExactly(
-                        tuple(1, "1曲目"),
-                        tuple(2, "2曲目"));
+                        tuple(
+                                1,
+                                "1曲目",
+                                "1曲目"),
+                        tuple(
+                                2,
+                                "2曲目",
+                                "2曲目"));
         assertThat(tracks.getFirst().artistDisplayName()).isEqualTo("トラックアーティスト");
         assertThat(tracks.getFirst().tunes())
                 .extracting(
@@ -241,6 +251,12 @@ class AlbumViewMapperTest {
                 TUNE_TITLE_SEPARATOR);
 
         // Assert
-        assertThat(tracks.getFirst().title()).isEqualTo("チューン1 / チューン2");
+        assertThat(tracks.getFirst().name()).isEqualTo("チューン1 / チューン2");
+
+        /*
+         * RAW-TITLE-IS-KEPT: 省略されていたことは、名を組み立てた後も読み取れる必要がある。畳むと、読んだ名を
+         * そのまま書き戻す経路ができて、省略が明示タイトルへ変わる（#360）。
+         */
+        assertThat(tracks.getFirst().title()).isNull();
     }
 }

@@ -3,7 +3,11 @@ import type { Locator, Page } from '@playwright/test';
 import { openAllSections } from '../support/album-editor.ts';
 import { captureFocused, captureWhole } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
-import { deleteScratchAlbums, seedScratchAlbum } from '../support/scratch-albums.ts';
+import {
+  deleteScratchAlbums,
+  seedScratchAlbum,
+  seedScratchAlbumWithUntitledTrack,
+} from '../support/scratch-albums.ts';
 import { stack } from '../support/config.ts';
 
 /**
@@ -350,6 +354,61 @@ test.describe('管理画面の曲目', () => {
     await expect(page.getByLabel(ALBUM_TITLE_LABEL)).toHaveValue(title);
     await expect(page.getByText(TRACKS_ABSENT_TEXT)).toBeVisible();
     await expect(page.getByText(UNSAVED_TEXT)).toHaveCount(0);
+  });
+
+  /*
+   * RAW-TITLE-ROUND-TRIP: 省いたトラックの名はチューン名を繋いだもので、それは**出すときの名であって
+   * 入力ではない**（#360）。読んで書き戻すと、作品の別項目を保存しただけで省略が明示タイトルへ変わり、
+   * 以後チューン名に追従しなくなる。曲目は作品の保存に全項目置換で乗るため、曲目を開いたかどうかとも
+   * 無関係に起きる。
+   */
+  test('トラック名を省いた行は、作品の別項目を保存しても省略のまま残る', async ({ page }) => {
+    const title = await seedScratchAlbumWithUntitledTrack('曲目名の往復', ['E2E 前半', 'E2E 後半']);
+    const renamed = `${title} 保存済み`;
+
+    await openAdmin(page);
+    await openEdit(page, title);
+
+    /* 読み込んだ時点で、省略されていることが画面から読める */
+    await expect(trackRows(page).first()).toContainText('（チューン名から組まれます）');
+    await page.getByRole('button', { name: openTrackLabel(1) }).click();
+    await expect(page.getByLabel(TRACK_TITLE_LABEL)).toHaveValue('');
+    await page.getByRole('button', { name: '1曲目を畳む' }).click();
+
+    /* 曲目には触らず、作品の欄だけを変えて保存する */
+    await page.getByLabel(ALBUM_TITLE_LABEL).fill(renamed);
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+    await expect(page.getByRole('table')).toBeVisible();
+
+    await openEdit(page, renamed);
+    await expect(trackRows(page).first()).toContainText('（チューン名から組まれます）');
+
+    await page.getByRole('button', { name: openTrackLabel(1) }).click();
+    await expect(page.getByLabel(TRACK_TITLE_LABEL)).toHaveValue('');
+
+    await captureFocused(page, trackList(page), '39z-admin-track-untitled-kept');
+  });
+
+  test('チューン名を変えると、トラックの名もそれに追従する', async ({ page }) => {
+    const title = await seedScratchAlbumWithUntitledTrack('曲目名の追従', ['E2E 旧チューン']);
+    const renamed = `${title} 保存済み`;
+
+    await openAdmin(page);
+    await openEdit(page, title);
+
+    await page.getByLabel(ALBUM_TITLE_LABEL).fill(renamed);
+    await page.getByRole('button', { name: openTrackLabel(1) }).click();
+    await page.getByRole('button', { name: openTuneLabel(1) }).click();
+    await page.getByLabel(tuneTitleLabel(1)).fill('E2E 新チューン');
+
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+    await expect(page.getByRole('table')).toBeVisible();
+
+    await openEdit(page, renamed);
+
+    /* 名の材料が入れ替わっていること。名そのものの組み立てはバックエンドが持つ */
+    await expect(trackRows(page).first()).toContainText('（チューン名から組まれます）');
+    await expect(shownTunes(trackRows(page).first()).first()).toContainText('E2E 新チューン');
   });
 
   test('原作の出典は曲目の直後にあり、同じ保存で届く', async ({ page }) => {

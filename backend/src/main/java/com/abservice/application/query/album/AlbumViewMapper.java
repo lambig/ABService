@@ -152,6 +152,7 @@ final class AlbumViewMapper {
         return new TrackView(
                 track.trackId(),
                 track.trackNo(),
+                track.title(),
                 trackName(
                         track,
                         tunes,
