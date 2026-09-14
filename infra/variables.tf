@@ -117,3 +117,15 @@ variable "asset_bucket_force_destroy" {
   type        = bool
   default     = false
 }
+
+variable "dns_cutover_enabled" {
+  description = "証明書・配信の準備とは別に、A/AAAA ALIAS を管理する。初回の準備は false。採用後に false に戻して切り戻さない"
+  type        = bool
+  default     = false
+}
+
+variable "serve_www" {
+  description = "www も証明書・配信・CORS の対象にする。実環境の採否は運用リポジトリで決める"
+  type        = bool
+  default     = false
+}

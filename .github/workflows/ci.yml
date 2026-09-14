@@ -360,6 +360,9 @@ jobs:
       - name: Validate
         run: terraform -chdir=infra validate
 
+      - name: Verify DNS preparation and cutover without AWS
+        run: terraform -chdir=infra test
+
   e2e:
     needs: changes
     if: ${{ needs.changes.outputs.application == 'true' }}

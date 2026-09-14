@@ -5,9 +5,10 @@ data "aws_route53_zone" "primary" {
 }
 
 resource "aws_acm_certificate" "cloudfront" {
-  provider          = aws.us_east_1
-  domain_name       = var.domain_name
-  validation_method = "DNS"
+  provider                  = aws.us_east_1
+  domain_name               = var.domain_name
+  validation_method         = "DNS"
+  subject_alternative_names = var.serve_www ? ["www.${var.domain_name}"] : []
 
   lifecycle {
     create_before_destroy = true
@@ -138,7 +139,7 @@ resource "aws_cloudfront_distribution" "main" {
   enabled         = true
   is_ipv6_enabled = true
   price_class     = var.cloudfront_price_class
-  aliases         = [var.domain_name]
+  aliases         = var.serve_www ? [var.domain_name, "www.${var.domain_name}"] : [var.domain_name]
 
   # 配信直下は index.html。resolve_static_uri でも同じ結果になるが、どちらが先に走るかへ
   # 依存させないため両方を宣言する。この宣言はサブディレクトリには効かない。
@@ -292,7 +293,19 @@ resource "aws_cloudfront_distribution" "main" {
   }
 }
 
+moved {
+  from = aws_route53_record.root
+  to   = aws_route53_record.root[0]
+}
+
 resource "aws_route53_record" "root" {
+  count = var.dns_cutover_enabled ? 1 : 0
+
+  # Disabling cutover after adoption must not delete the live DNS record.
+  lifecycle {
+    prevent_destroy = true
+  }
+
   zone_id = data.aws_route53_zone.primary.zone_id
   name    = var.domain_name
   type    = "A"
@@ -379,4 +392,39 @@ data "aws_iam_policy_document" "assets_oac" {
 resource "aws_s3_bucket_policy" "assets" {
   bucket = aws_s3_bucket.assets.id
   policy = data.aws_iam_policy_document.assets_oac.json
+}
+
+# IPv6 is enabled on the distribution; cutover must cover both address families.
+resource "aws_route53_record" "root_ipv6" {
+  count   = var.dns_cutover_enabled ? 1 : 0
+  zone_id = data.aws_route53_zone.primary.zone_id
+  name    = var.domain_name
+  type    = "AAAA"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  alias {
+    name                   = aws_cloudfront_distribution.main.domain_name
+    zone_id                = aws_cloudfront_distribution.main.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "www" {
+  for_each = var.dns_cutover_enabled && var.serve_www ? toset(["A", "AAAA"]) : toset([])
+  zone_id  = data.aws_route53_zone.primary.zone_id
+  name     = "www.${var.domain_name}"
+  type     = each.value
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  alias {
+    name                   = aws_cloudfront_distribution.main.domain_name
+    zone_id                = aws_cloudfront_distribution.main.hosted_zone_id
+    evaluate_target_health = false
+  }
 }

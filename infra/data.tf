@@ -193,7 +193,7 @@ resource "aws_s3_bucket_cors_configuration" "assets" {
   cors_rule {
     allowed_headers = ["Content-Type"]
     allowed_methods = ["PUT"]
-    allowed_origins = ["https://${var.domain_name}"]
+    allowed_origins = var.serve_www ? ["https://${var.domain_name}", "https://www.${var.domain_name}"] : ["https://${var.domain_name}"]
     expose_headers  = ["ETag"]
     max_age_seconds = 3000
   }
