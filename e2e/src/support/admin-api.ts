@@ -48,18 +48,16 @@ export interface AssetSeed {
   readonly body: Blob;
 }
 
-/** 作るトラックの指定 */
+/** 作るトラックの指定。並びは配列の位置がそのまま表すため、番号は持たない（#391） */
 export interface TrackSeed {
-  readonly trackNo: number;
   /** トラック名。省略すると、チューン名を繋いだものが名になる（#360） */
   readonly title?: string;
   readonly artistDisplayName?: string;
   readonly tunes?: readonly TuneSeed[];
 }
 
-/** トラック内のチューン構成 */
+/** トラック内のチューン構成。登場順も配列の位置が表す */
 export interface TuneSeed {
-  readonly seq: number;
   /** チューン名。省略すると名を持たない構成要素（MC・環境音など）になる */
   readonly tuneTitle?: string;
   readonly composerCreditOverride?: string;
@@ -150,7 +148,12 @@ export const seedAsset = async (asset: AssetSeed): Promise<string> => {
 };
 
 /**
- * 作品を作り、トラックと外部音源を付ける（下書きのまま）。
+ * 作品を、曲目と外部音源ごと作る（下書きのまま）。
+ *
+ * <p>
+ * 作品の子を書く経路は集約ルートに1つしかないため、1リクエストで揃う（#391）。並びは送った配列の位置が
+ * そのまま表すので、番号も送らず、順序を再現するための逐次送信も要らない。
+ * </p>
  *
  * @returns 作った作品のドメインID
  */
@@ -172,29 +175,18 @@ export const seedDraftAlbum = async (album: AlbumSeed): Promise<string> => {
     originalWorkNote: album.originalWorkNote,
     coverImageKey,
     tracks: (album.tracks ?? []).map((track) => ({
-      trackNo: track.trackNo,
       title: track.title,
       artistDisplayName: track.artistDisplayName,
       tunes: (track.tunes ?? []).map((tune) => ({
-        seq: tune.seq,
         tuneTitle: tune.tuneTitle,
         composerCreditOverride: tune.composerCreditOverride,
         arrangerCreditOverride: tune.arrangerCreditOverride,
       })),
     })),
+    externalAudios: (album.externalAudioUrls ?? []).map((url) => ({ url })),
   });
 
-  const albumId = albumIdOf(created);
-
-  /*
-   * SEQUENTIAL-ORDER: 外部音源の表示順は末尾採番のため、並列に投げると順序が実行ごとに変わる。
-   * 指定した並びをそのまま再現するために1件ずつ送る。
-   */
-  for (const url of album.externalAudioUrls ?? []) {
-    await postAdmin(`/api/v1/albums/${albumId}/external-audios`, { url });
-  }
-
-  return albumId;
+  return albumIdOf(created);
 };
 
 /**

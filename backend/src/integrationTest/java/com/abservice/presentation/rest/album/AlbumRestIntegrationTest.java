@@ -333,14 +333,16 @@ class AlbumRestIntegrationTest {
     @Test
     @DisplayName("公開向け詳細は曲目をチューン構成つきで返す")
     void publicDetailReturnsTracksWithTunes() {
-        final String albumId = createAlbum("曲目確認アルバム");
-        authorized().contentType(ContentType.JSON)
+        final String albumId = authorized().contentType(ContentType.JSON)
                 .body(
-                        "{\"trackNo\":1,\"title\":\"1曲目\",\"artistDisplayName\":\"トラックアーティスト\","
+                        "{\"title\":\"曲目確認アルバム\",\"releaseDate\":\"2026-01-01\","
+                                + "\"artistDisplayName\":\"テストアーティスト\",\"tracks\":["
+                                + "{\"title\":\"1曲目\",\"artistDisplayName\":\"トラックアーティスト\","
                                 + "\"tunes\":["
-                                + "{\"seq\":1,\"tuneTitle\":\"チューン1\",\"composerCreditOverride\":\"Trad.\"},"
-                                + "{\"seq\":2,\"tuneTitle\":\"チューン2\"}]}")
-                .when().post("/api/v1/albums/" + albumId + "/tracks").then().statusCode(201);
+                                + "{\"tuneTitle\":\"チューン1\",\"composerCreditOverride\":\"Trad.\"},"
+                                + "{\"tuneTitle\":\"チューン2\"}]}]}")
+                .when().post("/api/v1/albums/with-tracks").then().statusCode(201)
+                .extract().path("albumId");
         authorized().when().post("/api/v1/albums/" + albumId + "/publish").then().statusCode(200);
 
         given().when().get("/api/v1/albums/" + albumId).then().statusCode(200)
@@ -377,10 +379,13 @@ class AlbumRestIntegrationTest {
     @Test
     @DisplayName("公開向け詳細は概要説明と外部音源を返し、編集のための項目名は返さない")
     void publicDetailOmitsEditingOnlyKeys() {
-        final String albumId = createAlbum("詳細項目確認アルバム");
-        authorized().contentType(ContentType.JSON)
-                .body("{\"url\":\"https://soundcloud.com/example/detail-key-check\"}")
-                .when().post("/api/v1/albums/" + albumId + "/external-audios").then().statusCode(201);
+        final String albumId = authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"title\":\"詳細項目確認アルバム\",\"releaseDate\":\"2026-01-01\","
+                                + "\"artistDisplayName\":\"テストアーティスト\",\"externalAudios\":["
+                                + "{\"url\":\"https://soundcloud.com/example/detail-key-check\"}]}")
+                .when().post("/api/v1/albums/with-tracks").then().statusCode(201)
+                .extract().path("albumId");
         authorized().when().post("/api/v1/albums/" + albumId + "/publish").then().statusCode(200);
 
         given().when().get("/api/v1/albums/" + albumId).then().statusCode(200)

@@ -72,3 +72,34 @@ export const formErrorsOf = (
 
 /** 欄に出せるエラーが1つでもあるか。無いときは全体の失敗として扱う */
 export const hasAssignedErrors = (errors: FormErrors): boolean => errors.byField.size > 0;
+
+/**
+ * 位置が指す先が変わった欄のエラーを落とす。
+ *
+ * <p>
+ * 配列の行を入れ替える・取り除くと、同じ位置（`externalAudios[1].url`）は別の行を指す。残したままに
+ * すると、直っていない行から消えて関係のない行に出る。行がまだ識別子を持たない（保存されていない）
+ * 間は、エラーを行へ追従させられないため、意味を失った側を落とす。
+ * </p>
+ *
+ * <p>
+ * <b>落とすのは接頭辞に一致するものだけ。</b> 1回の応答には本体の欄の誤り（`title`）も一緒に入る。
+ * まとめて捨てると、何も直していない欄のエラーまで画面から消える。
+ * </p>
+ *
+ * @param errors
+ *            いま出ているエラー
+ * @param prefix
+ *            落とす位置の接頭辞（例: `externalAudios[`）
+ * @returns 接頭辞に一致する位置を除いたエラー
+ */
+export const withoutPathsUnder = (errors: FormErrors, prefix: string): FormErrors => ({
+  byField: new Map([...errors.byField].filter(([field]) => outside(prefix)(field))),
+  unassigned: errors.unassigned.filter(outside(prefix)),
+});
+
+/** 接頭辞の外にある位置。否定（`!`）を使わないため、綴りの比較で表す（CODING_GUIDELINES §9） */
+const outside =
+  (prefix: string) =>
+  (path: string): boolean =>
+    path.slice(0, prefix.length) !== prefix;

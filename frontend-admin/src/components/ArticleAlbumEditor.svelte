@@ -9,6 +9,7 @@
     type AlbumCandidate,
     type ApiResult,
   } from '$lib/api/client';
+  import { isStaleRevisionConflict } from '$lib/api/http';
   import { KEY_STORE } from '$lib/credentials';
 
   /**
@@ -104,12 +105,6 @@
 
   const failureTextOf = (failure: ApiFailure): string =>
     failure.kind === 'unauthorized' ? '鍵が受け付けられませんでした。' : failure.message;
-
-  /** stale revisionを表すエラー型（DECISIONS 30）。ALBUM以外への操作を拒む409とは型で区別する */
-  const CONFLICT_PROBLEM_TYPE = 'urn:abservice:error:CONFLICTING_UPDATE';
-
-  const isStaleRevisionConflict = (failure: ApiFailure): boolean =>
-    failure.kind === 'failed' && failure.problem?.type === CONFLICT_PROBLEM_TYPE;
 
   /**
    * 鍵が断られたかどうかで、画面全体へ渡すかを分ける。

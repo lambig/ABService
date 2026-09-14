@@ -849,6 +849,112 @@ public final class Album implements Aggregate<Album, Album.Id> {
     }
 
     /**
+     * 曲目を一覧ごと置き換える
+     *
+     * <p>
+     * トラック番号は受け取った並びから1で振り直します。番号は並びの表現でしかなく、送る側が持つ値ではありません
+     * （#391）。そのため欠番も重複も起こり得ず、番号の一意性はここでは問いません。
+     * </p>
+     *
+     * <p>
+     * <b>IDを持つ行は、いまこの作品が持つトラックだけを指せます。</b> 子の識別は親の中でしか意味を持たないため、
+     * それが自分の子かどうかを決められるのは集約だけです。ここで確かめないと、要求元が選んだ識別子を持つ子を
+     * 作れてしまいます（永続化は、知らないIDを新しい行として受け取る）。同じIDを2度指すこともできません——
+     * 1つの子が並びの中に2度現れることに意味がなく、永続化では1行に畳まれて要求と結果が食い違います。
+     * </p>
+     *
+     * @param rows
+     *            置き換え後の曲目。この並びがそのまま順になります
+     * @return 更新されたAlbum
+     */
+    public @NonNull Album replaceTracks(@NonNull List<Track.@NonNull Row> rows) {
+        return Album.factory(
+                id,
+                title,
+                releaseDate,
+                artistCredit,
+                description,
+                eventReleasedAt,
+                catalogNumber,
+                isdn,
+                coverImageKey,
+                basePrice,
+                originalWorkNote,
+                publication,
+                tracksOf(presentRows(rows)),
+                externalAudios);
+    }
+
+    private static @NonNull List<Track.Row> presentRows(@NonNull List<Track.Row> rows) {
+        return Policy.<List<Track.Row>>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "tracks",
+                        "Tracks cannot be null",
+                        "TRACKS_REQUIRED"))
+                .verify(rows, Function.identity())
+                .resolve(Policy::illegalArgument);
+    }
+
+    private @NonNull List<Track> tracksOf(@NonNull List<Track.Row> rows) {
+        final var claimed = rows.stream()
+                .map(Track.Row::trackId)
+                .filter(Objects::nonNull)
+                .toList();
+        verifyOwnedTrackIds(claimed);
+        verifyDistinctTrackIds(claimed);
+
+        final var trackNo = new AtomicInteger(1);
+        return rows.stream()
+                .map(
+                        row -> Track.reconstruct(
+                                trackIdOf(row),
+                                trackNo.getAndIncrement(),
+                                row.title(),
+                                row.artistCredit(),
+                                row.tunes()))
+                .toList();
+    }
+
+    /**
+     * その行のトラックID。IDを持たない行は、ここで新しい識別子を得る
+     *
+     * @param row
+     *            置き換えの1行
+     * @return 既にある行はそのID、新しい行は生成したID
+     */
+    private static Track.@NonNull Id trackIdOf(Track.@NonNull Row row) {
+        return Optional.ofNullable(row.trackId())
+                .orElseGet(Track.Id::generate);
+    }
+
+    private void verifyOwnedTrackIds(@NonNull List<Track.Id> claimed) {
+        Policy.<List<Track.Id>>of(
+                ids -> ids.stream().allMatch(this::hasTrack),
+                () -> new ErrorResult(
+                        "tracks",
+                        "Track ID does not belong to this album",
+                        "TRACK_NOT_IN_ALBUM"))
+                .verify(claimed, Function.identity())
+                .resolve(BusinessRuleViolationException::fromErrors);
+    }
+
+    private static void verifyDistinctTrackIds(@NonNull List<Track.Id> claimed) {
+        Policy.<List<Track.Id>>of(
+                ids -> ids.stream().distinct().count() == ids.size(),
+                () -> new ErrorResult(
+                        "tracks",
+                        "The same track cannot appear twice",
+                        "TRACK_ID_DUPLICATE"))
+                .verify(claimed, Function.identity())
+                .resolve(BusinessRuleViolationException::fromErrors);
+    }
+
+    private boolean hasTrack(Track.@NonNull Id trackId) {
+        return tracks.stream().anyMatch(track -> track.hasId(trackId));
+    }
+
+    /**
      * トラックリストをトラック番号順にソートして取得
      *
      * @return トラック番号順にソートされたトラックリスト
@@ -1036,6 +1142,124 @@ public final class Album implements Aggregate<Album, Album.Id> {
         return audios.stream()
                 .map(audio -> audio.changeDisplayOrder(displayOrder.getAndIncrement()))
                 .toList();
+    }
+
+    /**
+     * 外部音源を一覧ごと置き換える
+     *
+     * <p>
+     * 表示順は受け取った並びから1で振り直します。順は並びの表現でしかなく、送る側が持つ値ではありません（#391）。
+     * </p>
+     *
+     * <p>
+     * <b>IDを持つ行は、いまこの作品が持つ音源だけを指せます。</b> 理由は曲目と同じで、それが自分の子かどうかを
+     * 決められるのは集約だけです。同じIDを2度指すこともできません。
+     * </p>
+     *
+     * <p>
+     * 同一URLの重複も業務違反として拒みます——同じ埋め込み元が1つのアルバムに2度現れることに意味がないためです。
+     * </p>
+     *
+     * @param rows
+     *            置き換え後の外部音源。この並びがそのまま順になります
+     * @return 更新されたAlbum
+     */
+    public @NonNull Album replaceExternalAudios(@NonNull List<ExternalAudio.@NonNull Row> rows) {
+        return Album.factory(
+                id,
+                title,
+                releaseDate,
+                artistCredit,
+                description,
+                eventReleasedAt,
+                catalogNumber,
+                isdn,
+                coverImageKey,
+                basePrice,
+                originalWorkNote,
+                publication,
+                tracks,
+                externalAudiosOf(presentAudioRows(rows)));
+    }
+
+    private static @NonNull List<ExternalAudio.Row> presentAudioRows(
+            @NonNull List<ExternalAudio.Row> rows) {
+        return Policy.<List<ExternalAudio.Row>>of(
+                Objects::nonNull,
+                () -> new ErrorResult(
+                        "externalAudios",
+                        "External audios cannot be null",
+                        "EXTERNAL_AUDIOS_REQUIRED"))
+                .verify(rows, Function.identity())
+                .resolve(Policy::illegalArgument);
+    }
+
+    private @NonNull List<ExternalAudio> externalAudiosOf(@NonNull List<ExternalAudio.Row> rows) {
+        final var claimed = rows.stream()
+                .map(ExternalAudio.Row::externalAudioId)
+                .filter(Objects::nonNull)
+                .toList();
+        verifyOwnedExternalAudioIds(claimed);
+        verifyDistinctExternalAudioIds(claimed);
+        verifyDistinctExternalAudioUrls(rows);
+
+        final var displayOrder = new AtomicInteger(1);
+        return rows.stream()
+                .map(
+                        row -> ExternalAudio.reconstruct(
+                                externalAudioIdOf(row),
+                                displayOrder.getAndIncrement(),
+                                row.url()))
+                .toList();
+    }
+
+    /**
+     * その行の外部音源ID。IDを持たない行は、ここで新しい識別子を得る
+     *
+     * @param row
+     *            置き換えの1行
+     * @return 既にある行はそのID、新しい行は生成したID
+     */
+    private static ExternalAudio.@NonNull Id externalAudioIdOf(ExternalAudio.@NonNull Row row) {
+        return Optional.ofNullable(row.externalAudioId())
+                .orElseGet(ExternalAudio.Id::generate);
+    }
+
+    private void verifyOwnedExternalAudioIds(@NonNull List<ExternalAudio.Id> claimed) {
+        Policy.<List<ExternalAudio.Id>>of(
+                ids -> ids.stream().allMatch(this::hasExternalAudio),
+                () -> new ErrorResult(
+                        "externalAudios",
+                        "External audio ID does not belong to this album",
+                        "EXTERNAL_AUDIO_NOT_IN_ALBUM"))
+                .verify(claimed, Function.identity())
+                .resolve(BusinessRuleViolationException::fromErrors);
+    }
+
+    private static void verifyDistinctExternalAudioIds(@NonNull List<ExternalAudio.Id> claimed) {
+        Policy.<List<ExternalAudio.Id>>of(
+                ids -> ids.stream().distinct().count() == ids.size(),
+                () -> new ErrorResult(
+                        "externalAudios",
+                        "The same external audio cannot appear twice",
+                        "EXTERNAL_AUDIO_ID_DUPLICATE"))
+                .verify(claimed, Function.identity())
+                .resolve(BusinessRuleViolationException::fromErrors);
+    }
+
+    private static void verifyDistinctExternalAudioUrls(@NonNull List<ExternalAudio.Row> rows) {
+        Policy.<List<ExternalAudio.Row>>of(
+                given -> given.stream().map(ExternalAudio.Row::url).distinct().count() == given.size(),
+                () -> new ErrorResult(
+                        "externalAudios",
+                        "External audio URL must be unique in this album",
+                        "EXTERNAL_AUDIO_URL_DUPLICATE"))
+                .verify(rows, Function.identity())
+                .resolve(BusinessRuleViolationException::fromErrors);
+    }
+
+    private boolean hasExternalAudio(ExternalAudio.@NonNull Id externalAudioId) {
+        return externalAudios.stream().anyMatch(audio -> audio.hasId(externalAudioId));
     }
 
     /**

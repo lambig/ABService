@@ -96,15 +96,32 @@ export const listAlbums = async (apiKey: string): Promise<ApiResult<readonly Adm
 export const getAlbum = (apiKey: string, albumId: string): Promise<ApiResult<AdminAlbumDetail>> =>
   request<AdminAlbumDetail>('GET', `/api/v1/admin/albums/${encodeURIComponent(albumId)}`, apiKey);
 
-/** 作品を作る（下書きとして作られる）。 */
+/**
+ * 作品を作る（下書きとして作られる）。
+ *
+ * <p>
+ * 曲目と外部音源も一緒に送れる口（`with-tracks`）を使う（#391）。作品の子は作品の外に存在できないため、
+ * 作るときも1リクエストで揃う。本体だけを作ってから子を足す経路は持たない。
+ * </p>
+ */
 export const createAlbum = (
   apiKey: string,
   fields: AlbumFields,
-): Promise<ApiResult<Schemas['CreateAlbumResponse']>> =>
-  request<Schemas['CreateAlbumResponse']>('POST', '/api/v1/albums', apiKey, fields);
+): Promise<ApiResult<Schemas['RegisterAlbumWithTracksResponse']>> =>
+  request<Schemas['RegisterAlbumWithTracksResponse']>(
+    'POST',
+    '/api/v1/albums/with-tracks',
+    apiKey,
+    fields,
+  );
 
 /**
- * 作品を更新する（PUT風の全項目置換。トラックと外部音源は対象外）。
+ * 作品を更新する（PUT風の全項目置換）。
+ *
+ * <p>
+ * 曲目と外部音源も置換の対象で、送った配列がそのまま作品の曲目・音源になる（#391）。送らなかった既存の行は
+ * 消える。並びは配列の位置が表し、番号は送らない。
+ * </p>
  *
  * <p>
  * 編集を始めた時点の世代（`expectedRevision`）を必ず送る。全項目置換のため、これを持たない更新は編集の
@@ -256,66 +273,33 @@ export const unpublishAlbum = (
     apiKey,
   );
 
-/** 作品が持つ外部音源1件。表示順は常に 1..n の連番で保たれる */
+/** 作品が持つ外部音源1件。読むときは表示順つきで返る */
 export type AdminExternalAudio = Schemas['AdminExternalAudioResponse'];
 
 /**
- * 外部音源を追加する（表示順は末尾に採番される）。
+ * 送る側の外部音源1件。
  *
  * <p>
- * 埋め込めるホストかどうかはバックエンドの値オブジェクトが判定し、通らないURLは 400 で返る。同じURLの
- * 重複は 409。**画面は先に判定しない**——許可するホストの一覧を写すと、増減のたびに2箇所を直すことになる。
+ * 表示順は持たない——並びは配列の位置が表す（#391）。`externalAudioId` を持つ行は既にある音源、持たない行は
+ * 新しい音源で、送らなかった既存の音源は消える。
+ * </p>
+ *
+ * <p>
+ * 埋め込めるホストかどうかはバックエンドの値オブジェクトが判定し、通らないURLは 400 で返る。同じURLが並びに
+ * 2度現れれば 409。**画面は先に判定しない**——許可するホストの一覧を写すと、増減のたびに2箇所を直すことになる。
  * </p>
  */
-export const addExternalAudio = (
-  apiKey: string,
-  albumId: string,
-  url: string,
-): Promise<ApiResult<Schemas['AddExternalAudioResponse']>> =>
-  request<Schemas['AddExternalAudioResponse']>(
-    'POST',
-    `/api/v1/albums/${encodeURIComponent(albumId)}/external-audios`,
-    apiKey,
-    { url },
-  );
+export type ExternalAudioFields = Schemas['ExternalAudioRequest'];
 
 /**
- * 外部音源を1件外す。
+ * 送る側の曲目1行。
  *
  * <p>
- * 対象が無ければ 409 が返る（べき等ではない）。残った分の表示順は詰め直される。
+ * トラック番号もチューンの登場順も持たない——並びは配列の位置が表す（#391）。`trackId` を持つ行は既にある
+ * トラック、持たない行は新しいトラックで、送らなかった既存のトラックは消える。
  * </p>
  */
-export const removeExternalAudio = (
-  apiKey: string,
-  albumId: string,
-  externalAudioId: string,
-): Promise<ApiResult<void>> =>
-  requestNoContent(
-    'DELETE',
-    `/api/v1/albums/${encodeURIComponent(albumId)}/external-audios/${encodeURIComponent(externalAudioId)}`,
-    apiKey,
-  );
-
-/**
- * 外部音源を並べ替える。
- *
- * <p>
- * 作品が持つ全件を1件ずつ含む必要がある（部分的な指定は受け付けない）。差し替えの操作は持たない——
- * 保持するのはURLだけで、差し替えは外して足すことで表せる。
- * </p>
- */
-export const reorderExternalAudios = (
-  apiKey: string,
-  albumId: string,
-  orderedExternalAudioIds: readonly string[],
-): Promise<ApiResult<Schemas['ReorderExternalAudiosResponse']>> =>
-  request<Schemas['ReorderExternalAudiosResponse']>(
-    'PUT',
-    `/api/v1/albums/${encodeURIComponent(albumId)}/external-audios/order`,
-    apiKey,
-    { orderedExternalAudioIds },
-  );
+export type TrackFields = Schemas['TrackRequest'];
 
 /** サイトの文言1件。キーで引く（#230） */
 export type SiteContent = Schemas['SiteContentResponse'];

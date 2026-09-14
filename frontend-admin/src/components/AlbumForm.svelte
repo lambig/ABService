@@ -6,11 +6,13 @@
     DESCRIPTION_FORMATS,
     EMPTY_DRAFT,
     albumFieldsOf,
+    audioDraftsOf,
     draftOf,
     withCleared,
     withValue,
     type AlbumDraft,
     type AlbumFieldPath,
+    type ExternalAudioDraft,
   } from '$lib/api/album-form';
   import { uploadAsset } from '$lib/api/asset-upload';
   import {
@@ -18,14 +20,15 @@
     getAlbum,
     updateAlbum,
     type AdminAlbumDetail,
-    type AdminExternalAudio,
     type ApiResult,
     type ConfirmedAsset,
   } from '$lib/api/client';
+  import { isStaleRevisionConflict } from '$lib/api/http';
   import {
     NO_ERRORS,
     formErrorsOf,
     hasAssignedErrors,
+    withoutPathsUnder,
     type FormErrors,
   } from '$lib/api/form-errors';
   import { KEY_STORE, storedApiKey } from '$lib/credentials';
@@ -41,8 +44,9 @@
    * </p>
    *
    * <p>
-   * トラック・チューン構成の編集は持たない（#122 の別スライス）。外部音源は持つが、保存とは別の経路で
-   * 反映されるため、区画ごと保存のフォームの外に置く。
+   * トラック・チューン構成の編集は持たない（#122 の別スライス）。外部音源は<b>この保存に乗る</b>——作品の子を
+   * 書く経路は集約ルートに1つしかなく（#391）、送った並びがそのまま作品の音源になる。区画が保存のフォームの
+   * 外に置かれているのは、行を足す入力が Enter で作品の保存を巻き込まないようにするためである。
    * </p>
    */
   type Props = {
@@ -128,10 +132,30 @@
     },
   ];
 
-  /** 欄を持つ位置。ここに無い位置のエラーは、欄へ割り当てず全体へ出す */
-  const ASSIGNABLE_PATHS: readonly string[] = SECTIONS.flatMap((section) =>
+  /** 作品本体の欄を持つ位置 */
+  const FIELD_PATHS: readonly string[] = SECTIONS.flatMap((section) =>
     section.fields.map((field) => field.path),
   );
+
+  /**
+   * 欄を持つ位置。ここに無い位置のエラーは、欄へ割り当てず全体へ出す。
+   *
+   * <p>
+   * 外部音源の位置（`externalAudios[i].url`）は行数で決まるため、いまの入力から組み立てる。行そのものが
+   * 無いことを指す位置（`externalAudios[i]`）は欄に対応しないので、そのまま全体のエラーになる
+   * （DECISIONS 29）。
+   * </p>
+   */
+  const assignablePaths = $derived<readonly string[]>([
+    ...FIELD_PATHS,
+    ...audios.map((_, index) => audioPathOf(index)),
+  ]);
+
+  /** 外部音源の行を指す位置の接頭辞。行の位置は並びが変われば別の行を指す */
+  const AUDIO_PATH_PREFIX = 'externalAudios[';
+
+  /** 外部音源の行の位置。管理APIが検証エラーの `field` として返す綴りと同じ */
+  const audioPathOf = (index: number): string => `${AUDIO_PATH_PREFIX}${String(index)}].url`;
 
   /** 選択肢の表示。値は管理APIの列挙子名で、そのままでは画面に出せない */
   const CHOICE_LABELS: Readonly<Record<string, string>> = {
@@ -195,17 +219,10 @@
   type Pending = Readonly<{
     target: Target | null;
     draft: AlbumDraft;
-    /**
-     * 保存されている内容。`draft` と突き合わせて、未保存の差分があるかを決める。
-     *
-     * 外部音源の操作は作品の世代を進めるため、未保存の入力を抱えたまま操作すると、その後の保存が
-     * 競合として断られる。それを避けるために、先に保存するかを尋ねる必要がある。
-     */
-    saved: AlbumDraft;
     /** 確定済みのカバー画像の配信先。鍵は `draft` が持ち、こちらは見せる先だけを持つ */
     coverImageUrl: string | null;
-    /** いま持っている外部音源。表示順に並んでいる */
-    audios: readonly AdminExternalAudio[];
+    /** いま入力している外部音源。この並びがそのまま保存に乗る */
+    audios: readonly ExternalAudioDraft[];
   }>;
 
   /**
@@ -230,14 +247,10 @@
         /** 更新する対象と、読み込んだ時点の世代。null は新規作成 */
         readonly target: Target | null;
         readonly draft: AlbumDraft;
-        /** 保存されている内容。未保存の差分があるかは、これと `draft` の突き合わせで決まる */
-        readonly saved: AlbumDraft;
         /** 確定済みのカバー画像の配信先。持たないときは null */
         readonly coverImageUrl: string | null;
-        /** いま持っている外部音源。表示順に並んでいる */
-        readonly audios: readonly AdminExternalAudio[];
-        /** 外部音源の操作が走っている間。作品の入力は、その間は触らせない */
-        readonly audioBusy: boolean;
+        /** いま入力している外部音源。この並びがそのまま保存に乗る */
+        readonly audios: readonly ExternalAudioDraft[];
         /**
          * 選ぶ入力を作り直した回数。
          *
@@ -270,10 +283,8 @@
     apiKey,
     target: pending.target,
     draft: pending.draft,
-    saved: pending.saved,
     coverImageUrl: pending.coverImageUrl,
     audios: pending.audios,
-    audioBusy: false,
     attempts: 0,
     submission: { kind: 'idle' },
     upload: { kind: 'idle' },
@@ -288,9 +299,8 @@
       ? editing(apiKey, {
           target: { albumId, revision: result.value.revision },
           draft: draftOf(result.value),
-          saved: draftOf(result.value),
           coverImageUrl: result.value.coverImageUrl,
-          audios: result.value.externalAudios,
+          audios: audioDraftsOf(result.value),
         })
       : result.kind === 'unauthorized'
         ? { kind: 'locked', message: failureTextOf(result), pending: null }
@@ -309,7 +319,6 @@
     view = editing(apiKey, {
       target: null,
       draft: EMPTY_DRAFT,
-      saved: EMPTY_DRAFT,
       coverImageUrl: null,
       audios: [],
     });
@@ -528,19 +537,24 @@
       ? { kind: 'invalid', errors }
       : { kind: 'refused', message: failureTextOf(failure) };
 
-  /** 競合として返る状態コード。編集を始めた後に別の操作が保存している（#287） */
-  const CONFLICT_STATUS = 409;
-
   /**
    * 競合は入力の誤りと分けて扱う。
    *
+   * <p>
    * 直す先が入力ではなく「読み直し」にあるため、欄へも全体のエラーへも出さない。古い値を自動で再送も
    * しない（同じ世代で送り直せば再び競合する）。
+   * </p>
+   *
+   * <p>
+   * <b>状態コードでは見分けない。</b> 子を集約ルート経由で書くようになり、同じ PUT が集約の不変条件に
+   * 反する要求（音源URLの重複・この作品の子でないID）も 409 で返す（#391）。それらは入力を直せば通る
+   * ため、読み直しを促す枝へ入れない。
+   * </p>
    */
   const rejectionOf = (failure: ApiFailure): Submission =>
-    failure.status === CONFLICT_STATUS
+    isStaleRevisionConflict(failure)
       ? { kind: 'conflicted' }
-      : rejection(failure, formErrorsOf(failure.problem, ASSIGNABLE_PATHS));
+      : rejection(failure, formErrorsOf(failure.problem, assignablePaths));
 
   /**
    * 保存の経路。
@@ -551,10 +565,11 @@
     apiKey: string,
     target: Target | null,
     draft: AlbumDraft,
+    audios: readonly ExternalAudioDraft[],
   ): Promise<ApiResult<unknown>> =>
     target === null
-      ? createAlbum(apiKey, albumFieldsOf(draft))
-      : updateAlbum(apiKey, target.albumId, albumFieldsOf(draft), target.revision);
+      ? createAlbum(apiKey, albumFieldsOf(draft, audios))
+      : updateAlbum(apiKey, target.albumId, albumFieldsOf(draft, audios), target.revision);
 
   /** いま抱えている入力。編集中でなければ持たない */
   const pendingOf = (current: View): Pending | null =>
@@ -562,16 +577,10 @@
       ? {
           target: current.target,
           draft: current.draft,
-          saved: current.saved,
           coverImageUrl: current.coverImageUrl,
           audios: current.audios,
         }
       : null;
-
-  /** 鍵が断られたら、入力を抱えたまま鍵待ちへ戻す。入れ直せば同じ入力から続けられる */
-  const lockWithInput = (message: string): void => {
-    lock(message, pendingOf(view));
-  };
 
   const viewAfterFailure = (failure: ApiFailure): View =>
     failure.kind === 'unauthorized'
@@ -605,7 +614,7 @@
     void (current.kind === 'editing' &&
     current.submission.kind !== 'saving' &&
     current.upload.kind !== 'sending'
-      ? submitWith(current.apiKey, current.target, current.draft)
+      ? submitWith(current.apiKey, current.target, current.draft, current.audios)
       : Promise.resolve());
   };
 
@@ -613,9 +622,10 @@
     apiKey: string,
     target: Target | null,
     draft: AlbumDraft,
+    audios: readonly ExternalAudioDraft[],
   ): Promise<void> => {
     withSubmission({ kind: 'saving' });
-    applySaveOutcome(apiKey, await save(apiKey, target, draft));
+    applySaveOutcome(apiKey, await save(apiKey, target, draft, audios));
   };
 
   /**
@@ -630,80 +640,44 @@
   };
 
   /**
-   * 外部音源の操作の前に、この画面を保存する。
+   * 外部音源の並びを入力として持ち直す。送るのは保存のときだけ。
    *
    * <p>
-   * 保存できたときだけ操作へ進ませる。断られた（入力の誤り・競合・鍵切れ）ときは、理由をこの画面へ出し
-   * `aborted` を返す——音源の側は、行わなかったことだけを伝える。
-   * </p>
-   *
-   * <p>
-   * 成功したら、返った世代と、いま送った入力を「保存されている内容」として持ち直す。**GETで取り直さない**
-   * ——応答が返した値をそのまま次の条件にする（#323）。
+   * <b>前回の検証エラーは、ここで落とす。</b> 行の誤りは位置（`externalAudios[i].url`）で返るため、並びが変われば
+   * その位置は別の行を指す。残したままにすると、直っていない行からエラーが消え、関係のない行に出る。行は
+   * 保存されるまでIDを持たないので、エラーを行へ追従させることもできない。
    * </p>
    */
-  const applyAutoSave = <T extends { readonly revision: number }>(
-    apiKey: string,
-    result: ApiResult<T>,
-    target: Target,
-    draft: AlbumDraft,
-  ): 'saved' | 'aborted' => {
+  const audiosChanged = (audios: readonly ExternalAudioDraft[]): void => {
     const current = view;
-
-    KEY_STORE[result.kind](apiKey);
     view =
-      result.kind === 'ok'
-        ? current.kind === 'editing'
-          ? {
-              ...current,
-              target: { albumId: target.albumId, revision: result.value.revision },
-              saved: draft,
-              submission: { kind: 'idle' },
-            }
-          : current
-        : viewAfterFailure(result);
-
-    return result.kind === 'ok' ? 'saved' : 'aborted';
-  };
-
-  const saveThen = async (
-    apiKey: string,
-    target: Target,
-    draft: AlbumDraft,
-  ): Promise<'saved' | 'aborted'> => {
-    withSubmission({ kind: 'saving' });
-
-    return applyAutoSave(
-      apiKey,
-      await updateAlbum(apiKey, target.albumId, albumFieldsOf(draft), target.revision),
-      target,
-      draft,
-    );
-  };
-
-  const saveFirst = (): Promise<'saved' | 'aborted'> => {
-    const current = view;
-
-    return current.kind === 'editing' && current.target !== null
-      ? saveThen(current.apiKey, current.target, current.draft)
-      : Promise.resolve('aborted');
-  };
-
-  /** 音源の操作が走っている間は、作品の入力を触らせない。読み直しで黙って消えることになる */
-  const audioBusyChanged = (busy: boolean): void => {
-    const current = view;
-    view = current.kind === 'editing' ? { ...current, audioBusy: busy } : current;
+      current.kind === 'editing'
+        ? { ...current, audios, submission: submissionAfterAudioEdit(current.submission) }
+        : current;
   };
 
   /**
-   * 音源が変わったら読み直す。
+   * 外部音源の並びを変えた後の保存の状態。
    *
-   * 操作の前に保存を済ませているため、ここで読み直しても失う入力は無い。世代も音源の並びも、操作の
-   * 結果として進んだものを一度に取り直す。
+   * <p>
+   * 落とすのは<b>音源の行に割り当てられたエラーだけ</b>。同じ応答には本体の欄の誤り（`title` など）も
+   * 一緒に入るため、まとめて捨てると、何も直していない欄のエラーまで消える。
+   * </p>
+   *
+   * <p>
+   * 競合や通信断（`conflicted` / `refused`）は入力を変えても消えないため、そのまま残す。
+   * </p>
    */
-  const audioChanged = (): void => {
-    reload();
-  };
+  const submissionAfterAudioEdit = (current: Submission): Submission =>
+    current.kind === 'invalid'
+      ? invalidOrIdle(withoutPathsUnder(current.errors, AUDIO_PATH_PREFIX))
+      : current;
+
+  /** 落とした後に残るものが無ければ、拒まれている状態そのものを解く */
+  const invalidOrIdle = (errors: FormErrors): Submission =>
+    [hasAssignedErrors(errors), errors.unassigned.length > 0].some(Boolean)
+      ? { kind: 'invalid', errors }
+      : { kind: 'idle' };
 
   /*
    * NARROWING-IN-TEMPLATE: テンプレートの分岐は型の絞り込みを持ち越せないため、状態から取り出した
@@ -729,24 +703,13 @@
   const saving = $derived(submission.kind === 'saving');
   const conflicted = $derived(submission.kind === 'conflicted');
 
-  const apiKey = $derived(view.kind === 'editing' ? view.apiKey : '');
-  const albumId = $derived(
-    view.kind === 'editing' && view.target !== null ? view.target.albumId : null,
-  );
-  const audios = $derived<readonly AdminExternalAudio[]>(
+  const audios = $derived<readonly ExternalAudioDraft[]>(
     view.kind === 'editing' ? view.audios : [],
   );
-  const audioBusy = $derived(view.kind === 'editing' ? view.audioBusy : false);
 
-  /** 保存されている内容。編集中でなければ突き合わせる相手が無い */
-  const savedDraft = $derived<AlbumDraft>(view.kind === 'editing' ? view.saved : EMPTY_DRAFT);
-
-  /** 未保存の差分。欄は全て文字列のため、綴りの一致だけで足りる */
-  const dirty = $derived(
-    (Object.keys(savedDraft) as readonly AlbumFieldPath[]).some(
-      (path) => savedDraft[path] !== draft[path],
-    ),
-  );
+  /** その行に割り当てられた誤り */
+  const audioMessagesOf = (index: number): readonly string[] =>
+    errors.byField.get(audioPathOf(index)) ?? [];
 
   const coverImageUrl = $derived(view.kind === 'editing' ? view.coverImageUrl : null);
   const coverAttempts = $derived(view.kind === 'editing' ? view.attempts : 0);
@@ -762,7 +725,7 @@
    * 画像を送っている最中の保存も塞ぐ。送り終える前に保存すると、差し替え前の鍵のまま作品が保存され、
    * 画面には新しい画像が出ているのに保存されたのは古い画像、という食い違いが残る。
    */
-  const busy = $derived([saving, sendingCover, audioBusy].some(Boolean));
+  const busy = $derived([saving, sendingCover].some(Boolean));
 
   const messagesOf = (path: AlbumFieldPath): readonly string[] => errors.byField.get(path) ?? [];
 
@@ -817,10 +780,9 @@
       送ったのはクリックした時点の入力である。保存中も入力を受け付けると、その後の変更は要求に
       入らないまま、成功して一覧へ移ったときに黙って消える。
 
-      外部音源の操作中も同じ理由で塞ぐ。操作が済むと読み直すため、その間に書いた入力は保存されない
-      まま消える。画像を送っている最中は塞がない——送り終えても読み直さないので、入力は残る。
+      画像を送っている最中は塞がない——送り終えても読み直さないので、入力は残る。
     -->
-      <fieldset class="space-y-8" disabled={[saving, audioBusy].some(Boolean)}>
+      <fieldset class="space-y-8" disabled={saving}>
         {#each SECTIONS as section (section.heading)}
           <section class="space-y-4">
             <div class="flex items-center justify-between gap-4">
@@ -988,18 +950,14 @@
     </form>
 
     <!--
-      保存とは別の経路で反映されるため、保存のフォームの外に置く。中に置くと、この区画の入力と
-      ボタンが作品の保存を巻き込む。
+      OUTSIDE-THE-FORM: 反映は上の保存に乗るが、区画は保存のフォームの外に置く。中に置くと、行を足す
+      入力とボタンが作品の保存を巻き込む（Enter も submit になる）。
     -->
     <AlbumExternalAudios
-      {apiKey}
-      {albumId}
       {audios}
-      {dirty}
-      {saveFirst}
-      onBusy={audioBusyChanged}
-      onChanged={audioChanged}
-      onUnauthorized={lockWithInput}
+      disabled={busy}
+      messagesOf={audioMessagesOf}
+      onChange={audiosChanged}
     />
   </div>
 {/if}

@@ -111,19 +111,26 @@ class AlbumEditRevisionRestIntegrationTest {
     }
 
     @Test
-    @DisplayName("トラックの追加は作品本体の世代を進めない（子は別の編集単位）")
-    void addingATrackDoesNotAdvanceTheAlbumRevision() {
-        final String albumId = createAlbum("子の編集単位アルバム");
+    @DisplayName("曲目だけを変えた保存も作品の更新として世代を進める")
+    void changingOnlyTracksAdvancesTheAlbumRevision() {
+        final String albumId = createAlbum("曲目だけの保存アルバム");
         final int revision = revisionOf(albumId);
 
-        authorized().contentType(ContentType.JSON).body("{\"trackNo\":1,\"title\":\"1曲目\"}")
-                .when().post("/api/v1/albums/" + albumId + "/tracks").then().statusCode(201);
+        authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"expectedRevision\":" + revision + ",\"title\":\"曲目だけの保存アルバム\","
+                                + "\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"世代テストアーティスト\","
+                                + "\"tracks\":[{\"title\":\"1曲目\"}]}")
+                .when().put("/api/v1/albums/" + albumId).then().statusCode(200);
 
         assertThat(revisionOf(albumId))
-                .as("子だけの変更では本体の世代は進まない").isEqualTo(revision);
+                .as("保存の口が集約ルートに1つである以上、曲目だけの変更も作品の更新である").isEqualTo(revision + 1);
 
-        /* したがって、トラックが増えた後も本体の編集は読み直しを要さない */
-        authorized().contentType(ContentType.JSON).body(updateBody(revision, "子の編集単位アルバム（改題）"))
-                .when().put("/api/v1/albums/" + albumId).then().statusCode(200);
+        /*
+         * STALE-AFTER-CHILD-SAVE: 進めないと、2つのタブが別々のトラックを直した保存が競合にならず、後の保存が
+         * 前の変更を全項目置換で消す。古い世代を条件にした保存が断られることで、その経路が塞がれている。
+         */
+        authorized().contentType(ContentType.JSON).body(updateBody(revision, "曲目だけの保存アルバム（改題）"))
+                .when().put("/api/v1/albums/" + albumId).then().statusCode(409);
     }
 }

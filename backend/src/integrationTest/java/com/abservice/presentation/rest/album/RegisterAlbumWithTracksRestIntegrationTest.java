@@ -13,12 +13,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * アルバムとその初期トラック一覧のワンリクエスト登録 REST エンドポイントの E2E 統合テスト
+ * 作品を曲目・外部音源ごと登録する REST エンドポイントの E2E 統合テスト
  *
  * <p>
- * {@code POST /api/v1/albums/with-tracks} の疎通、トラックを含まない登録、トラック検証エラー・
- * トラック番号重複時にアルバム自体も登録されない（トランザクション全体がロールバックされる）ことを、実 DB（Flyway
- * migrate-at-start）で確認する。
+ * {@code POST /api/v1/albums/with-tracks} の疎通、子を含まない登録、子の検証エラー・URL重複時に作品自体も
+ * 登録されない（トランザクション全体がロールバックされる）ことを、実 DB（Flyway migrate-at-start）で確認する。
+ * </p>
+ *
+ * <p>
+ * 要求は番号を運ばない（#391）。トラック番号もチューンの登場順も表示順も、送られた配列の位置から振られる。
  * </p>
  */
 @QuarkusTest
@@ -33,8 +36,8 @@ class RegisterAlbumWithTracksRestIntegrationTest {
                 .body(
                         "{\"title\":\"ワンリクエスト登録アルバム\",\"releaseDate\":\"2026-01-01\","
                                 + "\"artistDisplayName\":\"アーティスト\",\"tracks\":["
-                                + "{\"trackNo\":1,\"title\":\"1曲目\"},"
-                                + "{\"trackNo\":2,\"title\":\"2曲目\"}]}")
+                                + "{\"title\":\"1曲目\"},"
+                                + "{\"title\":\"2曲目\"}]}")
                 .when().post("/api/v1/albums/with-tracks").then().statusCode(201)
                 .body("title", equalTo("ワンリクエスト登録アルバム")).body("tracks.size()", equalTo(2))
                 .body("tracks[0].trackNo", equalTo(1)).body("tracks[0].title", equalTo("1曲目"))
@@ -48,7 +51,7 @@ class RegisterAlbumWithTracksRestIntegrationTest {
                 .body(
                         "{\"title\":\"位置確認の一括登録アルバム\",\"releaseDate\":\"2026-01-01\","
                                 + "\"artistDisplayName\":\"アーティスト\","
-                                + "\"tracks\":[{\"trackNo\":1,\"title\":\"1曲目\"}]}")
+                                + "\"tracks\":[{\"title\":\"1曲目\"}]}")
                 .when().post("/api/v1/albums/with-tracks").then().statusCode(201).extract();
 
         assertThat(response.header("Location")).isEqualTo("/api/v1/albums/" + response.path("albumId"));
@@ -71,24 +74,37 @@ class RegisterAlbumWithTracksRestIntegrationTest {
         authorized().contentType(ContentType.JSON)
                 .body(
                         "{\"title\":\"   \",\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"アーティスト\","
-                                + "\"tracks\":[{\"trackNo\":1,\"title\":\"1曲目\"}]}")
+                                + "\"tracks\":[{\"title\":\"1曲目\"}]}")
                 .when().post("/api/v1/albums/with-tracks").then().statusCode(400)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:VALIDATION_ERROR"));
     }
 
     @Test
-    @DisplayName("トラック番号が重複していると409 problem+jsonを返す")
-    void duplicateTrackNoReturnsConflict() {
+    @DisplayName("同じ外部音源のURLが並びに2度現れると409 problem+jsonを返す")
+    void duplicateExternalAudioUrlReturnsConflict() {
         authorized().contentType(ContentType.JSON)
                 .body(
-                        "{\"title\":\"トラック番号重複登録アルバム\",\"releaseDate\":\"2026-01-01\","
-                                + "\"artistDisplayName\":\"アーティスト\",\"tracks\":["
-                                + "{\"trackNo\":1,\"title\":\"1曲目\"},"
-                                + "{\"trackNo\":1,\"title\":\"別の1曲目\"}]}")
+                        "{\"title\":\"音源重複登録アルバム\",\"releaseDate\":\"2026-01-01\","
+                                + "\"artistDisplayName\":\"アーティスト\",\"externalAudios\":["
+                                + "{\"url\":\"https://soundcloud.com/example/first\"},"
+                                + "{\"url\":\"https://soundcloud.com/example/first\"}]}")
                 .when().post("/api/v1/albums/with-tracks").then().statusCode(409)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:BUSINESS_RULE_VIOLATION"));
+    }
+
+    @Test
+    @DisplayName("外部音源も並びごと受け取り、表示順は配列の位置から振られる")
+    void externalAudiosAreRegisteredInTheGivenOrder() {
+        authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"title\":\"音源つき登録アルバム\",\"releaseDate\":\"2026-01-01\","
+                                + "\"artistDisplayName\":\"アーティスト\",\"externalAudios\":["
+                                + "{\"url\":\"https://soundcloud.com/example/second\"},"
+                                + "{\"url\":\"https://soundcloud.com/example/first\"}]}")
+                .when().post("/api/v1/albums/with-tracks").then().statusCode(201)
+                .extract().path("albumId");
     }
 
     @Test
@@ -98,7 +114,7 @@ class RegisterAlbumWithTracksRestIntegrationTest {
                 .body(
                         "{\"title\":\"チューン行欠落登録アルバム\",\"releaseDate\":\"2026-01-01\","
                                 + "\"artistDisplayName\":\"アーティスト\",\"tracks\":["
-                                + "{\"trackNo\":1,\"title\":\"1曲目\",\"tunes\":[null]}]}")
+                                + "{\"title\":\"1曲目\",\"tunes\":[null]}]}")
                 .when().post("/api/v1/albums/with-tracks").then().statusCode(400)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:VALIDATION_ERROR"))
@@ -112,7 +128,7 @@ class RegisterAlbumWithTracksRestIntegrationTest {
         authorized().contentType(ContentType.JSON)
                 .body(
                         "{\"title\":\"トラック検証エラー登録アルバム\",\"releaseDate\":\"2026-01-01\","
-                                + "\"artistDisplayName\":\"アーティスト\",\"tracks\":[{\"trackNo\":1}]}")
+                                + "\"artistDisplayName\":\"アーティスト\",\"tracks\":[{}]}")
                 .when().post("/api/v1/albums/with-tracks").then().statusCode(400)
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:VALIDATION_ERROR"));

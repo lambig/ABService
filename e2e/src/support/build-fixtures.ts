@@ -88,7 +88,6 @@ const joinTuneTitles = (...titles: readonly string[]): string => titles.join(TUN
 export const showcaseTracks = {
   /** 名あり・チューン1件（作曲のクレジット） */
   titledWithTune: {
-    trackNo: 1,
     title: 'E2E 確認トラック',
     tuneTitle: 'E2E 確認チューン',
     composerCredit: 'Trad.',
@@ -98,7 +97,6 @@ export const showcaseTracks = {
   },
   /** 名あり・チューンなし */
   titledWithoutTunes: {
-    trackNo: 2,
     title: 'E2E 単独トラック',
     get name(): string {
       return this.title;
@@ -106,7 +104,6 @@ export const showcaseTracks = {
   },
   /** 名あり・チューン1件（作曲と編曲の両方のクレジット） */
   titledWithArrangedTune: {
-    trackNo: 3,
     title: 'E2E 編曲トラック',
     tuneTitle: 'E2E 編曲チューン',
     composerCredit: 'E2E 作曲者',
@@ -117,7 +114,6 @@ export const showcaseTracks = {
   },
   /** 名あり・チューン複数（1件目だけクレジットを持つ） */
   titledWithTunes: {
-    trackNo: 4,
     title: 'E2E 組曲トラック',
     firstTuneTitle: 'E2E 組曲チューン1',
     secondTuneTitle: 'E2E 組曲チューン2',
@@ -128,7 +124,6 @@ export const showcaseTracks = {
   },
   /** 名なし・チューン1件 */
   untitledWithTune: {
-    trackNo: 5,
     tuneTitle: 'E2E 名なしトラックのチューン',
     get name(): string {
       return this.tuneTitle;
@@ -136,7 +131,6 @@ export const showcaseTracks = {
   },
   /** 名なし・チューン複数（区切りで繋がる） */
   untitledWithTunes: {
-    trackNo: 6,
     firstTuneTitle: 'E2E 連結チューンA',
     secondTuneTitle: 'E2E 連結チューンB',
     get name(): string {
@@ -145,7 +139,6 @@ export const showcaseTracks = {
   },
   /** 名なし・名もクレジットも持たないチューンを挟む（そのチューンは名にも曲目の行にも出ない） */
   untitledWithUnnamedTune: {
-    trackNo: 7,
     firstTuneTitle: 'E2E 間奏前チューン',
     lastTuneTitle: 'E2E 間奏後チューン',
     get name(): string {
@@ -154,7 +147,6 @@ export const showcaseTracks = {
   },
   /** 名あり・名を持たないチューンだけ（名の元はトラック名しかない。クレジットを持つので行は出る） */
   titledWithUnnamedTune: {
-    trackNo: 8,
     title: 'E2E MCトラック',
     tuneCredit: 'E2E 語り',
     get name(): string {
@@ -163,10 +155,15 @@ export const showcaseTracks = {
   },
 } as const;
 
-/** 曲目に並ぶ名を、トラック番号の順に並べたもの */
-export const showcaseTrackNames: readonly string[] = Object.values(showcaseTracks)
-  .toSorted((left, right) => left.trackNo - right.trackNo)
-  .map((track) => track.name);
+/**
+ * 曲目に並ぶ名を、並ぶ順に並べたもの。
+ *
+ * この定義の順がそのままシードの並びで、シードの並びがそのままトラック番号になる（#391）。番号で並べ直す
+ * 手順を持たないのは、番号がどこにも入力として現れないためである。
+ */
+export const showcaseTrackNames: readonly string[] = Object.values(showcaseTracks).map(
+  (track) => track.name,
+);
 
 /**
  * 外部音源を持たず、カバー画像を持つ作品。
@@ -344,26 +341,21 @@ const showcaseSeed: AlbumSeed = {
   originalWorkNote: showcase.originalWorkNote,
   tracks: [
     {
-      trackNo: showcaseTracks.titledWithTune.trackNo,
       title: showcaseTracks.titledWithTune.title,
       tunes: [
         {
-          seq: 1,
           tuneTitle: showcaseTracks.titledWithTune.tuneTitle,
           composerCreditOverride: showcaseTracks.titledWithTune.composerCredit,
         },
       ],
     },
     {
-      trackNo: showcaseTracks.titledWithoutTunes.trackNo,
       title: showcaseTracks.titledWithoutTunes.title,
     },
     {
-      trackNo: showcaseTracks.titledWithArrangedTune.trackNo,
       title: showcaseTracks.titledWithArrangedTune.title,
       tunes: [
         {
-          seq: 1,
           tuneTitle: showcaseTracks.titledWithArrangedTune.tuneTitle,
           composerCreditOverride: showcaseTracks.titledWithArrangedTune.composerCredit,
           arrangerCreditOverride: showcaseTracks.titledWithArrangedTune.arrangerCredit,
@@ -371,42 +363,36 @@ const showcaseSeed: AlbumSeed = {
       ],
     },
     {
-      trackNo: showcaseTracks.titledWithTunes.trackNo,
       title: showcaseTracks.titledWithTunes.title,
       tunes: [
         {
-          seq: 1,
           tuneTitle: showcaseTracks.titledWithTunes.firstTuneTitle,
           composerCreditOverride: showcaseTracks.titledWithTunes.composerCredit,
         },
-        { seq: 2, tuneTitle: showcaseTracks.titledWithTunes.secondTuneTitle },
+        { tuneTitle: showcaseTracks.titledWithTunes.secondTuneTitle },
       ],
     },
     /* ここから下はトラック名を持たない。名はチューン名から決まる（#360） */
     {
-      trackNo: showcaseTracks.untitledWithTune.trackNo,
-      tunes: [{ seq: 1, tuneTitle: showcaseTracks.untitledWithTune.tuneTitle }],
+      tunes: [{ tuneTitle: showcaseTracks.untitledWithTune.tuneTitle }],
     },
     {
-      trackNo: showcaseTracks.untitledWithTunes.trackNo,
       tunes: [
-        { seq: 1, tuneTitle: showcaseTracks.untitledWithTunes.firstTuneTitle },
-        { seq: 2, tuneTitle: showcaseTracks.untitledWithTunes.secondTuneTitle },
+        { tuneTitle: showcaseTracks.untitledWithTunes.firstTuneTitle },
+        { tuneTitle: showcaseTracks.untitledWithTunes.secondTuneTitle },
       ],
     },
     {
-      trackNo: showcaseTracks.untitledWithUnnamedTune.trackNo,
       tunes: [
-        { seq: 1, tuneTitle: showcaseTracks.untitledWithUnnamedTune.firstTuneTitle },
+        { tuneTitle: showcaseTracks.untitledWithUnnamedTune.firstTuneTitle },
         /* 名もクレジットも持たない間奏。名にも曲目の行にも出ない（#360） */
-        { seq: 2 },
-        { seq: 3, tuneTitle: showcaseTracks.untitledWithUnnamedTune.lastTuneTitle },
+        {},
+        { tuneTitle: showcaseTracks.untitledWithUnnamedTune.lastTuneTitle },
       ],
     },
     {
-      trackNo: showcaseTracks.titledWithUnnamedTune.trackNo,
       title: showcaseTracks.titledWithUnnamedTune.title,
-      tunes: [{ seq: 1, composerCreditOverride: showcaseTracks.titledWithUnnamedTune.tuneCredit }],
+      tunes: [{ composerCreditOverride: showcaseTracks.titledWithUnnamedTune.tuneCredit }],
     },
   ],
   externalAudioUrls: [showcase.audioUrl],
@@ -423,7 +409,7 @@ const quietSeed: AlbumSeed = {
   descriptionFormat: 'PLAIN_TEXT',
   event: quiet.event,
   coverImage: coverImageAsset,
-  tracks: [{ trackNo: 1, title: quiet.trackTitle }],
+  tracks: [{ title: quiet.trackTitle }],
 };
 
 const draftSeed: AlbumSeed = {

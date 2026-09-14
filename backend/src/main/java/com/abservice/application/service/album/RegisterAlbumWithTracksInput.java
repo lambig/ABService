@@ -8,9 +8,8 @@ import org.jspecify.annotations.Nullable;
  * アルバムとその初期トラック一覧をワンリクエストで登録するコマンドの入力DTO
  *
  * <p>
- * 業務上はアルバム登録・トラック追加という2段階の操作だが、ユースケースとしては1リクエストで完結させたい場合に使用する。
- * 登録済みのアルバムへの個別のトラック追加・更新・削除・並び替えは{@code
- * AddTrackService}等（{@code POST /api/v1/albums/{albumId}/tracks}等）で行う。
+ * 作品は曲目・外部音源ごと1リクエストで登録する。作品の子は作品の外に存在できないため、書く経路は集約ルートに 1つだけ置く（#391）。登録後の変更は
+ * {@link UpdateAlbumInput}（全項目置換）が受ける。
  * </p>
  *
  * @param title
@@ -39,7 +38,9 @@ import org.jspecify.annotations.Nullable;
  * @param originalWorkNote
  *            原作の出典の記述（nullable。空白のみは記述なしとして扱う）
  * @param tracks
- *            初期トラック一覧（nullable。未指定・空リストの場合はトラックなしで登録）
+ *            曲目（nullable。未指定・空リストの場合は曲目なしで登録）
+ * @param externalAudios
+ *            外部音源（nullable。未指定・空リストの場合は音源なしで登録）
  */
 public record RegisterAlbumWithTracksInput(
         @Nullable String title,
@@ -54,7 +55,8 @@ public record RegisterAlbumWithTracksInput(
         @Nullable EventInput event,
         @Nullable BasePriceInput basePrice,
         @Nullable String originalWorkNote,
-        @Nullable List<TrackInput> tracks) implements CommandService.Input {
+        @Nullable List<@Nullable TrackInput> tracks,
+        @Nullable List<@Nullable ExternalAudioInput> externalAudios) implements CommandService.Input {
 
     /**
      * 頒布の基準額の入力DTO
@@ -91,25 +93,4 @@ public record RegisterAlbumWithTracksInput(
             @Nullable String note) {
     }
 
-    /**
-     * 初期トラックの入力DTO
-     *
-     * @param trackNo
-     *            トラック番号
-     * @param title
-     *            トラックタイトル
-     * @param artistDisplayName
-     *            アーティスト表示名（nullable。未指定時はAlbumのartistCreditを継承）
-     * @param artistSortKey
-     *            アーティストソートキー（nullable）
-     * @param tunes
-     *            チューン構成（nullable。未指定は構成なしとして扱う）
-     */
-    public record TrackInput(
-            @Nullable Integer trackNo,
-            @Nullable String title,
-            @Nullable String artistDisplayName,
-            @Nullable String artistSortKey,
-            @Nullable List<@Nullable TrackTuneInput> tunes) {
-    }
 }
