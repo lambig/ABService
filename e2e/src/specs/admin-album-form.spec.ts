@@ -3,6 +3,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import type { Locator, Page } from '@playwright/test';
 
 import { renameAlbumOutsideTheScreen } from '../support/admin-api.ts';
+import { openAllSections, openSection } from '../support/album-editor.ts';
 import { stack } from '../support/config.ts';
 import {
   acceptedCoverImage,
@@ -136,9 +137,15 @@ const coverSourceOf = async (page: Page): Promise<string> => {
   return source === null ? Promise.reject(new Error('カバー画像が src を持っていません')) : source;
 };
 
-/** 一覧から対象の編集を開く */
+/**
+ * 一覧から対象の編集を開き、区画をすべて開く。
+ *
+ * 区画は既定で畳まれている（#122）。ここで見るのは欄そのものの振る舞いのため、畳み方は
+ * `admin-album-sections.spec.ts` へ任せ、先にまとめて開く。
+ */
 const openEdit = async (page: Page, title: string): Promise<void> => {
   await rowOf(page, title).getByRole('link', { name: EDIT_LABEL }).click();
+  await openAllSections(page);
   await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(title);
 };
 
@@ -154,6 +161,8 @@ test.describe('管理画面の作品の編集', () => {
       rowOf(page, title).getByRole('link', { name: EDIT_LABEL }),
       '22-admin-edit-open',
     );
+
+    await openAllSections(page);
 
     await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(title);
     await expect(page.getByLabel(RELEASE_DATE_LABEL)).toHaveValue('2026-09-01');
@@ -557,6 +566,7 @@ test.describe('管理画面の作品の追加', () => {
     await openAdmin(page);
     await clickWithEvidence(page, page.getByRole('link', { name: NEW_LABEL }), '29-admin-new-open');
 
+    await openSection(page, '作品');
     await page.getByLabel(TITLE_LABEL).fill(title);
     await page.getByLabel(RELEASE_DATE_LABEL).fill('2026-10-01');
     await page.getByLabel(ARTIST_LABEL).fill('E2E 追加アーティスト');
@@ -586,6 +596,7 @@ test.describe('管理画面の作品の追加', () => {
     await page.getByLabel(API_KEY_LABEL).fill(WRONG_API_KEY);
     await page.getByRole('button', { name: OPEN_LABEL }).click();
 
+    await openSection(page, '作品');
     await page.getByLabel(TITLE_LABEL).fill(title);
     await page.getByLabel(RELEASE_DATE_LABEL).fill('2026-11-01');
     await page.getByLabel(ARTIST_LABEL).fill('E2E 再認証アーティスト');

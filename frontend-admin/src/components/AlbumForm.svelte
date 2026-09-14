@@ -1,6 +1,7 @@
 <script lang="ts">
   import AlbumExternalAudios from '$components/AlbumExternalAudios.svelte';
   import AlbumFormField from '$components/AlbumFormField.svelte';
+  import AlbumSection from '$components/AlbumSection.svelte';
   import AlbumTracks from '$components/AlbumTracks.svelte';
   import ApiKeyForm from '$components/ApiKeyForm.svelte';
   import { Button } from '$components/ui/button/index.js';
@@ -91,6 +92,13 @@
     rows: readonly FieldRow[];
     /** まとまりを外す操作の文言。持たないまとまりは操作を出さない */
     clearing?: string;
+    /**
+     * 畳んだときに出す要約。
+     *
+     * まとまりごとに書く——公開サイトで何がどう読まれるかはまとまりによって違い、欄を機械的に並べると
+     * 「ラベル: 値」の羅列になって、畳んだ意味が無くなる。
+     */
+    summaryOf: (draft: AlbumDraft) => string;
   }>;
 
   const text = (path: AlbumFieldPath, label: string): FieldSpec => ({
@@ -99,6 +107,14 @@
     kind: 'text',
     choices: [],
   });
+
+  /** 要約に出す値。空白だけの欄は入っていないものとして落とす */
+  const filled = (parts: readonly string[]): readonly string[] =>
+    parts.filter((part) => part.trim() !== '');
+
+  /** 何も入っていない区画は、無いことを示す。空の要約では畳んだ行が読めない */
+  const summaryLine = (parts: readonly string[], separator: string): string =>
+    filled(parts).length === 0 ? '（未入力）' : filled(parts).join(separator);
 
   const SECTIONS: readonly Section[] = [
     {
@@ -120,6 +136,12 @@
           },
         ],
       ],
+      /* 公開サイトが作品を名指すときの読み方（品番・タイトル・名義・リリース日） */
+      summaryOf: (draft) =>
+        summaryLine(
+          [draft.catalogNumber, draft.title, draft.artistDisplayName, draft.releaseDate],
+          ' / ',
+        ),
     },
     {
       heading: '初出イベント',
@@ -131,9 +153,20 @@
         ],
         [text('event.place', '会場'), text('event.note', '補足')],
       ],
+      /* 公開サイトの初出イベントと同じ並び（名・日付・会場・スペース番号） */
+      summaryOf: (draft) =>
+        summaryLine(
+          [
+            draft['event.name'],
+            draft['event.date'],
+            draft['event.place'],
+            draft['event.spaceNumber'],
+          ],
+          ' ',
+        ),
     },
     {
-      heading: '頒布',
+      heading: '頒布額',
       rows: [
         [
           { path: 'basePrice.amount', label: '基準額', kind: 'number', choices: [] },
@@ -141,6 +174,12 @@
         ],
       ],
       clearing: '基準額を解除',
+      /*
+       * 入力された値をそのまま並べる。公開サイトの整形（通貨ごとの最小単位）は
+       * `frontend-public` の `formatPrice` が持っており、写すと規則が2箇所に散る。
+       */
+      summaryOf: (draft) =>
+        summaryLine([draft['basePrice.amount'], draft['basePrice.currency']], ' '),
     },
   ];
 
@@ -155,11 +194,12 @@
    */
   const ORIGINAL_WORK_NOTE: FieldSpec = text('originalWorkNote', '原作の出典（例:「○○」より各曲）');
 
+  /** そのまとまりが持つ欄の位置 */
+  const pathsIn = (section: Section): readonly string[] =>
+    section.rows.flatMap((row) => row.map((field) => field.path));
+
   /** 作品本体の欄を持つ位置 */
-  const FIELD_PATHS: readonly string[] = [
-    ...SECTIONS.flatMap((section) => section.rows.flatMap((row) => row.map((field) => field.path))),
-    ORIGINAL_WORK_NOTE.path,
-  ];
+  const FIELD_PATHS: readonly string[] = [...SECTIONS.flatMap(pathsIn), ORIGINAL_WORK_NOTE.path];
 
   /**
    * 保存のフォームの名。
@@ -828,6 +868,57 @@
 
   const messagesOf = (path: AlbumFieldPath): readonly string[] => errors.byField.get(path) ?? [];
 
+  /**
+   * 人が開いた区画。
+   *
+   * <p>
+   * <b>既定はどれも畳んでいる。</b> 作品1件の入力は縦に長く、全部が開いたままでは、いま何を編集して
+   * いるのかを見失う。畳み切った画面はその作品の姿（公開サイトと同じ読み方）になり、直したい区画だけを
+   * 開いて入力に変える。
+   * </p>
+   *
+   * <p>
+   * 行（トラック・チューン）と違い、<b>同時にいくつ開いてもよい</b>。区画はそれぞれ別の事柄で、突き合わせ
+   * ながら直すことがある。
+   * </p>
+   */
+  let openSections = $state<ReadonlySet<string>>(new Set());
+
+  const toggleSection = (heading: string): void => {
+    openSections = openSections.has(heading)
+      ? new Set([...openSections].filter((open) => open !== heading))
+      : new Set([...openSections, heading]);
+  };
+
+  /** その位置のどれかに誤りが割り当てられているか */
+  const rejectedAt = (paths: readonly string[]): boolean =>
+    paths.some((path) => messagesAt(path).length > 0);
+
+  /** その接頭辞の下のどこかに誤りが割り当てられているか。子の位置は行数で決まるため綴りで引く */
+  const rejectedUnder = (prefix: string): boolean =>
+    [...errors.byField.keys()].some((path) => path.startsWith(prefix));
+
+  /**
+   * 開いている区画。
+   *
+   * 断られた区画は畳めない——理由は欄の下に出るため、畳んだままでは直す先が画面から消える。
+   */
+  const shown = (heading: string, rejected: boolean): boolean =>
+    [rejected, openSections.has(heading)].some(Boolean);
+
+  /*
+   * 畳んだ区画に出す要約。欄を持たない区画（カバー画像・曲目・外部音源）は入っているものの数で読む
+   * ——どれも中身が並びや画像で、1行へ畳むと元の読み方にならない。
+   */
+  const coverSummary = $derived(coverImageUrl === null ? '（なし）' : '設定済み');
+  const tracksSummary = $derived(tracks.length === 0 ? '（なし）' : `${String(tracks.length)}曲`);
+  const audiosSummary = $derived(audios.length === 0 ? '（なし）' : `${String(audios.length)}件`);
+
+  /** カバー画像の誤り。位置を持つ検証エラーと、送るのに失敗した理由のどちらも直す先はこの区画にある */
+  const coverRejected = $derived(
+    [rejectedAt(['coverImageKey']), coverMessages.length > 0].some(Boolean),
+  );
+
   const SAVE_LABELS = { new: '作成する', edit: '保存する' } satisfies Record<Props['mode'], string>;
 </script>
 
@@ -864,9 +955,15 @@
     -->
       <fieldset class="space-y-8" disabled={saving}>
         {#each SECTIONS as section (section.heading)}
-          <section class="space-y-4">
-            <h2 class="text-base font-medium">{section.heading}</h2>
-
+          <AlbumSection
+            heading={section.heading}
+            summary={section.summaryOf(draft)}
+            open={shown(section.heading, rejectedAt(pathsIn(section)))}
+            disabled={saving}
+            onToggle={() => {
+              toggleSection(section.heading);
+            }}
+          >
             {#each section.rows as row, index (row[0]?.path)}
               <div class="flex flex-wrap items-end gap-4">
                 {#each row as field (field.path)}
@@ -898,16 +995,23 @@
                 {/if}
               </div>
             {/each}
-          </section>
+          </AlbumSection>
         {/each}
 
         <!--
         画像は選んだ時点で送られ、確定できたものだけがここに出る。作品へ反映するのは保存で、
         送るのと反映するのを分けているため、状態の出し方も保存とは別に持つ。
       -->
-        <section class="space-y-4" data-field="coverImageKey">
-          <div class="flex items-center justify-between gap-4">
-            <h2 class="text-base font-medium">カバー画像</h2>
+        <AlbumSection
+          heading="カバー画像"
+          summary={coverSummary}
+          open={shown('カバー画像', coverRejected)}
+          disabled={saving}
+          onToggle={() => {
+            toggleSection('カバー画像');
+          }}
+        >
+          <div class="space-y-4" data-field="coverImageKey">
             {#if coverImageUrl !== null}
               <!-- 送っている最中は外せない。外した後に送り終えた画像が入ると、外した操作が黙って覆る -->
               <Button
@@ -920,50 +1024,50 @@
                 カバー画像を外す
               </Button>
             {/if}
-          </div>
 
-          {#if coverImageUrl === null}
-            <p class="text-muted-foreground text-sm">カバー画像はありません。</p>
-          {:else}
-            <img
-              class="border-input h-40 w-40 rounded-md border object-cover"
-              src={coverImageUrl}
-              alt="いま選ばれているカバー画像"
-              data-cover-image
-            />
-          {/if}
+            {#if coverImageUrl === null}
+              <p class="text-muted-foreground text-sm">カバー画像はありません。</p>
+            {:else}
+              <img
+                class="border-input h-40 w-40 rounded-md border object-cover"
+                src={coverImageUrl}
+                alt="いま選ばれているカバー画像"
+                data-cover-image
+              />
+            {/if}
 
-          <div class="space-y-1">
-            <label class="text-sm font-medium" for="album-cover-image">画像を選ぶ</label>
-            <!--
+            <div class="space-y-1">
+              <label class="text-sm font-medium" for="album-cover-image">画像を選ぶ</label>
+              <!--
             受け入れる形式を並べない。`image/*` はファイルを選ぶ窓の絞り込みで、どの画像形式を
             受け入れるかの判定はバックエンドが持つ。ここへ写すと、増減のたびに2箇所を変えることになる。
           -->
-            {#key coverAttempts}
-              <input
-                id="album-cover-image"
-                class="border-input bg-background w-full rounded-md border px-3 py-2"
-                type="file"
-                accept="image/*"
-                disabled={sendingCover}
-                onchange={(event) => {
-                  pickCover(event.currentTarget.files);
-                }}
-              />
-            {/key}
-            <p class="text-muted-foreground text-sm">
-              選ぶとすぐに送ります。作品へ反映するには、そのあと保存してください。
-            </p>
+              {#key coverAttempts}
+                <input
+                  id="album-cover-image"
+                  class="border-input bg-background w-full rounded-md border px-3 py-2"
+                  type="file"
+                  accept="image/*"
+                  disabled={sendingCover}
+                  onchange={(event) => {
+                    pickCover(event.currentTarget.files);
+                  }}
+                />
+              {/key}
+              <p class="text-muted-foreground text-sm">
+                選ぶとすぐに送ります。作品へ反映するには、そのあと保存してください。
+              </p>
+            </div>
+
+            {#if sendingCover}
+              <p class="text-muted-foreground text-sm">画像を送っています…</p>
+            {/if}
+
+            {#each coverMessages as message (message)}
+              <p class="text-destructive text-sm" role="alert">{message}</p>
+            {/each}
           </div>
-
-          {#if sendingCover}
-            <p class="text-muted-foreground text-sm">画像を送っています…</p>
-          {/if}
-
-          {#each coverMessages as message (message)}
-            <p class="text-destructive text-sm" role="alert">{message}</p>
-          {/each}
-        </section>
+        </AlbumSection>
       </fieldset>
     </form>
 
@@ -971,7 +1075,17 @@
       OUTSIDE-THE-FORM: 反映は上の保存に乗るが、区画は保存のフォームの外に置く。中に置くと、行を足す
       入力とボタンが作品の保存を巻き込む（Enter も submit になる）。
     -->
-    <AlbumTracks {tracks} disabled={busy} messagesOf={messagesAt} onChange={tracksChanged} />
+    <AlbumSection
+      heading="曲目"
+      summary={tracksSummary}
+      open={shown('曲目', rejectedUnder(TRACK_PATH_PREFIX))}
+      disabled={saving}
+      onToggle={() => {
+        toggleSection('曲目');
+      }}
+    >
+      <AlbumTracks {tracks} disabled={busy} messagesOf={messagesAt} onChange={tracksChanged} />
+    </AlbumSection>
 
     <!--
       曲目の直後に置くが、保存は作品の保存に乗る。`form` 属性でそのフォームへ結び付けているため、
@@ -989,12 +1103,22 @@
       />
     </fieldset>
 
-    <AlbumExternalAudios
-      {audios}
-      disabled={busy}
-      messagesOf={audioMessagesOf}
-      onChange={audiosChanged}
-    />
+    <AlbumSection
+      heading="外部音源"
+      summary={audiosSummary}
+      open={shown('外部音源', rejectedUnder(AUDIO_PATH_PREFIX))}
+      disabled={saving}
+      onToggle={() => {
+        toggleSection('外部音源');
+      }}
+    >
+      <AlbumExternalAudios
+        {audios}
+        disabled={busy}
+        messagesOf={audioMessagesOf}
+        onChange={audiosChanged}
+      />
+    </AlbumSection>
 
     <div class="max-w-2xl space-y-8">
       {#if errors.unassigned.length > 0}

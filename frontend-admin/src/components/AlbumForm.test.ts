@@ -108,11 +108,19 @@ const duplicatedAudioUrl = {
 const audioRows = (): readonly HTMLElement[] =>
   within(screen.getByRole('list')).getAllByRole('listitem');
 
+/*
+ * SECTIONS-START-COLLAPSED: 区画は既定で畳まれている。読み込めたことは、区画の見出しが出たところで
+ * 見る（欄はまだ描かれていない）。
+ */
 const openEditor = async (): Promise<void> => {
   window.history.replaceState({}, '', `?albumId=${ALBUM_ID}`);
   sessionStorage.setItem('abservice.admin.api-key', 'test-key');
   render(AlbumForm, { mode: 'edit' });
-  await screen.findByLabelText('タイトル');
+  await screen.findByRole('button', { name: '作品を開く' });
+};
+
+const openSection = async (heading: string): Promise<void> => {
+  await userEvent.click(screen.getByRole('button', { name: `${heading}を開く` }));
 };
 
 beforeEach(() => {
@@ -120,9 +128,64 @@ beforeEach(() => {
   updateAlbum.mockResolvedValue(rejectedSecondRow);
 });
 
+describe('区画の畳み', () => {
+  const summaryOf = (heading: string): string | undefined =>
+    document
+      .querySelector(`[data-section="${heading}"] [data-section-summary]`)
+      ?.textContent.trim();
+
+  it('既定はどの区画も畳まれている', async () => {
+    await openEditor();
+
+    expect(screen.queryByLabelText('タイトル')).toBeNull();
+    expect(screen.queryByLabelText('音源のURL')).toBeNull();
+  });
+
+  /*
+   * COLLAPSED-READS-LIKE-PUBLIC: 畳んだ区画は公開サイトと同じ読み方の要約で並ぶ。畳み切った画面が
+   * その作品の姿になっていないと、開くまで何が入っているのかが分からない。
+   */
+  it('畳んだ区画は、入っているものを要約で出す', async () => {
+    await openEditor();
+
+    expect(summaryOf('作品')).toBe('アルバム / アーティスト / 2026-01-01');
+    expect(summaryOf('外部音源')).toBe('3件');
+  });
+
+  it('何も入っていない区画は、無いことを示す', async () => {
+    await openEditor();
+
+    expect(summaryOf('初出イベント')).toBe('（未入力）');
+    expect(summaryOf('曲目')).toBe('（なし）');
+  });
+
+  it('開いた区画だけが入力に変わる', async () => {
+    await openEditor();
+
+    await openSection('作品');
+
+    expect(screen.getByLabelText('タイトル')).toBeTruthy();
+    expect(screen.queryByLabelText('音源のURL')).toBeNull();
+  });
+
+  /*
+   * REJECTED-SECTION-OPENS: 理由は欄の下に出る。断られた区画が畳まれたままだと、直す先が画面から
+   * 消える。
+   */
+  it('断られた区画は、畳んだままでも開く', async () => {
+    await openEditor();
+
+    await userEvent.click(screen.getByRole('button', { name: '保存する' }));
+
+    expect(await screen.findByLabelText('音源のURL')).toBeTruthy();
+    expect(screen.queryByLabelText('タイトル')).toBeNull();
+  });
+});
+
 describe('外部音源の行の誤り', () => {
   it('断られた行の下に理由が出る', async () => {
     await openEditor();
+    await openSection('外部音源');
 
     await userEvent.click(screen.getByRole('button', { name: '保存する' }));
 
@@ -132,6 +195,7 @@ describe('外部音源の行の誤り', () => {
 
   it('並べ替えると、前の誤りは付いて回らない', async () => {
     await openEditor();
+    await openSection('外部音源');
 
     await userEvent.click(screen.getByRole('button', { name: '保存する' }));
     await within(audioRows()[1] as HTMLElement).findByRole('alert');
@@ -150,6 +214,7 @@ describe('外部音源の行の誤り', () => {
   it('並べ替えても、本体の欄の誤りは残る', async () => {
     updateAlbum.mockResolvedValue(rejectedTitleAndSecondRow);
     await openEditor();
+    await openSection('外部音源');
 
     await userEvent.click(screen.getByRole('button', { name: '保存する' }));
     await within(audioRows()[1] as HTMLElement).findByRole('alert');
@@ -168,6 +233,7 @@ describe('外部音源の行の誤り', () => {
 
   it('前の行を外しても、誤りが繰り上がった別の行に出ない', async () => {
     await openEditor();
+    await openSection('外部音源');
 
     await userEvent.click(screen.getByRole('button', { name: '保存する' }));
     await within(audioRows()[1] as HTMLElement).findByRole('alert');
@@ -192,6 +258,7 @@ describe('未保存の知らせ', () => {
 
   it('本体の欄を書き換えると出る', async () => {
     await openEditor();
+    await openSection('作品');
 
     await userEvent.type(screen.getByLabelText('タイトル'), '改');
 
@@ -204,6 +271,7 @@ describe('未保存の知らせ', () => {
    */
   it('曲目を足しただけでも出る', async () => {
     await openEditor();
+    await openSection('曲目');
 
     await userEvent.click(screen.getByRole('button', { name: 'トラックを追加する' }));
 
@@ -216,6 +284,7 @@ describe('未保存の知らせ', () => {
    */
   it('書き換えを元へ戻すと消える', async () => {
     await openEditor();
+    await openSection('作品');
 
     await userEvent.type(screen.getByLabelText('タイトル'), '改');
     await userEvent.type(screen.getByLabelText('タイトル'), '{backspace}');

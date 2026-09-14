@@ -67,8 +67,8 @@
   const last = $derived(audios.length - 1);
 </script>
 
-<section class="max-w-2xl space-y-4">
-  <h2 class="text-base font-medium">外部音源</h2>
+<!-- 見出しは区画（`AlbumSection`）が持つ。畳んだときの要約と同じ場所に出すため -->
+<div class="space-y-4">
   <p class="text-muted-foreground text-sm">
     追加・取り外し・並べ替えは、作品を保存したときに反映されます。
   </p>
@@ -147,4 +147,4 @@
     </div>
     <Button type="submit" size="sm" variant="outline" disabled={addDisabled}>音源を追加する</Button>
   </form>
-</section>
+</div>

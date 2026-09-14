@@ -140,8 +140,8 @@
   const last = $derived(tracks.length - 1);
 </script>
 
-<section class="max-w-2xl space-y-4">
-  <h2 class="text-base font-medium">曲目</h2>
+<!-- 見出しは区画（`AlbumSection`）が持つ。畳んだときの要約と同じ場所に出すため -->
+<div class="space-y-4">
   <p class="text-muted-foreground text-sm">
     追加・取り外し・並べ替えは、作品を保存したときに反映されます。
   </p>
@@ -255,4 +255,4 @@
   <Button type="button" size="sm" variant="outline" {disabled} onclick={addTrack}>
     トラックを追加する
   </Button>
-</section>
+</div>

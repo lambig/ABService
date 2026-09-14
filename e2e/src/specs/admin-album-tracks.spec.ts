@@ -1,5 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 
+import { openAllSections } from '../support/album-editor.ts';
 import { captureFocused, captureWhole } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 import { deleteScratchAlbums, seedScratchAlbum } from '../support/scratch-albums.ts';
@@ -82,13 +83,19 @@ const openAdmin = async (page: Page): Promise<void> => {
   await expect(page.getByRole('table')).toBeVisible();
 };
 
-/** 一覧から対象の編集を開く */
+/**
+ * 一覧から対象の編集を開き、区画をすべて開く。
+ *
+ * 区画は既定で畳まれている（#122）。ここで見るのは曲目の行の振る舞いのため、先にまとめて開く——
+ * 区画の畳み方そのものは `admin-album-sections.spec.ts` が見る。
+ */
 const openEdit = async (page: Page, title: string): Promise<void> => {
   await page
     .getByRole('row')
     .filter({ hasText: title })
     .getByRole('link', { name: EDIT_LABEL })
     .click();
+  await openAllSections(page);
   await expect(page.getByLabel(ALBUM_TITLE_LABEL)).toHaveValue(title);
 };
 
@@ -339,6 +346,7 @@ test.describe('管理画面の曲目', () => {
      * 読み直しで消えることが、入力に留まっていたことの証拠になる。
      */
     await page.reload();
+    await openAllSections(page);
     await expect(page.getByLabel(ALBUM_TITLE_LABEL)).toHaveValue(title);
     await expect(page.getByText(TRACKS_ABSENT_TEXT)).toBeVisible();
     await expect(page.getByText(UNSAVED_TEXT)).toHaveCount(0);
