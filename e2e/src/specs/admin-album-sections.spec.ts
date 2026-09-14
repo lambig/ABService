@@ -37,6 +37,10 @@ const URL_LABEL = '音源のURL';
 /** 保存の操作 */
 const CREATE_LABEL = '作成する';
 
+/** 幅。導線の切り替え（#357）と同じ2点で見る */
+const WIDE = { width: 1280, height: 800 };
+const NARROW = { width: 390, height: 844 };
+
 /** 鍵を入れて一覧が出た状態にする */
 const openAdmin = async (page: Page): Promise<void> => {
   await page.goto(stack.adminBaseUrl);
@@ -124,6 +128,36 @@ test.describe('管理画面の作品の区画', () => {
 
     await openSection(page, '作品');
     await expect(page.getByLabel(TITLE_LABEL)).toHaveValue('E2E 書きかけのタイトル');
+  });
+
+  /*
+   * ACTIONS-ESCAPE-TO-THE-SIDE: 保存の操作は画面の下端に留まる。広い幅では本文の右へ逃がす——本文に
+   * 重なると、いちばん下の欄が操作の裏に隠れる。重なりは検査が落ちない欠陥なので、位置そのものを見る。
+   */
+  test('広い幅では、下端の操作が本文に重ならない', async ({ page }) => {
+    await page.setViewportSize(WIDE);
+    await openAlbumFor(page, '操作の位置');
+    await openSection(page, '作品');
+
+    const actionsBox = await page.locator('[data-album-actions]').boundingBox();
+    const fieldBox = await page.getByLabel(TITLE_LABEL).boundingBox();
+
+    /* 本文の右端より右から始まっていること */
+    expect(actionsBox?.x).toBeGreaterThanOrEqual((fieldBox?.x ?? 0) + (fieldBox?.width ?? 0));
+
+    await captureFocused(page, page.locator('[data-album-actions]'), '22d-admin-edit-actions-wide');
+  });
+
+  test('狭い幅では、下端の操作が画面の下に留まる', async ({ page }) => {
+    await page.setViewportSize(NARROW);
+    await openAlbumFor(page, '狭い幅の操作');
+
+    const actionsBox = await page.locator('[data-album-actions]').boundingBox();
+
+    /* 画面の下端にあること。スクロールしても付いてくる（`fixed`）ため、位置は viewport で決まる */
+    expect(actionsBox?.y).toBeGreaterThan(NARROW.height / 2);
+
+    await capture(page, '22e-admin-edit-actions-narrow');
   });
 
   /*

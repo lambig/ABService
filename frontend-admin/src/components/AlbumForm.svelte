@@ -959,7 +959,11 @@
     </div>
   </div>
 {:else}
-  <div class="space-y-8">
+  <!--
+    狭い幅では操作が本文の上に重なるため、その分だけ下を空ける。空けないと、いちばん下の入力へ永久に
+    届かない。広い幅は右へ逃げるので重ならない。
+  -->
+  <div class="space-y-8 pb-24 lg:pb-0">
     <form id={ALBUM_FORM_ID} class="max-w-2xl space-y-8" onsubmit={submit}>
       <!--
       送ったのはクリックした時点の入力である。保存中も入力を受け付けると、その後の変更は要求に
@@ -1175,26 +1179,36 @@
     </div>
 
     <!--
-      STICKY-ACTIONS: 保存の操作を画面の下端に貼り付け、未保存であることをそこに出す。
+      FIXED-ACTIONS: 保存の操作を画面の下端に留め、未保存であることをそこに出す。
 
       曲目も外部音源もこの保存に乗るようになり（#391）、畳んだ行の中にも書きかけが残る。操作が画面の
       上端にしか無いと、**書きかけがあること自体が見えない**まま離脱できてしまう。知らせと操作を同じ
       1箇所に置くのは、知らせを読んだ人がその場で保存できるようにするため。
-    -->
-    <div
-      class="bg-background/95 sticky bottom-0 flex max-w-2xl flex-wrap items-center gap-4 border-t py-3 backdrop-blur"
-      data-album-actions
-    >
-      <Button type="submit" form={ALBUM_FORM_ID} disabled={busy}>
-        {saving ? '保存しています…' : SAVE_LABELS[mode]}
-      </Button>
-      <a class="text-sm underline underline-offset-4" href={ALBUM_LIST_PATH}>やめる</a>
 
-      {#if unsaved}
-        <p class="text-muted-foreground text-sm" role="status" data-unsaved>
-          保存していない変更があります。
-        </p>
-      {/if}
+      広い幅では本文の右へ逃がす（#357 の導線と同じ切り替え）。本文は `max-w-2xl` で、器の右には
+      収まる空きが残る——本文の上に重ねずに済み、全体を撮った証跡でも欄を覆わない。
+
+      外側の器は `AdminLayout.astro` と同じ幅で組む。`fixed` は viewport からの位置しか持てないため、
+      本文の右端を指すには器の位置を再現するしかない。
+    -->
+    <div class="pointer-events-none fixed inset-x-0 bottom-0 z-10">
+      <div class="mx-auto max-w-5xl px-4 lg:max-w-6xl">
+        <div
+          class="bg-background/95 border-border pointer-events-auto ml-auto flex flex-wrap items-center gap-4 border-t py-3 backdrop-blur lg:w-56 lg:flex-col lg:items-start lg:gap-3 lg:rounded-md lg:border lg:px-4 lg:py-4"
+          data-album-actions
+        >
+          <Button type="submit" form={ALBUM_FORM_ID} disabled={busy}>
+            {saving ? '保存しています…' : SAVE_LABELS[mode]}
+          </Button>
+          <a class="text-sm underline underline-offset-4" href={ALBUM_LIST_PATH}>やめる</a>
+
+          {#if unsaved}
+            <p class="text-muted-foreground text-sm" role="status" data-unsaved>
+              保存していない変更があります。
+            </p>
+          {/if}
+        </div>
+      </div>
     </div>
   </div>
 {/if}
