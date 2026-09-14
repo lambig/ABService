@@ -1,28 +1,61 @@
 import { createHash } from "node:crypto";
 import { cp, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { dirname, relative, resolve, sep } from "node:path";
 import ts from "typescript";
-const hash = (input: string): string =>
+
+const hash = (input: string | Uint8Array): string =>
   createHash("sha256").update(input).digest("hex");
 const worker = await readFile("../offline-shell/worker/sw.ts", "utf8");
-const assets = await readdir("dist/assets");
+const assets = await readdir("dist/assets", {
+  recursive: true,
+  withFileTypes: true,
+});
+const paths = [
+  "index.html",
+  ...assets
+    .filter((entry) => entry.isFile())
+    .map((entry) =>
+      relative("dist", resolve(entry.parentPath, entry.name))
+        .split(sep)
+        .join("/"),
+    )
+    .sort(),
+];
 const files = await Promise.all(
-  ["index.html", ...assets.map((name) => `assets/${name}`)].map(
-    async (path) => ({ path, content: await readFile(`dist/${path}`, "utf8") }),
-  ),
+  paths.map(async (path) => ({
+    path,
+    content: await readFile(`dist/${path}`),
+  })),
 );
-const revision = hash(JSON.stringify([worker, ts.version, ...files]));
+const revision = hash(
+  JSON.stringify([
+    worker,
+    ts.version,
+    ...files.map((file) => [file.path, hash(file.content)]),
+  ]),
+);
 const prefix = `releases/${revision}/`;
 const output = files.map((file) => ({
   path: `${prefix}${file.path}`,
-  content: file.content
-    .replaceAll("__SHELL_REVISION__", revision)
-    .replaceAll("/offline-player/assets/", `/offline-player/${prefix}assets/`),
+  content: /\.(?:html|css|m?js)$/.test(file.path)
+    ? Buffer.from(
+        file.content
+          .toString("utf8")
+          .replaceAll("__SHELL_REVISION__", revision)
+          .replaceAll(
+            "/offline-player/assets/",
+            `/offline-player/${prefix}assets/`,
+          ),
+      )
+    : file.content,
 }));
-await mkdir(`dist/${prefix}assets`, { recursive: true });
 await Promise.all(
-  output.map((file) => writeFile(`dist/${file.path}`, file.content)),
+  output.map(async (file) => {
+    await mkdir(dirname(`dist/${file.path}`), { recursive: true });
+    await writeFile(`dist/${file.path}`, file.content);
+  }),
 );
-await writeFile("dist/index.html", output[0]?.content ?? "");
+await cp(`dist/${prefix}index.html`, "dist/index.html");
 const shell = {
   revision,
   entries: output.map((file) => ({
