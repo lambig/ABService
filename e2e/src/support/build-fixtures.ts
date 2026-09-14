@@ -260,6 +260,11 @@ export const quietArticle = {
   introShort: '額を持たない作品を紹介する記事のショート紹介文。',
 } as const;
 
+/** 画像を持たない作品を参照する記事。参照の有無と画像の有無を分けて検査する。 */
+export const coverlessArticle = {
+  title: 'E2E カバーなし作品紹介記事',
+} as const;
+
 /** 作品への参照を持たない記事 */
 export const plainArticle = {
   title: 'E2E ノート記事',
@@ -317,8 +322,8 @@ export const siteContent = {
 export const pagination = {
   /** 画面が1ページに並べる件数 */
   perPage: 20,
-  /** 作品紹介2件・ノート1件と合わせて1ページを1件だけ超える */
-  filler: 18,
+  /** 作品紹介3件・ノート1件と合わせて1ページを1件だけ超える */
+  filler: 17,
   titleOf: (index: number): string => `E2E ページ送り記事 ${String(index)}`,
 } as const;
 
@@ -596,11 +601,16 @@ export const seedForBuild = async (): Promise<void> => {
 
   const showcaseAlbumId = await seededAlbumId(showcase.catalogNumber);
   const quietAlbumId = await seededAlbumId(quiet.catalogNumber);
+  const coverlessAlbumId = await seededAlbumId(coverless.catalogNumber);
 
   for (const index of Array.from({ length: pagination.filler }, (_unused, i) => i + 1)) {
     await ensureArticle(fillerArticleSeed(index), 'PUBLISHED');
   }
 
+  await ensureArticle(
+    { articleType: 'ALBUM', title: coverlessArticle.title, albumId: coverlessAlbumId },
+    'PUBLISHED',
+  );
   await ensureArticle(quietArticleSeed(quietAlbumId), 'PUBLISHED');
   await ensureArticle(plainArticleSeed, 'PUBLISHED');
   await ensureArticle(albumArticleSeed(showcaseAlbumId), 'PUBLISHED');
