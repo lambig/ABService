@@ -3,7 +3,13 @@ import { setTimeout as delay } from 'node:timers/promises';
 import type { Locator, Page } from '@playwright/test';
 
 import { renameAlbumOutsideTheScreen } from '../support/admin-api.ts';
+import { openAllSections, openSection } from '../support/album-editor.ts';
 import { stack } from '../support/config.ts';
+import {
+  acceptedCoverImage,
+  unconfirmableCoverImage,
+  unsupportedCoverImage,
+} from '../support/cover-image.ts';
 import { capture, captureFocused, captureWhole, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 import {
@@ -39,6 +45,7 @@ const RELEASE_DATE_LABEL = 'リリース日';
 const ARTIST_LABEL = 'アーティスト表示名';
 const CATALOG_NUMBER_LABEL = 'カタログナンバー';
 const ISDN_LABEL = 'ISDN';
+const EVENT_DATE_LABEL = '開催日';
 const EVENT_NAME_LABEL = 'イベント名';
 const EVENT_PLACE_LABEL = '会場';
 const BASE_PRICE_LABEL = '基準額';
@@ -47,6 +54,11 @@ const ORIGINAL_WORK_NOTE_LABEL = '原作の出典（例:「○○」より各曲
 
 /** 頒布のまとまりを外す操作 */
 const CLEAR_BASE_PRICE_LABEL = '基準額を解除';
+
+/** カバー画像のまとまり */
+const COVER_CHOOSE_LABEL = '画像を選ぶ';
+const CLEAR_COVER_LABEL = 'カバー画像を外す';
+const COVER_ABSENT_TEXT = 'カバー画像はありません。';
 
 /** 保存の操作 */
 const SAVE_LABEL = '保存する';
@@ -91,9 +103,65 @@ const rowOf = (page: Page, title: string): Locator =>
  */
 const fieldOf = (page: Page, path: string): Locator => page.locator(`[data-field="${path}"]`);
 
-/** 一覧から対象の編集を開く */
+/** カバー画像のまとまりと、その中に出ている画像 */
+const coverSection = (page: Page): Locator => fieldOf(page, 'coverImageKey');
+const coverImage = (page: Page): Locator => coverSection(page).locator('[data-cover-image]');
+
+/**
+ * カバー画像が本当に届いて描かれていること。
+ *
+ * <p>
+ * `src` が入っただけの状態と区別する。配信が `/assets/*` を取り次いでいない場合も、実体が確定して
+ * いない場合も、画面には要素がある。読み込めたかどうかは実寸でしか分からない。
+ * </p>
+ */
+const expectCoverDrawn = async (page: Page): Promise<void> => {
+  await expect(coverImage(page)).toHaveJSProperty('naturalWidth', acceptedCoverImage.width);
+};
+
+/** 画像を選び、確定して画面に出るまで待つ */
+const chooseCover = async (page: Page): Promise<void> => {
+  await page.getByLabel(COVER_CHOOSE_LABEL).setInputFiles(acceptedCoverImage);
+  await expect(coverImage(page)).toBeVisible();
+  await expectCoverDrawn(page);
+};
+
+/**
+ * いま出ているカバー画像の配信先。
+ *
+ * 差し替わっていないことを見るために控える。鍵そのものは画面に出ないが、配信先は確定の応答が返した
+ * 鍵から組まれるため、これが変わらないことは鍵が変わっていないことを表す。
+ */
+const coverSourceOf = async (page: Page): Promise<string> => {
+  const source = await coverImage(page).getAttribute('src');
+
+  return source === null ? Promise.reject(new Error('カバー画像が src を持っていません')) : source;
+};
+
+/**
+ * 同じ行に並ぶ2つの欄が、上端で揃っていること。
+ *
+ * <p>
+ * 誤りは欄の下に出るため、欄ごとに高さが変わる。下端で揃えていると、誤りの出た欄だけが持ち上がって
+ * 行の並びが崩れる——**落ちない欠陥**なので、位置そのものを見る。
+ * </p>
+ */
+const expectAlignedRow = async (page: Page, left: string, right: string): Promise<void> => {
+  const leftBox = await page.getByLabel(left).boundingBox();
+  const rightBox = await page.getByLabel(right).boundingBox();
+
+  expect(leftBox?.y).toBe(rightBox?.y);
+};
+
+/**
+ * 一覧から対象の編集を開き、区画をすべて開く。
+ *
+ * 区画は既定で畳まれている（#122）。ここで見るのは欄そのものの振る舞いのため、畳み方は
+ * `admin-album-sections.spec.ts` へ任せ、先にまとめて開く。
+ */
 const openEdit = async (page: Page, title: string): Promise<void> => {
   await rowOf(page, title).getByRole('link', { name: EDIT_LABEL }).click();
+  await openAllSections(page);
   await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(title);
 };
 
@@ -109,6 +177,8 @@ test.describe('管理画面の作品の編集', () => {
       rowOf(page, title).getByRole('link', { name: EDIT_LABEL }),
       '22-admin-edit-open',
     );
+
+    await openAllSections(page);
 
     await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(title);
     await expect(page.getByLabel(RELEASE_DATE_LABEL)).toHaveValue('2026-09-01');
@@ -206,6 +276,107 @@ test.describe('管理画面の作品の編集', () => {
     );
   });
 
+  test('カバー画像を選ぶと確定され、保存すると読み直した編集に残っている', async ({ page }) => {
+    const title = await seedScratchAlbum('カバー画像');
+
+    await openAdmin(page);
+    await openEdit(page, title);
+
+    /* 作品は画像を持たない状態で作られる。無い側から入れて、往復することを見る */
+    await expect(coverSection(page).getByText(COVER_ABSENT_TEXT)).toBeVisible();
+
+    await chooseCover(page);
+    await captureFocused(page, coverSection(page), '39e-admin-edit-cover-chosen');
+
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+    await expect(page.getByRole('table')).toBeVisible();
+
+    /*
+     * 確定は選んだ時点で済んでおり、作品へ結び付くのはこの保存。読み直して初めて、**送れたこと**と
+     * **保存されたこと**の両方が揃ったと言える。
+     */
+    await openEdit(page, title);
+    await expect(coverImage(page)).toBeVisible();
+    await expectCoverDrawn(page);
+    await captureFocused(page, coverSection(page), '39f-admin-edit-cover-saved');
+  });
+
+  test('対応していない形式を選ぶと断られ、カバー画像は変わらない', async ({ page }) => {
+    const title = await seedScratchAlbum('カバー画像の拒否');
+
+    await openAdmin(page);
+    await openEdit(page, title);
+
+    await page.getByLabel(COVER_CHOOSE_LABEL).setInputFiles(unsupportedCoverImage);
+
+    /* 断られた理由はバックエンドの文言をそのまま出す。画面は受け入れる形式の一覧を持たない */
+    await expect(coverSection(page).getByRole('alert')).toBeVisible();
+    await expect(coverSection(page).getByText(COVER_ABSENT_TEXT)).toBeVisible();
+    await captureFocused(page, coverSection(page), '39g-admin-edit-cover-rejected');
+
+    /* 断られた後も選び直せる。直す先は画像の選び直しにあり、入力を作り直してそこへ戻す */
+    await chooseCover(page);
+    await expect(coverSection(page).getByRole('alert')).toHaveCount(0);
+  });
+
+  test('送れても確定に通らない実体は、いま出ているカバー画像を置き換えない', async ({ page }) => {
+    const title = await seedScratchAlbum('カバー画像の確定拒否');
+
+    await openAdmin(page);
+    await openEdit(page, title);
+    await chooseCover(page);
+
+    const confirmed = await coverSourceOf(page);
+
+    /*
+     * 申告は PNG で中身が PNG でない実体。払い出しも保管先への送信も通り、確定の検査で初めて落ちる。
+     * 3段のうち最後だけが拒む唯一の経路で、「送れた実体でも確定に通らなければ鍵にしない」はここでしか
+     * 踏めない（形式そのものが弾かれる場合は、送信も確定も起きない）。
+     */
+    await page.getByLabel(COVER_CHOOSE_LABEL).setInputFiles(unconfirmableCoverImage);
+
+    await expect(coverSection(page).getByRole('alert')).toBeVisible();
+    await expect(coverImage(page)).toHaveAttribute('src', confirmed);
+    await expectCoverDrawn(page);
+    await captureFocused(page, coverSection(page), '39j-admin-edit-cover-unconfirmable');
+
+    /*
+     * 保存して読み直す。断られた実体が入力の鍵に触れていないことは、画面に出ている配信先だけでは
+     * 言い切れない——**保存されたのがどちらの鍵か**は、保存を通してからでないと分からない。
+     */
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+    await expect(page.getByRole('table')).toBeVisible();
+
+    await openEdit(page, title);
+    await expect(coverImage(page)).toHaveAttribute('src', confirmed);
+    await expectCoverDrawn(page);
+  });
+
+  test('カバー画像を外して保存すると、読み直した編集で持たない', async ({ page }) => {
+    const title = await seedScratchAlbum('カバー画像の解除');
+
+    await openAdmin(page);
+    await openEdit(page, title);
+    await chooseCover(page);
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+    await expect(page.getByRole('table')).toBeVisible();
+
+    await openEdit(page, title);
+    await clickWithEvidence(
+      page,
+      page.getByRole('button', { name: CLEAR_COVER_LABEL }),
+      '39h-admin-edit-cover-clear',
+    );
+
+    await expect(coverImage(page)).toHaveCount(0);
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+    await expect(page.getByRole('table')).toBeVisible();
+
+    await openEdit(page, title);
+    await expect(coverSection(page).getByText(COVER_ABSENT_TEXT)).toBeVisible();
+    await captureFocused(page, coverSection(page), '39i-admin-edit-cover-cleared');
+  });
+
   test('額の欄だけを空にした保存は、額が必須として断られる', async ({ page }) => {
     const title = await seedScratchAlbum('額だけ空');
 
@@ -231,6 +402,14 @@ test.describe('管理画面の作品の編集', () => {
 
     await expect(fieldOf(page, 'basePrice.amount').getByRole('alert')).toBeVisible();
     await expect(fieldOf(page, 'title').getByRole('alert')).toHaveCount(0);
+
+    /* 誤りが出ても、額と通貨と解除の操作は同じ行の上端で揃ったまま */
+    await expectAlignedRow(page, BASE_PRICE_LABEL, CURRENCY_LABEL);
+
+    const amountBox = await page.getByLabel(BASE_PRICE_LABEL).boundingBox();
+    const clearBox = await page.getByRole('button', { name: CLEAR_BASE_PRICE_LABEL }).boundingBox();
+
+    expect(amountBox?.y).toBe(clearBox?.y);
   });
 
   test('検証エラーは、応答が返した位置のとおりに各欄へ出る', async ({ page }) => {
@@ -267,6 +446,14 @@ test.describe('管理画面の作品の編集', () => {
 
     await expect(page.getByLabel(TITLE_LABEL)).toHaveAttribute('aria-invalid', 'true');
     await expect(page.getByLabel(ARTIST_LABEL)).toHaveAttribute('aria-invalid', 'false');
+
+    /*
+     * ROW-ALIGNS-AT-TOP: 理由は欄の下に出るため、誤りのある欄だけが高くなる。同じ行の欄が上端で
+     * 揃っていないと、誤りが1つ出るたびに並びが崩れて読めなくなる。
+     */
+    await expectAlignedRow(page, CATALOG_NUMBER_LABEL, TITLE_LABEL);
+    await expectAlignedRow(page, RELEASE_DATE_LABEL, ISDN_LABEL);
+    await expectAlignedRow(page, EVENT_DATE_LABEL, EVENT_NAME_LABEL);
 
     /* 見どころは「どの欄に出て、どの欄に出ていないか」。欄をまたぐため丸ごと撮る（#369） */
     await captureWhole(page, '25-admin-edit-field-errors');
@@ -411,6 +598,7 @@ test.describe('管理画面の作品の追加', () => {
     await openAdmin(page);
     await clickWithEvidence(page, page.getByRole('link', { name: NEW_LABEL }), '29-admin-new-open');
 
+    await openSection(page, '作品');
     await page.getByLabel(TITLE_LABEL).fill(title);
     await page.getByLabel(RELEASE_DATE_LABEL).fill('2026-10-01');
     await page.getByLabel(ARTIST_LABEL).fill('E2E 追加アーティスト');
@@ -440,6 +628,7 @@ test.describe('管理画面の作品の追加', () => {
     await page.getByLabel(API_KEY_LABEL).fill(WRONG_API_KEY);
     await page.getByRole('button', { name: OPEN_LABEL }).click();
 
+    await openSection(page, '作品');
     await page.getByLabel(TITLE_LABEL).fill(title);
     await page.getByLabel(RELEASE_DATE_LABEL).fill('2026-11-01');
     await page.getByLabel(ARTIST_LABEL).fill('E2E 再認証アーティスト');

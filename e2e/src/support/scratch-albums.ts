@@ -72,6 +72,39 @@ export const seedScratchAlbum = async (purpose: string): Promise<string> =>
   (await seedScratchAlbumDetail(purpose)).title;
 
 /**
+ * タイトルを省いたトラックを1つ持つ作品を作る（下書き）。
+ *
+ * <p>
+ * 省いたトラックの名はチューン名を繋いだものになる（#360）。<b>その名は出すときの名であって入力では
+ * ない</b>ため、読んで書き戻すと省略が明示タイトルへ変わる。その往復を画面で通すために使う。
+ * </p>
+ *
+ * @param purpose
+ *            何のための作品かを表す短い語。タイトルに入る
+ * @param tuneTitles
+ *            そのトラックが持つチューン名。名はこれを繋いだものになる
+ * @returns 一覧で行を指すためのタイトル
+ */
+export const seedScratchAlbumWithUntitledTrack = async (
+  purpose: string,
+  tuneTitles: readonly string[],
+): Promise<string> => {
+  const stamp = String(Date.now());
+  const title = `E2E ${purpose}アルバム ${stamp}`;
+
+  await seedDraftAlbum({
+    title,
+    releaseDate: '2026-09-01',
+    artistDisplayName: `E2E ${purpose}アーティスト`,
+    artistSortKey: `E2E ${purpose}`,
+    catalogNumber: `${SCRATCH_CATALOG_PREFIX}${stamp}`,
+    tracks: [{ tunes: tuneTitles.map((tuneTitle) => ({ tuneTitle })) }],
+  });
+
+  return title;
+};
+
+/**
  * 作品のタイトルに使える長さの上限。
  *
  * ドメインの `AlbumTitle` と列（`AlbumTableRecord` の `title`）が持つ値と揃える。ずれても検査は

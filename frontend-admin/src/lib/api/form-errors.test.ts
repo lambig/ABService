@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formErrorsOf, hasAssignedErrors } from './form-errors';
+import { formErrorsOf, hasAssignedErrors, withoutPathsUnder } from './form-errors';
 
 /** この画面が欄を持つ位置。入れ子（`event.name`）を含む */
 const PATHS = ['title', 'catalogNumber', 'event.name'];
@@ -72,5 +72,41 @@ describe('検証エラーの欄への割り当て', () => {
     expect(
       hasAssignedErrors(formErrorsOf(problemOf([{ field: '', message: '不可' }]), PATHS)),
     ).toBe(false);
+  });
+});
+
+describe('位置が指す先が変わった欄のエラーを落とす', () => {
+  /** 行の位置つきと、行ではない位置を混ぜた応答 */
+  const mixed = formErrorsOf(
+    problemOf([
+      { field: 'title', message: 'タイトルは必須です' },
+      { field: 'externalAudios[1].url', message: '埋め込めるホストではありません' },
+    ]),
+    ['title', 'externalAudios[1].url'],
+  );
+
+  it('接頭辞に一致する欄だけを落とす', () => {
+    const remaining = withoutPathsUnder(mixed, 'externalAudios[');
+
+    expect([...remaining.byField.keys()]).toEqual(['title']);
+  });
+
+  it('一致しない欄は、何も直していないため残す', () => {
+    expect(withoutPathsUnder(mixed, 'externalAudios[').byField.get('title')).toEqual([
+      'タイトルは必須です',
+    ]);
+  });
+
+  it('欄に割り当てられなかったものも、位置が一致すれば落とす', () => {
+    const unassigned = formErrorsOf(
+      problemOf([{ field: 'externalAudios[0]', message: '音源の情報は必須です' }]),
+      ['title'],
+    );
+
+    expect(withoutPathsUnder(unassigned, 'externalAudios[').unassigned).toEqual([]);
+  });
+
+  it('一致するものが無ければ、そのまま返る', () => {
+    expect(withoutPathsUnder(mixed, 'tracks[').byField.size).toBe(2);
   });
 });

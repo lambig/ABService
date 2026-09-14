@@ -22,8 +22,9 @@ import com.abservice.application.service.album.UpdateAlbumService;
 import com.abservice.presentation.rest.CreatedResponses;
 import com.abservice.presentation.rest.album.request.CreateAlbumRequest;
 import com.abservice.presentation.rest.album.request.CreateAlbumRequest.EventRequest;
+import com.abservice.presentation.rest.album.request.ExternalAudioRequest;
 import com.abservice.presentation.rest.album.request.RegisterAlbumWithTracksRequest;
-import com.abservice.presentation.rest.album.request.TrackTuneRequest;
+import com.abservice.presentation.rest.album.request.TrackRequest;
 import com.abservice.presentation.rest.album.request.UpdateAlbumRequest;
 import com.abservice.presentation.rest.album.response.CreateAlbumResponse;
 import com.abservice.presentation.rest.album.response.DeleteAlbumResponse;
@@ -45,7 +46,6 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import java.util.List;
 import java.util.Optional;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jspecify.annotations.Nullable;
@@ -209,7 +209,9 @@ public class AlbumCommandResource {
                 request.descriptionFormat(),
                 toEventInput(request.event()),
                 toBasePriceInput(request.basePrice()),
-                request.originalWorkNote());
+                request.originalWorkNote(),
+                TrackRequest.toInputs(request.tracks()),
+                ExternalAudioRequest.toInputs(request.externalAudios()));
     }
 
     private static UpdateAlbumInput.@Nullable BasePriceInput toBasePriceInput(
@@ -369,7 +371,8 @@ public class AlbumCommandResource {
                 toEventInput(request.event()),
                 toBasePriceInput(request.basePrice()),
                 request.originalWorkNote(),
-                toTrackInputs(request.tracks()));
+                TrackRequest.toInputs(request.tracks()),
+                ExternalAudioRequest.toInputs(request.externalAudios()));
     }
 
     private static RegisterAlbumWithTracksInput.@Nullable BasePriceInput toBasePriceInput(
@@ -392,33 +395,6 @@ public class AlbumCommandResource {
                                 e.place(),
                                 e.spaceNumber(),
                                 e.note()))
-                .orElse(null);
-    }
-
-    private static @Nullable List<RegisterAlbumWithTracksInput.TrackInput> toTrackInputs(
-            @Nullable List<RegisterAlbumWithTracksRequest.TrackRequest> tracks) {
-        return Optional.ofNullable(tracks)
-                .map(AlbumCommandResource::toTrackInputList)
-                .orElse(null);
-    }
-
-    private static List<RegisterAlbumWithTracksInput.TrackInput> toTrackInputList(
-            List<RegisterAlbumWithTracksRequest.TrackRequest> tracks) {
-        return tracks.stream()
-                .map(AlbumCommandResource::toTrackInput)
-                .toList();
-    }
-
-    private static RegisterAlbumWithTracksInput.@Nullable TrackInput toTrackInput(
-            RegisterAlbumWithTracksRequest.@Nullable TrackRequest track) {
-        return Optional.ofNullable(track)
-                .map(
-                        t -> new RegisterAlbumWithTracksInput.TrackInput(
-                                t.trackNo(),
-                                t.title(),
-                                t.artistDisplayName(),
-                                t.artistSortKey(),
-                                TrackTuneRequest.toInputs(t.tunes())))
                 .orElse(null);
     }
 

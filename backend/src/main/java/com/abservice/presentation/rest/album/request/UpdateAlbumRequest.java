@@ -1,5 +1,6 @@
 package com.abservice.presentation.rest.album.request;
 
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -7,6 +8,11 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>
  * PUT風の全項目置換。外部からの未検証入力。値検証はアプリケーション層（各値オブジェクトの {@code fromInput}）に委譲する。
+ * </p>
+ *
+ * <p>
+ * <b>曲目と外部音源も置換の対象</b>（#391）。作品の子は作品の外に存在できないため、書く経路は集約ルートに1つだけ置く。
+ * 送られなかった既存の行は消える。
  * </p>
  *
  * @param expectedRevision
@@ -37,6 +43,10 @@ import org.jspecify.annotations.Nullable;
  *            頒布の基準額（nullable。未指定は額が決まっていない状態への置換）
  * @param originalWorkNote
  *            原作の出典の記述（nullable。未指定は記述なしへの置換）
+ * @param tracks
+ *            曲目（nullable。未指定・空リストは曲目なしへの置換）
+ * @param externalAudios
+ *            外部音源（nullable。未指定・空リストは音源なしへの置換）
  */
 public record UpdateAlbumRequest(
         @Nullable Integer expectedRevision,
@@ -51,7 +61,9 @@ public record UpdateAlbumRequest(
         @Nullable String descriptionFormat,
         @Nullable EventRequest event,
         @Nullable BasePriceRequest basePrice,
-        @Nullable String originalWorkNote) {
+        @Nullable String originalWorkNote,
+        @Nullable List<@Nullable TrackRequest> tracks,
+        @Nullable List<@Nullable ExternalAudioRequest> externalAudios) {
 
     /**
      * 頒布の基準額のリクエスト契約

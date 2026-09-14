@@ -35,6 +35,17 @@ export const homeIntroduction = async (): Promise<SiteContent | undefined> =>
   contentOf('home.introduction');
 
 /**
+ * コピーライト表示の主体。未登録なら undefined（フッターの区画ごと出さない）。
+ *
+ * <p>
+ * 持つのは主体だけで、年と記号は画面が組み立てる（#343 で決めた形）。**そのぶん表記の形はコード側に
+ * 残る**——運営者が書き換えられるのは誰の権利かであって、記号や語順ではない。
+ * </p>
+ */
+export const copyrightHolder = async (): Promise<string | undefined> =>
+  (await contentOf('footer.copyright.holder'))?.content;
+
+/**
  * 既定の名義。未登録なら undefined。
  *
  * サイト全体が1つの名義の作品を並べる場のため、既定の名義はどの作品にも同じ値が並ぶ。読み手にとって

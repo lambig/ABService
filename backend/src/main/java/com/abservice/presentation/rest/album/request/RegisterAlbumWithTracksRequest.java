@@ -37,7 +37,9 @@ import org.jspecify.annotations.Nullable;
  * @param originalWorkNote
  *            原作の出典の記述（nullable。空白のみは記述なしとして扱う）
  * @param tracks
- *            初期トラック一覧（nullable。未指定・空リストの場合はトラックなしで登録）
+ *            曲目（nullable。未指定・空リストの場合は曲目なしで登録）
+ * @param externalAudios
+ *            外部音源（nullable。未指定・空リストの場合は音源なしで登録）
  */
 public record RegisterAlbumWithTracksRequest(
         @Nullable String title,
@@ -52,7 +54,8 @@ public record RegisterAlbumWithTracksRequest(
         @Nullable EventRequest event,
         @Nullable BasePriceRequest basePrice,
         @Nullable String originalWorkNote,
-        @Nullable List<TrackRequest> tracks) {
+        @Nullable List<@Nullable TrackRequest> tracks,
+        @Nullable List<@Nullable ExternalAudioRequest> externalAudios) {
 
     /**
      * 頒布の基準額のリクエスト契約
@@ -89,25 +92,4 @@ public record RegisterAlbumWithTracksRequest(
             @Nullable String note) {
     }
 
-    /**
-     * 初期トラックのリクエスト契約
-     *
-     * @param trackNo
-     *            トラック番号
-     * @param title
-     *            トラックタイトル
-     * @param artistDisplayName
-     *            アーティスト表示名（nullable。未指定時はAlbumのartistCreditを継承）
-     * @param artistSortKey
-     *            アーティストソートキー（nullable）
-     * @param tunes
-     *            チューン構成（nullable。未指定は構成なしとして扱う）
-     */
-    public record TrackRequest(
-            @Nullable Integer trackNo,
-            @Nullable String title,
-            @Nullable String artistDisplayName,
-            @Nullable String artistSortKey,
-            @Nullable List<@Nullable TrackTuneRequest> tunes) {
-    }
 }

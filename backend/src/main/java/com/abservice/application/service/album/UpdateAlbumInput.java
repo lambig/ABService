@@ -1,6 +1,7 @@
 package com.abservice.application.service.album;
 
 import com.abservice.application.service.CommandService;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -12,7 +13,8 @@ import org.jspecify.annotations.Nullable;
  * </p>
  *
  * <p>
- * トラック（{@code tracks}）はUpdate対象外です（専用の{@code addTrack}等で別途行う）。
+ * 曲目（{@code tracks}）と外部音源（{@code externalAudios}）も本体と同じ全項目置換の対象です。作品の子は作品の外に
+ * 存在できないため、更新の経路も集約ルートに1つだけ置きます（#391）。送られなかった既存の行は消えます。
  * </p>
  *
  * @param albumId
@@ -45,6 +47,10 @@ import org.jspecify.annotations.Nullable;
  *            頒布の基準額（nullable。未指定は額が決まっていない状態への置換）
  * @param originalWorkNote
  *            原作の出典の記述（nullable。未指定は記述なしへの置換）
+ * @param tracks
+ *            曲目（nullable。未指定・空リストは曲目なしへの置換）
+ * @param externalAudios
+ *            外部音源（nullable。未指定・空リストは音源なしへの置換）
  */
 public record UpdateAlbumInput(
         @Nullable String albumId,
@@ -60,7 +66,9 @@ public record UpdateAlbumInput(
         @Nullable String descriptionFormat,
         @Nullable EventInput event,
         @Nullable BasePriceInput basePrice,
-        @Nullable String originalWorkNote) implements CommandService.Input {
+        @Nullable String originalWorkNote,
+        @Nullable List<@Nullable TrackInput> tracks,
+        @Nullable List<@Nullable ExternalAudioInput> externalAudios) implements CommandService.Input {
 
     /**
      * 頒布の基準額の入力DTO

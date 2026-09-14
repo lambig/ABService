@@ -32,22 +32,32 @@ export interface AlbumSeed {
   };
   /** 原作の出典の記述（#365）。省略すると記述を持たない作品になる */
   readonly originalWorkNote?: string;
+  /** カバー画像。省略すると画像を持たない作品になる */
+  readonly coverImage?: AssetSeed;
   readonly tracks?: readonly TrackSeed[];
   readonly externalAudioUrls?: readonly string[];
 }
 
-/** 作るトラックの指定 */
+/**
+ * 送るアセットの実体。
+ *
+ * 形式はバックエンドが先頭バイト列で判定するため、申告（`contentType`）と中身が一致している必要がある。
+ */
+export interface AssetSeed {
+  readonly contentType: string;
+  readonly body: Blob;
+}
+
+/** 作るトラックの指定。並びは配列の位置がそのまま表すため、番号は持たない（#391） */
 export interface TrackSeed {
-  readonly trackNo: number;
   /** トラック名。省略すると、チューン名を繋いだものが名になる（#360） */
   readonly title?: string;
   readonly artistDisplayName?: string;
   readonly tunes?: readonly TuneSeed[];
 }
 
-/** トラック内のチューン構成 */
+/** トラック内のチューン構成。登場順も配列の位置が表す */
 export interface TuneSeed {
-  readonly seq: number;
   /** チューン名。省略すると名を持たない構成要素（MC・環境音など）になる */
   readonly tuneTitle?: string;
   readonly composerCreditOverride?: string;
@@ -96,12 +106,61 @@ const albumIdOf = (created: unknown): string => {
       })();
 };
 
+/** 払い出しの応答のうち、実体を送るために要る項目 */
+interface AssetUploadUrl {
+  readonly assetKey: string;
+  readonly uploadUrl: string;
+}
+
 /**
- * 作品を作り、トラックと外部音源を付ける（下書きのまま）。
+ * アセットを保管先へ送り、確定して配信できる鍵にする。
+ *
+ * <p>
+ * 3段（払い出し・署名付きURLへの直接送信・確定）をそのまま通す。実体が管理APIを経由しないのは契約
+ * （#136）であり、シードもその経路を迂回しない——迂回すると、画面が通る経路とは別の入れ方だけを
+ * 検証したことになる。
+ * </p>
+ *
+ * @param asset
+ *            送る実体
+ * @returns 確定したアセットキー。確定できなかった実体は配信されないため、鍵は返らない
+ */
+export const seedAsset = async (asset: AssetSeed): Promise<string> => {
+  const issued = (await postAdmin('/api/v1/assets/upload-url', {
+    contentType: asset.contentType,
+  })) as AssetUploadUrl;
+
+  const stored = await fetch(issued.uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': asset.contentType },
+    body: asset.body,
+  });
+
+  await (stored.ok
+    ? postAdmin(`/api/v1/assets/${issued.assetKey}/confirm`, {})
+    : Promise.reject(
+        new Error(
+          `アセットを保管先へ送れませんでした（HTTP ${String(stored.status)}）: ${issued.assetKey}`,
+        ),
+      ));
+
+  return issued.assetKey;
+};
+
+/**
+ * 作品を、曲目と外部音源ごと作る（下書きのまま）。
+ *
+ * <p>
+ * 作品の子を書く経路は集約ルートに1つしかないため、1リクエストで揃う（#391）。並びは送った配列の位置が
+ * そのまま表すので、番号も送らず、順序を再現するための逐次送信も要らない。
+ * </p>
  *
  * @returns 作った作品のドメインID
  */
 export const seedDraftAlbum = async (album: AlbumSeed): Promise<string> => {
+  const coverImageKey =
+    album.coverImage === undefined ? undefined : await seedAsset(album.coverImage);
+
   const created = await postAdmin('/api/v1/albums/with-tracks', {
     title: album.title,
     releaseDate: album.releaseDate,
@@ -114,30 +173,20 @@ export const seedDraftAlbum = async (album: AlbumSeed): Promise<string> => {
     event: album.event,
     basePrice: album.basePrice,
     originalWorkNote: album.originalWorkNote,
+    coverImageKey,
     tracks: (album.tracks ?? []).map((track) => ({
-      trackNo: track.trackNo,
       title: track.title,
       artistDisplayName: track.artistDisplayName,
       tunes: (track.tunes ?? []).map((tune) => ({
-        seq: tune.seq,
         tuneTitle: tune.tuneTitle,
         composerCreditOverride: tune.composerCreditOverride,
         arrangerCreditOverride: tune.arrangerCreditOverride,
       })),
     })),
+    externalAudios: (album.externalAudioUrls ?? []).map((url) => ({ url })),
   });
 
-  const albumId = albumIdOf(created);
-
-  /*
-   * SEQUENTIAL-ORDER: 外部音源の表示順は末尾採番のため、並列に投げると順序が実行ごとに変わる。
-   * 指定した並びをそのまま再現するために1件ずつ送る。
-   */
-  for (const url of album.externalAudioUrls ?? []) {
-    await postAdmin(`/api/v1/albums/${albumId}/external-audios`, { url });
-  }
-
-  return albumId;
+  return albumIdOf(created);
 };
 
 /**

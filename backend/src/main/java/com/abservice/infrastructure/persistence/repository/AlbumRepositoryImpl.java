@@ -23,6 +23,7 @@ import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -75,6 +76,20 @@ public class AlbumRepositoryImpl implements AlbumRepository {
                 new Revision(entity.getVersion()));
     }
 
+    /**
+     * 既存の作品を、届いた状態へ書き戻す。
+     *
+     * <p>
+     * <b>子だけが変わった保存でも版を進める</b>（#391）。トラックと外部音源は {@code mappedBy} の逆側で、増減しても
+     * 親行は汚れない。保存の口が集約ルートに1つである以上、曲目だけを直した保存も作品の更新である。進めないと、
+     * 2つのタブが別々のトラックを直した保存が競合にならず、後の保存が前の変更を全項目置換で消す。
+     * </p>
+     *
+     * <p>
+     * 進める手段は親の列を汚すこと。行が汚れなければ {@code @Version} も {@code @PreUpdate} も動かないため、
+     * 更新日時をここで明示的に置く。
+     * </p>
+     */
     private Uni<AlbumTableRecord> updateExisting(
             AlbumTableRecord existingEntity,
             AlbumTableRecord entity,
@@ -83,6 +98,7 @@ public class AlbumRepositoryImpl implements AlbumRepository {
         reconcileExternalAudios(existingEntity, aggregate.externalAudios());
         return dataSource.persistAndFlush(
                 existingEntity
+                        .setUpdatedAt(Instant.now())
                         .setTitle(entity.getTitle())
                         .setReleaseDate(entity.getReleaseDate())
                         .setArtistDisplayName(entity.getArtistDisplayName())

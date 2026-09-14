@@ -1,4 +1,7 @@
 ---
+import PreviewMeta from '$components/PreviewMeta.astro';
+import SiteFooter from '$components/SiteFooter.astro';
+import type { PublicAlbumDetail } from '$lib/api/client';
 import { siteDescription, siteName } from '$lib/site';
 import '../styles/global.css';
 
@@ -7,9 +10,18 @@ interface Props {
   readonly title?: string;
   /** ページの説明。検索結果と OG に出る。省いたときはサイトの説明を使う */
   readonly description?: string;
+  /**
+   * リンクプレビューの元になる作品。
+   *
+   * <p>
+   * 持たないページは省く（既定の画像になる）。**ページ側でプレビューのメタを組まない**——層を分けると
+   * 同じ種類のメタが複数並び、読む側がどれを採るかで見え方が変わる（#341）。
+   * </p>
+   */
+  readonly previewAlbum?: PublicAlbumDetail;
 }
 
-const { title, description } = Astro.props;
+const { title, description, previewAlbum } = Astro.props;
 
 const name = await siteName();
 
@@ -51,6 +63,14 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
 
     {
       /*
+      サイトの印（#341）。SVG ひとつで足りる——タブが要る大きさは環境で違い、ラスタを並べると
+      どれが出所か分からなくなる。中身と、これが既定である経緯は `public/favicon.svg` が持つ。
+    */
+    }
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    {
+      /*
       書体が届くまで覆う印（#361）。描かれる前に付ける必要があるため、ここで同期に実行する
       （`is:inline` はバンドルへ回さない指示）。**書体の stylesheet より前に置く**——後ろに置くと、
       パーサは保留中の stylesheet が片付くまでこのスクリプトを実行できず、その間 body のパースごと
@@ -83,8 +103,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
     <meta property="og:url" content={canonicalUrl} />
     {metaDescription ? <meta property="og:description" content={metaDescription} /> : null}
 
-    {/* ページごとのリンクプレビュー（アルバム詳細のプレイヤーカード・カバー画像） */}
-    <slot name="head" />
+    <PreviewMeta album={previewAlbum} />
   </head>
 
   <body class="bg-background text-foreground min-h-screen">
@@ -135,9 +154,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
         </main>
       </div>
 
-      <footer class="text-muted-foreground border-border border-t py-6 text-sm">
-        <slot name="footer" />
-      </footer>
+      <SiteFooter />
     </div>
 
     {

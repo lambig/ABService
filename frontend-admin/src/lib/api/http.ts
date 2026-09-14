@@ -23,6 +23,27 @@ export type ApiResult<T> =
       problem?: ProblemDetails;
     }>;
 
+/**
+ * 編集を始めた後に別の保存が入ったことを表すエラー型（DECISIONS 30）。
+ *
+ * <p>
+ * <b>状態コードでは見分けられない。</b> 同じ 409 で、集約の不変条件に反する要求も返る（作品の子は集約
+ * ルート経由で書くため、1つの PUT が世代の競合と業務違反の両方を返し得る。#391）。前者は直す先が
+ * 「読み直し」にあり、後者は入力にある。混ぜると、入力を直せば済む要求に読み直しを促すことになる。
+ * </p>
+ */
+export const CONFLICTING_UPDATE_TYPE = 'urn:abservice:error:CONFLICTING_UPDATE';
+
+/**
+ * その失敗が、編集を始めた後の別の保存によるものか。
+ *
+ * @param failure
+ *            応答が返した失敗
+ * @returns 世代が古いことによる競合なら true
+ */
+export const isStaleRevisionConflict = (failure: ApiResult<unknown>): boolean =>
+  failure.kind === 'failed' && failure.problem?.type === CONFLICTING_UPDATE_TYPE;
+
 const record = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype;
 const optionalString = (value: unknown): boolean =>

@@ -47,10 +47,12 @@ class OpenApiRestIntegrationTest {
     }
 
     @Test
-    @DisplayName("外部音源・アセットのエンドポイントも定義に含まれる")
-    void childResourcesAreDocumented() {
+    @DisplayName("作品の子は集約ルートの経路だけに現れ、子ごとの経路は定義に無い")
+    void albumChildrenAreWrittenThroughTheRootOnly() {
         given().accept("application/json").when().get("/q/openapi").then().statusCode(200)
-                .body("paths.'/api/v1/albums/{albumId}/external-audios'.post", notNullValue())
+                .body("paths.'/api/v1/albums/{id}'.put", notNullValue())
+                .body("paths.'/api/v1/albums/{albumId}/external-audios'", nullValue())
+                .body("paths.'/api/v1/albums/{albumId}/tracks'", nullValue())
                 .body("paths.'/api/v1/assets/upload-url'.post", notNullValue());
     }
 

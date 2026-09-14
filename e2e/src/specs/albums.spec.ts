@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 
 import { findAlbumByCatalogNumber } from '../support/admin-api.ts';
+import { attributeOf } from '../support/attributes.ts';
 import {
   draft,
   quiet,
@@ -8,6 +9,7 @@ import {
   showcaseTrackNames,
   showcaseTracks,
 } from '../support/build-fixtures.ts';
+import { coverImageAsset } from '../support/cover-image.ts';
 import { capture, captureFocused, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 
@@ -97,6 +99,25 @@ test.describe('作品の一覧', () => {
     await page.goto('/albums');
 
     await expect(page.getByText(draft.title)).toHaveCount(0);
+  });
+
+  test('カバー画像を持つ作品はカードに画像が出て、持たない作品には出ない', async ({ page }) => {
+    await page.goto('/albums');
+
+    const withCover = page.getByRole('link').filter({ hasText: quiet.title });
+    const withoutCover = page.getByRole('link').filter({ hasText: showcase.title });
+
+    /*
+     * 描かれたことまで見る。`src` が入っただけの状態は、配信が `/assets/*` を取り次いでいないときも
+     * 同じに見え、区別できない（取り次ぎは #122 で置いた）。
+     */
+    await expect(withCover.locator('img')).toHaveJSProperty('naturalWidth', coverImageAsset.width);
+
+    /* 持たない側には画像そのものを置かない（並ぶのは支援技術から隠した空の区画） */
+    await expect(withoutCover.locator('img')).toHaveCount(0);
+
+    /* 見どころは2枚のカードの対比のため、一覧の器ごと寄せる */
+    await captureFocused(page, page.locator('main'), '03a-albums-list-cover');
   });
 
   /*
@@ -243,15 +264,34 @@ test.describe('作品の詳細', () => {
     await expect(page.locator('article img')).toHaveCount(0);
   });
 
-  test('外部音源を持たない作品では、試聴の節もプレイヤーカードも出ない', async ({ page }) => {
+  test('外部音源を持たない作品では、試聴の節もプレイヤーが出ず、カバー画像が本体とリンクプレビューに出る', async ({
+    page,
+  }) => {
     await page.goto(await albumPathOf(quiet.catalogNumber));
 
     await expect(page.getByRole('heading', { level: 1, name: quiet.title })).toBeVisible();
     await expect(page.getByRole('heading', { level: 2, name: AUDIO_SECTION_HEADING })).toHaveCount(
       0,
     );
-    await expect(page.locator('meta[name="twitter:card"]')).toHaveCount(0);
-    await expect(page.locator('meta[property="og:image"]')).toHaveCount(0);
+    await expect(page.locator('meta[name="twitter:player"]')).toHaveCount(0);
+
+    /*
+     * プレイヤーが無い側では、カバー画像が本体に出る（#197）。描かれたことまで見る——要素があるだけの
+     * 状態は、配信が取り次いでいないときも同じに見える。
+     */
+    const bodyCover = page.locator('article img');
+    await expect(bodyCover).toHaveJSProperty('naturalWidth', coverImageAsset.width);
+
+    /*
+     * リンクプレビューもカバー画像になる。**本体に出ているのと同じ画像であること**まで見る——
+     * 別々に組み立てていると、片方だけが差し替わっても両方「画像がある」で緑になる。
+     */
+    await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+      'content',
+      'summary_large_image',
+    );
+    const previewImage = await attributeOf(page.locator('meta[property="og:image"]'), 'content');
+    expect(previewImage).toContain(await attributeOf(bodyCover, 'src'));
 
     await capture(page, '07-album-detail-without-audio');
   });

@@ -19,6 +19,8 @@ import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.domain.model.vo.common.MarkupContent;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.domain.service.AlbumAccessService;
+import com.abservice.domain.service.ExternalAudioAssemblyService;
+import com.abservice.domain.service.TrackAssemblyService;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
@@ -37,9 +39,9 @@ import org.jspecify.annotations.Nullable;
  * アルバム更新コマンドサービス
  *
  * <p>
- * 外部入力（{@link UpdateAlbumInput}）から既存 {@link Album} のCreate相当フィールド
- * （title/releaseDate/artistCredit/eventReleasedAt/catalogNumber/isdn）をPUT風に全項目置換する
- * ユースケースです。トラックは対象外のため既存の値をそのまま維持します。
+ * 外部入力（{@link UpdateAlbumInput}）から既存 {@link Album} をPUT風に全項目置換するユースケースです。
+ * <b>曲目と外部音源も同じ置換の対象</b>で、届いた並びがそのまま作品の曲目・音源になります（#391）。作品の子は
+ * 作品の外に存在できないため、書く経路を子ごとに分けず、集約ルートに1つだけ置きます。
  * </p>
  *
  * <p>
@@ -57,6 +59,10 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
     private final AlbumRepository albumRepository;
 
     private final AlbumAccessService albumAccessService;
+
+    private final TrackAssemblyService trackAssemblyService;
+
+    private final ExternalAudioAssemblyService externalAudioAssemblyService;
 
     @WithTransaction
     @Override
@@ -124,7 +130,24 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
                 "アルバム %s は編集を始めた後に更新されています".formatted(claimed.album().id().value()));
     }
 
-    static Result<Album> validateAndApply(Album existing, UpdateAlbumInput input) {
+    /**
+     * 入力を検証し、既存の作品へ適用する。
+     *
+     * <p>
+     * 本体の項目と曲目・外部音源を1つの結果へまとめる。曲目だけが誤っている場合も本体の誤りと並べて返すため、 呼び出し元は1往復ですべての位置を受け取る。
+     * </p>
+     */
+    Result<Album> validateAndApply(Album existing, UpdateAlbumInput input) {
+        return Result.zip(
+                validateAndApplyBody(existing, input),
+                trackAssemblyService.resolveTracks(TrackInput.toFields(input.tracks())),
+                externalAudioAssemblyService.resolveExternalAudios(
+                        ExternalAudioInput.toFields(input.externalAudios())),
+                (album, tracks, audios) -> album.replaceTracks(tracks)
+                        .replaceExternalAudios(audios));
+    }
+
+    private static Result<Album> validateAndApplyBody(Album existing, UpdateAlbumInput input) {
         return Result.zip(
                 Result.zip(
                         AlbumTitle.fromInput(input.title())

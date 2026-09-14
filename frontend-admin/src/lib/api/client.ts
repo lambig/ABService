@@ -96,15 +96,32 @@ export const listAlbums = async (apiKey: string): Promise<ApiResult<readonly Adm
 export const getAlbum = (apiKey: string, albumId: string): Promise<ApiResult<AdminAlbumDetail>> =>
   request<AdminAlbumDetail>('GET', `/api/v1/admin/albums/${encodeURIComponent(albumId)}`, apiKey);
 
-/** 作品を作る（下書きとして作られる）。 */
+/**
+ * 作品を作る（下書きとして作られる）。
+ *
+ * <p>
+ * 曲目と外部音源も一緒に送れる口（`with-tracks`）を使う（#391）。作品の子は作品の外に存在できないため、
+ * 作るときも1リクエストで揃う。本体だけを作ってから子を足す経路は持たない。
+ * </p>
+ */
 export const createAlbum = (
   apiKey: string,
   fields: AlbumFields,
-): Promise<ApiResult<Schemas['CreateAlbumResponse']>> =>
-  request<Schemas['CreateAlbumResponse']>('POST', '/api/v1/albums', apiKey, fields);
+): Promise<ApiResult<Schemas['RegisterAlbumWithTracksResponse']>> =>
+  request<Schemas['RegisterAlbumWithTracksResponse']>(
+    'POST',
+    '/api/v1/albums/with-tracks',
+    apiKey,
+    fields,
+  );
 
 /**
- * 作品を更新する（PUT風の全項目置換。トラックと外部音源は対象外）。
+ * 作品を更新する（PUT風の全項目置換）。
+ *
+ * <p>
+ * 曲目と外部音源も置換の対象で、送った配列がそのまま作品の曲目・音源になる（#391）。送らなかった既存の行は
+ * 消える。並びは配列の位置が表し、番号は送らない。
+ * </p>
  *
  * <p>
  * 編集を始めた時点の世代（`expectedRevision`）を必ず送る。全項目置換のため、これを持たない更新は編集の
@@ -123,6 +140,47 @@ export const updateAlbum = (
     apiKey,
     { ...fields, expectedRevision },
   );
+
+/**
+ * アップロード先の払い出し。
+ *
+ * <p>
+ * 実体は管理APIを経由せず、ここで返る署名付きURLへ直接送る。`maxBytes` は受け入れる上限だが、画面は
+ * これで送る前に断らない——上限もサイズの測り方もバックエンドの検査が持ち、写すと2箇所へ散る。
+ * </p>
+ */
+export type AssetUploadUrl = Schemas['AssetUploadUrlResponse'];
+
+/** 確定したアセット。`url` は公開配信の経路で、作品の `coverImageUrl` と同じ形 */
+export type ConfirmedAsset = Schemas['ConfirmAssetUploadResponse'];
+
+/**
+ * アップロード先を払い出す。
+ *
+ * <p>
+ * 受け入れる形式の判定はバックエンドが持つ。対応していない `contentType` はここで断られ、鍵も
+ * 払い出されない。
+ * </p>
+ */
+export const issueAssetUploadUrl = (
+  apiKey: string,
+  contentType: string,
+): Promise<ApiResult<AssetUploadUrl>> =>
+  request<AssetUploadUrl>('POST', '/api/v1/assets/upload-url', apiKey, { contentType });
+
+/**
+ * 送り終えた実体を確定する。
+ *
+ * <p>
+ * 検査（サイズ・形式）はここで走り、通らなかった実体は保管先から破棄される。確定していない鍵は
+ * 配信されないため、**確定できた鍵だけを作品へ結び付ける**。
+ * </p>
+ */
+export const confirmAsset = (
+  apiKey: string,
+  assetKey: string,
+): Promise<ApiResult<ConfirmedAsset>> =>
+  request<ConfirmedAsset>('POST', `/api/v1/assets/${encodeURIComponent(assetKey)}/confirm`, apiKey);
 
 /**
  * 応答の枝から、その操作の前提だけを取り出す。
@@ -214,6 +272,80 @@ export const unpublishAlbum = (
     `/api/v1/albums/${encodeURIComponent(albumId)}/unpublish`,
     apiKey,
   );
+
+/** 作品が持つ外部音源1件。読むときは表示順つきで返る */
+export type AdminExternalAudio = Schemas['AdminExternalAudioResponse'];
+
+/**
+ * 送る側の外部音源1件。
+ *
+ * <p>
+ * 表示順は持たない——並びは配列の位置が表す（#391）。`externalAudioId` を持つ行は既にある音源、持たない行は
+ * 新しい音源で、送らなかった既存の音源は消える。
+ * </p>
+ *
+ * <p>
+ * 埋め込めるホストかどうかはバックエンドの値オブジェクトが判定し、通らないURLは 400 で返る。同じURLが並びに
+ * 2度現れれば 409。**画面は先に判定しない**——許可するホストの一覧を写すと、増減のたびに2箇所を直すことになる。
+ * </p>
+ */
+export type ExternalAudioFields = Schemas['ExternalAudioRequest'];
+
+/**
+ * 送る側の曲目1行。
+ *
+ * <p>
+ * トラック番号もチューンの登場順も持たない——並びは配列の位置が表す（#391）。`trackId` を持つ行は既にある
+ * トラック、持たない行は新しいトラックで、送らなかった既存のトラックは消える。
+ * </p>
+ */
+export type TrackFields = Schemas['TrackRequest'];
+
+/** 作品が持つ曲目1行。読むときはトラック番号つきで返る */
+export type AdminTrack = Schemas['AdminTrackResponse'];
+
+/** サイトの文言1件。キーで引く（#230） */
+export type SiteContent = Schemas['SiteContentResponse'];
+
+/**
+ * サイトの文言を全件引く。
+ *
+ * <p>
+ * 照会は認証を要さない（公開サイトが組み立てで使うのと同じ経路）。それでも鍵を添えるのは、この画面の
+ * 他の操作と経路を分けないため。**鍵の正しさはこの照会では分からない**——誤った鍵でも一覧は返るので、
+ * 断られるのは保存のときになる。
+ * </p>
+ */
+export const listSiteContents = async (
+  apiKey: string,
+): Promise<ApiResult<readonly SiteContent[]>> => {
+  const result = await request<Schemas['SiteContentListResponse']>(
+    'GET',
+    '/api/v1/site-contents',
+    apiKey,
+  );
+
+  return result.kind === 'ok' ? { kind: 'ok', value: result.value.items } : result;
+};
+
+/**
+ * サイトの文言を登録・更新する（キー単位の upsert）。
+ *
+ * <p>
+ * 同じキーがあれば差し替え、無ければ作る。**世代（`expectedRevision`）を持たない**——文言は「そのキーの
+ * 現在の内容」であって履歴を持たず、最後の保存が残る契約のため（作品・記事とはここが違う）。
+ * </p>
+ */
+export const upsertSiteContent = (
+  apiKey: string,
+  key: string,
+  content: string,
+  contentFormat: string,
+): Promise<ApiResult<SiteContent>> =>
+  request<SiteContent>('PUT', `/api/v1/site-contents/${encodeURIComponent(key)}`, apiKey, {
+    content,
+    contentFormat,
+  });
 
 /** 管理向け記事一覧の1件。下書き（`publicFlag` が false）を含む */
 export type AdminArticle = Schemas['AdminArticleResponse'];

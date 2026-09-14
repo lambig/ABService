@@ -1,4 +1,7 @@
+import type { Locator, Page } from '@playwright/test';
+
 import { findArticleByTitle } from '../support/admin-api.ts';
+import { attributeOf } from '../support/attributes.ts';
 import {
   albumArticle,
   draftArticle,
@@ -8,8 +11,10 @@ import {
   quietArticle,
   showcase,
 } from '../support/build-fixtures.ts';
+import { coverImageAsset } from '../support/cover-image.ts';
 import { capture, captureFocused, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
+import { DEFAULT_PREVIEW_IMAGE } from '../support/site-marks.ts';
 
 /**
  * 公開サイトの記事（#123）のジャーニー。
@@ -24,8 +29,25 @@ const ALBUM_TYPE_LABEL = '作品紹介';
 /** 参照先の作品への導線の見出し。文言は画面の実装が持つ */
 const ALBUM_REFERENCE_HEADING = 'この記事の作品';
 
-/** ページ送りの導線。文言は画面の実装が持つ */
+/** ページ送りの導線と、その区画。文言は画面の実装が持つ */
 const NEXT_PAGE_LINK = '次のページ';
+const PREVIOUS_PAGE_LINK = '前のページ';
+const PAGINATION_LABEL = 'ページ送り';
+
+const paginationIn = (page: Page): Locator =>
+  page.getByRole('navigation', { name: PAGINATION_LABEL });
+
+/**
+ * ページ送りの現在地（`2 / 3`）の左端。
+ *
+ * 端の有無で位置が動かないことを見るために取る。動くかどうかは、読み手が同じ場所を見続けられるかの
+ * 話なので、要素の有無ではなく座標でしか確かめられない。
+ */
+const currentPagePositionOf = async (page: Page): Promise<number> => {
+  const box = await paginationIn(page).locator('span').boundingBox();
+
+  return box === null ? Promise.reject(new Error('ページ送りの現在地が画面にありません')) : box.x;
+};
 
 /** 404 の見出し。定型文のため画面の実装が持つ（#230） */
 const NOT_FOUND_HEADING = 'ページが見つかりません';
@@ -109,6 +131,53 @@ test.describe('記事の一覧', () => {
 
     await expect(page.getByText(draftArticle.title)).toHaveCount(0);
   });
+
+  test('ページ送りの端では、たどれない側を出さず、現在地の位置も動かさない', async ({ page }) => {
+    await page.goto('/articles');
+
+    /* 1ページ目に「前」は無い。押せない文字としても残さない（#343） */
+    await expect(paginationIn(page).getByText(PREVIOUS_PAGE_LINK)).toHaveCount(0);
+    await expect(paginationIn(page).getByRole('link', { name: NEXT_PAGE_LINK })).toBeVisible();
+
+    const atFirstPage = await currentPagePositionOf(page);
+    await captureFocused(page, paginationIn(page), '12a-articles-pagination-first');
+
+    await page.goto('/articles/page/2');
+
+    /* 最後のページに「次」は無い */
+    await expect(paginationIn(page).getByRole('link', { name: PREVIOUS_PAGE_LINK })).toBeVisible();
+    await expect(paginationIn(page).getByText(NEXT_PAGE_LINK)).toHaveCount(0);
+
+    /*
+     * 端の有無が変わっても現在地は同じ場所にある。詰める形にすると、ページを送るたびに現在地が
+     * 左右へ動く——それが出さない側を「場所だけ空ける」形にした理由である。
+     */
+    expect(await currentPagePositionOf(page)).toBe(atFirstPage);
+    await captureFocused(page, paginationIn(page), '12b-articles-pagination-last');
+  });
+
+  test('記事のカードの画像は、参照先の作品がカバー画像を持つときだけ出る', async ({ page }) => {
+    await page.goto('/articles');
+
+    /* 画像の出所は記事ではなく参照先の作品。カバー画像を持つのは `quiet` だけ（#377） */
+    const withCover = page.getByRole('link').filter({ hasText: quietArticle.title });
+    await expect(withCover.locator('img')).toHaveJSProperty('naturalWidth', coverImageAsset.width);
+
+    /*
+     * 作品を参照していても、参照先が画像を持たなければ出ない。**画像の有無を決めるのは記事が参照を
+     * 持つかどうかではなく、参照先の作品が画像を持つかどうか**である。参照の有無だけで対比すると、
+     * 「作品紹介の記事なら何か出す」という実装でも通ってしまう。
+     */
+    const referencingWithoutCover = page.getByRole('link').filter({ hasText: albumArticle.title });
+    await expect(referencingWithoutCover.locator('img')).toHaveCount(0);
+
+    /* 作品を参照しない記事のカードにも、画像そのものを置かない */
+    const withoutReference = page.getByRole('link').filter({ hasText: plainArticle.title });
+    await expect(withoutReference.locator('img')).toHaveCount(0);
+
+    /* 3枚が同じ絵に並ぶ。出る側とその2通りの出ない側を、対比として1枚に収める */
+    await captureFocused(page, withCover, '08a-articles-list-cover');
+  });
 });
 
 test.describe('記事の詳細', () => {
@@ -167,13 +236,46 @@ test.describe('記事の詳細', () => {
     expect(playerUrl).toContain(encodeURIComponent(showcase.audioUrl));
   });
 
-  test('作品を参照しない記事には、作品への導線もリンクプレビューも出ない', async ({ page }) => {
+  test('音源を持たない作品を紹介する記事のリンクプレビューは、その作品のカバー画像になる', async ({
+    page,
+  }) => {
+    await page.goto(await articlePathOf(quietArticle.title));
+
+    /* 参照先が音源を持たないため、プレイヤーカードではなくカバー画像のカードになる（#197） */
+    await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+      'content',
+      'summary_large_image',
+    );
+
+    const reference = page.getByRole('link').filter({ hasText: quiet.title });
+    const cover = reference.locator('img');
+    await expect(cover).toHaveJSProperty('naturalWidth', coverImageAsset.width);
+
+    /* 指しているのは、参照の区画に出ているのと同じ画像である */
+    const previewImage = await attributeOf(page.locator('meta[property="og:image"]'), 'content');
+    expect(previewImage).toContain(await attributeOf(cover, 'src'));
+
+    await captureFocused(page, reference, '10b-article-album-reference-cover');
+  });
+
+  test('作品を参照しない記事には作品への導線が出ず、リンクプレビューは既定の画像になる', async ({
+    page,
+  }) => {
     await page.goto(await articlePathOf(plainArticle.title));
 
     await expect(
       page.getByRole('heading', { level: 2, name: ALBUM_REFERENCE_HEADING }),
     ).toHaveCount(0);
-    await expect(page.locator('meta[name="twitter:card"]')).toHaveCount(0);
+
+    /*
+     * 参照が無くてもリンクプレビューは空にしない（#341）。参照先から採る画像が無いだけで、サイトの
+     * 記号は出せる。プレイヤーカードにならないことは、その札の不在で見る。
+     */
+    await expect(page.locator('meta[name="twitter:player"]')).toHaveCount(0);
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+      'content',
+      new RegExp(`${DEFAULT_PREVIEW_IMAGE}$`, 'u'),
+    );
   });
 
   test('プレーンテキストの本文は記法として解釈されない', async ({ page }) => {

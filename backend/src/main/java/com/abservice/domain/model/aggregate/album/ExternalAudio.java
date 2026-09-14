@@ -113,6 +113,29 @@ public final class ExternalAudio implements DomainEntity<ExternalAudio, External
     }
 
     /**
+     * 外部音源を置き換えるときの1行。
+     *
+     * <p>
+     * 検証を通ったURLと、既にある音源を指すIDだけを持ちます。<b>表示順は持ちません</b>——順は並びの表現でしかなく、
+     * 集約が受け取った並びから振ります（#391）。
+     * </p>
+     *
+     * <p>
+     * <b>IDがこの作品の子を指しているかは、この型では決まりません。</b> 識別は親の中でしか意味を持たないため、
+     * 確かめられるのは集約（{@code Album}）だけです。
+     * </p>
+     *
+     * @param externalAudioId
+     *            既にある外部音源のID。持たない行は新しい音源になる
+     * @param url
+     *            埋め込み元URL
+     */
+    public record Row(
+            @Nullable Id externalAudioId,
+            @NonNull ExternalAudioUrl url) {
+    }
+
+    /**
      * 永続化層からの再構成
      *
      * @param id

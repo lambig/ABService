@@ -17,16 +17,18 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * アルバムとその初期トラック一覧のワンリクエスト登録（#146・専用ユースケース）の統合テスト
+ * 作品を曲目・外部音源ごと1リクエストで登録する（#146・#391）統合テスト
  *
  * <p>
- * REST契約（{@code RegisterAlbumWithTracksRestIntegrationTest}）では確認できない、トラック追加失敗時に
- * アルバム自体も永続化されない（トランザクション全体がロールバックされる）ことを永続化層で直接確認する。
+ * REST契約（{@code RegisterAlbumWithTracksRestIntegrationTest}）では確認できない、子の組み立てに失敗したときに
+ * 作品自体も永続化されない（トランザクション全体がロールバックされる）ことを永続化層で直接確認する。
  * </p>
  */
 @QuarkusTest
 @ExtendWith(CleanDatabase.class)
 class RegisterAlbumWithTracksServiceIntegrationTest {
+
+    private static final String SOUNDCLOUD_URL = "https://soundcloud.com/example/first";
 
     @Inject
     private RegisterAlbumWithTracksService registerAlbumWithTracksService;
@@ -37,38 +39,56 @@ class RegisterAlbumWithTracksServiceIntegrationTest {
     @Inject
     private AlbumRepositoryImpl albumRepository;
 
+    private static RegisterAlbumWithTracksInput input(
+            String title,
+            List<TrackInput> tracks,
+            List<ExternalAudioInput> externalAudios) {
+        return new RegisterAlbumWithTracksInput(
+                title,
+                "2026-01-01",
+                "アーティスト",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                tracks,
+                externalAudios);
+    }
+
+    private static TrackInput track(String title, List<TrackTuneInput> tunes) {
+        return new TrackInput(
+                null,
+                title,
+                null,
+                null,
+                tunes);
+    }
+
+    private static TrackTuneInput tune(String tuneTitle, String composerCreditOverride) {
+        return new TrackTuneInput(
+                tuneTitle,
+                composerCreditOverride,
+                null,
+                null);
+    }
+
     @Test
     @TestReactiveTransaction
     @RunOnVertxContext
     void shouldRegisterAlbumWithTracksInOneTransaction(UniAsserter asserter) {
         asserter.assertThat(
                 () -> registerAlbumWithTracksService.execute(
-                        new RegisterAlbumWithTracksInput(
+                        input(
                                 "ワンリクエスト登録確認アルバム",
-                                "2026-01-01",
-                                "アーティスト",
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
                                 List.of(
-                                        new RegisterAlbumWithTracksInput.TrackInput(
-                                                1,
-                                                "1曲目",
-                                                null,
-                                                null,
-                                                null),
-                                        new RegisterAlbumWithTracksInput.TrackInput(
-                                                2,
-                                                "2曲目",
-                                                null,
-                                                null,
-                                                null)))),
+                                        track("1曲目", null),
+                                        track("2曲目", null)),
+                                null)),
                 output -> {
                     assertThat(output.tracks()).hasSize(2);
                     assertThat(output.tracks().get(0).trackNo()).isEqualTo(1);
@@ -86,38 +106,15 @@ class RegisterAlbumWithTracksServiceIntegrationTest {
     void shouldRegisterAlbumWithTrackTunesInOneTransaction(UniAsserter asserter) {
         asserter.assertThat(
                 () -> registerAlbumWithTracksService.execute(
-                        new RegisterAlbumWithTracksInput(
+                        input(
                                 "チューン構成つき登録アルバム",
-                                "2026-01-01",
-                                "アーティスト",
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
                                 List.of(
-                                        new RegisterAlbumWithTracksInput.TrackInput(
-                                                1,
+                                        track(
                                                 "1曲目",
-                                                null,
-                                                null,
                                                 List.of(
-                                                        new TrackTuneInput(
-                                                                1,
-                                                                "チューン1",
-                                                                "Trad.",
-                                                                null,
-                                                                null),
-                                                        new TrackTuneInput(
-                                                                2,
-                                                                "チューン2",
-                                                                null,
-                                                                null,
-                                                                null)))))),
+                                                        tune("チューン1", "Trad."),
+                                                        tune("チューン2", null)))),
+                                null)),
                 output -> assertThat(output.tracks()).hasSize(1));
 
         asserter.assertThat(
@@ -133,6 +130,7 @@ class RegisterAlbumWithTracksServiceIntegrationTest {
                     assertThat(tunes.getFirst().seq()).isEqualTo(1);
                     assertThat(tunes.getFirst().tuneTitle().value()).isEqualTo("チューン1");
                     assertThat(tunes.getFirst().composerCreditOverride().value()).isEqualTo("Trad.");
+                    assertThat(tunes.getLast().seq()).isEqualTo(2);
                     assertThat(tunes.getLast().tuneTitle().value()).isEqualTo("チューン2");
                 });
     }
@@ -140,35 +138,41 @@ class RegisterAlbumWithTracksServiceIntegrationTest {
     @Test
     @TestReactiveTransaction
     @RunOnVertxContext
-    void shouldNotPersistAlbumWhenTrackAdditionFails(UniAsserter asserter) {
-        asserter.assertFailedWith(
+    void shouldRegisterAlbumWithExternalAudiosInOneTransaction(UniAsserter asserter) {
+        asserter.assertThat(
                 () -> registerAlbumWithTracksService.execute(
-                        new RegisterAlbumWithTracksInput(
-                                "ロールバック確認アルバム",
-                                "2026-01-01",
-                                "アーティスト",
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
+                        input(
+                                "外部音源つき登録アルバム",
                                 null,
                                 List.of(
-                                        new RegisterAlbumWithTracksInput.TrackInput(
-                                                1,
-                                                "1曲目",
-                                                null,
-                                                null,
-                                                null),
-                                        new RegisterAlbumWithTracksInput.TrackInput(
-                                                1,
-                                                "重複する1曲目",
-                                                null,
-                                                null,
-                                                null)))),
+                                        new ExternalAudioInput(null, SOUNDCLOUD_URL),
+                                        new ExternalAudioInput(null, "https://soundcloud.com/example/second")))),
+                output -> assertThat(output.albumId()).isNotBlank());
+
+        asserter.assertThat(
+                () -> albumDataSource.findByTitle("外部音源つき登録アルバム")
+                        .flatMap(found -> albumRepository.findById(Album.Id.of(found.getFirst().getDomainId()))),
+                album -> {
+                    final var audios = album.getExternalAudiosSortedByDisplayOrder();
+                    assertThat(audios).hasSize(2);
+                    assertThat(audios.getFirst().displayOrder()).isEqualTo(1);
+                    assertThat(audios.getFirst().url().value().value()).isEqualTo(SOUNDCLOUD_URL);
+                    assertThat(audios.getLast().displayOrder()).isEqualTo(2);
+                });
+    }
+
+    @Test
+    @TestReactiveTransaction
+    @RunOnVertxContext
+    void shouldNotPersistAlbumWhenExternalAudioUrlIsDuplicated(UniAsserter asserter) {
+        asserter.assertFailedWith(
+                () -> registerAlbumWithTracksService.execute(
+                        input(
+                                "ロールバック確認アルバム",
+                                List.of(track("1曲目", null)),
+                                List.of(
+                                        new ExternalAudioInput(null, SOUNDCLOUD_URL),
+                                        new ExternalAudioInput(null, SOUNDCLOUD_URL)))),
                 BusinessRuleViolationException.class);
 
         asserter.assertThat(
