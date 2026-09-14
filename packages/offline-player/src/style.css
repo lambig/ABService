@@ -1,0 +1,15 @@
+.preparation {
+  margin: 0 0 2rem;
+  padding: 1.5rem;
+  border: 1px solid #c8c3b5;
+  background: #fffdf6;
+}
+.preparation h2 {
+  margin-top: 0;
+}
+.preparation button {
+  margin: 0.3rem 0.6rem 0.3rem 0;
+}
+#readiness {
+  font-weight: 700;
+}

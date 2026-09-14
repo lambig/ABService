@@ -139,6 +139,12 @@ jobs:
       - name: Build shell fixtures
         run: npm run build:offline-shell
 
+      - name: Typecheck (offline player)
+        run: npm run typecheck:offline-player
+
+      - name: Build offline player
+        run: npm run build:offline-player
+
       - name: Typecheck (patterns)
         run: npm run typecheck:patterns
 
@@ -496,7 +502,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Install Chromium
-        run: npm exec -w abservice-player -- playwright install --with-deps --only-shell chromium
+        run: |
+          # Playwright supplies Chromium; the unrelated Chrome APT mirror is not needed.
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
+          npm exec -w abservice-player -- playwright install --with-deps --only-shell chromium
       - name: Run production player browser tests
         run: npm run test:player:browser
       - name: Upload browser evidence
@@ -521,7 +530,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Install Chromium
-        run: npm exec -w abservice-offline-storage -- playwright install --with-deps --only-shell chromium
+        run: |
+          # Playwright supplies Chromium; the unrelated Chrome APT mirror is not needed.
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
+          npm exec -w abservice-offline-storage -- playwright install --with-deps --only-shell chromium
       - name: Run production storage browser tests
         run: npm run test:offline-storage:browser
       - name: Upload browser results
@@ -546,7 +558,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Install Chromium
-        run: npm exec -w abservice-offline-shell -- playwright install --with-deps --only-shell chromium
+        run: |
+          # Playwright supplies Chromium; the unrelated Chrome APT mirror is not needed.
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
+          npm exec -w abservice-offline-shell -- playwright install --with-deps --only-shell chromium
       - name: Run production shell browser tests
         run: npm run test:offline-shell:browser
       - name: Upload browser evidence
@@ -555,5 +570,33 @@ jobs:
         with:
           name: shell-browser
           path: packages/offline-shell/test-results/
+          if-no-files-found: error
+          retention-days: 7
+
+  offline-player-browser:
+    name: Offline player integration (Chromium / SW / OPFS / FLAC)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: |
+          # Playwright supplies Chromium; the unrelated Chrome APT mirror is not needed.
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
+          npm exec -w abservice-offline-player -- playwright install --with-deps --only-shell chromium
+      - name: Run production player browser tests
+        run: npm run test:offline-player:browser
+      - name: Upload browser evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-player-browser
+          path: packages/offline-player/test-results/
           if-no-files-found: error
           retention-days: 7
