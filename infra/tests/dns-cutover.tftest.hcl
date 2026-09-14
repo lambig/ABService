@@ -29,6 +29,15 @@ variables {
   domain_name = "example.invalid"
 }
 
+// Terraform 1.9 mock overrides become known at apply, unlike ACM plan-time values.
+// Seed only the mocked certificate before planning the full stack.
+run "prepare_certificate" {
+  command = apply
+  plan_options {
+    target = [aws_acm_certificate.cloudfront]
+  }
+}
+
 run "prepare_apex" {
   command = plan
 
@@ -39,6 +48,16 @@ run "prepare_apex" {
   assert {
     condition     = aws_cloudfront_distribution.main.aliases == toset(["example.invalid"])
     error_message = "www must be an explicit deployment choice."
+  }
+}
+
+run "prepare_www_certificate" {
+  command = apply
+  variables {
+    serve_www = true
+  }
+  plan_options {
+    target = [aws_acm_certificate.cloudfront]
   }
 }
 
