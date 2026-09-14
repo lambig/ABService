@@ -174,9 +174,8 @@ export const showcaseTrackNames: readonly string[] = Object.values(showcaseTrack
  * </p>
  *
  * <p>
- * **カバー画像を持つのはこの作品だけ**（#377）。音源を持たないため、画像は作品の本体にもリンク
- * プレビュー（`og:image`）にも出る——音源を持つ側はプレイヤーカードが優先され、どちらも見えない。
- * 画像を持たない側は `showcase` が受け持ち、一覧のカードで画像の区画が出ないことを同じ実行で見る。
+ * `quiet` は画像だけ、`showcase` は画像と音源の両方、`coverless` はどちらも持たない（#380）。
+ * 画像を本当に持つ作品でプレイヤー優先を検査し、画像無しの区画も同じ実行で確認する。
  * </p>
  *
  * <p>
@@ -205,6 +204,14 @@ export const quiet = {
     spaceNumber: 'B-02',
     note: 'E2E 音源なしの補足',
   },
+} as const;
+
+/** 画像と音源を持たない公開作品。画像の区画を出さない側を受け持つ。 */
+export const coverless = {
+  catalogNumber: 'E2E-0000',
+  title: 'E2E カバーなしアルバム',
+  artistDisplayName: 'E2E カバーなしアーティスト',
+  releaseDate: '2026-08-12',
 } as const;
 
 /** 下書きのまま置く作品。公開の一覧・詳細のどちらにも出てはいけない */
@@ -396,6 +403,7 @@ const showcaseSeed: AlbumSeed = {
     },
   ],
   externalAudioUrls: [showcase.audioUrl],
+  coverImage: coverImageAsset,
 };
 
 const quietSeed: AlbumSeed = {
@@ -580,6 +588,11 @@ export const seedForBuild = async (): Promise<void> => {
   await ensureAlbum(showcase.catalogNumber, showcaseSeed, 'PUBLISHED');
   await ensureAlbum(quiet.catalogNumber, quietSeed, 'PUBLISHED');
   await ensureAlbum(draft.catalogNumber, draftSeed, 'DRAFT');
+  await ensureAlbum(
+    coverless.catalogNumber,
+    { ...coverless, artistSortKey: 'いーつーいーかばーなし' },
+    'PUBLISHED',
+  );
 
   const showcaseAlbumId = await seededAlbumId(showcase.catalogNumber);
   const quietAlbumId = await seededAlbumId(quiet.catalogNumber);
