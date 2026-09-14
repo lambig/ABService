@@ -603,48 +603,96 @@ class AlbumTest {
     @DisplayName("トラック置き換えテスト")
     class ReplaceTracksTest {
 
+        /** 新しい行（IDを持たない） */
+        private Track.Row newRow(String title) {
+            return new Track.Row(
+                    null,
+                    TrackTitle.of(title),
+                    ArtistCredit.of("Test Artist"),
+                    List.of());
+        }
+
+        /** 既にある行として指す（そのIDが自分の子かは集約が確かめる） */
+        private Track.Row claiming(Track.Id trackId, String title) {
+            return new Track.Row(
+                    trackId,
+                    TrackTitle.of(title),
+                    ArtistCredit.of("Test Artist"),
+                    List.of());
+        }
+
+        /** 2件持つ作品。置き換えの起点として使う */
+        private Album albumWithTwoTracks() {
+            return createTestAlbum()
+                    .replaceTracks(
+                            List.of(
+                                    newRow("Track 1"),
+                                    newRow("Track 2")));
+        }
+
         @Test
         @DisplayName("受け取った並びの順にトラック番号が1から振り直されること")
         void replaceTracksRenumbersByGivenOrder() {
-            // Arrange
-            final var album = createTestAlbum();
-            final var first = createTestTrack(7, "Track 1");
-            final var second = createTestTrack(3, "Track 2");
-
             // Act
-            final var updated = album.replaceTracks(List.of(first, second));
+            final var updated = albumWithTwoTracks();
 
             // Assert
             assertThat(updated.getTracks())
                     .extracting(Track::trackNo)
                     .containsExactly(1, 2);
             assertThat(updated.getTracks())
-                    .extracting(Track::id)
-                    .containsExactly(first.id(), second.id());
+                    .extracting(track -> track.title().value())
+                    .containsExactly("Track 1", "Track 2");
+        }
+
+        @Test
+        @DisplayName("IDを持たない行には、新しいIDが振られること")
+        void rowsWithoutIdGetFreshIds() {
+            // Act
+            final var updated = albumWithTwoTracks();
+
+            // Assert
+            assertThat(updated.getTracks().getFirst().id())
+                    .isNotEqualTo(updated.getTracks().getLast().id());
+        }
+
+        @Test
+        @DisplayName("IDを持つ行は、そのトラックとして残ること")
+        void rowsWithOwnedIdKeepTheirIdentity() {
+            // Arrange
+            final var album = albumWithTwoTracks();
+            final var kept = album.getTracks().getFirst().id();
+
+            // Act
+            final var updated = album.replaceTracks(List.of(claiming(kept, "組み直したトラック")));
+
+            // Assert
+            assertThat(updated.getTracks()).hasSize(1);
+            assertThat(updated.getTracks().getFirst().id()).isEqualTo(kept);
+            assertThat(updated.getTracks().getFirst().title().value()).isEqualTo("組み直したトラック");
         }
 
         @Test
         @DisplayName("一覧に含まれない既存のトラックが消えること")
         void replaceTracksDropsTracksNotGiven() {
             // Arrange
-            final var kept = createTestTrack(1, "Kept");
-            final var dropped = createTestTrack(2, "Dropped");
-            final var album = createTestAlbum().addTrack(kept).addTrack(dropped);
+            final var album = albumWithTwoTracks();
+            final var kept = album.getTracks().getFirst().id();
 
             // Act
-            final var updated = album.replaceTracks(List.of(kept));
+            final var updated = album.replaceTracks(List.of(claiming(kept, "Kept")));
 
             // Assert
             assertThat(updated.getTracks())
                     .extracting(Track::id)
-                    .containsExactly(kept.id());
+                    .containsExactly(kept);
         }
 
         @Test
         @DisplayName("空の一覧で置き換えるとトラックが無くなること")
         void replaceTracksWithEmptyListClearsTracks() {
             // Arrange
-            final var album = createTestAlbum().addTrack(createTestTrack(1, "Track 1"));
+            final var album = albumWithTwoTracks();
 
             // Act
             final var updated = album.replaceTracks(List.of());
@@ -654,20 +702,57 @@ class AlbumTest {
         }
 
         @Test
-        @DisplayName("同じトラック番号を持つ行を並べても、振り直しで一意になること")
-        void replaceTracksAcceptsDuplicateTrackNumbers() {
+        @DisplayName("この作品が持たないIDを指すと例外が発生すること")
+        void unknownTrackIdIsRejected() {
+            // Arrange
+            final var album = albumWithTwoTracks();
+            final var rows = List.of(claiming(Track.Id.generate(), "よそのトラック"));
+
+            // Act & Assert
+            assertThatThrownBy(() -> album.replaceTracks(rows))
+                    .isInstanceOf(BusinessRuleViolationException.class)
+                    .hasMessageContaining("does not belong to this album");
+        }
+
+        @Test
+        @DisplayName("別の作品が持つIDも、この作品の子としては受け付けないこと")
+        void trackIdOfAnotherAlbumIsRejected() {
+            // Arrange
+            final var other = albumWithTwoTracks();
+            final var album = albumWithTwoTracks();
+            final var rows = List.of(claiming(other.getTracks().getFirst().id(), "よその作品のトラック"));
+
+            // Act & Assert
+            assertThatThrownBy(() -> album.replaceTracks(rows))
+                    .isInstanceOf(BusinessRuleViolationException.class)
+                    .hasMessageContaining("does not belong to this album");
+        }
+
+        @Test
+        @DisplayName("まだ子を持たない作品は、IDを持つ行を受け付けないこと")
+        void draftAlbumRejectsClaimedTrackIds() {
             // Arrange
             final var album = createTestAlbum();
-            final var first = createTestTrack(1, "Track 1");
-            final var second = createTestTrack(1, "Track 2");
+            final var rows = List.of(claiming(Track.Id.generate(), "指定されたID"));
 
-            // Act
-            final var updated = album.replaceTracks(List.of(first, second));
+            // Act & Assert
+            assertThatThrownBy(() -> album.replaceTracks(rows))
+                    .isInstanceOf(BusinessRuleViolationException.class)
+                    .hasMessageContaining("does not belong to this album");
+        }
 
-            // Assert
-            assertThat(updated.getTracks())
-                    .extracting(Track::trackNo)
-                    .containsExactly(1, 2);
+        @Test
+        @DisplayName("同じトラックを2度指すと例外が発生すること")
+        void theSameTrackCannotAppearTwice() {
+            // Arrange
+            final var album = albumWithTwoTracks();
+            final var twice = album.getTracks().getFirst().id();
+            final var rows = List.of(claiming(twice, "1度目"), claiming(twice, "2度目"));
+
+            // Act & Assert
+            assertThatThrownBy(() -> album.replaceTracks(rows))
+                    .isInstanceOf(BusinessRuleViolationException.class)
+                    .hasMessageContaining("cannot appear twice");
         }
 
         @Test
@@ -677,7 +762,7 @@ class AlbumTest {
             final var album = createTestAlbum().addExternalAudio(ExternalAudioUrl.of(FIRST_AUDIO_URL)).album();
 
             // Act
-            final var updated = album.replaceTracks(List.of(createTestTrack(1, "Track 1")));
+            final var updated = album.replaceTracks(List.of(newRow("Track 1")));
 
             // Assert
             assertThat(updated.getExternalAudios())
@@ -744,6 +829,25 @@ class AlbumTest {
     @Nested
     @DisplayName("外部音源テスト")
     class ExternalAudioTest {
+
+        /** 新しい行（IDを持たない） */
+        private ExternalAudio.Row newAudioRow(String url) {
+            return new ExternalAudio.Row(null, ExternalAudioUrl.of(url));
+        }
+
+        /** 既にある行として指す（そのIDが自分の子かは集約が確かめる） */
+        private ExternalAudio.Row claimingAudio(ExternalAudio.Id externalAudioId, String url) {
+            return new ExternalAudio.Row(externalAudioId, ExternalAudioUrl.of(url));
+        }
+
+        /** 2件持つ作品。置き換えの起点として使う */
+        private Album albumWithTwoAudios() {
+            return createTestAlbum()
+                    .replaceExternalAudios(
+                            List.of(
+                                    newAudioRow(FIRST_AUDIO_URL),
+                                    newAudioRow(SECOND_AUDIO_URL)));
+        }
 
         @Test
         @DisplayName("外部音源を追加すると表示順が末尾に採番されること")
@@ -870,13 +974,8 @@ class AlbumTest {
         @Test
         @DisplayName("受け取った並びの順に表示順が1から振り直されること")
         void replaceExternalAudiosRenumbersByGivenOrder() {
-            // Arrange
-            final var album = createTestAlbum();
-            final var first = ExternalAudio.create(9, ExternalAudioUrl.of(FIRST_AUDIO_URL));
-            final var second = ExternalAudio.create(4, ExternalAudioUrl.of(SECOND_AUDIO_URL));
-
             // Act
-            final var updated = album.replaceExternalAudios(List.of(first, second));
+            final var updated = albumWithTwoAudios();
 
             // Assert
             assertThat(updated.getExternalAudios())
@@ -888,19 +987,37 @@ class AlbumTest {
         }
 
         @Test
-        @DisplayName("一覧に含まれない既存の外部音源が消えること")
-        void replaceExternalAudiosDropsAudiosNotGiven() {
+        @DisplayName("IDを持つ行は、その音源として残ること")
+        void audioRowsWithOwnedIdKeepTheirIdentity() {
             // Arrange
-            final var first = createTestAlbum().addExternalAudio(ExternalAudioUrl.of(FIRST_AUDIO_URL));
-            final var second = first.album().addExternalAudio(ExternalAudioUrl.of(SECOND_AUDIO_URL));
+            final var album = albumWithTwoAudios();
+            final var kept = album.getExternalAudios().getFirst().id();
 
             // Act
-            final var updated = second.album().replaceExternalAudios(List.of(second.externalAudio()));
+            final var updated = album.replaceExternalAudios(
+                    List.of(claimingAudio(kept, FIRST_AUDIO_URL)));
 
             // Assert
             assertThat(updated.getExternalAudios())
                     .extracting(ExternalAudio::id)
-                    .containsExactly(second.externalAudio().id());
+                    .containsExactly(kept);
+        }
+
+        @Test
+        @DisplayName("一覧に含まれない既存の外部音源が消えること")
+        void replaceExternalAudiosDropsAudiosNotGiven() {
+            // Arrange
+            final var album = albumWithTwoAudios();
+            final var kept = album.getExternalAudios().getLast().id();
+
+            // Act
+            final var updated = album.replaceExternalAudios(
+                    List.of(claimingAudio(kept, SECOND_AUDIO_URL)));
+
+            // Assert
+            assertThat(updated.getExternalAudios())
+                    .extracting(ExternalAudio::id)
+                    .containsExactly(kept);
         }
 
         @Test
@@ -908,21 +1025,65 @@ class AlbumTest {
         void replaceExternalAudiosWithDuplicateUrlShouldThrowException() {
             // Arrange
             final var album = createTestAlbum();
-            final var audios = List.of(
-                    ExternalAudio.create(1, ExternalAudioUrl.of(FIRST_AUDIO_URL)),
-                    ExternalAudio.create(2, ExternalAudioUrl.of(FIRST_AUDIO_URL)));
+            final var rows = List.of(
+                    newAudioRow(FIRST_AUDIO_URL),
+                    newAudioRow(FIRST_AUDIO_URL));
 
             // Act & Assert
-            assertThatThrownBy(() -> album.replaceExternalAudios(audios))
+            assertThatThrownBy(() -> album.replaceExternalAudios(rows))
                     .isInstanceOf(BusinessRuleViolationException.class)
                     .hasMessageContaining("unique");
+        }
+
+        @Test
+        @DisplayName("この作品が持たないIDを指すと例外が発生すること")
+        void unknownExternalAudioIdIsRejected() {
+            // Arrange
+            final var album = albumWithTwoAudios();
+            final var rows = List.of(claimingAudio(ExternalAudio.Id.generate(), FIRST_AUDIO_URL));
+
+            // Act & Assert
+            assertThatThrownBy(() -> album.replaceExternalAudios(rows))
+                    .isInstanceOf(BusinessRuleViolationException.class)
+                    .hasMessageContaining("does not belong to this album");
+        }
+
+        @Test
+        @DisplayName("別の作品が持つIDも、この作品の子としては受け付けないこと")
+        void externalAudioIdOfAnotherAlbumIsRejected() {
+            // Arrange
+            final var other = albumWithTwoAudios();
+            final var album = albumWithTwoAudios();
+            final var rows = List.of(
+                    claimingAudio(other.getExternalAudios().getFirst().id(), FIRST_AUDIO_URL));
+
+            // Act & Assert
+            assertThatThrownBy(() -> album.replaceExternalAudios(rows))
+                    .isInstanceOf(BusinessRuleViolationException.class)
+                    .hasMessageContaining("does not belong to this album");
+        }
+
+        @Test
+        @DisplayName("同じ音源を2度指すと例外が発生すること")
+        void theSameExternalAudioCannotAppearTwice() {
+            // Arrange
+            final var album = albumWithTwoAudios();
+            final var twice = album.getExternalAudios().getFirst().id();
+            final var rows = List.of(
+                    claimingAudio(twice, FIRST_AUDIO_URL),
+                    claimingAudio(twice, SECOND_AUDIO_URL));
+
+            // Act & Assert
+            assertThatThrownBy(() -> album.replaceExternalAudios(rows))
+                    .isInstanceOf(BusinessRuleViolationException.class)
+                    .hasMessageContaining("cannot appear twice");
         }
 
         @Test
         @DisplayName("空の一覧で置き換えると外部音源が無くなること")
         void replaceExternalAudiosWithEmptyListClearsAudios() {
             // Arrange
-            final var album = createTestAlbum().addExternalAudio(ExternalAudioUrl.of(FIRST_AUDIO_URL)).album();
+            final var album = albumWithTwoAudios();
 
             // Act
             final var updated = album.replaceExternalAudios(List.of());
@@ -938,8 +1099,7 @@ class AlbumTest {
             final var album = createTestAlbum().addTrack(createTestTrack(1, "Track 1"));
 
             // Act
-            final var updated = album.replaceExternalAudios(
-                    List.of(ExternalAudio.create(1, ExternalAudioUrl.of(FIRST_AUDIO_URL))));
+            final var updated = album.replaceExternalAudios(List.of(newAudioRow(FIRST_AUDIO_URL)));
 
             // Assert
             assertThat(updated.getTracks()).hasSize(1);

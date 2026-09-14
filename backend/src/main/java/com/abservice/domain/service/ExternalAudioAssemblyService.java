@@ -43,7 +43,7 @@ public class ExternalAudioAssemblyService implements DomainService {
      *            外部音源の入力値一覧（nullable。未指定は音源なしとして扱う。要素がnullの行は検証エラーとして扱う）
      * @return 成功時は外部音源の並び、失敗時はエラー
      */
-    public Result<List<ExternalAudio>> resolveExternalAudios(
+    public Result<List<ExternalAudio.Row>> resolveExternalAudios(
             @Nullable List<@Nullable ExternalAudioFields> audios) {
         return Optional.ofNullable(audios)
                 .map(ExternalAudioAssemblyService::validateAudios)
@@ -63,7 +63,7 @@ public class ExternalAudioAssemblyService implements DomainService {
             @Nullable String url) {
     }
 
-    private static Result<List<ExternalAudio>> validateAudios(
+    private static Result<List<ExternalAudio.Row>> validateAudios(
             List<@Nullable ExternalAudioFields> audios) {
         return Result.all(
                 IntStream.range(0, audios.size())
@@ -71,14 +71,14 @@ public class ExternalAudioAssemblyService implements DomainService {
                         .toList());
     }
 
-    private static Result<ExternalAudio> validateAudioAt(
+    private static Result<ExternalAudio.Row> validateAudioAt(
             @Nullable ExternalAudioFields audio,
             int index) {
         return Optional.ofNullable(audio)
                 .map(
-                        present -> validateAudio(present, index + 1)
+                        present -> validateAudio(present)
                                 .mapErrorFields(field -> "externalAudios[" + index + "]." + field))
-                .orElseGet(() -> Result.<ExternalAudio>failure(missingAudio(index)));
+                .orElseGet(() -> Result.<ExternalAudio.Row>failure(missingAudio(index)));
     }
 
     /** 行そのものが無い場合は、その要素の位置を指す（項目のパスを持たないため添字までで止める）。 */
@@ -89,41 +89,33 @@ public class ExternalAudioAssemblyService implements DomainService {
                 "EXTERNAL_AUDIO_REQUIRED");
     }
 
-    private static Result<ExternalAudio> validateAudio(ExternalAudioFields fields, int displayOrder) {
-        return ExternalAudioUrl.fromInput(fields.url())
-                .withErrorField("url")
-                .flatMap(
-                        url -> assemble(
-                                fields.externalAudioId(),
-                                displayOrder,
-                                url));
+    private static Result<ExternalAudio.Row> validateAudio(ExternalAudioFields fields) {
+        return Result.zip(
+                resolveAudioId(fields.externalAudioId()),
+                resolveUrl(fields.url()),
+                (audioId, url) -> new ExternalAudio.Row(audioId.orElse(null), url));
     }
 
-    /** IDを持つ行は組み直し、持たない行は新しい音源。 */
-    private static Result<ExternalAudio> assemble(
-            @Nullable String externalAudioId,
-            int displayOrder,
-            ExternalAudioUrl url) {
+    private static Result<ExternalAudioUrl> resolveUrl(@Nullable String url) {
+        return ExternalAudioUrl.fromInput(url)
+                .withErrorField("url");
+    }
+
+    /**
+     * IDの綴りだけを解く。
+     *
+     * <p>
+     * <b>そのIDが対象の作品の子であるかは、ここでは決まらない。</b> 確かめられるのは集約
+     * （{@code Album#replaceExternalAudios}）だけである。持たない行は新しい音源になる。
+     * </p>
+     */
+    private static Result<Optional<ExternalAudio.Id>> resolveAudioId(@Nullable String externalAudioId) {
         return Optional.ofNullable(externalAudioId)
                 .filter(StringUtils::isNotBlank)
                 .map(
-                        id -> reassemble(
-                                id,
-                                displayOrder,
-                                url))
-                .orElseGet(() -> Result.success(ExternalAudio.create(displayOrder, url)));
-    }
-
-    private static Result<ExternalAudio> reassemble(
-            String externalAudioId,
-            int displayOrder,
-            ExternalAudioUrl url) {
-        return ExternalAudio.Id.fromInput(externalAudioId)
-                .mapErrorFields(field -> "externalAudioId")
-                .map(
-                        id -> ExternalAudio.reconstruct(
-                                id,
-                                displayOrder,
-                                url));
+                        given -> ExternalAudio.Id.fromInput(given)
+                                .mapErrorFields(field -> "externalAudioId")
+                                .map(Optional::of))
+                .orElseGet(() -> Result.<Optional<ExternalAudio.Id>>success(Optional.empty()));
     }
 }

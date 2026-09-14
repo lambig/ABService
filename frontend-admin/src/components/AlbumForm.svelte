@@ -629,11 +629,30 @@
     void (current.kind === 'editing' ? open(current.apiKey) : Promise.resolve());
   };
 
-  /** 外部音源の並びを入力として持ち直す。送るのは保存のときだけ */
+  /**
+   * 外部音源の並びを入力として持ち直す。送るのは保存のときだけ。
+   *
+   * <p>
+   * <b>前回の検証エラーは、ここで落とす。</b> 行の誤りは位置（`externalAudios[i].url`）で返るため、並びが変われば
+   * その位置は別の行を指す。残したままにすると、直っていない行からエラーが消え、関係のない行に出る。行は
+   * 保存されるまでIDを持たないので、エラーを行へ追従させることもできない。
+   * </p>
+   */
   const audiosChanged = (audios: readonly ExternalAudioDraft[]): void => {
     const current = view;
-    view = current.kind === 'editing' ? { ...current, audios } : current;
+    view =
+      current.kind === 'editing'
+        ? { ...current, audios, submission: submissionAfterEdit(current.submission) }
+        : current;
   };
+
+  /**
+   * 入力を変えた後の保存の状態。
+   *
+   * 位置つきのエラー（`invalid`）だけを捨てる。競合や通信断は入力を変えても消えないため、そのまま残す。
+   */
+  const submissionAfterEdit = (current: Submission): Submission =>
+    current.kind === 'invalid' ? { kind: 'idle' } : current;
 
   /*
    * NARROWING-IN-TEMPLATE: テンプレートの分岐は型の絞り込みを持ち越せないため、状態から取り出した

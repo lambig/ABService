@@ -245,11 +245,40 @@ public final class Track implements DomainEntity<Track, Track.Id> {
     }
 
     /**
-     * 外部入力からトラックを生成します。
+     * 曲目を置き換えるときの1行。
      *
      * <p>
-     * 例外をスローせず、検証結果を {@link Result} で返します。{@code trackNo} の必須検証と、タイトルを持つ場合の
-     * その検証を担います。信頼できる内部生成には {@link #create} を使用してください。
+     * 検証を通った値と、既にあるトラックを指すIDだけを持ちます。<b>トラック番号は持ちません</b>——番号は並びの
+     * 表現でしかなく、集約が受け取った並びから振ります（#391）。
+     * </p>
+     *
+     * <p>
+     * <b>IDがこの作品の子を指しているかは、この型では決まりません。</b> 識別は親の中でしか意味を持たないため、
+     * 確かめられるのは集約（{@code Album}）だけです。ここが持つのは「呼び出し側が既にある行として指した」と いう申告までです。
+     * </p>
+     *
+     * @param trackId
+     *            既にあるトラックのID。持たない行は新しいトラックになる
+     * @param title
+     *            解決済みのタイトル（省略された場合は null）
+     * @param artistCredit
+     *            アーティストクレジット（nullable）
+     * @param tunes
+     *            チューン構成
+     */
+    public record Row(
+            @Nullable Id trackId,
+            @Nullable TrackTitle title,
+            @Nullable ArtistCredit artistCredit,
+            @NonNull List<TrackTune> tunes) {
+    }
+
+    /**
+     * 外部入力から、曲目を置き換える1行を組み立てます。
+     *
+     * <p>
+     * 例外をスローせず、検証結果を {@link Result} で返します。担うのはタイトルの解決だけで、番号もIDの正しさも
+     * ここでは決まりません。信頼できる内部生成には {@link #create} を使用してください。
      * </p>
      *
      * <p>
@@ -257,64 +286,25 @@ public final class Track implements DomainEntity<Track, Track.Id> {
      * 少なくとも1つ持つ必要があります</b>。満たさない入力は名を答えられないトラックになるため、ここで落とします。
      * </p>
      *
-     * @param trackNo
-     *            トラック番号
+     * @param trackId
+     *            既にあるトラックのID（nullable。持たない行は新しいトラックとして扱う）
      * @param title
      *            トラックタイトルを表す文字列（nullable）
      * @param artistCredit
      *            アーティストクレジット（nullable）
      * @param tunes
      *            チューン構成
-     * @return 成功時は {@code Track}、失敗時はエラー
+     * @return 成功時は置き換えの1行、失敗時はエラー
      */
-    public static Result<Track> fromInput(@Nullable Integer trackNo, @Nullable String title,
+    public static Result<Row> rowFromInput(@Nullable Id trackId, @Nullable String title,
             @Nullable ArtistCredit artistCredit, @NonNull List<TrackTune> tunes) {
-        return Track.fromInput(
-                Id.generate(),
-                trackNo,
-                title,
-                artistCredit,
-                tunes);
-    }
-
-    /**
-     * 外部入力から、既にあるトラックを組み直します。
-     *
-     * <p>
-     * 更新のユースケース（PUT風の全項目置換）が使います。検証の規則は
-     * {@link #fromInput(Integer, String, ArtistCredit, List)}
-     * と同じで、IDだけを引き継ぎます——**規則を呼ぶ側へ写さない**ため、入口を分けずに IDの出どころだけを変えます。
-     * </p>
-     *
-     * @param id
-     *            引き継ぐトラックID
-     * @param trackNo
-     *            トラック番号
-     * @param title
-     *            トラックタイトルを表す文字列（nullable）
-     * @param artistCredit
-     *            アーティストクレジット（nullable）
-     * @param tunes
-     *            チューン構成
-     * @return 成功時は {@code Track}、失敗時はエラー
-     */
-    public static Result<Track> fromInput(@NonNull Id id, @Nullable Integer trackNo, @Nullable String title,
-            @Nullable ArtistCredit artistCredit, @NonNull List<TrackTune> tunes) {
-        return Result.zip(
-                Policy.<Integer>of(
-                        Objects::nonNull,
-                        () -> new ErrorResult(
-                                "trackNo",
-                                "Track number is required",
-                                "TRACK_NO_REQUIRED"))
-                        .verify(trackNo, Function.identity()),
-                resolveTitle(title, tunes),
-                (validTrackNo, validTitle) -> Track.factory(
-                        id,
-                        validTrackNo,
-                        validTitle.orElse(null),
-                        artistCredit,
-                        tunes));
+        return resolveTitle(title, tunes)
+                .map(
+                        validTitle -> new Row(
+                                trackId,
+                                validTitle.orElse(null),
+                                artistCredit,
+                                tunes));
     }
 
     /**

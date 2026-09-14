@@ -49,7 +49,7 @@ public class TrackAssemblyService implements DomainService {
      *            トラックの入力値一覧（nullable。未指定は曲目なしとして扱う。要素がnullの行は検証エラーとして扱う）
      * @return 成功時はトラックの並び、失敗時はエラー
      */
-    public Result<List<Track>> resolveTracks(@Nullable List<@Nullable TrackFields> tracks) {
+    public Result<List<Track.Row>> resolveTracks(@Nullable List<@Nullable TrackFields> tracks) {
         return Optional.ofNullable(tracks)
                 .map(TrackAssemblyService::validateTracks)
                 .orElseGet(() -> Result.success(List.of()));
@@ -96,19 +96,19 @@ public class TrackAssemblyService implements DomainService {
             @Nullable String linkUrl) {
     }
 
-    private static Result<List<Track>> validateTracks(List<@Nullable TrackFields> tracks) {
+    private static Result<List<Track.Row>> validateTracks(List<@Nullable TrackFields> tracks) {
         return Result.all(
                 IntStream.range(0, tracks.size())
                         .mapToObj(index -> validateTrackAt(tracks.get(index), index))
                         .toList());
     }
 
-    private static Result<Track> validateTrackAt(@Nullable TrackFields track, int index) {
+    private static Result<Track.Row> validateTrackAt(@Nullable TrackFields track, int index) {
         return Optional.ofNullable(track)
                 .map(
-                        present -> validateTrack(present, index + 1)
+                        present -> validateTrack(present)
                                 .mapErrorFields(field -> "tracks[" + index + "]." + field))
-                .orElseGet(() -> Result.<Track>failure(missingTrack(index)));
+                .orElseGet(() -> Result.<Track.Row>failure(missingTrack(index)));
     }
 
     /** 行そのものが無い場合は、その要素の位置を指す（項目のパスを持たないため添字までで止める）。 */
@@ -119,57 +119,44 @@ public class TrackAssemblyService implements DomainService {
                 "TRACK_REQUIRED");
     }
 
-    private static Result<Track> validateTrack(TrackFields fields, int trackNo) {
+    private static Result<Track.Row> validateTrack(TrackFields fields) {
         return Result.zip(
+                resolveTrackId(fields.trackId()),
                 resolveArtistCredit(fields.artistDisplayName(), fields.artistSortKey())
                         .withErrorField("artistDisplayName"),
                 resolveTunes(fields.tunes()),
                 ResolvedFields::new)
                 .flatMap(
-                        resolved -> assemble(
-                                fields,
-                                trackNo,
-                                resolved));
+                        resolved -> Track.rowFromInput(
+                                resolved.trackId().orElse(null),
+                                fields.title(),
+                                resolved.artistCredit().orElse(null),
+                                resolved.tunes()));
     }
 
-    /** IDを持つ行は組み直し、持たない行は新しいトラック。検証の規則は {@code Track} 側で共有している。 */
-    private static Result<Track> assemble(
-            TrackFields fields,
-            int trackNo,
-            ResolvedFields resolved) {
-        return Optional.ofNullable(fields.trackId())
+    /**
+     * IDの綴りだけを解く。
+     *
+     * <p>
+     * <b>そのIDが対象の作品の子であるかは、ここでは決まらない。</b> 子の識別は親の中でしか意味を持たないため、
+     * 確かめられるのは集約（{@code Album#replaceTracks}）だけである。ここが答えるのは「識別子として読めるか」までで、
+     * 持たない行は新しいトラックになる。
+     * </p>
+     */
+    private static Result<Optional<Track.Id>> resolveTrackId(@Nullable String trackId) {
+        return Optional.ofNullable(trackId)
                 .filter(StringUtils::isNotBlank)
                 .map(
-                        trackId -> reassemble(
-                                trackId,
-                                fields,
-                                trackNo,
-                                resolved))
-                .orElseGet(
-                        () -> Track.fromInput(
-                                trackNo,
-                                fields.title(),
-                                resolved.artistCredit().orElse(null),
-                                resolved.tunes()));
+                        given -> Track.Id.fromInput(given)
+                                .mapErrorFields(field -> "trackId")
+                                .map(Optional::of))
+                .orElseGet(() -> Result.<Optional<Track.Id>>success(Optional.empty()));
     }
 
-    private static Result<Track> reassemble(
-            String trackId,
-            TrackFields fields,
-            int trackNo,
-            ResolvedFields resolved) {
-        return Track.Id.fromInput(trackId)
-                .mapErrorFields(field -> "trackId")
-                .flatMap(
-                        id -> Track.fromInput(
-                                id,
-                                trackNo,
-                                fields.title(),
-                                resolved.artistCredit().orElse(null),
-                                resolved.tunes()));
-    }
-
-    private record ResolvedFields(Optional<ArtistCredit> artistCredit, List<TrackTune> tunes) {
+    private record ResolvedFields(
+            Optional<Track.Id> trackId,
+            Optional<ArtistCredit> artistCredit,
+            List<TrackTune> tunes) {
     }
 
     private static Result<List<TrackTune>> resolveTunes(@Nullable List<@Nullable TuneFields> tunes) {

@@ -72,28 +72,11 @@ class TrackAssemblyServiceTest {
         final var track = result.resolve().getFirst();
         assertThat(track.title().value()).isEqualTo("トラックタイトル");
         assertThat(track.artistCredit().displayName().value()).isEqualTo("アーティスト名");
-        assertThat(track.getTunes()).isEmpty();
+        assertThat(track.tunes()).isEmpty();
     }
 
     @Test
-    @DisplayName("トラック番号は受け取った並びから1で振られる")
-    void trackNumbersFollowTheGivenOrder() {
-        final var result = SERVICE.resolveTracks(
-                List.of(
-                        track("1曲目", null),
-                        track("2曲目", null),
-                        track("3曲目", null)));
-
-        assertThat(result.resolve())
-                .extracting(Track::trackNo)
-                .containsExactly(
-                        1,
-                        2,
-                        3);
-    }
-
-    @Test
-    @DisplayName("チューンの登場順も並びから振られる")
+    @DisplayName("チューンの登場順は並びから振られる")
     void tuneSequencesFollowTheGivenOrder() {
         final var result = SERVICE.resolveTracks(
                 List.of(
@@ -103,7 +86,7 @@ class TrackAssemblyServiceTest {
                                         tune("チューン1"),
                                         tune("チューン2")))));
 
-        final var tunes = result.resolve().getFirst().getTunes();
+        final var tunes = result.resolve().getFirst().tunes();
         assertThat(tunes).hasSize(2);
         assertThat(tunes.getFirst().seq()).isEqualTo(1);
         assertThat(tunes.getFirst().tuneTitle().value()).isEqualTo("チューン1");
@@ -112,8 +95,8 @@ class TrackAssemblyServiceTest {
     }
 
     @Test
-    @DisplayName("IDを持つ行は、そのIDのトラックとして組み直される")
-    void rowsWithIdKeepTheirIdentity() {
+    @DisplayName("IDを持つ行はそのIDを運び、持たない行は運ばない")
+    void rowsCarryTheClaimedIdOnly() {
         final var existing = Track.Id.generate();
 
         final var result = SERVICE.resolveTracks(
@@ -121,8 +104,12 @@ class TrackAssemblyServiceTest {
                         existingTrack(existing.value(), "1曲目"),
                         track("2曲目", null)));
 
-        assertThat(result.resolve().getFirst().id()).isEqualTo(existing);
-        assertThat(result.resolve().getLast().id()).isNotEqualTo(existing);
+        /*
+         * OWNERSHIP-IS-NOT-DECIDED-HERE: そのIDが対象の作品の子かどうかは、この段では決まらない。
+         * ここが答えるのは「識別子として読めるか」までで、確かめるのは集約（AlbumTest 側で固定）。
+         */
+        assertThat(result.resolve().getFirst().trackId()).isEqualTo(existing);
+        assertThat(result.resolve().getLast().trackId()).isNull();
     }
 
     @Test
