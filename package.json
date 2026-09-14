@@ -99,7 +99,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/your-username/ABService.git"
+    "url": "git+https://github.com/lambig/ABService.git"
   },
   "keywords": [
     "web-service",
@@ -108,6 +108,6 @@
     "astro",
     "monorepo"
   ],
-  "author": "Your Name",
+  "author": "Lambig",
   "license": "MIT"
 }

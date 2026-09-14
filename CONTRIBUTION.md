@@ -97,6 +97,10 @@ ABService/
 2. 開発環境の起動: `docker-compose up -d`
 3. 各サービスの個別起動（必要に応じて）
 
+## 本番作業の参照先
+
+初回構築・デプロイ・ロールバックの手順は [infra/README.md](infra/README.md) を正とします。実環境の設定値や投入データ、切替・復旧の証跡は非公開の運用リポジトリで管理し、公開 PR には入れません。受け入れ条件と作業順序は [ロードマップ #224](https://github.com/lambig/ABService/issues/224) と各 issue を参照してください。
+
 ## コーディング規約
 
 ### バックエンド (Quarkus)

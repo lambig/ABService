@@ -23,6 +23,14 @@ WebService/Site implementation for my own use
 - [backend/TEST_GUIDE.md](backend/TEST_GUIDE.md) - テスト分離規約
 - [docs/README.md](docs/README.md) - ドキュメント記述規約（何を文書に書き、何を書かないか）
 
+## 本番デプロイと復旧
+
+AWS の初回構築・通常デプロイ・既存イメージへのロールバックは [infra/README.md](infra/README.md) を参照してください。設定項目と実行コマンドはそこへ集約し、この文書へ複製しません。
+
+実環境の設定値・投入する本文や画像・切替判断・復旧演習の証跡は、非公開の運用リポジトリで管理します。公開リポジトリには実ドメインやアカウント固有値を置かず、秘密値は Git に保存しません。
+
+リリース順序と依存関係は [ロードマップ #224](https://github.com/lambig/ABService/issues/224)、v1.0 のスコープは [#132](https://github.com/lambig/ABService/issues/132)、進捗は各 issue と milestone が正です。CI 通過と本番受け入れは別で、実環境での配信・復旧・監視の確認が必要です。
+
 ## 開発
 
 ### ビルドとテスト
@@ -52,7 +60,7 @@ ABServiceでは以下のLinting/フォーマットツールを使用していま
 - **PMD**: 独自XPathルール（機能的スタイル強制）＋組込の不要変数検出
 - **ArchUnit**: アーキテクチャ制約（レイヤー依存方向・配置・戻り値契約など）をテストで強制
 
-> **注意**: SpotBugs は現在未導入です（4.10.2 で Java25 対応済み。再導入はロードマップのフェーズD で検討）。
+> **注意**: SpotBugs は現在未導入です。再導入の判断と受け入れ条件は issue #193 が正です。
 
 #### コード品質チェック
 
