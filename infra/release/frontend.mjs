@@ -52,11 +52,9 @@ export const gitAncestor = (ancestor, descendant, cwd) => {
 };
 
 // Called inside the release lock. Queue order is CI completion order, not commit order.
-export const deploymentDecision = (current, target, isAncestor = gitAncestor) => {
+export const deploymentDecision = (previous, target, isAncestor = gitAncestor) => {
   sha(target);
-  const record = current === null ? null : validateManifest(current);
-  const previous = record?.public.codeSha ?? null;
-  assert.ok(record === null || previous === record.admin.codeSha, 'Public/admin code generations differ; recover before normal deployment');
+  if (previous !== null) sha(previous);
   const deploy = previous === null || previous === target || isAncestor(previous, target);
   assert.ok(deploy || isAncestor(target, previous), 'Deployment history diverged; use an explicit recovery procedure');
   return { deploy, previous, target };
@@ -98,11 +96,34 @@ export const createDelivery = (config, aws = execute) => {
   // Called under the workflow's release lock, before any backend build/deploy.
   // Missing current is valid for an initial deployment; unreadable/corrupt state is not.
   const preflight = () => { clean(); return current(); };
+  const lastNormal = () => {
+    const record = read('last-normal.json');
+    if (record === null) return null;
+    assert.equal(record.version, 1, 'Invalid normal deployment watermark');
+    return sha(record.codeSha);
+  };
+  const acceptNormal = (target, isAncestor = gitAncestor) => {
+    const active = preflight();
+    const previous = lastNormal();
+    // Never seed a lost watermark from active artifacts: they may be rolled back.
+    assert.ok(active === null || previous !== null, 'Normal deployment watermark is missing; restore release state');
+    assert.ok(active === null || active.public.codeSha === active.admin.codeSha,
+      'Public/admin code generations differ; recover before normal deployment');
+    assert.ok(active === null || active.public.codeSha === previous || isAncestor(active.public.codeSha, previous),
+      'Active release is outside normal deployment history; restore release state');
+    const decision = deploymentDecision(previous, target, isAncestor);
+    // Reserve before backend can run, including when backend/frontend later fails.
+    // Manual rollback/rebuild never writes this object. The workflow owns the lock.
+    if (decision.deploy && previous !== target) write('last-normal.json', { version: 1, codeSha: target });
+    return decision;
+  };
+  const requireAccepted = (target) => assert.equal(lastNormal(), target, 'Normal deployment requires its accepted watermark');
   const resolveCode = (action, requestedSha) => {
     assert.ok(['deploy', 'rebuild-public'].includes(action));
     clean();
     const deployed = current();
     assert.ok(action !== 'rebuild-public' || deployed, 'No published release to rebuild');
+    if (action === 'deploy') requireAccepted(sha(requestedSha));
     return action === 'rebuild-public' ? deployed.public.codeSha : sha(requestedSha);
   };
   const archive = (site, root, id, codeSha) => {
@@ -145,6 +166,7 @@ export const createDelivery = (config, aws = execute) => {
     clean();
     const previous = current();
     assert.ok(['deploy', 'rebuild-public'].includes(action));
+    if (action === 'deploy') requireAccepted(codeSha);
     assert.ok(action !== 'rebuild-public' || previous?.public.codeSha === codeSha, 'Rebuild must use the currently deployed public SHA');
     assert.equal(read(`manifests/${id}.json`), null, 'Release ID already exists');
     const sites = action === 'deploy' ? ['public', 'admin'] : ['public'];
@@ -175,7 +197,7 @@ export const createDelivery = (config, aws = execute) => {
     }])) : previous;
     return complete(invalidatedPrevious, record, ['public', 'admin'], roots, id);
   };
-  return { preflight, resolveCode, publish, rollback };
+  return { preflight, acceptNormal, resolveCode, publish, rollback };
 };
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -185,11 +207,11 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const [command, action] = process.argv.slice(2);
   const operations = {
     preflight: () => {
-      const decision = deploymentDecision(delivery.preflight(), env.RELEASE_SHA);
+      const decision = delivery.acceptNormal(env.RELEASE_SHA);
       writeFileSync(env.GITHUB_OUTPUT, `deploy=${decision.deploy}\n`, { flag: 'a' });
       const message = decision.deploy
         ? `Forward deployment allowed: ${decision.previous ?? 'initial'} -> ${decision.target}`
-        : `Skipped stale successful CI: ${decision.target}; current remains ${decision.previous}. Backend/frontend were not deployed.`;
+        : `Skipped stale successful CI: ${decision.target}; normal deployment watermark remains ${decision.previous}. Backend/frontend were not deployed.`;
       console.log(message);
       writeFileSync(env.GITHUB_STEP_SUMMARY, `${message}\n`, { flag: 'a' });
     },

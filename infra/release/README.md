@@ -10,7 +10,11 @@
 
 `queue: max`で最大100件の待機を保持し、後発の手動操作で待機中の通常配布を置換しない。順序はgroupで待ち始めた順であり、commit順ではない。上限超過のrunはキャンセルされるので、run結果と配布記録を確認する。Actions外の直接操作にはこの排他は効かない。[GitHubのconcurrency仕様](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)を参照。
 
-通常配布のpreflightでは、ロック取得後のcurrentのコードSHAと今回のCI成功SHAをGitの全履歴で比較する。初回・同一SHA・currentの子孫への更新だけを許可する。先にCが配布済みで、遅れて祖先BのCIが成功した場合は、preflightのSummaryへstaleを理由にスキップしたと表示し、backend/frontendを実行せずcurrentを維持する。履歴が分岐、比較対象commitが不明、public/adminのコードSHAが不一致の場合は停止し、復旧手順で状態を確認する。`git revert`による新しい子孫commitは通常配布できる。意図した過去版への復旧は手動rollbackを使う。
+通常配布のpreflightでは、ロック取得後に `last-normal.json` のコードSHA（通常配布として最後に受理した世代）と今回のCI成功SHAをGitの全履歴で比較する。初回・同一SHA・受理済みSHAの子孫への更新だけを許可する。許可したSHAは **backend実行前** にこの記録へ保存し、保存に失敗するとbackendへ進まない。backendの失敗、frontendのビルド失敗・部分配布、明示的なfrontend/backend rollback、内容再ビルドではこの記録を巻き戻さない。受理の記録であり、配布成功の証拠ではない。
+
+たとえば通常配布Cの後でfrontendだけをAへrollbackしても、通常配布の基準はCのまま。遅れて祖先BのCIが成功した場合は、preflightのSummaryへstaleによるスキップを表示し、backend/frontendを実行せず全配布記録を維持する。Cの子孫Dは許可する。`git revert`による新しい子孫commitも通常配布できる。同一の受理済みSHAは再実行を許すため、明示rollback後でもCのCI/Deploy再実行はCへ戻す操作になる。
+
+履歴が分岐、比較対象commitが不明、public/adminのコードSHAが不一致、activeのSHAが受理済み世代の履歴外の場合は停止する。`last-normal.json` の読取り不能・形式不正も停止する。`current.json` があるのに受理記録が無い場合は **active SHAから自動初期化しない**。activeはrollback済みかもしれないため、通常配布を止め、releaseバケットのversion履歴とDeploy記録から最後の受理世代を復元してから再開する。current/受理記録の両方が無い新規環境だけを初回として扱う。旧版を試験配布した環境でも、受理履歴を確定せずactive SHAを転記しない。
 
 失敗した通常Deployを再実行するときは、pendingがあれば先に復旧し、**Re-run all jobs**を使う。preflightとbackendの結果は同じattemptだけで有効とし、「失敗したジョブだけ再実行」で以前の検査やbackend配布結果を流用して後段へ進むことは拒否する。手動backend rollbackは復旧用なのでpendingによるpreflightを迂回できるが、共通groupの排他は保つ。
 
@@ -40,7 +44,7 @@ S3への複数ファイルの同期は原子的ではない。配布中の短時
 
 ## 配布記録と切り戻し
 
-非公開のreleaseバケットが、各配布のファイルとSHA-256、public/adminそれぞれのコードSHAを保持する。`manifests/<run番号>-<attempt>.json` はその操作の対象、`current.json` は最後に配布完了した組合せ。操作開始時は `pending.json` を先に書き、全処理成功後に消す。GitHubの成功表示だけで判断せず、失敗時はこの記録とrunを照合する。
+非公開のreleaseバケットが、各配布のファイルとSHA-256、public/adminそれぞれのコードSHAを保持する。`manifests/<run番号>-<attempt>.json` はその操作の対象、`current.json` は最後に配布完了した組合せ。`last-normal.json` は `{ "version": 1, "codeSha": "<full SHA>" }` 形式の独立した通常配布受理記録で、過去のmanifestには含めず、rollbackでも書き戻さない。操作開始時は `pending.json` を先に書き、全処理成功後に消す。GitHubの成功表示だけで判断せず、失敗時はこの記録とrunを照合する。
 
 切り戻しは同じworkflowで `action=rollback` と `release_id=<戻すrun番号>-<attempt>` を指定する。**コードを再ビルドせず、公開内容を含む保存済み成果物を戻す**。アーカイブのファイル集合とハッシュを検査してからliveバケットへ書く。失敗した配布で新たに生まれたURLも失効対象にする。
 
@@ -59,6 +63,6 @@ S3への複数ファイルの同期は原子的ではない。配布中の短時
 3. 意図的に配布を失敗させ、currentが進まずpendingが残ること。記録済み成果物へ戻して再照会。
 4. publicの未存在URLの404本文と、APIの403/404のProblem Detailsを別々に確認（#125）。
 5. pendingがある状態で通常Deployを起動し、preflight失敗・backend未実行を確認。通常配布中に手動frontend操作を待機させ、両画面の配布完了後に進むことを確認。
-6. 新しい子孫commitの配布完了後、古い祖先commitのCIを再実行し、staleのSummaryとbackend/frontendのskip、current不変を確認。スキップしたrunの成功表示を新規配布の証跡として扱わない。
+6. 通常配布C→frontend rollback Aの後で古い祖先BのCIを再実行し、staleのSummaryとbackend/frontendのskip、current/last-normal不変を確認。次の子孫Dは許可されることも確認する。backend失敗・frontend部分失敗の後も受理記録が残ることを確認する。スキップしたrunや受理記録を配布成功の証跡として扱わない。
 
 静的S3の未存在キーを公開サイトの404本文に変換する経路は #125 の残件。distribution全体のcustom error responseはAPI応答までHTMLに変えるため採用していない。CSP（#240）・通知（#168）・実環境の復旧演習（#130）を含む残条件の正は各Issue。

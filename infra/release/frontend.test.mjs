@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, cpSync, rmSync } f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { runInNewContext } from 'node:vm';
 import { createDelivery, filesUnder, invalidationPaths, validateManifest } from './frontend.mjs';
 
 const codeSha = 'a'.repeat(40);
@@ -43,11 +44,15 @@ const setup = () => {
     }
     return '{}';
   };
-  return { root, publicRoot, adminRoot, objects, archives, calls,
+  return { root, publicRoot, adminRoot, objects, archives, calls, aws,
     delivery: createDelivery(config, aws), failWhen: (predicate) => { failure = predicate; } };
 };
-const deploy = (context, id = '100-1') => context.delivery.publish({ action: 'deploy', id, codeSha,
-  publicRoot: context.publicRoot, adminRoot: context.adminRoot });
+const ancestor = (older, newer) => older < newer; // Mock the A -> B -> C -> D history.
+const deploy = (context, id = '100-1', target = codeSha) => {
+  assert.equal(context.delivery.acceptNormal(target, ancestor).deploy, true);
+  return context.delivery.publish({ action: 'deploy', id, codeSha: target,
+    publicRoot: context.publicRoot, adminRoot: context.adminRoot });
+};
 
 test('preflight accepts first deployment and completed state without writes', () => {
   const context = setup();
@@ -103,7 +108,7 @@ test('invalidation failure leaves previous SHA and blocks rebuild until artifact
   const context = setup();
   const original = deploy(context);
   context.failWhen((args) => args[1] === 'wait');
-  assert.throws(() => context.delivery.publish({ action: 'deploy', id: '102-1', codeSha: 'b'.repeat(40), publicRoot: context.publicRoot, adminRoot: context.adminRoot }));
+  assert.throws(() => deploy(context, '102-1', 'b'.repeat(40)));
   assert.deepEqual(JSON.parse(context.objects.get('current.json')), original);
   assert.ok(context.objects.has('pending.json'));
   assert.throws(() => context.delivery.resolveCode('rebuild-public'), /incomplete/);
@@ -131,7 +136,7 @@ test('missing build, missing initial release, reused ID and overlapping live buc
   assert.throws(() => context.delivery.resolveCode('rebuild-public'), /No published/);
   rmSync(join(context.adminRoot, 'index.html'));
   assert.throws(() => deploy(context));
-  assert.ok(!context.calls.some((args) => args[1] === 'put-object' || args[1] === 'sync'));
+  assert.ok(!context.calls.some((args) => args[1] === 'sync' || (args[1] === 'put-object' && !args.includes('last-normal.json'))));
   writeFileSync(join(context.adminRoot, 'index.html'), 'admin');
   deploy(context);
   assert.throws(() => deploy(context), /already exists/);
@@ -146,4 +151,103 @@ test('access errors are not treated as first deploy; unsafe archive paths are re
   record.public.files[0].path = '../outside';
   assert.throws(() => validateManifest(record));
   assert.deepEqual(filesUnder(context.adminRoot), ['index.html']);
+});
+
+// Feed decisions from real release-state transitions into the actual workflow guards.
+const normalJobs = (decision) => {
+  const workflow = readFileSync(new URL('../../.github/workflows/deploy.yml', import.meta.url), 'utf8');
+  const block = (name) => workflow.split(`\n  ${name}:\n`)[1].split(/\n  [\w-]+:\n/)[0];
+  const context = { cancelled: () => false,
+    github: { ref: 'refs/heads/main', event_name: 'workflow_run', repository: 'owner/repo', run_attempt: '1',
+      event: { workflow_run: { conclusion: 'success', head_branch: 'main', event: 'push', head_repository: { full_name: 'owner/repo' } } } },
+    vars: { AWS_DEPLOY_ROLE_ARN: 'backend-role' },
+    needs: { preflight: { result: 'success', outputs: { deploy: String(decision.deploy), attempt: '1' } },
+      deploy: { result: 'skipped', outputs: { attempt: '1' } } } };
+  const evaluate = (expression) => runInNewContext(expression.replace(/^\$\{\{\s*|\s*\}\}$/g, ''), context);
+  const backend = evaluate(block('deploy').match(/    if: >-\n((?:      .*(?:\n|$))+)/)[1].trim());
+  context.needs.deploy.result = backend ? 'success' : 'skipped';
+  return { backend, frontend: evaluate(block('frontend').match(/    if: (.+)/)[1]) };
+};
+
+test('normal C then frontend rollback A retains watermark C: late B skips both jobs, D advances', () => {
+  const context = setup();
+  const c = 'c'.repeat(40); const b = 'b'.repeat(40); const d = 'd'.repeat(40);
+  const original = deploy(context);
+  deploy(context, '101-1', c);
+  const watermark = context.objects.get('last-normal.json');
+  context.delivery.rollback({ targetId: '100-1', id: '102-1' });
+  assert.deepEqual(JSON.parse(context.objects.get('current.json')), original);
+  assert.equal(context.objects.get('last-normal.json'), watermark);
+  // Rebuilding the rolled-back public must not lower the watermark either.
+  context.delivery.publish({ action: 'rebuild-public', id: '103-1', codeSha, publicRoot: context.publicRoot });
+  assert.equal(context.objects.get('last-normal.json'), watermark);
+  const before = new Map(context.objects);
+  context.calls.length = 0;
+  const stale = context.delivery.acceptNormal(b, ancestor);
+  assert.deepEqual(normalJobs(stale), { backend: false, frontend: false });
+  assert.deepEqual(context.objects, before);
+  assert.ok(context.calls.every((args) => args[1] === 'get-object'));
+  const forward = context.delivery.acceptNormal(d, ancestor);
+  assert.deepEqual(normalJobs(forward), { backend: true, frontend: true });
+  assert.equal(JSON.parse(context.objects.get('last-normal.json')).codeSha, d);
+});
+
+test('accepted C survives backend failure before any frontend record; B cannot become an initial deployment', () => {
+  const context = setup();
+  const c = 'c'.repeat(40); const b = 'b'.repeat(40);
+  assert.equal(context.delivery.acceptNormal(c, ancestor).deploy, true);
+  assert.equal(context.objects.has('current.json'), false);
+  assert.equal(context.objects.has('pending.json'), false);
+  const restarted = createDelivery(config, context.aws);
+  assert.deepEqual(normalJobs(restarted.acceptNormal(b, ancestor)), { backend: false, frontend: false });
+  assert.equal(restarted.acceptNormal(c, ancestor).deploy, true, 'same accepted SHA remains retryable');
+});
+
+test('failed frontend C and rollback A preserve C even though current never reached C', () => {
+  const context = setup();
+  deploy(context);
+  const c = 'c'.repeat(40);
+  context.failWhen((args) => args[1] === 'wait');
+  assert.throws(() => deploy(context, '101-1', c), /injected/);
+  assert.equal(JSON.parse(context.objects.get('last-normal.json')).codeSha, c);
+  context.failWhen(() => false);
+  context.delivery.rollback({ targetId: '100-1', id: '102-1' });
+  assert.equal(JSON.parse(context.objects.get('current.json')).public.codeSha, codeSha);
+  assert.equal(context.objects.has('pending.json'), false);
+  assert.deepEqual(normalJobs(context.delivery.acceptNormal('b'.repeat(40), ancestor)), { backend: false, frontend: false });
+});
+
+test('watermark read/write errors block acceptance; missing or corrupt state never falls back to active SHA', () => {
+  const context = setup();
+  context.failWhen((args) => args[1] === 'put-object' && args.includes('last-normal.json'));
+  assert.throws(() => context.delivery.acceptNormal(codeSha, ancestor), /injected/);
+  assert.equal(context.objects.size, 0);
+  context.failWhen(() => false);
+  deploy(context);
+  context.failWhen((args) => args[1] === 'get-object' && args.includes('last-normal.json'));
+  assert.throws(() => context.delivery.acceptNormal(codeSha, ancestor), /injected/);
+  context.failWhen(() => false);
+  context.objects.delete('last-normal.json');
+  assert.throws(() => context.delivery.acceptNormal('b'.repeat(40), ancestor), /watermark is missing/);
+  context.objects.set('last-normal.json', '{broken');
+  assert.throws(() => context.delivery.acceptNormal(codeSha, ancestor), SyntaxError);
+  context.objects.set('last-normal.json', JSON.stringify({ version: 2, codeSha }));
+  assert.throws(() => context.delivery.acceptNormal(codeSha, ancestor), /Invalid normal/);
+  context.objects.set('last-normal.json', JSON.stringify({ version: 1, codeSha: 'invalid' }));
+  assert.throws(() => context.delivery.acceptNormal(codeSha, ancestor));
+});
+
+test('normal build and publish require accepted SHA, and inconsistent active generations fail closed', () => {
+  const context = setup();
+  assert.throws(() => context.delivery.resolveCode('deploy', codeSha), /accepted watermark/);
+  assert.throws(() => context.delivery.publish({ action: 'deploy', id: '100-1', codeSha,
+    publicRoot: context.publicRoot, adminRoot: context.adminRoot }), /accepted watermark/);
+  const record = deploy(context);
+  assert.throws(() => context.delivery.resolveCode('deploy', 'b'.repeat(40)), /accepted watermark/);
+  const inconsistent = { ...record, admin: { ...record.admin, codeSha: 'b'.repeat(40) } };
+  context.objects.set('current.json', JSON.stringify(inconsistent));
+  assert.throws(() => context.delivery.acceptNormal('c'.repeat(40), ancestor), /generations differ/);
+  context.objects.set('current.json', JSON.stringify(record));
+  context.objects.set('last-normal.json', JSON.stringify({ version: 1, codeSha: '0'.repeat(40) }));
+  assert.throws(() => context.delivery.acceptNormal('c'.repeat(40), ancestor), /outside normal/);
 });

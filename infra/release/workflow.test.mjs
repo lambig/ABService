@@ -38,10 +38,9 @@ test('backend requires successful preflight in this attempt; pending/error/skip 
   assert.match(preflight, /RELEASE_SHA: \$\{\{ github.event.workflow_run.head_sha \}\}/);
 });
 
-test('current C with a later successful CI for ancestor B skips backend and frontend', () => {
+test('watermark C with a later successful CI for ancestor B skips backend and frontend', () => {
   const b = 'b'.repeat(40); const c = 'c'.repeat(40);
-  const entry = { codeSha: c, releaseId: '100-1', files: [{ path: 'index.html', sha256: 'a'.repeat(64) }] };
-  const decision = deploymentDecision({ version: 1, public: entry, admin: entry }, b,
+  const decision = deploymentDecision(c, b,
     (ancestor, descendant) => ancestor === b && descendant === c);
   assert.equal(decision.deploy, false);
   const context = normal(); context.needs.preflight.outputs.deploy = String(decision.deploy);

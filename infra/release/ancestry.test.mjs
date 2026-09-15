@@ -22,17 +22,12 @@ test('real Git history permits initial/equal/forward/revert and skips stale, rej
   const revert = git('rev-parse', 'HEAD');
   git('checkout', '-b', 'fork', a);
   const fork = commit('fork');
-  const record = (codeSha) => {
-    const entry = { codeSha, releaseId: '100-1', files: [{ path: 'index.html', sha256: 'a'.repeat(64) }] };
-    return { version: 1, public: entry, admin: entry };
-  };
   const ancestor = (older, newer) => gitAncestor(older, newer, cwd);
   assert.equal(deploymentDecision(null, a, ancestor).deploy, true);
-  assert.equal(deploymentDecision(record(c), c, ancestor).deploy, true);
-  assert.equal(deploymentDecision(record(b), c, ancestor).deploy, true);
-  assert.equal(deploymentDecision(record(c), b, ancestor).deploy, false);
-  assert.equal(deploymentDecision(record(c), revert, ancestor).deploy, true);
-  assert.throws(() => deploymentDecision(record(c), fork, ancestor), /diverged/);
-  assert.throws(() => deploymentDecision(record('f'.repeat(40)), c, ancestor), /Cannot compare/);
-  assert.throws(() => deploymentDecision({ ...record(c), admin: record(b).admin }, c, ancestor), /generations differ/);
+  assert.equal(deploymentDecision(c, c, ancestor).deploy, true);
+  assert.equal(deploymentDecision(b, c, ancestor).deploy, true);
+  assert.equal(deploymentDecision(c, b, ancestor).deploy, false);
+  assert.equal(deploymentDecision(c, revert, ancestor).deploy, true);
+  assert.throws(() => deploymentDecision(c, fork, ancestor), /diverged/);
+  assert.throws(() => deploymentDecision('f'.repeat(40), c, ancestor), /Cannot compare/);
 });
