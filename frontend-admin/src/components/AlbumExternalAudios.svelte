@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Button } from '$components/ui/button/index.js';
   import type { ExternalAudioDraft } from '$lib/api/album-form';
+  import { toEmbedUrl } from 'abservice-external-audio';
 
   /**
    * 作品が持つ外部音源。
@@ -46,11 +47,17 @@
   const { audios, disabled, messagesOf, onEdit, onReposition }: Props = $props();
 
   let url = $state('');
+  let previewUrl = $state<string | null>(null);
+
+  const closePreview = (): void => {
+    previewUrl = null;
+  };
 
   const add = (event: SubmitEvent): void => {
     event.preventDefault();
     onEdit([...audios, { externalAudioId: null, url }]);
     url = '';
+    closePreview();
   };
 
   const remove = (index: number): void => {
@@ -154,9 +161,45 @@
         class="border-input bg-background w-full rounded-md border px-3 py-2"
         type="text"
         bind:value={url}
+        oninput={closePreview}
         {disabled}
       />
     </div>
     <Button type="submit" size="sm" variant="outline" disabled={addDisabled}>音源を追加する</Button>
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      disabled={addDisabled}
+      onclick={() => {
+        previewUrl = url;
+      }}>プレビューする</Button
+    >
   </form>
+
+  <p class="text-muted-foreground text-sm">
+    プレビューするとSoundCloudへ接続します。再生して内容を確認してから音源を追加できます。
+  </p>
+  {#if previewUrl !== null}
+    <section
+      aria-label="外部音源のプレビュー"
+      class="border-border space-y-3 rounded-md border p-3"
+    >
+      <p class="text-sm break-all">{previewUrl}</p>
+      <iframe
+        class="border-border w-full rounded-md border"
+        src={toEmbedUrl(previewUrl)}
+        title="追加前の音源の試聴"
+        height="166"
+        referrerpolicy="no-referrer"
+        allow="autoplay"
+      ></iframe>
+      <p class="text-muted-foreground text-sm">
+        再生できない場合はURLや音源の公開設定を確認してください。URLを直して、もう一度プレビューできます。
+      </p>
+      <Button type="button" size="sm" variant="outline" onclick={closePreview}
+        >プレビューを閉じる</Button
+      >
+    </section>
+  {/if}
 </div>
