@@ -60,7 +60,7 @@ public class ApiKeyIdentityProvider implements IdentityProvider<ApiKeyAuthentica
     private Uni<SecurityIdentity> authenticateSession(String token) {
         return sessions.authenticatedDigest(token)
                 .map(ApiKeyIdentityProvider::sessionIdentity)
-                .map(identity -> Uni.createFrom().item(identity))
+                .map(Uni.createFrom()::item)
                 .orElseGet(() -> Uni.createFrom().failure(new AuthenticationFailedException("Invalid credential")));
     }
 

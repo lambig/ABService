@@ -84,6 +84,9 @@ class AdminSessionRestIntegrationTest {
         final String schema = given().accept(ContentType.JSON).when().get("/q/openapi").then().statusCode(200)
                 .extract().asString();
 
-        assertThat(schema).contains("/api/v1/admin/sessions", "/api/v1/admin/sessions/current", "AdminSessionResponse");
+        assertThat(schema).contains(
+                "/api/v1/admin/sessions",
+                "/api/v1/admin/sessions/current",
+                "AdminSessionResponse");
     }
 }
