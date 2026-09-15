@@ -1,14 +1,10 @@
 ---
-import EventInfo from '$components/EventInfo.astro';
-import ExternalAudioEmbed from '$components/ExternalAudioEmbed.astro';
+import { renderAlbum } from 'abservice-public-presentation';
+import { PUBLIC_ASSET_BASE_PATH } from 'astro:env/client';
 import KindMark from '$components/KindMark.astro';
-import ProperNoun from '$components/ProperNoun.astro';
 import SiteNav from '$components/SiteNav.astro';
-import TrackList from '$components/TrackList.astro';
 import { getAlbum, listAlbums, type PublicAlbumDetail } from '$lib/api/client';
-import { formatCalendarDate } from '$lib/format';
-import { renderBody } from '$lib/markup';
-import { showsArtistName } from '$lib/site';
+import { defaultArtistName } from '$lib/site';
 import BaseLayout from '$layouts/BaseLayout.astro';
 
 /*
@@ -30,121 +26,15 @@ interface Props {
 
 const { album } = Astro.props;
 
-/*
- * 概要説明は Markdown（DECISIONS 24）。プレーンテキストの場合はそのまま出す（Astro が
- * エスケープする）。無い場合は節ごと出さない。
- */
-const descriptionHtml =
-  album.description !== null && album.descriptionFormat === 'MARKDOWN'
-    ? renderBody(album.description)
-    : null;
-
-/** 品番と ISDN は並べて出す */
-const identifiers = [album.catalogNumber, album.isdn].filter((value) => value !== null);
-
-/* 名義は既定と違うときだけ出す（#348） */
-const showsArtist = await showsArtistName(album.artistDisplayName);
-
-/*
- * カバー画像を本体に出すのは外部音源が0件のときだけ（#197）。プレイヤー自身がアートワークを持つため、
- * 両方出すと同じ絵が二度並ぶ。
- */
-const coverImageForBody = album.externalAudios.length === 0 ? album.coverImageUrl : null;
-
-/*
- * 概要説明はメタ説明（description / og:description）に渡さない。Markdown の記法と改行がそのまま
- * 検索結果とリンクプレビューへ出るうえ、長さも本文に依存する。作品はショート紹介文を持たない（#197。
- * 持つのは記事だけ）ため、短文の出所ができるまでメタ説明を出さない。
- */
+const albumHtml = renderAlbum(album, PUBLIC_ASSET_BASE_PATH, {
+  defaultArtistName: await defaultArtistName(),
+});
 ---
 
 <BaseLayout title={album.title} previewAlbum={album}>
   <SiteNav slot="nav" />
-
   <article class="flex gap-3 py-6">
-    {/* ページ全体が作品そのものであることを、本文に沿う罫と横倒しの文言で示す（#353） */}
     <KindMark kind="work" />
-
-    <div class="min-w-0 flex-1 space-y-8">
-      <header class="flex flex-col gap-4 sm:flex-row">
-        {
-          coverImageForBody === null ? null : (
-            <img
-              class="border-border w-full max-w-64 rounded-md border object-cover"
-              src={coverImageForBody}
-              alt=""
-              decoding="async"
-            />
-          )
-        }
-
-        <div class="min-w-0 space-y-2">
-          <h1 class="text-3xl font-semibold">
-            <ProperNoun>{album.title}</ProperNoun>
-          </h1>
-          {
-            showsArtist ? (
-              <p class="text-muted-foreground">
-                <ProperNoun>{album.artistDisplayName}</ProperNoun>
-              </p>
-            ) : null
-          }
-          {
-            /*
-          原作の出典は、作者が書いた一文をそのまま出す（#365）。ラベル（「原作:」等）を前に付けない——
-          記述自体が「「○○」より各曲」のように主語を持っており、ラベルはシステムの側が対応を述べたこと
-          になる（#89）。`ProperNoun` で包まないのも同じ理由で、これは一文であって固有名詞ではなく、
-          作品名がどこまでかを構造として持っていない（持たないことが #365 の判断そのもの）。
-        */
-          }
-          {
-            album.originalWorkNote === null ? null : (
-              <p class="text-muted-foreground">{album.originalWorkNote}</p>
-            )
-          }
-          <p class="text-muted-foreground text-sm">
-            <time datetime={album.releaseDate}>{formatCalendarDate(album.releaseDate)}</time>
-          </p>
-          {
-            identifiers.length === 0 ? null : (
-              <p class="text-muted-foreground text-sm">
-                <ProperNoun>{identifiers.join(' / ')}</ProperNoun>
-              </p>
-            )
-          }
-          <EventInfo event={album} />
-        </div>
-      </header>
-
-      {
-        descriptionHtml === null ? (
-          album.description === null ? null : (
-            <p class="whitespace-pre-wrap">{album.description}</p>
-          )
-        ) : (
-          <div class="prose-body" set:html={descriptionHtml} />
-        )
-      }
-
-      {
-        album.externalAudios.length === 0 ? null : (
-          <section class="space-y-4">
-            <h2 class="text-lg font-medium">試聴</h2>
-            {album.externalAudios.map((audio) => (
-              <ExternalAudioEmbed audio={audio} albumTitle={album.title} />
-            ))}
-          </section>
-        )
-      }
-
-      {
-        album.tracks.length === 0 ? null : (
-          <section class="space-y-4">
-            <h2 class="text-lg font-medium">曲目</h2>
-            <TrackList tracks={album.tracks} />
-          </section>
-        )
-      }
-    </div>
+    <div class="min-w-0 flex-1"><Fragment set:html={albumHtml} /></div>
   </article>
 </BaseLayout>

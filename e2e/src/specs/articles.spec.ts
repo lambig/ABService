@@ -8,9 +8,9 @@ import {
   draftArticle,
   pagination,
   plainArticle,
-  quiet,
   quietArticle,
   showcase,
+  showcaseTracks,
 } from '../support/build-fixtures.ts';
 import { coverImageAsset } from '../support/cover-image.ts';
 import { capture, captureFocused, clickWithEvidence } from '../support/evidence.ts';
@@ -26,9 +26,6 @@ import { DEFAULT_PREVIEW_IMAGE } from '../support/site-marks.ts';
 
 /** 詳細には出さないことを確かめるための種別ラベル（#346） */
 const ALBUM_TYPE_LABEL = '作品紹介';
-
-/** 参照先の作品への導線の見出し。文言は画面の実装が持つ */
-const ALBUM_REFERENCE_HEADING = 'この記事の作品';
 
 /** ページ送りの導線と、その区画。文言は画面の実装が持つ */
 const NEXT_PAGE_LINK = '次のページ';
@@ -95,7 +92,7 @@ test.describe('記事の一覧', () => {
     /* 種別は詳細に出さない（#346）。完全一致で見るのは、同じ語がフィクスチャのタイトルにも現れるため */
     await expect(page.getByText(ALBUM_TYPE_LABEL, { exact: true })).toHaveCount(0);
     /* 記事の見出しの中の日付を見る。参照先の作品も初出イベントの日付を持つため */
-    await expect(page.locator('article header time[datetime]')).toBeVisible();
+    await expect(page.locator('[data-article-header] time[datetime]')).toBeVisible();
     await expect(
       page.getByRole('heading', { level: 2, name: albumArticle.body.heading }),
     ).toBeVisible();
@@ -195,35 +192,51 @@ test.describe('記事の詳細', () => {
     await expect(page.getByText(albumArticle.introShort)).toHaveCount(0);
   });
 
-  test('作品を紹介する記事から、その作品へたどれる', async ({ page }) => {
+  test('作品紹介の記事内に試聴・本文・曲目・イベント・価格が順に展開される', async ({ page }) => {
     await page.goto(await articlePathOf(albumArticle.title));
-
-    await expect(
-      page.getByRole('heading', { level: 2, name: ALBUM_REFERENCE_HEADING }),
-    ).toBeVisible();
-
-    const reference = page.getByRole('link').filter({ hasText: showcase.title });
-    await clickWithEvidence(page, reference, '11-article-open-album');
-
-    await expect(page.getByRole('heading', { level: 1, name: showcase.title })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: showcase.title })).toBeVisible();
+    await expect(page.locator('[data-album-tracks]')).toContainText(
+      showcaseTracks.titledWithTune.name,
+    );
+    expect(
+      await page
+        .locator(
+          '[data-album-audio], [data-article-body], [data-album-tracks], [data-album-event], [data-album-price]',
+        )
+        .evaluateAll((elements) =>
+          elements.map((element) =>
+            element.getAttributeNames().find((name) => name.startsWith('data-')),
+          ),
+        ),
+    ).toEqual([
+      'data-album-audio',
+      'data-article-body',
+      'data-album-tracks',
+      'data-album-event',
+      'data-album-price',
+    ]);
   });
 
   test('作品を紹介する記事に、参照先の作品のスペース情報と基準額が出る', async ({ page }) => {
     await page.goto(await articlePathOf(albumArticle.title));
 
-    const reference = page.getByRole('link').filter({ hasText: showcase.title });
+    const reference = page.locator('[data-public-album]');
     await expect(reference).toContainText(showcase.eventName);
     await expect(reference).toContainText(showcase.eventPlace);
     await expect(reference).toContainText(showcase.eventSpaceNumber);
     await expect(reference).toContainText(showcase.basePriceText);
     /* 記事の詳細（10）と同じ画面の別の見どころのため、その枝番に置く */
-    await captureFocused(page, reference, '10a-article-album-reference-price');
+    await captureFocused(
+      page,
+      reference.locator('[data-album-event]'),
+      '10a-article-album-event-price',
+    );
   });
 
   test('額を持たない作品を紹介する記事には、額の区画が出ない', async ({ page }) => {
     await page.goto(await articlePathOf(quietArticle.title));
 
-    const reference = page.getByRole('link').filter({ hasText: quiet.title });
+    const reference = page.locator('[data-public-album]');
     await expect(reference).toBeVisible();
 
     /* 通貨の記号で見る。額そのものは作品ごとに違い、出ないことは記号の不在でしか言えない */
@@ -251,7 +264,7 @@ test.describe('記事の詳細', () => {
       'summary_large_image',
     );
 
-    const reference = page.getByRole('link').filter({ hasText: quiet.title });
+    const reference = page.locator('[data-public-album]');
     const cover = reference.locator('img');
     await expect(cover).toHaveJSProperty('naturalWidth', coverImageAsset.width);
 
@@ -267,9 +280,7 @@ test.describe('記事の詳細', () => {
   }) => {
     await page.goto(await articlePathOf(plainArticle.title));
 
-    await expect(
-      page.getByRole('heading', { level: 2, name: ALBUM_REFERENCE_HEADING }),
-    ).toHaveCount(0);
+    await expect(page.locator('[data-public-album]')).toHaveCount(0);
 
     /*
      * 参照が無くてもリンクプレビューは空にしない（#341）。参照先から採る画像が無いだけで、サイトの

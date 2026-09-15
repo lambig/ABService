@@ -320,7 +320,8 @@ final class AlbumQueryResponses {
                                 track.title(),
                                 track.artistDisplayName(),
                                 track.artistSortKey(),
-                                toTrackTuneResponses(track)))
+                                toTrackTuneResponses(track),
+                                track.name()))
                 .toList();
     }
 

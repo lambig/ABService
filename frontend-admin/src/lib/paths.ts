@@ -9,6 +9,9 @@
  */
 const BASE = import.meta.env.BASE_URL.replace(/\/$/u, '');
 
+/** 公開レイアウトの空の表示先。下書きの値は URL に含めない。 */
+export const ARTICLE_PREVIEW_PATH = `${BASE}/preview/article/`;
+
 /** 作品の一覧（管理画面の入口） */
 export const ALBUM_LIST_PATH = `${BASE}/`;
 

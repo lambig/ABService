@@ -29,7 +29,11 @@ test('記事の入力支援は通信なしで使え、backendの検証後に通�
   await body.pressSequentially('通常入力も保存します。');
   const expected = '**音楽の紹介**\n通常入力も保存します。';
   await expect(body).toHaveValue(expected);
-  await expect(page.locator('[data-preview="markdown"] strong')).toHaveText('音楽の紹介');
+  await expect(
+    page
+      .frameLocator('iframe[title="公開記事のプレビュー"]')
+      .locator('[data-article-body] .prose-body strong'),
+  ).toHaveText('音楽の紹介');
   await captureFocused(
     page,
     page.locator('[data-field="body"]'),

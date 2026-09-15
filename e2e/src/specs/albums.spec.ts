@@ -27,12 +27,12 @@ const AUDIO_SECTION_HEADING = '試聴';
 /**
  * 曲目の一覧。
  *
- * 罫線つきの `ol`（`TrackList.astro`）で指す。役割（listitem）だけでは概要説明の箇条書きや、トラックの
+ * 罫線つきの `ol`（`packages/public-presentation/src/album.ts`）で指す。役割（listitem）だけでは概要説明の箇条書きや、トラックの
  * 中のチューンまで拾ってしまい、トラックの行を数え上げられない。
  */
 const TRACK_LIST = 'ol.divide-y';
 
-/** 曲目の1行の中で、トラックの名を持つ箇所。`TrackList.astro` の構造（名の div → チューンの ol）に沿う */
+/** 曲目の1行の中で、トラックの名を持つ箇所。`packages/public-presentation/src/album.ts` の構造（名の div → チューンの ol）に沿う */
 const TRACK_NAME = `${TRACK_LIST} > li > div > div:first-child`;
 
 /** トラックの行の中の、チューン1件の行。トラックの行を起点に引く */

@@ -29,6 +29,8 @@ import org.jspecify.annotations.Nullable;
  *            トラック個別のアーティストソートキー（nullable）
  * @param tunes
  *            チューン構成の一覧。登場順の昇順
+ * @param displayTitle
+ *            公開時の表示名。プレビュー専用で、編集する title へ書き戻さない
  */
 public record AdminTrackResponse(
         String trackId,
@@ -36,5 +38,6 @@ public record AdminTrackResponse(
         @Nullable String title,
         @Nullable String artistDisplayName,
         @Nullable String artistSortKey,
-        List<TrackTuneResponse> tunes) {
+        List<TrackTuneResponse> tunes,
+        String displayTitle) {
 }

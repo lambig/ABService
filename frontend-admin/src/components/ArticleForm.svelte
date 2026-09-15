@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ArticleLayoutPreview from '$components/ArticleLayoutPreview.svelte';
   import EditorRecovery from '$components/EditorRecovery.svelte';
   import { articleRecoveryValues } from '$lib/recovery-values';
   import type { RecoveryHandle, RecoverySnapshot } from '$lib/editor-recovery';
@@ -40,7 +41,6 @@
     storedSession,
     type AdminSession,
   } from '$lib/credentials';
-  import { renderBody } from '$lib/markup';
   import { ARTICLE_LIST_PATH, articleIdIn, editArticlePath } from '$lib/paths';
 
   /**
@@ -147,7 +147,7 @@
    * しまう。
    * </p>
    */
-  type Target = Readonly<{ articleId: string; revision: number }>;
+  type Target = Readonly<{ articleId: string; revision: number; publishedAt: string | null }>;
 
   /**
    * 鍵待ちのときに抱えている入力。
@@ -299,7 +299,7 @@
     result.kind === 'ok'
       ? editing(
           session,
-          { articleId, revision: result.value.revision },
+          { articleId, revision: result.value.revision, publishedAt: result.value.publishedAt },
           draftOf(result.value),
           result.value.tags,
           albumIdOf(result.value),
@@ -479,7 +479,14 @@
     const result = await getArticle(session, articleId);
 
     return result.kind === 'ok'
-      ? { kind: 'ok', value: { articleId, revision: result.value.revision } }
+      ? {
+          kind: 'ok',
+          value: {
+            articleId,
+            revision: result.value.revision,
+            publishedAt: result.value.publishedAt,
+          },
+        }
       : result;
   };
 
@@ -572,7 +579,7 @@
       ? {
           kind: 'ok',
           value: {
-            target: { articleId: target.articleId, revision: result.value.revision },
+            target: { ...target, revision: result.value.revision },
             createdArticleId: null,
             detachedReason: null,
           },
@@ -878,17 +885,6 @@
 
   /** 保存の文言。対象を持てば更新で、持たなければ作成（画面の開き方ではなく、いまの対象で決まる） */
   const saveLabel = $derived(target === null ? '作成する' : '保存する');
-
-  /**
-   * 本文のプレビュー。
-   *
-   * <p>
-   * 描画は公開サイトと同じ共有の関数を通す（DECISIONS 24）。ここで別の描画を持つと、プレビューが
-   * 嘘になる。プレーンテキストは記法として解釈せず、そのまま出す（公開サイトと同じ扱い）ため、
-   * この値は null になる。
-   * </p>
-   */
-  const previewHtml = $derived(draft.bodyFormat === 'MARKDOWN' ? renderBody(draft.body) : null);
 </script>
 
 <SessionControls
@@ -939,7 +935,7 @@
     />
   {/key}
   <div class="mt-6 grid items-start gap-8 lg:grid-cols-2">
-    <div class="space-y-8">
+    <div class="min-w-0 space-y-8">
       <!--
         保存のフォームは本体の項目だけを含む。タグと作品への参照は押した時点で反映される別の操作で、
         同じフォームへ入れると、そちらの入力欄で Enter を押したときに本体が保存される。
@@ -1091,29 +1087,18 @@
       スクロールに追従させる。入力の側が長く、下の欄を触っているときも描画結果を見ていられる。
       本文が伸びてもプレビュー自体は画面に収め、中だけをスクロールさせる。
     -->
-    <section class="space-y-2 lg:sticky lg:top-6">
-      <h2 class="text-base font-medium">本文のプレビュー</h2>
-      <p class="text-muted-foreground text-sm">
-        公開サイトと同じ描画を通しています。余白や文字の大きさは、公開サイトの見えかたとは別です。
-      </p>
-
-      {#if previewHtml === null}
-        <div
-          class="prose-plain border-input max-h-[70vh] overflow-y-auto rounded-md border px-3 py-2"
-          data-preview="plain"
-        >
-          {draft.body}
-        </div>
-      {:else}
-        <div
-          class="prose-body border-input max-h-[70vh] overflow-y-auto rounded-md border px-3 py-2"
-          data-preview="markdown"
-        >
-          <!-- eslint-disable-next-line svelte/no-at-html-tags -- 出すのは共有の描画（packages/markup）がサニタイズ済みの HTML で、生HTMLをパースする経路は入口で塞いである（DECISIONS 24）。描画結果を出すことがこの区画の目的で、テキストとして出せばプレビューにならない -->
-          {@html previewHtml}
-        </div>
-      {/if}
-    </section>
+    {#if session !== null && recoveryChoice === 'ready'}
+      <ArticleLayoutPreview
+        {session}
+        {draft}
+        {tags}
+        albumId={albumReferable ? albumId : null}
+        publishedAt={target?.publishedAt ?? null}
+        onUnauthorized={() => {
+          lockWithInput('鍵が受け付けられませんでした。鍵を入れ直してください。');
+        }}
+      />
+    {/if}
   </div>
 
   {#if confirming}
