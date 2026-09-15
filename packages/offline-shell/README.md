@@ -23,6 +23,14 @@ buildは同じ実装からv1/v2の配布fixtureを生成する。e2e/serverはlo
 
 音源・OPFS・InstallationManifest/readinessの統合は含めない。画面の保存確認はshellについてのみで、会場投入可能やofflineReady全体の主張ではない。
 
+## 保存失敗の診断
+
+保存操作でworkerのinstallが失敗した場合、DevToolsのConsoleに出るエラーにRevision・対象パス・失敗理由を含める。HTTPエラーはstatus、SHA-256不一致は期待値・実測値・応答URL・Content-Typeを出す。取得失敗・本文の読み取り/ハッシュ計算失敗・cache書き込み失敗も区別する。本文や音源データはログへ出さない。
+
+`offline-player`でも同じworkerを利用するため、workerの変更を反映するには `npm run build:offline-player` で再ビルドし、previewを起動して保存操作を再実行する。古いブレークポイントは解除してから確認する。詳細はConsoleに出し、画面の保存失敗表示は維持する。診断情報の追加はハッシュ検証・失敗時の候補cache削除・世代切替の条件を変えない。
+
+`npm run test:offline-shell:browser -- e2e/diagnostics.spec.ts` はブラウザの導入・起動なしで実行できる。実workerソースをNodeのVMで実行し、ネイティブのResponse/cryptoと差し替えた取得・cacheを使って正常保存、HTTP失敗、内容不一致、通信失敗、書き込み失敗の診断とロールバックを確認する。実Service Workerのライフサイクルは既存のブラウザ試験で検証する。
+
 ## 参考
 
 [Service Workers specification](https://www.w3.org/TR/service-workers/)のinstall/activateとworker更新のライフサイクルを利用する。
