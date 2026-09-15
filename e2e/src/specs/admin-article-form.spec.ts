@@ -102,11 +102,13 @@ const openAlbumArticle = async (page: Page, articleId: string): Promise<void> =>
 
 /** 本文のプレビュー。形式によって描き方が変わるため、区画を分けて指す */
 const markdownPreviewOf = (page: Page): Locator =>
-  page.frameLocator('iframe[title="公開記事のプレビュー"]').locator('.prose-body');
+  page
+    .frameLocator('iframe[title="公開記事のプレビュー"]')
+    .locator('[data-article-body] .prose-body');
 const plainPreviewOf = (page: Page): Locator =>
   page
     .frameLocator('iframe[title="公開記事のプレビュー"]')
-    .locator('article p.whitespace-pre-wrap');
+    .locator('[data-article-body] p.whitespace-pre-wrap');
 
 /** 記法を確かめるための本文。投入した値をそのまま期待値に使う */
 const MARKDOWN_BODY = {
@@ -495,7 +497,7 @@ test.describe('管理画面の記事のタグ', () => {
     );
 
     await expect(attachedTagsOf(page)).toContainText(albumArticle.tags[0]);
-    await expect(page.frameLocator('iframe').locator('article header')).toContainText(
+    await expect(page.frameLocator('iframe').locator('[data-article-header]')).toContainText(
       albumArticle.tags[0],
     );
     await captureFocused(page, attachedTagsOf(page), '61-admin-article-tag-attached');
@@ -516,7 +518,7 @@ test.describe('管理画面の記事のタグ', () => {
 
     await attachedTagsOf(page).getByRole('button', { name: TAG_REMOVE_LABEL }).click();
     await expect(page.getByText(NO_TAGS_TEXT)).toBeVisible();
-    await expect(page.frameLocator('iframe').locator('article header')).not.toContainText(
+    await expect(page.frameLocator('iframe').locator('[data-article-header]')).not.toContainText(
       albumArticle.tags[0],
     );
   });
@@ -587,9 +589,7 @@ test.describe('管理画面の記事の作品参照', () => {
     );
 
     await expect(linkedAlbumOf(page)).toContainText(showcase.title);
-    await expect(
-      page.frameLocator('iframe').getByRole('link').filter({ hasText: showcase.title }),
-    ).toBeVisible();
+    await expect(page.frameLocator('iframe').locator('[data-public-album]')).toBeVisible();
     await captureFocused(page, linkedAlbumOf(page), '64-admin-article-album-linked');
 
     /* 保存を挟まずに反映されている。読み直しても参照したまま */
@@ -598,9 +598,7 @@ test.describe('管理画面の記事の作品参照', () => {
 
     await linkedAlbumOf(page).getByRole('button', { name: ALBUM_UNLINK_LABEL }).click();
     await expect(page.getByText(NO_ALBUM_TEXT)).toBeVisible();
-    await expect(
-      page.frameLocator('iframe').getByRole('heading', { name: 'この記事の作品' }),
-    ).toHaveCount(0);
+    await expect(page.frameLocator('iframe').locator('[data-public-album]')).toHaveCount(0);
   });
 
   /**

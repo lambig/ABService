@@ -106,6 +106,7 @@ class AlbumAdminQueryRestIntegrationTest {
 
         authorized().when().get("/api/v1/admin/albums/" + albumId).then().statusCode(200)
                 .body("tracks[0].title", nullValue())
+                .body("tracks[0].displayTitle", equalTo("前半 / 後半"))
                 .body("tracks[0].tunes[0].tuneTitle", equalTo("前半"));
 
         authorized().when().post("/api/v1/albums/" + albumId + "/publish").then().statusCode(200);

@@ -262,6 +262,7 @@ describe('曲目の行の誤り', () => {
       {
         trackId: 'track-1',
         trackNo: 1,
+        displayTitle: '1曲目',
         title: '1曲目',
         artistDisplayName: null,
         artistSortKey: null,
@@ -270,6 +271,7 @@ describe('曲目の行の誤り', () => {
       {
         trackId: 'track-2',
         trackNo: 2,
+        displayTitle: 'チューン',
         title: null,
         artistDisplayName: null,
         artistSortKey: null,
@@ -305,6 +307,7 @@ describe('曲目の行の誤り', () => {
       {
         trackId: 'track-1',
         trackNo: 1,
+        displayTitle: '1曲目',
         title: '1曲目',
         artistDisplayName: null,
         artistSortKey: null,
@@ -328,6 +331,7 @@ describe('曲目の行の誤り', () => {
       {
         trackId: 'track-2',
         trackNo: 2,
+        displayTitle: 'チューン',
         title: null,
         artistDisplayName: null,
         artistSortKey: null,

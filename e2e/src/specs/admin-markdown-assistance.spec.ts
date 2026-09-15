@@ -30,7 +30,9 @@ test('記事の入力支援は通信なしで使え、backendの検証後に通�
   const expected = '**音楽の紹介**\n通常入力も保存します。';
   await expect(body).toHaveValue(expected);
   await expect(
-    page.frameLocator('iframe[title="公開記事のプレビュー"]').locator('.prose-body strong'),
+    page
+      .frameLocator('iframe[title="公開記事のプレビュー"]')
+      .locator('[data-article-body] .prose-body strong'),
   ).toHaveText('音楽の紹介');
   await captureFocused(
     page,

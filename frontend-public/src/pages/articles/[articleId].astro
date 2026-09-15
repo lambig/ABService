@@ -1,6 +1,7 @@
 ---
 import { renderArticle } from 'abservice-public-presentation';
 import { PUBLIC_ASSET_BASE_PATH } from 'astro:env/client';
+import { defaultArtistName } from '$lib/site';
 import SiteNav from '$components/SiteNav.astro';
 import {
   getAlbum,
@@ -38,7 +39,11 @@ interface Props {
 
 const { article, album } = Astro.props;
 
-const articleHtml = renderArticle({ ...article, album }, PUBLIC_ASSET_BASE_PATH);
+const articleHtml = renderArticle(
+  { ...article, album },
+  PUBLIC_ASSET_BASE_PATH,
+  (await defaultArtistName()) ?? null,
+);
 
 /*
  * ショート紹介文は一覧のためのもので、詳細には出さない（#197）。メタ説明にも渡さない。作品の概要説明と

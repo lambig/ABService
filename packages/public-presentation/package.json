@@ -28,6 +28,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "abservice-markup": "*"
+    "abservice-markup": "*",
+    "abservice-external-audio": "*"
   }
 }

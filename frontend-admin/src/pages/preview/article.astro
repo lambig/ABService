@@ -7,6 +7,11 @@ import 'abservice-public-presentation/public.css';
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
+    <!-- 子のSoundCloudは動作させるが、この文書自身のスクリプトはCSPで禁止する。 -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'none'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' https: http:; frame-src https://w.soundcloud.com; base-uri 'none'; form-action 'none'"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="referrer" content="no-referrer" />

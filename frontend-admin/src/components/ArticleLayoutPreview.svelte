@@ -1,7 +1,13 @@
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte';
   import { PUBLIC_ASSET_BASE_PATH } from 'astro:env/client';
-  import { renderArticle, renderPageFrame, renderSiteNav } from 'abservice-public-presentation';
+  import {
+    renderArticle,
+    renderArticleHeader,
+    renderArticleBody,
+    renderPageFrame,
+    renderSiteNav,
+  } from 'abservice-public-presentation';
   import { Button } from '$components/ui/button/index.js';
   import {
     getAlbum,
@@ -32,27 +38,11 @@
         readonly name: string;
         readonly copyrightHolder: string | null;
         readonly album: AdminAlbumDetail | null;
+        readonly defaultArtistName: string | null;
       };
   let view = $state<View>({ kind: 'loading' });
   let generation = $state(0);
   let frameDocument = $state.raw<Document | null>(null);
-  const html = $derived(
-    view.kind === 'ready'
-      ? renderPageFrame(
-          {
-            name: view.name,
-            copyrightHolder: view.copyrightHolder,
-            year: new Date().getFullYear(),
-            isHome: false,
-          },
-          renderArticle(
-            { ...draft, tags: tags.map((tag) => tag.name), publishedAt, album: view.album },
-            PUBLIC_ASSET_BASE_PATH,
-          ),
-          renderSiteNav(),
-        )
-      : '',
-  );
   onDestroy(() => {
     generation += 1;
   });
@@ -85,6 +75,8 @@
                     site.value.find((item) => item.key === 'footer.copyright.holder')?.content ??
                     null,
                   album: album.value,
+                  defaultArtistName:
+                    site.value.find((item) => item.key === 'site.artist')?.content ?? null,
                 }
               : {
                   kind: 'failed',
@@ -105,12 +97,63 @@
     });
   });
 
-  /** フレームを再読み込みせず、入力に追従して隔離した表示先へ反映する。 */
+  /** 作品の取得結果が変わるときだけ全体を描画し、入力中に試聴を再起動しない。 */
   $effect(() => {
-    const container = frameDocument?.getElementById('article-preview');
-    /* eslint-disable functional/immutable-data -- ブラウザ境界: 共有描画のサニタイズ済みHTMLを表示する。 */
-    void (container != null ? (container.innerHTML = html) : undefined);
-    /* eslint-enable functional/immutable-data -- DOM への反映はここまで。 */
+    const document = frameDocument;
+    const context = view;
+    untrack(() => {
+      const container = document?.getElementById('article-preview');
+      /* eslint-disable functional/immutable-data -- ブラウザ境界: 共有描画済みHTMLを静的なプレビュー文書へ渡す。 */
+      void (container != null && context.kind === 'ready'
+        ? (container.innerHTML = renderPageFrame(
+            {
+              name: context.name,
+              copyrightHolder: context.copyrightHolder,
+              year: new Date().getFullYear(),
+              isHome: false,
+            },
+            renderArticle(
+              {
+                ...draft,
+                publishedAt,
+                tags: tags.map((tag) => tag.name),
+                album:
+                  context.album === null
+                    ? null
+                    : {
+                        ...context.album,
+                        tracks: context.album.tracks.map((track) => ({
+                          ...track,
+                          title: track.displayTitle,
+                        })),
+                      },
+              },
+              PUBLIC_ASSET_BASE_PATH,
+              context.defaultArtistName,
+            ),
+            renderSiteNav(),
+          ))
+        : undefined);
+      /* eslint-enable functional/immutable-data -- 全体のDOM反映はここまで。 */
+    });
+  });
+  /** 見出し・本文だけを更新し、同じ作品のプレイヤーとスクロール位置を保持する。 */
+  $effect(() => {
+    const regions = [
+      [
+        '[data-article-header]',
+        renderArticleHeader({ ...draft, publishedAt, tags: tags.map((tag) => tag.name) }),
+      ],
+      ['[data-article-body]', renderArticleBody(draft, PUBLIC_ASSET_BASE_PATH)],
+    ] as const;
+    regions.forEach(([selector, html]) => {
+      const container = frameDocument?.querySelector(selector);
+      /* eslint-disable functional/immutable-data -- ブラウザ境界: 共有サニタイザーの出力だけを更新する。 */
+      void (container != null && container.innerHTML !== html
+        ? (container.innerHTML = html)
+        : undefined);
+      /* eslint-enable functional/immutable-data -- 入力領域のDOM反映はここまで。 */
+    });
   });
   const loaded = (event: Event): void => {
     const document = (event.currentTarget as HTMLIFrameElement).contentDocument;
@@ -158,7 +201,7 @@
       title="公開記事のプレビュー"
       class="h-[70vh] w-full border"
       src={ARTICLE_PREVIEW_PATH}
-      sandbox="allow-same-origin"
+      sandbox="allow-same-origin allow-scripts"
       referrerpolicy="no-referrer"
       onload={loaded}
     ></iframe>

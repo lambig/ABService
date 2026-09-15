@@ -255,6 +255,7 @@ describe('曲目', () => {
       {
         trackId: 'track-1',
         trackNo: 1,
+        displayTitle: '1曲目',
         title: '1曲目',
         artistDisplayName: null,
         artistSortKey: null,

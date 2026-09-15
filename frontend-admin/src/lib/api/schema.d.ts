@@ -2821,6 +2821,7 @@ export interface components {
             artistDisplayName: string | null;
             artistSortKey: string | null;
             tunes: components["schemas"]["TrackTuneResponse"][];
+            displayTitle: string;
         };
         AlbumDeletionPreconditionsResponse: {
             affectedArticles: components["schemas"]["PreconditionAffectedArticle"][];

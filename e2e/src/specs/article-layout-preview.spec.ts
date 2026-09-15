@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test';
 import { EventEmitter, once } from 'node:events';
 import { findArticleByTitle } from '../support/admin-api.ts';
 import { revokeBrowserSession } from '../support/admin-sessions.ts';
-import { albumArticle, showcase } from '../support/build-fixtures.ts';
+import { albumArticle, showcase, showcaseTracks } from '../support/build-fixtures.ts';
 import { stack } from '../support/config.ts';
 import { capture, captureWhole } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
@@ -49,7 +49,7 @@ test.describe('公開レイアウトのプレビュー', () => {
     await expect(preview(page).locator('article time, script')).toHaveCount(0);
     await expect(page.getByText('未公開のため公開日は表示しません。')).toBeVisible();
     const iframe = page.locator('iframe[title="公開記事のプレビュー"]');
-    await expect(iframe).toHaveAttribute('sandbox', 'allow-same-origin');
+    await expect(iframe).toHaveAttribute('sandbox', 'allow-same-origin allow-scripts');
     await expect(iframe).toHaveAttribute('src', '/admin/preview/article/');
     await preview(page).getByRole('link', { name: 'トップ', exact: true }).click();
     await expect(preview(page).locator('article')).toContainText(title);
@@ -97,12 +97,13 @@ test.describe('公開レイアウトのプレビュー', () => {
     await expect(page.getByLabel('本文', { exact: true })).toHaveValue(article.body);
   });
 
-  test('公開ページと記事DOM・書体・配色が一致し、カバー・初出・額・タグを広い幅と狭い幅で確認する', async ({
+  test('公開ページと記事DOM・書体・配色が一致し、作品詳細を広い幅と狭い幅で確認する', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 1100 });
     const articleId = await existingArticle();
     await page.goto(`/articles/${articleId}`);
+    await captureWhole(page, '39y-article-expanded-public');
     const publicArticle = await page.locator('article').evaluate((element) => element.outerHTML);
     const publicStyle = await page.locator('article h1').evaluate((element) => {
       const style = getComputedStyle(element);
@@ -123,18 +124,21 @@ test.describe('公開レイアウトのプレビュー', () => {
           return { font: style.fontFamily, size: style.fontSize, color: style.color };
         }),
     ).toEqual(publicStyle);
-    const card = preview(page).getByRole('link').filter({ hasText: showcase.title });
+    const card = preview(page).locator('[data-public-album]');
     await expect(card).toContainText(showcase.eventName);
     await expect(card).toContainText(showcase.basePriceText);
-    await expect(card.locator('img')).toBeVisible();
-    expect(
-      await card.locator('img').evaluate((image: HTMLImageElement) => image.naturalWidth),
-    ).toBeGreaterThan(0);
-    await expect(preview(page).locator('article header')).toContainText(albumArticle.tags[0]);
+    await expect(card.locator('iframe')).toHaveAttribute('src', /w\.soundcloud\.com/u);
+    await expect(card.locator('[data-album-tracks]')).toContainText(
+      showcaseTracks.titledWithTune.name,
+    );
+    await expect(card.locator('header img')).toHaveCount(0);
+    await expect(preview(page).locator('[data-article-header]')).toContainText(
+      albumArticle.tags[0],
+    );
     await page.evaluate(() => {
       window.scrollTo(0, 0);
     });
-    await capture(page, '39w-article-inline-preview-wide');
+    await capture(page, '39w-article-expanded-preview-wide');
     await page.setViewportSize({ width: 390, height: 844 });
     const inputBox = await page.getByLabel('本文', { exact: true }).boundingBox();
     const previewBox = await page.locator('iframe').boundingBox();
@@ -150,10 +154,36 @@ test.describe('公開レイアウトのプレビュー', () => {
         .locator('body')
         .evaluate((element) => element.scrollWidth <= element.clientWidth),
     ).toBe(true);
-    await captureWhole(page, '39x-article-inline-preview-mobile');
+    await captureWhole(page, '39x-article-expanded-preview-mobile');
     await page.getByLabel('種別', { exact: true }).selectOption('NOTE');
     await openPreview(page);
-    await expect(preview(page).getByRole('heading', { name: 'この記事の作品' })).toHaveCount(0);
+    await expect(preview(page).locator('[data-public-album]')).toHaveCount(0);
+  });
+
+  test('試聴の操作を入力中も保ち、プレビュー文書内のスクリプトは実行しない', async ({ page }) => {
+    await page.route('https://w.soundcloud.com/**', (route) =>
+      route.fulfill({
+        contentType: 'text/html',
+        body: '<button>0</button><script>document.querySelector("button").onclick = event => event.target.textContent = String(Number(event.target.textContent) + 1)</script>',
+      }),
+    );
+    await openEditor(page, await existingArticle());
+    await openPreview(page);
+    const player = preview(page).frameLocator('iframe').getByRole('button');
+    await player.click();
+    await expect(player).toHaveText('1');
+    await page.getByLabel('タイトル', { exact: true }).fill('試聴中の編集');
+    await page.getByLabel('本文', { exact: true }).fill('入力後の本文');
+    await expect(preview(page).locator('[data-article-body]')).toContainText('入力後の本文');
+    await expect(player).toHaveText('1');
+    await preview(page)
+      .locator('body')
+      .evaluate((element) => {
+        const script = element.ownerDocument.createElement('script');
+        script.textContent = 'document.body.dataset.previewExecuted="yes"';
+        element.append(script);
+      });
+    await expect(preview(page).locator('body')).not.toHaveAttribute('data-preview-executed');
   });
 
   test('読込失敗から再試行でき、ログアウト後に遅延応答で再表示しない', async ({ page }) => {
@@ -213,7 +243,7 @@ test.describe('公開レイアウトのプレビュー', () => {
     await expect(
       preview(page).getByRole('heading', { name: '読込中の編集', exact: true }),
     ).toBeVisible();
-    await expect(preview(page).getByRole('heading', { name: 'この記事の作品' })).toHaveCount(0);
+    await expect(preview(page).locator('[data-public-album]')).toHaveCount(0);
     await expect(page.getByLabel('種別', { exact: true })).toHaveValue('NOTE');
   });
 
