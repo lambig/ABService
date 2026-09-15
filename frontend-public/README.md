@@ -6,7 +6,8 @@ ABService の公開サイト。アルバムと記事の公開情報を閲覧す�
 
 - **Astro（静的出力）**: 記事とアルバムはビルド時にバックエンドの公開 Query API から取得し、HTML へ焼き込む。ブラウザからバックエンドを呼ばない（DECISIONS 24 / #125）
 - **Svelte**: クライアント側の操作が要る箇所だけアイランドとして置く
-- **Tailwind CSS + shadcn-svelte**: 見た目の定義は `src/styles/global.css` のトークンに閉じる（DECISIONS 25）
+- **Tailwind CSS + shadcn-svelte**: 見た目の定義は `packages/public-presentation/src/public.css` のトークンに閉じる（DECISIONS 25）
+- **`packages/public-presentation`**: 記事詳細・作品参照・主要導線・ページの外枠と公開CSS。管理画面の公開レイアウトプレビューと共有する
 - **`packages/markup`**: 記事本文の描画。管理画面のプレビューと同じ関数を呼ぶ
 
 ## 開発
@@ -39,7 +40,7 @@ npm run dev -w abservice-frontend-public
 
 ## デザイントークン
 
-色・タイポグラフィ・角丸の定義は `src/styles/global.css` にある。Tailwind の既定パレットは落としてあり、`bg-blue-500` のような直指定はクラスが生成されない。見た目を変えるときはこのファイルのトークンを差し替える。
+色・タイポグラフィ・角丸の定義は `packages/public-presentation/src/public.css` にあり、`src/styles/global.css` から読み込む。Tailwind の既定パレットは落としてあり、`bg-blue-500` のような直指定はクラスが生成されない。見た目を変えるときはこのファイルのトークンを差し替える。
 
 ライトとダークの2組を `prefers-color-scheme` で持ち、サイト内での切り替え機構は持たない。
 

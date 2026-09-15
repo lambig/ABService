@@ -1,0 +1,410 @@
+@import 'tailwindcss';
+@source './';
+@source '../../../frontend-public/src';
+
+/*
+ * ============================================================================
+ * shadcn-svelte のコンポーネントが前提とする variant / utility
+ * ============================================================================
+ * 出所は shadcn-svelte が同梱する `dist/tailwind.css`。CLI の init はこれを取り込むが、
+ * 本プロジェクトは init を対話でしか通せないため（--preset は独自プリセットのコード用）、
+ * 同じ内容をここに置く。`add` で入れたコンポーネントはこれらの variant を参照する。
+ */
+
+@theme inline {
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--bits-accordion-content-height, var(--accordion-panel-height, auto));
+    }
+  }
+
+  @keyframes accordion-up {
+    from {
+      height: var(--bits-accordion-content-height, var(--accordion-panel-height, auto));
+    }
+    to {
+      height: 0;
+    }
+  }
+}
+
+@custom-variant data-open {
+  &:where([data-state='open']),
+  &:where([data-open]:not([data-open='false'])) {
+    @slot;
+  }
+}
+
+@custom-variant data-closed {
+  &:where([data-state='closed']),
+  &:where([data-closed]:not([data-closed='false'])) {
+    @slot;
+  }
+}
+
+@custom-variant data-checked {
+  &:where([data-state='checked']),
+  &:where([data-checked]:not([data-checked='false'])) {
+    @slot;
+  }
+}
+
+@custom-variant data-unchecked {
+  &:where([data-state='unchecked']),
+  &:where([data-unchecked]:not([data-unchecked='false'])) {
+    @slot;
+  }
+}
+
+@custom-variant data-disabled {
+  &:where([data-disabled='true']),
+  &:where([data-disabled]:not([data-disabled='false'])) {
+    @slot;
+  }
+}
+
+@custom-variant data-active {
+  &:where([data-state='active']),
+  &:where([data-active]:not([data-active='false'])) {
+    @slot;
+  }
+}
+
+@custom-variant data-horizontal {
+  &:where([data-orientation='horizontal']) {
+    @slot;
+  }
+}
+
+@custom-variant data-vertical {
+  &:where([data-orientation='vertical']) {
+    @slot;
+  }
+}
+
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/*
+ * ============================================================================
+ * デザイントークン（DECISIONS 25）
+ * ============================================================================
+ * 色・タイポグラフィ・角丸の定義はこのファイルに閉じる。コンポーネントはトークン経由で参照し、
+ * パレットを直に書かない。見た目を変えるときに触るのはここだけになる。
+ */
+
+@theme {
+  /*
+   * Tailwind 既定のパレットとフォントを落とす。`bg-blue-500` のような直指定はクラスが生成されず、
+   * 書いても効かない状態になる（規律をレビューの目に委ねない）。
+   * 色を持たない `transparent` / `currentColor` は、境界線や継承の表現に要るため残す。
+   */
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --font-*: initial;
+  /*
+   * 本文と見出しは Klee One（#341）。ポートフォリオとして字面を閲覧環境ごとに変えないことを取り、
+   * 読み込みの重さを引き受ける。読み込めない間と失敗したときのために OS の標準を後段へ置く。
+   * 読み込みの軽量化（サブセット・自己ホスト）は公開後に扱う。
+   *
+   * 持つ太さは 400 と 600 の2つだけ。`font-medium`（500）は CSS の突き合わせにより 400 で描かれ、
+   * 太字は 600 が当たる。トークン名は役割名のままで、字体がゴシックであることは意味しない。
+   */
+  --font-sans: 'Klee One', system-ui, -apple-system, 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  --radius-*: initial;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* 役割名から実体の色へ。役割の側をコンポーネントが参照する */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+/*
+ * 配色（#341）。地はオフホワイト、インクは焦茶、差し色は深緑の1色だけ。作品（アルバムのカバー画像・
+ * 埋め込みプレイヤー）が画面の色を担うため、器の側は彩度を抑えて画像の色を選ばない。角は 0.125rem で
+ * ほぼ落とさず、区切りは罫線と余白で作る。
+ */
+:root {
+  --radius: 0.125rem;
+
+  --background: oklch(0.97 0.009 78);
+  --foreground: oklch(0.25 0.016 45);
+  --card: oklch(0.992 0.004 78);
+  --card-foreground: oklch(0.25 0.016 45);
+  --popover: oklch(0.992 0.004 78);
+  --popover-foreground: oklch(0.25 0.016 45);
+  --primary: oklch(0.445 0.068 155);
+  --primary-foreground: oklch(0.98 0.006 78);
+  --secondary: oklch(0.935 0.01 78);
+  --secondary-foreground: oklch(0.29 0.016 45);
+  --muted: oklch(0.935 0.01 78);
+  --muted-foreground: oklch(0.495 0.014 45);
+  --accent: oklch(0.915 0.016 150);
+  --accent-foreground: oklch(0.29 0.016 45);
+  --destructive: oklch(0.52 0.2 28);
+  --destructive-foreground: oklch(0.98 0.006 78);
+  --border: oklch(0.875 0.012 78);
+  --input: oklch(0.875 0.012 78);
+  --ring: oklch(0.445 0.068 155);
+}
+
+/*
+ * ダークの組。閲覧者の OS 設定に従い、サイト内での切り替え機構は持たない（DECISIONS 25）。
+ * shadcn-svelte の慣習である `.dark` クラスは使わないため、`dark:` は Tailwind 既定の
+ * prefers-color-scheme のまま扱う。
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: oklch(0.19 0.011 45);
+    --foreground: oklch(0.92 0.007 78);
+    --card: oklch(0.232 0.012 45);
+    --card-foreground: oklch(0.92 0.007 78);
+    --popover: oklch(0.232 0.012 45);
+    --popover-foreground: oklch(0.92 0.007 78);
+    --primary: oklch(0.675 0.075 155);
+    --primary-foreground: oklch(0.17 0.011 45);
+    --secondary: oklch(0.285 0.012 45);
+    --secondary-foreground: oklch(0.92 0.007 78);
+    --muted: oklch(0.285 0.012 45);
+    --muted-foreground: oklch(0.715 0.01 78);
+    --accent: oklch(0.318 0.02 155);
+    --accent-foreground: oklch(0.94 0.007 78);
+    --destructive: oklch(0.62 0.18 28);
+    --destructive-foreground: oklch(0.17 0.011 45);
+    --border: oklch(0.312 0.012 45);
+    --input: oklch(0.312 0.012 45);
+    --ring: oklch(0.675 0.075 155);
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+  }
+
+  /*
+   * 書体が届くまでの覆い（#361）。届いた瞬間に字面が入れ替わるのを見せないため、それまで地の色で
+   * 覆う。**出す判断は印（`data-fonts-loading`）が付いているときだけ**で、印を付けるのは
+   * `BaseLayout.astro` の inline script。JS が動かない環境では印が付かず、覆いも出ない——覆いを
+   * 既定にすると、外す側が動かないまま内容へ辿り着けなくなる。
+   */
+  .font-loading-cover {
+    display: none;
+  }
+
+  html[data-fonts-loading] .font-loading-cover {
+    /*
+     * 印が出るまでの間。**この値が唯一の出所**で、E2E は計算済みスタイルから読む（数を写すと、
+     * 片方だけ変えたときに検査が意味を失う）。
+     */
+    --font-loading-hint-delay: 600ms;
+
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: block;
+    background-color: var(--color-background);
+  }
+
+  /*
+   * 覆いが長引いたときだけ出す印（#361）。地の色だけの画面は壊れた画面と見分けが付かず、そのまま
+   * 離脱する理由になる。和文の書体は取得が細かく分かれるため、遅い回線では上限（3秒）まで覆いが残りうる。
+   *
+   * **遅らせて出す。** それより早く外れた読み込みでは一度も出ない——すぐ消える印は、覆いそのものより
+   * 目に残る。文字は使わない。その文字自体がまだ届いていない書体に当たるうえ、言い回しを決める話になる。
+   */
+  html[data-fonts-loading] .font-loading-cover::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 8rem;
+    /* 罫線より一段太い。1px だと、地の色だけの画面の中では気付かれずに終わる */
+    height: 2px;
+    margin-left: -4rem;
+    /* 地の罫線は常に見える。走る帯だけだと、端に居る瞬間に線が消えて印が無いのと同じになる */
+    background-color: var(--color-border);
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--color-muted-foreground) 50%,
+      transparent 100%
+    );
+    background-repeat: no-repeat;
+    background-size: 40% 100%;
+    opacity: 0;
+    animation:
+      font-loading-hint-appear 200ms ease-out var(--font-loading-hint-delay) forwards,
+      font-loading-hint-sweep 1.2s ease-in-out var(--font-loading-hint-delay) infinite;
+  }
+
+  @keyframes font-loading-hint-appear {
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes font-loading-hint-sweep {
+    from {
+      background-position: -40% 0;
+    }
+    to {
+      background-position: 140% 0;
+    }
+  }
+
+  /* 動きを減らす設定では走らせない。印は出すが、位置を中央に置いたまま動かさない */
+  @media (prefers-reduced-motion: reduce) {
+    html[data-fonts-loading] .font-loading-cover::after {
+      background-position: 50% 0;
+      animation: font-loading-hint-appear 200ms ease-out var(--font-loading-hint-delay) forwards;
+    }
+  }
+}
+
+/*
+ * ============================================================================
+ * 本文の見た目
+ * ============================================================================
+ * マークアップの描画（`packages/markup`）はクラスを出力しない（DECISIONS 25）。素の HTML が返るため、
+ * 祖先に付けたこのクラスから当てる。描画が通す構文（CommonMark + GFM と折りたたみ）の範囲だけを持つ。
+ */
+@layer components {
+  .prose-body {
+    line-height: 1.8;
+  }
+
+  .prose-body > * + * {
+    margin-block-start: 1em;
+  }
+
+  .prose-body h2 {
+    font-size: 1.25rem;
+    font-weight: 500;
+    margin-block-start: 2em;
+  }
+
+  .prose-body h3 {
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin-block-start: 1.5em;
+  }
+
+  .prose-body ul,
+  .prose-body ol {
+    padding-inline-start: 1.5em;
+  }
+
+  .prose-body ul {
+    list-style: disc;
+  }
+
+  .prose-body ol {
+    list-style: decimal;
+  }
+
+  .prose-body a {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  .prose-body blockquote {
+    border-inline-start: 2px solid var(--color-border);
+    color: var(--color-muted-foreground);
+    padding-inline-start: 1em;
+  }
+
+  .prose-body code {
+    background-color: var(--color-muted);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    padding: 0.1em 0.3em;
+  }
+
+  .prose-body pre {
+    background-color: var(--color-muted);
+    border-radius: var(--radius-md);
+    overflow-x: auto;
+    padding: 1em;
+  }
+
+  .prose-body pre code {
+    background-color: transparent;
+    padding: 0;
+  }
+
+  .prose-body img {
+    border-radius: var(--radius-md);
+    max-width: 100%;
+  }
+
+  .prose-body table {
+    border-collapse: collapse;
+    display: block;
+    overflow-x: auto;
+  }
+
+  .prose-body th,
+  .prose-body td {
+    border: 1px solid var(--color-border);
+    padding: 0.4em 0.8em;
+  }
+
+  .prose-body hr {
+    border-block-start: 1px solid var(--color-border);
+  }
+
+  /* 折りたたみ（`:::details[ラベル]`）。ブラウザの既定の開閉に任せ、見出しだけ押せると分かる形にする */
+  .prose-body summary {
+    cursor: pointer;
+    font-weight: 500;
+  }
+
+  .prose-body details {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 0.8em 1em;
+  }
+}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ArticleLayoutPreview from '$components/ArticleLayoutPreview.svelte';
   import EditorRecovery from '$components/EditorRecovery.svelte';
   import { articleRecoveryValues } from '$lib/recovery-values';
   import type { RecoveryHandle, RecoverySnapshot } from '$lib/editor-recovery';
@@ -147,7 +148,7 @@
    * しまう。
    * </p>
    */
-  type Target = Readonly<{ articleId: string; revision: number }>;
+  type Target = Readonly<{ articleId: string; revision: number; publishedAt: string | null }>;
 
   /**
    * 鍵待ちのときに抱えている入力。
@@ -299,7 +300,7 @@
     result.kind === 'ok'
       ? editing(
           session,
-          { articleId, revision: result.value.revision },
+          { articleId, revision: result.value.revision, publishedAt: result.value.publishedAt },
           draftOf(result.value),
           result.value.tags,
           albumIdOf(result.value),
@@ -479,7 +480,14 @@
     const result = await getArticle(session, articleId);
 
     return result.kind === 'ok'
-      ? { kind: 'ok', value: { articleId, revision: result.value.revision } }
+      ? {
+          kind: 'ok',
+          value: {
+            articleId,
+            revision: result.value.revision,
+            publishedAt: result.value.publishedAt,
+          },
+        }
       : result;
   };
 
@@ -572,7 +580,7 @@
       ? {
           kind: 'ok',
           value: {
-            target: { articleId: target.articleId, revision: result.value.revision },
+            target: { ...target, revision: result.value.revision },
             createdArticleId: null,
             detachedReason: null,
           },
@@ -938,6 +946,19 @@
       }}
     />
   {/key}
+  {#if session !== null}
+    <ArticleLayoutPreview
+      {session}
+      {draft}
+      {tags}
+      albumId={albumReferable ? albumId : null}
+      publishedAt={target?.publishedAt ?? null}
+      disabled={blocked}
+      onUnauthorized={() => {
+        lockWithInput('鍵が受け付けられませんでした。鍵を入れ直してください。');
+      }}
+    />
+  {/if}
   <div class="mt-6 grid items-start gap-8 lg:grid-cols-2">
     <div class="space-y-8">
       <!--

@@ -1,8 +1,8 @@
 ---
 import PreviewMeta from '$components/PreviewMeta.astro';
-import SiteFooter from '$components/SiteFooter.astro';
+import { renderPageFrame } from 'abservice-public-presentation';
 import type { PublicAlbumDetail } from '$lib/api/client';
-import { siteDescription, siteName } from '$lib/site';
+import { copyrightHolder, siteDescription, siteName } from '$lib/site';
 import '../styles/global.css';
 
 interface Props {
@@ -31,19 +31,6 @@ const name = await siteName();
  */
 const documentTitle = title === undefined ? name : `${title} ― ${name}`;
 
-/*
- * ページ固有の名前を持たないページ（トップ）では、サイト名がそのページの見出しになる。名前を持つページ
- * では、見出しはそのページ自身が出すため、ヘッダーのサイト名は見出しにしない。
- */
-const SiteNameTag = title === undefined ? 'h1' : 'p';
-
-/*
- * サイト名はロゴとして扱い、**どのページでも画面で一番大きい**（#358）。見出しを務めるかどうかで
- * 大きさを変えない——ロゴは同じ形で出てこそ記号として働く。ページの見出しはこの一段下に置く
- * （`text-3xl`）。書体が持つ太さは 400 と 600 の2つだけなので、段の差は大きさが担う。
- */
-const SITE_NAME_CLASS = 'text-4xl font-semibold';
-
 /* ページ固有の説明が無ければサイトの説明を出す。どちらも無ければメタ説明そのものを出さない */
 const metaDescription = description ?? (await siteDescription());
 
@@ -52,6 +39,16 @@ const metaDescription = description ?? (await siteDescription());
  * ここでは Astro.site 以外から絶対URLを作らない。
  */
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
+const frameHtml = renderPageFrame(
+  {
+    name,
+    isHome: title === undefined,
+    copyrightHolder: (await copyrightHolder()) ?? null,
+    year: new Date().getFullYear(),
+  },
+  await Astro.slots.render('default'),
+  await Astro.slots.render('nav'),
+);
 ---
 
 <!doctype html>
@@ -115,47 +112,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
     }
     <div class="font-loading-cover" aria-hidden="true"></div>
 
-    {
-      /*
-      広い幅では器ごと広げる（#357）。導線を脇へ出したぶん本文の幅が削られるため、器を据え置くと
-      読む幅だけが狭くなる。広げた先で本文が受け持つのは 60rem ほどで、導線を持たないときの
-      64rem とほぼ同じになる。
-    */
-    }
-    <div class="mx-auto flex min-h-screen max-w-5xl flex-col px-4 lg:max-w-6xl">
-      <header class="py-6">
-        {/* 書体が持つ太さは 400 と 600 の2つだけのため、階層は大きさと 600 で付ける（#344） */}
-        <SiteNameTag class={SITE_NAME_CLASS}>
-          <a class="underline-offset-4 hover:underline" href="/">{name}</a>
-        </SiteNameTag>
-      </header>
-
-      {
-        /*
-        広い幅では導線を本文の脇へ置く（#357）。狭い幅では段が落ち、導線は本文の上に戻る——脇へ
-        置いたままだと、読む幅が導線のぶんだけ削られる。切り替えは `lg`（1024px）で、E2E が見る
-        広い幅（1280）と狭い幅（390）の両方がこの境の反対側に来る。
-      */
-      }
-      <div class="flex-1 lg:grid lg:grid-cols-[9rem_1fr] lg:gap-10">
-        {
-          /*
-          導線の始まりを本文の見出しと揃える（#357）。本文側は各ページが先頭に `py-6` を持つため、
-          導線を段の先頭から始めると**その分だけ上へ寄って見える**。同じ量をここで足す。
-          導線を包むのは、貼り付き（`sticky`）が段の高さいっぱいを動ける場所を要るため。
-        */
-        }
-        <div class="lg:pt-6">
-          <slot name="nav" />
-        </div>
-
-        <main class="min-w-0">
-          <slot />
-        </main>
-      </div>
-
-      <SiteFooter />
-    </div>
+    <Fragment set:html={frameHtml} />
 
     {
       /*
