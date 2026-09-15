@@ -3,6 +3,7 @@ import type { Locator, Page } from '@playwright/test';
 import { findAlbumByCatalogNumber } from '../support/admin-api.ts';
 import { attributeOf } from '../support/attributes.ts';
 import {
+  coverless,
   draft,
   quiet,
   showcase,
@@ -92,7 +93,7 @@ test.describe('作品の一覧', () => {
      * E2E は専用のデータベースを見る（#252）。母集団はシードしたものだけのため、並びを全体で確かめる。
      * 下書き（E2E-0003）はここに現れない。
      */
-    expect(titles).toEqual([quiet.title, showcase.title]);
+    expect(titles).toEqual([quiet.title, showcase.title, coverless.title]);
   });
 
   test('下書きは一覧に出ない', async ({ page }) => {
@@ -105,7 +106,7 @@ test.describe('作品の一覧', () => {
     await page.goto('/albums');
 
     const withCover = page.getByRole('link').filter({ hasText: quiet.title });
-    const withoutCover = page.getByRole('link').filter({ hasText: showcase.title });
+    const withoutCover = page.getByRole('link').filter({ hasText: coverless.title });
 
     /*
      * 描かれたことまで見る。`src` が入っただけの状態は、配信が `/assets/*` を取り次いでいないときも
@@ -250,7 +251,11 @@ test.describe('作品の詳細', () => {
   test('外部音源を持つ作品のリンクプレビューはプレイヤーカードで、カバー画像を本体に出さない', async ({
     page,
   }) => {
-    await page.goto(await albumPathOf(showcase.catalogNumber));
+    /* 画像無しでも通る検査にしない。同じSSGの一覧で画像が実際に描けることを先に確認する。 */
+    await page.goto('/albums');
+    const card = page.getByRole('link').filter({ hasText: showcase.title });
+    await expect(card.locator('img')).toHaveJSProperty('naturalWidth', coverImageAsset.width);
+    await card.click();
 
     await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute('content', 'player');
 

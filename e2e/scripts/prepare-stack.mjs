@@ -20,6 +20,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 import { stack } from '../src/support/config.ts';
 import { seedForBuild } from '../src/support/build-fixtures.ts';
+import { verifyBuildFixtureReuse } from './verify-build-fixture-reuse.mjs';
 
 const WAIT_LIMIT_MS = 120_000;
 const RETRY_INTERVAL_MS = 2_000;
@@ -71,5 +72,8 @@ const build = (workspace, env) => {
 await waitForBackend(Date.now() + WAIT_LIMIT_MS);
 clearEvidence();
 await seedForBuild();
+await (process.env.E2E_VERIFY_SEED_REUSE === 'true'
+  ? verifyBuildFixtureReuse()
+  : Promise.resolve());
 build('abservice-frontend-public', { API_BASE_URL: stack.backendBaseUrl });
 build('abservice-frontend-admin', { PUBLIC_API_BASE_URL: stack.backendBaseUrl });

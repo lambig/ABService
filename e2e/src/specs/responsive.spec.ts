@@ -21,7 +21,7 @@ import { expect, test } from '../support/fixtures.ts';
 const NARROW_VIEWPORT = { width: 390, height: 844 };
 
 /** シードされた公開中の作品の件数。1列に積まれることを件数とともに見る */
-const PUBLISHED_ALBUM_COUNT = 2;
+const PUBLISHED_ALBUM_COUNT = 3;
 
 test.use({ viewport: NARROW_VIEWPORT });
 

@@ -1,4 +1,5 @@
 import { stack } from './config.ts';
+import type { components } from '@api-schema';
 
 /**
  * 管理API経由でデータを投入する。
@@ -187,6 +188,66 @@ export const seedDraftAlbum = async (album: AlbumSeed): Promise<string> => {
   });
 
   return albumIdOf(created);
+};
+
+/** 画像だけを変更する。PUTは全項目置換なので、子のID・並び・イベントも最新詳細から保持する。 */
+export const setAlbumCoverImage = async (
+  albumId: string,
+  coverImageKey: string | null,
+): Promise<void> => {
+  const detail = (await getAdmin(
+    `/api/v1/admin/albums/${albumId}`,
+  )) as components['schemas']['AdminAlbumDetailResponse'];
+  await putAdmin(`/api/v1/albums/${albumId}`, {
+    expectedRevision: detail.revision,
+    title: detail.title,
+    releaseDate: detail.releaseDate,
+    artistDisplayName: detail.artistDisplayName,
+    artistSortKey: detail.artistSortKey ?? undefined,
+    catalogNumber: detail.catalogNumber ?? undefined,
+    isdn: detail.isdn ?? undefined,
+    coverImageKey: coverImageKey ?? undefined,
+    description: detail.description ?? undefined,
+    descriptionFormat: detail.descriptionFormat,
+    event:
+      detail.eventName === null
+        ? undefined
+        : {
+            name: detail.eventName,
+            date: detail.eventDate ?? undefined,
+            place: detail.eventPlace ?? undefined,
+            spaceNumber: detail.eventSpaceNumber ?? undefined,
+            note: detail.eventNote ?? undefined,
+          },
+    basePrice: detail.basePrice ?? undefined,
+    originalWorkNote: detail.originalWorkNote ?? undefined,
+    tracks: detail.tracks.map((track) => ({
+      trackId: track.trackId,
+      title: track.title ?? undefined,
+      artistDisplayName: track.artistDisplayName ?? undefined,
+      artistSortKey: track.artistSortKey ?? undefined,
+      tunes: track.tunes.map((tune) => ({
+        tuneTitle: tune.tuneTitle ?? undefined,
+        composerCreditOverride: tune.composerCreditOverride ?? undefined,
+        arrangerCreditOverride: tune.arrangerCreditOverride ?? undefined,
+        linkUrl: tune.linkUrl ?? undefined,
+      })),
+    })),
+    externalAudios: detail.externalAudios.map((audio) => ({
+      externalAudioId: audio.externalAudioId,
+      url: audio.url,
+    })),
+  } satisfies components['schemas']['UpdateAlbumRequest']);
+};
+
+/** 旧シードの既存作品にも画像を補う。設定済みなら再アップロード・再保存しない。 */
+export const ensureAlbumCoverImage = async (albumId: string, image: AssetSeed): Promise<void> => {
+  const detail = (await getAdmin(
+    `/api/v1/admin/albums/${albumId}`,
+  )) as components['schemas']['AdminAlbumDetailResponse'];
+  return detail.coverImageKey === null
+    ? setAlbumCoverImage(albumId, await seedAsset(image))
+    : undefined;
 };
 
 /**

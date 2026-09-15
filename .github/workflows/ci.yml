@@ -467,6 +467,8 @@ jobs:
           echo "started: $jar"
 
       - name: Run E2E
+        env:
+          E2E_VERIFY_SEED_REUSE: 'true'
         run: npm run test:e2e
 
       - name: Show backend log

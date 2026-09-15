@@ -4,6 +4,7 @@ import { findArticleByTitle } from '../support/admin-api.ts';
 import { attributeOf } from '../support/attributes.ts';
 import {
   albumArticle,
+  coverlessArticle,
   draftArticle,
   pagination,
   plainArticle,
@@ -65,6 +66,7 @@ const firstPageTitles = [
   albumArticle.title,
   plainArticle.title,
   quietArticle.title,
+  coverlessArticle.title,
   ...Array.from({ length: pagination.filler - 1 }, (_unused, index) =>
     pagination.titleOf(pagination.filler - index),
   ),
@@ -159,7 +161,7 @@ test.describe('記事の一覧', () => {
   test('記事のカードの画像は、参照先の作品がカバー画像を持つときだけ出る', async ({ page }) => {
     await page.goto('/articles');
 
-    /* 画像の出所は記事ではなく参照先の作品。カバー画像を持つのは `quiet` だけ（#377） */
+    /* 画像の出所は記事ではなく参照先の作品。`quiet` はカバー画像を持つ（#377） */
     const withCover = page.getByRole('link').filter({ hasText: quietArticle.title });
     await expect(withCover.locator('img')).toHaveJSProperty('naturalWidth', coverImageAsset.width);
 
@@ -168,7 +170,9 @@ test.describe('記事の一覧', () => {
      * 持つかどうかではなく、参照先の作品が画像を持つかどうか**である。参照の有無だけで対比すると、
      * 「作品紹介の記事なら何か出す」という実装でも通ってしまう。
      */
-    const referencingWithoutCover = page.getByRole('link').filter({ hasText: albumArticle.title });
+    const referencingWithoutCover = page
+      .getByRole('link')
+      .filter({ hasText: coverlessArticle.title });
     await expect(referencingWithoutCover.locator('img')).toHaveCount(0);
 
     /* 作品を参照しない記事のカードにも、画像そのものを置かない */
