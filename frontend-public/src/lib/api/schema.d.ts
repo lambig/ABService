@@ -2810,8 +2810,8 @@ export interface components {
             tags: components["schemas"]["AdminArticleTagResponse"][];
         };
         AdminSessionResponse: {
-            token?: string;
-            expiresAt?: components["schemas"]["Instant"];
+            token: string;
+            expiresAt: components["schemas"]["Instant"];
         };
         AdminTrackResponse: {
             trackId: string;
