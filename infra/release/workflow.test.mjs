@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import test from 'node:test';
+import { deploymentDecision } from './frontend.mjs';
 
 // Evaluate actual workflow guards with event fixtures, not a second policy implementation.
 const read = (name) => readFileSync(new URL(`../../.github/workflows/${name}.yml`, import.meta.url), 'utf8');
@@ -16,7 +17,7 @@ const normal = () => ({ github: { ref: 'refs/heads/main', event_name: 'workflow_
   run_id: 101, run_attempt: 2, sha: 'c'.repeat(40), event: { workflow_run: { conclusion: 'success',
     head_branch: 'main', event: 'push', head_repository: { full_name: 'owner/repo' } } } },
   vars: { AWS_DEPLOY_ROLE_ARN: 'backend-role', AWS_FRONTEND_DEPLOY_ROLE_ARN: 'frontend-role' },
-  needs: { preflight: { result: 'success', outputs: { attempt: '2' } }, deploy: { result: 'success', outputs: { attempt: '2' } } },
+  needs: { preflight: { result: 'success', outputs: { attempt: '2', deploy: 'true' } }, deploy: { result: 'success', outputs: { attempt: '2' } } },
   inputs: { commit_sha: 'b'.repeat(40) } });
 
 test('backend requires successful preflight in this attempt; pending/error/skip cannot reach it', () => {
@@ -27,12 +28,28 @@ test('backend requires successful preflight in this attempt; pending/error/skip 
   ['failure', 'cancelled', 'skipped'].forEach((result) => {
     assert.equal(evaluate(guard(backend), { ...context, needs: { preflight: { result, outputs: {} } } }), false, result);
   });
-  assert.equal(evaluate(guard(backend), { ...context, needs: { preflight: { result: 'success', outputs: { attempt: '1' } } } }), false);
+  assert.equal(evaluate(guard(backend), { ...context, needs: { preflight: { result: 'success', outputs: { attempt: '1', deploy: 'true' } } } }), false);
   assert.equal(evaluate(guard(backend), { ...context, cancelled: () => true }), false);
   const preflight = job(deploy, 'preflight');
   assert.match(preflight, /role-to-assume: \$\{\{ vars.AWS_FRONTEND_DEPLOY_ROLE_ARN \}\}/);
   assert.match(preflight, /node infra\/release\/frontend.mjs preflight/);
   assert.match(preflight, /ref: \$\{\{ github.event.workflow_run.head_sha \}\}/);
+  assert.match(preflight, /fetch-depth: 0/);
+  assert.match(preflight, /RELEASE_SHA: \$\{\{ github.event.workflow_run.head_sha \}\}/);
+});
+
+test('current C with a later successful CI for ancestor B skips backend and frontend', () => {
+  const b = 'b'.repeat(40); const c = 'c'.repeat(40);
+  const entry = { codeSha: c, releaseId: '100-1', files: [{ path: 'index.html', sha256: 'a'.repeat(64) }] };
+  const decision = deploymentDecision({ version: 1, public: entry, admin: entry }, b,
+    (ancestor, descendant) => ancestor === b && descendant === c);
+  assert.equal(decision.deploy, false);
+  const context = normal(); context.needs.preflight.outputs.deploy = String(decision.deploy);
+  assert.equal(evaluate(guard(job(deploy, 'deploy')), context), false);
+  context.needs.deploy.result = 'skipped';
+  assert.equal(evaluate(job(deploy, 'frontend').match(/    if: (.+)/)[1], context), false);
+  delete context.needs.preflight.outputs.deploy;
+  assert.equal(evaluate(guard(job(deploy, 'deploy')), context), false, 'missing decision must not allow deployment');
 });
 
 test('preflight rejects untrusted CI and missing role; manual backend recovery remains possible', () => {

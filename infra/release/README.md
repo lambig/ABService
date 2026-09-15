@@ -10,6 +10,8 @@
 
 `queue: max`で最大100件の待機を保持し、後発の手動操作で待機中の通常配布を置換しない。順序はgroupで待ち始めた順であり、commit順ではない。上限超過のrunはキャンセルされるので、run結果と配布記録を確認する。Actions外の直接操作にはこの排他は効かない。[GitHubのconcurrency仕様](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)を参照。
 
+通常配布のpreflightでは、ロック取得後のcurrentのコードSHAと今回のCI成功SHAをGitの全履歴で比較する。初回・同一SHA・currentの子孫への更新だけを許可する。先にCが配布済みで、遅れて祖先BのCIが成功した場合は、preflightのSummaryへstaleを理由にスキップしたと表示し、backend/frontendを実行せずcurrentを維持する。履歴が分岐、比較対象commitが不明、public/adminのコードSHAが不一致の場合は停止し、復旧手順で状態を確認する。`git revert`による新しい子孫commitは通常配布できる。意図した過去版への復旧は手動rollbackを使う。
+
 失敗した通常Deployを再実行するときは、pendingがあれば先に復旧し、**Re-run all jobs**を使う。preflightとbackendの結果は同じattemptだけで有効とし、「失敗したジョブだけ再実行」で以前の検査やbackend配布結果を流用して後段へ進むことは拒否する。手動backend rollbackは復旧用なのでpendingによるpreflightを迂回できるが、共通groupの排他は保つ。
 
 ## 初回設定（運用者）
@@ -57,5 +59,6 @@ S3への複数ファイルの同期は原子的ではない。配布中の短時
 3. 意図的に配布を失敗させ、currentが進まずpendingが残ること。記録済み成果物へ戻して再照会。
 4. publicの未存在URLの404本文と、APIの403/404のProblem Detailsを別々に確認（#125）。
 5. pendingがある状態で通常Deployを起動し、preflight失敗・backend未実行を確認。通常配布中に手動frontend操作を待機させ、両画面の配布完了後に進むことを確認。
+6. 新しい子孫commitの配布完了後、古い祖先commitのCIを再実行し、staleのSummaryとbackend/frontendのskip、current不変を確認。スキップしたrunの成功表示を新規配布の証跡として扱わない。
 
 静的S3の未存在キーを公開サイトの404本文に変換する経路は #125 の残件。distribution全体のcustom error responseはAPI応答までHTMLに変えるため採用していない。CSP（#240）・通知（#168）・実環境の復旧演習（#130）を含む残条件の正は各Issue。

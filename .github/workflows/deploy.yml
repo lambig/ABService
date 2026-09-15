@@ -39,7 +39,9 @@ jobs:
     timeout-minutes: 5
     outputs:
       attempt: ${{ steps.release-state.outputs.attempt }}
+      deploy: ${{ steps.release-state.outputs.deploy }}
     env:
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
       FRONTEND_PUBLIC_BUCKET: ${{ vars.FRONTEND_PUBLIC_BUCKET }}
       FRONTEND_ADMIN_BUCKET: ${{ vars.FRONTEND_ADMIN_BUCKET }}
       FRONTEND_RELEASE_BUCKET: ${{ vars.FRONTEND_RELEASE_BUCKET }}
@@ -48,6 +50,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
@@ -76,6 +79,7 @@ jobs:
       vars.AWS_DEPLOY_ROLE_ARN != '' && (
         (github.event_name == 'workflow_dispatch' && needs.preflight.result == 'skipped') || (
           needs.preflight.result == 'success' &&
+          needs.preflight.outputs.deploy == 'true' &&
           needs.preflight.outputs.attempt == github.run_attempt &&
           github.event.workflow_run.conclusion == 'success' &&
           github.event.workflow_run.head_branch == 'main' &&

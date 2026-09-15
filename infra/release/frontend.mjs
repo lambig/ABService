@@ -40,6 +40,28 @@ export const validateManifest = (record) => {
   return record;
 };
 
+export const gitAncestor = (ancestor, descendant, cwd) => {
+  sha(ancestor); sha(descendant);
+  try {
+    execFileSync('git', ['merge-base', '--is-ancestor', ancestor, descendant], { cwd, stdio: 'pipe' });
+    return true;
+  } catch (error) {
+    if (error.status === 1) return false;
+    throw new Error('Cannot compare deployment commits: missing history or Git failure');
+  }
+};
+
+// Called inside the release lock. Queue order is CI completion order, not commit order.
+export const deploymentDecision = (current, target, isAncestor = gitAncestor) => {
+  sha(target);
+  const record = current === null ? null : validateManifest(current);
+  const previous = record?.public.codeSha ?? null;
+  assert.ok(record === null || previous === record.admin.codeSha, 'Public/admin code generations differ; recover before normal deployment');
+  const deploy = previous === null || previous === target || isAncestor(previous, target);
+  assert.ok(deploy || isAncestor(target, previous), 'Deployment history diverged; use an explicit recovery procedure');
+  return { deploy, previous, target };
+};
+
 // Invalidate original viewer paths AND rewritten S3 keys. Do not invalidate
 // /admin or /assets when refreshing only public content.
 export const invalidationPaths = (entries, site) => [...new Set(entries.flatMap((entry) => entry?.files ?? [])
@@ -162,7 +184,15 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     releaseBucket: env.FRONTEND_RELEASE_BUCKET, distributionId: env.CLOUDFRONT_DISTRIBUTION_ID });
   const [command, action] = process.argv.slice(2);
   const operations = {
-    preflight: () => delivery.preflight(),
+    preflight: () => {
+      const decision = deploymentDecision(delivery.preflight(), env.RELEASE_SHA);
+      writeFileSync(env.GITHUB_OUTPUT, `deploy=${decision.deploy}\n`, { flag: 'a' });
+      const message = decision.deploy
+        ? `Forward deployment allowed: ${decision.previous ?? 'initial'} -> ${decision.target}`
+        : `Skipped stale successful CI: ${decision.target}; current remains ${decision.previous}. Backend/frontend were not deployed.`;
+      console.log(message);
+      writeFileSync(env.GITHUB_STEP_SUMMARY, `${message}\n`, { flag: 'a' });
+    },
     resolve: () => {
       validSite(env.PUBLIC_SITE_URL); validSite(env.API_BASE_URL);
       const codeSha = delivery.resolveCode(action, env.RELEASE_SHA);
