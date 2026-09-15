@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
 import { createDelivery, filesUnder, invalidationPaths, validateManifest } from './frontend.mjs';
+import { artifactFiles } from './build-public.mjs';
 
 const codeSha = 'a'.repeat(40);
 const config = { publicBucket: 'public-site', adminBucket: 'admin-site', releaseBucket: 'release-records', distributionId: 'EXAMPLE123' };
@@ -22,6 +23,7 @@ const setup = () => {
   const archives = new Map();
   const calls = [];
   let failure = () => false;
+  let generation = '11111111-1111-4111-8111-111111111111';
   const aws = (args) => {
     calls.push(args);
     if (failure(args)) throw new Error('injected transfer/invalidation failure');
@@ -45,13 +47,15 @@ const setup = () => {
     return '{}';
   };
   return { root, publicRoot, adminRoot, objects, archives, calls, aws,
-    delivery: createDelivery(config, aws), failWhen: (predicate) => { failure = predicate; } };
+    buildMetadata: (target = codeSha) => ({ version: 1, codeSha: target, generation, files: artifactFiles(publicRoot) }),
+    generation: () => generation, update: () => { generation = '22222222-2222-4222-8222-222222222222'; },
+    delivery: createDelivery(config, aws, () => generation), failWhen: (predicate) => { failure = predicate; } };
 };
 const ancestor = (older, newer) => older < newer; // Mock the A -> B -> C -> D history.
 const deploy = (context, id = '100-1', target = codeSha) => {
   assert.equal(context.delivery.acceptNormal(target, ancestor).deploy, true);
   return context.delivery.publish({ action: 'deploy', id, codeSha: target,
-    publicRoot: context.publicRoot, adminRoot: context.adminRoot });
+    publicRoot: context.publicRoot, adminRoot: context.adminRoot, buildMetadata: context.buildMetadata(target) });
 };
 
 test('preflight accepts first deployment and completed state without writes', () => {
@@ -94,7 +98,8 @@ test('content rebuild uses deployed SHA, removes withdrawn HTML and does not dep
   assert.equal(context.delivery.resolveCode('rebuild-public', 'b'.repeat(40)), codeSha);
   context.calls.length = 0;
   rmSync(join(context.publicRoot, 'articles'), { recursive: true });
-  const result = context.delivery.publish({ action: 'rebuild-public', id: '101-1', codeSha, publicRoot: context.publicRoot });
+  const result = context.delivery.publish({ action: 'rebuild-public', id: '101-1', codeSha, publicRoot: context.publicRoot,
+    buildMetadata: context.buildMetadata() });
   assert.deepEqual(result.admin, previous.admin);
   assert.ok(!context.calls.some((args) => args.some((value) => value.includes('s3://admin-site'))));
   assert.ok(context.calls.some((args) => args.includes('--delete') && args.includes('s3://public-site/')));
@@ -179,7 +184,8 @@ test('normal C then frontend rollback A retains watermark C: late B skips both j
   assert.deepEqual(JSON.parse(context.objects.get('current.json')), original);
   assert.equal(context.objects.get('last-normal.json'), watermark);
   // Rebuilding the rolled-back public must not lower the watermark either.
-  context.delivery.publish({ action: 'rebuild-public', id: '103-1', codeSha, publicRoot: context.publicRoot });
+  context.delivery.publish({ action: 'rebuild-public', id: '103-1', codeSha, publicRoot: context.publicRoot,
+    buildMetadata: context.buildMetadata() });
   assert.equal(context.objects.get('last-normal.json'), watermark);
   const before = new Map(context.objects);
   context.calls.length = 0;
@@ -250,4 +256,141 @@ test('normal build and publish require accepted SHA, and inconsistent active gen
   context.objects.set('current.json', JSON.stringify(record));
   context.objects.set('last-normal.json', JSON.stringify({ version: 1, codeSha: '0'.repeat(40) }));
   assert.throws(() => context.delivery.acceptNormal('c'.repeat(40), ancestor), /outside normal/);
+});
+
+const rebuild = (context, id = '101-1', metadata = context.buildMetadata()) => context.delivery.publish({
+  action: 'rebuild-public', id, codeSha, publicRoot: context.publicRoot, buildMetadata: metadata,
+});
+const liveWrites = (context) => context.calls.filter((args) => args[1] === 'sync' && /^s3:\/\/(public-site|admin-site)\//.test(args[3]));
+
+test('saved generation and delivered generation differ after editing, then converge after rebuild', () => {
+  const context = setup();
+  assert.deepEqual(context.delivery.status(), { savedGeneration: context.generation(), deliveredGeneration: null,
+    codeSha: null, pending: false, needsRebuild: true });
+  const current = deploy(context);
+  assert.equal(context.delivery.status().needsRebuild, false);
+  context.update();
+  const status = context.delivery.status();
+  assert.equal(status.deliveredGeneration, current.public.generation);
+  assert.equal(status.savedGeneration, context.generation());
+  assert.equal(status.needsRebuild, true);
+  const result = rebuild(context);
+  assert.equal(result.public.generation, context.generation());
+  assert.equal(context.delivery.status().needsRebuild, false);
+});
+
+test('edit after SSG rejects obsolete files before archives or live writes; no pending is created', () => {
+  const context = setup(); deploy(context);
+  const metadata = context.buildMetadata(); context.update(); context.calls.length = 0;
+  assert.throws(() => rebuild(context, '101-1', metadata), /changed since SSG/);
+  assert.equal(context.objects.has('pending.json'), false);
+  assert.equal(context.calls.some((args) => args[1] === 'sync'), false);
+});
+
+test('missing metadata, altered bytes and wrong source SHA cannot claim a checked generation', () => {
+  const context = setup(); deploy(context);
+  const metadata = context.buildMetadata();
+  writeFileSync(join(context.publicRoot, 'index.html'), 'tampered');
+  assert.throws(() => rebuild(context, '101-1', metadata), /artifacts differ/);
+  assert.throws(() => rebuild(context, '101-1', { ...context.buildMetadata(), codeSha: 'b'.repeat(40) }), /Build code differs/);
+  assert.throws(() => rebuild(context, '101-1', {}), /Missing public build/);
+  assert.equal(context.objects.has('pending.json'), false);
+});
+
+test('edit during archive fails the final pre-copy check without changing current or live buckets', () => {
+  const context = setup(); const current = deploy(context); context.calls.length = 0;
+  context.failWhen((args) => {
+    if (args[1] === 'sync' && args[3].startsWith('s3://release-records/')) context.update();
+    return false;
+  });
+  assert.throws(() => rebuild(context), /Public data changed/);
+  assert.equal(liveWrites(context).length, 0);
+  assert.equal(context.objects.has('pending.json'), false);
+  assert.deepEqual(JSON.parse(context.objects.get('current.json')), current);
+});
+
+test('edit during delivery leaves pending, rejects obsolete rollback and recovers with current data', () => {
+  const context = setup(); const current = deploy(context);
+  writeFileSync(join(context.publicRoot, 'new.html'), 'new page');
+  context.failWhen((args) => { if (args[1] === 'wait') context.update(); return false; });
+  assert.throws(() => rebuild(context), /Public data changed/);
+  assert.deepEqual(JSON.parse(context.objects.get('current.json')), current);
+  assert.equal(context.delivery.status().pending, true);
+  assert.equal(context.delivery.status().needsRebuild, true);
+  assert.throws(() => context.delivery.resolveCode('rebuild-public'), /incomplete/);
+  context.calls.length = 0;
+  assert.throws(() => context.delivery.rollback({ targetId: '100-1', id: '102-1' }), /obsolete/);
+  assert.equal(liveWrites(context).length, 0);
+  assert.equal(context.delivery.resolveCode('recover'), codeSha);
+  context.failWhen(() => false);
+  rmSync(join(context.publicRoot, 'new.html')); rmSync(join(context.publicRoot, 'articles'), { recursive: true });
+  const invalidations = [];
+  context.failWhen((args) => {
+    if (args[1] === 'create-invalidation') invalidations.push(...JSON.parse(readFileSync(args[args.indexOf('--invalidation-batch') + 1].slice(7))).Paths.Items);
+    return false;
+  });
+  context.delivery.publish({ action: 'recover', id: '103-1', codeSha, publicRoot: context.publicRoot,
+    adminRoot: context.adminRoot, buildMetadata: context.buildMetadata() });
+  assert.ok(invalidations.includes('/new.html') && invalidations.includes('/articles/old/'));
+  assert.equal(context.objects.has('pending.json'), false);
+  assert.equal(context.delivery.status().needsRebuild, false);
+});
+
+test('initial incomplete deployment can be rebuilt after data changes without an older current record', () => {
+  const context = setup(); context.failWhen((args) => args[1] === 'wait');
+  assert.throws(() => deploy(context), /injected/);
+  context.update(); context.failWhen(() => false);
+  assert.equal(context.objects.has('current.json'), false);
+  assert.equal(context.delivery.resolveCode('recover'), codeSha);
+  context.delivery.publish({ action: 'recover', id: '101-1', codeSha, publicRoot: context.publicRoot,
+    adminRoot: context.adminRoot, buildMetadata: context.buildMetadata() });
+  assert.equal(context.delivery.status().needsRebuild, false);
+});
+
+test('legacy manifests remain readable for migration but cannot be restored as generation-checked content', () => {
+  const context = setup(); const current = deploy(context);
+  const legacy = { ...current, version: 1, public: { ...current.public } }; delete legacy.public.generation;
+  context.objects.set('current.json', JSON.stringify(legacy));
+  context.objects.set('manifests/90-1.json', JSON.stringify(legacy));
+  assert.equal(context.delivery.status().needsRebuild, true);
+  assert.equal(context.delivery.resolveCode('rebuild-public'), codeSha);
+  context.calls.length = 0;
+  assert.throws(() => context.delivery.rollback({ targetId: '90-1', id: '101-1' }), /Legacy/);
+  assert.equal(liveWrites(context).length, 0);
+  assert.equal(rebuild(context).version, 2);
+});
+
+test('unavailable generation API fails closed before copy and after invalidation', () => {
+  const context = setup(); deploy(context);
+  const unavailable = createDelivery(config, context.aws, () => { throw new Error('generation API unavailable'); });
+  context.calls.length = 0;
+  assert.throws(() => unavailable.rollback({ targetId: '100-1', id: '101-1' }), /API unavailable/);
+  assert.equal(liveWrites(context).length, 0);
+  let online = true;
+  const interrupted = createDelivery(config, context.aws, () => {
+    assert.ok(online, 'generation API unavailable'); return context.generation();
+  });
+  context.failWhen((args) => { if (args[1] === 'wait') online = false; return false; });
+  assert.throws(() => interrupted.publish({ action: 'rebuild-public', id: '102-1', codeSha,
+    publicRoot: context.publicRoot, buildMetadata: context.buildMetadata() }), /API unavailable/);
+  assert.equal(context.objects.has('pending.json'), true);
+});
+
+test('repeated failed recovery retains all earlier possibly cached paths for final invalidation', () => {
+  const context = setup();
+  context.failWhen((args) => args[1] === 'wait');
+  assert.throws(() => deploy(context));
+  rmSync(join(context.publicRoot, 'articles'), { recursive: true });
+  writeFileSync(join(context.publicRoot, 'middle.html'), 'middle');
+  assert.throws(() => context.delivery.publish({ action: 'recover', id: '101-1', codeSha,
+    publicRoot: context.publicRoot, adminRoot: context.adminRoot, buildMetadata: context.buildMetadata() }));
+  rmSync(join(context.publicRoot, 'middle.html'));
+  const paths = [];
+  context.failWhen((args) => {
+    if (args[1] === 'create-invalidation') paths.push(...JSON.parse(readFileSync(args[args.indexOf('--invalidation-batch') + 1].slice(7))).Paths.Items);
+    return false;
+  });
+  context.delivery.publish({ action: 'recover', id: '102-1', codeSha,
+    publicRoot: context.publicRoot, adminRoot: context.adminRoot, buildMetadata: context.buildMetadata() });
+  assert.ok(paths.includes('/articles/old/') && paths.includes('/middle.html'));
 });

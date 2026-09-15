@@ -471,6 +471,9 @@ jobs:
           E2E_VERIFY_SEED_REUSE: 'true'
         run: npm run test:e2e
 
+      - name: Verify generation-checked SSG and withdrawn pages against the E2E database
+        run: node infra/release/public-generation-acceptance.mjs
+
       - name: Show backend log
         if: ${{ failure() }}
         run: cat backend.log

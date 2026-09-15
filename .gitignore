@@ -189,6 +189,9 @@ logs
 tmp/
 temp/
 
+# Private generation-checked public build metadata (outside the served dist)
+/public-build.json
+
 # Claude Code personal (machine-specific) settings
 .claude/settings.local.json
 .claude/hooks/*.local.sh

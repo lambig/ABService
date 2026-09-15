@@ -5,6 +5,7 @@ import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readGenerationSync, validateGeneration } from './generation.mjs';
 
 // The archive is private. Only the two live buckets are CloudFront origins.
 const execute = (args) => execFileSync('aws', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
@@ -24,7 +25,8 @@ const validSite = (value) => {
   return url.origin;
 };
 export const validateManifest = (record) => {
-  assert.equal(record.version, 1);
+  assert.ok([1, 2].includes(record.version), 'Invalid release manifest version');
+  if (record.version === 2) validateGeneration(record.public.generation);
   ['public', 'admin'].forEach((site) => {
     const entry = record[site];
     sha(entry.codeSha); releaseId(entry.releaseId);
@@ -69,7 +71,7 @@ export const invalidationPaths = (entries, site) => [...new Set(entries.flatMap(
     return [key, ...(directory === null ? [] : [directory, ...(directory === '/' ? [] : [directory.slice(0, -1)])])];
   }))].sort();
 
-export const createDelivery = (config, aws = execute) => {
+export const createDelivery = (config, aws = execute, generation = () => readGenerationSync(validSite(config.apiBaseUrl))) => {
   [config.publicBucket, config.adminBucket, config.releaseBucket].forEach((bucket) => assert.match(bucket ?? '', /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/));
   assert.equal(new Set([config.publicBucket, config.adminBucket, config.releaseBucket]).size, 3, 'Release/live buckets must differ');
   assert.match(config.distributionId ?? '', /^[A-Z0-9]+$/);
@@ -92,7 +94,7 @@ export const createDelivery = (config, aws = execute) => {
     call('s3api', 'put-object', '--bucket', config.releaseBucket, '--key', key, '--body', target, '--content-type', 'application/json');
   };
   const current = () => { const value = read('current.json'); return value === null ? null : validateManifest(value); };
-  const clean = () => assert.equal(read('pending.json'), null, 'Previous delivery is incomplete. Restore a recorded release before rebuilding.');
+  const clean = () => assert.equal(read('pending.json'), null, 'Previous delivery is incomplete. Use recover or a same-generation rollback.');
   // Called under the workflow's release lock, before any backend build/deploy.
   // Missing current is valid for an initial deployment; unreadable/corrupt state is not.
   const preflight = () => { clean(); return current(); };
@@ -118,8 +120,16 @@ export const createDelivery = (config, aws = execute) => {
     return decision;
   };
   const requireAccepted = (target) => assert.equal(lastNormal(), target, 'Normal deployment requires its accepted watermark');
+  const recoveryTarget = () => {
+    const pending = read('pending.json');
+    assert.ok(pending, 'No incomplete delivery to recover');
+    const target = validateManifest(pending.target);
+    assert.equal(target.public.codeSha, target.admin.codeSha, 'Recovery requires matching public/admin code');
+    return target;
+  };
   const resolveCode = (action, requestedSha) => {
-    assert.ok(['deploy', 'rebuild-public'].includes(action));
+    assert.ok(['deploy', 'rebuild-public', 'recover'].includes(action));
+    if (action === 'recover') return recoveryTarget().public.codeSha;
     clean();
     const deployed = current();
     assert.ok(action !== 'rebuild-public' || deployed, 'No published release to rebuild');
@@ -152,35 +162,56 @@ export const createDelivery = (config, aws = execute) => {
     });
   };
   const complete = (previous, record, sites, roots, id) => {
+    assert.equal(record.version, 2, 'Legacy artifacts have no public data generation; rebuild current data');
+    const requireCurrentData = () => assert.equal(validateGeneration(generation()), record.public.generation,
+      'Public data changed; rebuild current data (use recover when pending exists)');
+    requireCurrentData();
     // Record intent BEFORE the first live write. Failure leaves a visible block
     // instead of silently treating partly copied files as a deployed code SHA.
     write('pending.json', { id, previous, target: record, sites });
+    requireCurrentData();
     sites.forEach((site) => transfer(site, roots[site]));
     invalidate(sites.flatMap((site) => invalidationPaths([previous?.[site], record[site]], site)), id);
+    requireCurrentData();
     write('current.json', record);
     call('s3api', 'delete-object', '--bucket', config.releaseBucket, '--key', 'pending.json');
     return record;
   };
-  const publish = ({ action, codeSha, id, publicRoot, adminRoot }) => {
+  const affectedPrevious = (previous, pending) => pending ? Object.fromEntries(['public', 'admin'].map((site) => [site, {
+    files: [...(previous?.[site]?.files ?? []), ...(pending.previous?.[site]?.files ?? []),
+      ...validateManifest(pending.target)[site].files],
+  }])) : previous;
+  const publish = ({ action, codeSha, id, publicRoot, adminRoot, buildMetadata }) => {
     releaseId(id); sha(codeSha);
-    clean();
+    if (action !== 'recover') clean();
+    if (action === 'recover') assert.equal(recoveryTarget().public.codeSha, codeSha, 'Recovery must use incomplete target code');
     const previous = current();
-    assert.ok(['deploy', 'rebuild-public'].includes(action));
+    assert.ok(['deploy', 'rebuild-public', 'recover'].includes(action));
     if (action === 'deploy') requireAccepted(codeSha);
     assert.ok(action !== 'rebuild-public' || previous?.public.codeSha === codeSha, 'Rebuild must use the currently deployed public SHA');
     assert.equal(read(`manifests/${id}.json`), null, 'Release ID already exists');
-    const sites = action === 'deploy' ? ['public', 'admin'] : ['public'];
+    const sites = action === 'rebuild-public' ? ['public'] : ['public', 'admin'];
     const roots = { public: resolve(publicRoot), admin: adminRoot ? resolve(adminRoot) : null };
     // Validate both builds before writing either live origin.
     sites.forEach((site) => assert.ok(filesUnder(roots[site]).includes('index.html')));
+    assert.equal(buildMetadata?.version, 1, 'Missing public build generation record');
+    assert.equal(buildMetadata.codeSha, codeSha, 'Build code differs from selected code');
+    validateGeneration(buildMetadata.generation);
+    assert.deepEqual(buildMetadata.files, filesUnder(roots.public).map((path) => ({ path, sha256: digest(join(roots.public, path)) })),
+      'Public artifacts differ from generation-checked build');
+    assert.equal(validateGeneration(generation()), buildMetadata.generation, 'Public data changed since SSG; rebuild current data');
     const entries = Object.fromEntries(sites.map((site) => [site, archive(site, roots[site], id, codeSha)]));
-    const record = validateManifest({ ...previous, ...entries, version: 1, deliveredAt: new Date().toISOString() });
+    assert.deepEqual(entries.public.files, buildMetadata.files, 'Public artifacts changed while archiving');
+    const record = validateManifest({ ...previous, ...entries,
+      public: { ...entries.public, generation: buildMetadata.generation }, version: 2, deliveredAt: new Date().toISOString() });
     write(`manifests/${id}.json`, record);
-    return complete(previous, record, sites, roots, id);
+    return complete(affectedPrevious(previous, read('pending.json')), record, sites, roots, id);
   };
   const rollback = ({ targetId, id }) => {
     releaseId(targetId); releaseId(id);
     const record = validateManifest(read(`manifests/${targetId}.json`));
+    assert.equal(record.version, 2, 'Legacy artifacts have no public data generation; rebuild current data');
+    assert.equal(validateGeneration(generation()), record.public.generation, 'Archived public data is obsolete; rebuild current data');
     const previous = current();
     const pending = read('pending.json');
     const roots = Object.fromEntries(['public', 'admin'].map((site) => {
@@ -192,18 +223,25 @@ export const createDelivery = (config, aws = execute) => {
       return [site, root];
     }));
     // A failed target may have introduced cached paths absent from current.json.
-    const invalidatedPrevious = pending ? Object.fromEntries(['public', 'admin'].map((site) => [site, {
-      files: [...(previous?.[site]?.files ?? []), ...(validateManifest(pending.target)[site].files)],
-    }])) : previous;
+    const invalidatedPrevious = affectedPrevious(previous, pending);
     return complete(invalidatedPrevious, record, ['public', 'admin'], roots, id);
   };
-  return { preflight, acceptNormal, resolveCode, publish, rollback };
+  const status = () => {
+    const savedGeneration = validateGeneration(generation());
+    const active = current();
+    const deliveredGeneration = active?.version === 2 ? active.public.generation : null;
+    const pending = read('pending.json') !== null;
+    return { savedGeneration, deliveredGeneration, codeSha: active?.public.codeSha ?? null,
+      pending, needsRebuild: pending || savedGeneration !== deliveredGeneration };
+  };
+  return { preflight, acceptNormal, resolveCode, publish, rollback, status };
 };
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const env = process.env;
   const delivery = createDelivery({ publicBucket: env.FRONTEND_PUBLIC_BUCKET, adminBucket: env.FRONTEND_ADMIN_BUCKET,
-    releaseBucket: env.FRONTEND_RELEASE_BUCKET, distributionId: env.CLOUDFRONT_DISTRIBUTION_ID });
+    releaseBucket: env.FRONTEND_RELEASE_BUCKET, distributionId: env.CLOUDFRONT_DISTRIBUTION_ID,
+    apiBaseUrl: env.API_BASE_URL });
   const [command, action] = process.argv.slice(2);
   const operations = {
     preflight: () => {
@@ -221,8 +259,15 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       writeFileSync(env.GITHUB_OUTPUT, `code_sha=${codeSha}\n`, { flag: 'a' });
     },
     publish: () => delivery.publish({ action, codeSha: env.RELEASE_SHA, id: env.RELEASE_ID,
-      publicRoot: 'source/frontend-public/dist', adminRoot: 'source/frontend-admin/dist' }),
+      publicRoot: 'source/frontend-public/dist', adminRoot: 'source/frontend-admin/dist',
+      buildMetadata: JSON.parse(readFileSync('source/public-build.json', 'utf8')) }),
     rollback: () => delivery.rollback({ targetId: env.TARGET_RELEASE_ID, id: env.RELEASE_ID }),
+    status: () => {
+      validSite(env.API_BASE_URL);
+      const record = delivery.status();
+      console.log(JSON.stringify(record, null, 2));
+      writeFileSync(env.GITHUB_STEP_SUMMARY, `Public data status (observed now):\n\n\`\`\`json\n${JSON.stringify(record, null, 2)}\n\`\`\`\n`, { flag: 'a' });
+    },
   };
   assert.ok(Object.hasOwn(operations, command), 'Unknown release command');
   operations[command]();
