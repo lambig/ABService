@@ -3,6 +3,7 @@
   import AlbumFormField from '$components/AlbumFormField.svelte';
   import AlbumSection from '$components/AlbumSection.svelte';
   import AlbumTracks from '$components/AlbumTracks.svelte';
+  import SessionControls from '$components/SessionControls.svelte';
   import ApiKeyForm from '$components/ApiKeyForm.svelte';
   import { Button } from '$components/ui/button/index.js';
   import {
@@ -43,7 +44,7 @@
     withoutPathsUnder,
     type FormErrors,
   } from '$lib/api/form-errors';
-  import { KEY_STORE, storedApiKey } from '$lib/credentials';
+  import { applySessionResult, storedSession, type AdminSession } from '$lib/credentials';
   import { ALBUM_LIST_PATH, albumIdIn } from '$lib/paths';
 
   /**
@@ -319,11 +320,11 @@
         readonly pending: Pending | null;
       }
     | { readonly kind: 'loading' }
-    | { readonly kind: 'unavailable'; readonly apiKey: string; readonly message: string }
+    | { readonly kind: 'unavailable'; readonly session: AdminSession; readonly message: string }
     | { readonly kind: 'unspecified' }
     | {
         readonly kind: 'editing';
-        readonly apiKey: string;
+        readonly session: AdminSession;
         /** 更新する対象と、読み込んだ時点の世代。null は新規作成 */
         readonly target: Target | null;
         readonly draft: AlbumDraft;
@@ -370,7 +371,9 @@
 
   /** 失敗の文言。文言の出所を1つにするため、どの操作の失敗もここを通す */
   const failureTextOf = (failure: ApiFailure): string =>
-    failure.kind === 'unauthorized' ? '鍵が受け付けられませんでした。' : failure.message;
+    failure.kind === 'unauthorized'
+      ? 'セッションが終了しました。鍵を入力して再認証してください。'
+      : failure.message;
 
   /**
    * 入力の内容を1つの文字列に畳む。未保存かどうかは、これを読み込んだ時点のものと突き合わせて決める。
@@ -386,9 +389,9 @@
     tracks: readonly TrackDraft[],
   ): string => JSON.stringify(albumFieldsOf(draft, audios, tracks));
 
-  const editing = (apiKey: string, pending: Pending): View => ({
+  const editing = (session: AdminSession, pending: Pending): View => ({
     kind: 'editing',
-    apiKey,
+    session,
     target: pending.target,
     draft: pending.draft,
     coverImageUrl: pending.coverImageUrl,
@@ -421,24 +424,29 @@
     };
   };
 
-  const loaded = (apiKey: string, albumId: string, result: ApiResult<AdminAlbumDetail>): View =>
+  const loaded = (
+    session: AdminSession,
+    albumId: string,
+    result: ApiResult<AdminAlbumDetail>,
+  ): View =>
     result.kind === 'ok'
-      ? editing(apiKey, pendingOfAlbum(albumId, result.value))
+      ? editing(session, pendingOfAlbum(albumId, result.value))
       : result.kind === 'unauthorized'
         ? { kind: 'locked', message: failureTextOf(result), pending: null }
-        : { kind: 'unavailable', apiKey, message: failureTextOf(result) };
+        : { kind: 'unavailable', session, message: failureTextOf(result) };
 
-  const load = async (apiKey: string, albumId: string): Promise<void> => {
+  const load = async (session: AdminSession, albumId: string): Promise<void> => {
     view = { kind: 'loading' };
 
-    const result = await getAlbum(apiKey, albumId);
-    KEY_STORE[result.kind](apiKey);
-    view = loaded(apiKey, albumId, result);
+    const result = await getAlbum(session, albumId);
+    return applySessionResult(session, result, () => {
+      view = loaded(session, albumId, result);
+    });
   };
 
   /** 新規作成は読み込むものが無い。鍵だけを確かめて入力へ入る */
-  const start = (apiKey: string): void => {
-    view = editing(apiKey, {
+  const start = (session: AdminSession): void => {
+    view = editing(session, {
       target: null,
       draft: EMPTY_DRAFT,
       coverImageUrl: null,
@@ -464,18 +472,18 @@
    * 新規作成に対象は無く、編集は問い合わせ文字列から読む。指定が無いまま編集の画面へ来た場合は、
    * 空の新規作成へ落とさない（何も指定していない更新として保存され得る）。
    */
-  const openEdit = (apiKey: string, albumId: string | null): Promise<void> =>
-    albumId === null ? settled(unspecify) : load(apiKey, albumId);
+  const openEdit = (session: AdminSession, albumId: string | null): Promise<void> =>
+    albumId === null ? settled(unspecify) : load(session, albumId);
 
   const OPEN = {
-    new: (apiKey: string): Promise<void> =>
+    new: (session: AdminSession): Promise<void> =>
       settled(() => {
-        start(apiKey);
+        start(session);
       }),
-    edit: (apiKey: string): Promise<void> => openEdit(apiKey, albumIdIn(location.search)),
-  } satisfies Record<Props['mode'], (apiKey: string) => Promise<void>>;
+    edit: (session: AdminSession): Promise<void> => openEdit(session, albumIdIn(location.search)),
+  } satisfies Record<Props['mode'], (session: AdminSession) => Promise<void>>;
 
-  const open = (apiKey: string): Promise<void> => OPEN[mode](apiKey);
+  const open = (session: AdminSession): Promise<void> => OPEN[mode](session);
 
   /**
    * 鍵を受け取ったときの続け方。
@@ -483,14 +491,14 @@
    * 入力を抱えたまま鍵待ちへ戻っていれば、読み直さずその入力へ復帰する。読み直すと、鍵が断られる前に
    * 書いていた内容を捨てることになる。
    */
-  const accept = (apiKey: string): Promise<void> => {
+  const accept = (session: AdminSession): Promise<void> => {
     const current = view;
     const pending = current.kind === 'locked' ? current.pending : null;
 
     return pending === null
-      ? open(apiKey)
+      ? open(session)
       : settled(() => {
-          view = editing(apiKey, pending);
+          view = editing(session, pending);
         });
   };
 
@@ -499,19 +507,19 @@
    * sessionStorage と location を触らない）。
    */
   const resume = (): Promise<void> => {
-    const apiKey = storedApiKey();
-    return apiKey === null
+    const session = storedSession();
+    return session === null
       ? settled(() => {
           lock(null, null);
         })
-      : open(apiKey);
+      : open(session);
   };
 
   void resume();
 
   const retry = (): void => {
     const current = view;
-    void (current.kind === 'unavailable' ? open(current.apiKey) : Promise.resolve());
+    void (current.kind === 'unavailable' ? open(current.session) : Promise.resolve());
   };
 
   const update = (path: AlbumFieldPath, value: string): void => {
@@ -550,9 +558,9 @@
    * 保存されることになる（更新は全項目置換のため）。
    * </p>
    */
-  const chooseCover = async (apiKey: string, file: File): Promise<void> => {
+  const chooseCover = async (session: AdminSession, file: File): Promise<void> => {
     withUpload({ kind: 'sending' });
-    applyUploadOutcome(apiKey, await uploadAsset(apiKey, file));
+    applyUploadOutcome(session, await uploadAsset(session, file));
   };
 
   /** 差し替えの状態だけを差し替えた画面 */
@@ -603,9 +611,10 @@
       ? { kind: 'locked', message: failureTextOf(failure), pending: pendingOf(view) }
       : rejectedUpload(uploadMessagesOf(failure));
 
-  const applyUploadOutcome = (apiKey: string, result: ApiResult<ConfirmedAsset>): void => {
-    KEY_STORE[result.kind](apiKey);
-    view = result.kind === 'ok' ? withCover(result.value) : viewAfterUploadFailure(result);
+  const applyUploadOutcome = (session: AdminSession, result: ApiResult<ConfirmedAsset>): void => {
+    return applySessionResult(session, result, () => {
+      view = result.kind === 'ok' ? withCover(result.value) : viewAfterUploadFailure(result);
+    });
   };
 
   /** 選ばれた画像を受け取る。選ばれていない（取り消された）ときは、いまの画像をそのままにする */
@@ -614,7 +623,7 @@
     const file = files?.[0];
 
     void (current.kind === 'editing' && file !== undefined
-      ? chooseCover(current.apiKey, file)
+      ? chooseCover(current.session, file)
       : Promise.resolve());
   };
 
@@ -701,13 +710,13 @@
    * 更新は編集を始めた時点の世代を条件として送る。新規作成に世代は無い（まだ無いものは誰も更新できない）。
    */
   const save = async (
-    apiKey: string,
+    session: AdminSession,
     target: Target | null,
     fields: AlbumFields,
   ): Promise<ApiResult<unknown>> =>
     target === null
-      ? createAlbum(apiKey, fields)
-      : updateAlbum(apiKey, target.albumId, fields, target.revision);
+      ? createAlbum(session, fields)
+      : updateAlbum(session, target.albumId, fields, target.revision);
 
   /** いま抱えている入力。編集中でなければ持たない */
   const pendingOf = (current: View): Pending | null =>
@@ -741,10 +750,11 @@
     failed: (): void => undefined,
   } satisfies Record<ApiResult<unknown>['kind'], () => void>;
 
-  const applySaveOutcome = (apiKey: string, result: ApiResult<unknown>): void => {
-    KEY_STORE[result.kind](apiKey);
-    view = result.kind === 'ok' ? view : viewAfterFailure(result);
-    LEAVE_AFTER_SAVE[result.kind]();
+  const applySaveOutcome = (session: AdminSession, result: ApiResult<unknown>): void => {
+    return applySessionResult(session, result, () => {
+      view = result.kind === 'ok' ? view : viewAfterFailure(result);
+      LEAVE_AFTER_SAVE[result.kind]();
+    });
   };
 
   const submit = (event: SubmitEvent): void => {
@@ -755,7 +765,7 @@
     current.submission.kind !== 'saving' &&
     current.upload.kind !== 'sending'
       ? submitWith(
-          current.apiKey,
+          current.session,
           current.target,
           albumFieldsOf(current.draft, current.audios, current.tracks),
         )
@@ -763,12 +773,12 @@
   };
 
   const submitWith = async (
-    apiKey: string,
+    session: AdminSession,
     target: Target | null,
     fields: AlbumFields,
   ): Promise<void> => {
     withSubmission({ kind: 'saving' });
-    applySaveOutcome(apiKey, await save(apiKey, target, fields));
+    applySaveOutcome(session, await save(session, target, fields));
   };
 
   /**
@@ -779,7 +789,7 @@
    */
   const reload = (): void => {
     const current = view;
-    void (current.kind === 'editing' ? open(current.apiKey) : Promise.resolve());
+    void (current.kind === 'editing' ? open(current.session) : Promise.resolve());
   };
 
   /**
@@ -1006,12 +1016,18 @@
   const SAVE_LABELS = { new: '作成する', edit: '保存する' } satisfies Record<Props['mode'], string>;
 </script>
 
+<SessionControls
+  onLogout={() => {
+    lock(null, null);
+  }}
+/>
+
 {#if view.kind === 'locked'}
   <div class="space-y-4">
     {#if pendingNotice !== null}
       <p class="text-muted-foreground text-sm">{pendingNotice}</p>
     {/if}
-    <ApiKeyForm message={lockMessage} onSubmit={(apiKey: string) => void accept(apiKey)} />
+    <ApiKeyForm message={lockMessage} onSubmit={(session: AdminSession) => void accept(session)} />
   </div>
 {:else if view.kind === 'loading'}
   <p class="text-muted-foreground">読み込んでいます。</p>

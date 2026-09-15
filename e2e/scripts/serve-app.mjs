@@ -22,11 +22,12 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { extname, join, normalize } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { runInNewContext } from 'node:vm';
 
 import { apps, basePathOf, portOf, stack } from '../src/support/config.ts';
 
-const repositoryRoot = new URL('../../', import.meta.url).pathname;
+const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
 
 const fail = (message) => {
   console.error(message);

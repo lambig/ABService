@@ -1,6 +1,7 @@
 import { setTimeout as delay } from 'node:timers/promises';
 
 import type { Locator, Page } from '@playwright/test';
+import { revokeBrowserSession } from '../support/admin-sessions.ts';
 
 import { renameAlbumOutsideTheScreen } from '../support/admin-api.ts';
 import { openAllSections, openSection } from '../support/album-editor.ts';
@@ -72,9 +73,6 @@ const UPDATE_API = `${stack.backendBaseUrl}/api/v1/albums/*`;
 
 /** 保存の応答を遅らせる時間。保存中の状態を観測する余地を作る */
 const SLOW_SAVE_MS = 2_000;
-
-/** 受け付けられない鍵。断られた後の復帰を見るために使う */
-const WRONG_API_KEY = 'e2e-wrong-key';
 
 /** 入力を抱えたまま鍵待ちへ戻ったことを伝える文言 */
 const PENDING_NOTICE = '入力した内容は保持しています';
@@ -620,12 +618,9 @@ test.describe('管理画面の作品の追加', () => {
     const stamp = String(Date.now());
     const title = `E2E 鍵を入れ直して追加した作品 ${stamp}`;
 
-    /*
-     * 新規作成は鍵の入力時に管理APIを呼ばない（読み込むものが無い）。したがって鍵が正しいと分かるのは
-     * 最初の保存のときで、そこで入力を捨てると全項目を書き直させることになる。
-     */
+    /* 認証後にサーバーで失効しても、保存前に書いた入力を再認証へ引き継ぐ。 */
     await page.goto(`${stack.adminBaseUrl}/albums/new`);
-    await page.getByLabel(API_KEY_LABEL).fill(WRONG_API_KEY);
+    await page.getByLabel(API_KEY_LABEL).fill(stack.adminApiKey);
     await page.getByRole('button', { name: OPEN_LABEL }).click();
 
     await openSection(page, '作品');
@@ -633,6 +628,7 @@ test.describe('管理画面の作品の追加', () => {
     await page.getByLabel(RELEASE_DATE_LABEL).fill('2026-11-01');
     await page.getByLabel(ARTIST_LABEL).fill('E2E 再認証アーティスト');
     await page.getByLabel(CATALOG_NUMBER_LABEL).fill(`${SCRATCH_CATALOG_PREFIX}${stamp}`);
+    await revokeBrowserSession(page);
 
     await page.getByRole('button', { name: CREATE_LABEL }).click();
 

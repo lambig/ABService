@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SessionControls from '$components/SessionControls.svelte';
   import ApiKeyForm from '$components/ApiKeyForm.svelte';
   import { Button } from '$components/ui/button/index.js';
   import * as Table from '$components/ui/table/index.js';
@@ -14,7 +15,7 @@
     hasAssignedErrors,
     type FormErrors,
   } from '$lib/api/form-errors';
-  import { KEY_STORE, storedApiKey } from '$lib/credentials';
+  import { applySessionResult, storedSession, type AdminSession } from '$lib/credentials';
   import { renderBody } from '$lib/markup';
   import { unregisteredKeys } from '$lib/site-content-keys';
 
@@ -103,10 +104,10 @@
         readonly pending: Draft | null;
       }
     | { readonly kind: 'loading' }
-    | { readonly kind: 'unavailable'; readonly apiKey: string; readonly message: string }
+    | { readonly kind: 'unavailable'; readonly session: AdminSession; readonly message: string }
     | {
         readonly kind: 'editing';
-        readonly apiKey: string;
+        readonly session: AdminSession;
         readonly contents: readonly SiteContent[];
         readonly draft: Draft;
         readonly submission: Submission;
@@ -119,29 +120,40 @@
 
   /** 失敗の文言。文言の出所を1つにするため、どの操作の失敗もここを通す */
   const failureTextOf = (failure: ApiFailure): string =>
-    failure.kind === 'unauthorized' ? '鍵が受け付けられませんでした。' : failure.message;
+    failure.kind === 'unauthorized'
+      ? 'セッションが終了しました。鍵を入力して再認証してください。'
+      : failure.message;
 
-  const editing = (apiKey: string, contents: readonly SiteContent[], draft: Draft): View => ({
+  const editing = (
+    session: AdminSession,
+    contents: readonly SiteContent[],
+    draft: Draft,
+  ): View => ({
     kind: 'editing',
-    apiKey,
+    session,
     contents,
     draft,
     submission: { kind: 'idle' },
   });
 
-  const loaded = (apiKey: string, result: ApiResult<readonly SiteContent[]>, draft: Draft): View =>
+  const loaded = (
+    session: AdminSession,
+    result: ApiResult<readonly SiteContent[]>,
+    draft: Draft,
+  ): View =>
     result.kind === 'ok'
-      ? editing(apiKey, result.value, draft)
+      ? editing(session, result.value, draft)
       : result.kind === 'unauthorized'
         ? { kind: 'locked', message: failureTextOf(result), pending: null }
-        : { kind: 'unavailable', apiKey, message: failureTextOf(result) };
+        : { kind: 'unavailable', session, message: failureTextOf(result) };
 
-  const load = async (apiKey: string, draft: Draft): Promise<void> => {
+  const load = async (session: AdminSession, draft: Draft): Promise<void> => {
     view = { kind: 'loading' };
 
-    const result = await listSiteContents(apiKey);
-    KEY_STORE[result.kind](apiKey);
-    view = loaded(apiKey, result, draft);
+    const result = await listSiteContents(session);
+    return applySessionResult(session, result, () => {
+      view = loaded(session, result, draft);
+    });
   };
 
   /*
@@ -149,13 +161,13 @@
    * sessionStorage を触らない）。
    */
   const resume = (): Promise<void> => {
-    const apiKey = storedApiKey();
+    const session = storedSession();
 
-    return apiKey === null
+    return session === null
       ? Promise.resolve().then(() => {
           view = { kind: 'locked', message: null, pending: null };
         })
-      : load(apiKey, EMPTY_DRAFT);
+      : load(session, EMPTY_DRAFT);
   };
 
   void resume();
@@ -166,22 +178,22 @@
    * 入力を抱えたまま鍵待ちへ戻っていれば、その入力を持ったまま読み直す。捨てると、鍵が断られる前に
    * 書いていた内容が消える。
    */
-  const accept = (apiKey: string): Promise<void> => {
+  const accept = (session: AdminSession): Promise<void> => {
     const current = view;
     const pending = current.kind === 'locked' ? current.pending : null;
 
-    return load(apiKey, pending ?? EMPTY_DRAFT);
+    return load(session, pending ?? EMPTY_DRAFT);
   };
 
   const retry = (): void => {
     const current = view;
-    void (current.kind === 'unavailable' ? load(current.apiKey, EMPTY_DRAFT) : Promise.resolve());
+    void (current.kind === 'unavailable' ? load(current.session, EMPTY_DRAFT) : Promise.resolve());
   };
 
   /** 入力値だけを差し替えた画面。保存の状態は最初へ戻す（前の保存の結果を新しい入力へ引き継がない） */
   const withDraft = (draft: Draft): void => {
     const current = view;
-    view = current.kind === 'editing' ? editing(current.apiKey, current.contents, draft) : current;
+    view = current.kind === 'editing' ? editing(current.session, current.contents, draft) : current;
   };
 
   const update = (change: Partial<Draft>): void => {
@@ -261,16 +273,17 @@
       ? { kind: 'locked', message: failureTextOf(failure), pending: pendingOf(view) }
       : withSubmissionOf(rejectionOf(failure));
 
-  const applySaveOutcome = (apiKey: string, result: ApiResult<SiteContent>): void => {
-    KEY_STORE[result.kind](apiKey);
-    view = result.kind === 'ok' ? withSaved(result.value) : viewAfterFailure(result);
+  const applySaveOutcome = (session: AdminSession, result: ApiResult<SiteContent>): void => {
+    return applySessionResult(session, result, () => {
+      view = result.kind === 'ok' ? withSaved(result.value) : viewAfterFailure(result);
+    });
   };
 
-  const submitWith = async (apiKey: string, draft: Draft): Promise<void> => {
+  const submitWith = async (session: AdminSession, draft: Draft): Promise<void> => {
     withSubmission({ kind: 'saving' });
     applySaveOutcome(
-      apiKey,
-      await upsertSiteContent(apiKey, draft.key, draft.content, draft.contentFormat),
+      session,
+      await upsertSiteContent(session, draft.key, draft.content, draft.contentFormat),
     );
   };
 
@@ -279,7 +292,7 @@
 
     const current = view;
     void (current.kind === 'editing' && current.submission.kind !== 'saving'
-      ? submitWith(current.apiKey, current.draft)
+      ? submitWith(current.session, current.draft)
       : Promise.resolve());
   };
 
@@ -322,12 +335,18 @@
   );
 </script>
 
+<SessionControls
+  onLogout={() => {
+    view = { kind: 'locked', message: null, pending: null };
+  }}
+/>
+
 {#if view.kind === 'locked'}
   <div class="space-y-4">
     {#if pendingNotice !== null}
       <p class="text-muted-foreground text-sm">{pendingNotice}</p>
     {/if}
-    <ApiKeyForm message={lockMessage} onSubmit={(apiKey: string) => void accept(apiKey)} />
+    <ApiKeyForm message={lockMessage} onSubmit={(session: AdminSession) => void accept(session)} />
   </div>
 {:else if view.kind === 'loading'}
   <p class="text-muted-foreground">読み込んでいます。</p>

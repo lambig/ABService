@@ -114,7 +114,13 @@ const audioRows = (): readonly HTMLElement[] =>
  */
 const openEditor = async (): Promise<void> => {
   window.history.replaceState({}, '', `?albumId=${ALBUM_ID}`);
-  sessionStorage.setItem('abservice.admin.api-key', 'test-key');
+  sessionStorage.setItem(
+    'abservice.admin.session',
+    JSON.stringify({
+      token: 'abs_session_test',
+      expiresAt: new Date(Date.now() + 1_800_000).toISOString(),
+    }),
+  );
   render(AlbumForm, { mode: 'edit' });
   await screen.findByRole('button', { name: '作品を開く' });
 };

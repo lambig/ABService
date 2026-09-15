@@ -10,7 +10,7 @@
     type ApiResult,
   } from '$lib/api/client';
   import { isStaleRevisionConflict } from '$lib/api/http';
-  import { KEY_STORE } from '$lib/credentials';
+  import { applySessionResult, type AdminSession } from '$lib/credentials';
 
   /**
    * 記事が参照する作品。
@@ -26,7 +26,7 @@
    * </p>
    */
   type Props = {
-    readonly apiKey: string;
+    readonly session: AdminSession;
     /** 対象の記事。まだ作られていなければ null */
     readonly articleId: string | null;
     /** いま参照している作品。無ければ null */
@@ -58,7 +58,7 @@
   };
 
   const {
-    apiKey,
+    session,
     articleId,
     albumId,
     expectedRevision,
@@ -104,7 +104,9 @@
   type ApiFailure = Exclude<ApiResult<unknown>, { readonly kind: 'ok' }>;
 
   const failureTextOf = (failure: ApiFailure): string =>
-    failure.kind === 'unauthorized' ? '鍵が受け付けられませんでした。' : failure.message;
+    failure.kind === 'unauthorized'
+      ? 'セッションが終了しました。鍵を入力して再認証してください。'
+      : failure.message;
 
   /**
    * 鍵が断られたかどうかで、画面全体へ渡すかを分ける。
@@ -122,17 +124,18 @@
 
   /** 参照している作品を引く。名前を出さないと、どれを参照しているのか読めない */
   const loadReference = async (id: string): Promise<void> => {
+    const requestSession = session;
     reference = { kind: 'loading' };
 
-    const result = await getAlbum(apiKey, id);
-    const message = result.kind === 'ok' ? '' : failureTextOf(result);
-
-    KEY_STORE[result.kind](apiKey);
-    reference =
-      result.kind === 'ok'
-        ? { kind: 'ready', title: result.value.title, catalogNumber: result.value.catalogNumber }
-        : { kind: 'unavailable', message };
-    ESCALATE[result.kind](message);
+    const result = await getAlbum(session, id);
+    return applySessionResult(requestSession, result, () => {
+      const message = result.kind === 'ok' ? '' : failureTextOf(result);
+      reference =
+        result.kind === 'ok'
+          ? { kind: 'ready', title: result.value.title, catalogNumber: result.value.catalogNumber }
+          : { kind: 'unavailable', message };
+      ESCALATE[result.kind](message);
+    });
   };
 
   const loadReferenceIfLinked = (): Promise<void> =>
@@ -141,17 +144,18 @@
   void loadReferenceIfLinked();
 
   const searchWith = async (target: 'title' | 'catalogNumber', word: string): Promise<void> => {
+    const requestSession = session;
     search = { kind: 'searching' };
 
-    const result = await searchAlbums(apiKey, target, word);
-    const message = result.kind === 'ok' ? '' : failureTextOf(result);
-
-    KEY_STORE[result.kind](apiKey);
-    search =
-      result.kind === 'ok'
-        ? { kind: 'found', items: result.value }
-        : { kind: 'unavailable', message };
-    ESCALATE[result.kind](message);
+    const result = await searchAlbums(session, target, word);
+    return applySessionResult(requestSession, result, () => {
+      const message = result.kind === 'ok' ? '' : failureTextOf(result);
+      search =
+        result.kind === 'ok'
+          ? { kind: 'found', items: result.value }
+          : { kind: 'unavailable', message };
+      ESCALATE[result.kind](message);
+    });
   };
 
   /**
@@ -175,8 +179,6 @@
   ): void => {
     const message = result.kind === 'ok' ? '' : failureTextOf(result);
     const conflict = result.kind !== 'ok' && isStaleRevisionConflict(result);
-
-    KEY_STORE[result.kind](apiKey);
     operation = [result.kind === 'ok', conflict].some(Boolean)
       ? { kind: 'idle' }
       : { kind: 'rejected', message };
@@ -200,21 +202,27 @@
     revision: number,
     candidate: AlbumCandidate,
   ): Promise<void> => {
+    const requestSession = session;
     operation = { kind: 'linking' };
 
-    const result = await setArticleAlbum(apiKey, id, candidate.albumId, revision);
-    applyLink(
-      result,
-      { kind: 'ready', title: candidate.title, catalogNumber: candidate.catalogNumber },
-      candidate.albumId,
-    );
+    const result = await setArticleAlbum(session, id, candidate.albumId, revision);
+    return applySessionResult(requestSession, result, () => {
+      applyLink(
+        result,
+        { kind: 'ready', title: candidate.title, catalogNumber: candidate.catalogNumber },
+        candidate.albumId,
+      );
+    });
   };
 
   const unlinkWith = async (id: string, revision: number): Promise<void> => {
+    const requestSession = session;
     operation = { kind: 'unlinking' };
 
-    const result = await removeArticleAlbum(apiKey, id, revision);
-    applyLink(result, { kind: 'none' }, null);
+    const result = await removeArticleAlbum(session, id, revision);
+    return applySessionResult(requestSession, result, () => {
+      applyLink(result, { kind: 'none' }, null);
+    });
   };
 
   const link = (candidate: AlbumCandidate): void => {

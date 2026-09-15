@@ -16,6 +16,7 @@
 import { execFileSync } from 'node:child_process';
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 
 import { stack } from '../src/support/config.ts';
@@ -25,7 +26,7 @@ import { verifyBuildFixtureReuse } from './verify-build-fixture-reuse.mjs';
 const WAIT_LIMIT_MS = 120_000;
 const RETRY_INTERVAL_MS = 2_000;
 
-const repositoryRoot = new URL('../../', import.meta.url).pathname;
+const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
 
 const isReady = async () => {
   const response = await fetch(`${stack.backendBaseUrl}/q/health/ready`).catch(() => null);
@@ -62,7 +63,10 @@ const clearEvidence = () => {
  * ブラウザが叩く（PUBLIC_API_BASE_URL）。どちらも指す先は同じ E2E 用のバックエンドで、渡し方が違う。
  */
 const build = (workspace, env) => {
-  execFileSync('npm', ['run', 'build', '-w', workspace], {
+  const npmCli = process.env.npm_execpath;
+  const command = npmCli === undefined ? 'npm' : process.execPath;
+  const args = npmCli === undefined ? [] : [npmCli];
+  execFileSync(command, [...args, 'run', 'build', '-w', workspace], {
     cwd: repositoryRoot,
     stdio: 'inherit',
     env: { ...process.env, ...env },

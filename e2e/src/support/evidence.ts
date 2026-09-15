@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
@@ -12,7 +13,7 @@ import type { Locator, Page } from '@playwright/test';
  */
 
 /** 証跡の出力先。リポジトリには入れず、公開するものだけを別ブランチへ送る */
-const EVIDENCE_DIR = new URL('../../evidence/', import.meta.url).pathname;
+const EVIDENCE_DIR = fileURLToPath(new URL('../../evidence/', import.meta.url));
 
 /** クリックポイントの印に使う要素のID */
 const MARKER_ID = 'e2e-click-marker';

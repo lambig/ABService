@@ -32,10 +32,10 @@ const DRAFT_LABEL = '下書き';
 
 /** 失敗したときの復帰の操作 */
 const RETRY_LABEL = '再試行';
-const DISCARD_LABEL = '鍵を破棄する';
+const DISCARD_LABEL = 'ログアウト';
 
 /** 管理APIの経路。到達できない状態を作るために塞ぐ */
-const ADMIN_API = `${stack.backendBaseUrl}/api/v1/admin/**`;
+const ADMIN_API = `${stack.backendBaseUrl}/api/v1/admin/albums**`;
 
 /** 前提の照会だけを塞ぐ経路。一覧は引けるまま、確認だけ失敗させるために分ける */
 const PRECONDITIONS_API = `${stack.backendBaseUrl}/api/v1/admin/albums/*/preconditions*`;

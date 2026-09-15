@@ -1,3 +1,4 @@
+import { isCurrentSession, type AdminSession } from '$lib/credentials';
 import { PUBLIC_API_BASE_URL } from 'astro:env/client';
 
 import type { components } from './schema';
@@ -47,17 +48,22 @@ const contentTypeOf = (body: unknown): Readonly<Record<string, string>> =>
 const bodyOf = (body: unknown): RequestInit =>
   body === undefined ? {} : { body: JSON.stringify(body) };
 
+const usable = (session: AdminSession): boolean =>
+  isCurrentSession(session) && Date.parse(session.expiresAt) > Date.now();
+
 const request = <T>(
   method: 'GET' | 'POST' | 'PUT' | 'DELETE',
   path: string,
-  apiKey: string,
+  session: AdminSession,
   body?: unknown,
 ): Promise<ApiResult<T>> =>
-  requestJson<T>(`${PUBLIC_API_BASE_URL}${path}`, {
-    method,
-    headers: { Authorization: `Bearer ${apiKey}`, ...contentTypeOf(body) },
-    ...bodyOf(body),
-  });
+  usable(session)
+    ? requestJson<T>(`${PUBLIC_API_BASE_URL}${path}`, {
+        method,
+        headers: { Authorization: `Bearer ${session.token}`, ...contentTypeOf(body) },
+        ...bodyOf(body),
+      })
+    : Promise.resolve({ kind: 'unauthorized' });
 
 /**
  * 本体を返さない操作の経路。
@@ -70,19 +76,23 @@ const request = <T>(
 const requestNoContent = (
   method: 'DELETE',
   path: string,
-  apiKey: string,
+  session: AdminSession,
 ): Promise<ApiResult<void>> =>
-  requestEmpty(`${PUBLIC_API_BASE_URL}${path}`, {
-    method,
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
+  usable(session)
+    ? requestEmpty(`${PUBLIC_API_BASE_URL}${path}`, {
+        method,
+        headers: { Authorization: `Bearer ${session.token}` },
+      })
+    : Promise.resolve({ kind: 'unauthorized' });
 
 /** 下書きを含むアルバムを取得する。 */
-export const listAlbums = async (apiKey: string): Promise<ApiResult<readonly AdminAlbum[]>> => {
+export const listAlbums = async (
+  session: AdminSession,
+): Promise<ApiResult<readonly AdminAlbum[]>> => {
   const result = await request<Schemas['AdminAlbumListResponse']>(
     'GET',
     `/api/v1/admin/albums?page=0&size=${String(PAGE_SIZE)}`,
-    apiKey,
+    session,
   );
 
   return result.kind === 'ok' ? { kind: 'ok', value: result.value.items } : result;
@@ -93,8 +103,11 @@ export const listAlbums = async (apiKey: string): Promise<ApiResult<readonly Adm
  *
  * 公開向けの詳細ではなく管理向けを引く。編集の対象は下書きも含み、公開向けには出ないため。
  */
-export const getAlbum = (apiKey: string, albumId: string): Promise<ApiResult<AdminAlbumDetail>> =>
-  request<AdminAlbumDetail>('GET', `/api/v1/admin/albums/${encodeURIComponent(albumId)}`, apiKey);
+export const getAlbum = (
+  session: AdminSession,
+  albumId: string,
+): Promise<ApiResult<AdminAlbumDetail>> =>
+  request<AdminAlbumDetail>('GET', `/api/v1/admin/albums/${encodeURIComponent(albumId)}`, session);
 
 /**
  * 作品を作る（下書きとして作られる）。
@@ -105,13 +118,13 @@ export const getAlbum = (apiKey: string, albumId: string): Promise<ApiResult<Adm
  * </p>
  */
 export const createAlbum = (
-  apiKey: string,
+  session: AdminSession,
   fields: AlbumFields,
 ): Promise<ApiResult<Schemas['RegisterAlbumWithTracksResponse']>> =>
   request<Schemas['RegisterAlbumWithTracksResponse']>(
     'POST',
     '/api/v1/albums/with-tracks',
-    apiKey,
+    session,
     fields,
   );
 
@@ -129,7 +142,7 @@ export const createAlbum = (
  * </p>
  */
 export const updateAlbum = (
-  apiKey: string,
+  session: AdminSession,
   albumId: string,
   fields: AlbumFields,
   expectedRevision: number,
@@ -137,7 +150,7 @@ export const updateAlbum = (
   request<Schemas['UpdateAlbumResponse']>(
     'PUT',
     `/api/v1/albums/${encodeURIComponent(albumId)}`,
-    apiKey,
+    session,
     { ...fields, expectedRevision },
   );
 
@@ -163,10 +176,10 @@ export type ConfirmedAsset = Schemas['ConfirmAssetUploadResponse'];
  * </p>
  */
 export const issueAssetUploadUrl = (
-  apiKey: string,
+  session: AdminSession,
   contentType: string,
 ): Promise<ApiResult<AssetUploadUrl>> =>
-  request<AssetUploadUrl>('POST', '/api/v1/assets/upload-url', apiKey, { contentType });
+  request<AssetUploadUrl>('POST', '/api/v1/assets/upload-url', session, { contentType });
 
 /**
  * 送り終えた実体を確定する。
@@ -177,10 +190,14 @@ export const issueAssetUploadUrl = (
  * </p>
  */
 export const confirmAsset = (
-  apiKey: string,
+  session: AdminSession,
   assetKey: string,
 ): Promise<ApiResult<ConfirmedAsset>> =>
-  request<ConfirmedAsset>('POST', `/api/v1/assets/${encodeURIComponent(assetKey)}/confirm`, apiKey);
+  request<ConfirmedAsset>(
+    'POST',
+    `/api/v1/assets/${encodeURIComponent(assetKey)}/confirm`,
+    session,
+  );
 
 /**
  * 応答の枝から、その操作の前提だけを取り出す。
@@ -205,14 +222,14 @@ const preconditionsBranch = <T>(
 };
 
 const preconditions = (
-  apiKey: string,
+  session: AdminSession,
   albumId: string,
   operation: 'delete' | 'unpublish',
 ): Promise<ApiResult<Schemas['AlbumPreconditionsResponse']>> =>
   request<Schemas['AlbumPreconditionsResponse']>(
     'GET',
     `/api/v1/admin/albums/${encodeURIComponent(albumId)}/preconditions?operation=${operation}`,
-    apiKey,
+    session,
   );
 
 /**
@@ -222,55 +239,55 @@ const preconditions = (
  * 参照元の一覧から「どれが非公開になるか」を組み立て直さない。
  */
 export const deletionPreconditions = async (
-  apiKey: string,
+  session: AdminSession,
   albumId: string,
 ): Promise<ApiResult<readonly DeletionAffectedArticle[]>> =>
   preconditionsBranch(
-    await preconditions(apiKey, albumId, 'delete'),
+    await preconditions(session, albumId, 'delete'),
     (response) => response.deletion?.affectedArticles ?? null,
   );
 
 /** 非公開化の前提を問う。返るのは、連動して非公開になる記事。 */
 export const unpublicationPreconditions = async (
-  apiKey: string,
+  session: AdminSession,
   albumId: string,
 ): Promise<ApiResult<readonly UnpublicationAffectedArticle[]>> =>
   preconditionsBranch(
-    await preconditions(apiKey, albumId, 'unpublish'),
+    await preconditions(session, albumId, 'unpublish'),
     (response) => response.unpublication?.articlesBecomingUnpublished ?? null,
   );
 
 /** アルバムを削除する。返るのは、実際に影響を受けた記事。 */
 export const deleteAlbum = (
-  apiKey: string,
+  session: AdminSession,
   albumId: string,
 ): Promise<ApiResult<Schemas['DeleteAlbumResponse']>> =>
   request<Schemas['DeleteAlbumResponse']>(
     'DELETE',
     `/api/v1/albums/${encodeURIComponent(albumId)}`,
-    apiKey,
+    session,
   );
 
 /** アルバムを公開する。 */
 export const publishAlbum = (
-  apiKey: string,
+  session: AdminSession,
   albumId: string,
 ): Promise<ApiResult<Schemas['PublishAlbumResponse']>> =>
   request<Schemas['PublishAlbumResponse']>(
     'POST',
     `/api/v1/albums/${encodeURIComponent(albumId)}/publish`,
-    apiKey,
+    session,
   );
 
 /** アルバムを非公開へ戻す。返るのは、連動して非公開になった記事。 */
 export const unpublishAlbum = (
-  apiKey: string,
+  session: AdminSession,
   albumId: string,
 ): Promise<ApiResult<Schemas['UnpublishAlbumResponse']>> =>
   request<Schemas['UnpublishAlbumResponse']>(
     'POST',
     `/api/v1/albums/${encodeURIComponent(albumId)}/unpublish`,
-    apiKey,
+    session,
   );
 
 /** 作品が持つ外部音源1件。読むときは表示順つきで返る */
@@ -311,18 +328,17 @@ export type SiteContent = Schemas['SiteContentResponse'];
  * サイトの文言を全件引く。
  *
  * <p>
- * 照会は認証を要さない（公開サイトが組み立てで使うのと同じ経路）。それでも鍵を添えるのは、この画面の
- * 他の操作と経路を分けないため。**鍵の正しさはこの照会では分からない**——誤った鍵でも一覧は返るので、
- * 断られるのは保存のときになる。
+ * 照会は認証を要さない（公開サイトの組み立てと同じ経路）。認証は画面を開く前のセッション交換で済ませる。
+ * この公開照会でサーバー上の失効は検出できず、失効済みなら次の管理操作で再認証に戻る。
  * </p>
  */
 export const listSiteContents = async (
-  apiKey: string,
+  session: AdminSession,
 ): Promise<ApiResult<readonly SiteContent[]>> => {
   const result = await request<Schemas['SiteContentListResponse']>(
     'GET',
     '/api/v1/site-contents',
-    apiKey,
+    session,
   );
 
   return result.kind === 'ok' ? { kind: 'ok', value: result.value.items } : result;
@@ -337,12 +353,12 @@ export const listSiteContents = async (
  * </p>
  */
 export const upsertSiteContent = (
-  apiKey: string,
+  session: AdminSession,
   key: string,
   content: string,
   contentFormat: string,
 ): Promise<ApiResult<SiteContent>> =>
-  request<SiteContent>('PUT', `/api/v1/site-contents/${encodeURIComponent(key)}`, apiKey, {
+  request<SiteContent>('PUT', `/api/v1/site-contents/${encodeURIComponent(key)}`, session, {
     content,
     contentFormat,
   });
@@ -407,14 +423,17 @@ const ARTICLE_LIST_SORT = 'updatedAtBusiness';
 /**
  * 下書きを含む記事の1ページを取得する。
  *
- * @param apiKey 管理APIの鍵
+ * @param session このタブの管理セッション
  * @param page 0 始まりのページ番号
  */
-export const listArticles = (apiKey: string, page: number): Promise<ApiResult<AdminArticlePage>> =>
+export const listArticles = (
+  session: AdminSession,
+  page: number,
+): Promise<ApiResult<AdminArticlePage>> =>
   request<AdminArticlePage>(
     'GET',
     `/api/v1/admin/articles?page=${String(page)}&size=${String(PAGE_SIZE)}&sort=${ARTICLE_LIST_SORT}`,
-    apiKey,
+    session,
   );
 
 /**
@@ -423,13 +442,13 @@ export const listArticles = (apiKey: string, page: number): Promise<ApiResult<Ad
  * 公開向けの詳細ではなく管理向けを引く。編集の対象は下書きも含み、公開向けには出ないため。
  */
 export const getArticle = (
-  apiKey: string,
+  session: AdminSession,
   articleId: string,
 ): Promise<ApiResult<AdminArticleDetail>> =>
   request<AdminArticleDetail>(
     'GET',
     `/api/v1/admin/articles/${encodeURIComponent(articleId)}`,
-    apiKey,
+    session,
   );
 
 /**
@@ -441,10 +460,10 @@ export const getArticle = (
  * </p>
  */
 export const createArticle = (
-  apiKey: string,
+  session: AdminSession,
   fields: ArticleFields,
 ): Promise<ApiResult<Schemas['CreateArticleResponse']>> =>
-  request<Schemas['CreateArticleResponse']>('POST', '/api/v1/articles', apiKey, fields);
+  request<Schemas['CreateArticleResponse']>('POST', '/api/v1/articles', session, fields);
 
 /**
  * 記事を更新する（PUT風の全項目置換。公開状態とタグは対象外）。
@@ -456,7 +475,7 @@ export const createArticle = (
  * </p>
  */
 export const updateArticle = (
-  apiKey: string,
+  session: AdminSession,
   articleId: string,
   fields: ArticleFields,
   expectedRevision: number,
@@ -464,30 +483,30 @@ export const updateArticle = (
   request<Schemas['UpdateArticleResponse']>(
     'PUT',
     `/api/v1/articles/${encodeURIComponent(articleId)}`,
-    apiKey,
+    session,
     { ...fields, expectedRevision },
   );
 
 /** 記事を公開する。 */
 export const publishArticle = (
-  apiKey: string,
+  session: AdminSession,
   articleId: string,
 ): Promise<ApiResult<Schemas['PublishArticleResponse']>> =>
   request<Schemas['PublishArticleResponse']>(
     'POST',
     `/api/v1/articles/${encodeURIComponent(articleId)}/publish`,
-    apiKey,
+    session,
   );
 
 /** 記事を非公開へ戻す。 */
 export const unpublishArticle = (
-  apiKey: string,
+  session: AdminSession,
   articleId: string,
 ): Promise<ApiResult<Schemas['UnpublishArticleResponse']>> =>
   request<Schemas['UnpublishArticleResponse']>(
     'POST',
     `/api/v1/articles/${encodeURIComponent(articleId)}/unpublish`,
-    apiKey,
+    session,
   );
 
 /**
@@ -498,8 +517,8 @@ export const unpublishArticle = (
  * 返すものが無い（DECISIONS 27）。
  * </p>
  */
-export const deleteArticle = (apiKey: string, articleId: string): Promise<ApiResult<void>> =>
-  requestNoContent('DELETE', `/api/v1/articles/${encodeURIComponent(articleId)}`, apiKey);
+export const deleteArticle = (session: AdminSession, articleId: string): Promise<ApiResult<void>> =>
+  requestNoContent('DELETE', `/api/v1/articles/${encodeURIComponent(articleId)}`, session);
 
 /**
  * 付けられるタグの一覧。
@@ -509,12 +528,12 @@ export const deleteArticle = (apiKey: string, articleId: string): Promise<ApiRes
  * </p>
  */
 export const listArticleTags = async (
-  apiKey: string,
+  session: AdminSession,
 ): Promise<ApiResult<readonly AdminArticleTag[]>> => {
   const result = await request<Schemas['AdminArticleTagListResponse']>(
     'GET',
     '/api/v1/admin/article-tags',
-    apiKey,
+    session,
   );
 
   return result.kind === 'ok' ? { kind: 'ok', value: result.value.items } : result;
@@ -529,14 +548,14 @@ export const listArticleTags = async (
  * </p>
  */
 export const addArticleTag = (
-  apiKey: string,
+  session: AdminSession,
   articleId: string,
   name: string,
 ): Promise<ApiResult<Schemas['AddArticleTagResponse']>> =>
   request<Schemas['AddArticleTagResponse']>(
     'POST',
     `/api/v1/articles/${encodeURIComponent(articleId)}/tags`,
-    apiKey,
+    session,
     { name },
   );
 
@@ -549,14 +568,14 @@ export const addArticleTag = (
  * </p>
  */
 export const removeArticleTag = (
-  apiKey: string,
+  session: AdminSession,
   articleId: string,
   tagId: string,
 ): Promise<ApiResult<void>> =>
   requestNoContent(
     'DELETE',
     `/api/v1/articles/${encodeURIComponent(articleId)}/tags/${encodeURIComponent(tagId)}`,
-    apiKey,
+    session,
   );
 
 /** 検索の取得件数。選ぶための候補で、全件を辿るための一覧ではない */
@@ -570,19 +589,19 @@ const ALBUM_SEARCH_SIZE = 20;
  * 渡すかは呼び出し側が決める（#208）。絞り込みは部分一致で、判定はバックエンドが持つ。
  * </p>
  *
- * @param apiKey 管理APIの鍵
+ * @param session このタブの管理セッション
  * @param by 絞り込む項目
  * @param keyword 入力された語
  */
 export const searchAlbums = async (
-  apiKey: string,
+  session: AdminSession,
   by: 'title' | 'catalogNumber',
   keyword: string,
 ): Promise<ApiResult<readonly AlbumCandidate[]>> => {
   const result = await request<Schemas['AdminAlbumListResponse']>(
     'GET',
     `/api/v1/admin/albums?page=0&size=${String(ALBUM_SEARCH_SIZE)}&${by}=${encodeURIComponent(keyword)}`,
-    apiKey,
+    session,
   );
 
   return result.kind === 'ok' ? { kind: 'ok', value: result.value.items } : result;
@@ -602,7 +621,7 @@ export const searchAlbums = async (
  * </p>
  */
 export const setArticleAlbum = (
-  apiKey: string,
+  session: AdminSession,
   articleId: string,
   albumId: string,
   expectedRevision: number,
@@ -610,7 +629,7 @@ export const setArticleAlbum = (
   request<Schemas['SetArticleAlbumResponse']>(
     'PUT',
     `/api/v1/articles/${encodeURIComponent(articleId)}/album`,
-    apiKey,
+    session,
     { albumId, expectedRevision },
   );
 
@@ -623,12 +642,12 @@ export const setArticleAlbum = (
  * </p>
  */
 export const removeArticleAlbum = (
-  apiKey: string,
+  session: AdminSession,
   articleId: string,
   expectedRevision: number,
 ): Promise<ApiResult<Schemas['RemoveArticleAlbumResponse']>> =>
   request<Schemas['RemoveArticleAlbumResponse']>(
     'DELETE',
     `/api/v1/articles/${encodeURIComponent(articleId)}/album?expectedRevision=${String(expectedRevision)}`,
-    apiKey,
+    session,
   );

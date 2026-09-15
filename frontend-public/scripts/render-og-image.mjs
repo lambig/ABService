@@ -15,10 +15,11 @@
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import sharp from 'sharp';
 
-const publicDir = new URL('../public/', import.meta.url).pathname;
+const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
 
 const MARK = join(publicDir, 'favicon.svg');
 const OUTPUT = join(publicDir, 'og-default.png');

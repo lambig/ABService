@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SessionControls from '$components/SessionControls.svelte';
   import ApiKeyForm from '$components/ApiKeyForm.svelte';
   import ArticleAlbumEditor from '$components/ArticleAlbumEditor.svelte';
   import ArticleTagsEditor from '$components/ArticleTagsEditor.svelte';
@@ -29,7 +30,12 @@
     type FormErrors,
   } from '$lib/api/form-errors';
   import { ARTICLE_TYPE_LABELS } from '$lib/article-labels';
-  import { KEY_STORE, storedApiKey } from '$lib/credentials';
+  import {
+    applySessionResult,
+    isCurrentSession,
+    storedSession,
+    type AdminSession,
+  } from '$lib/credentials';
   import { renderBody } from '$lib/markup';
   import { ARTICLE_LIST_PATH, articleIdIn, editArticlePath } from '$lib/paths';
 
@@ -190,14 +196,14 @@
      */
     | {
         readonly kind: 'unavailable';
-        readonly apiKey: string;
+        readonly session: AdminSession;
         readonly articleId: string;
         readonly message: string;
       }
     | { readonly kind: 'unspecified' }
     | {
         readonly kind: 'editing';
-        readonly apiKey: string;
+        readonly session: AdminSession;
         /** 更新する対象と、読み込んだ時点の世代。null は新規作成 */
         readonly target: Target | null;
         readonly draft: ArticleDraft;
@@ -224,17 +230,19 @@
 
   /** 失敗の文言。文言の出所を1つにするため、どの操作の失敗もここを通す */
   const failureTextOf = (failure: ApiFailure): string =>
-    failure.kind === 'unauthorized' ? '鍵が受け付けられませんでした。' : failure.message;
+    failure.kind === 'unauthorized'
+      ? 'セッションが終了しました。鍵を入力して再認証してください。'
+      : failure.message;
 
   const editing = (
-    apiKey: string,
+    session: AdminSession,
     target: Target | null,
     draft: ArticleDraft,
     tags: readonly AdminArticleTag[],
     albumId: string | null,
   ): View => ({
     kind: 'editing',
-    apiKey,
+    session,
     target,
     draft,
     tags,
@@ -256,13 +264,13 @@
     article.articleType === 'ALBUM' ? article.albumId : null;
 
   const loaded = (
-    apiKey: string,
+    session: AdminSession,
     articleId: string,
     result: ApiResult<AdminArticleDetail>,
   ): View =>
     result.kind === 'ok'
       ? editing(
-          apiKey,
+          session,
           { articleId, revision: result.value.revision },
           draftOf(result.value),
           result.value.tags,
@@ -275,19 +283,20 @@
             /* 断られたのは、この記事の読み込みである。鍵を入れ直したら同じ記事を読み直す */
             resumption: { kind: 'load', articleId },
           }
-        : { kind: 'unavailable', apiKey, articleId, message: failureTextOf(result) };
+        : { kind: 'unavailable', session, articleId, message: failureTextOf(result) };
 
-  const load = async (apiKey: string, articleId: string): Promise<void> => {
+  const load = async (session: AdminSession, articleId: string): Promise<void> => {
     view = { kind: 'loading' };
 
-    const result = await getArticle(apiKey, articleId);
-    KEY_STORE[result.kind](apiKey);
-    view = loaded(apiKey, articleId, result);
+    const result = await getArticle(session, articleId);
+    return applySessionResult(session, result, () => {
+      view = loaded(session, articleId, result);
+    });
   };
 
   /** 新規作成は読み込むものが無い。鍵だけを確かめて入力へ入る */
-  const start = (apiKey: string): void => {
-    view = editing(apiKey, null, EMPTY_DRAFT, [], null);
+  const start = (session: AdminSession): void => {
+    view = editing(session, null, EMPTY_DRAFT, [], null);
   };
 
   const unspecify = (): void => {
@@ -306,18 +315,18 @@
    * 新規作成に対象は無く、編集は問い合わせ文字列から読む。指定が無いまま編集の画面へ来た場合は、
    * 空の新規作成へ落とさない（何も指定していない更新として保存され得る）。
    */
-  const openEdit = (apiKey: string, articleId: string | null): Promise<void> =>
-    articleId === null ? settled(unspecify) : load(apiKey, articleId);
+  const openEdit = (session: AdminSession, articleId: string | null): Promise<void> =>
+    articleId === null ? settled(unspecify) : load(session, articleId);
 
   const OPEN = {
-    new: (apiKey: string): Promise<void> =>
+    new: (session: AdminSession): Promise<void> =>
       settled(() => {
-        start(apiKey);
+        start(session);
       }),
-    edit: (apiKey: string): Promise<void> => openEdit(apiKey, articleIdIn(location.search)),
-  } satisfies Record<Props['mode'], (apiKey: string) => Promise<void>>;
+    edit: (session: AdminSession): Promise<void> => openEdit(session, articleIdIn(location.search)),
+  } satisfies Record<Props['mode'], (session: AdminSession) => Promise<void>>;
 
-  const open = (apiKey: string): Promise<void> => OPEN[mode](apiKey);
+  const open = (session: AdminSession): Promise<void> => OPEN[mode](session);
 
   /** 鍵待ちが抱えている続き。鍵待ち以外から呼ばれることはないが、そのときは開き方に従う */
   const resumptionOf = (current: View): Resumption =>
@@ -332,13 +341,13 @@
    * 無いときだけ、画面の開き方に従う。
    * </p>
    */
-  const accept = (apiKey: string): Promise<void> => {
+  const accept = (session: AdminSession): Promise<void> => {
     const resumption = resumptionOf(view);
 
     return resumption.kind === 'input'
       ? settled(() => {
           view = editing(
-            apiKey,
+            session,
             resumption.pending.target,
             resumption.pending.draft,
             resumption.pending.tags,
@@ -346,8 +355,8 @@
           );
         })
       : resumption.kind === 'load'
-        ? load(apiKey, resumption.articleId)
-        : open(apiKey);
+        ? load(session, resumption.articleId)
+        : open(session);
   };
 
   /*
@@ -355,12 +364,12 @@
    * sessionStorage と location を触らない）。
    */
   const resume = (): Promise<void> => {
-    const apiKey = storedApiKey();
-    return apiKey === null
+    const session = storedSession();
+    return session === null
       ? settled(() => {
           lock(null, { kind: 'open' });
         })
-      : open(apiKey);
+      : open(session);
   };
 
   void resume();
@@ -369,7 +378,7 @@
   const retry = (): void => {
     const current = view;
     void (current.kind === 'unavailable'
-      ? load(current.apiKey, current.articleId)
+      ? load(current.session, current.articleId)
       : Promise.resolve());
   };
 
@@ -437,8 +446,8 @@
    * 編集の間に入った別の保存を消しかねない。
    * </p>
    */
-  const attach = async (apiKey: string, articleId: string): Promise<ApiResult<Target>> => {
-    const result = await getArticle(apiKey, articleId);
+  const attach = async (session: AdminSession, articleId: string): Promise<ApiResult<Target>> => {
+    const result = await getArticle(session, articleId);
 
     return result.kind === 'ok'
       ? { kind: 'ok', value: { articleId, revision: result.value.revision } }
@@ -462,10 +471,14 @@
     detachedReason: string | null;
   }>;
 
-  const created = async (apiKey: string, draft: ArticleDraft): Promise<ApiResult<Saved>> => {
-    const result = await createArticle(apiKey, articleFieldsOf(draft));
+  const created = async (session: AdminSession, draft: ArticleDraft): Promise<ApiResult<Saved>> => {
+    const result = await createArticle(session, articleFieldsOf(draft));
 
-    return result.kind === 'ok' ? attachedTo(apiKey, result.value.articleId) : result;
+    return isCurrentSession(session)
+      ? result.kind === 'ok'
+        ? attachedTo(session, result.value.articleId)
+        : result
+      : { kind: 'unauthorized' };
   };
 
   /**
@@ -477,33 +490,49 @@
    * 「新規作成の画面」へ戻しても、その記事はもう作られている。
    * </p>
    */
-  const attachedTo = async (apiKey: string, articleId: string): Promise<ApiResult<Saved>> => {
+  const attachedTo = async (
+    session: AdminSession,
+    articleId: string,
+  ): Promise<ApiResult<Saved>> => {
     history.replaceState(null, '', editArticlePath(articleId));
 
-    const result = await attach(apiKey, articleId);
+    const result = await attach(session, articleId);
 
-    return result.kind === 'ok'
-      ? {
-          kind: 'ok',
-          value: { target: result.value, createdArticleId: articleId, detachedReason: null },
-        }
-      : {
-          kind: 'ok',
-          value: {
-            target: null,
-            createdArticleId: articleId,
-            detachedReason: failureTextOf(result),
-          },
-        };
+    /* CREATED-BEFORE-401: 作成自体は済んでいる。再認証後に新規作成へ戻すと重複するため、同じ記事を読む。 */
+    const unauthorized = (): ApiResult<Saved> => {
+      applySessionResult(session, result, () => {
+        lock('セッションが終了しました。鍵を入力して再認証してください。', {
+          kind: 'load',
+          articleId,
+        });
+      });
+      return { kind: 'unauthorized' };
+    };
+
+    return result.kind === 'unauthorized'
+      ? unauthorized()
+      : result.kind === 'ok'
+        ? {
+            kind: 'ok',
+            value: { target: result.value, createdArticleId: articleId, detachedReason: null },
+          }
+        : {
+            kind: 'ok',
+            value: {
+              target: null,
+              createdArticleId: articleId,
+              detachedReason: failureTextOf(result),
+            },
+          };
   };
 
   const updated = async (
-    apiKey: string,
+    session: AdminSession,
     target: Target,
     draft: ArticleDraft,
   ): Promise<ApiResult<Saved>> => {
     const result = await updateArticle(
-      apiKey,
+      session,
       target.articleId,
       articleFieldsOf(draft),
       target.revision,
@@ -527,11 +556,11 @@
    * 更新は編集を始めた時点の世代を条件として送る。新規作成に世代は無い（まだ無いものは誰も更新できない）。
    */
   const save = (
-    apiKey: string,
+    session: AdminSession,
     target: Target | null,
     draft: ArticleDraft,
   ): Promise<ApiResult<Saved>> =>
-    target === null ? created(apiKey, draft) : updated(apiKey, target, draft);
+    target === null ? created(session, draft) : updated(session, target, draft);
 
   /** いま抱えている入力。編集中でなければ持たない */
   /**
@@ -650,18 +679,19 @@
           };
   };
 
-  const applySaveOutcome = (apiKey: string, result: ApiResult<Saved>): void => {
-    KEY_STORE[result.kind](apiKey);
-    view = result.kind === 'ok' ? viewAfterSave(result.value) : viewAfterFailure(result);
+  const applySaveOutcome = (session: AdminSession, result: ApiResult<Saved>): void => {
+    return applySessionResult(session, result, () => {
+      view = result.kind === 'ok' ? viewAfterSave(result.value) : viewAfterFailure(result);
+    });
   };
 
   const submitWith = async (
-    apiKey: string,
+    session: AdminSession,
     target: Target | null,
     draft: ArticleDraft,
   ): Promise<void> => {
     withSubmission({ kind: 'saving' });
-    applySaveOutcome(apiKey, await save(apiKey, target, draft));
+    applySaveOutcome(session, await save(session, target, draft));
   };
 
   /** 保存へ進める状態。送信中と、作成後に世代を読めていない状態からは送らない */
@@ -697,13 +727,13 @@
       ? settled(() => {
           withSubmission({ kind: 'confirming' });
         })
-      : submitWith(current.apiKey, current.target, current.draft);
+      : submitWith(current.session, current.target, current.draft);
 
   /** 参照が落ちることを確かめたうえで保存する */
   const confirmSave = (): void => {
     const current = view;
     void (current.kind === 'editing' && current.submission.kind === 'confirming'
-      ? submitWith(current.apiKey, current.target, current.draft)
+      ? submitWith(current.session, current.target, current.draft)
       : Promise.resolve());
   };
 
@@ -756,8 +786,8 @@
     void (current.kind !== 'editing'
       ? Promise.resolve()
       : articleId === null
-        ? open(current.apiKey)
-        : load(current.apiKey, articleId));
+        ? open(current.session)
+        : load(current.session, articleId));
   };
 
   /*
@@ -775,7 +805,7 @@
   const unavailableMessage = $derived(view.kind === 'unavailable' ? view.message : null);
   const draft = $derived<ArticleDraft>(view.kind === 'editing' ? view.draft : EMPTY_DRAFT);
   const target = $derived<Target | null>(view.kind === 'editing' ? view.target : null);
-  const apiKey = $derived(view.kind === 'editing' ? view.apiKey : '');
+  const session = $derived(view.kind === 'editing' ? view.session : null);
   const tags = $derived<readonly AdminArticleTag[]>(view.kind === 'editing' ? view.tags : []);
 
   /** タグを付ける先。まだ作られていなければ null */
@@ -823,12 +853,18 @@
   const previewHtml = $derived(draft.bodyFormat === 'MARKDOWN' ? renderBody(draft.body) : null);
 </script>
 
+<SessionControls
+  onLogout={() => {
+    lock(null, { kind: 'open' });
+  }}
+/>
+
 {#if view.kind === 'locked'}
   <div class="space-y-4">
     {#if pendingNotice !== null}
       <p class="text-muted-foreground text-sm">{pendingNotice}</p>
     {/if}
-    <ApiKeyForm message={lockMessage} onSubmit={(apiKey: string) => void accept(apiKey)} />
+    <ApiKeyForm message={lockMessage} onSubmit={(session: AdminSession) => void accept(session)} />
   </div>
 {:else if view.kind === 'loading'}
   <p class="text-muted-foreground">読み込んでいます。</p>
@@ -963,27 +999,29 @@
         対象が変わったら作り直す（作成の直後に、その記事のタグと参照を引き直すため）。区画の中の状態は
         記事ごとのもので、前の記事の候補や失敗を持ち越さない。
       -->
-      {#key taggedArticleId}
-        <ArticleTagsEditor
-          {apiKey}
-          {tags}
-          articleId={taggedArticleId}
-          onUnauthorized={lockWithInput}
-          onChanged={withTags}
-        />
-
-        {#if albumReferable}
-          <ArticleAlbumEditor
-            {apiKey}
-            {albumId}
+      {#if session !== null}
+        {#key taggedArticleId}
+          <ArticleTagsEditor
+            {session}
+            {tags}
             articleId={taggedArticleId}
-            expectedRevision={target === null ? null : target.revision}
             onUnauthorized={lockWithInput}
-            onChanged={withAlbum}
-            onConflict={albumOperationConflicted}
+            onChanged={withTags}
           />
-        {/if}
-      {/key}
+
+          {#if albumReferable}
+            <ArticleAlbumEditor
+              {session}
+              {albumId}
+              articleId={taggedArticleId}
+              expectedRevision={target === null ? null : target.revision}
+              onUnauthorized={lockWithInput}
+              onChanged={withAlbum}
+              onConflict={albumOperationConflicted}
+            />
+          {/if}
+        {/key}
+      {/if}
     </div>
 
     <!--
