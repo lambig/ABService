@@ -7,7 +7,8 @@ const workspace = (name, location, dependencies = {}) => ({
   name, location, dependencies, scripts: { lint: 'lint', typecheck: 'types', test: 'test', build: 'build' },
 });
 const fixtures = [
-  workspace('site', 'frontend-public', { markup: '*' }),
+  workspace('site', 'frontend-public', { markup: '*', presentation: '*' }),
+  workspace('presentation', 'packages/public-presentation', { markup: '*' }),
   workspace('markup', 'packages/markup', { rules: '*' }),
   workspace('player', 'packages/player', { rules: '*' }),
   workspace('offline', 'packages/offline-player', { player: '*' }),
@@ -18,6 +19,7 @@ const fixtures = [
 test('listening code does not select the application; application code does not select listening', () => {
   assert.deepEqual(selectTracks(['packages/player/src/player.ts'], fixtures), { application: false, listening: true });
   assert.deepEqual(selectTracks(['frontend-public/src/page.astro'], fixtures), { application: true, listening: false });
+  assert.deepEqual(selectTracks(['packages/public-presentation/src/index.ts'], fixtures), { application: true, listening: false });
   assert.deepEqual(selectTracks(['backend/src/Service.java'], fixtures), { application: true, listening: false });
 });
 
@@ -56,6 +58,7 @@ test('dependency cycles terminate and missing check scripts are rejected', () =>
 test('frontend checks include declared package builds and tests, without starting application E2E/build', () => {
   const application = frontendTasks(fixtures, 'application');
   assert.ok(application.some((task) => task.workspace === 'markup' && task.script === 'test'));
+  assert.ok(application.some((task) => task.workspace === 'presentation' && task.script === 'test'));
   assert.ok(!application.some((task) => task.workspace === 'site' && task.script === 'build'));
   assert.ok(!application.some((task) => task.workspace === 'e2e' && task.script === 'test'));
   assert.ok(!application.some((task) => task.workspace === 'player'));
