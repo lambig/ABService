@@ -44,6 +44,7 @@ test('記事の不完全な入力を復元し、実APIの検証を直して保�
   await page.reload();
   await expect(page.getByLabel('タイトル', { exact: true })).toHaveValue(article.title);
   await expect(page.getByRole('button', { name: '保存する', exact: true })).toBeDisabled();
+  await expect(page.locator('iframe[title="公開記事のプレビュー"]')).toHaveCount(0);
   await captureFocused(
     page,
     page.getByRole('region', { name: '入力の復旧' }),
@@ -52,6 +53,7 @@ test('記事の不完全な入力を復元し、実APIの検証を直して保�
   await restore(page);
   await expect(page.getByLabel('タイトル', { exact: true })).toHaveValue('');
   await expect(page.getByLabel('本文', { exact: true })).toHaveValue(' **書きかけの本文\n');
+  await expect(page.frameLocator('iframe').locator('article')).toContainText('書きかけの本文');
   await page.getByRole('button', { name: '保存する', exact: true }).click();
   await expect(page.locator('[data-field="title"]').getByRole('alert')).toBeVisible();
   await page.reload();

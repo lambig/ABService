@@ -20,7 +20,8 @@ const OPEN_LABEL = '開く';
 
 /** 本文を描いている区画。公開サイトと管理画面で当てているクラス・印は別 */
 const publicBodyOf = (page: Page): Locator => page.locator('.prose-body');
-const previewOf = (page: Page): Locator => page.locator('[data-preview="markdown"]');
+const previewOf = (page: Page): Locator =>
+  page.frameLocator('iframe[title="公開記事のプレビュー"]').locator('.prose-body');
 
 const articleOf = async (title: string): Promise<{ articleId: string }> => {
   const article = await findArticleByTitle(title);

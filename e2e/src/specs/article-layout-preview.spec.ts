@@ -4,7 +4,7 @@ import { findArticleByTitle } from '../support/admin-api.ts';
 import { revokeBrowserSession } from '../support/admin-sessions.ts';
 import { albumArticle, showcase } from '../support/build-fixtures.ts';
 import { stack } from '../support/config.ts';
-import { capture } from '../support/evidence.ts';
+import { capture, captureWhole } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 import { deleteScratchArticles, seedScratchArticle } from '../support/scratch-articles.ts';
 
@@ -18,7 +18,6 @@ const openEditor = async (page: Page, articleId?: string): Promise<void> => {
   await expect(page.getByLabel('タイトル', { exact: true })).toBeVisible();
 };
 const openPreview = async (page: Page): Promise<void> => {
-  await page.getByRole('button', { name: '公開レイアウトでプレビュー', exact: true }).click();
   await expect(preview(page).locator('article')).toBeVisible();
 };
 const existingArticle = async (): Promise<string> => {
@@ -31,21 +30,19 @@ test.describe('公開レイアウトのプレビュー', () => {
     await deleteScratchArticles();
   });
 
-  test('保存前の新規入力を描画し、閉じても入力を保つ。プレビューは書き込みを送らない', async ({
-    page,
-  }) => {
+  test('右側に常時表示し、入力に追従する。入力中は再取得・書き込みを送らない', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1100 });
     await openEditor(page);
+    await openPreview(page);
+    const writes: string[] = [];
+    page.on('request', (request) => {
+      void (request.url().includes('/api/') ? writes.push(request.url()) : undefined);
+    });
     const title = '未保存のプレビュー <title>';
     const body = '平文の本文。\n<script>window.previewExecuted=true</script>';
     await page.getByLabel('タイトル', { exact: true }).fill(title);
     await page.getByLabel('本文の形式', { exact: true }).selectOption('PLAIN_TEXT');
     await page.getByLabel('本文', { exact: true }).fill(body);
-    const writes: string[] = [];
-    page.on('request', (request) => {
-      void (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method())
-        ? writes.push(request.url())
-        : undefined);
-    });
     await openPreview(page);
     await expect(preview(page).getByRole('heading', { name: title, exact: true })).toBeVisible();
     await expect(preview(page).locator('article')).toContainText(body);
@@ -56,18 +53,30 @@ test.describe('公開レイアウトのプレビュー', () => {
     await expect(iframe).toHaveAttribute('src', '/admin/preview/article/');
     await preview(page).getByRole('link', { name: 'トップ', exact: true }).click();
     await expect(preview(page).locator('article')).toContainText(title);
-    await page.getByRole('button', { name: '編集へ戻る' }).click();
-    await expect(iframe).toHaveCount(0);
-    await expect(page.getByLabel('タイトル', { exact: true })).toHaveValue(title);
-    await expect(page.getByLabel('本文', { exact: true })).toHaveValue(body);
-    await expect(
-      page.getByRole('button', { name: '公開レイアウトでプレビュー', exact: true }),
-    ).toBeFocused();
-    expect(writes).toEqual([]);
-    await openPreview(page);
-    await preview(page).getByRole('link', { name: 'トップ', exact: true }).focus();
-    await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog')).toHaveCount(0);
+    const input = page.getByLabel('タイトル', { exact: true });
+    const inputBox = await input.boundingBox();
+    const previewBox = await iframe.boundingBox();
+    expect(previewBox?.x).toBeGreaterThan((inputBox?.x ?? 0) + (inputBox?.width ?? 0));
+    await input.fill('入力中の更新');
+    await expect(
+      preview(page).getByRole('heading', { name: '入力中の更新', exact: true }),
+    ).toBeVisible();
+    await expect(input).toBeFocused();
+    await page.getByLabel('本文の形式', { exact: true }).selectOption('MARKDOWN');
+    await page.getByLabel('本文', { exact: true }).fill('**入力中の本文**');
+    await expect(preview(page).locator('strong')).toHaveText('入力中の本文');
+    expect(writes).toEqual([]);
+    await page
+      .getByLabel('本文', { exact: true })
+      .fill(Array.from({ length: 80 }, (_, index) => `段落 ${String(index)}`).join('\n\n'));
+    await page.getByRole('button', { name: '作成する', exact: true }).scrollIntoViewIfNeeded();
+    await expect(iframe).toBeInViewport();
+    expect(
+      await preview(page)
+        .locator('html')
+        .evaluate((element) => element.scrollHeight > element.clientHeight),
+    ).toBe(true);
   });
 
   test('下書きの記事を公開APIへ出さず、未保存のMarkdownを確認する', async ({ page, request }) => {
@@ -84,7 +93,6 @@ test.describe('公開レイアウトのプレビュー', () => {
     expect((await request.get(`${stack.siteBaseUrl}/articles/${article.articleId}`)).status()).toBe(
       404,
     );
-    await page.getByRole('button', { name: '編集へ戻る' }).click();
     await page.reload();
     await expect(page.getByLabel('本文', { exact: true })).toHaveValue(article.body);
   });
@@ -123,8 +131,15 @@ test.describe('公開レイアウトのプレビュー', () => {
       await card.locator('img').evaluate((image: HTMLImageElement) => image.naturalWidth),
     ).toBeGreaterThan(0);
     await expect(preview(page).locator('article header')).toContainText(albumArticle.tags[0]);
-    await capture(page, '39w-article-public-layout-wide');
-    await page.getByRole('button', { name: '狭い幅で確認' }).click();
+    await page.evaluate(() => {
+      window.scrollTo(0, 0);
+    });
+    await capture(page, '39w-article-inline-preview-wide');
+    await page.setViewportSize({ width: 390, height: 844 });
+    const inputBox = await page.getByLabel('本文', { exact: true }).boundingBox();
+    const previewBox = await page.locator('iframe').boundingBox();
+    expect(previewBox?.y).toBeGreaterThan((inputBox?.y ?? 0) + (inputBox?.height ?? 0));
+    expect(await page.evaluate(() => document.body.scrollWidth <= window.innerWidth)).toBe(true);
     expect(
       await preview(page)
         .locator('nav ul')
@@ -135,18 +150,16 @@ test.describe('公開レイアウトのプレビュー', () => {
         .locator('body')
         .evaluate((element) => element.scrollWidth <= element.clientWidth),
     ).toBe(true);
-    await capture(page, '39x-article-public-layout-narrow');
-    await page.getByRole('button', { name: '編集へ戻る' }).click();
+    await captureWhole(page, '39x-article-inline-preview-mobile');
     await page.getByLabel('種別', { exact: true }).selectOption('NOTE');
     await openPreview(page);
     await expect(preview(page).getByRole('heading', { name: 'この記事の作品' })).toHaveCount(0);
   });
 
-  test('読込失敗から再試行でき、閉じた後に遅延応答で再表示しない', async ({ page }) => {
-    await openEditor(page);
+  test('読込失敗から再試行でき、ログアウト後に遅延応答で再表示しない', async ({ page }) => {
     const api = `${stack.backendBaseUrl}/api/v1/site-contents`;
     await page.route(api, (route) => route.fulfill({ status: 503, body: '{}' }));
-    await page.getByRole('button', { name: '公開レイアウトでプレビュー', exact: true }).click();
+    await openEditor(page);
     await expect(page.getByRole('alert')).toContainText(
       'プレビューに必要な情報を読み込めませんでした',
     );
@@ -154,7 +167,6 @@ test.describe('公開レイアウトのプレビュー', () => {
     await page.unroute(api);
     await page.getByRole('button', { name: '再試行', exact: true }).click();
     await expect(preview(page).locator('article')).toBeVisible();
-    await page.getByRole('button', { name: '編集へ戻る' }).click();
     const response = await page.request.get(api);
     const responseBody = await response.text();
     const pending = new EventEmitter();
@@ -163,9 +175,9 @@ test.describe('公開レイアウトのプレビュー', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: responseBody });
     });
     const requested = page.waitForRequest(api);
-    await page.getByRole('button', { name: '公開レイアウトでプレビュー', exact: true }).click();
+    await page.getByRole('button', { name: '関連情報を更新', exact: true }).click();
     await requested;
-    await page.getByRole('button', { name: '編集へ戻る' }).click();
+    await page.getByRole('button', { name: 'ログアウト', exact: true }).click();
     const delivered = page.waitForResponse(api);
     pending.emit('release');
     await delivered;
@@ -173,8 +185,39 @@ test.describe('公開レイアウトのプレビュー', () => {
     await expect(page.locator('iframe')).toHaveCount(0);
   });
 
+  test('参照変更前の遅延応答を捨て、読込中に編集した入力も最新のまま表示する', async ({ page }) => {
+    const articleId = await existingArticle();
+    await openEditor(page, articleId);
+    await openPreview(page);
+    const api = `${stack.backendBaseUrl}/api/v1/admin/albums/*`;
+    const pending = new EventEmitter();
+    await page.route(api, async (route) => {
+      const released = once(pending, 'release');
+      const response = await route.fetch();
+      await released;
+      await route.fulfill({ response });
+    });
+    const requested = page.waitForRequest((request) =>
+      request.url().includes('/api/v1/admin/albums/'),
+    );
+    await page.getByRole('button', { name: '関連情報を更新', exact: true }).click();
+    await requested;
+    await page.getByLabel('種別', { exact: true }).selectOption('NOTE');
+    await page.getByLabel('タイトル', { exact: true }).fill('読込中の編集');
+    await openPreview(page);
+    const delivered = page.waitForResponse((response) =>
+      response.url().includes('/api/v1/admin/albums/'),
+    );
+    pending.emit('release');
+    await delivered;
+    await expect(
+      preview(page).getByRole('heading', { name: '読込中の編集', exact: true }),
+    ).toBeVisible();
+    await expect(preview(page).getByRole('heading', { name: 'この記事の作品' })).toHaveCount(0);
+    await expect(page.getByLabel('種別', { exact: true })).toHaveValue('NOTE');
+  });
+
   test('表示先を配信できないときも空白のプレビューで止まらない', async ({ page }) => {
-    await openEditor(page);
     await page.route(`${stack.adminBaseUrl}/preview/article/`, (route) =>
       route.fulfill({
         status: 404,
@@ -182,17 +225,18 @@ test.describe('公開レイアウトのプレビュー', () => {
         body: '<html><body>Not found</body></html>',
       }),
     );
-    await page.getByRole('button', { name: '公開レイアウトでプレビュー', exact: true }).click();
+    await openEditor(page);
     await expect(page.getByRole('alert')).toContainText('プレビューの画面を読み込めませんでした');
     await expect(page.locator('iframe')).toHaveCount(0);
   });
 
-  test('認証が失効したときはプレビューを閉じ、入力を保持して鍵待ちへ戻る', async ({ page }) => {
+  test('認証が失効したときはプレビューを外し、入力を保持して鍵待ちへ戻る', async ({ page }) => {
     await openEditor(page, await existingArticle());
     const title = '失効前の未保存タイトル';
     await page.getByLabel('タイトル', { exact: true }).fill(title);
+    await openPreview(page);
     await revokeBrowserSession(page);
-    await page.getByRole('button', { name: '公開レイアウトでプレビュー', exact: true }).click();
+    await page.getByRole('button', { name: '関連情報を更新', exact: true }).click();
     await expect(page.getByLabel('管理APIの鍵')).toBeVisible();
     await expect(page.locator('iframe')).toHaveCount(0);
     await page.getByLabel('管理APIの鍵').fill(stack.adminApiKey);
