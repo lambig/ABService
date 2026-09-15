@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/svelte';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -160,6 +160,144 @@ const openList = async (total: number, initial = pageOf(total)): Promise<void> =
 
 const nextPage = () => screen.getByRole('button', { name: '次のページ' });
 const previousPage = () => screen.getByRole('button', { name: '前のページ' });
+
+const confirmOperation = async (label: string): Promise<void> => {
+  vi.mocked(requestJson).mockResolvedValueOnce({
+    kind: 'ok',
+    value: {
+      deletion: {
+        affectedArticles: [{ articleId: 'preview', title: '事前確認の記事', unpublished: true }],
+      },
+      unpublication: {
+        articlesBecomingUnpublished: [{ articleId: 'preview', title: '事前確認の記事' }],
+      },
+    },
+  });
+  await userEvent.click(screen.getAllByRole('button', { name: label })[0] as HTMLElement);
+  await screen.findByText('事前確認の記事');
+};
+
+describe('成功応答の影響記事', () => {
+  it('削除の実際の2記事と非公開化の有無を表示し、一覧再取得の失敗・再試行でも残す', async () => {
+    await openList(1);
+    await confirmOperation('削除する');
+    vi.mocked(requestJson).mockResolvedValueOnce({
+      kind: 'ok',
+      value: {
+        affectedArticles: [
+          { articleId: 'actual-public', title: '公開していた記事', unpublished: true },
+          { articleId: 'actual-draft', title: '下書きの記事', unpublished: false },
+        ],
+      },
+    });
+    vi.mocked(requestJson).mockResolvedValueOnce({
+      kind: 'failed',
+      reason: 'network',
+      message: '一覧を取得できません',
+    });
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: '削除する' }),
+    );
+    const result = await screen.findByRole('region', { name: '作品操作の実行結果' });
+    expect(within(result).queryByText('事前確認の記事')).toBeNull();
+    expect(within(result).getByText('実際に影響を受けた記事（2件）')).toBeDefined();
+    expect(within(result).getByText('作品への参照を失効し、非公開にしました。')).toBeDefined();
+    expect(within(result).getByText('作品への参照を失効しました。')).toBeDefined();
+    expect(
+      within(result).getByRole('link', { name: '下書きの記事' }).getAttribute('href'),
+    ).toContain('/articles/edit?articleId=actual-draft');
+    await screen.findByText('一覧を取得できません');
+    await waitFor(() => {
+      expect(document.body.style.pointerEvents).not.toBe('none');
+    });
+    respondWith(pageOf(0));
+    await userEvent.click(screen.getByRole('button', { name: '再試行' }));
+    await screen.findByText('登録された作品はありません。');
+    expect(screen.getByRole('region', { name: '作品操作の実行結果' })).toBeDefined();
+    await userEvent.click(screen.getByRole('button', { name: '実行結果を閉じる' }));
+    expect(screen.queryByRole('region', { name: '作品操作の実行結果' })).toBeNull();
+  });
+
+  it.each([0, 1])('非公開化は事前確認ではなく、応答が返した%i件を表示する', async (count) => {
+    await openList(1, { ...pageOf(1), items: [{ ...albumOf(1), publishedAt: '2026-09-01' }] });
+    await confirmOperation('非公開にする');
+    vi.mocked(requestJson).mockResolvedValueOnce({
+      kind: 'ok',
+      value: {
+        cascadeUnpublishedArticles:
+          count === 0 ? [] : [{ articleId: 'actual', title: '実際の記事' }],
+      },
+    });
+    respondWith(pageOf(1));
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: '非公開にする' }),
+    );
+    const result = await screen.findByRole('region', { name: '作品操作の実行結果' });
+    expect(within(result).queryByText('事前確認の記事')).toBeNull();
+    expect(
+      within(result).getByText(
+        count === 0 ? '影響を受けた記事はありません。' : '連動して非公開にしました。',
+      ),
+    ).toBeDefined();
+    await waitFor(() => {
+      expect(document.body.style.pointerEvents).not.toBe('none');
+    });
+    vi.mocked(requestJson).mockResolvedValueOnce({
+      kind: 'failed',
+      reason: 'network',
+      message: '通信断',
+    });
+    await userEvent.click(screen.getByRole('button', { name: '公開する' }));
+    await screen.findByRole('region', { name: '操作結果の確認' });
+    expect(screen.queryByRole('region', { name: '作品操作の実行結果' })).toBeNull();
+  });
+
+  it('成功後の一覧再取得が401でも、再認証後に結果を再表示し、ログアウトで破棄する', async () => {
+    await openList(1);
+    await confirmOperation('削除する');
+    vi.mocked(requestJson).mockResolvedValueOnce({ kind: 'ok', value: { affectedArticles: [] } });
+    vi.mocked(requestJson).mockResolvedValueOnce({ kind: 'unauthorized', status: 401 });
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: '削除する' }),
+    );
+    await screen.findByLabelText('管理APIの鍵');
+    expect(screen.queryByRole('region', { name: '作品操作の実行結果' })).toBeNull();
+    await waitFor(() => {
+      expect(document.body.style.pointerEvents).not.toBe('none');
+    });
+    vi.mocked(requestJson).mockResolvedValueOnce({ kind: 'ok', value: sessionValue() });
+    respondWith(pageOf(0));
+    await userEvent.type(screen.getByLabelText('管理APIの鍵'), 'test-key');
+    await userEvent.click(screen.getByRole('button', { name: '開く' }));
+    await screen.findByText('影響を受けた記事はありません。');
+    await userEvent.click(screen.getByRole('button', { name: 'ログアウト' }));
+    expect(screen.queryByRole('region', { name: '作品操作の実行結果' })).toBeNull();
+  });
+
+  it('ログアウト後の遅い削除成功は結果の表示も一覧再取得も起こさない', async () => {
+    await openList(1);
+    await confirmOperation('削除する');
+    const pending = Promise.withResolvers<ApiResult<unknown>>();
+    vi.mocked(requestJson).mockReturnValueOnce(pending.promise);
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: '削除する' }),
+    );
+    // MODAL-LOGOUT: 対話中は画面のログアウトボタンに触れないため、セッション失効を境界から起こす。
+    await logout().completion;
+    const count = vi.mocked(requestJson).mock.calls.length;
+    await act(() => {
+      pending.resolve({ kind: 'ok', value: { affectedArticles: [] } });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('region', { name: '作品操作の実行結果' })).toBeNull();
+    });
+    expect(requestJson).toHaveBeenCalledTimes(count);
+    cleanup();
+    await waitFor(() => {
+      expect(document.body.style.pointerEvents).not.toBe('none');
+    });
+  });
+});
 
 beforeEach(async () => {
   vi.resetAllMocks();

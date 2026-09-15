@@ -1,6 +1,11 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
   import { observedAlbum, outcomeUnknown } from '$lib/api/album-recovery';
+  import {
+    runAlbumOperation,
+    type AlbumOperation,
+    type AlbumArticleEffect,
+  } from '$lib/api/album-operation';
   import SessionControls from '$components/SessionControls.svelte';
   import ApiKeyForm from '$components/ApiKeyForm.svelte';
   import DestructiveConfirmDialog from '$components/DestructiveConfirmDialog.svelte';
@@ -15,20 +20,18 @@
     rangeOf,
   } from '$lib/api/list-page';
   import {
-    deleteAlbum,
     getAlbum,
     deletionPreconditions,
     listAlbums,
     publishAlbum,
     unpublicationPreconditions,
-    unpublishAlbum,
     type AdminAlbum,
     type AdminAlbumPage,
     type ApiResult,
   } from '$lib/api/client';
   import { applySessionResult, storedSession, type AdminSession } from '$lib/credentials';
   import { formatCalendarDate } from '$lib/format';
-  import { NEW_ALBUM_PATH, editAlbumPath } from '$lib/paths';
+  import { NEW_ALBUM_PATH, editAlbumPath, editArticlePath } from '$lib/paths';
 
   /**
    * 事前確認を要する操作。
@@ -36,7 +39,7 @@
    * 削除と非公開化は参照している記事に影響が及ぶ（`docs/ARCHITECTURE.md`）。公開は影響を及ばせない
    * ため、この型に含めず確認を挟まない。
    */
-  type DestructiveOperation = 'delete' | 'unpublish';
+  type DestructiveOperation = AlbumOperation;
 
   /** 対話に並べる、影響を受けるもの1件 */
   type AffectedRow = { readonly key: string; readonly label: string };
@@ -150,6 +153,12 @@
       };
 
   let view = $state<View>({ kind: 'locked', message: null, page: 0 });
+  /** 一覧の再取得と独立して保持する、直近の成功応答。明示ログアウトと次の実行開始で消す。 */
+  let completed = $state<{
+    readonly title: string;
+    readonly operation: DestructiveOperation;
+    readonly articles: readonly AlbumArticleEffect[];
+  } | null>(null);
   let activeRequest = $state<AbortController | null>(null);
   const startRequest = (): AbortSignal => {
     activeRequest?.abort();
@@ -284,6 +293,7 @@
 
   const lock = (): void => {
     activeRequest?.abort();
+    completed = null;
     view = { kind: 'locked', message: null, page: 0 };
   };
 
@@ -355,14 +365,6 @@
       albumId: string,
       signal: AbortSignal,
     ) => Promise<ApiResult<readonly AffectedRow[]>>
-  >;
-
-  const RUN_OPERATION = {
-    delete: deleteAlbum,
-    unpublish: unpublishAlbum,
-  } satisfies Record<
-    DestructiveOperation,
-    (session: AdminSession, albumId: string) => Promise<ApiResult<unknown>>
   >;
 
   const ask = async (album: AdminAlbum, operation: DestructiveOperation): Promise<void> => {
@@ -442,10 +444,12 @@
     confirmation: Confirmable,
     page: number,
   ): Promise<void> => {
+    completed = null;
     withConfirmation({ ...confirmation, kind: 'running', message: null });
     const signal = startRequest();
 
-    const result = await RUN_OPERATION[confirmation.operation](
+    const result = await runAlbumOperation(
+      confirmation.operation,
       session,
       confirmation.album.albumId,
       signal,
@@ -454,6 +458,14 @@
       ? undefined
       : applySessionResult(session, result, () => {
           const failure = failureOf(result);
+          completed =
+            result.kind === 'ok'
+              ? {
+                  title: confirmation.album.title,
+                  operation: confirmation.operation,
+                  articles: result.value,
+                }
+              : null;
 
           /* 成功なら一覧を読み直す（`load` が対話を閉じた状態へ戻す）。失敗なら影響一覧を残して再実行させる */
           withConfirmation(
@@ -509,6 +521,7 @@
     page: number,
   ): Promise<void> => {
     /* 公開中にページを送ると、完了後の再照会が移動先を上書きするため、実行中の状態に移す。 */
+    completed = null;
     view = { kind: 'publishing' };
     const signal = startRequest();
     const result = await publishAlbum(session, album.albumId, signal);
@@ -556,6 +569,7 @@
   const range = $derived(rangeOf(page));
   const lockedPage = $derived(view.kind === 'locked' ? view.page : 0);
   const lockMessage = $derived(view.kind === 'locked' ? view.message : null);
+  const completion = $derived(view.kind === 'locked' ? null : completed);
   const recovery = $derived(view.kind === 'unknown' ? view : null);
   const recoveryMessage = $derived(
     recovery !== null && 'message' in recovery.check ? recovery.check.message : null,
@@ -613,6 +627,37 @@
 </script>
 
 <SessionControls onLogout={lock} />
+
+{#if completion !== null}
+  <section class="mb-6 space-y-3 rounded-md border p-4" aria-label="作品操作の実行結果">
+    <p role="status">
+      「{completion.title}」を{completion.operation === 'delete' ? '削除' : '非公開に'}しました。
+    </p>
+    <h2 class="font-medium">実際に影響を受けた記事（{completion.articles.length}件）</h2>
+    {#if completion.articles.length === 0}
+      <p class="text-muted-foreground">影響を受けた記事はありません。</p>
+    {:else}
+      <ul class="space-y-2">
+        {#each completion.articles as article (article.articleId)}
+          <li class="break-words">
+            <a class="underline underline-offset-4" href={editArticlePath(article.articleId)}
+              >{article.title}</a
+            >
+            <p class="text-muted-foreground text-sm">{article.description}</p>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      onclick={() => {
+        completed = null;
+      }}>実行結果を閉じる</Button
+    >
+  </section>
+{/if}
 
 {#if view.kind === 'locked'}
   <ApiKeyForm message={lockMessage} onSubmit={unlock} />
