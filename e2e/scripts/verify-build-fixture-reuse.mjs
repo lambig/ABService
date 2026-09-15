@@ -52,7 +52,7 @@ export const verifyBuildFixtureReuse = async () => {
   const repaired = await get(path);
   assert.ok(repaired.coverImageKey);
   assert.deepEqual(withoutCoverRevision(repaired), withoutCoverRevision(before));
-  const image = await fetch(`${stack.assetOrigin}/${repaired.coverImageKey}`);
+  const image = await fetch(`${stack.assetOrigin}${stack.assetBasePath}/${repaired.coverImageKey}`);
   assert.equal(image.status, 200);
   assert.deepEqual(
     Buffer.from(await image.arrayBuffer()),
