@@ -35,7 +35,7 @@ WebGPUが利用できない場合・初期化失敗・device lostは画面に理
 特徴量はclampし、非有限値は中立値へ変換する。時定数0.12秒の指数平滑化を使う。
 onsetは強度のピークを取り込み、時定数0.16秒で減衰する。設定は`MappingOptions`で変更可能。
 `previous`には`restingFrame`またはmapperが返したframeを渡す。時刻の巻き戻りでは平滑化をresetする。
-AudioFeaturesの帯域・onset意味論は#290で検討中であり、このfake sourceはDSPの代替実装ではない。
+AudioFeaturesの帯域・onset意味論は `packages/audio-dsp` の実装のJSDocと単体テストを正とする。このfake sourceは描画検証用であり、DSPの代替実装ではない。
 
 ## ブラウザ検証
 
@@ -53,4 +53,3 @@ GPUなしのCIでもWGSLとGPU APIの実行経路を検査するための構成�
 GPU負荷・メモリは対象端末のプロファイラで別途観測する。
 
 WebGPU APIの参照: [W3C WebGPU](https://www.w3.org/TR/webgpu/)。
-

@@ -32,5 +32,4 @@ app shellがローカルに存在し、アプリ互換性・package complete・�
 `npm run test:installation` / `npm run typecheck:installation` / `npm run lint:installation`。
 ルートunit/lintとGitHub Actionsの型検査に組み込んでいる。
 
-OPFS、Service Worker、FLAC upload、checksum計算、backend projection APIは後続。
-このPoCは保存方式・配信経路を確定しない。ユーザーの「順に実行してください」に基づく独立実装。
+このパッケージは論理契約に閉じ、OPFS・Service Worker・checksum計算を実装しない。保存とshellのadapterは `packages/offline-storage` / `packages/offline-shell`、接続した試聴操作は `packages/offline-player` を参照する。FLAC uploadとbackend projection APIは持たない。残作業と採用判断は #292 / #110 が管理する。
