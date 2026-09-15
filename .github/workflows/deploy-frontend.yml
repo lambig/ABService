@@ -1,0 +1,114 @@
+name: Deploy frontend
+
+on:
+  workflow_call:
+    inputs:
+      commit_sha:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "内容だけの再ビルド、または保存済み成果物への切り戻し"
+        required: true
+        type: choice
+        options: [rebuild-public, rollback]
+      release_id:
+        description: "rollback時だけ: 戻す記録のrelease ID（run番号-attempt）"
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  # 通常配布はcallerがdeploy-productionを保持する。子が再取得するとdeadlockする。
+  # 手動操作だけ同じgroupを取得し、通常配布のpreflight〜frontend完了へ割り込まない。
+  group: ${{ github.event_name == 'workflow_dispatch' && 'deploy-production' || format('deploy-frontend-{0}', github.run_id) }}
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  frontend:
+    if: >-
+      github.ref == 'refs/heads/main' && vars.AWS_FRONTEND_DEPLOY_ROLE_ARN != '' && (
+        github.event_name == 'workflow_dispatch' || (
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.head_branch == 'main' &&
+          github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      FRONTEND_PUBLIC_BUCKET: ${{ vars.FRONTEND_PUBLIC_BUCKET }}
+      FRONTEND_ADMIN_BUCKET: ${{ vars.FRONTEND_ADMIN_BUCKET }}
+      FRONTEND_RELEASE_BUCKET: ${{ vars.FRONTEND_RELEASE_BUCKET }}
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+      PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
+      # DNS切替前はCloudFrontのHTTPS originを指定できる。管理鍵は公開ビルドに渡さない。
+      API_BASE_URL: ${{ vars.FRONTEND_BUILD_API_BASE_URL }}
+      ACTION: ${{ inputs.action || 'deploy' }}
+      RELEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: delivery
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || inputs.commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: delivery/.nvmrc
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_FRONTEND_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-1
+      - name: Select released source
+        if: env.ACTION != 'rollback'
+        id: source
+        env:
+          RELEASE_SHA: ${{ inputs.commit_sha }}
+        run: node delivery/infra/release/frontend.mjs resolve "$ACTION"
+      - name: Require selected source to belong to main
+        if: env.ACTION != 'rollback'
+        working-directory: delivery
+        env:
+          SELECTED_SHA: ${{ steps.source.outputs.code_sha }}
+        run: git merge-base --is-ancestor "$SELECTED_SHA" origin/main
+      - uses: actions/checkout@v4
+        if: env.ACTION != 'rollback'
+        with:
+          ref: ${{ steps.source.outputs.code_sha }}
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        if: env.ACTION != 'rollback'
+        with:
+          node-version-file: source/.nvmrc
+          cache: npm
+          cache-dependency-path: source/package-lock.json
+      - name: Build the selected code with current public data
+        if: env.ACTION != 'rollback'
+        working-directory: source
+        env:
+          # 管理画面のAPIは常に同一origin。公開SSGの取得先とは分ける。
+          PUBLIC_API_BASE_URL: ""
+          PUBLIC_ASSET_BASE_PATH: /assets
+        run: |
+          npm ci
+          npm run build:public
+          if [ "$ACTION" = deploy ]; then npm run build:admin; fi
+      - name: Publish and wait for invalidation
+        if: env.ACTION != 'rollback'
+        env:
+          RELEASE_SHA: ${{ steps.source.outputs.code_sha }}
+        run: node delivery/infra/release/frontend.mjs publish "$ACTION"
+      - name: Restore archived artifacts without rebuilding
+        if: env.ACTION == 'rollback'
+        env:
+          TARGET_RELEASE_ID: ${{ inputs.release_id }}
+        run: node delivery/infra/release/frontend.mjs rollback
+      - name: Identify the release record
+        run: |
+          echo "Release operation: $RELEASE_ID ($ACTION)" >> "$GITHUB_STEP_SUMMARY"
+          echo 'The private release bucket holds current.json, manifests and artifacts. Incomplete delivery leaves pending.json and blocks content rebuilds.' >> "$GITHUB_STEP_SUMMARY"

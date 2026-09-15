@@ -351,6 +351,13 @@ jobs:
       - name: Check the deploy roles allow what the deploy calls
         run: scripts/check-deploy-permissions.sh
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Verify frontend delivery failure and recovery
+        run: node --test infra/release/*.test.mjs
+
       - name: Check formatting
         run: terraform fmt -check -recursive infra
 

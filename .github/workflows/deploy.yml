@@ -17,13 +17,56 @@ permissions:
   id-token: write
   contents: read
 
-# 同時デプロイによる競合を避ける。連続pushでも直前の実行を打ち切らず順番に反映する。
+# preflightから両画面の配布完了まで、手動frontend操作も同じgroupで待たせる。
+# queueはgroupで待ち始めた順（CIの完了順）であり、commit順ではない。
 concurrency:
   group: deploy-production
   cancel-in-progress: false
+  queue: max
 
 jobs:
+  preflight:
+    name: Check frontend release before backend deployment
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      vars.AWS_DEPLOY_ROLE_ARN != '' && vars.AWS_FRONTEND_DEPLOY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      attempt: ${{ steps.release-state.outputs.attempt }}
+      deploy: ${{ steps.release-state.outputs.deploy }}
+    env:
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+      FRONTEND_PUBLIC_BUCKET: ${{ vars.FRONTEND_PUBLIC_BUCKET }}
+      FRONTEND_ADMIN_BUCKET: ${{ vars.FRONTEND_ADMIN_BUCKET }}
+      FRONTEND_RELEASE_BUCKET: ${{ vars.FRONTEND_RELEASE_BUCKET }}
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_FRONTEND_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-1
+      - name: Reject incomplete or unreadable frontend release state
+        id: release-state
+        run: |
+          node infra/release/frontend.mjs preflight
+          echo "attempt=$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+
   deploy:
+    needs: preflight
     name: Build, push, and deploy backend
     # 本番の EC2 は arm64（infra/compute.tf が arm64 の AMI を選ぶ）。amd64 のランナーで作ると、
     # ECR へ入るのは実機が動かせないイメージになる。エミュレーションでも作れるが、コンテナの中で
@@ -32,11 +75,20 @@ jobs:
     # terraform apply（#129のドメイン準備待ち）でリポジトリ変数が設定されるまでは何もしない。
     # CI経由の起動は、mainへのpushに対するCIが成功した場合だけに限る（PRのCIや失敗・中断は対象外）。
     if: >-
+      !cancelled() && github.ref == 'refs/heads/main' &&
       vars.AWS_DEPLOY_ROLE_ARN != '' && (
-        github.event_name == 'workflow_dispatch' || (
+        (github.event_name == 'workflow_dispatch' && needs.preflight.result == 'skipped') || (
+          needs.preflight.result == 'success' &&
+          needs.preflight.outputs.deploy == 'true' &&
+          needs.preflight.outputs.attempt == github.run_attempt &&
           github.event.workflow_run.conclusion == 'success' &&
           github.event.workflow_run.head_branch == 'main' &&
-          github.event.workflow_run.event == 'push'))
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.head_repository.full_name == github.repository))
+
+    outputs:
+      commit_sha: ${{ steps.resolve.outputs.commit_sha }}
+      attempt: ${{ steps.resolve.outputs.attempt }}
 
     steps:
       # CIが検査したSHAをそのまま対象にする（デプロイ時点のmain先端ではない）。手動起動では指定された
@@ -75,6 +127,8 @@ jobs:
           # タグは checkout した commit から決まる。手動起動でも、配るファイルと同じ commit の
           # イメージだけが対象になる（そのタグが ECR に在ることは次のステップが確かめる）
           echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "attempt=$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             echo "Redeploying the image built from $(git rev-parse HEAD) without rebuilding"
@@ -204,3 +258,11 @@ jobs:
             echo "The deploy command ended as $STATUS." >&2
             exit 1
           fi
+
+  frontend:
+    needs: deploy
+    # backendの手動rollbackはfrontendを再ビルドしない。そちらは保存済み成果物から別途戻す。
+    if: ${{ github.event_name == 'workflow_run' && needs.deploy.result == 'success' && needs.deploy.outputs.attempt == github.run_attempt }}
+    uses: ./.github/workflows/deploy-frontend.yml
+    with:
+      commit_sha: ${{ needs.deploy.outputs.commit_sha }}
