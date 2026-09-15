@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { availablePageOf, isFirstPage, isLastPage, rangeOf } from './article-list';
+import { availablePageOf, isFirstPage, isLastPage, rangeOf } from './list-page';
 import type { AdminArticlePage } from './client';
 
 /** 1ページ50件で、総件数から組み立てた応答 */

@@ -11,6 +11,9 @@ type Schemas = components['schemas'];
 /** 管理向けアルバム一覧の1件。下書き（`publishedAt` が null）を含む */
 export type AdminAlbum = Schemas['AdminAlbumResponse'];
 
+/** 総件数とページ情報を含む管理向けアルバム一覧 */
+export type AdminAlbumPage = Schemas['AdminAlbumListResponse'];
+
 /** 管理向けアルバム詳細。編集の初期値として読む */
 export type AdminAlbumDetail = Schemas['AdminAlbumDetailResponse'];
 
@@ -35,8 +38,7 @@ export type UnpublicationAffectedArticle = Schemas['CascadeUnpublishedArticle'];
  * 一覧1ページの件数。
  *
  * <p>
- * 記事の一覧はこの単位でページを送る。作品の一覧はページ送りの導線をまだ持たず、この件数までしか
- * 辿れない（#122）。
+ * 記事と作品の一覧はこの単位でページを送る。
  * </p>
  */
 const PAGE_SIZE = 50;
@@ -86,17 +88,12 @@ const requestNoContent = (
     : Promise.resolve({ kind: 'unauthorized' });
 
 /** 下書きを含むアルバムを取得する。 */
-export const listAlbums = async (
-  session: AdminSession,
-): Promise<ApiResult<readonly AdminAlbum[]>> => {
-  const result = await request<Schemas['AdminAlbumListResponse']>(
+export const listAlbums = (session: AdminSession, page = 0): Promise<ApiResult<AdminAlbumPage>> =>
+  request<AdminAlbumPage>(
     'GET',
-    `/api/v1/admin/albums?page=0&size=${String(PAGE_SIZE)}`,
+    `/api/v1/admin/albums?page=${String(page)}&size=${String(PAGE_SIZE)}`,
     session,
   );
-
-  return result.kind === 'ok' ? { kind: 'ok', value: result.value.items } : result;
-};
 
 /**
  * 編集する作品を1件引く（下書きを含む）。

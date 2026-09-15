@@ -135,5 +135,8 @@ export const seedScratchAlbumWithLongestTitle = async (): Promise<string> => {
 /** 検査のためだけに作った作品を片付ける。作るシナリオを持つ spec の `afterEach` に置く */
 export const deleteScratchAlbums = async (): Promise<void> => {
   const leftovers = await findAlbumsByCatalogNumberPrefix(SCRATCH_CATALOG_PREFIX);
-  await Promise.all(leftovers.map((album) => deleteAlbum(album.albumId)));
+  /* 大量の並列削除で500が返り後続テストに作品が残るため、記事の後片付けと同じく直列に送る。 */
+  for (const album of leftovers) {
+    await deleteAlbum(album.albumId);
+  }
 };

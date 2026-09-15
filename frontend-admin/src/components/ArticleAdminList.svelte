@@ -11,7 +11,7 @@
     isFirstPage,
     isLastPage,
     rangeOf,
-  } from '$lib/api/article-list';
+  } from '$lib/api/list-page';
   import {
     deleteArticle,
     listArticles,
