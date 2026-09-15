@@ -1,4 +1,7 @@
 <script lang="ts">
+  import EditorRecovery from '$components/EditorRecovery.svelte';
+  import { albumRecoveryValues, type AlbumRecoveryValues } from '$lib/recovery-values';
+  import type { RecoveryHandle, RecoverySnapshot } from '$lib/editor-recovery';
   import AlbumExternalAudios from '$components/AlbumExternalAudios.svelte';
   import AlbumFormField from '$components/AlbumFormField.svelte';
   import AlbumSection from '$components/AlbumSection.svelte';
@@ -366,6 +369,30 @@
 
   let view = $state<View>({ kind: 'loading' });
 
+  let recovery = $state<RecoveryHandle | undefined>();
+  let continuedRecovery = $state(false);
+  let recoveryChoice = $state<'pending' | 'ready'>('ready');
+  const restoreInput = (snapshot: RecoverySnapshot<AlbumRecoveryValues>): void => {
+    const current = view;
+    view =
+      current.kind === 'editing'
+        ? {
+            ...current,
+            ...snapshot.values,
+            target:
+              current.target === null
+                ? null
+                : { ...current.target, revision: snapshot.revision ?? current.target.revision },
+            submission: {
+              kind:
+                current.target?.revision !== (snapshot.revision ?? undefined)
+                  ? 'conflicted'
+                  : 'idle',
+            },
+          }
+        : current;
+  };
+
   /** 失敗した結果 */
   type ApiFailure = Exclude<ApiResult<unknown>, { readonly kind: 'ok' }>;
 
@@ -494,6 +521,7 @@
   const accept = (session: AdminSession): Promise<void> => {
     const current = view;
     const pending = current.kind === 'locked' ? current.pending : null;
+    continuedRecovery = pending !== null;
 
     return pending === null
       ? open(session)
@@ -744,6 +772,7 @@
    */
   const LEAVE_AFTER_SAVE = {
     ok: (): void => {
+      recovery?.clear();
       location.assign(ALBUM_LIST_PATH);
     },
     unauthorized: (): void => undefined,
@@ -762,6 +791,7 @@
 
     const current = view;
     void (current.kind === 'editing' &&
+    recoveryChoice === 'ready' &&
     current.submission.kind !== 'saving' &&
     current.upload.kind !== 'sending'
       ? submitWith(
@@ -788,6 +818,8 @@
    * まだ持たない。#287 の受け入れは「古い値を自動で再送しない」ところまで）。
    */
   const reload = (): void => {
+    recovery?.clear();
+    continuedRecovery = false;
     const current = view;
     void (current.kind === 'editing' ? open(current.session) : Promise.resolve());
   };
@@ -905,6 +937,7 @@
   );
   const refusedMessage = $derived(submission.kind === 'refused' ? submission.message : null);
   const saving = $derived(submission.kind === 'saving');
+  const blocked = $derived([saving, recoveryChoice === 'pending'].some(Boolean));
   const conflicted = $derived(submission.kind === 'conflicted');
 
   const audios = $derived<readonly ExternalAudioDraft[]>(
@@ -948,7 +981,7 @@
    * 画像を送っている最中の保存も塞ぐ。送り終える前に保存すると、差し替え前の鍵のまま作品が保存され、
    * 画面には新しい画像が出ているのに保存されたのは古い画像、という食い違いが残る。
    */
-  const busy = $derived([saving, sendingCover].some(Boolean));
+  const busy = $derived([blocked, sendingCover].some(Boolean));
 
   const messagesOf = (path: AlbumFieldPath): readonly string[] => errors.byField.get(path) ?? [];
 
@@ -1050,6 +1083,21 @@
     届かない。広い幅は右へ逃げるので重ならない。
   -->
   <div class="space-y-8 pb-24 lg:pb-0">
+    <EditorRecovery
+      bind:this={recovery}
+      continued={continuedRecovery}
+      identity={{
+        editor: 'album',
+        target: view.kind === 'editing' ? (view.target?.albumId ?? null) : null,
+      }}
+      values={{ draft, audios, tracks, coverImageUrl }}
+      revision={view.kind === 'editing' ? (view.target?.revision ?? null) : null}
+      decode={albumRecoveryValues}
+      onRestore={restoreInput}
+      onPending={(pending: boolean) => {
+        recoveryChoice = pending ? 'pending' : 'ready';
+      }}
+    />
     <form id={ALBUM_FORM_ID} class="max-w-2xl space-y-8" onsubmit={submit}>
       <!--
       送ったのはクリックした時点の入力である。保存中も入力を受け付けると、その後の変更は要求に
@@ -1057,13 +1105,13 @@
 
       画像を送っている最中は塞がない——送り終えても読み直さないので、入力は残る。
     -->
-      <fieldset class="space-y-8" disabled={saving}>
+      <fieldset class="space-y-8" disabled={blocked}>
         {#each SECTIONS as section (section.heading)}
           <AlbumSection
             heading={section.heading}
             summary={section.summaryOf(draft)}
             open={shown(section.heading, rejectedAt(pathsIn(section)))}
-            disabled={saving}
+            disabled={blocked}
             onToggle={() => {
               toggleSection(section.heading);
             }}
@@ -1121,7 +1169,7 @@
           heading="カバー画像"
           summary={coverSummary}
           open={shown('カバー画像', coverRejected)}
-          disabled={saving}
+          disabled={blocked}
           onToggle={() => {
             toggleSection('カバー画像');
           }}
@@ -1194,7 +1242,7 @@
       heading="曲目"
       summary={tracksSummary}
       open={shown('曲目', tracksRejected)}
-      disabled={saving}
+      disabled={blocked}
       onToggle={() => {
         toggleSection('曲目');
       }}
@@ -1213,7 +1261,7 @@
         指す一文</b>であり、読む場所も直す場所も曲目の並びの直後になる（#365）。保存は作品の保存に乗る
         ため、`form` 属性でそのフォームへ結び付けている。
       -->
-      <fieldset class="space-y-1" data-field={ORIGINAL_WORK_NOTE.path} disabled={saving}>
+      <fieldset class="space-y-1" data-field={ORIGINAL_WORK_NOTE.path} disabled={blocked}>
         <AlbumFormField
           field={ORIGINAL_WORK_NOTE}
           value={draft[ORIGINAL_WORK_NOTE.path]}
@@ -1230,7 +1278,7 @@
       heading="外部音源"
       summary={audiosSummary}
       open={shown('外部音源', rejectedUnder(AUDIO_PATH_PREFIX))}
-      disabled={saving}
+      disabled={blocked}
       onToggle={() => {
         toggleSection('外部音源');
       }}

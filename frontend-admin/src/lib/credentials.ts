@@ -1,3 +1,4 @@
+import { clearEditorRecoveries } from './editor-recovery';
 import { get, readonly, writable } from 'svelte/store';
 
 import { exchangeSession, revokeSession, sessionValueOf } from './api/sessions';
@@ -85,6 +86,7 @@ export const applySessionResult = <T, R>(
 
 /** ローカル破棄は同期的に完了する。失効通信の成否は別の結果として返す。 */
 export const logout = (): { readonly completion: Promise<string | null> } => {
+  const recoveryError = clearEditorRecoveries();
   const session = get(state).session;
   const generation = begin(false);
   const completion =
@@ -99,5 +101,11 @@ export const logout = (): { readonly completion: Promise<string | null> } => {
               : 'このタブからログアウトしました。サーバーでの失効は確認できませんでした。トークンは発行から最大30分で期限切れになります。'
             : null,
         );
-  return { completion };
+  return {
+    completion: completion.then((message) =>
+      recoveryError === null
+        ? message
+        : `${message ?? ''} 退避データを消去できませんでした。このタブを閉じてください。`,
+    ),
+  };
 };
