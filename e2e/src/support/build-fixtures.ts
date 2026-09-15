@@ -1,6 +1,7 @@
 import { coverImageAsset } from './cover-image.ts';
 import {
   deleteArticle,
+  ensureAlbumCoverImage,
   findAlbumByCatalogNumber,
   findArticleByTitle,
   publishAlbum,
@@ -23,7 +24,8 @@ import type { AlbumSeed, ArticleSeed } from './admin-api.ts';
  * <p>
  * 投入は冪等にする。ローカルでは同じ DB へ繰り返し実行するため、毎回足すと同じものが並んで証跡が
  * 読みにくくなる。作品はカタログナンバーで存在を見て無いときだけ作り、公開状態だけを毎回揃える
- * （削除が塞がっている。#251）。記事は削除できるため、あれば消してから作り直し、内容まで揃える。
+ * （削除が塞がっている。#251）。showcaseのカバー画像は旧シードに無いため、既存作品にも不足を補う。
+ * 記事は削除できるため、あれば消してから作り直し、内容まで揃える。
  * </p>
  *
  * <p>
@@ -327,6 +329,9 @@ export const pagination = {
   titleOf: (index: number): string => `E2E ページ送り記事 ${String(index)}`,
 } as const;
 
+/** #380で作品紹介を1件増やした際に廃止した詰め物。旧DBからこの予約済みタイトルだけを片付ける。 */
+export const retiredPaginationArticleTitle = pagination.titleOf(18);
+
 const showcaseSeed: AlbumSeed = {
   title: showcase.title,
   releaseDate: showcase.releaseDate,
@@ -602,6 +607,11 @@ export const seedForBuild = async (): Promise<void> => {
   const showcaseAlbumId = await seededAlbumId(showcase.catalogNumber);
   const quietAlbumId = await seededAlbumId(quiet.catalogNumber);
   const coverlessAlbumId = await seededAlbumId(coverless.catalogNumber);
+
+  await ensureAlbumCoverImage(showcaseAlbumId, coverImageAsset);
+
+  const retired = await findArticleByTitle(retiredPaginationArticleTitle);
+  await (retired === undefined ? Promise.resolve() : deleteArticle(retired.articleId));
 
   for (const index of Array.from({ length: pagination.filler }, (_unused, i) => i + 1)) {
     await ensureArticle(fillerArticleSeed(index), 'PUBLISHED');

@@ -3,6 +3,9 @@
     "target": "ES2023",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "paths": {
+      "@api-schema": ["../frontend-admin/src/lib/api/schema.d.ts"]
+    },
     "lib": ["ES2023", "DOM"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
