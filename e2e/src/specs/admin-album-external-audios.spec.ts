@@ -159,7 +159,7 @@ test.describe('管理画面の外部音源', () => {
     await expect(audioRows(page).first().getByRole('button', { name: DOWN_LABEL })).toBeDisabled();
   });
 
-  test('保存しないまま開き直すと、足した行は残っていない', async ({ page }) => {
+  test('保存しないまま開き直して退避を破棄すると、足した行は残っていない', async ({ page }) => {
     const title = await openAlbumFor(page, '音源未保存');
 
     await addAudio(page, FIRST_URL);
@@ -167,9 +167,12 @@ test.describe('管理画面の外部音源', () => {
 
     /*
      * UNSAVED-IS-NOT-SENT: 押した時点で送る経路を持たないため、保存しなければ作品は変わらない。
-     * 読み直しで消えることが、入力に留まっていたことの証拠になる。
+     * タブ内の復旧データを破棄しても、サーバーから読み込んだ作品に未保存の行はない。
      */
     await page.reload();
+    await expect(page.getByRole('button', { name: '退避した入力を復元する' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '作品を開く' })).toBeDisabled();
+    await page.getByRole('button', { name: '退避データを破棄する' }).click();
     await openAllSections(page);
     await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(title);
     await expect(page.getByText(AUDIOS_ABSENT_TEXT)).toBeVisible();

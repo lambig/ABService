@@ -1,4 +1,7 @@
 <script lang="ts">
+  import EditorRecovery from '$components/EditorRecovery.svelte';
+  import { articleRecoveryValues } from '$lib/recovery-values';
+  import type { RecoveryHandle, RecoverySnapshot } from '$lib/editor-recovery';
   import SessionControls from '$components/SessionControls.svelte';
   import MarkupInput from '$components/MarkupInput.svelte';
   import ApiKeyForm from '$components/ApiKeyForm.svelte';
@@ -226,6 +229,30 @@
 
   let view = $state<View>({ kind: 'loading' });
 
+  let recovery = $state<RecoveryHandle | undefined>();
+  let continuedRecovery = $state(false);
+  let recoveryChoice = $state<'pending' | 'ready'>('ready');
+  const restoreInput = (snapshot: RecoverySnapshot<ArticleDraft>): void => {
+    const current = view;
+    view =
+      current.kind === 'editing'
+        ? {
+            ...current,
+            draft: snapshot.values,
+            target:
+              current.target === null
+                ? null
+                : { ...current.target, revision: snapshot.revision ?? current.target.revision },
+            submission: {
+              kind:
+                current.target?.revision !== (snapshot.revision ?? undefined)
+                  ? 'conflicted'
+                  : 'idle',
+            },
+          }
+        : current;
+  };
+
   /** 失敗した結果 */
   type ApiFailure = Exclude<ApiResult<unknown>, { readonly kind: 'ok' }>;
 
@@ -344,6 +371,7 @@
    */
   const accept = (session: AdminSession): Promise<void> => {
     const resumption = resumptionOf(view);
+    continuedRecovery = resumption.kind === 'input';
 
     return resumption.kind === 'input'
       ? settled(() => {
@@ -495,6 +523,7 @@
     session: AdminSession,
     articleId: string,
   ): Promise<ApiResult<Saved>> => {
+    recovery?.clear();
     history.replaceState(null, '', editArticlePath(articleId));
 
     const result = await attach(session, articleId);
@@ -682,6 +711,8 @@
 
   const applySaveOutcome = (session: AdminSession, result: ApiResult<Saved>): void => {
     return applySessionResult(session, result, () => {
+      const savedRecovery = result.kind === 'ok' ? recovery : undefined;
+      savedRecovery?.clear();
       view = result.kind === 'ok' ? viewAfterSave(result.value) : viewAfterFailure(result);
     });
   };
@@ -717,7 +748,9 @@
     event.preventDefault();
 
     const current = view;
-    void (current.kind === 'editing' && submittable(current.submission)
+    void (current.kind === 'editing' &&
+    recoveryChoice === 'ready' &&
+    submittable(current.submission)
       ? requested(current)
       : Promise.resolve());
   };
@@ -781,6 +814,8 @@
    * </p>
    */
   const reload = (): void => {
+    recovery?.clear();
+    continuedRecovery = false;
     const current = view;
     const articleId = editedArticleIdOf(current);
 
@@ -832,7 +867,9 @@
   const confirming = $derived(submission.kind === 'confirming');
 
   /** 入力と保存を塞ぐ条件。送信中と、作成後に世代を読めていない状態 */
-  const blocked = $derived([saving, submission.kind === 'detached'].some(Boolean));
+  const blocked = $derived(
+    [saving, recoveryChoice === 'pending', submission.kind === 'detached'].some(Boolean),
+  );
 
   const messagesOf = (path: ArticleFieldPath): readonly string[] => errors.byField.get(path) ?? [];
 
@@ -887,7 +924,21 @@
     入力とプレビューを横に並べる。プレビューは打ちながら確かめるためのもので、入力の下に置くと
     本文を打っている間は画面の外にある。狭い画面では縦に積む（横に並べる幅が無い）。
   -->
-  <div class="grid items-start gap-8 lg:grid-cols-2">
+  {#key target?.articleId ?? null}
+    <EditorRecovery
+      bind:this={recovery}
+      continued={continuedRecovery}
+      identity={{ editor: 'article', target: target?.articleId ?? null }}
+      values={draft}
+      revision={target?.revision ?? null}
+      decode={articleRecoveryValues}
+      onRestore={restoreInput}
+      onPending={(pending: boolean) => {
+        recoveryChoice = pending ? 'pending' : 'ready';
+      }}
+    />
+  {/key}
+  <div class="mt-6 grid items-start gap-8 lg:grid-cols-2">
     <div class="space-y-8">
       <!--
         保存のフォームは本体の項目だけを含む。タグと作品への参照は押した時点で反映される別の操作で、
@@ -1011,7 +1062,7 @@
         対象が変わったら作り直す（作成の直後に、その記事のタグと参照を引き直すため）。区画の中の状態は
         記事ごとのもので、前の記事の候補や失敗を持ち越さない。
       -->
-      {#if session !== null}
+      {#if session !== null && recoveryChoice === 'ready'}
         {#key taggedArticleId}
           <ArticleTagsEditor
             {session}

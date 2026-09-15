@@ -130,6 +130,7 @@ const openSection = async (heading: string): Promise<void> => {
 };
 
 beforeEach(() => {
+  sessionStorage.clear();
   getAlbum.mockResolvedValue({ kind: 'ok', value: detail });
   updateAlbum.mockResolvedValue(rejectedSecondRow);
 });
