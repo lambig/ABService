@@ -340,6 +340,15 @@ export interface AdminAlbum {
   readonly publishedAt: string | null;
 }
 
+/** 管理画面と同じ50件単位で、総件数とページ情報を含む作品一覧を読む。 */
+export const fetchAdminAlbumPage = async (
+  page = 0,
+  catalogNumber = '',
+): Promise<components['schemas']['AdminAlbumListResponse']> =>
+  (await getAdmin(
+    `/api/v1/admin/albums?page=${String(page)}&size=50&catalogNumber=${encodeURIComponent(catalogNumber)}`,
+  )) as components['schemas']['AdminAlbumListResponse'];
+
 /**
  * カタログナンバーで作品を引く（下書きを含む）。
  *

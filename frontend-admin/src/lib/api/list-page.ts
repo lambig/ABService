@@ -1,7 +1,7 @@
 import type { AdminArticlePage } from './client';
 
 /**
- * 記事一覧のページ送り。
+ * 管理一覧のページ送り。
  *
  * <p>
  * 応答が返したページ情報だけから求める。総件数や総ページ数を画面が数え直さない——数え直すと、削除や
@@ -9,8 +9,11 @@ import type { AdminArticlePage } from './client';
  * </p>
  */
 
+/** 一覧応答のページ情報。行の型に依存せず、記事と作品で同じ計算を使う。 */
+type PageMetadata = Pick<AdminArticlePage, 'page' | 'size' | 'totalElements' | 'totalPages'>;
+
 /** 1件も読めていない状態のページ。読み込み前の表示に使う */
-export const EMPTY_PAGE: AdminArticlePage = {
+export const EMPTY_PAGE: PageMetadata & { readonly items: [] } = {
   items: [],
   page: 0,
   size: 0,
@@ -29,7 +32,7 @@ export const EMPTY_PAGE: AdminArticlePage = {
  * @param page 応答が返したページ
  * @returns 範囲に収まるページ番号
  */
-export const availablePageOf = (page: AdminArticlePage): number =>
+export const availablePageOf = (page: PageMetadata): number =>
   Math.min(page.page, Math.max(page.totalPages - 1, 0));
 
 /**
@@ -43,7 +46,7 @@ export const availablePageOf = (page: AdminArticlePage): number =>
  * @param page 応答が返したページ
  * @returns 先頭と末尾の通し番号
  */
-export const rangeOf = (page: AdminArticlePage): Readonly<{ first: number; last: number }> => ({
+export const rangeOf = (page: PageMetadata): Readonly<{ first: number; last: number }> => ({
   first: page.page * page.size + 1,
   last: Math.min((page.page + 1) * page.size, page.totalElements),
 });
@@ -58,11 +61,11 @@ export const rangeOf = (page: AdminArticlePage): Readonly<{ first: number; last:
  *
  * @param page 応答が返したページ
  */
-export const isFirstPage = (page: AdminArticlePage): boolean => page.page === 0;
+export const isFirstPage = (page: PageMetadata): boolean => page.page === 0;
 
 /**
  * 最後のページか（次へ送れない）。1件も無いときも端として扱う。
  *
  * @param page 応答が返したページ
  */
-export const isLastPage = (page: AdminArticlePage): boolean => page.page + 1 >= page.totalPages;
+export const isLastPage = (page: PageMetadata): boolean => page.page + 1 >= page.totalPages;

@@ -6,6 +6,13 @@
   import { Button } from '$components/ui/button/index.js';
   import * as Table from '$components/ui/table/index.js';
   import {
+    EMPTY_PAGE,
+    availablePageOf,
+    isFirstPage,
+    isLastPage,
+    rangeOf,
+  } from '$lib/api/list-page';
+  import {
     deleteAlbum,
     deletionPreconditions,
     listAlbums,
@@ -13,6 +20,7 @@
     unpublicationPreconditions,
     unpublishAlbum,
     type AdminAlbum,
+    type AdminAlbumPage,
     type ApiResult,
   } from '$lib/api/client';
   import { applySessionResult, storedSession, type AdminSession } from '$lib/credentials';
@@ -100,18 +108,24 @@
    * （一覧が出ていない状態で確認だけ開いている、という組み合わせを作らない）。
    */
   type View =
-    | { readonly kind: 'locked'; readonly message: string | null }
+    | { readonly kind: 'locked'; readonly message: string | null; readonly page: number }
     | { readonly kind: 'loading' }
+    | { readonly kind: 'publishing' }
     | {
         readonly kind: 'ready';
         readonly session: AdminSession;
-        readonly albums: readonly AdminAlbum[];
+        readonly page: AdminAlbumPage;
         readonly confirmation: Confirmation;
       }
     /* 鍵を持ったまま失敗した状態。同じ鍵でやり直せるようにするため、ここで抱える */
-    | { readonly kind: 'failed'; readonly message: string; readonly session: AdminSession };
+    | {
+        readonly kind: 'failed';
+        readonly message: string;
+        readonly session: AdminSession;
+        readonly page: number;
+      };
 
-  let view = $state<View>({ kind: 'locked', message: null });
+  let view = $state<View>({ kind: 'locked', message: null, page: 0 });
 
   /** 失敗した結果 */
   type ApiFailure = Exclude<ApiResult<unknown>, { readonly kind: 'ok' }>;
@@ -126,20 +140,34 @@
   const failureOf = (result: ApiResult<unknown>): string | null =>
     result.kind === 'ok' ? null : failureTextOf(result);
 
-  const toView = (session: AdminSession, result: ApiResult<readonly AdminAlbum[]>): View =>
+  const toView = (
+    session: AdminSession,
+    requested: number,
+    result: ApiResult<AdminAlbumPage>,
+  ): View =>
     result.kind === 'ok'
-      ? { kind: 'ready', session, albums: result.value, confirmation: { kind: 'closed' } }
+      ? { kind: 'ready', session, page: result.value, confirmation: { kind: 'closed' } }
       : result.kind === 'unauthorized'
-        ? { kind: 'locked', message: 'セッションが終了しました。鍵を入力して再認証してください。' }
-        : { kind: 'failed', message: result.message, session };
+        ? { kind: 'locked', message: failureTextOf(result), page: requested }
+        : { kind: 'failed', message: result.message, session, page: requested };
 
-  const load = async (session: AdminSession): Promise<void> => {
+  /** 削除などでページが範囲外になった場合だけ、存在する最終ページを読み直す。 */
+  const applyListOutcome = async (
+    session: AdminSession,
+    requested: number,
+    result: ApiResult<AdminAlbumPage>,
+  ): Promise<void> => {
+    const available = result.kind === 'ok' ? availablePageOf(result.value) : requested;
+    return available === requested
+      ? ((view = toView(session, requested, result)), undefined)
+      : load(session, available);
+  };
+
+  const load = async (session: AdminSession, page: number): Promise<void> => {
     view = { kind: 'loading' };
 
-    const result = await listAlbums(session);
-    return applySessionResult(session, result, () => {
-      view = toView(session, result);
-    });
+    const result = await listAlbums(session, page);
+    return applySessionResult(session, result, () => applyListOutcome(session, page, result));
   };
 
   /*
@@ -148,7 +176,7 @@
    */
   const resume = async (): Promise<void> => {
     const session = storedSession();
-    return session === null ? undefined : load(session);
+    return session === null ? undefined : load(session, 0);
   };
 
   void resume();
@@ -156,11 +184,11 @@
   /* 同じ鍵でやり直す。到達できないだけの失敗は鍵の正しさとは別のため、入力からやり直させない */
   const retry = (): void => {
     const current = view;
-    void (current.kind === 'failed' ? load(current.session) : Promise.resolve());
+    void (current.kind === 'failed' ? load(current.session, current.page) : Promise.resolve());
   };
 
   const lock = (): void => {
-    view = { kind: 'locked', message: null };
+    view = { kind: 'locked', message: null, page: 0 };
   };
 
   /* 確認の対話は一覧の中にあるため、差し替えも一覧の状態を保ったまま行う */
@@ -237,13 +265,16 @@
 
   const ask = async (album: AdminAlbum, operation: DestructiveOperation): Promise<void> => {
     const current = view;
-    return current.kind === 'ready' ? askWith(current.session, album, operation) : undefined;
+    return current.kind === 'ready'
+      ? askWith(current.session, album, operation, current.page.page)
+      : undefined;
   };
 
   const askWith = async (
     session: AdminSession,
     album: AdminAlbum,
     operation: DestructiveOperation,
+    page: number,
   ): Promise<void> => {
     const askId = Symbol('ask');
     withConfirmation({ kind: 'asking', album, operation, askId, affected: null, message: null });
@@ -251,7 +282,9 @@
     const result = await ASK_PRECONDITIONS[operation](session, album.albumId);
     return applySessionResult(session, result, () => {
       view =
-        result.kind === 'unauthorized' ? { kind: 'locked', message: failureTextOf(result) } : view;
+        result.kind === 'unauthorized'
+          ? { kind: 'locked', message: failureTextOf(result), page }
+          : view;
       applyAskOutcome(askId, album, operation, result);
     });
   };
@@ -295,11 +328,15 @@
     const current = view;
     const confirmable = confirmableOf(currentConfirmation());
     return current.kind === 'ready' && confirmable !== null
-      ? runOperation(current.session, confirmable)
+      ? runOperation(current.session, confirmable, current.page.page)
       : undefined;
   };
 
-  const runOperation = async (session: AdminSession, confirmation: Confirmable): Promise<void> => {
+  const runOperation = async (
+    session: AdminSession,
+    confirmation: Confirmable,
+    page: number,
+  ): Promise<void> => {
     withConfirmation({ ...confirmation, kind: 'running', message: null });
 
     const result = await RUN_OPERATION[confirmation.operation](session, confirmation.album.albumId);
@@ -313,9 +350,9 @@
           : { ...confirmation, kind: 'rejected', message: failure },
       );
       return result.kind === 'unauthorized'
-        ? ((view = { kind: 'locked', message: failureTextOf(result) }), undefined)
+        ? ((view = { kind: 'locked', message: failureTextOf(result), page }), undefined)
         : failure === null
-          ? load(session)
+          ? load(session, page)
           : undefined;
     });
   };
@@ -339,17 +376,25 @@
 
   const publish = async (album: AdminAlbum): Promise<void> => {
     const current = view;
-    return current.kind === 'ready' ? publishWith(current.session, album) : undefined;
+    return current.kind === 'ready' && current.confirmation.kind === 'closed'
+      ? publishWith(current.session, album, current.page.page)
+      : undefined;
   };
 
   /* 公開は影響を及ばせないため確認を挟まない。失敗は一覧の失敗として抱える（同じ鍵でやり直せる） */
-  const publishWith = async (session: AdminSession, album: AdminAlbum): Promise<void> => {
+  const publishWith = async (
+    session: AdminSession,
+    album: AdminAlbum,
+    page: number,
+  ): Promise<void> => {
+    /* 公開中にページを送ると、完了後の再照会が移動先を上書きするため、実行中の状態に移す。 */
+    view = { kind: 'publishing' };
     const result = await publishAlbum(session, album.albumId);
     return applySessionResult(session, result, () => {
       const failure = failureOf(result);
 
-      view = failure === null ? { kind: 'loading' } : listFailureOf(session, result, failure);
-      return failure === null ? load(session) : undefined;
+      view = failure === null ? { kind: 'loading' } : listFailureOf(session, result, failure, page);
+      return failure === null ? load(session, page) : undefined;
     });
   };
 
@@ -357,21 +402,40 @@
     session: AdminSession,
     result: ApiResult<unknown>,
     failure: string,
+    page: number,
   ): View =>
     result.kind === 'unauthorized'
-      ? { kind: 'locked', message: failure }
-      : { kind: 'failed', message: failure, session };
+      ? { kind: 'locked', message: failure, page }
+      : { kind: 'failed', message: failure, session, page };
+
+  /** 確認・実行中のページ移動を防ぎ、画面にある範囲だけを辿る。 */
+  const goTo = (requested: number): void => {
+    const current = view;
+    void (current.kind === 'ready' &&
+    current.confirmation.kind === 'closed' &&
+    requested >= 0 &&
+    requested < current.page.totalPages
+      ? load(current.session, requested)
+      : Promise.resolve());
+  };
 
   /*
    * NARROWING-IN-TEMPLATE: テンプレートの分岐は型の絞り込みを持ち越せないため、状態から取り出した
-   * 値をここで用意する。テンプレート側で `view.albums` と書くと、型情報を使う検査が解決できない。
+   * 値をここで用意する。テンプレート側で `view.page` と書くと、型情報を使う検査が解決できない。
    */
-  const albums = $derived(view.kind === 'ready' ? view.albums : []);
+  const page = $derived<AdminAlbumPage>(view.kind === 'ready' ? view.page : EMPTY_PAGE);
+  const albums = $derived(page.items);
+  const range = $derived(rangeOf(page));
+  const lockedPage = $derived(view.kind === 'locked' ? view.page : 0);
   const lockMessage = $derived(view.kind === 'locked' ? view.message : null);
   const failureMessage = $derived(view.kind === 'failed' ? view.message : null);
   const confirmation = $derived<Confirmation>(
     view.kind === 'ready' ? view.confirmation : { kind: 'closed' },
   );
+  const previousDisabled = $derived(
+    [isFirstPage(page), confirmation.kind !== 'closed'].some(Boolean),
+  );
+  const nextDisabled = $derived([isLastPage(page), confirmation.kind !== 'closed'].some(Boolean));
   const dialogTexts = $derived(
     confirmation.kind === 'closed' ? null : OPERATION_TEXTS[confirmation.operation],
   );
@@ -414,9 +478,14 @@
 <SessionControls onLogout={lock} />
 
 {#if view.kind === 'locked'}
-  <ApiKeyForm message={lockMessage} onSubmit={(session: AdminSession) => void load(session)} />
+  <ApiKeyForm
+    message={lockMessage}
+    onSubmit={(session: AdminSession) => void load(session, lockedPage)}
+  />
 {:else if view.kind === 'loading'}
   <p class="text-muted-foreground">読み込んでいます。</p>
+{:else if view.kind === 'publishing'}
+  <p class="text-muted-foreground" role="status">公開しています。</p>
 {:else if failureMessage !== null}
   <div class="max-w-md space-y-4">
     <p class="text-destructive" role="alert">{failureMessage}</p>
@@ -428,7 +497,7 @@
 {:else}
   <div class="space-y-4">
     <div class="flex items-baseline justify-between">
-      <p class="text-muted-foreground text-sm">{albums.length} 件</p>
+      <p class="text-muted-foreground text-sm">{page.totalElements} 件</p>
       <div class="flex items-center gap-4">
         <a class="text-sm underline underline-offset-4" href={NEW_ALBUM_PATH}>作品を追加する</a>
       </div>
@@ -515,6 +584,33 @@
           {/each}
         </Table.Body>
       </Table.Root>
+      <nav class="flex items-center justify-between" aria-label="作品一覧のページ送り">
+        <p class="text-muted-foreground text-sm">{range.first}–{range.last} 件目</p>
+        <div class="flex items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={previousDisabled}
+            onclick={() => {
+              goTo(page.page - 1);
+            }}
+          >
+            前のページ
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={nextDisabled}
+            onclick={() => {
+              goTo(page.page + 1);
+            }}
+          >
+            次のページ
+          </Button>
+        </div>
+      </nav>
     {/if}
   </div>
 
