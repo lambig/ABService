@@ -33,9 +33,35 @@ terraform plan
 terraform apply
 ```
 
+## DNS の準備と切り替え
+
+最初は `dns_cutover_enabled = false` で plan/apply する。証明書の DNS 検証レコードは作るが、apex / www の A・AAAA は管理しない。`serve_www` は証明書を準備する前に運用側で決める（既定は apex のみ。www のリダイレクトを意味しない）。
+
+配信の受け入れ後、DNS の控えを取ってから `dns_cutover_enabled = true` の plan を確認する。A と AAAA は両方が対象。既存の同名・同型レコードがある場合、上書き許可で押し切らず、そのレコードだけを `terraform import` で採用して差分を見る。www が CNAME の場合は ALIAS と共存できないため、控えと切り戻し手順を準備して別途切り替える。
+
+```sh
+terraform import 'aws_route53_record.root[0]' '<zone-id>_<domain>_A'
+terraform import 'aws_route53_record.root_ipv6[0]' '<zone-id>_<domain>_AAAA'
+# www を採用する場合のみ（既存レコードが A/AAAA の場合）
+terraform import 'aws_route53_record.www["A"]' '<zone-id>_www.<domain>_A'
+terraform import 'aws_route53_record.www["AAAA"]' '<zone-id>_www.<domain>_AAAA'
+terraform plan -out=cutover.tfplan
+terraform apply cutover.tfplan
+```
+
+**旧構成を適用済みの場合**は、最初から `dns_cutover_enabled = true` を実値ファイルに入れる。`moved` が既存の root を `[0]` へ移す。false のままなら `prevent_destroy` が削除を拒否するので、稼働中の A レコードを黙って消すことはない。
+
+**既に検索公開済みの環境では `public_indexing_enabled = true` も明示する。** 新しい既定falseのまま適用すると、DNSを維持していても公開ページへ `X-Robots-Tag: noindex, nofollow` が付く。既存環境の移行では、DNSと検索公開の両方を現状に合わせて実値ファイルへ設定し、planで公開側のレスポンスヘッダーポリシーを意図せず変更しないことを確認する。まだ検索公開していない環境はfalseを維持する。管理画面とAPIのnoindexは、どちらの場合も維持する。
+
+**切り戻しで false にするだけではいけない。** `prevent_destroy` が削除を拒否する。運用側の控えから A/AAAA（採用時は www も）を戻し、Terraform にも復旧後の管理方針を反映する。管理から外す場合は対象の DNS レコードだけを `terraform state rm` し、false に戻した plan に DNS 操作が無いことを確かめる。state 全体は巻き戻さない。
+
+公開サイトの検索対象化は `public_indexing_enabled` で切替と分ける。既定falseでは `X-Robots-Tag: noindex, nofollow` を付ける。受け入れ後にtrueにする。管理画面とAPIのnoindexは解除しない。noindexはアクセス制御ではない。
+
+実ドメイン・既存レコード・切替日時・復旧先は運用リポジトリが持つ。
+
 ## ロールバック（インフラ変更）
 
-Terraform適用は`terraform plan`で差分を確認してから`apply`する運用を基本とする。誤適用時は直前のstateバージョン（S3バケットのバージョニングで保持）に戻すか、該当リソースのみ設定を戻して再度`apply`する。スタック全体の破棄は`terraform destroy`（RDSは`skip_final_snapshot = false`のため最終スナップショットが残る）。
+変更前の構成へ戻して plan し、実リソースに適用する。**state の旧バージョンを復元しても実リソースは戻らない**ため、通常の切り戻し手段にはしない。state の復元は state 自体を壊した場合の復旧で、現物との照合が必要。DB の migration と内容の復旧は 復旧方針（#130） を参照。
 
 ## CI/CD（backendデプロイ、#128）との連携
 
