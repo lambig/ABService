@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/svelte';
+import { render, screen, waitFor, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -25,6 +25,112 @@ const albumOf = (index: number): AdminAlbum => ({
   coverImageUrl: null,
 });
 
+describe('作品操作の結果不明からの復帰', () => {
+  it.each(['timeout', 'network', 'invalid-response'] as const)(
+    '%sでは再送せず対象を再照会する',
+    async (reason) => {
+      await openList(1);
+      vi.mocked(requestJson).mockResolvedValueOnce({ kind: 'failed', reason, message: '通信失敗' });
+      await userEvent.click(screen.getByRole('button', { name: '公開する' }));
+      await screen.findByText('「作品 1」の公開結果を確認できませんでした。');
+      expect(screen.queryByRole('button', { name: '公開する' })).toBeNull();
+      expect(screen.queryByRole('button', { name: '再試行' })).toBeNull();
+      vi.mocked(requestJson).mockResolvedValueOnce({
+        kind: 'ok',
+        value: { ...albumOf(1), publishedAt: '2026-09-01' },
+      });
+      await userEvent.click(screen.getByRole('button', { name: '現在の状態を確認' }));
+      await screen.findByText('現在の状態：公開。');
+      expect(requestJson).toHaveBeenLastCalledWith(
+        expect.stringContaining('/api/v1/admin/albums/album-1'),
+        expect.objectContaining({ method: 'GET' }),
+      );
+      expect(
+        vi
+          .mocked(requestJson)
+          .mock.calls.filter(([url, init]) => init.method === 'POST' && url.endsWith('/publish')),
+      ).toHaveLength(1);
+    },
+  );
+
+  it.each(['delete', 'unpublish'] as const)(
+    '%sのサーバー障害で確定ボタンへ戻さず、再照会失敗も変更を再送しない',
+    async (operation) => {
+      const label = operation === 'delete' ? '削除する' : '非公開にする';
+      const published = { ...pageOf(1), items: [{ ...albumOf(1), publishedAt: '2026-09-01' }] };
+      await openList(1, published);
+      vi.mocked(requestJson).mockResolvedValueOnce({
+        kind: 'ok',
+        value: {
+          deletion: { affectedArticles: [] },
+          unpublication: { articlesBecomingUnpublished: [] },
+        },
+      });
+      await userEvent.click(screen.getByRole('button', { name: label }));
+      await screen.findByText('影響を受けるものはありません。');
+      vi.mocked(requestJson).mockResolvedValueOnce({
+        kind: 'failed',
+        reason: 'http',
+        status: 503,
+        message: '障害',
+      });
+      await userEvent.click(
+        within(screen.getByRole('dialog')).getByRole('button', { name: label }),
+      );
+      await screen.findByRole('region', { name: '操作結果の確認' });
+      await waitFor(() => {
+        expect(document.body.style.pointerEvents).not.toBe('none');
+      });
+      const before = vi.mocked(requestJson).mock.calls.length;
+      vi.mocked(requestJson).mockResolvedValueOnce({
+        kind: 'failed',
+        reason: 'timeout',
+        message: '照会の期限',
+      });
+      await userEvent.click(screen.getByRole('button', { name: '現在の状態を確認' }));
+      await screen.findByText('照会の期限');
+      expect(screen.queryByRole('button', { name: '一覧を読み直す' })).toBeNull();
+      vi.mocked(requestJson).mockResolvedValueOnce(
+        operation === 'delete'
+          ? { kind: 'failed', reason: 'http', status: 404, message: 'ない' }
+          : { kind: 'ok', value: albumOf(1) },
+      );
+      await userEvent.click(screen.getByRole('button', { name: '現在の状態を確認' }));
+      await screen.findByText(
+        operation === 'delete' ? '現在、この作品は見つかりません。' : '現在の状態：下書き。',
+      );
+      expect(
+        vi
+          .mocked(requestJson)
+          .mock.calls.slice(before)
+          .every(([, init]) => init.method === 'GET'),
+      ).toBe(true);
+    },
+  );
+
+  it('結果不明の再照会で認証が切れても、再認証は照会に戻る', async () => {
+    await openList(1);
+    vi.mocked(requestJson).mockResolvedValueOnce({
+      kind: 'failed',
+      reason: 'network',
+      message: '通信失敗',
+    });
+    await userEvent.click(screen.getByRole('button', { name: '公開する' }));
+    vi.mocked(requestJson).mockResolvedValueOnce({ kind: 'unauthorized', status: 401 });
+    await userEvent.click(await screen.findByRole('button', { name: '現在の状態を確認' }));
+    await screen.findByLabelText('管理APIの鍵');
+    vi.mocked(requestJson).mockResolvedValueOnce({ kind: 'ok', value: sessionValue() });
+    vi.mocked(requestJson).mockResolvedValueOnce({ kind: 'ok', value: albumOf(1) });
+    await userEvent.type(screen.getByLabelText('管理APIの鍵'), 'test-key');
+    await userEvent.click(screen.getByRole('button', { name: '開く' }));
+    await screen.findByText('現在の状態：下書き。');
+    expect(requestJson).toHaveBeenLastCalledWith(
+      expect.stringContaining('/api/v1/admin/albums/album-1'),
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+});
+
 const pageOf = (total: number, page = 0): AdminAlbumPage => ({
   items: Array.from({ length: Math.max(Math.min(total - page * 50, 50), 0) }, (_, index) =>
     albumOf(page * 50 + index + 1),
@@ -44,10 +150,10 @@ const sessionValue = () => ({
   expiresAt: new Date(Date.now() + 1_800_000).toISOString(),
 });
 
-const openList = async (total: number): Promise<void> => {
+const openList = async (total: number, initial = pageOf(total)): Promise<void> => {
   vi.mocked(requestJson).mockResolvedValueOnce({ kind: 'ok', value: sessionValue() });
   await authenticate('test-key');
-  respondWith(pageOf(total));
+  respondWith(initial);
   render(AlbumAdminList);
   await screen.findByText(`${String(total)} 件`);
 };
@@ -56,6 +162,7 @@ const nextPage = () => screen.getByRole('button', { name: '次のページ' });
 const previousPage = () => screen.getByRole('button', { name: '前のページ' });
 
 beforeEach(async () => {
+  vi.resetAllMocks();
   vi.mocked(requestEmpty).mockResolvedValue({ kind: 'ok', value: undefined });
   await logout().completion;
   sessionStorage.clear();

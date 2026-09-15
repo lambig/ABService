@@ -183,19 +183,24 @@ test.describe('期限付き管理セッション', () => {
   test('ログアウト後の遅い一覧応答で認証画面が復活しない', async ({ page }) => {
     const responseReady = gate();
     const delivery = gate();
+    const delivered = gate();
     await page.route(ALBUMS, async (route) => {
       const response = await route.fetch();
       responseReady.release();
       await delivery.promise;
       await route.fulfill({ response });
+      delivered.release();
     });
     await page.goto(stack.adminBaseUrl);
     await enter(page);
     await responseReady.promise;
+    const aborted = page.waitForEvent('requestfailed', (request) =>
+      request.url().includes('/admin/albums'),
+    );
     await page.getByRole('button', { name: 'ログアウト' }).click();
-    const delivered = page.waitForResponse((response) => response.url().includes('/admin/albums'));
+    await aborted;
     delivery.release();
-    await delivered;
+    await delivered.promise;
     await flushScreen(page);
     await expect(page.getByLabel('管理APIの鍵')).toBeVisible();
     await expect(page.getByRole('table')).toHaveCount(0);
@@ -205,6 +210,7 @@ test.describe('期限付き管理セッション', () => {
   test('再認証後に古い401が届いても新しいセッションを壊さない', async ({ page }) => {
     const responseReady = gate();
     const delivery = gate();
+    const delivered = gate();
     await page.route(ALBUMS, async (route) => {
       const response = await route.fetch({
         headers: { ...route.request().headers(), ...headers('invalid-session') },
@@ -213,20 +219,22 @@ test.describe('期限付き管理セッション', () => {
       responseReady.release();
       await delivery.promise;
       await route.fulfill({ response });
+      delivered.release();
     });
     await page.goto(stack.adminBaseUrl);
     await enter(page);
     await responseReady.promise;
     await page.unroute(ALBUMS);
+    const aborted = page.waitForEvent('requestfailed', (request) =>
+      request.url().includes('/admin/albums'),
+    );
     await page.getByRole('button', { name: 'ログアウト' }).click();
+    await aborted;
     await enter(page);
     await expect(page.getByRole('table')).toBeVisible();
     const current = await stored(page);
-    const delivered = page.waitForResponse(
-      (response) => response.url().includes('/admin/albums') && response.status() === 401,
-    );
     delivery.release();
-    await delivered;
+    await delivered.promise;
     await flushScreen(page);
     await expect(page.getByRole('table')).toBeVisible();
     expect(await stored(page)).toEqual(current);

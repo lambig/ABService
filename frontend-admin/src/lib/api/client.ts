@@ -58,10 +58,12 @@ const request = <T>(
   path: string,
   session: AdminSession,
   body?: unknown,
+  signal?: AbortSignal,
 ): Promise<ApiResult<T>> =>
   usable(session)
     ? requestJson<T>(`${PUBLIC_API_BASE_URL}${path}`, {
         method,
+        signal: signal ?? null,
         headers: { Authorization: `Bearer ${session.token}`, ...contentTypeOf(body) },
         ...bodyOf(body),
       })
@@ -88,11 +90,17 @@ const requestNoContent = (
     : Promise.resolve({ kind: 'unauthorized' });
 
 /** 下書きを含むアルバムを取得する。 */
-export const listAlbums = (session: AdminSession, page = 0): Promise<ApiResult<AdminAlbumPage>> =>
+export const listAlbums = (
+  session: AdminSession,
+  page = 0,
+  signal?: AbortSignal,
+): Promise<ApiResult<AdminAlbumPage>> =>
   request<AdminAlbumPage>(
     'GET',
     `/api/v1/admin/albums?page=${String(page)}&size=${String(PAGE_SIZE)}`,
     session,
+    undefined,
+    signal,
   );
 
 /**
@@ -103,8 +111,15 @@ export const listAlbums = (session: AdminSession, page = 0): Promise<ApiResult<A
 export const getAlbum = (
   session: AdminSession,
   albumId: string,
+  signal?: AbortSignal,
 ): Promise<ApiResult<AdminAlbumDetail>> =>
-  request<AdminAlbumDetail>('GET', `/api/v1/admin/albums/${encodeURIComponent(albumId)}`, session);
+  request<AdminAlbumDetail>(
+    'GET',
+    `/api/v1/admin/albums/${encodeURIComponent(albumId)}`,
+    session,
+    undefined,
+    signal,
+  );
 
 /**
  * 作品を作る（下書きとして作られる）。
@@ -222,11 +237,14 @@ const preconditions = (
   session: AdminSession,
   albumId: string,
   operation: 'delete' | 'unpublish',
+  signal?: AbortSignal,
 ): Promise<ApiResult<Schemas['AlbumPreconditionsResponse']>> =>
   request<Schemas['AlbumPreconditionsResponse']>(
     'GET',
     `/api/v1/admin/albums/${encodeURIComponent(albumId)}/preconditions?operation=${operation}`,
     session,
+    undefined,
+    signal,
   );
 
 /**
@@ -238,9 +256,10 @@ const preconditions = (
 export const deletionPreconditions = async (
   session: AdminSession,
   albumId: string,
+  signal?: AbortSignal,
 ): Promise<ApiResult<readonly DeletionAffectedArticle[]>> =>
   preconditionsBranch(
-    await preconditions(session, albumId, 'delete'),
+    await preconditions(session, albumId, 'delete', signal),
     (response) => response.deletion?.affectedArticles ?? null,
   );
 
@@ -248,9 +267,10 @@ export const deletionPreconditions = async (
 export const unpublicationPreconditions = async (
   session: AdminSession,
   albumId: string,
+  signal?: AbortSignal,
 ): Promise<ApiResult<readonly UnpublicationAffectedArticle[]>> =>
   preconditionsBranch(
-    await preconditions(session, albumId, 'unpublish'),
+    await preconditions(session, albumId, 'unpublish', signal),
     (response) => response.unpublication?.articlesBecomingUnpublished ?? null,
   );
 
@@ -258,33 +278,42 @@ export const unpublicationPreconditions = async (
 export const deleteAlbum = (
   session: AdminSession,
   albumId: string,
+  signal?: AbortSignal,
 ): Promise<ApiResult<Schemas['DeleteAlbumResponse']>> =>
   request<Schemas['DeleteAlbumResponse']>(
     'DELETE',
     `/api/v1/albums/${encodeURIComponent(albumId)}`,
     session,
+    undefined,
+    signal,
   );
 
 /** アルバムを公開する。 */
 export const publishAlbum = (
   session: AdminSession,
   albumId: string,
+  signal?: AbortSignal,
 ): Promise<ApiResult<Schemas['PublishAlbumResponse']>> =>
   request<Schemas['PublishAlbumResponse']>(
     'POST',
     `/api/v1/albums/${encodeURIComponent(albumId)}/publish`,
     session,
+    undefined,
+    signal,
   );
 
 /** アルバムを非公開へ戻す。返るのは、連動して非公開になった記事。 */
 export const unpublishAlbum = (
   session: AdminSession,
   albumId: string,
+  signal?: AbortSignal,
 ): Promise<ApiResult<Schemas['UnpublishAlbumResponse']>> =>
   request<Schemas['UnpublishAlbumResponse']>(
     'POST',
     `/api/v1/albums/${encodeURIComponent(albumId)}/unpublish`,
     session,
+    undefined,
+    signal,
   );
 
 /** 作品が持つ外部音源1件。読むときは表示順つきで返る */
