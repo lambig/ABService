@@ -3,6 +3,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import type { Locator, Page } from '@playwright/test';
 
 import { renameArticleOutsideTheScreen } from '../support/admin-api.ts';
+import { revokeBrowserSession } from '../support/admin-sessions.ts';
 import { albumArticle, showcase } from '../support/build-fixtures.ts';
 import { stack } from '../support/config.ts';
 import { capture, captureFocused, captureWhole, clickWithEvidence } from '../support/evidence.ts';
@@ -352,16 +353,14 @@ test.describe('管理画面の記事の追加', () => {
   test('鍵が断られても入力は残り、入れ直せば続けて作成できる', async ({ page }) => {
     const title = `${SCRATCH_TITLE_PREFIX} 鍵を入れ直して追加 ${String(Date.now())}`;
 
-    /*
-     * 新規作成は鍵の入力時に管理APIを呼ばない（読み込むものが無い）。したがって鍵が正しいと分かるのは
-     * 最初の保存のときで、そこで入力を捨てると全項目を書き直させることになる。
-     */
+    /* 認証後にサーバーで失効しても、保存前に書いた入力を再認証へ引き継ぐ。 */
     await page.goto(NEW_ARTICLE_URL);
-    await page.getByLabel(API_KEY_LABEL).fill(WRONG_API_KEY);
+    await page.getByLabel(API_KEY_LABEL).fill(stack.adminApiKey);
     await page.getByRole('button', { name: OPEN_LABEL }).click();
 
     await page.getByLabel(TITLE_LABEL).fill(title);
     await page.getByLabel(BODY_LABEL, { exact: true }).fill('鍵を入れ直しても残る本文。');
+    await revokeBrowserSession(page);
     await page.getByRole('button', { name: CREATE_LABEL }).click();
 
     await expect(page.getByLabel(API_KEY_LABEL)).toBeVisible();

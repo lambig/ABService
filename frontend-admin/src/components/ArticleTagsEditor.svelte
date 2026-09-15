@@ -8,7 +8,7 @@
     type AdminArticleTag,
     type ApiResult,
   } from '$lib/api/client';
-  import { KEY_STORE } from '$lib/credentials';
+  import { applySessionResult, type AdminSession } from '$lib/credentials';
 
   /**
    * 記事のタグ。
@@ -30,7 +30,7 @@
    * </p>
    */
   type Props = {
-    readonly apiKey: string;
+    readonly session: AdminSession;
     /** 対象の記事。まだ作られていなければ null */
     readonly articleId: string | null;
     /** 付いているタグ */
@@ -41,7 +41,7 @@
     readonly onChanged: (tags: readonly AdminArticleTag[]) => void;
   };
 
-  const { apiKey, articleId, tags, onUnauthorized, onChanged }: Props = $props();
+  const { session, articleId, tags, onUnauthorized, onChanged }: Props = $props();
 
   /**
    * 選べるタグの読み込み。
@@ -73,7 +73,9 @@
   type ApiFailure = Exclude<ApiResult<unknown>, { readonly kind: 'ok' }>;
 
   const failureTextOf = (failure: ApiFailure): string =>
-    failure.kind === 'unauthorized' ? '鍵が受け付けられませんでした。' : failure.message;
+    failure.kind === 'unauthorized'
+      ? 'セッションが終了しました。鍵を入力して再認証してください。'
+      : failure.message;
 
   /**
    * 候補を読めなかったときの残し方。
@@ -92,17 +94,18 @@
   } satisfies Record<ApiResult<unknown>['kind'], (message: string) => void>;
 
   const loadCandidates = async (): Promise<void> => {
+    const requestSession = session;
     candidates = { kind: 'loading' };
 
-    const result = await listArticleTags(apiKey);
-    const message = result.kind === 'ok' ? '' : failureTextOf(result);
-
-    KEY_STORE[result.kind](apiKey);
-    candidates =
-      result.kind === 'ok'
-        ? { kind: 'ready', items: result.value }
-        : { kind: 'unavailable', message };
-    CANDIDATES_AFTER[result.kind](message);
+    const result = await listArticleTags(session);
+    return applySessionResult(requestSession, result, () => {
+      const message = result.kind === 'ok' ? '' : failureTextOf(result);
+      candidates =
+        result.kind === 'ok'
+          ? { kind: 'ready', items: result.value }
+          : { kind: 'unavailable', message };
+      CANDIDATES_AFTER[result.kind](message);
+    });
   };
 
   /* 対象が無いうちは引かない（付ける先が無いため、候補を出しても押せない） */
@@ -134,22 +137,23 @@
   /** 送った結果を反映する。成功なら次の一覧、断られたなら理由を残す */
   const apply = (result: ApiResult<unknown>, next: readonly AdminArticleTag[]): void => {
     const message = result.kind === 'ok' ? '' : failureTextOf(result);
-
-    KEY_STORE[result.kind](apiKey);
     operation = result.kind === 'ok' ? { kind: 'idle' } : { kind: 'rejected', message };
     AFTER[result.kind](next, message);
   };
 
   const addWith = async (id: string, name: string): Promise<void> => {
+    const requestSession = session;
     operation = { kind: 'adding' };
 
-    const result = await addArticleTag(apiKey, id, name);
-    apply(
-      result,
-      result.kind === 'ok'
-        ? [...tags, { tagId: result.value.tagId, name: result.value.name }]
-        : tags,
-    );
+    const result = await addArticleTag(session, id, name);
+    return applySessionResult(requestSession, result, () => {
+      apply(
+        result,
+        result.kind === 'ok'
+          ? [...tags, { tagId: result.value.tagId, name: result.value.name }]
+          : tags,
+      );
+    });
   };
 
   const add = (): void => {
@@ -158,10 +162,13 @@
   };
 
   const removeWith = async (id: string, tagId: string): Promise<void> => {
+    const requestSession = session;
     operation = { kind: 'removing' };
 
-    const result = await removeArticleTag(apiKey, id, tagId);
-    apply(result, result.kind === 'ok' ? tags.filter((tag) => tag.tagId !== tagId) : tags);
+    const result = await removeArticleTag(session, id, tagId);
+    return applySessionResult(requestSession, result, () => {
+      apply(result, result.kind === 'ok' ? tags.filter((tag) => tag.tagId !== tagId) : tags);
+    });
   };
 
   const remove = (tagId: string): void => {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SessionControls from '$components/SessionControls.svelte';
   import ApiKeyForm from '$components/ApiKeyForm.svelte';
   import ConfirmDialog from '$components/ConfirmDialog.svelte';
   import { Badge } from '$components/ui/badge/index.js';
@@ -21,7 +22,7 @@
     type ApiResult,
   } from '$lib/api/client';
   import { ARTICLE_TYPE_LABELS } from '$lib/article-labels';
-  import { KEY_STORE, forgetApiKey, storedApiKey } from '$lib/credentials';
+  import { applySessionResult, storedSession, type AdminSession } from '$lib/credentials';
   import { formatPublishedDate } from '$lib/format';
   import { NEW_ARTICLE_PATH, editArticlePath } from '$lib/paths';
 
@@ -84,7 +85,7 @@
     | { readonly kind: 'loading' }
     | {
         readonly kind: 'ready';
-        readonly apiKey: string;
+        readonly session: AdminSession;
         readonly page: AdminArticlePage;
         readonly activity: Activity;
       }
@@ -95,7 +96,7 @@
     | {
         readonly kind: 'failed';
         readonly message: string;
-        readonly apiKey: string;
+        readonly session: AdminSession;
         readonly page: number;
       };
 
@@ -116,14 +117,20 @@
 
   /** 失敗の文言。文言の出所を1つにするため、どの操作の失敗もここを通す */
   const failureTextOf = (failure: ApiFailure): string =>
-    failure.kind === 'unauthorized' ? '鍵が受け付けられませんでした。' : failure.message;
+    failure.kind === 'unauthorized'
+      ? 'セッションが終了しました。鍵を入力して再認証してください。'
+      : failure.message;
 
-  const toView = (apiKey: string, requested: number, result: ApiResult<AdminArticlePage>): View =>
+  const toView = (
+    session: AdminSession,
+    requested: number,
+    result: ApiResult<AdminArticlePage>,
+  ): View =>
     result.kind === 'ok'
-      ? { kind: 'ready', apiKey, page: result.value, activity: { kind: 'idle' } }
+      ? { kind: 'ready', session, page: result.value, activity: { kind: 'idle' } }
       : result.kind === 'unauthorized'
         ? { kind: 'locked', message: failureTextOf(result), page: requested }
-        : { kind: 'failed', message: failureTextOf(result), apiKey, page: requested };
+        : { kind: 'failed', message: failureTextOf(result), session, page: requested };
 
   /**
    * 求めたページが範囲の外なら読み直す。
@@ -134,7 +141,7 @@
    * </p>
    */
   const applyListOutcome = async (
-    apiKey: string,
+    session: AdminSession,
     requested: number,
     result: ApiResult<AdminArticlePage>,
   ): Promise<void> => {
@@ -142,17 +149,18 @@
 
     return available === requested
       ? settled(() => {
-          assign(toView(apiKey, requested, result));
+          assign(toView(session, requested, result));
         })
-      : load(apiKey, available);
+      : load(session, available);
   };
 
-  const load = async (apiKey: string, page: number): Promise<void> => {
+  const load = async (session: AdminSession, page: number): Promise<void> => {
     assign({ kind: 'loading' });
 
-    const result = await listArticles(apiKey, page);
-    KEY_STORE[result.kind](apiKey);
-    return applyListOutcome(apiKey, page, result);
+    const result = await listArticles(session, page);
+    return applySessionResult(session, result, () => {
+      return applyListOutcome(session, page, result);
+    });
   };
 
   /*
@@ -160,8 +168,8 @@
    * 動くのはブラウザだけになる（組み立ての時点で sessionStorage を触らない）。
    */
   const resume = async (): Promise<void> => {
-    const apiKey = storedApiKey();
-    return apiKey === null ? undefined : load(apiKey, 0);
+    const session = storedSession();
+    return session === null ? undefined : load(session, 0);
   };
 
   void resume();
@@ -169,7 +177,7 @@
   /* 同じ鍵でやり直す。到達できないだけの失敗は鍵の正しさとは別のため、入力からやり直させない */
   const retry = (): void => {
     const current = view;
-    void (current.kind === 'failed' ? load(current.apiKey, current.page) : Promise.resolve());
+    void (current.kind === 'failed' ? load(current.session, current.page) : Promise.resolve());
   };
 
   /**
@@ -181,7 +189,6 @@
    * </p>
    */
   const lock = (): void => {
-    forgetApiKey();
     assign({ kind: 'locked', message: null, page: 0 });
   };
 
@@ -200,7 +207,10 @@
     publish: publishArticle,
     unpublish: unpublishArticle,
     delete: deleteArticle,
-  } satisfies Record<Operation, (apiKey: string, articleId: string) => Promise<ApiResult<unknown>>>;
+  } satisfies Record<
+    Operation,
+    (session: AdminSession, articleId: string) => Promise<ApiResult<unknown>>
+  >;
 
   /**
    * 断られたときの戻り先。
@@ -211,48 +221,64 @@
    * </p>
    */
   const REJECTED = {
-    publish: (apiKey: string, _article: AdminArticle, page: number, message: string): void => {
-      assign({ kind: 'failed', message, apiKey, page });
+    publish: (
+      session: AdminSession,
+      _article: AdminArticle,
+      page: number,
+      message: string,
+    ): void => {
+      assign({ kind: 'failed', message, session, page });
     },
-    unpublish: (apiKey: string, _article: AdminArticle, page: number, message: string): void => {
-      assign({ kind: 'failed', message, apiKey, page });
+    unpublish: (
+      session: AdminSession,
+      _article: AdminArticle,
+      page: number,
+      message: string,
+    ): void => {
+      assign({ kind: 'failed', message, session, page });
     },
-    delete: (_apiKey: string, article: AdminArticle, _page: number, message: string): void => {
+    delete: (
+      _session: AdminSession,
+      article: AdminArticle,
+      _page: number,
+      message: string,
+    ): void => {
       withActivity({ kind: 'confirming', article, message });
     },
   } satisfies Record<
     Operation,
-    (apiKey: string, article: AdminArticle, page: number, message: string) => void
+    (session: AdminSession, article: AdminArticle, page: number, message: string) => void
   >;
 
   const applyRunOutcome = async (
-    apiKey: string,
+    session: AdminSession,
     article: AdminArticle,
     operation: Operation,
     page: number,
     result: ApiResult<unknown>,
   ): Promise<void> =>
     result.kind === 'ok'
-      ? load(apiKey, page)
+      ? load(session, page)
       : result.kind === 'unauthorized'
         ? settled(() => {
             assign({ kind: 'locked', message: failureTextOf(result), page });
           })
         : settled(() => {
-            REJECTED[operation](apiKey, article, page, failureTextOf(result));
+            REJECTED[operation](session, article, page, failureTextOf(result));
           });
 
   const run = async (
-    apiKey: string,
+    session: AdminSession,
     article: AdminArticle,
     operation: Operation,
     page: number,
   ): Promise<void> => {
     withActivity({ kind: 'running', article, operation });
 
-    const result = await RUN[operation](apiKey, article.articleId);
-    KEY_STORE[result.kind](apiKey);
-    return applyRunOutcome(apiKey, article, operation, page, result);
+    const result = await RUN[operation](session, article.articleId);
+    return applySessionResult(session, result, () => {
+      return applyRunOutcome(session, article, operation, page, result);
+    });
   };
 
   /** 進行中は次の操作へ入らない。多重送信で古い結果が新しい状態を上書きしないようにする */
@@ -262,7 +288,7 @@
   const toggle = (article: AdminArticle, operation: 'publish' | 'unpublish'): void => {
     const current = view;
     void (startable(current)
-      ? run(current.apiKey, article, operation, current.page.page)
+      ? run(current.session, article, operation, current.page.page)
       : Promise.resolve());
   };
 
@@ -277,7 +303,7 @@
     const current = view;
     const activity = currentActivity();
     void (current.kind === 'ready' && activity.kind === 'confirming'
-      ? run(current.apiKey, activity.article, 'delete', current.page.page)
+      ? run(current.session, activity.article, 'delete', current.page.page)
       : Promise.resolve());
   };
 
@@ -289,7 +315,7 @@
 
   const goTo = (page: number): void => {
     const current = view;
-    void (startable(current) ? load(current.apiKey, page) : Promise.resolve());
+    void (startable(current) ? load(current.session, page) : Promise.resolve());
   };
 
   /*
@@ -330,8 +356,13 @@
   const deletion = $derived(deletionOf(activity));
 </script>
 
+<SessionControls onLogout={lock} />
+
 {#if view.kind === 'locked'}
-  <ApiKeyForm message={lockMessage} onSubmit={(apiKey: string) => void load(apiKey, lockedPage)} />
+  <ApiKeyForm
+    message={lockMessage}
+    onSubmit={(session: AdminSession) => void load(session, lockedPage)}
+  />
 {:else if view.kind === 'loading'}
   <p class="text-muted-foreground">読み込んでいます。</p>
 {:else if failureMessage !== null}
@@ -340,9 +371,6 @@
 
     <div class="flex items-center gap-4">
       <Button type="button" onclick={retry}>再試行</Button>
-      <button class="text-sm underline underline-offset-4" type="button" onclick={lock}>
-        鍵を破棄する
-      </button>
     </div>
   </div>
 {:else}
@@ -351,9 +379,6 @@
       <p class="text-muted-foreground text-sm">{page.totalElements} 件</p>
       <div class="flex items-center gap-4">
         <a class="text-sm underline underline-offset-4" href={NEW_ARTICLE_PATH}>記事を追加する</a>
-        <button class="text-sm underline underline-offset-4" type="button" onclick={lock}>
-          鍵を破棄する
-        </button>
       </div>
     </div>
 

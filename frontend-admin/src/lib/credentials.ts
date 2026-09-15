@@ -1,45 +1,103 @@
+import { get, readonly, writable } from 'svelte/store';
+
+import { exchangeSession, revokeSession, sessionValueOf } from './api/sessions';
 import type { ApiResult } from './api/http';
 
-/** 鍵の置き場。アプリ名で修飾し、同じ生成元に他のものが入っても衝突させない */
-const STORAGE_KEY = 'abservice.admin.api-key';
+/** 世代は要求を区別するページ内の印で、保存・共有しない。 */
+export type AdminSession = {
+  readonly token: string;
+  readonly expiresAt: string;
+  readonly generation: symbol;
+};
+export const SESSION_STORAGE_KEY = 'abservice.admin.session';
+const LEGACY_STORAGE_KEY = 'abservice.admin.api-key';
+type State = {
+  readonly generation: symbol;
+  readonly session: AdminSession | null;
+  readonly authenticating: boolean;
+};
+const state = writable<State>({ generation: Symbol(), session: null, authenticating: false });
+export const sessionState = readonly(state);
 
-/**
- * 管理APIの鍵を、そのタブが開いている間だけ保持する。
- *
- * <p>
- * 鍵をビルドへ焼き込まない（#122）。管理画面は静的な成果物として配信されるため、埋め込むと成果物を
- * 受け取れる誰もが管理操作をできることになる。入力を受け取り、保持はブラウザ側に閉じる。
- * </p>
- *
- * <p>
- * `localStorage` ではなく `sessionStorage` に置く。共用の端末で開いたまま離れたときに、タブを
- * 閉じれば残らない状態にする。ただしブラウザが鍵そのものを持つ形自体を、失効させられて期限も切れる
- * トークンを持つ形へ移す（#264）。
- * </p>
- */
-export const storedApiKey = (): string | null => sessionStorage.getItem(STORAGE_KEY);
+/** 通信前に保存値を消して世代を進め、古い応答の保存・画面更新を防ぐ。 */
+const begin = (authenticating: boolean): symbol => {
+  const generation = Symbol();
+  sessionStorage.removeItem(LEGACY_STORAGE_KEY);
+  sessionStorage.removeItem(SESSION_STORAGE_KEY);
+  state.set({ generation, session: null, authenticating });
+  return generation;
+};
+const sameGeneration = (generation: symbol): boolean => get(state).generation === generation;
+export const isCurrentSession = (session: AdminSession): boolean =>
+  sameGeneration(session.generation) && get(state).session?.token === session.token;
 
-/** 受け付けられた鍵を覚える。 */
-export const rememberApiKey = (apiKey: string): void => {
-  sessionStorage.setItem(STORAGE_KEY, apiKey);
+const remember = (
+  value: { readonly token: string; readonly expiresAt: string },
+  generation: symbol,
+): AdminSession => {
+  const session = { ...value, generation };
+  sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(value));
+  state.set({ generation, session, authenticating: false });
+  return session;
+};
+const parsed = (raw: string | null): unknown => {
+  try {
+    return raw === null ? null : JSON.parse(raw);
+  } catch {
+    return null;
+  }
 };
 
-/** 覚えている鍵を捨てる。 */
-export const forgetApiKey = (): void => {
-  sessionStorage.removeItem(STORAGE_KEY);
+/** 旧APIキーは無条件で消し、有効なトークンと期限だけをこのタブで再利用する。 */
+export const storedSession = (): AdminSession | null => {
+  sessionStorage.removeItem(LEGACY_STORAGE_KEY);
+  const value = sessionValueOf(parsed(sessionStorage.getItem(SESSION_STORAGE_KEY)));
+  const current = get(state).session;
+  return value === null
+    ? (begin(false), null)
+    : current?.token === value.token
+      ? current
+      : remember(value, get(state).generation);
 };
 
-/**
- * 応答の枝ごとに、鍵を覚えるか捨てるか。
- *
- * <p>
- * 受け付けられた鍵だけを覚える。断られた鍵を残すと、次に開いたときも同じ失敗から始まる。到達できない
- * だけの失敗では捨てない（鍵の正しさとは別の理由のため）。この規則は画面をまたいで同じであるため、
- * 一覧と編集の双方がここを通す。
- * </p>
- */
-export const KEY_STORE = {
-  ok: rememberApiKey,
-  unauthorized: forgetApiKey,
-  failed: rememberApiKey,
-} satisfies Record<ApiResult<unknown>['kind'], (apiKey: string) => void>;
+/** 古い交換結果は画面に渡さず、払い出されていた場合は最善努力で失効させる。 */
+export const authenticate = async (apiKey: string): Promise<ApiResult<AdminSession> | null> => {
+  const generation = begin(true);
+  const result = await exchangeSession(apiKey);
+  const current = sameGeneration(generation);
+  void (current ? undefined : result.kind === 'ok' ? revokeSession(result.value.token) : undefined);
+  return current
+    ? result.kind === 'ok'
+      ? { kind: 'ok', value: remember(result.value, generation) }
+      : (state.set({ generation, session: null, authenticating: false }), result)
+    : null;
+};
+
+/** 副作用の境界。古い401で新しいセッションを消すことも防ぐ。 */
+export const applySessionResult = <T, R>(
+  session: AdminSession,
+  result: ApiResult<T>,
+  apply: () => R,
+): R | undefined =>
+  isCurrentSession(session)
+    ? (result.kind === 'unauthorized' ? begin(false) : undefined, apply())
+    : undefined;
+
+/** ローカル破棄は同期的に完了する。失効通信の成否は別の結果として返す。 */
+export const logout = (): { readonly completion: Promise<string | null> } => {
+  const session = get(state).session;
+  const generation = begin(false);
+  const completion =
+    session === null
+      ? Promise.resolve(null)
+      : revokeSession(session.token).then((result) =>
+          sameGeneration(generation)
+            ? [result.kind === 'ok', result.kind === 'unauthorized' && result.status === 401].some(
+                Boolean,
+              )
+              ? 'ログアウトしました。'
+              : 'このタブからログアウトしました。サーバーでの失効は確認できませんでした。トークンは発行から最大30分で期限切れになります。'
+            : null,
+        );
+  return { completion };
+};

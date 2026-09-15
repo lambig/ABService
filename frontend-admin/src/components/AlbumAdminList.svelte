@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SessionControls from '$components/SessionControls.svelte';
   import ApiKeyForm from '$components/ApiKeyForm.svelte';
   import DestructiveConfirmDialog from '$components/DestructiveConfirmDialog.svelte';
   import { Badge } from '$components/ui/badge/index.js';
@@ -14,7 +15,7 @@
     type AdminAlbum,
     type ApiResult,
   } from '$lib/api/client';
-  import { KEY_STORE, forgetApiKey, storedApiKey } from '$lib/credentials';
+  import { applySessionResult, storedSession, type AdminSession } from '$lib/credentials';
   import { formatCalendarDate } from '$lib/format';
   import { NEW_ALBUM_PATH, editAlbumPath } from '$lib/paths';
 
@@ -103,12 +104,12 @@
     | { readonly kind: 'loading' }
     | {
         readonly kind: 'ready';
-        readonly apiKey: string;
+        readonly session: AdminSession;
         readonly albums: readonly AdminAlbum[];
         readonly confirmation: Confirmation;
       }
     /* 鍵を持ったまま失敗した状態。同じ鍵でやり直せるようにするため、ここで抱える */
-    | { readonly kind: 'failed'; readonly message: string; readonly apiKey: string };
+    | { readonly kind: 'failed'; readonly message: string; readonly session: AdminSession };
 
   let view = $state<View>({ kind: 'locked', message: null });
 
@@ -117,25 +118,28 @@
 
   /** 失敗の文言。文言の出所を1つにするため、どの操作の失敗もここを通す */
   const failureTextOf = (failure: ApiFailure): string =>
-    failure.kind === 'unauthorized' ? '鍵が受け付けられませんでした。' : failure.message;
+    failure.kind === 'unauthorized'
+      ? 'セッションが終了しました。鍵を入力して再認証してください。'
+      : failure.message;
 
   /** 成功なら null、失敗ならその文言 */
   const failureOf = (result: ApiResult<unknown>): string | null =>
     result.kind === 'ok' ? null : failureTextOf(result);
 
-  const toView = (apiKey: string, result: ApiResult<readonly AdminAlbum[]>): View =>
+  const toView = (session: AdminSession, result: ApiResult<readonly AdminAlbum[]>): View =>
     result.kind === 'ok'
-      ? { kind: 'ready', apiKey, albums: result.value, confirmation: { kind: 'closed' } }
+      ? { kind: 'ready', session, albums: result.value, confirmation: { kind: 'closed' } }
       : result.kind === 'unauthorized'
-        ? { kind: 'locked', message: '鍵が受け付けられませんでした。' }
-        : { kind: 'failed', message: result.message, apiKey };
+        ? { kind: 'locked', message: 'セッションが終了しました。鍵を入力して再認証してください。' }
+        : { kind: 'failed', message: result.message, session };
 
-  const load = async (apiKey: string): Promise<void> => {
+  const load = async (session: AdminSession): Promise<void> => {
     view = { kind: 'loading' };
 
-    const result = await listAlbums(apiKey);
-    KEY_STORE[result.kind](apiKey);
-    view = toView(apiKey, result);
+    const result = await listAlbums(session);
+    return applySessionResult(session, result, () => {
+      view = toView(session, result);
+    });
   };
 
   /*
@@ -143,8 +147,8 @@
    * 動くのはブラウザだけになる（組み立ての時点で sessionStorage を触らない）。
    */
   const resume = async (): Promise<void> => {
-    const apiKey = storedApiKey();
-    return apiKey === null ? undefined : load(apiKey);
+    const session = storedSession();
+    return session === null ? undefined : load(session);
   };
 
   void resume();
@@ -152,11 +156,10 @@
   /* 同じ鍵でやり直す。到達できないだけの失敗は鍵の正しさとは別のため、入力からやり直させない */
   const retry = (): void => {
     const current = view;
-    void (current.kind === 'failed' ? load(current.apiKey) : Promise.resolve());
+    void (current.kind === 'failed' ? load(current.session) : Promise.resolve());
   };
 
   const lock = (): void => {
-    forgetApiKey();
     view = { kind: 'locked', message: null };
   };
 
@@ -205,20 +208,23 @@
    * 「どれが影響を受けるか」なので、この段で共通の行へ落とす。**どれが影響を受けるかの判定はしない**。
    */
   const ASK_PRECONDITIONS = {
-    delete: async (apiKey: string, albumId: string): Promise<ApiResult<readonly AffectedRow[]>> => {
-      const result = await deletionPreconditions(apiKey, albumId);
+    delete: async (
+      session: AdminSession,
+      albumId: string,
+    ): Promise<ApiResult<readonly AffectedRow[]>> => {
+      const result = await deletionPreconditions(session, albumId);
       return result.kind === 'ok' ? { kind: 'ok', value: result.value.map(toAffectedRow) } : result;
     },
     unpublish: async (
-      apiKey: string,
+      session: AdminSession,
       albumId: string,
     ): Promise<ApiResult<readonly AffectedRow[]>> => {
-      const result = await unpublicationPreconditions(apiKey, albumId);
+      const result = await unpublicationPreconditions(session, albumId);
       return result.kind === 'ok' ? { kind: 'ok', value: result.value.map(toAffectedRow) } : result;
     },
   } satisfies Record<
     DestructiveOperation,
-    (apiKey: string, albumId: string) => Promise<ApiResult<readonly AffectedRow[]>>
+    (session: AdminSession, albumId: string) => Promise<ApiResult<readonly AffectedRow[]>>
   >;
 
   const RUN_OPERATION = {
@@ -226,24 +232,28 @@
     unpublish: unpublishAlbum,
   } satisfies Record<
     DestructiveOperation,
-    (apiKey: string, albumId: string) => Promise<ApiResult<unknown>>
+    (session: AdminSession, albumId: string) => Promise<ApiResult<unknown>>
   >;
 
   const ask = async (album: AdminAlbum, operation: DestructiveOperation): Promise<void> => {
     const current = view;
-    return current.kind === 'ready' ? askWith(current.apiKey, album, operation) : undefined;
+    return current.kind === 'ready' ? askWith(current.session, album, operation) : undefined;
   };
 
   const askWith = async (
-    apiKey: string,
+    session: AdminSession,
     album: AdminAlbum,
     operation: DestructiveOperation,
   ): Promise<void> => {
     const askId = Symbol('ask');
     withConfirmation({ kind: 'asking', album, operation, askId, affected: null, message: null });
 
-    const result = await ASK_PRECONDITIONS[operation](apiKey, album.albumId);
-    applyAskOutcome(askId, album, operation, result);
+    const result = await ASK_PRECONDITIONS[operation](session, album.albumId);
+    return applySessionResult(session, result, () => {
+      view =
+        result.kind === 'unauthorized' ? { kind: 'locked', message: failureTextOf(result) } : view;
+      applyAskOutcome(askId, album, operation, result);
+    });
   };
 
   /*
@@ -285,23 +295,29 @@
     const current = view;
     const confirmable = confirmableOf(currentConfirmation());
     return current.kind === 'ready' && confirmable !== null
-      ? runOperation(current.apiKey, confirmable)
+      ? runOperation(current.session, confirmable)
       : undefined;
   };
 
-  const runOperation = async (apiKey: string, confirmation: Confirmable): Promise<void> => {
+  const runOperation = async (session: AdminSession, confirmation: Confirmable): Promise<void> => {
     withConfirmation({ ...confirmation, kind: 'running', message: null });
 
-    const result = await RUN_OPERATION[confirmation.operation](apiKey, confirmation.album.albumId);
-    const failure = failureOf(result);
+    const result = await RUN_OPERATION[confirmation.operation](session, confirmation.album.albumId);
+    return applySessionResult(session, result, () => {
+      const failure = failureOf(result);
 
-    /* 成功なら一覧を読み直す（`load` が対話を閉じた状態へ戻す）。失敗なら影響一覧を残して再実行させる */
-    withConfirmation(
-      failure === null
-        ? { kind: 'closed' }
-        : { ...confirmation, kind: 'rejected', message: failure },
-    );
-    return failure === null ? load(apiKey) : undefined;
+      /* 成功なら一覧を読み直す（`load` が対話を閉じた状態へ戻す）。失敗なら影響一覧を残して再実行させる */
+      withConfirmation(
+        failure === null
+          ? { kind: 'closed' }
+          : { ...confirmation, kind: 'rejected', message: failure },
+      );
+      return result.kind === 'unauthorized'
+        ? ((view = { kind: 'locked', message: failureTextOf(result) }), undefined)
+        : failure === null
+          ? load(session)
+          : undefined;
+    });
   };
 
   /*
@@ -323,22 +339,28 @@
 
   const publish = async (album: AdminAlbum): Promise<void> => {
     const current = view;
-    return current.kind === 'ready' ? publishWith(current.apiKey, album) : undefined;
+    return current.kind === 'ready' ? publishWith(current.session, album) : undefined;
   };
 
   /* 公開は影響を及ばせないため確認を挟まない。失敗は一覧の失敗として抱える（同じ鍵でやり直せる） */
-  const publishWith = async (apiKey: string, album: AdminAlbum): Promise<void> => {
-    const result = await publishAlbum(apiKey, album.albumId);
-    const failure = failureOf(result);
+  const publishWith = async (session: AdminSession, album: AdminAlbum): Promise<void> => {
+    const result = await publishAlbum(session, album.albumId);
+    return applySessionResult(session, result, () => {
+      const failure = failureOf(result);
 
-    view = failure === null ? { kind: 'loading' } : listFailureOf(apiKey, result, failure);
-    return failure === null ? load(apiKey) : undefined;
+      view = failure === null ? { kind: 'loading' } : listFailureOf(session, result, failure);
+      return failure === null ? load(session) : undefined;
+    });
   };
 
-  const listFailureOf = (apiKey: string, result: ApiResult<unknown>, failure: string): View =>
+  const listFailureOf = (
+    session: AdminSession,
+    result: ApiResult<unknown>,
+    failure: string,
+  ): View =>
     result.kind === 'unauthorized'
       ? { kind: 'locked', message: failure }
-      : { kind: 'failed', message: failure, apiKey };
+      : { kind: 'failed', message: failure, session };
 
   /*
    * NARROWING-IN-TEMPLATE: テンプレートの分岐は型の絞り込みを持ち越せないため、状態から取り出した
@@ -389,8 +411,10 @@
     album.publishedAt === null ? '下書き' : '公開';
 </script>
 
+<SessionControls onLogout={lock} />
+
 {#if view.kind === 'locked'}
-  <ApiKeyForm message={lockMessage} onSubmit={(apiKey: string) => void load(apiKey)} />
+  <ApiKeyForm message={lockMessage} onSubmit={(session: AdminSession) => void load(session)} />
 {:else if view.kind === 'loading'}
   <p class="text-muted-foreground">読み込んでいます。</p>
 {:else if failureMessage !== null}
@@ -399,9 +423,6 @@
 
     <div class="flex items-center gap-4">
       <Button type="button" onclick={retry}>再試行</Button>
-      <button class="text-sm underline underline-offset-4" type="button" onclick={lock}>
-        鍵を破棄する
-      </button>
     </div>
   </div>
 {:else}
@@ -410,9 +431,6 @@
       <p class="text-muted-foreground text-sm">{albums.length} 件</p>
       <div class="flex items-center gap-4">
         <a class="text-sm underline underline-offset-4" href={NEW_ALBUM_PATH}>作品を追加する</a>
-        <button class="text-sm underline underline-offset-4" type="button" onclick={lock}>
-          鍵を破棄する
-        </button>
       </div>
     </div>
 

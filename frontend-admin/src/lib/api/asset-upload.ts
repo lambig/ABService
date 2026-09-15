@@ -1,3 +1,4 @@
+import { isCurrentSession, type AdminSession } from '$lib/credentials';
 import {
   confirmAsset,
   issueAssetUploadUrl,
@@ -49,13 +50,13 @@ const delivered = async (uploadUrl: string, file: File): Promise<ApiResult<void>
 };
 
 const confirmDelivered = async (
-  apiKey: string,
+  session: AdminSession,
   file: File,
   issued: AssetUploadUrl,
 ): Promise<ApiResult<ConfirmedAsset>> => {
   const sent = await delivered(issued.uploadUrl, file);
 
-  return sent.kind === 'ok' ? confirmAsset(apiKey, issued.assetKey) : sent;
+  return sent.kind === 'ok' ? confirmAsset(session, issued.assetKey) : sent;
 };
 
 /**
@@ -66,14 +67,18 @@ const confirmDelivered = async (
  * 鍵は返らない**——送っただけの実体は配信されず、それを作品へ結び付けると画像の出ない作品になる。
  * </p>
  *
- * @param apiKey 管理APIの鍵
+ * @param session このタブの管理セッション
  * @param file 選ばれた画像。申告された形式（`type`）をそのまま払い出しへ渡す
  */
 export const uploadAsset = async (
-  apiKey: string,
+  session: AdminSession,
   file: File,
 ): Promise<ApiResult<ConfirmedAsset>> => {
-  const issued = await issueAssetUploadUrl(apiKey, file.type);
+  const issued = await issueAssetUploadUrl(session, file.type);
 
-  return issued.kind === 'ok' ? confirmDelivered(apiKey, file, issued.value) : issued;
+  return isCurrentSession(session)
+    ? issued.kind === 'ok'
+      ? confirmDelivered(session, file, issued.value)
+      : issued
+    : { kind: 'unauthorized' };
 };
