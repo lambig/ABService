@@ -42,11 +42,12 @@ public class AdminSessionResource {
     @Executes(AdminSessions.class)
     public Uni<RestResponse<AdminSessionResponse>> exchange() {
         return Uni.createFrom().item(() -> sessions.exchange(identity))
-                .map(issued -> RestResponse.ResponseBuilder.<AdminSessionResponse>create(RestResponse.StatusCode.OK)
-                        .entity(issued)
-                        .header(HttpHeaders.CACHE_CONTROL, "no-store")
-                        .header("Pragma", "no-cache")
-                        .build());
+                .map(
+                        issued -> RestResponse.ResponseBuilder.<AdminSessionResponse>create(RestResponse.StatusCode.OK)
+                                .entity(issued)
+                                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                                .header("Pragma", "no-cache")
+                                .build());
     }
 
     /**
@@ -60,8 +61,9 @@ public class AdminSessionResource {
     public Uni<RestResponse<Void>> revoke() {
         return Uni.createFrom().voidItem()
                 .invoke(() -> sessions.revoke(identity))
-                .replaceWith(() -> RestResponse.ResponseBuilder.<Void>create(RestResponse.StatusCode.NO_CONTENT)
-                        .header(HttpHeaders.CACHE_CONTROL, "no-store")
-                        .build());
+                .replaceWith(
+                        () -> RestResponse.ResponseBuilder.<Void>create(RestResponse.StatusCode.NO_CONTENT)
+                                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                                .build());
     }
 }

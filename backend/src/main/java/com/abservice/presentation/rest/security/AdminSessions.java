@@ -120,14 +120,16 @@ public class AdminSessions {
      *            セッションで認証した要求元
      */
     public void revoke(SecurityIdentity identity) {
-        revokeDigest(Optional.ofNullable(identity.<String>getAttribute(SESSION_DIGEST))
-                .orElseThrow(ForbiddenException::new));
+        revokeDigest(
+                Optional.ofNullable(identity.<String>getAttribute(SESSION_DIGEST))
+                        .orElseThrow(ForbiddenException::new));
     }
 
     private void revokeDigest(String digest) {
-        sessions.updateAndGet(existing -> existing.entrySet().stream()
-                .filter(not(entry -> entry.getKey().equals(digest)))
-                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)));
+        sessions.updateAndGet(
+                existing -> existing.entrySet().stream()
+                        .filter(not(entry -> entry.getKey().equals(digest)))
+                        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)));
     }
 
     private static String randomToken() {
