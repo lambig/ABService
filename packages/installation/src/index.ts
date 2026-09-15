@@ -39,16 +39,19 @@ const compare = (left: AppVersion, right: AppVersion): number =>
   ) ?? 0;
 const unique = (values: readonly string[]): boolean =>
   new Set(values).size === values.length;
+const packageShape = {
+  packageVersion: id,
+  compatibleAppVersion: z
+    .object({ minInclusive: version, maxExclusive: version })
+    .readonly(),
+  presentationAssetIds: z.array(id).readonly(),
+  assets: z.array(asset).readonly(),
+};
 const manifestSchema = z
   .object({
+    ...packageShape,
     schemaVersion: z.literal(1),
-    packageVersion: id,
-    compatibleAppVersion: z
-      .object({ minInclusive: version, maxExclusive: version })
-      .readonly(),
     albums: z.array(album).readonly(),
-    presentationAssetIds: z.array(id).readonly(),
-    assets: z.array(asset).readonly(),
   })
   .refine(
     (manifest) =>
@@ -135,6 +138,153 @@ export const parseManifest = (input: unknown): ManifestResult => {
             (issue) => `${issue.path.join('.')}: ${issue.message}`,
           ),
         };
+};
+
+const projectionSchema = z
+  .object({
+    ...packageShape,
+    albums: z
+      .array(
+        z
+          .object({
+            albumId: id,
+            title: id,
+            tracks: z
+              .array(
+                z
+                  .object({
+                    trackId: id,
+                    trackNo: bytes.positive(),
+                    title: id,
+                  })
+                  .readonly(),
+              )
+              .readonly(),
+          })
+          .readonly(),
+      )
+      .readonly(),
+    trackAudioBindings: z
+      .array(
+        z
+          .object({
+            trackId: id,
+            assetId: id,
+            durationSeconds: z.number().nonnegative().optional(),
+          })
+          .readonly(),
+      )
+      .readonly(),
+    albumArtworkBindings: z
+      .array(
+        z
+          .object({
+            albumId: id,
+            assetId: id,
+          })
+          .readonly(),
+      )
+      .readonly(),
+  })
+  .refine(
+    (input) =>
+      input.albums.every(
+        (item) =>
+          new Set(item.tracks.map((entry) => entry.trackNo)).size ===
+          item.tracks.length,
+      ),
+    'duplicate track number within album',
+  )
+  .refine(
+    (input) => unique(input.trackAudioBindings.map((item) => item.trackId)),
+    'duplicate track audio binding',
+  )
+  .refine(
+    (input) => unique(input.albumArtworkBindings.map((item) => item.albumId)),
+    'duplicate album artwork binding',
+  )
+  .refine(
+    (input) =>
+      input.albums
+        .flatMap((item) => item.tracks)
+        .every((entry) =>
+          input.trackAudioBindings.some(
+            (binding) => binding.trackId === entry.trackId,
+          ),
+        ),
+    'missing track audio binding',
+  )
+  .refine(
+    (input) =>
+      input.trackAudioBindings.every((binding) =>
+        input.albums.some((item) =>
+          item.tracks.some((entry) => entry.trackId === binding.trackId),
+        ),
+      ),
+    'unknown track in audio binding',
+  )
+  .refine(
+    (input) =>
+      input.albumArtworkBindings.every((binding) =>
+        input.albums.some((item) => item.albumId === binding.albumId),
+      ),
+    'unknown album in artwork binding',
+  )
+  .readonly();
+
+/**
+ * v1.0のID付きAlbum/Track snapshotと配布用assetの対応表。
+ * 公開APIの曲目はtrackIdを持たないため入力元にできない。
+ * 音源・artworkの同定とchecksum計算は呼び出し元が担い、URLから推測しない。
+ */
+export type ManifestProjectionInput = z.infer<typeof projectionSchema>;
+
+/** 入力・対応表の不備と、生成先Manifestの契約違反を区別する。 */
+export type ManifestProjectionResult =
+  | Exclude<ManifestResult, { kind: 'unsupported-schema' }>
+  | Readonly<{ kind: 'invalid-projection'; errors: readonly string[] }>;
+
+/**
+ * Albumの入力順とTrackのtrackNo昇順でschema v1の配布snapshotを生成する純粋関数。
+ * 音源の対応漏れを黙って除外せず、入力と完成Manifestの両方を検証する。
+ * 公開可否・配布権限の判定や取得処理は行わない。
+ */
+export const projectManifest = (input: unknown): ManifestProjectionResult => {
+  const parsed = projectionSchema.safeParse(input);
+  const projected = parsed.success
+    ? manifestSchema.safeParse({
+        ...parsed.data,
+        schemaVersion: 1,
+        albums: parsed.data.albums.map((item) => ({
+          albumId: item.albumId,
+          title: item.title,
+          artworkAssetId: parsed.data.albumArtworkBindings.find(
+            (binding) => binding.albumId === item.albumId,
+          )?.assetId,
+          tracks: [...item.tracks]
+            .sort((left, right) => left.trackNo - right.trackNo)
+            .map((entry) => {
+              const binding = parsed.data.trackAudioBindings.find(
+                (candidate) => candidate.trackId === entry.trackId,
+              );
+              return {
+                trackId: entry.trackId,
+                title: entry.title,
+                audioAssetId: binding?.assetId,
+                durationSeconds: binding?.durationSeconds,
+              };
+            }),
+        })),
+      })
+    : parsed;
+  return projected.success
+    ? { kind: 'manifest', manifest: projected.data }
+    : {
+        kind: parsed.success ? 'invalid-manifest' : 'invalid-projection',
+        errors: projected.error.issues.map(
+          (issue) => `${issue.path.join('.')}: ${issue.message}`,
+        ),
+      };
 };
 
 const environmentSchema = z
