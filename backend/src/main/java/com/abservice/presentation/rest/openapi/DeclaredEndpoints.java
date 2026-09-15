@@ -2,6 +2,7 @@ package com.abservice.presentation.rest.openapi;
 
 import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
+import com.abservice.presentation.rest.security.AdminSessionResource;
 import com.abservice.application.exception.FailureResult;
 import com.abservice.application.query.QueryService;
 import com.abservice.presentation.rest.album.AlbumAdminQueryResource;
@@ -53,6 +54,7 @@ public final class DeclaredEndpoints {
      * </p>
      */
     public static final List<Class<?>> RESOURCES = List.of(
+            AdminSessionResource.class,
             AlbumAdminQueryResource.class,
             AlbumCommandResource.class,
             AlbumQueryResource.class,

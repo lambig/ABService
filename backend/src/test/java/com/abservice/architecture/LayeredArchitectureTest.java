@@ -8,6 +8,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noConstructors
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 import static java.util.function.Predicate.not;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.abservice.application.exception.FailureContract;
 import com.abservice.application.query.QueryService;
@@ -17,6 +18,8 @@ import com.abservice.presentation.rest.openapi.CreatesResource;
 import com.abservice.presentation.rest.openapi.DeclaredEndpoints;
 import com.abservice.presentation.rest.openapi.Executes;
 import com.abservice.presentation.rest.openapi.ProblemDetailErrorContract;
+import com.abservice.presentation.rest.openapi.ResponseNullabilityFilter;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaAccess;
 import com.tngtech.archunit.core.domain.JavaClass;
@@ -32,11 +35,14 @@ import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.library.GeneralCodingRules;
 import jakarta.ws.rs.HttpMethod;
 import jakarta.ws.rs.ext.ExceptionMapper;
+import java.lang.reflect.RecordComponent;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.eclipse.microprofile.openapi.OASFactory;
 
 /**
  * アーキテクチャ制約テスト（フェーズA: 基本ルール）
@@ -349,6 +355,31 @@ class LayeredArchitectureTest {
 
     private static DescribedPredicate<JavaClass> areRecords() {
         return DescribedPredicate.describe("are records", JavaClass::isRecord);
+    }
+
+    /** パッケージの追加漏れで常在する応答項目が省略可能になることを防ぐ。 */
+    @ArchTest
+    void allResponseRecordsShouldHaveRequiredProperties(JavaClasses classes) {
+        final var records = responseRecords(classes).toList();
+        assertThat(records).isNotEmpty();
+        final var schemas = records.stream().collect(
+                Collectors.toUnmodifiableMap(
+                        JavaClass::getSimpleName,
+                        type -> OASFactory.createSchema()));
+        final var document = OASFactory.createOpenAPI()
+                .components(OASFactory.createComponents().schemas(schemas));
+
+        new ResponseNullabilityFilter().filterOpenAPI(document);
+
+        records.stream()
+                .filter(type -> !type.isAnnotatedWith(JsonInclude.class))
+                .forEach(type -> {
+                    final var properties = Arrays.stream(type.reflect().getRecordComponents())
+                            .map(RecordComponent::getName).toList();
+                    assertThat(schemas.get(type.getSimpleName()).getRequired())
+                            .as("%s の全応答項目が必須であること", type.getName())
+                            .containsExactlyInAnyOrderElementsOf(properties);
+                });
     }
 
     private static List<String> sharedSimpleNames(JavaClasses classes) {

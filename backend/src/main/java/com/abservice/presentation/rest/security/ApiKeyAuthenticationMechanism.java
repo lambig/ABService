@@ -15,7 +15,7 @@ import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 
 /**
- * {@code Authorization: Bearer <APIキー>} からAPIキーを抽出する
+ * {@code Authorization: Bearer <APIキーまたは管理トークン>} からBearer資格情報を抽出する
  * HttpAuthenticationMechanism
  *
  * <p>

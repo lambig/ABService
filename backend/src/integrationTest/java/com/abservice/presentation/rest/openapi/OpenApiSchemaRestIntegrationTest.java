@@ -43,6 +43,21 @@ class OpenApiSchemaRestIntegrationTest {
     private static final String PROBLEM_BODY = ".'%s'.content.'application/problem+json'.schema.$ref";
 
     @Test
+    @DisplayName("管理セッションのトークンと期限は必須かつ非nullで返る")
+    void sessionPropertiesAreRequired() {
+        openApi()
+                .body(
+                        okBodyRefOf("post", "/api/v1/admin/sessions"),
+                        equalTo("#/components/schemas/AdminSessionResponse"))
+                .body(SCHEMAS + "AdminSessionResponse.required", containsInAnyOrder("token", "expiresAt"))
+                .body(SCHEMAS + "AdminSessionResponse.properties.token.type", equalTo("string"))
+                .body(
+                        SCHEMAS + "AdminSessionResponse.properties.expiresAt.$ref",
+                        equalTo("#/components/schemas/Instant"))
+                .body(SCHEMAS + "AdminSessionResponse.properties.expiresAt", not(hasKey("anyOf")));
+    }
+
+    @Test
     @DisplayName("応答の項目は値の有無によらず必須で、nullを取り得る項目だけが null 許容になる")
     void responsePropertiesAreRequiredAndNullableWhereDeclared() {
         openApi()

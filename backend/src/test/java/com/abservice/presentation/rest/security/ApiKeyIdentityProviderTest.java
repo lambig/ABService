@@ -51,12 +51,12 @@ class ApiKeyIdentityProviderTest {
     @Test
     @DisplayName("要求型はAPIキー認証要求である")
     void requestTypeIsApiKeyAuthenticationRequest() {
-        assertThat(new ApiKeyIdentityProvider(CONFIGURED_KEY).getRequestType())
+        assertThat(new ApiKeyIdentityProvider(CONFIGURED_KEY, new AdminSessions()).getRequestType())
                 .isEqualTo(ApiKeyAuthenticationRequest.class);
     }
 
     private static SecurityIdentity authenticate(String presentedKey) {
-        return new ApiKeyIdentityProvider(CONFIGURED_KEY)
+        return new ApiKeyIdentityProvider(CONFIGURED_KEY, new AdminSessions())
                 .authenticate(
                         new ApiKeyAuthenticationRequest(presentedKey),
                         CONTEXT)
