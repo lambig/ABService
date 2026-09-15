@@ -49,6 +49,27 @@ const setup = () => {
 const deploy = (context, id = '100-1') => context.delivery.publish({ action: 'deploy', id, codeSha,
   publicRoot: context.publicRoot, adminRoot: context.adminRoot });
 
+test('preflight accepts first deployment and completed state without writes', () => {
+  const context = setup();
+  assert.equal(context.delivery.preflight(), null);
+  const current = deploy(context);
+  context.calls.length = 0;
+  assert.deepEqual(context.delivery.preflight(), current);
+  assert.ok(context.calls.every((args) => args[1] === 'get-object'));
+});
+
+test('preflight refuses pending, access errors and malformed current', () => {
+  const context = setup();
+  context.objects.set('pending.json', JSON.stringify({ id: '101-1' }));
+  assert.throws(() => context.delivery.preflight(), /incomplete/);
+  assert.ok(context.calls.every((args) => args[1] === 'get-object'));
+  context.objects.delete('pending.json');
+  context.objects.set('current.json', '{broken');
+  assert.throws(() => context.delivery.preflight(), SyntaxError);
+  const denied = createDelivery(config, () => { throw Object.assign(new Error('denied'), { stderr: '(AccessDenied)' }); });
+  assert.throws(() => denied.preflight(), /denied/);
+});
+
 test('first deploy archives both builds; records current only after invalidation completes', () => {
   const context = setup();
   deploy(context);

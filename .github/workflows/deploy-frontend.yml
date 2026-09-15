@@ -22,8 +22,11 @@ permissions:
   id-token: write
 
 concurrency:
-  group: deploy-frontend-production
+  # 通常配布はcallerがdeploy-productionを保持する。子が再取得するとdeadlockする。
+  # 手動操作だけ同じgroupを取得し、通常配布のpreflight〜frontend完了へ割り込まない。
+  group: ${{ github.event_name == 'workflow_dispatch' && 'deploy-production' || format('deploy-frontend-{0}', github.run_id) }}
   cancel-in-progress: false
+  queue: max
 
 jobs:
   frontend:
@@ -50,6 +53,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: delivery
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || inputs.commit_sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4

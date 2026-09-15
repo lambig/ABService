@@ -1,6 +1,16 @@
 # フロントエンドの配布と復旧
 
-通常のコード配布は main の CI → backend Deploy 成功 → Deploy frontend の順に進む。checkout は backend が実際に配った full SHA に固定する。内容の変更だけを配る場合は GitHub Actions の **Deploy frontend** を main から実行し、`action=rebuild-public` を選ぶ。公開中の public の SHA を記録から取得し、管理画面はビルド・配布しない。初回の配布記録が無い間は再ビルドできない。
+通常のコード配布は main の CI → frontend配布記録のpreflight → backend Deploy 成功 → Deploy frontend の順に進む。preflightはfrontendロールでpending不在とcurrentの読取り・形式を検査し、失敗するとbackendへ進まない。初回のcurrent不在は許すが、権限・通信・JSONエラーは初回扱いしない。検査helperはCI成功SHA、通常のfrontend配布helperとビルド対象はbackendが実際に配ったfull SHAに固定する。
+
+内容の変更だけを配る場合は GitHub Actions の **Deploy frontend** を main から実行し、`action=rebuild-public` を選ぶ。公開中の public の SHA を記録から取得し、管理画面はビルド・配布しない。手動操作のhelperは起動時のmain SHAを使う。初回の配布記録が無い間は再ビルドできない。
+
+## 操作の排他と再実行
+
+通常配布は `deploy-production` をpreflightからbackend/frontend完了まで保持する。手動frontend再ビルド・rollbackと手動backend rollbackも同じgroupで待つ。通常の再利用frontendは親がロックを保持しているため、run固有のgroupを使って親のロックを再取得しない。
+
+`queue: max`で最大100件の待機を保持し、後発の手動操作で待機中の通常配布を置換しない。順序はgroupで待ち始めた順であり、commit順ではない。上限超過のrunはキャンセルされるので、run結果と配布記録を確認する。Actions外の直接操作にはこの排他は効かない。[GitHubのconcurrency仕様](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)を参照。
+
+失敗した通常Deployを再実行するときは、pendingがあれば先に復旧し、**Re-run all jobs**を使う。preflightとbackendの結果は同じattemptだけで有効とし、「失敗したジョブだけ再実行」で以前の検査やbackend配布結果を流用して後段へ進むことは拒否する。手動backend rollbackは復旧用なのでpendingによるpreflightを迂回できるが、共通groupの排他は保つ。
 
 ## 初回設定（運用者）
 
@@ -40,11 +50,12 @@ S3への複数ファイルの同期は原子的ではない。配布中の短時
 
 ## 受け入れ確認
 
-配布処理の失敗・取り消し・復旧のローカル検査は `node --test infra/release/frontend.test.mjs`。AWSを模した境界試験であり、IAM・CloudFront伝播の実証ではない。本番準備後に次を確認し、結果は運用リポジトリへ保存する。
+配布処理の失敗・取り消し・復旧とworkflowの依存・条件・SHA選択のローカル検査は `node --test infra/release/*.test.mjs`。AWSを模した境界試験とworkflow設定の検査であり、Actionsの実キュー・IAM・CloudFront伝播の実証ではない。本番準備後に次を確認し、結果は運用リポジトリへ保存する。
 
 1. 初回の両画面配布、管理画面からのAPI呼出しとS3画像PUT。
 2. 記事を編集・非公開化して内容再ビルド。旧HTMLが失効し、adminの記録が変わらないこと。
 3. 意図的に配布を失敗させ、currentが進まずpendingが残ること。記録済み成果物へ戻して再照会。
 4. publicの未存在URLの404本文と、APIの403/404のProblem Detailsを別々に確認（#125）。
+5. pendingがある状態で通常Deployを起動し、preflight失敗・backend未実行を確認。通常配布中に手動frontend操作を待機させ、両画面の配布完了後に進むことを確認。
 
 静的S3の未存在キーを公開サイトの404本文に変換する経路は #125 の残件。distribution全体のcustom error responseはAPI応答までHTMLに変えるため採用していない。CSP（#240）・通知（#168）・実環境の復旧演習（#130）を含む残条件の正は各Issue。

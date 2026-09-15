@@ -73,6 +73,9 @@ export const createDelivery = (config, aws = execute) => {
   };
   const current = () => { const value = read('current.json'); return value === null ? null : validateManifest(value); };
   const clean = () => assert.equal(read('pending.json'), null, 'Previous delivery is incomplete. Restore a recorded release before rebuilding.');
+  // Called under the workflow's release lock, before any backend build/deploy.
+  // Missing current is valid for an initial deployment; unreadable/corrupt state is not.
+  const preflight = () => { clean(); return current(); };
   const resolveCode = (action, requestedSha) => {
     assert.ok(['deploy', 'rebuild-public'].includes(action));
     clean();
@@ -150,7 +153,7 @@ export const createDelivery = (config, aws = execute) => {
     }])) : previous;
     return complete(invalidatedPrevious, record, ['public', 'admin'], roots, id);
   };
-  return { resolveCode, publish, rollback };
+  return { preflight, resolveCode, publish, rollback };
 };
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -159,6 +162,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     releaseBucket: env.FRONTEND_RELEASE_BUCKET, distributionId: env.CLOUDFRONT_DISTRIBUTION_ID });
   const [command, action] = process.argv.slice(2);
   const operations = {
+    preflight: () => delivery.preflight(),
     resolve: () => {
       validSite(env.PUBLIC_SITE_URL); validSite(env.API_BASE_URL);
       const codeSha = delivery.resolveCode(action, env.RELEASE_SHA);
