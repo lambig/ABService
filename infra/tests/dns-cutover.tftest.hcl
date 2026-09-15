@@ -43,6 +43,11 @@ run "prepare_apex" {
   command = plan
 
   assert {
+    condition     = alltrue([for record in aws_route53_record.cert_validation : record.type == "CNAME"])
+    error_message = "ACM validation record types must be CNAME, including preparation."
+  }
+
+  assert {
     condition     = length(aws_route53_record.root) == 0 && length(aws_route53_record.root_ipv6) == 0 && length(aws_route53_record.www) == 0
     error_message = "Preparation must not manage serving DNS records."
   }
