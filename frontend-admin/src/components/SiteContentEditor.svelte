@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MarkupInput from '$components/MarkupInput.svelte';
   import SessionControls from '$components/SessionControls.svelte';
   import ApiKeyForm from '$components/ApiKeyForm.svelte';
   import { Button } from '$components/ui/button/index.js';
@@ -492,15 +493,16 @@
 
         <div class="space-y-1" data-field="content">
           <label class="text-sm font-medium" for="site-content-content">本文</label>
-          <textarea
+          <MarkupInput
             id="site-content-content"
-            class="border-input bg-background w-full rounded-md border px-3 py-2"
-            rows="6"
             value={draft.content}
-            aria-invalid={messagesOf('content').length > 0}
-            oninput={(event) => {
-              update({ content: event.currentTarget.value });
-            }}></textarea>
+            markdown={draft.contentFormat === 'MARKDOWN'}
+            disabled={saving}
+            invalid={messagesOf('content').length > 0}
+            onEdit={(value: string) => {
+              update({ content: value });
+            }}
+          />
           {#each messagesOf('content') as message (message)}
             <p class="text-destructive text-sm" role="alert">{message}</p>
           {/each}

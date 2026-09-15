@@ -1,5 +1,6 @@
 <script lang="ts">
   import SessionControls from '$components/SessionControls.svelte';
+  import MarkupInput from '$components/MarkupInput.svelte';
   import ApiKeyForm from '$components/ApiKeyForm.svelte';
   import ArticleAlbumEditor from '$components/ArticleAlbumEditor.svelte';
   import ArticleTagsEditor from '$components/ArticleTagsEditor.svelte';
@@ -916,6 +917,17 @@
                     <option value={choice}>{CHOICE_LABELS[choice] ?? choice}</option>
                   {/each}
                 </select>
+              {:else if field.path === 'body'}
+                <MarkupInput
+                  id={idOf(field.path)}
+                  value={draft.body}
+                  markdown={draft.bodyFormat === 'MARKDOWN'}
+                  disabled={blocked}
+                  invalid={messagesOf(field.path).length > 0}
+                  onEdit={(value: string) => {
+                    update('body', value);
+                  }}
+                />
               {:else if field.kind === 'multiline'}
                 <textarea
                   id={idOf(field.path)}
