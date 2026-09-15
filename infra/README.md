@@ -51,6 +51,8 @@ terraform apply cutover.tfplan
 
 **旧構成を適用済みの場合**は、最初から `dns_cutover_enabled = true` を実値ファイルに入れる。`moved` が既存の root を `[0]` へ移す。false のままなら `prevent_destroy` が削除を拒否するので、稼働中の A レコードを黙って消すことはない。
 
+**既に検索公開済みの環境では `public_indexing_enabled = true` も明示する。** 新しい既定falseのまま適用すると、DNSを維持していても公開ページへ `X-Robots-Tag: noindex, nofollow` が付く。既存環境の移行では、DNSと検索公開の両方を現状に合わせて実値ファイルへ設定し、planで公開側のレスポンスヘッダーポリシーを意図せず変更しないことを確認する。まだ検索公開していない環境はfalseを維持する。管理画面とAPIのnoindexは、どちらの場合も維持する。
+
 **切り戻しで false にするだけではいけない。** `prevent_destroy` が削除を拒否する。運用側の控えから A/AAAA（採用時は www も）を戻し、Terraform にも復旧後の管理方針を反映する。管理から外す場合は対象の DNS レコードだけを `terraform state rm` し、false に戻した plan に DNS 操作が無いことを確かめる。state 全体は巻き戻さない。
 
 公開サイトの検索対象化は `public_indexing_enabled` で切替と分ける。既定falseでは `X-Robots-Tag: noindex, nofollow` を付ける。受け入れ後にtrueにする。管理画面とAPIのnoindexは解除しない。noindexはアクセス制御ではない。

@@ -31,16 +31,29 @@ variables {
 }
 
 // Terraform 1.9 mock overrides become known at apply, unlike ACM plan-time values.
-// Seed only the mocked certificate before planning the full stack.
-run "prepare_certificate" {
+// Seed the mocked certificate and policy ID before planning the full stack.
+// The policy ID must be known so plan assertions can compare its behavior bindings.
+run "prepare_plan_dependencies" {
   command = apply
   plan_options {
-    target = [aws_acm_certificate.cloudfront]
+    target = [aws_acm_certificate.cloudfront, aws_cloudfront_response_headers_policy.noindex]
   }
 }
 
 run "prepare_apex" {
   command = plan
+
+  assert {
+    condition     = aws_cloudfront_distribution.main.default_cache_behavior[0].response_headers_policy_id == aws_cloudfront_response_headers_policy.noindex.id
+    error_message = "Default preparation must attach noindex to public pages."
+  }
+  assert {
+    condition = alltrue([
+      for path in ["/admin*", "/api/*"] :
+      one([for behavior in aws_cloudfront_distribution.main.ordered_cache_behavior : behavior if behavior.path_pattern == path]).response_headers_policy_id == aws_cloudfront_response_headers_policy.noindex.id
+    ])
+    error_message = "Admin and API must retain noindex regardless of public indexing."
+  }
 
   assert {
     condition     = alltrue([for record in aws_route53_record.cert_validation : record.type == "CNAME"])
@@ -95,5 +108,34 @@ run "cutover_both_families" {
   assert {
     condition     = length(aws_route53_record.root) == 1 && length(aws_route53_record.root_ipv6) == 1 && length(aws_route53_record.www) == 2
     error_message = "Cutover must include A and AAAA for both enabled names."
+  }
+}
+
+run "enable_public_indexing" {
+  command = plan
+  variables {
+    serve_www               = true
+    dns_cutover_enabled     = true
+    public_indexing_enabled = true
+  }
+
+  assert {
+    condition     = aws_cloudfront_distribution.main.default_cache_behavior[0].response_headers_policy_id == null
+    error_message = "Search publication must remove the public noindex policy."
+  }
+  assert {
+    condition = alltrue([
+      for path in ["/admin*", "/api/*"] :
+      one([for behavior in aws_cloudfront_distribution.main.ordered_cache_behavior : behavior if behavior.path_pattern == path]).response_headers_policy_id == aws_cloudfront_response_headers_policy.noindex.id
+    ])
+    error_message = "Admin and API must retain noindex regardless of public indexing."
+  }
+
+  assert {
+    condition = alltrue([
+      for item in one(aws_cloudfront_response_headers_policy.noindex.custom_headers_config).items :
+      item.header == "X-Robots-Tag" && item.value == "noindex, nofollow" && item.override
+    ]) && length(one(aws_cloudfront_response_headers_policy.noindex.custom_headers_config).items) == 1
+    error_message = "The retained policy must enforce X-Robots-Tag noindex, nofollow."
   }
 }
