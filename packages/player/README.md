@@ -32,6 +32,6 @@ ffmpegの`sine` source（振幅既定値）→`volume=0.15`→FLAC compression l
 実ChromiumでFLACデコードと再生時刻の進行を検査する。停止・選曲・破棄での解放と、
 中止を無視した旧取得の遅延完了・破損音源・取得失敗・play拒否も検証する。
 headlessの時刻進行はスピーカーからの可聴出力や対象Androidでの音切れの証明ではない。
-実機評価と後続の接続作業は#313 / #110を正とする。
+実機評価と後続の接続作業は#110を正とする。#313はこの最小プレイヤーの操作・resolver境界の受け入れを扱う。
 
 再生許可の参照: [HTMLMediaElement.play](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/play)。
