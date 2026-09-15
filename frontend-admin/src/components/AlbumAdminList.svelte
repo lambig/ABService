@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
+  import { observedAlbum, outcomeUnknown } from '$lib/api/album-recovery';
   import SessionControls from '$components/SessionControls.svelte';
   import ApiKeyForm from '$components/ApiKeyForm.svelte';
   import DestructiveConfirmDialog from '$components/DestructiveConfirmDialog.svelte';
@@ -14,6 +16,7 @@
   } from '$lib/api/list-page';
   import {
     deleteAlbum,
+    getAlbum,
     deletionPreconditions,
     listAlbums,
     publishAlbum,
@@ -100,6 +103,16 @@
   /** 確定できる状態。ここからだけ実行へ進む */
   type Confirmable = Extract<Confirmation, { readonly kind: 'ready' | 'rejected' }>;
 
+  type RecoveryTarget = {
+    readonly album: AdminAlbum;
+    readonly operation: 'publish' | DestructiveOperation;
+    readonly page: number;
+  };
+
+  type RecoveryCheck =
+    | { readonly kind: 'idle' | 'checking' }
+    | { readonly kind: 'failed' | 'observed'; readonly message: string };
+
   /**
    * 画面の状態。
    *
@@ -108,9 +121,20 @@
    * （一覧が出ていない状態で確認だけ開いている、という組み合わせを作らない）。
    */
   type View =
-    | { readonly kind: 'locked'; readonly message: string | null; readonly page: number }
+    | {
+        readonly kind: 'locked';
+        readonly message: string | null;
+        readonly page: number;
+        readonly recovery?: RecoveryTarget;
+      }
     | { readonly kind: 'loading' }
     | { readonly kind: 'publishing' }
+    | {
+        readonly kind: 'unknown';
+        readonly session: AdminSession;
+        readonly target: RecoveryTarget;
+        readonly check: RecoveryCheck;
+      }
     | {
         readonly kind: 'ready';
         readonly session: AdminSession;
@@ -126,6 +150,74 @@
       };
 
   let view = $state<View>({ kind: 'locked', message: null, page: 0 });
+  let activeRequest = $state<AbortController | null>(null);
+  const startRequest = (): AbortSignal => {
+    activeRequest?.abort();
+    activeRequest = new AbortController();
+    return activeRequest.signal;
+  };
+  onDestroy(() => {
+    activeRequest?.abort();
+  });
+
+  const unknownView = (session: AdminSession, target: RecoveryTarget): View => ({
+    kind: 'unknown',
+    session,
+    target,
+    check: { kind: 'idle' },
+  });
+
+  const recheck = async (): Promise<void> => {
+    const current = view;
+    return current.kind === 'unknown' && current.check.kind !== 'checking'
+      ? checkWith(current.session, current.target)
+      : undefined;
+  };
+
+  const checkWith = async (session: AdminSession, target: RecoveryTarget): Promise<void> => {
+    const signal = startRequest();
+    view = { kind: 'unknown', session, target, check: { kind: 'checking' } };
+    const result = await getAlbum(session, target.album.albumId, signal);
+    const observation = observedAlbum(result);
+    return signal.aborted
+      ? undefined
+      : applySessionResult(session, result, () => {
+          view =
+            result.kind === 'unauthorized'
+              ? {
+                  kind: 'locked',
+                  message: failureTextOf(result),
+                  page: target.page,
+                  recovery: target,
+                }
+              : {
+                  kind: 'unknown',
+                  session,
+                  target,
+                  check:
+                    observation === null
+                      ? {
+                          kind: 'failed',
+                          message: failureOf(result) ?? '現在の状態を確認できませんでした。',
+                        }
+                      : { kind: 'observed', message: observation },
+                };
+        });
+  };
+
+  const returnToList = (): void => {
+    const current = view;
+    void (current.kind === 'unknown' && current.check.kind === 'observed'
+      ? load(current.session, current.target.page)
+      : undefined);
+  };
+
+  const unlock = (session: AdminSession): void => {
+    const current = view;
+    void (current.kind === 'locked' && current.recovery !== undefined
+      ? checkWith(session, current.recovery)
+      : load(session, lockedPage));
+  };
 
   /** 失敗した結果 */
   type ApiFailure = Exclude<ApiResult<unknown>, { readonly kind: 'ok' }>;
@@ -164,10 +256,13 @@
   };
 
   const load = async (session: AdminSession, page: number): Promise<void> => {
+    const signal = startRequest();
     view = { kind: 'loading' };
 
-    const result = await listAlbums(session, page);
-    return applySessionResult(session, result, () => applyListOutcome(session, page, result));
+    const result = await listAlbums(session, page, signal);
+    return signal.aborted
+      ? undefined
+      : applySessionResult(session, result, () => applyListOutcome(session, page, result));
   };
 
   /*
@@ -188,6 +283,7 @@
   };
 
   const lock = (): void => {
+    activeRequest?.abort();
     view = { kind: 'locked', message: null, page: 0 };
   };
 
@@ -239,20 +335,26 @@
     delete: async (
       session: AdminSession,
       albumId: string,
+      signal: AbortSignal,
     ): Promise<ApiResult<readonly AffectedRow[]>> => {
-      const result = await deletionPreconditions(session, albumId);
+      const result = await deletionPreconditions(session, albumId, signal);
       return result.kind === 'ok' ? { kind: 'ok', value: result.value.map(toAffectedRow) } : result;
     },
     unpublish: async (
       session: AdminSession,
       albumId: string,
+      signal: AbortSignal,
     ): Promise<ApiResult<readonly AffectedRow[]>> => {
-      const result = await unpublicationPreconditions(session, albumId);
+      const result = await unpublicationPreconditions(session, albumId, signal);
       return result.kind === 'ok' ? { kind: 'ok', value: result.value.map(toAffectedRow) } : result;
     },
   } satisfies Record<
     DestructiveOperation,
-    (session: AdminSession, albumId: string) => Promise<ApiResult<readonly AffectedRow[]>>
+    (
+      session: AdminSession,
+      albumId: string,
+      signal: AbortSignal,
+    ) => Promise<ApiResult<readonly AffectedRow[]>>
   >;
 
   const RUN_OPERATION = {
@@ -277,16 +379,19 @@
     page: number,
   ): Promise<void> => {
     const askId = Symbol('ask');
+    const signal = startRequest();
     withConfirmation({ kind: 'asking', album, operation, askId, affected: null, message: null });
 
-    const result = await ASK_PRECONDITIONS[operation](session, album.albumId);
-    return applySessionResult(session, result, () => {
-      view =
-        result.kind === 'unauthorized'
-          ? { kind: 'locked', message: failureTextOf(result), page }
-          : view;
-      applyAskOutcome(askId, album, operation, result);
-    });
+    const result = await ASK_PRECONDITIONS[operation](session, album.albumId, signal);
+    return signal.aborted
+      ? undefined
+      : applySessionResult(session, result, () => {
+          view =
+            result.kind === 'unauthorized'
+              ? { kind: 'locked', message: failureTextOf(result), page }
+              : view;
+          applyAskOutcome(askId, album, operation, result);
+        });
   };
 
   /*
@@ -338,23 +443,37 @@
     page: number,
   ): Promise<void> => {
     withConfirmation({ ...confirmation, kind: 'running', message: null });
+    const signal = startRequest();
 
-    const result = await RUN_OPERATION[confirmation.operation](session, confirmation.album.albumId);
-    return applySessionResult(session, result, () => {
-      const failure = failureOf(result);
+    const result = await RUN_OPERATION[confirmation.operation](
+      session,
+      confirmation.album.albumId,
+      signal,
+    );
+    return signal.aborted
+      ? undefined
+      : applySessionResult(session, result, () => {
+          const failure = failureOf(result);
 
-      /* 成功なら一覧を読み直す（`load` が対話を閉じた状態へ戻す）。失敗なら影響一覧を残して再実行させる */
-      withConfirmation(
-        failure === null
-          ? { kind: 'closed' }
-          : { ...confirmation, kind: 'rejected', message: failure },
-      );
-      return result.kind === 'unauthorized'
-        ? ((view = { kind: 'locked', message: failureTextOf(result), page }), undefined)
-        : failure === null
-          ? load(session, page)
-          : undefined;
-    });
+          /* 成功なら一覧を読み直す（`load` が対話を閉じた状態へ戻す）。失敗なら影響一覧を残して再実行させる */
+          withConfirmation(
+            failure === null
+              ? { kind: 'closed' }
+              : { ...confirmation, kind: 'rejected', message: failure },
+          );
+          return outcomeUnknown(result)
+            ? ((view = unknownView(session, {
+                album: confirmation.album,
+                operation: confirmation.operation,
+                page,
+              })),
+              undefined)
+            : result.kind === 'unauthorized'
+              ? ((view = { kind: 'locked', message: failureTextOf(result), page }), undefined)
+              : failure === null
+                ? load(session, page)
+                : undefined;
+        });
   };
 
   /*
@@ -363,6 +482,8 @@
    */
   const cancel = (): void => {
     const confirmation = currentConfirmation();
+    const pending = confirmation.kind === 'asking' ? activeRequest : null;
+    pending?.abort();
     withConfirmation(confirmation.kind === 'running' ? confirmation : { kind: 'closed' });
   };
 
@@ -389,13 +510,20 @@
   ): Promise<void> => {
     /* 公開中にページを送ると、完了後の再照会が移動先を上書きするため、実行中の状態に移す。 */
     view = { kind: 'publishing' };
-    const result = await publishAlbum(session, album.albumId);
-    return applySessionResult(session, result, () => {
-      const failure = failureOf(result);
+    const signal = startRequest();
+    const result = await publishAlbum(session, album.albumId, signal);
+    return signal.aborted
+      ? undefined
+      : applySessionResult(session, result, () => {
+          const failure = failureOf(result);
 
-      view = failure === null ? { kind: 'loading' } : listFailureOf(session, result, failure, page);
-      return failure === null ? load(session, page) : undefined;
-    });
+          view = outcomeUnknown(result)
+            ? unknownView(session, { album, operation: 'publish', page })
+            : failure === null
+              ? { kind: 'loading' }
+              : listFailureOf(session, result, failure, page);
+          return failure === null ? load(session, page) : undefined;
+        });
   };
 
   const listFailureOf = (
@@ -428,6 +556,15 @@
   const range = $derived(rangeOf(page));
   const lockedPage = $derived(view.kind === 'locked' ? view.page : 0);
   const lockMessage = $derived(view.kind === 'locked' ? view.message : null);
+  const recovery = $derived(view.kind === 'unknown' ? view : null);
+  const recoveryMessage = $derived(
+    recovery !== null && 'message' in recovery.check ? recovery.check.message : null,
+  );
+  const recoveryLabel = $derived(
+    recovery === null
+      ? ''
+      : { publish: '公開', unpublish: '非公開化', delete: '削除' }[recovery.target.operation],
+  );
   const failureMessage = $derived(view.kind === 'failed' ? view.message : null);
   const confirmation = $derived<Confirmation>(
     view.kind === 'ready' ? view.confirmation : { kind: 'closed' },
@@ -478,10 +615,33 @@
 <SessionControls onLogout={lock} />
 
 {#if view.kind === 'locked'}
-  <ApiKeyForm
-    message={lockMessage}
-    onSubmit={(session: AdminSession) => void load(session, lockedPage)}
-  />
+  <ApiKeyForm message={lockMessage} onSubmit={unlock} />
+{:else if recovery !== null}
+  <section class="max-w-xl space-y-4" aria-label="操作結果の確認">
+    <p role="alert">
+      「{recovery.target.album.title}」の{recoveryLabel}結果を確認できませんでした。
+    </p>
+    <p class="text-muted-foreground">
+      サーバーで処理が完了している可能性があります。同じ操作を再送せず、現在の状態を確認してください。
+    </p>
+    {#if recoveryMessage !== null}
+      <p role="status">{recoveryMessage}</p>
+    {/if}
+    {#if recovery.check.kind === 'checking'}
+      <p role="status">現在の状態を確認しています。</p>
+    {/if}
+    {#if recovery.check.kind === 'observed'}
+      <p class="text-muted-foreground">
+        これは再照会時点の状態です。元の処理がまだ続いている場合や、別の操作が反映された場合もあります。再操作の前に状態を確かめてください。
+      </p>
+      <Button type="button" variant="outline" onclick={returnToList}>一覧を読み直す</Button>
+    {/if}
+    <Button
+      type="button"
+      disabled={recovery.check.kind === 'checking'}
+      onclick={() => void recheck()}>現在の状態を確認</Button
+    >
+  </section>
 {:else if view.kind === 'loading'}
   <p class="text-muted-foreground">読み込んでいます。</p>
 {:else if view.kind === 'publishing'}

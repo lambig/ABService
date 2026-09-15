@@ -18,7 +18,7 @@ export type ApiResult<T> =
   | Readonly<{
       kind: 'failed';
       message: string;
-      reason?: 'network' | 'http' | 'invalid-response';
+      reason?: 'network' | 'http' | 'invalid-response' | 'timeout' | 'aborted';
       status?: number;
       problem?: ProblemDetails;
     }>;
@@ -83,7 +83,10 @@ const failure = async (response: Response): Promise<Exclude<ApiResult<never>, { 
       };
 };
 
-const send = async <T>(
+/** ヘッダーだけでなく本文の読み取りまで含む待機期限。自動再送はしない。 */
+export const REQUEST_TIMEOUT_MS = 30_000;
+
+const receive = async <T>(
   url: string,
   init: RequestInit,
   decode: (response: Response) => Promise<ApiResult<T>>,
@@ -95,6 +98,43 @@ const send = async <T>(
     : response.ok
       ? decode(response)
       : failure(response);
+};
+
+const send = async <T>(
+  url: string,
+  init: RequestInit,
+  decode: (response: Response) => Promise<ApiResult<T>>,
+  fetcher: typeof fetch,
+): Promise<ApiResult<T>> => {
+  const controller = new AbortController();
+  const interrupted = Promise.withResolvers<ApiResult<T>>();
+  const interrupt = (reason: 'timeout' | 'aborted'): void => {
+    interrupted.resolve({
+      kind: 'failed',
+      reason,
+      message:
+        reason === 'timeout'
+          ? '通信が30秒以内に完了しませんでした。'
+          : '通信の待機を中断しました。',
+    });
+    controller.abort();
+  };
+  const abort = (): void => {
+    interrupt('aborted');
+  };
+  const timer = setTimeout(() => {
+    interrupt('timeout');
+  }, REQUEST_TIMEOUT_MS);
+  init.signal?.addEventListener('abort', abort, { once: true });
+  /* ABORT-RACE: 中断を無視する通信や本文でも待機を終えるため、abortだけに頼らず結果を競合させる。 */
+  const response =
+    init.signal?.aborted === true
+      ? (abort(), interrupted.promise)
+      : receive(url, { ...init, signal: controller.signal }, decode, fetcher);
+  return Promise.race([response, interrupted.promise]).finally(() => {
+    clearTimeout(timer);
+    init.signal?.removeEventListener('abort', abort);
+  });
 };
 
 /** JSON本体を必要とする操作。204をTに偽装しない。 */
