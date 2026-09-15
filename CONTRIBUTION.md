@@ -99,7 +99,7 @@ ABService/
 
 ## 本番作業の参照先
 
-初回構築・デプロイ・ロールバックの手順は [infra/README.md](infra/README.md) を正とします。実環境の設定値や投入データ、切替・復旧の証跡は非公開の運用リポジトリで管理し、公開 PR には入れません。受け入れ条件と作業順序は [ロードマップ #224](https://github.com/lambig/ABService/issues/224) と各 issue を参照してください。
+ABService 側の構築・配布・ロールバック機構の技術的な操作と契約は [infra/README.md](infra/README.md) を正とします。実環境での作業順序・停止条件・切替判断・証跡は非公開の運用リポジトリ（ABAffairs）を正とし、実環境の設定値や投入データもそこで管理して公開 PR には入れません。開発側の依存関係とリリース阻害条件は [ロードマップ #224](https://github.com/lambig/ABService/issues/224)・各 issue・milestone を参照してください。
 
 ## コーディング規約
 

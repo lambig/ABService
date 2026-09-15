@@ -25,11 +25,11 @@ WebService/Site implementation for my own use
 
 ## 本番デプロイと復旧
 
-AWS の初回構築・通常デプロイ・既存イメージへのロールバックは [infra/README.md](infra/README.md) を参照してください。設定項目と実行コマンドはそこへ集約し、この文書へ複製しません。
+ABService 側の構築・配布・ロールバック機構の技術的な操作と契約は [infra/README.md](infra/README.md) を正とします。設定項目と実行コマンドはそこを入口に参照してください。
 
-実環境の設定値・投入する本文や画像・切替判断・復旧演習の証跡は、非公開の運用リポジトリで管理します。公開リポジトリには実ドメインやアカウント固有値を置かず、秘密値は Git に保存しません。
+実環境での作業順序・停止条件・切替判断・証跡は、非公開の運用リポジトリ（ABAffairs）を正とします。実環境の設定値・投入する本文や画像もそこで管理します。公開リポジトリには実ドメインやアカウント固有値を置かず、秘密値は Git に保存しません。
 
-リリース順序と依存関係は [ロードマップ #224](https://github.com/lambig/ABService/issues/224)、v1.0 のスコープは [#132](https://github.com/lambig/ABService/issues/132)、進捗は各 issue と milestone が正です。CI 通過と本番受け入れは別で、実環境での配信・復旧・監視の確認が必要です。
+開発側の依存関係とリリース阻害条件は [ロードマップ #224](https://github.com/lambig/ABService/issues/224)・各 issue・milestone、v1.0 のスコープは [#132](https://github.com/lambig/ABService/issues/132) を正とします。進捗は各 issue と milestone で管理します。CI 通過と本番受け入れは別で、実環境での配信・復旧・監視の確認が必要です。
 
 ## 開発
 
