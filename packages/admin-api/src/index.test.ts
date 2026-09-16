@@ -115,6 +115,51 @@ describe('管理APIクライアント', () => {
     });
   });
 
+  it('作品参照やタグが付かなかった記事は消してから失敗を伝え、途中の下書きを残さない', async () => {
+    const { send, calls } = fetchReturning([
+      Response.json({ articleId: 'article-1' }),
+      Response.json({}),
+      Response.json({}),
+      new Response('{"detail":"tag too long"}', { status: 400 }),
+      new Response(null, { status: 204 }),
+    ]);
+
+    await expect(
+      connection(send).seedDraftArticle({
+        articleType: 'ALBUM',
+        title: 'Article',
+        albumId: 'album-1',
+        tags: ['one', 'x'.repeat(101)],
+      }),
+    ).rejects.toThrow('POST /api/v1/articles/article-1/tags が失敗しました（HTTP 400）');
+
+    expect(calls.map((call) => `${call.init?.method ?? 'GET'} ${call.url}`)).toEqual([
+      'POST http://backend.test/api/v1/articles',
+      'PUT http://backend.test/api/v1/articles/article-1/album',
+      'POST http://backend.test/api/v1/articles/article-1/tags',
+      'POST http://backend.test/api/v1/articles/article-1/tags',
+      'DELETE http://backend.test/api/v1/articles/article-1',
+    ]);
+  });
+
+  it('途中の下書きを消せなかったときは、その記事のIDを添えて元の失敗を伝える', async () => {
+    const { send } = fetchReturning([
+      Response.json({ articleId: 'article-1' }),
+      new Response('{"detail":"no such album"}', { status: 404 }),
+      new Response(null, { status: 500 }),
+    ]);
+
+    await expect(
+      connection(send).seedDraftArticle({
+        articleType: 'ALBUM',
+        title: 'Article',
+        albumId: 'gone',
+      }),
+    ).rejects.toThrow(
+      /PUT \/api\/v1\/articles\/article-1\/album が失敗しました（HTTP 404）.*\n途中まで組み立てた記事 article-1 を消せませんでした。手で消してから再実行してください: DELETE/u,
+    );
+  });
+
   it('記事は作成のあとに作品参照とタグを1件ずつ付ける', async () => {
     const { send, calls } = fetchReturning([
       Response.json({ articleId: 'article-1' }),

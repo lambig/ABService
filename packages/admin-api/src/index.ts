@@ -439,18 +439,11 @@ export const adminApi = (connection: AdminApiConnection) => {
     return items.filter((item) => (item.catalogNumber ?? '').startsWith(prefix));
   };
 
-  /** 記事を作り、作品への参照とタグを付ける（下書きのまま） */
-  const seedDraftArticle = async (article: ArticleSeed): Promise<string> => {
-    const created = await post('/api/v1/articles', {
-      articleType: article.articleType,
-      title: article.title,
-      body: article.body,
-      bodyFormat: article.bodyFormat,
-      introShort: article.introShort,
-    });
+  const deleteArticle = (articleId: string): Promise<void> =>
+    remove(`/api/v1/articles/${articleId}`);
 
-    const articleId = articleIdOf(created);
-
+  /** 作った直後の記事へ、作品参照とタグを付ける */
+  const attachToDraftArticle = async (articleId: string, article: ArticleSeed): Promise<void> => {
     /*
      * 参照の設定は全項目置換の PUT（作成時のリクエストは参照を持たない）。作成直後のため世代は0
      * （紐付けも記事の世代を進める契約、#323）。
@@ -469,8 +462,45 @@ export const adminApi = (connection: AdminApiConnection) => {
     for (const name of article.tags ?? []) {
       await post(`/api/v1/articles/${articleId}/tags`, { name });
     }
+  };
 
-    return articleId;
+  /** 途中まで組み立てた記事を消す。消せなかったときは、その記事のIDを添えて元の失敗を伝える */
+  const rolledBack = async (articleId: string, cause: unknown): Promise<never> => {
+    const failure = cause instanceof Error ? cause : new Error(String(cause));
+    return deleteArticle(articleId).then(
+      () => Promise.reject(failure),
+      (rollbackFailure: unknown) =>
+        Promise.reject(
+          new Error(
+            `${failure.message}\n途中まで組み立てた記事 ${articleId} を消せませんでした。手で消してから再実行してください: ${rollbackFailure instanceof Error ? rollbackFailure.message : String(rollbackFailure)}`,
+            { cause: failure },
+          ),
+        ),
+    );
+  };
+
+  /**
+   * 記事を作り、作品への参照とタグを付ける（下書きのまま）。
+   *
+   * 本体・参照・タグは別々のリクエストのため、途中で落ちると参照やタグを欠いた下書きが残る。残すと、
+   * タイトルで同定する呼び出し側（ローダ）がそれを「登録済み」として扱い、欠けを埋めないまま公開しうる。
+   * 本体を作った後に落ちたときは記事を消してから失敗を伝え、投入先に残るのを完全な記事だけにする。
+   */
+  const seedDraftArticle = async (article: ArticleSeed): Promise<string> => {
+    const created = await post('/api/v1/articles', {
+      articleType: article.articleType,
+      title: article.title,
+      body: article.body,
+      bodyFormat: article.bodyFormat,
+      introShort: article.introShort,
+    });
+
+    const articleId = articleIdOf(created);
+
+    return attachToDraftArticle(articleId, article).then(
+      () => articleId,
+      (cause: unknown) => rolledBack(articleId, cause),
+    );
   };
 
   const getAdminArticleDetail = async (articleId: string): Promise<AdminArticleDetail> =>
@@ -483,9 +513,6 @@ export const adminApi = (connection: AdminApiConnection) => {
   const publishArticle = async (articleId: string): Promise<void> => {
     await post(`/api/v1/articles/${articleId}/publish`, {});
   };
-
-  const deleteArticle = (articleId: string): Promise<void> =>
-    remove(`/api/v1/articles/${articleId}`);
 
   const fetchAdminArticlePage = async (page: number): Promise<AdminArticlePage> =>
     (await get(`/api/v1/admin/articles?page=${String(page)}&size=100`)) as AdminArticlePage;
