@@ -125,8 +125,9 @@ jobs:
           fi
 
           # タグは checkout した commit から決まる。手動起動でも、配るファイルと同じ commit の
-          # イメージだけが対象になる（そのタグが ECR に在ることは次のステップが確かめる）
-          echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          # イメージだけが対象になる（そのタグが ECR に在ることは digest を解くステップが確かめる）。
+          # 接頭辞は infra/ecr.tf の保持規則と揃える（scripts/check-deploy-image-tag.sh が突き合わせる）
+          echo "tag=sha-$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "attempt=$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
 
@@ -148,7 +149,6 @@ jobs:
         run: |
           docker build -f backend/src/main/docker/Dockerfile.jvm \
             -t "$REGISTRY/$REPOSITORY:$TAG" \
-            -t "$REGISTRY/$REPOSITORY:latest" \
             backend
 
       # ECR へ入れる前に、実機が動かせる架構であることを確かめる。ランナーの種類が変わっても
@@ -173,17 +173,35 @@ jobs:
           REGISTRY: ${{ steps.ecr-login.outputs.registry }}
           REPOSITORY: ${{ vars.ECR_REPOSITORY }}
           TAG: ${{ steps.resolve.outputs.tag }}
-        run: |
-          docker push "$REGISTRY/$REPOSITORY:$TAG"
-          docker push "$REGISTRY/$REPOSITORY:latest"
+        run: docker push "$REGISTRY/$REPOSITORY:$TAG"
 
-      # ロールバック経路: image_tag指定時は再ビルドせず、ECRに既に存在するタグのみを対象にする。
-      - name: Verify target image exists
-        if: steps.resolve.outputs.build == 'false'
+      # 配るのはタグではなく digest。リポジトリは MUTABLE のため、タグは後から別の実体を指しうるが、
+      # digest は配った時点の実体を一意に表す。ロールバック経路（再ビルドしない）では、このステップが
+      # 「そのタグのイメージが ECR に在ること」の確認も兼ねる（無ければ describe-images が失敗する）。
+      # 証跡（運用側の台帳）が記録する「稼働 image digest」の出所でもある
+      - name: Resolve the image digest
+        id: digest
         env:
           REPOSITORY: ${{ vars.ECR_REPOSITORY }}
           TAG: ${{ steps.resolve.outputs.tag }}
-        run: aws ecr describe-images --repository-name "$REPOSITORY" --image-ids imageTag="$TAG"
+        run: |
+          DIGEST="$(aws ecr describe-images --repository-name "$REPOSITORY" --image-ids imageTag="$TAG" \
+            --query 'imageDetails[0].imageDigest' --output text)"
+          case "$DIGEST" in
+          sha256:*) ;;
+          *)
+            echo "Could not resolve a digest for $REPOSITORY:$TAG (got '$DIGEST')." >&2
+            exit 1
+            ;;
+          esac
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "image tag: $TAG"
+          echo "image digest: $DIGEST"
+          {
+            echo "## Backend image"
+            echo "- tag: \`$TAG\`"
+            echo "- digest: \`$DIGEST\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # イメージだけでなく、それを動かす手順も検査済みのSHAのものへ揃える（DECISIONS 16）。
       # deploy.sh と docker-compose.prod.yml を毎回配ってから実行する。インスタンスを作るときに
@@ -193,9 +211,10 @@ jobs:
           REGISTRY: ${{ steps.ecr-login.outputs.registry }}
           REPOSITORY: ${{ vars.ECR_REPOSITORY }}
           TAG: ${{ steps.resolve.outputs.tag }}
+          DIGEST: ${{ steps.digest.outputs.digest }}
           INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
         run: |
-          IMAGE="$REGISTRY/$REPOSITORY:$TAG"
+          IMAGE="$REGISTRY/$REPOSITORY@$DIGEST"
 
           # 守りたいのは「失敗を確定する時点で、SSM コマンドも成功しえない terminal 状態になって
           # いること」。SSM の期限は配信と実行で別に管理されるため、両方を明示したうえで、こちらの
@@ -226,10 +245,11 @@ jobs:
               executionTimeout: [$timeout]
             }')
 
+          # comment は 100 文字まで。digest を含む参照は収まらないため、タグで書く
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
-            --comment "Deploy $IMAGE" \
+            --comment "Deploy $TAG" \
             --timeout-seconds "$SSM_DELIVERY_TIMEOUT" \
             --parameters "$PARAMETERS" \
             --query "Command.CommandId" --output text)

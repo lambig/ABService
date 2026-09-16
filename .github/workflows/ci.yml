@@ -351,6 +351,10 @@ jobs:
       - name: Check the deploy roles allow what the deploy calls
         run: scripts/check-deploy-permissions.sh
 
+      # 発行するタグの接頭辞と保持規則の接頭辞がずれると、イメージは規則の対象外のまま溜まる（#158）
+      - name: Check the deploy issues the tags the ECR retention rule selects
+        run: scripts/check-deploy-image-tag.sh
+
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
