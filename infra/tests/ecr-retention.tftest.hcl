@@ -8,6 +8,7 @@ mock_provider "tls" {}
 
 variables {
   domain_name = "example.invalid"
+  alarm_email = "alerts@example.invalid"
 }
 
 // The deploy workflow issues exactly one tag per image (sha-<full SHA>). The retention rule

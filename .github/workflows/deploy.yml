@@ -250,6 +250,7 @@ jobs:
           PARAMETERS=$(jq -n \
             --arg deploy "$(base64 -w0 infra/host/deploy.sh)" \
             --arg compose "$(base64 -w0 docker-compose.prod.yml)" \
+            --arg logs "$(base64 -w0 docker-compose.logs.yml)" \
             --arg image "$IMAGE" \
             --arg timeout "$SSM_EXECUTION_TIMEOUT" \
             '{
@@ -259,6 +260,7 @@ jobs:
                 "echo \($deploy) | base64 -d > /opt/abservice/deploy.sh",
                 "chmod +x /opt/abservice/deploy.sh",
                 "echo \($compose) | base64 -d > /opt/abservice/docker-compose.prod.yml",
+                "echo \($logs) | base64 -d > /opt/abservice/docker-compose.logs.yml",
                 "/opt/abservice/deploy.sh \($image)"
               ],
               executionTimeout: [$timeout]

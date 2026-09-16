@@ -83,6 +83,26 @@ terraform apply cutover.tfplan
 
 `AWS_DEPLOY_ROLE_ARN`未設定の間は`deploy.yml`のjobがskipされ、CIが成功しても何も実行されない。上表のAction variables設定後、次回のCI成功から自動的に有効化される。
 
+## 監視と通知（#168）
+
+異常の発見・原因追跡・復旧確認に要る最小限だけを持つ。定義は `monitoring.tf`、判断は [DECISIONS](../docs/DECISIONS.md)「監視はサービスの標準指標と公開 URL の合成監視で組む」。
+
+| 見るもの | 経路 | 通知 |
+| --- | --- | --- |
+| backend のログ（prod は JSON） | Docker の `awslogs` ドライバ（`docker-compose.logs.yml`。`deploy.sh` が prod の compose に重ねる）→ CloudWatch Logs `/<project>/<environment>/backend`。保持は `log_retention_days` | `ERROR` の件数（metric filter）が5分に `error_log_alarm_count` 以上 |
+| ホストのディスク・メモリ | CloudWatch agent（`user_data` が入れ、設定は `monitoring/cloudwatch-agent.json` を Parameter Store 経由で読む） | 使用率が閾値超え |
+| EC2 / RDS | 標準指標 | ステータスチェック失敗、CPU、RDS の空きストレージと接続数 |
+| 配信 | CloudFront の標準指標（us-east-1） | 5xx 率 |
+| 公開 URL | Route53 ヘルスチェック（HTTPS で `/api/v1/albums` を引く。切替前は配信のドメイン名、切替後は正規ドメイン） | 失敗 |
+
+通知先は SNS のトピックで、宛先は `alarm_email`（`terraform.tfvars`。リポジトリに書かない）。アラームのアクションはアラームと同じリージョンに要るため、トピックは主リージョンと us-east-1（CloudFront・Route53 ヘルスチェックのアラーム）の2つになり、宛先は同じメール。**購読の確認メールはトピックごとに1通届き、両方を踏むまで通知は届かない。** 復旧（OK）も同じ宛先へ通知する。閾値は `variables.tf` の既定を持ち、`tfvars` で上書きできる。
+
+`/q/*`（readiness）は配信が `/api/*` しか流さないため外から引かず、公開 URL の合成監視で代える。ビルド・配布の失敗は GitHub Actions が通知し、公開世代の遅れは `node infra/release/frontend.mjs status` で見る（[release/README.md](release/README.md)）。
+
+`user_data` の変更（agent の導入）は既存インスタンスには効かない（初回起動時にしか走らない）。`awslogs` ドライバは `mode: non-blocking` で、ログ配送のバックプレッシャー（宛先が遅い・一時的に届かない）ではアプリの書き出しを止めず、バッファが溢れたら捨てる。ログの欠落よりアプリの停止を避ける側に倒している。ドライバの初期化失敗（ロググループが無い・権限が無い・接続できない）はこの範囲外で、コンテナの起動失敗になる。ロググループと権限は IaC が先に作る。
+
+実 AWS では、購読の確認、各アラームを故障注入で1度は鳴らして届くこと、復旧通知が出ることを確認し、結果を運用リポジトリへ記録する（#168 の受け入れ）。ダッシュボードと JVM 内部の指標（`/q/metrics`）の CloudWatch への送出は持たない。
+
 ## 管理者APIキー（#116）
 
 管理操作（Command系API・管理向けQuery API）は `Authorization: Bearer <APIキー>` を要求する。キーはTerraformが生成し、Parameter Store の `/<project>/<environment>/app/admin-api-key`（SecureString）に保存される。`deploy.sh` がこれを取得して backend コンテナへ `ADMIN_API_KEY` として渡すため、デプロイ側の追加設定は不要。

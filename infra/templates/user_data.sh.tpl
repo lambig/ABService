@@ -29,6 +29,13 @@ chmod +x "$PLUGIN_DIR/docker-compose"
 # 最初のデプロイが失敗する。set -e により、失敗は cloud-init のログへ残る
 docker compose version
 
+# ホストのディスクとメモリは CloudWatch の標準指標に無いため、agent が送る（#168）。設定は Terraform が
+# Parameter Store に置いたものを読む（infra/monitoring/cloudwatch-agent.json）。ログは agent ではなく
+# Docker の awslogs ドライバが運ぶ（docker-compose.logs.yml）。
+dnf install -y amazon-cloudwatch-agent
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s \
+  -c "ssm:${cloudwatch_agent_parameter}"
+
 mkdir -p /opt/abservice
 
 # ここが置くのは、インスタンスを作るときに決まる値だけ。デプロイの手順（deploy.sh）と本番の構成

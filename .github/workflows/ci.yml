@@ -380,7 +380,7 @@ jobs:
           node-version-file: .nvmrc
 
       - name: Verify frontend delivery failure and recovery
-        run: node --test infra/release/*.test.mjs infra/functions/*.test.mjs infra/headers/*.test.mjs
+        run: node --test infra/release/*.test.mjs infra/functions/*.test.mjs infra/headers/*.test.mjs infra/monitoring/*.test.mjs
 
       - name: Check formatting
         run: terraform fmt -check -recursive infra

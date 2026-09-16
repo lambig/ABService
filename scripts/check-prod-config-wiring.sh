@@ -11,12 +11,14 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 compose="docker-compose.prod.yml"
+# 本番はログの上書き（awslogs の宛先）も重ねる。こちらが読む値も deploy.sh が export していなければ届かない
+logs_compose="docker-compose.logs.yml"
 deploy="infra/host/deploy.sh"
 
 required="$("$root/scripts/prod-required-settings.sh" | cut -d' ' -f1)"
 
-# compose がコンテナへ渡す値。イメージの参照も同じ環境変数として渡るため区別しない
-passed="$(grep -oE '\$\{[A-Za-z_][A-Za-z0-9_]*' "$root/$compose" | sed -E 's/^\$\{//' | sort -u)"
+# compose がコンテナへ渡す値。イメージの参照やログの宛先も同じ環境変数として渡るため区別しない
+passed="$(grep -ohE '\$\{[A-Za-z_][A-Za-z0-9_]*' "$root/$compose" "$root/$logs_compose" | sed -E 's/^\$\{//' | sort -u)"
 
 # compose を呼ぶ手前で deploy.sh が export する値
 exported="$(sed -nE 's/^export ([A-Za-z_][A-Za-z0-9_]*)=.*/\1/p' "$root/$deploy" | sort -u)"
@@ -42,7 +44,7 @@ done <<<"$required"
 
 while read -r name; do
   if ! printf '%s\n' "$exported" | grep -qxF "$name"; then
-    echo "$name is read by $compose but $deploy does not export it." >&2
+    echo "$name is read by $compose or $logs_compose but $deploy does not export it." >&2
     status=1
   fi
 done <<<"$passed"
