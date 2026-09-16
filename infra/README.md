@@ -149,7 +149,7 @@ Terraformが生成した値（`random_password.origin_verify_token`）をCloudFr
 更新は 1 つずつ、次の順で行う。
 
 1. tfvars の該当する rotation 変数を変え、plan で **その `random_password` と供給先（Parameter Store。識別値は CloudFront、DBパスワードは RDS も）だけ**が変わることを確かめて apply する
-2. **直後に** backend を再配布する。`.github/workflows/deploy.yml` を `workflow_dispatch` で起動し、`commit_sha` に**いま稼働している commit** の full SHA を渡す（ビルドせず、その commit のイメージを新しい値で起動し直す。稼働中の commit は Actions の Summary か `current.json` から読む）
+2. **直後に** backend を再配布する。`.github/workflows/deploy.yml` を `workflow_dispatch` で起動し、`commit_sha` に**いま稼働している backend の commit** の full SHA を渡す（ビルドせず、その commit のイメージを新しい値で起動し直す）。稼働中の commit は **backend Deploy の最新成功 run の Summary「Backend image」の `sha-<full SHA>`** から読む。frontend の配布記録（`current.json` の codeSha）は使わない——frontend だけの切り戻しで backend と別の commit を指すことがあり、それを渡すと backend までその commit へ戻る
 3. 反映を確かめる（下表）。結果は運用リポジトリの証跡へ記録する
 
 | 資格情報 | apply が変えるもの | 断 | 確かめること |
@@ -158,7 +158,7 @@ Terraformが生成した値（`random_password.origin_verify_token`）をCloudFr
 | DBパスワード | RDS の master password（`apply_immediately` に関わらず**即時**）と Parameter Store | apply の瞬間から再配布までの間、backend の既存接続は生きるが新規接続は認証に失敗しうる。readiness が落ちうるため利用の少ない時間に行い、apply の直後に再配布する | 再配布後の readiness が 200。ログに認証失敗が続いていない |
 | オリジン識別値 | CloudFront の custom header と Parameter Store | CloudFront の反映（数分）と再配布のどちらが先でも、一致しない間は `/api/*` が 403 になる（DECISIONS 35）。停止を許容する時間帯に行う | 公開 API が 2xx に戻る。識別値なし・誤った識別値の要求が 403 のまま |
 
-**戻し方**: 旧値は保存していないため「戻す」は**もう一度更新する**こと。再配布が失敗して古いプロセスが残った場合、管理APIキーとオリジン識別値は旧値のまま動き続けるので、再配布をやり直す。DBパスワードは RDS 側が先に変わっているため、backend が新規接続できないまま止まりうる。再配布を直して実行するか、もう一度 rotation を変えて apply と再配布を揃える。
+**戻し方**: 戻す用の旧値を別に保管しないため「戻す」は**もう一度更新する**こと（生成値は Terraform の state には残る。state の保護は従来どおりで、そこから旧値を取り出して戻す手順は持たない）。再配布が失敗して古いプロセスが残った場合、管理APIキーとオリジン識別値は旧値のまま動き続けるので、再配布をやり直す。DBパスワードは RDS 側が先に変わっているため、backend が新規接続できないまま止まりうる。再配布を直して実行するか、もう一度 rotation を変えて apply と再配布を揃える。
 
 3つを同時に変えない。1つ変えるごとに再配布して確かめる。実環境で更新して確かめる工程は運用リポジトリの手順が持つ。
 

@@ -30,6 +30,22 @@ override_resource {
   }
 }
 
+// The distribution is applied to read its origin header, and the provider validates the ARNs it
+// associates; the mocked ones are random strings.
+override_resource {
+  target = aws_cloudfront_function.resolve_static_uri
+  values = {
+    arn = "arn:aws:cloudfront::123456789012:function/resolve-static-uri"
+  }
+}
+
+override_resource {
+  target = aws_wafv2_web_acl.cloudfront
+  values = {
+    arn = "arn:aws:wafv2:us-east-1:123456789012:global/webacl/abservice/00000000-0000-0000-0000-000000000000"
+  }
+}
+
 override_resource {
   target = aws_acm_certificate.cloudfront
   values = {
@@ -46,6 +62,15 @@ override_resource {
 variables {
   domain_name = "example.invalid"
   alarm_email = "alerts@example.invalid"
+}
+
+// The distribution keys its certificate validation records on values the certificate only has once
+// applied, so the certificate (and the other overridden values) go into state before anything else.
+run "prepare_plan_dependencies" {
+  command = apply
+  plan_options {
+    target = [aws_acm_certificate.cloudfront, aws_cloudfront_response_headers_policy.security, aws_lambda_function.static_page_404]
+  }
 }
 
 // Each credential regenerates only when its own rotation variable changes. The keeper is the
@@ -82,12 +107,10 @@ run "rotation_variables_drive_the_generators" {
 // The generated value must reach every supplier the runbook lists, so a rotation apply changes them
 // together: Parameter Store for all three, RDS for the DB password, CloudFront for the origin token.
 // Generated values are only known after apply, so this run applies against the mocked providers.
-// The certificate, the headers policy and the 404 function are applied alongside so their overridden
-// values are in state when the teardown plans the destroy of the whole configuration.
 run "generated_values_reach_their_suppliers" {
   command = apply
   plan_options {
-    target = [aws_ssm_parameter.admin_api_key, aws_ssm_parameter.db_password, aws_ssm_parameter.origin_verify_token, aws_db_instance.main, aws_acm_certificate.cloudfront, aws_cloudfront_response_headers_policy.security, aws_lambda_function.static_page_404]
+    target = [aws_ssm_parameter.admin_api_key, aws_ssm_parameter.db_password, aws_ssm_parameter.origin_verify_token, aws_db_instance.main, aws_cloudfront_distribution.main]
   }
 
   assert {
@@ -101,5 +124,9 @@ run "generated_values_reach_their_suppliers" {
   assert {
     condition     = aws_ssm_parameter.origin_verify_token.value == random_password.origin_verify_token.result
     error_message = "The origin token parameter must carry the generated value."
+  }
+  assert {
+    condition     = one([for h in one([for o in aws_cloudfront_distribution.main.origin : o if o.origin_id == "ec2-backend"]).custom_header : h.value if h.name == "X-Origin-Verify"]) == random_password.origin_verify_token.result
+    error_message = "CloudFront must send the same generated origin token that Parameter Store hands to the backend."
   }
 }
