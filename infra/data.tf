@@ -33,9 +33,12 @@ resource "aws_db_instance" "main" {
   multi_az               = var.db_multi_az
   publicly_accessible    = false
 
-  backup_retention_period   = var.db_backup_retention_days
+  backup_retention_period = var.db_backup_retention_days
+
+  # 消すときは最終スナップショットを残す。名は世代で一意にする（前の置換の最終スナップショットは残るので、同じ名では
+  # 次の削除が止まる）。削除は state に入っている値で走るため、世代は置換より前の apply で入れておく
   skip_final_snapshot       = false
-  final_snapshot_identifier = "${var.project_name}-db-final"
+  final_snapshot_identifier = "${var.project_name}-db-final-${var.db_final_snapshot_generation}"
 
   # 常設の DB は消えない側に置く。作り直し（復元済みの内容で置き換える）は明示的に false にしてから。
   deletion_protection = var.db_deletion_protection

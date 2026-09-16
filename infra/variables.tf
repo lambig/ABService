@@ -251,3 +251,9 @@ variable "db_main_snapshot_identifier" {
   type        = string
   default     = null
 }
+
+variable "db_final_snapshot_generation" {
+  description = "常設の DB を消すときに残す最終スナップショットの名の世代（<project>-db-final-<世代>）。前の置換の最終スナップショットは残るので、置換のたびに今回だけの値へ変え、置換より前の apply で state に入れておく（同じ名では作れず削除が止まる）"
+  type        = string
+  default     = "initial"
+}

@@ -182,7 +182,9 @@ Terraformが生成した値（`random_password.origin_verify_token`）をCloudFr
 3. **内容を確かめる。** EC2 から復元済みインスタンス（output `rds_restored_endpoint`）へ接続し（Session Manager。`psql` はコンテナで動かす）、`flyway_schema_history` の最終版が稼働中の backend の migration に収まること、作品・記事・サイト文言の件数と、参照している画像キーがバケットに在ることを見る
 4. **接続先を切り替える。** `db_active = "restored"` で apply し、**直後に**稼働中の backend の commit を再配布する（[資格情報の更新](#資格情報の更新127) の手順 2 と同じ。deploy.sh が配布のたびに `db/host` を読む）。backend の起動時に Flyway が不足分の migration を適用するので、復元点が古いぶんはここで前進する
 5. **公開面を揃える。** 復元で撤回済みの内容が「公開」に戻っていないかを**管理画面で確認してから** `rebuild-public` を実行する。公開データの世代は不透明な値なので、この確認は機構で代替されない。復元より前の成果物への `rollback` は世代が一致しないため拒否される
-6. **常設へ戻す。** 復元済みインスタンスのスナップショットを取り、`db_deletion_protection = false` で apply したうえで、`db_main_snapshot_identifier` にそのスナップショットを入れて常設を置換する（`terraform apply -replace=aws_db_instance.main`）。常設が出来たら `db_active = "main"` で apply して再配布し、復元点の変数を消して復元済みインスタンスを消し、保護を true に戻す。`db_main_snapshot_identifier` は作成のときにだけ効き、以後は変えても消しても置換にならない
+6. **常設へ戻す。** 復元済みインスタンスのスナップショットを取る。次に `db_deletion_protection = false` と、`db_final_snapshot_generation` を今回だけの値（例: 日付）にして apply する。置換の削除は state に入っている保護と最終スナップショット名で走るため、この apply は置換と同じ回にまとめない。そのうえで `db_main_snapshot_identifier` にそのスナップショットを入れて常設を置換する（`terraform apply -replace=aws_db_instance.main`）。消える常設は `<project>-db-final-<世代>` の最終スナップショットとして残る。前の置換の最終スナップショットも残っているので、世代を変えずに置換すると同じ名では作れず削除で止まる（`DBSnapshotAlreadyExists`）。常設が出来たら `db_active = "main"` で apply して再配布し、復元点の変数を消して復元済みインスタンスを消し、保護を true に戻す。`db_main_snapshot_identifier` は作成のときにだけ効き、以後は変えても消しても置換にならない。不要になった最終スナップショットは手で消す
+
+**復元点を選び直す。** 手順 3 で復元点が不適切だとわかったら、`db_active = "main"` のまま、復元点の変数を消して apply し（復元済みインスタンスが消える）、新しい復元点を入れて apply し直す（手順 2 へ戻る）。`aws_db_instance.restored` は復元点を作成のときにだけ見るため、インスタンスが在るまま値を変えても別の時点へは作り直されない（接続先にしている最中に値を触って作り直しになるのを避けるため）。
 
 **Flyway は前進のみ。** backend を過去の commit へ戻せるのは、その commit が持つ migration が DB の `flyway_schema_history` に収まる範囲だけ。DB の方が先へ進んでいる（戻したい commit に無い版が適用済み）なら、旧イメージへ戻すだけでは復旧にならず、互換性のある forward fix か、この節の DB の復元を選ぶ。`baseline-on-migrate` は使わない（[スキーマ移行（Flyway）](#スキーマ移行flyway)）。
 

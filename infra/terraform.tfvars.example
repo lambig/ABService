@@ -25,6 +25,7 @@ alarm_email = "<alerts@your-domain>"
 # db_active                      = "main"
 # db_main_snapshot_identifier    = "<snapshot id>"
 # db_deletion_protection         = true
+# db_final_snapshot_generation   = "initial"
 
 # 準備だけでは DNS を向け替えない。採用後の切り戻しは infra/README.md を参照。
 dns_cutover_enabled = false

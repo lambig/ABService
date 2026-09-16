@@ -63,13 +63,20 @@ run "permanent_instance_can_be_rebuilt_from_a_snapshot" {
     target = [aws_db_instance.main]
   }
   variables {
-    db_main_snapshot_identifier = "abservice-db-restored-2026-09-16"
-    db_deletion_protection      = false
+    db_main_snapshot_identifier  = "abservice-db-restored-2026-09-16"
+    db_deletion_protection       = false
+    db_final_snapshot_generation = "2026-09-16"
   }
 
   assert {
     condition     = aws_db_instance.main.snapshot_identifier == "abservice-db-restored-2026-09-16" && aws_db_instance.main.deletion_protection == false
     error_message = "Rebuilding the permanent instance takes the snapshot and needs protection turned off explicitly."
+  }
+  // The final snapshot of the previous replacement stays behind, so the name has to change with every
+  // replacement or the deletion fails with DBSnapshotAlreadyExists.
+  assert {
+    condition     = aws_db_instance.main.final_snapshot_identifier == "abservice-db-final-2026-09-16"
+    error_message = "The final snapshot name must carry the generation so each replacement gets its own."
   }
 }
 
@@ -98,6 +105,10 @@ run "one_protected_instance_by_default" {
   assert {
     condition     = aws_db_instance.main.deletion_protection == true
     error_message = "The permanent instance must refuse deletion unless the operator turns protection off."
+  }
+  assert {
+    condition     = aws_db_instance.main.skip_final_snapshot == false && aws_db_instance.main.final_snapshot_identifier == "abservice-db-final-initial"
+    error_message = "The permanent instance must leave a final snapshot, named by the default generation."
   }
   assert {
     condition     = length(aws_db_instance.restored) == 0
