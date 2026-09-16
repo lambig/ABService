@@ -199,6 +199,12 @@ resource "aws_cloudfront_distribution" "main" {
       function_arn = aws_cloudfront_function.resolve_static_uri.arn
     }
 
+    lambda_function_association {
+      event_type   = "origin-response"
+      lambda_arn   = aws_lambda_function.static_page_404.qualified_arn
+      include_body = false
+    }
+
     forwarded_values {
       query_string = false
       cookies {
@@ -222,6 +228,12 @@ resource "aws_cloudfront_distribution" "main" {
     function_association {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.resolve_static_uri.arn
+    }
+
+    lambda_function_association {
+      event_type   = "origin-response"
+      lambda_arn   = aws_lambda_function.static_page_404.qualified_arn
+      include_body = false
     }
 
     forwarded_values {
@@ -338,6 +350,27 @@ data "aws_iam_policy_document" "frontend_public_oac" {
       values   = [aws_cloudfront_distribution.main.arn]
     }
   }
+
+  # With ListBucket, S3 distinguishes a missing key (404) from denied access
+  # (403). Only this distribution can use it; viewer query strings are dropped
+  # and the root URI is resolved to index.html, so this is not a listing route.
+  statement {
+    sid       = "DistinguishMissingStaticObjects"
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.frontend_public.arn]
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.main.arn]
+    }
+  }
 }
 
 resource "aws_s3_bucket_policy" "frontend_public" {
@@ -351,6 +384,27 @@ data "aws_iam_policy_document" "frontend_admin_oac" {
     effect    = "Allow"
     actions   = ["s3:GetObject"]
     resources = ["${aws_s3_bucket.frontend_admin.arn}/*"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.main.arn]
+    }
+  }
+
+  # With ListBucket, S3 distinguishes a missing key (404) from denied access
+  # (403). Only this distribution can use it; viewer query strings are dropped
+  # and the root URI is resolved to index.html, so this is not a listing route.
+  statement {
+    sid       = "DistinguishMissingStaticObjects"
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.frontend_admin.arn]
 
     principals {
       type        = "Service"

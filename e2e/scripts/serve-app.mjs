@@ -25,6 +25,7 @@ import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runInNewContext } from 'node:vm';
 
+import { renderStaticNotFound } from '../../infra/functions/static-page-404.mjs';
 import { apps, basePathOf, portOf, stack } from '../src/support/config.ts';
 
 const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
@@ -95,21 +96,40 @@ const resolveFile = (pathname) =>
 
 /*
  * 見つからない要求には、組み上がった 404 のページを 404 のまま返す（#197。未存在と非公開を区別しない）。
- * 本番の配信もエラーページを同じ形で返す想定のため（#125）、ここでも本文を伴わせる。管理画面は
- * 404 のページを持たないため、その場合は本文なしで返る。
+ * origin-response の本番実装に通し、S3の取得境界だけローカルファイルに置き換える（#125）。
+ * スクリプトや画像の欠落にはHTMLを返さない。
  */
 const notFoundPage = join(distDir, '404.html');
 
-const respondNotFound = (response) =>
-  existsSync(notFoundPage)
-    ? readFile(notFoundPage).then((body) => {
-        response.writeHead(404, {
-          'Content-Type': CONTENT_TYPES['.html'],
-          'Content-Length': body.byteLength,
-        });
-        response.end(body);
-      })
-    : response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('Not Found');
+const respondNotFound = async (pathname, method, response) => {
+  const result = await renderStaticNotFound(
+    {
+      Records: [
+        {
+          cf: {
+            request: { uri: resolveUri(pathname), method, origin: { s3: {} } },
+            response: {
+              status: '404',
+              headers: { 'content-type': [{ value: 'text/plain; charset=utf-8' }] },
+              body: 'Not Found',
+            },
+          },
+        },
+      ],
+    },
+    () => readFile(notFoundPage, 'utf8'),
+  );
+  response.writeHead(
+    Number(result.status),
+    Object.fromEntries(
+      Object.entries(result.headers).map(([key, values]) => [
+        key,
+        values.map(({ value }) => value),
+      ]),
+    ),
+  );
+  response.end(result.body);
+};
 
 /*
  * 配信対象のアセットは保管先から取り次ぐ。本番はこの経路を CloudFront の別のビヘイビアが受け、S3 を
@@ -148,10 +168,12 @@ const respondFile = (file, response) =>
     response.end(body);
   });
 
-const respondStatic = (pathname, response) => {
+const respondStatic = (pathname, method, response) => {
   const file = resolveFile(pathname);
 
-  return file === undefined ? respondNotFound(response) : respondFile(file, response);
+  return file === undefined
+    ? respondNotFound(pathname, method, response)
+    : respondFile(file, response);
 };
 
 createServer((request, response) => {
@@ -159,7 +181,7 @@ createServer((request, response) => {
 
   return pathname.startsWith(ASSET_PREFIX)
     ? relayAsset(pathname, response)
-    : respondStatic(pathname, response);
+    : respondStatic(pathname, request.method, response);
 }).listen(port, '127.0.0.1', () => {
   console.log(`${appName} を配信しています: http://127.0.0.1:${String(port)}`);
 });

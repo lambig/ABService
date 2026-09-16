@@ -19,6 +19,7 @@ const setup = () => {
   writeFileSync(join(publicRoot, '404.html'), 'missing');
   writeFileSync(join(publicRoot, 'articles', 'old', 'index.html'), 'old');
   writeFileSync(join(adminRoot, 'index.html'), 'admin');
+  writeFileSync(join(adminRoot, '404.html'), 'admin missing');
   const objects = new Map();
   const archives = new Map();
   const calls = [];
@@ -57,6 +58,26 @@ const deploy = (context, id = '100-1', target = codeSha) => {
   return context.delivery.publish({ action: 'deploy', id, codeSha: target,
     publicRoot: context.publicRoot, adminRoot: context.adminRoot, buildMetadata: context.buildMetadata(target) });
 };
+
+test('both error pages are required before archives or live writes', () => {
+  for (const site of ['public', 'admin']) {
+    const context = setup();
+    rmSync(join(context[`${site}Root`], '404.html'));
+    assert.throws(() => deploy(context), new RegExp(`Missing ${site} 404.html`));
+    assert.ok(!context.calls.some((args) => args[1] === 'sync'));
+    assert.ok(!context.objects.has('pending.json'));
+  }
+});
+
+test('rollback cannot remove the admin error document by restoring an older archive', () => {
+  const context = setup();
+  const record = deploy(context);
+  record.admin.files = record.admin.files.filter((file) => file.path !== '404.html');
+  context.objects.set('manifests/100-1.json', JSON.stringify(record));
+  context.calls.length = 0;
+  assert.throws(() => context.delivery.rollback({ targetId: '100-1', id: '102-1' }), /Archived admin has no 404.html/);
+  assert.ok(!context.calls.some((args) => args[1] === 'sync'));
+});
 
 test('preflight accepts first deployment and completed state without writes', () => {
   const context = setup();
@@ -155,7 +176,7 @@ test('access errors are not treated as first deploy; unsafe archive paths are re
   const record = deploy(context);
   record.public.files[0].path = '../outside';
   assert.throws(() => validateManifest(record));
-  assert.deepEqual(filesUnder(context.adminRoot), ['index.html']);
+  assert.deepEqual(filesUnder(context.adminRoot), ['404.html', 'index.html']);
 });
 
 // Feed decisions from real release-state transitions into the actual workflow guards.

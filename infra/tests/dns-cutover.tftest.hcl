@@ -6,10 +6,25 @@ mock_provider "aws" {
 mock_provider "aws" {
   alias = "us_east_1"
 }
+mock_provider "archive" {}
 mock_provider "random" {}
 mock_provider "tls" {
   mock_data "tls_certificate" {
     defaults = { certificates = [{ sha1_fingerprint = "0000000000000000000000000000000000000000" }] }
+  }
+}
+
+override_resource {
+  target = aws_iam_role.static_page_404
+  values = {
+    arn = "arn:aws:iam::123456789012:role/static-page-404"
+  }
+}
+
+override_resource {
+  target = aws_lambda_function.static_page_404
+  values = {
+    qualified_arn = "arn:aws:lambda:us-east-1:123456789012:function:static-page-404:1"
   }
 }
 
@@ -36,12 +51,44 @@ variables {
 run "prepare_plan_dependencies" {
   command = apply
   plan_options {
-    target = [aws_acm_certificate.cloudfront, aws_cloudfront_response_headers_policy.noindex]
+    target = [aws_acm_certificate.cloudfront, aws_cloudfront_response_headers_policy.noindex, aws_lambda_function.static_page_404]
   }
 }
 
 run "prepare_apex" {
   command = plan
+
+  assert {
+    condition = alltrue([
+      for behavior in concat(
+        tolist(aws_cloudfront_distribution.main.default_cache_behavior),
+        [for behavior in aws_cloudfront_distribution.main.ordered_cache_behavior : behavior if behavior.path_pattern == "/admin*"]
+        ) : length(behavior.lambda_function_association) == 1 && alltrue([
+          for association in behavior.lambda_function_association :
+          association.event_type == "origin-response" && association.lambda_arn == aws_lambda_function.static_page_404.qualified_arn && !association.include_body
+      ])
+    ])
+    error_message = "Only the two static behaviors must use the versioned origin-response 404 handler."
+  }
+  assert {
+    condition = alltrue([
+      for behavior in aws_cloudfront_distribution.main.ordered_cache_behavior :
+      length(behavior.lambda_function_association) == 0 && length(behavior.function_association) == 0
+      if contains(["/api/*", "/assets/*"], behavior.path_pattern)
+    ]) && length(aws_cloudfront_distribution.main.custom_error_response) == 0
+    error_message = "API/asset errors must bypass HTML rewriting and distribution-wide custom errors."
+  }
+  assert {
+    condition = alltrue([
+      for policy in [data.aws_iam_policy_document.frontend_public_oac, data.aws_iam_policy_document.frontend_admin_oac] :
+      length([for statement in policy.statement : statement if contains(statement.actions, "s3:ListBucket")]) == 1
+    ]) && alltrue([for statement in data.aws_iam_policy_document.assets_oac.statement : !contains(statement.actions, "s3:ListBucket")])
+    error_message = "Missing-key visibility belongs only to the two static OAC policies."
+  }
+  assert {
+    condition     = toset(jsondecode(aws_iam_role_policy.static_page_404.policy).Statement[0].Resource) == toset(["${aws_s3_bucket.frontend_public.arn}/404.html", "${aws_s3_bucket.frontend_admin.arn}/admin/404.html"])
+    error_message = "The edge role may read only the two fixed error documents."
+  }
 
   assert {
     condition     = aws_cloudfront_distribution.main.default_cache_behavior[0].response_headers_policy_id == aws_cloudfront_response_headers_policy.noindex.id
