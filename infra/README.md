@@ -149,7 +149,7 @@ Terraformが生成した値（`random_password.origin_verify_token`）をCloudFr
 更新は 1 つずつ、次の順で行う。
 
 1. tfvars の該当する rotation 変数を変え、plan で **その `random_password` と供給先（Parameter Store。識別値は CloudFront、DBパスワードは RDS も）だけ**が変わることを確かめて apply する
-2. **直後に** backend を再配布する。`.github/workflows/deploy.yml` を `workflow_dispatch` で起動し、`commit_sha` に**いま稼働している backend の commit** の full SHA を渡す（ビルドせず、その commit のイメージを新しい値で起動し直す）。稼働中の commit は **backend Deploy の最新成功 run の Summary「Backend image」の `sha-<full SHA>`** から読む。frontend の配布記録（`current.json` の codeSha）は使わない——frontend だけの切り戻しで backend と別の commit を指すことがあり、それを渡すと backend までその commit へ戻る
+2. **直後に** backend を再配布する。`.github/workflows/deploy.yml` を `workflow_dispatch` で起動し、`commit_sha` に**いま稼働している backend の commit** の full SHA を渡す（ビルドせず、その commit のイメージを新しい値で起動し直す）。稼働中の commit は、**Deploy の run（attempt）のうち job「Build, push, and deploy backend」が success の最新のもの**の Summary「Backend image」の `sha-<full SHA>` から読む。見るのは job の結果であって workflow 全体の結論ではない——backend の job は frontend の job より先に動くため、frontend だけ失敗して run 全体が failure でも backend はその SHA で動いている。逆に Summary は SSM 配布の前に書かれるため、backend の job が failure の run の Summary は使わない。frontend の配布記録（`current.json` の codeSha）も使わない——frontend だけの切り戻しで backend と別の commit を指すことがあり、それを渡すと backend までその commit へ戻る
 3. 反映を確かめる（下表）。結果は運用リポジトリの証跡へ記録する
 
 | 資格情報 | apply が変えるもの | 断 | 確かめること |
