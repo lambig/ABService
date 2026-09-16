@@ -191,3 +191,25 @@ variable "cloudfront_5xx_alarm_percent" {
   type        = number
   default     = 5
 }
+
+# --- 資格情報の更新（#127） ---
+# 値を変えた apply で対応する random_password が再生成される。日付など、更新のたびに違う文字列を入れる。
+# 戻す用の旧値は別に保管しない（生成値は state に残る）ため、「戻す」はもう一度更新すること。順序と断の扱いは infra/README.md。
+
+variable "admin_api_key_rotation" {
+  description = "管理APIキーの更新の契機。変えると再生成され、Parameter Store が新しい値になる。反映には backend の再配布が要る（全セッションが失効する）"
+  type        = string
+  default     = "initial"
+}
+
+variable "db_password_rotation" {
+  description = "DB パスワードの更新の契機。変えると再生成され、RDS の master password は即時に、Parameter Store も新しい値になる。apply の直後に backend を再配布する"
+  type        = string
+  default     = "initial"
+}
+
+variable "origin_verify_token_rotation" {
+  description = "オリジン識別値の更新の契機。変えると再生成され、CloudFront の custom header と Parameter Store が新しい値になる。backend の再配布まで /api/* に断が生じる"
+  type        = string
+  default     = "initial"
+}
