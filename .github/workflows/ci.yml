@@ -474,6 +474,10 @@ jobs:
       - name: Verify generation-checked SSG and withdrawn pages against the E2E database
         run: node infra/release/public-generation-acceptance.mjs
 
+      # 初期データのローダ（#373）。dry-run・途中からの再開・冪等性を、同じ E2E 用バックエンドに対して通す
+      - name: Verify the initial data loader against the E2E database
+        run: npm run acceptance -w abservice-seed-loader
+
       - name: Show backend log
         if: ${{ failure() }}
         run: cat backend.log
