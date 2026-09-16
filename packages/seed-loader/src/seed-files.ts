@@ -57,6 +57,19 @@ const IMAGE_BY_EXTENSION: Readonly<Record<string, ImageContentType>> = {
 /** 末尾の改行を1つだけ落とす。編集器が付ける改行を内容にしない */
 const readText = (path: string): string => readFileSync(path, 'utf8').replace(/\r?\n$/u, '');
 
+/**
+ * 本文のファイルを読む。空（空白と改行だけ）は誤りにする。
+ *
+ * JSON の項目と同じ契約——空の文言や本文を送るつもりは無く、省くならファイルを置かない。空のまま
+ * 通すと、送った先で項目なしとして扱われ、書いた意図と食い違う。
+ */
+const readContent = (path: string): string => {
+  const text = readText(path);
+  return text.trim() === ''
+    ? fail(path, '空のファイルです。項目を省くならファイルを置きません')
+    : text;
+};
+
 const sortedEntries = (directory: string): readonly string[] =>
   existsSync(directory) ? [...readdirSync(directory)].sort() : [];
 
@@ -80,7 +93,7 @@ const readMarkupFile = (
     candidates.length <= 1
       ? candidates[0]
       : fail(directory, `${stem} は .md と .txt のどちらか1つだけを置いてください`);
-  return path === undefined ? undefined : { content: readText(path), format: markupOf(path) };
+  return path === undefined ? undefined : { content: readContent(path), format: markupOf(path) };
 };
 
 const readSiteContents = (root: string): readonly SiteContentSeed[] =>
@@ -88,7 +101,7 @@ const readSiteContents = (root: string): readonly SiteContentSeed[] =>
     const path = join(root, SITE_DIR, name);
     return {
       key: basename(name, extname(name)),
-      content: readText(path),
+      content: readContent(path),
       contentFormat: markupOf(path),
     };
   });

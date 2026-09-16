@@ -15,6 +15,7 @@ import { adminApi } from 'abservice-admin-api';
  *   - 文言・作品（曲目・外部音源・画像）・記事（作品参照・タグ）が管理API経由で入り、公開まで進む
  *   - 途中で止まった状態（作品だけ入った／公開と画像が付かなかった）から、再実行が続きを埋める
  *   - もう一度流しても何も変わらない（冪等）
+ *   - 記事の組み立ての途中でバックエンドが断っても下書きは残らず、直して再実行すると作成から通る
  *   - 投入ファイルの誤りと、解けない参照は、送る前に落ちる
  *
  * 実内容でのリハーサルは運用リポジトリの手順が持つ。ここで使う内容は合成で、終わったら消す。
@@ -238,7 +239,41 @@ try {
     before,
   );
 
-  // 5. 誤りは送る前に落ちる
+  // 5. 記事の組み立ての途中（2件目のタグ）でバックエンドが断ると、下書きは残らず、直して再実行すると作成から通る
+  const rejectedTagTitle = 'Seed acceptance: rejected tag';
+  const rejectedTagArticle = (tag) => ({
+    'articles/01-rejected/article.json': JSON.stringify({
+      articleType: 'ALBUM',
+      title: rejectedTagTitle,
+      album: catalog.showcase,
+      tags: ['accepted', tag],
+      published: true,
+    }),
+  });
+  const stoppedInsideArticle = load(writeTree(rejectedTagArticle('x'.repeat(101))));
+  assert.equal(stoppedInsideArticle.status, 1);
+  assert.match(
+    stoppedInsideArticle.stderr,
+    /記事「Seed acceptance: rejected tag」 の作成 で止まりました/u,
+  );
+  assert.match(stoppedInsideArticle.stderr, /HTTP 400/u);
+  assert.equal(
+    await articleDetail(rejectedTagTitle),
+    undefined,
+    'the partial draft must be rolled back',
+  );
+  const retried = succeeded(
+    load(writeTree(rejectedTagArticle('fixed'))),
+    'retry after fixing the tag',
+  );
+  assert.match(retried.stdout, new RegExp(`${rejectedTagTitle}: 作成 → 公開`, 'u'));
+  const retriedArticle = await articleDetail(rejectedTagTitle);
+  assert.equal(retriedArticle.albumId, repaired.albumId);
+  assert.deepEqual(retriedArticle.tags.map((tag) => tag.name).sort(), ['accepted', 'fixed']);
+  assert.ok(retriedArticle.publishedAt !== null);
+  await api.deleteArticle(retriedArticle.articleId);
+
+  // 6. 誤りは送る前に落ちる
   const brokenFile = load(writeTree({ 'albums/SEED-ACC-BROKEN/album.json': '{ "title": ' }));
   assert.equal(brokenFile.status, 1);
   assert.match(brokenFile.stderr, /投入ファイルの誤り/u);
@@ -258,7 +293,7 @@ try {
   assert.equal(await albumDetail('SEED-ACC-BROKEN'), undefined);
 
   console.log(
-    'Seed loader acceptance passed: dry-run without writes -> partial load -> resume fills publish/cover/articles -> second run unchanged -> malformed file and dangling reference rejected before any write.',
+    'Seed loader acceptance passed: dry-run without writes -> partial load -> resume fills publish/cover/articles -> second run unchanged -> article rejected mid-assembly leaves no draft and succeeds once fixed -> malformed file and dangling reference rejected before any write.',
   );
 } finally {
   await cleanup();

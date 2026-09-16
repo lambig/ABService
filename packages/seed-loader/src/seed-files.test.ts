@@ -223,6 +223,21 @@ describe('投入ディレクトリの読み方', () => {
       message: /同じタイトルの記事があります: ノート/u,
     },
     {
+      name: '空の文言ファイル（改行だけ）',
+      files: { 'site/site.name.txt': '\n' },
+      message: /site\.name\.txt: 空のファイルです。項目を省くならファイルを置きません/u,
+    },
+    {
+      name: '空の本文ファイル',
+      files: { 'articles/a/article.json': article(), 'articles/a/body.md': '' },
+      message: /body\.md: 空のファイルです/u,
+    },
+    {
+      name: '空白だけの概要説明',
+      files: { 'albums/CAT-1/album.json': album(), 'albums/CAT-1/description.txt': '   \n' },
+      message: /description\.txt: 空のファイルです/u,
+    },
+    {
       name: '文言の拡張子が形式を表さない',
       files: { 'site/site.name.html': 'x' },
       message: /拡張子は \.md（Markdown）か \.txt/u,
