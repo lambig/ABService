@@ -65,7 +65,10 @@ const siteAndAlbums = {
     basePrice: { amount: 1200 },
     originalWorkNote: 'Seed acceptance original work',
     tracks: [
-      { title: 'Titled track', tunes: [{ tuneTitle: 'Tune one', composerCreditOverride: 'Trad.' }] },
+      {
+        title: 'Titled track',
+        tunes: [{ tuneTitle: 'Tune one', composerCreditOverride: 'Trad.' }],
+      },
       { tunes: [{ tuneTitle: 'Tune two' }, { tuneTitle: 'Tune three' }] },
     ],
     externalAudioUrls: ['https://soundcloud.com/seed-acceptance/showcase'],
@@ -150,7 +153,10 @@ const siteContentsAlreadyLoaded = (await api.listSiteContents()).filter((item) =
 ).length;
 try {
   // 1. dry-run は計画を出すだけで、何も作らない
-  const dryRun = succeeded(load(writeTree({ ...siteAndAlbums, ...articles }), '--dry-run'), 'dry-run');
+  const dryRun = succeeded(
+    load(writeTree({ ...siteAndAlbums, ...articles }), '--dry-run'),
+    'dry-run',
+  );
   assert.match(dryRun.stdout, new RegExp(`${catalog.showcase}: 作成 → 公開`, 'u'));
   assert.match(dryRun.stdout, new RegExp(`${catalog.draft}: 作成$`, 'mu'));
   assert.match(dryRun.stdout, /dry-run のため書き込みは送っていません/u);
