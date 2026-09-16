@@ -16,8 +16,7 @@ import BaseLayout from '$layouts/BaseLayout.astro';
   {/* 先頭の余白は他のページと同じにする。導線の始まりがこれに合わせて置かれるため（#357） */}
   <div class="space-y-4 py-6">
     <h1 class="text-3xl font-semibold">ページが見つかりません</h1>
-    <p class="text-muted-foreground">
-      お探しのページは見つかりませんでした。上の導線からお探しください。
-    </p>
+    <p class="text-muted-foreground">お探しのページは見つかりませんでした。</p>
+    <a class="underline underline-offset-4" href="/">トップへ戻る</a>
   </div>
 </BaseLayout>

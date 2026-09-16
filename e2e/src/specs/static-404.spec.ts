@@ -10,6 +10,12 @@ test('公開・管理の未存在ページは404本文を返し、HEADも404に�
     page.getByRole('heading', { level: 1, name: 'ページが見つかりません' }),
   ).toBeVisible();
   await capture(page, '404-public');
+  await clickWithEvidence(
+    page,
+    page.getByRole('link', { name: 'トップへ戻る' }),
+    '404-public-return',
+  );
+  await expect(page).toHaveURL(`${stack.siteBaseUrl}/`);
 
   const adminMissing = `${stack.adminBaseUrl}/missing-page`;
   const adminResponse = await page.goto(adminMissing);
