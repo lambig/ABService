@@ -2,9 +2,15 @@ data "aws_caller_identity" "current" {}
 
 # --- RDS (PostgreSQL) ---
 
+# 資格情報の更新は keepers の値（tfvars の rotation 変数）を変えた apply で行う（#127）。値は保存しないため
+# 「戻す」はもう一度更新すること。順序と断の扱いは infra/README.md「資格情報の更新」。
 resource "random_password" "db" {
   length  = 32
   special = false
+
+  keepers = {
+    rotation = var.db_password_rotation
+  }
 }
 
 resource "aws_db_instance" "main" {
@@ -72,6 +78,10 @@ resource "aws_ssm_parameter" "db_password" {
 resource "random_password" "admin_api_key" {
   length  = 48
   special = false
+
+  keepers = {
+    rotation = var.admin_api_key_rotation
+  }
 }
 
 resource "aws_ssm_parameter" "admin_api_key" {
@@ -88,6 +98,10 @@ resource "aws_ssm_parameter" "admin_api_key" {
 resource "random_password" "origin_verify_token" {
   length  = 48
   special = false
+
+  keepers = {
+    rotation = var.origin_verify_token_rotation
+  }
 }
 
 resource "aws_ssm_parameter" "origin_verify_token" {

@@ -13,6 +13,11 @@ alarm_email = "<alerts@your-domain>"
 # ec2_instance_type = "t4g.small"
 # db_instance_class = "db.t4g.micro"
 
+# 資格情報の更新（#127）。値を変えて apply すると対応する資格情報が再生成される。順序は infra/README.md「資格情報の更新」
+# admin_api_key_rotation       = "initial"
+# db_password_rotation         = "initial"
+# origin_verify_token_rotation = "initial"
+
 # 準備だけでは DNS を向け替えない。採用後の切り戻しは infra/README.md を参照。
 dns_cutover_enabled = false
 serve_www           = false
