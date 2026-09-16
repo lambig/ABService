@@ -26,7 +26,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 public final class CleanDatabase implements BeforeEachCallback {
 
     /**
-     * 移行履歴（{@code flyway_schema_history}）を残して public スキーマの全テーブルを空にする。
+     * 移行履歴と配布制御の世代行を残して public スキーマの業務テーブルを空にする。
      *
      * <p>
      * 対象が1つも無いときも同じ1文で済むよう、文の組み立てを DO ブロックの中へ置く。
@@ -43,7 +43,8 @@ public final class CleanDatabase implements BeforeEachCallback {
                   'SELECT 1'
                 )
                 FROM pg_tables
-                WHERE schemaname = 'public' AND tablename <> 'flyway_schema_history'
+                WHERE schemaname = 'public'
+                  AND tablename NOT IN ('flyway_schema_history', 'public_data_generation')
               );
             END $$;
             """;

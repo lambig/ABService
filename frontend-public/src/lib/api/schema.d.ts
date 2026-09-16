@@ -2187,6 +2187,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public-data-generation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PublicDataGenerationResponse"];
+                    };
+                };
+                /** @description 想定外の失敗 */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/site-contents": {
         parameters: {
             query?: never;
@@ -3071,6 +3116,9 @@ export interface components {
             /** Format: int32 */
             amount: number;
             currency: string;
+        };
+        PublicDataGenerationResponse: {
+            generation: string;
         };
         PublicExternalAudioResponse: {
             /** Format: int32 */

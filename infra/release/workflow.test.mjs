@@ -94,3 +94,13 @@ test('helper uses deployed SHA for normal calls and dispatch SHA for manual oper
   const manual = normal(); manual.github.event_name = 'workflow_dispatch';
   assert.equal(evaluate(expression, manual), 'c'.repeat(40));
 });
+
+test('every public build uses checked generation metadata; recovery builds both sites at pending target SHA', () => {
+  assert.match(frontend, /options: \[rebuild-public, rollback, recover\]/);
+  const build = frontend.split('- name: Build the selected code with current public data')[1].split('- name: Publish')[0];
+  assert.match(build, /RELEASE_SHA: \$\{\{ steps.source.outputs.code_sha \}\}/);
+  assert.match(build, /node ..\/delivery\/infra\/release\/build-public.mjs/);
+  assert.doesNotMatch(build, /npm run build:public/);
+  assert.match(build, /if \[ "\$ACTION" != rebuild-public \]; then npm run build:admin; fi/);
+  assert.match(frontend, /node delivery\/infra\/release\/frontend.mjs status/);
+});

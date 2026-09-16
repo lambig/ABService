@@ -14,6 +14,7 @@ import com.abservice.presentation.rest.article.ArticleQueryResource;
 import com.abservice.presentation.rest.article.ArticleTagAdminQueryResource;
 import com.abservice.presentation.rest.article.ArticleTagCommandResource;
 import com.abservice.presentation.rest.asset.AssetCommandResource;
+import com.abservice.presentation.rest.publication.PublicDataGenerationQueryResource;
 import com.abservice.presentation.rest.site.SiteContentCommandResource;
 import com.abservice.presentation.rest.site.SiteContentQueryResource;
 import com.abservice.presentation.rest.tune.TuneCommandResource;
@@ -64,6 +65,7 @@ public final class DeclaredEndpoints {
             ArticleTagAdminQueryResource.class,
             ArticleTagCommandResource.class,
             AssetCommandResource.class,
+            PublicDataGenerationQueryResource.class,
             SiteContentCommandResource.class,
             SiteContentQueryResource.class,
             TuneCommandResource.class,

@@ -9,10 +9,10 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "内容だけの再ビルド、または保存済み成果物への切り戻し"
+        description: "内容の再ビルド、保存済み成果物への切り戻し、または途中配布の再生成復旧"
         required: true
         type: choice
-        options: [rebuild-public, rollback]
+        options: [rebuild-public, rollback, recover]
       release_id:
         description: "rollback時だけ: 戻す記録のrelease ID（run番号-attempt）"
         type: string
@@ -91,13 +91,15 @@ jobs:
         if: env.ACTION != 'rollback'
         working-directory: source
         env:
+          RELEASE_SHA: ${{ steps.source.outputs.code_sha }}
+          ASTRO_TELEMETRY_DISABLED: "1"
           # 管理画面のAPIは常に同一origin。公開SSGの取得先とは分ける。
           PUBLIC_API_BASE_URL: ""
           PUBLIC_ASSET_BASE_PATH: /assets
         run: |
           npm ci
-          npm run build:public
-          if [ "$ACTION" = deploy ]; then npm run build:admin; fi
+          node ../delivery/infra/release/build-public.mjs
+          if [ "$ACTION" != rebuild-public ]; then npm run build:admin; fi
       - name: Publish and wait for invalidation
         if: env.ACTION != 'rollback'
         env:
@@ -109,6 +111,8 @@ jobs:
           TARGET_RELEASE_ID: ${{ inputs.release_id }}
         run: node delivery/infra/release/frontend.mjs rollback
       - name: Identify the release record
+        if: ${{ !cancelled() }}
         run: |
           echo "Release operation: $RELEASE_ID ($ACTION)" >> "$GITHUB_STEP_SUMMARY"
           echo 'The private release bucket holds current.json, manifests and artifacts. Incomplete delivery leaves pending.json and blocks content rebuilds.' >> "$GITHUB_STEP_SUMMARY"
+          node delivery/infra/release/frontend.mjs status
