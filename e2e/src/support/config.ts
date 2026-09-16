@@ -43,6 +43,9 @@ export const stack = {
    */
   assetOrigin: process.env['E2E_ASSET_ORIGIN'] ?? 'http://127.0.0.1:9000/abservice-assets',
 
+  /** ブラウザへ払い出す署名付きPUTのオリジン。配信サーバからのMinIO接続先とは分ける。 */
+  uploadOrigin: process.env['E2E_UPLOAD_ORIGIN'] ?? 'http://localhost:9000',
+
   /**
    * アセットの配信パス。
    *

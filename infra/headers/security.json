@@ -1,0 +1,11 @@
+{
+  "hstsMaxAge": 31536000,
+  "referrerPolicy": "strict-origin-when-cross-origin",
+  "frameOptions": "SAMEORIGIN",
+  "policies": {
+    "public": "default-src 'none'; script-src 'self' 'unsafe-inline'; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src ${image_sources}; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; frame-src https://w.soundcloud.com; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'",
+    "admin": "default-src 'none'; script-src 'self' 'unsafe-inline'; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src ${image_sources}; connect-src ${api_sources} ${upload_origin}; frame-src 'self' https://w.soundcloud.com; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'",
+    "api": "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    "assets": "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+  }
+}

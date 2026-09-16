@@ -26,6 +26,7 @@ import { fileURLToPath } from 'node:url';
 import { runInNewContext } from 'node:vm';
 
 import { renderStaticNotFound } from '../../infra/functions/static-page-404.mjs';
+import { securityHeaders } from '../../infra/headers/security.mjs';
 import { apps, basePathOf, portOf, stack } from '../src/support/config.ts';
 
 const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
@@ -178,6 +179,14 @@ const respondStatic = (pathname, method, response) => {
 
 createServer((request, response) => {
   const pathname = new URL(request.url ?? '/', `http://127.0.0.1:${String(port)}`).pathname;
+  const kind = pathname.startsWith(ASSET_PREFIX) ? 'assets' : appName;
+  Object.entries(
+    securityHeaders(kind, {
+      apiOrigin: stack.backendBaseUrl,
+      imageOrigin: stack.siteBaseUrl,
+      uploadOrigin: stack.uploadOrigin,
+    }),
+  ).forEach(([key, value]) => response.setHeader(key, value));
 
   return pathname.startsWith(ASSET_PREFIX)
     ? relayAsset(pathname, response)

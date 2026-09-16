@@ -167,6 +167,30 @@ OAC 経由の S3 は REST エンドポイントで、ディレクトリ索引を
 
 仕様の参照元: [S3 GetObjectの403/404](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html)、[Lambda@Edgeの制約](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-at-edge-function-restrictions.html)、[エッジ関数の組合せとヘッダー](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/edge-function-restrictions-all.html)、[エラー応答のキャッシュ](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/custom-error-pages-expiration.html)。
 
+### 配信のセキュリティヘッダー（#240）
+
+`security-headers.tf` がpublic/admin/API/assetsの全behaviorへレスポンスヘッダーポリシーを関連付ける。既存のnoindexポリシーは `moved` でadminへ引き継ぐ。公開の `public_indexing_enabled` はX-Robots-Tagだけを切り替え、検索公開後もセキュリティヘッダーを維持する。admin/APIは常にnoindex、assetsには新たな検索制限を加えない。ステータス・本文・Content-Type・キャッシュ・CORSはこのポリシーで置き換えない。
+
+| ヘッダー | 設定 |
+| --- | --- |
+| Content-Security-Policy | report-onlyではなく強制。許可値の正は `headers/security.json` |
+| Strict-Transport-Security | max-age=31536000。未確認のサブドメインへ広げず、includeSubDomains/preloadは付けない |
+| X-Content-Type-Options | nosniff |
+| Referrer-Policy | strict-origin-when-cross-origin |
+| X-Frame-Options / frame-ancestors | public/adminはSAMEORIGIN / self（管理の記事プレビューを許可）、API/assetsはDENY / none |
+
+CSPはdefault-srcをnoneにし、公開・管理のスクリプト/CSSをselfに、書体CSSをfonts.googleapis.com、書体実体をfonts.gstatic.com、画像をself/dataに限定する。SoundCloudは元URLのsoundcloud.com等ではなく、共有URL生成器が出す `https://w.soundcloud.com` を両画面のframe-srcに許可する。管理画面だけは同一オリジンのプレビューフレームと、管理APIへの通信・当該アセットバケットのregional endpointへの署名付きPUTを許可する。S3全体へのワイルドカードは使わない。API/assetsの文書内リソースはdefault-src noneで許可しない。
+
+**現段階ではscript/styleのunsafe-inlineを許可する。** 公開の書体待ちスクリプト、Astroの島の初期化、生成CSS・UIのstyle属性が必要とするためで、厳格なスクリプトCSPによるXSS防止が完了したという意味ではない。unsafe-eval、HTMLのイベント属性（script-src-attr）、object、base変更は許可しない。記事HTMLのサニタイズも引き続き必要。unsafe-inlineの除去には生成物と結び付けたhash等の別設計が必要になる。公開プレビュー自身のmeta CSP（script-src none）はHTTPヘッダーとの積で働くため緩まない。SoundCloudの子文書内の取得先を親のmedia-srcへ列挙しない。実音源の可聴性や外部サービス側の将来変更は別の実環境受け入れで確認する。
+
+E2E配信も同じJSONから強制CSPを返す。ローカル/CIはサイト・API・MinIOが別オリジンのため、`stack.siteBaseUrl`、`stack.backendBaseUrl`、`E2E_UPLOAD_ORIGIN`（既定 `http://localhost:9000`）だけを検査環境用に追加する。最後の値はbackendがブラウザへ払い出す署名URLのoriginと一致させる。配信サーバー自身が使う `E2E_ASSET_ORIGIN` と混同しない。これらのローカル許可値は本番Terraformに入れない。
+
+検査は `node --test infra/headers/*.test.mjs`、`terraform test` と実スタックE2E。E2Eでは公開表示・書体待ち・管理ログイン・画像PUT・記事プレビュー・404を確認し、任意の外部スクリプト/通信/フレーム、eval、イベント属性の拒否をブラウザのsecuritypolicyviolationで確認する。SoundCloudの許可検査にはネットワーク境界のテスト文書を使い、実音源の再生成功とは扱わない。
+
+実AWSへはまだ適用していない。#129の準備配布後、全behaviorの成功/エラー/キャッシュ応答、同一オリジンAPI、署名付きS3 PUT/CORS、書体・画像・実SoundCloud・記事プレビューを確認し、結果をABAffairsへ記録する。設定を無条件に緩める前に違反したdirectiveと取得先を特定する。運用の適用・切り戻し時は、ブラウザへ既に記憶されたHSTSがポリシーを外すだけでは消えない点も考慮する。
+
+参照: [CloudFrontレスポンスヘッダーポリシー](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/understanding-response-headers-policies.html)、[CSPのディレクティブと複数ポリシー](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy)。
+
 ## ロールバック（backendデプロイ）
 
 ECRのライフサイクルポリシーにより直近10件のタグ付きイメージが保持される。障害時は`.github/workflows/deploy.yml`を`workflow_dispatch`で手動起動し、`commit_sha`に直前の正常なcommitのfull SHAを指定して再デプロイする（再ビルドは行わず、ECRの既存イメージをそのままEC2へpull・再起動するだけなので数十秒で完了する）。ロールバック後、mainブランチの履歴は`git revert`で追随させる（force-push・履歴書き換えはしない）。

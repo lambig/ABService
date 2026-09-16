@@ -98,19 +98,6 @@ resource "aws_wafv2_web_acl" "cloudfront" {
   }
 }
 
-# /admin* と /api/* は検索エンジンにインデックスさせない（SEOペナルティ回避のためrobots.txtのDisallowと併用する）。
-resource "aws_cloudfront_response_headers_policy" "noindex" {
-  name = "${var.project_name}-noindex"
-
-  custom_headers_config {
-    items {
-      header   = "X-Robots-Tag"
-      value    = "noindex, nofollow"
-      override = true
-    }
-  }
-}
-
 # 静的サイトの要求経路を実オブジェクトキーへ解決する（ディレクトリ索引の代わり）。
 # 綴りとその理由は functions/resolve-static-uri.js を参照。E2Eの配信も同じファイルを読んで適用する。
 resource "aws_cloudfront_function" "resolve_static_uri" {
@@ -192,7 +179,7 @@ resource "aws_cloudfront_distribution" "main" {
     allowed_methods            = ["GET", "HEAD"]
     cached_methods             = ["GET", "HEAD"]
     compress                   = true
-    response_headers_policy_id = var.public_indexing_enabled ? null : aws_cloudfront_response_headers_policy.noindex.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security["public"].id
 
     function_association {
       event_type   = "viewer-request"
@@ -223,7 +210,7 @@ resource "aws_cloudfront_distribution" "main" {
     allowed_methods            = ["GET", "HEAD"]
     cached_methods             = ["GET", "HEAD"]
     compress                   = true
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.noindex.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security["admin"].id
 
     function_association {
       event_type   = "viewer-request"
@@ -246,12 +233,13 @@ resource "aws_cloudfront_distribution" "main" {
 
   # アセットは確定後に内容が変わらない（キーがUUIDv7で一意）ため長期キャッシュしてよい
   ordered_cache_behavior {
-    path_pattern           = "/assets/*"
-    target_origin_id       = local.assets_origin_id
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
-    compress               = true
+    path_pattern               = "/assets/*"
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security["assets"].id
+    target_origin_id           = local.assets_origin_id
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD"]
+    cached_methods             = ["GET", "HEAD"]
+    compress                   = true
 
     forwarded_values {
       query_string = false
@@ -272,7 +260,7 @@ resource "aws_cloudfront_distribution" "main" {
     allowed_methods            = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
     cached_methods             = ["GET", "HEAD"]
     compress                   = true
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.noindex.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security["api"].id
 
     forwarded_values {
       query_string = true
