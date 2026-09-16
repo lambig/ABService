@@ -3,6 +3,18 @@ import { showcase } from '../support/build-fixtures.ts';
 import { stack } from '../support/config.ts';
 import { expect, test } from '../support/fixtures.ts';
 
+test('robots.txtは管理画面とAPIだけを検索対象から除外する', async ({ request }) => {
+  const response = await request.get(`${stack.siteBaseUrl}/robots.txt`);
+
+  expect(response.status()).toBe(200);
+  expect(response.headers()['content-type']).toBe('text/plain; charset=utf-8');
+  expect((await response.text()).trim().split(/\r?\n/u)).toEqual([
+    'User-agent: *',
+    'Disallow: /admin',
+    'Disallow: /api',
+  ]);
+});
+
 test('CSPを強制しても公開表示・書体処理・SoundCloudフレーム・管理ログインが動く', async ({
   page,
 }) => {
