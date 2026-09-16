@@ -27,8 +27,9 @@ import org.jspecify.annotations.Nullable;
  * </ul>
  *
  * <p>
- * ホストを許可リストで縛るのは、埋め込みできないURLが保存される事故を防ぐためです。許可ホストを増やすときは、配信側の
- * Content-Security-Policy（{@code frame-src}）の許可リストと揃えて変更します。
+ * ホストを許可リストで縛るのは、埋め込みできないURLが保存される事故を防ぐためです。許可ホストを増やすときは、
+ * 共有の埋め込みURL生成器と照合し、その出力先オリジンを配信側のContent-Security-Policy（{@code frame-src}）へ反映します。
+ * 現在は元URLのホストによらず{@code https://w.soundcloud.com}へ埋め込みます。
  * </p>
  *
  * <p>

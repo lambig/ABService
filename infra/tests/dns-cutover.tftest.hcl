@@ -51,12 +51,39 @@ variables {
 run "prepare_plan_dependencies" {
   command = apply
   plan_options {
-    target = [aws_acm_certificate.cloudfront, aws_cloudfront_response_headers_policy.noindex, aws_lambda_function.static_page_404]
+    target = [aws_acm_certificate.cloudfront, aws_cloudfront_response_headers_policy.security, aws_lambda_function.static_page_404]
   }
 }
 
 run "prepare_apex" {
   command = plan
+
+  assert {
+    condition = alltrue([
+      for policy in aws_cloudfront_response_headers_policy.security :
+      one(policy.security_headers_config).content_security_policy[0].override &&
+      length(one(policy.security_headers_config).content_security_policy[0].content_security_policy) <= 1783 &&
+      one(policy.security_headers_config).content_type_options[0].override &&
+      one(policy.security_headers_config).strict_transport_security[0].access_control_max_age_sec == 31536000 &&
+      !one(policy.security_headers_config).strict_transport_security[0].include_subdomains &&
+      !one(policy.security_headers_config).strict_transport_security[0].preload &&
+      one(policy.security_headers_config).referrer_policy[0].referrer_policy == "strict-origin-when-cross-origin"
+    ])
+    error_message = "Every policy must enforce CSP, nosniff, scoped HSTS and referrer policy."
+  }
+  assert {
+    condition = alltrue([
+      for behavior in aws_cloudfront_distribution.main.ordered_cache_behavior :
+      behavior.response_headers_policy_id == aws_cloudfront_response_headers_policy.security[lookup({ "/admin*" = "admin", "/api/*" = "api", "/assets/*" = "assets" }, behavior.path_pattern)].id
+    ]) && length(aws_cloudfront_response_headers_policy.security["public"].custom_headers_config) == 1
+    error_message = "All behaviors need security headers; public stays noindex before search publication."
+  }
+  assert {
+    condition = (strcontains(local.security_headers.policies.admin, "https://${aws_s3_bucket.assets.bucket_regional_domain_name}") &&
+      !strcontains(local.security_headers.policies.public, aws_s3_bucket.assets.bucket_regional_domain_name) &&
+    alltrue([for kind in ["public", "admin"] : strcontains(local.security_headers.policies[kind], "https://w.soundcloud.com")]))
+    error_message = "Only admin may connect to the upload bucket; both page kinds need the shared embed origin."
+  }
 
   assert {
     condition = alltrue([
@@ -91,13 +118,13 @@ run "prepare_apex" {
   }
 
   assert {
-    condition     = aws_cloudfront_distribution.main.default_cache_behavior[0].response_headers_policy_id == aws_cloudfront_response_headers_policy.noindex.id
+    condition     = aws_cloudfront_distribution.main.default_cache_behavior[0].response_headers_policy_id == aws_cloudfront_response_headers_policy.security["public"].id
     error_message = "Default preparation must attach noindex to public pages."
   }
   assert {
     condition = alltrue([
       for path in ["/admin*", "/api/*"] :
-      one([for behavior in aws_cloudfront_distribution.main.ordered_cache_behavior : behavior if behavior.path_pattern == path]).response_headers_policy_id == aws_cloudfront_response_headers_policy.noindex.id
+      one([for behavior in aws_cloudfront_distribution.main.ordered_cache_behavior : behavior if behavior.path_pattern == path]).response_headers_policy_id == aws_cloudfront_response_headers_policy.security[path == "/admin*" ? "admin" : "api"].id
     ])
     error_message = "Admin and API must retain noindex regardless of public indexing."
   }
@@ -167,22 +194,22 @@ run "enable_public_indexing" {
   }
 
   assert {
-    condition     = aws_cloudfront_distribution.main.default_cache_behavior[0].response_headers_policy_id == null
-    error_message = "Search publication must remove the public noindex policy."
+    condition     = aws_cloudfront_distribution.main.default_cache_behavior[0].response_headers_policy_id == aws_cloudfront_response_headers_policy.security["public"].id && length(aws_cloudfront_response_headers_policy.security["public"].custom_headers_config) == 0
+    error_message = "Search publication must retain security headers and remove only public noindex."
   }
   assert {
     condition = alltrue([
       for path in ["/admin*", "/api/*"] :
-      one([for behavior in aws_cloudfront_distribution.main.ordered_cache_behavior : behavior if behavior.path_pattern == path]).response_headers_policy_id == aws_cloudfront_response_headers_policy.noindex.id
+      one([for behavior in aws_cloudfront_distribution.main.ordered_cache_behavior : behavior if behavior.path_pattern == path]).response_headers_policy_id == aws_cloudfront_response_headers_policy.security[path == "/admin*" ? "admin" : "api"].id
     ])
     error_message = "Admin and API must retain noindex regardless of public indexing."
   }
 
   assert {
     condition = alltrue([
-      for item in one(aws_cloudfront_response_headers_policy.noindex.custom_headers_config).items :
+      for item in one(aws_cloudfront_response_headers_policy.security["admin"].custom_headers_config).items :
       item.header == "X-Robots-Tag" && item.value == "noindex, nofollow" && item.override
-    ]) && length(one(aws_cloudfront_response_headers_policy.noindex.custom_headers_config).items) == 1
+    ]) && length(one(aws_cloudfront_response_headers_policy.security["admin"].custom_headers_config).items) == 1
     error_message = "The retained policy must enforce X-Robots-Tag noindex, nofollow."
   }
 }
