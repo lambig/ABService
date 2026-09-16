@@ -96,6 +96,20 @@ aws ssm get-parameter --name "/<project>/<environment>/app/admin-api-key" \
 
 ローテーションは Parameter Store の値を更新し、backend を再デプロイ（再起動）して反映する。
 
+## 初期データの投入（#373）
+
+公開時に載せる文言・作品・記事・カバー画像は、SQL ではなく**管理API経由**で入れる。仕組みは
+[packages/seed-loader](../packages/seed-loader/README.md)（投入ディレクトリの形・dry-run・中断からの再開）が持ち、
+投入する内容と実行の手順は運用リポジトリ（#375）が持つ。投入先は配信のオリジン（`/api/*`）で、鍵は上の Parameter Store から取る。
+
+```bash
+SEED_API_BASE_URL=https://<配信のドメイン> ADMIN_API_KEY=<鍵> \
+  npm run load -w abservice-seed-loader -- --dir <運用リポジトリの seed/> --dry-run
+```
+
+`--dry-run` は書き込みを送らずに計画だけを出す。外すと同じ計画どおりに送る。空の DB に対する通しのリハーサルを
+本番より前に1回行う。
+
 ## オリジンへの到達制限（#286）
 
 EC2のセキュリティグループが許すのは`com.amazonaws.global.cloudfront.origin-facing`の範囲で、これは**CloudFront全体**の送信元であり、他人のdistributionも含む。prefix listだけでは自分の配信に限定できず、別のdistributionが同じEC2を指せばWAFと`/api/*`の振り分けを経ずにbackendへ届く。

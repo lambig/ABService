@@ -75,6 +75,8 @@ ABService/
 ├── packages/markup/         # マークアップ描画（公開サイトと管理画面が共有する）
 ├── packages/patterns/       # 網羅性を保った式ベースの分岐（switch文の代わり）
 ├── packages/eslint-config/  # TypeScript側の規約（上記3つとe2eが共有する。Java側の正はcheckstyle/pmd）
+├── packages/admin-api/      # 管理APIクライアント（E2Eのシードと初期データのローダが共有する）
+├── packages/seed-loader/    # 初期データを管理API経由で投入するローダ（#373。内容は運用リポジトリが持つ）
 ├── e2e/                     # E2Eテストとレビュー証跡（アプリを跨ぐため、どちらにも属させない）
 ├── infra/                   # AWS構成（Terraform）
 ├── docker/                  # Docker設定

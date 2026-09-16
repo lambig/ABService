@@ -1,301 +1,47 @@
+import { adminApi, toUpdateAlbumRequest, toUpdateArticleRequest } from 'abservice-admin-api';
 import { stack } from './config.ts';
-import type { components } from '@api-schema';
 
 /**
- * 管理API経由でデータを投入する。
- *
- * SQL のフィクスチャを作らないのは、投入経路そのものも同時に検証するため（#164）。テストが必要とする
- * 形だけを持ち、網羅はしない。
- */
-
-/** 作る作品の指定。省略した項目は API の既定に従う */
-export interface AlbumSeed {
-  readonly title: string;
-  readonly releaseDate: string;
-  readonly artistDisplayName: string;
-  readonly artistSortKey: string;
-  readonly catalogNumber?: string;
-  readonly isdn?: string;
-  readonly description?: string;
-  readonly descriptionFormat?: 'MARKDOWN' | 'PLAIN_TEXT';
-  readonly event?: {
-    readonly name: string;
-    readonly date?: string;
-    readonly place?: string;
-    readonly spaceNumber?: string;
-    readonly note?: string;
-  };
-  /** 頒布の基準額。省略すると額が決まっていない作品になる */
-  readonly basePrice?: {
-    readonly amount: number;
-    /** 通貨コード（ISO 4217）。省略は円 */
-    readonly currency?: string;
-  };
-  /** 原作の出典の記述（#365）。省略すると記述を持たない作品になる */
-  readonly originalWorkNote?: string;
-  /** カバー画像。省略すると画像を持たない作品になる */
-  readonly coverImage?: AssetSeed;
-  readonly tracks?: readonly TrackSeed[];
-  readonly externalAudioUrls?: readonly string[];
-}
-
-/**
- * 送るアセットの実体。
- *
- * 形式はバックエンドが先頭バイト列で判定するため、申告（`contentType`）と中身が一致している必要がある。
- */
-export interface AssetSeed {
-  readonly contentType: string;
-  readonly body: Blob;
-}
-
-/** 作るトラックの指定。並びは配列の位置がそのまま表すため、番号は持たない（#391） */
-export interface TrackSeed {
-  /** トラック名。省略すると、チューン名を繋いだものが名になる（#360） */
-  readonly title?: string;
-  readonly artistDisplayName?: string;
-  readonly tunes?: readonly TuneSeed[];
-}
-
-/** トラック内のチューン構成。登場順も配列の位置が表す */
-export interface TuneSeed {
-  /** チューン名。省略すると名を持たない構成要素（MC・環境音など）になる */
-  readonly tuneTitle?: string;
-  readonly composerCreditOverride?: string;
-  readonly arrangerCreditOverride?: string;
-}
-
-const adminHeaders = {
-  Authorization: `Bearer ${stack.adminApiKey}`,
-  'Content-Type': 'application/json',
-} as const;
-
-const sendAdmin = async (method: 'POST' | 'PUT', path: string, body: unknown): Promise<unknown> => {
-  const response = await fetch(`${stack.backendBaseUrl}${path}`, {
-    method,
-    headers: adminHeaders,
-    body: JSON.stringify(body),
-  });
-  const text = await response.text();
-  return response.ok
-    ? (JSON.parse(text) as unknown)
-    : Promise.reject(
-        new Error(`${method} ${path} が失敗しました（HTTP ${String(response.status)}）: ${text}`),
-      );
-};
-
-const postAdmin = (path: string, body: unknown): Promise<unknown> => sendAdmin('POST', path, body);
-
-const putAdmin = (path: string, body: unknown): Promise<unknown> => sendAdmin('PUT', path, body);
-
-const getAdmin = async (path: string): Promise<unknown> => {
-  const response = await fetch(`${stack.backendBaseUrl}${path}`, { headers: adminHeaders });
-  const text = await response.text();
-  return response.ok
-    ? (JSON.parse(text) as unknown)
-    : Promise.reject(
-        new Error(`GET ${path} が失敗しました（HTTP ${String(response.status)}）: ${text}`),
-      );
-};
-
-const albumIdOf = (created: unknown): string => {
-  const albumId = (created as { albumId?: unknown }).albumId;
-  return typeof albumId === 'string'
-    ? albumId
-    : (() => {
-        throw new Error(`作品の作成応答に albumId がありません: ${JSON.stringify(created)}`);
-      })();
-};
-
-/** 払い出しの応答のうち、実体を送るために要る項目 */
-interface AssetUploadUrl {
-  readonly assetKey: string;
-  readonly uploadUrl: string;
-}
-
-/**
- * アセットを保管先へ送り、確定して配信できる鍵にする。
+ * E2E のスタックに結び付いた管理APIクライアント。
  *
  * <p>
- * 3段（払い出し・署名付きURLへの直接送信・確定）をそのまま通す。実体が管理APIを経由しないのは契約
- * （#136）であり、シードもその経路を迂回しない——迂回すると、画面が通る経路とは別の入れ方だけを
- * 検証したことになる。
+ * 操作の実体は `packages/admin-api` が持ち、初期データのローダ（#373）と同じ経路を通る。ここが持つのは
+ * スタックへの結び付けと、シナリオのための言い回しだけ。
  * </p>
- *
- * @param asset
- *            送る実体
- * @returns 確定したアセットキー。確定できなかった実体は配信されないため、鍵は返らない
  */
-export const seedAsset = async (asset: AssetSeed): Promise<string> => {
-  const issued = (await postAdmin('/api/v1/assets/upload-url', {
-    contentType: asset.contentType,
-  })) as AssetUploadUrl;
+const api = adminApi({ baseUrl: stack.backendBaseUrl, apiKey: stack.adminApiKey });
 
-  const stored = await fetch(issued.uploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': asset.contentType },
-    body: asset.body,
-  });
+export type {
+  AdminAlbum,
+  AdminArticle,
+  AlbumSeed,
+  ArticleSeed,
+  AssetSeed,
+  SiteContentSeed,
+  TrackSeed,
+  TuneSeed,
+} from 'abservice-admin-api';
 
-  await (stored.ok
-    ? postAdmin(`/api/v1/assets/${issued.assetKey}/confirm`, {})
-    : Promise.reject(
-        new Error(
-          `アセットを保管先へ送れませんでした（HTTP ${String(stored.status)}）: ${issued.assetKey}`,
-        ),
-      ));
-
-  return issued.assetKey;
-};
-
-/**
- * 作品を、曲目と外部音源ごと作る（下書きのまま）。
- *
- * <p>
- * 作品の子を書く経路は集約ルートに1つしかないため、1リクエストで揃う（#391）。並びは送った配列の位置が
- * そのまま表すので、番号も送らず、順序を再現するための逐次送信も要らない。
- * </p>
- *
- * @returns 作った作品のドメインID
- */
-export const seedDraftAlbum = async (album: AlbumSeed): Promise<string> => {
-  const coverImageKey =
-    album.coverImage === undefined ? undefined : await seedAsset(album.coverImage);
-
-  const created = await postAdmin('/api/v1/albums/with-tracks', {
-    title: album.title,
-    releaseDate: album.releaseDate,
-    artistDisplayName: album.artistDisplayName,
-    artistSortKey: album.artistSortKey,
-    catalogNumber: album.catalogNumber,
-    isdn: album.isdn,
-    description: album.description,
-    descriptionFormat: album.descriptionFormat,
-    event: album.event,
-    basePrice: album.basePrice,
-    originalWorkNote: album.originalWorkNote,
-    coverImageKey,
-    tracks: (album.tracks ?? []).map((track) => ({
-      title: track.title,
-      artistDisplayName: track.artistDisplayName,
-      tunes: (track.tunes ?? []).map((tune) => ({
-        tuneTitle: tune.tuneTitle,
-        composerCreditOverride: tune.composerCreditOverride,
-        arrangerCreditOverride: tune.arrangerCreditOverride,
-      })),
-    })),
-    externalAudios: (album.externalAudioUrls ?? []).map((url) => ({ url })),
-  });
-
-  return albumIdOf(created);
-};
-
-/** 画像だけを変更する。PUTは全項目置換なので、子のID・並び・イベントも最新詳細から保持する。 */
-export const setAlbumCoverImage = async (
-  albumId: string,
-  coverImageKey: string | null,
-): Promise<void> => {
-  const detail = (await getAdmin(
-    `/api/v1/admin/albums/${albumId}`,
-  )) as components['schemas']['AdminAlbumDetailResponse'];
-  await putAdmin(`/api/v1/albums/${albumId}`, {
-    expectedRevision: detail.revision,
-    title: detail.title,
-    releaseDate: detail.releaseDate,
-    artistDisplayName: detail.artistDisplayName,
-    artistSortKey: detail.artistSortKey ?? undefined,
-    catalogNumber: detail.catalogNumber ?? undefined,
-    isdn: detail.isdn ?? undefined,
-    coverImageKey: coverImageKey ?? undefined,
-    description: detail.description ?? undefined,
-    descriptionFormat: detail.descriptionFormat,
-    event:
-      detail.eventName === null
-        ? undefined
-        : {
-            name: detail.eventName,
-            date: detail.eventDate ?? undefined,
-            place: detail.eventPlace ?? undefined,
-            spaceNumber: detail.eventSpaceNumber ?? undefined,
-            note: detail.eventNote ?? undefined,
-          },
-    basePrice: detail.basePrice ?? undefined,
-    originalWorkNote: detail.originalWorkNote ?? undefined,
-    tracks: detail.tracks.map((track) => ({
-      trackId: track.trackId,
-      title: track.title ?? undefined,
-      artistDisplayName: track.artistDisplayName ?? undefined,
-      artistSortKey: track.artistSortKey ?? undefined,
-      tunes: track.tunes.map((tune) => ({
-        tuneTitle: tune.tuneTitle ?? undefined,
-        composerCreditOverride: tune.composerCreditOverride ?? undefined,
-        arrangerCreditOverride: tune.arrangerCreditOverride ?? undefined,
-        linkUrl: tune.linkUrl ?? undefined,
-      })),
-    })),
-    externalAudios: detail.externalAudios.map((audio) => ({
-      externalAudioId: audio.externalAudioId,
-      url: audio.url,
-    })),
-  } satisfies components['schemas']['UpdateAlbumRequest']);
-};
-
-/** 旧シードの既存作品にも画像を補う。設定済みなら再アップロード・再保存しない。 */
-export const ensureAlbumCoverImage = async (albumId: string, image: AssetSeed): Promise<void> => {
-  const detail = (await getAdmin(
-    `/api/v1/admin/albums/${albumId}`,
-  )) as components['schemas']['AdminAlbumDetailResponse'];
-  return detail.coverImageKey === null
-    ? setAlbumCoverImage(albumId, await seedAsset(image))
-    : undefined;
-};
-
-/**
- * 下書きの作品を公開する。
- *
- * @param albumId
- *            公開する作品のドメインID
- */
-export const publishAlbum = async (albumId: string): Promise<void> => {
-  await postAdmin(`/api/v1/albums/${albumId}/publish`, {});
-};
-
-/**
- * 公開中の作品を下書きへ戻す。
- *
- * @param albumId
- *            下書きへ戻す作品のドメインID
- */
-export const unpublishAlbum = async (albumId: string): Promise<void> => {
-  await postAdmin(`/api/v1/albums/${albumId}/unpublish`, {});
-};
-
-/**
- * 作品を作り、トラックと外部音源を付けて公開する。
- *
- * @returns 作った作品のドメインID
- */
-export const seedPublishedAlbum = async (album: AlbumSeed): Promise<string> => {
-  const albumId = await seedDraftAlbum(album);
-  await publishAlbum(albumId);
-  return albumId;
-};
-
-/** 管理向け詳細のうち、画面の外から更新を送るために要る項目 */
-interface AdminAlbumDetail {
-  readonly revision: number;
-  readonly title: string;
-  readonly releaseDate: string;
-  readonly artistDisplayName: string;
-  readonly artistSortKey: string | null;
-  readonly catalogNumber: string | null;
-  readonly isdn: string | null;
-  readonly coverImageKey: string | null;
-  readonly description: string | null;
-  readonly descriptionFormat: string;
-  readonly basePrice: { readonly amount: number; readonly currency: string } | null;
-  readonly originalWorkNote: string | null;
-}
+export const {
+  seedAsset,
+  seedDraftAlbum,
+  seedPublishedAlbum,
+  setAlbumCoverImage,
+  ensureAlbumCoverImage,
+  publishAlbum,
+  unpublishAlbum,
+  deleteAlbum,
+  fetchAdminAlbumPage,
+  findAlbumByCatalogNumber,
+  findAlbumsByCatalogNumberPrefix,
+  seedDraftArticle,
+  publishArticle,
+  deleteArticle,
+  findArticleByTitle,
+  findArticlesByTitlePrefix,
+  countArticles,
+  upsertSiteContent,
+} = api;
 
 /**
  * 別のタブが保存した状態を作る（タイトルだけを変えて全項目置換する）。
@@ -314,218 +60,12 @@ export const renameAlbumOutsideTheScreen = async (
   albumId: string,
   title: string,
 ): Promise<void> => {
-  const detail = (await getAdmin(`/api/v1/admin/albums/${albumId}`)) as AdminAlbumDetail;
-
-  await sendAdmin('PUT', `/api/v1/albums/${albumId}`, {
-    expectedRevision: detail.revision,
-    title,
-    releaseDate: detail.releaseDate,
-    artistDisplayName: detail.artistDisplayName,
-    artistSortKey: detail.artistSortKey,
-    catalogNumber: detail.catalogNumber,
-    isdn: detail.isdn,
-    coverImageKey: detail.coverImageKey,
-    description: detail.description,
-    descriptionFormat: detail.descriptionFormat,
-    basePrice: detail.basePrice ?? undefined,
-    originalWorkNote: detail.originalWorkNote ?? undefined,
-  });
+  const detail = await api.getAdminAlbumDetail(albumId);
+  await api.updateAlbum(albumId, { ...toUpdateAlbumRequest(detail), title });
 };
-
-/** 管理向け一覧の1件。同定と公開状態の確認に使う項目だけを持つ */
-export interface AdminAlbum {
-  readonly albumId: string;
-  readonly catalogNumber: string | null;
-  /** 公開日時。下書きは null */
-  readonly publishedAt: string | null;
-}
-
-/** 管理画面と同じ50件単位で、総件数とページ情報を含む作品一覧を読む。 */
-export const fetchAdminAlbumPage = async (
-  page = 0,
-  catalogNumber = '',
-): Promise<components['schemas']['AdminAlbumListResponse']> =>
-  (await getAdmin(
-    `/api/v1/admin/albums?page=${String(page)}&size=50&catalogNumber=${encodeURIComponent(catalogNumber)}`,
-  )) as components['schemas']['AdminAlbumListResponse'];
-
-/**
- * カタログナンバーで作品を引く（下書きを含む）。
- *
- * <p>
- * 公開の一覧には下書きが出ないため、管理APIを通す。絞り込みは部分一致のため、完全一致で選び直す。
- * </p>
- *
- * @param catalogNumber
- *            同定に使うカタログナンバー
- * @returns 見つかった作品。無ければ undefined
- */
-export const findAlbumByCatalogNumber = async (
-  catalogNumber: string,
-): Promise<AdminAlbum | undefined> => {
-  const body = await getAdmin(
-    `/api/v1/admin/albums?size=100&catalogNumber=${encodeURIComponent(catalogNumber)}`,
-  );
-  const { items } = body as { items: readonly AdminAlbum[] };
-  return items.find((item) => item.catalogNumber === catalogNumber);
-};
-
-/**
- * カタログナンバーの接頭辞で作品を探す。
- *
- * <p>
- * 検査のためだけに作った作品を、控えを持たずに片付けるために使う。前回の実行が落ちて残ったものも
- * 同じ接頭辞で拾える。
- * </p>
- *
- * @param prefix
- *            カタログナンバーの接頭辞
- * @return 該当する作品（該当なしは空）
- */
-export const findAlbumsByCatalogNumberPrefix = async (
-  prefix: string,
-): Promise<readonly AdminAlbum[]> => {
-  const body = await getAdmin('/api/v1/admin/albums?size=100');
-  const { items } = body as { items: readonly AdminAlbum[] };
-  return items.filter((item) => (item.catalogNumber ?? '').startsWith(prefix));
-};
-
-/** 作る記事の指定。省略した項目は API の既定に従う */
-export interface ArticleSeed {
-  readonly articleType: 'ALBUM' | 'NOTE' | 'NEWS' | 'EVENT' | 'OTHER';
-  readonly title: string;
-  readonly body?: string;
-  readonly bodyFormat?: 'MARKDOWN' | 'PLAIN_TEXT';
-  readonly introShort?: string;
-  /** 参照先の作品のドメインID。参照を持てるのは ALBUM 種別だけ */
-  readonly albumId?: string;
-  /** 付けるタグ名。同じ名前のタグが無ければ作られる */
-  readonly tags?: readonly string[];
-}
-
-const articleIdOf = (created: unknown): string => {
-  const articleId = (created as { articleId?: unknown }).articleId;
-  return typeof articleId === 'string'
-    ? articleId
-    : (() => {
-        throw new Error(`記事の作成応答に articleId がありません: ${JSON.stringify(created)}`);
-      })();
-};
-
-/**
- * 記事を作り、作品への参照とタグを付ける（下書きのまま）。
- *
- * @returns 作った記事のドメインID
- */
-export const seedDraftArticle = async (article: ArticleSeed): Promise<string> => {
-  const created = await postAdmin('/api/v1/articles', {
-    articleType: article.articleType,
-    title: article.title,
-    body: article.body,
-    bodyFormat: article.bodyFormat,
-    introShort: article.introShort,
-  });
-
-  const articleId = articleIdOf(created);
-
-  /*
-   * 参照の設定は全項目置換の PUT（作成時のリクエストは参照を持たない）。作成直後のため世代は0
-   * （紐付けも記事の世代を進める契約、#323）。
-   */
-  await Promise.all(
-    article.albumId === undefined
-      ? []
-      : [
-          putAdmin(`/api/v1/articles/${articleId}/album`, {
-            albumId: article.albumId,
-            expectedRevision: 0,
-          }),
-        ],
-  );
-
-  /*
-   * SEQUENTIAL-ORDER: タグは名前で追加し、無ければ作られる。並列に投げると同じ名前を同時に作る
-   * 経路へ入るため、1件ずつ送る。
-   */
-  for (const name of article.tags ?? []) {
-    await postAdmin(`/api/v1/articles/${articleId}/tags`, { name });
-  }
-
-  return articleId;
-};
-
-/**
- * 下書きの記事を公開する。
- *
- * @param articleId
- *            公開する記事のドメインID
- */
-export const publishArticle = async (articleId: string): Promise<void> => {
-  await postAdmin(`/api/v1/articles/${articleId}/publish`, {});
-};
-
-/**
- * 記事を削除する。
- *
- * <p>
- * 記事は子を持たないため削除できる（作品はトラックの外部キーで塞がっている。#251）。フィクスチャを
- * 毎回同じ内容へ揃えるために使う。
- * </p>
- *
- * @param articleId
- *            削除する記事のドメインID
- */
-/**
- * 作品を削除する（べき等。画面から消したものへ重ねて呼んでも成功する）。
- *
- * @param albumId
- *            削除する作品のドメインID
- */
-export const deleteAlbum = async (albumId: string): Promise<void> => {
-  const response = await fetch(`${stack.backendBaseUrl}/api/v1/albums/${albumId}`, {
-    method: 'DELETE',
-    headers: adminHeaders,
-  });
-  return response.ok
-    ? undefined
-    : Promise.reject(
-        new Error(
-          `DELETE /api/v1/albums/${albumId} が失敗しました（HTTP ${String(response.status)}）`,
-        ),
-      );
-};
-
-export const deleteArticle = async (articleId: string): Promise<void> => {
-  const response = await fetch(`${stack.backendBaseUrl}/api/v1/articles/${articleId}`, {
-    method: 'DELETE',
-    headers: adminHeaders,
-  });
-  return response.ok
-    ? undefined
-    : Promise.reject(
-        new Error(
-          `DELETE /api/v1/articles/${articleId} が失敗しました（HTTP ${String(response.status)}）`,
-        ),
-      );
-};
-
-/** 管理向け記事詳細のうち、画面の外から更新を送るために要る項目 */
-interface AdminArticleDetail {
-  readonly revision: number;
-  readonly articleType: string;
-  readonly title: string;
-  readonly body: string;
-  readonly bodyFormat: string;
-  readonly introShort: string;
-}
 
 /**
  * 別のタブが保存した状態を作る（タイトルだけを変えて全項目置換する）。
- *
- * <p>
- * 更新は編集を始めた時点の世代（`expectedRevision`）を要求するため、詳細を読んでから送る（#287）。画面が
- * 同じ記事を開いたまま古い世代で保存しようとしたときに、競合として拒まれることを見るために使う。
- * </p>
  *
  * @param articleId
  *            対象の記事のドメインID
@@ -536,110 +76,6 @@ export const renameArticleOutsideTheScreen = async (
   articleId: string,
   title: string,
 ): Promise<void> => {
-  const detail = (await getAdmin(`/api/v1/admin/articles/${articleId}`)) as AdminArticleDetail;
-
-  await sendAdmin('PUT', `/api/v1/articles/${articleId}`, {
-    expectedRevision: detail.revision,
-    articleType: detail.articleType,
-    title,
-    body: detail.body,
-    bodyFormat: detail.bodyFormat,
-    introShort: detail.introShort,
-  });
-};
-
-/** 管理向け一覧の1件。同定に使う項目だけを持つ */
-export interface AdminArticle {
-  readonly articleId: string;
-  readonly title: string;
-}
-
-interface AdminArticlePage {
-  readonly items: readonly AdminArticle[];
-  readonly totalElements: number;
-  readonly totalPages: number;
-}
-
-const fetchAdminArticlePage = async (page: number): Promise<AdminArticlePage> =>
-  (await getAdmin(`/api/v1/admin/articles?page=${String(page)}&size=100`)) as AdminArticlePage;
-
-/**
- * 下書きを含む全記事。
- *
- * <p>
- * 管理の記事一覧はタイトルでの絞り込みを持たない（作品の一覧とは非対称。検索が要るのは記事編集画面から
- * 作品を選ぶ経路だけのため）ので、全ページたぐってから選ぶ。
- * </p>
- */
-const allAdminArticles = async (): Promise<readonly AdminArticle[]> => {
-  const firstPage = await fetchAdminArticlePage(0);
-  const remainingPages = await Promise.all(
-    Array.from({ length: Math.max(firstPage.totalPages - 1, 0) }, (_unused, index) =>
-      fetchAdminArticlePage(index + 1),
-    ),
-  );
-  return [firstPage, ...remainingPages].flatMap((page) => page.items);
-};
-
-/**
- * タイトルで記事を引く（下書きを含む）。
- *
- * <p>
- * 公開の一覧には下書きが出ないため管理APIを通す。
- * </p>
- *
- * @param title
- *            同定に使うタイトル
- * @returns 見つかった記事。無ければ undefined
- */
-export const findArticleByTitle = async (title: string): Promise<AdminArticle | undefined> =>
-  (await allAdminArticles()).find((item) => item.title === title);
-
-/**
- * タイトルの接頭辞で記事を探す（下書きを含む）。
- *
- * <p>
- * 検査のためだけに作った記事を、控えを持たずに片付けるために使う。前回の実行が落ちて残ったものも
- * 同じ接頭辞で拾える。
- * </p>
- *
- * @param prefix
- *            タイトルの接頭辞
- * @returns 該当する記事（該当なしは空）
- */
-export const findArticlesByTitlePrefix = async (prefix: string): Promise<readonly AdminArticle[]> =>
-  (await allAdminArticles()).filter((item) => item.title.startsWith(prefix));
-
-/**
- * 下書きを含む記事の総件数。
- *
- * <p>
- * ページ送りを見るシナリオが「あと何件足りないか」を決めるために使う。母集団はシードした記事と、
- * 前回までの実行が残したものの合計で、実行ごとに変わる。
- * </p>
- *
- * @returns 記事の総件数
- */
-export const countArticles = async (): Promise<number> =>
-  (await fetchAdminArticlePage(0)).totalElements;
-
-/** 置くサイト文言の指定。キーごとに1つ */
-export interface SiteContentSeed {
-  readonly key: string;
-  readonly content: string;
-  readonly contentFormat: 'MARKDOWN' | 'PLAIN_TEXT';
-}
-
-/**
- * サイト文言を登録する（同じキーがあれば置き換える）。
- *
- * <p>
- * 文言はリポジトリに置かず管理画面から入れる（#230）。E2E も同じ経路を通す。
- * </p>
- */
-export const upsertSiteContent = async (content: SiteContentSeed): Promise<void> => {
-  await putAdmin(`/api/v1/site-contents/${content.key}`, {
-    content: content.content,
-    contentFormat: content.contentFormat,
-  });
+  const detail = await api.getAdminArticleDetail(articleId);
+  await api.updateArticle(articleId, { ...toUpdateArticleRequest(detail), title });
 };

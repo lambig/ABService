@@ -1,29 +1,34 @@
 {
-  "name": "abservice-e2e",
+  "name": "abservice-seed-loader",
   "version": "1.0.0",
-  "description": "ABService end-to-end tests and review evidence",
+  "description": "Loads the initial site content, albums and articles through the admin API (#373)",
   "type": "module",
   "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
-    "test": "node scripts/prepare-stack.mjs && playwright test",
-    "test:headed": "node scripts/prepare-stack.mjs && playwright test --headed",
-    "report": "playwright show-report",
-    "lint": "prettier --check . && eslint .",
-    "format": "prettier --write .",
+    "load": "node src/cli.ts",
+    "acceptance": "node scripts/acceptance.mjs",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "evidence:publish": "node scripts/publish-evidence.mjs"
+    "lint": "prettier --check . && eslint .",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "abservice-admin-api": "*",
+    "abservice-patterns": "*"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",
-    "@playwright/test": "^1.62.0",
     "@types/node": "^24.0.0",
-    "abservice-admin-api": "*",
     "abservice-eslint-config": "*",
     "eslint": "^10.0.0",
     "eslint-plugin-functional": "^10.0.0",
     "prettier": "^3.0.0",
     "typescript": "^5.0.0",
-    "typescript-eslint": "^8.0.0"
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.2.4"
   },
   "engines": {
     "node": "24.20.0",
@@ -32,7 +37,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/lambig/ABService.git",
-    "directory": "e2e"
+    "directory": "packages/seed-loader"
   },
   "author": "Lambig",
   "license": "MIT"

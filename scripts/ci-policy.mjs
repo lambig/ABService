@@ -5,7 +5,8 @@ export const tracks = ['application', 'listening'];
 // Ownership is deliberately coarse. Unknown workspaces belong to both tracks
 // until their boundary is decided; checks must not disappear when packages grow.
 const ownership = {
-  application: ['frontend-public', 'frontend-admin', 'e2e', 'packages/markup', 'packages/patterns', 'packages/public-presentation'],
+  application: ['frontend-public', 'frontend-admin', 'e2e', 'packages/markup', 'packages/patterns',
+    'packages/public-presentation', 'packages/admin-api', 'packages/seed-loader'],
   listening: [
     'packages/audio-dsp', 'packages/audio-worklet', 'packages/installation',
     'packages/player', 'packages/offline-storage', 'packages/offline-shell',
