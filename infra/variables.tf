@@ -194,7 +194,7 @@ variable "cloudfront_5xx_alarm_percent" {
 
 # --- 資格情報の更新（#127） ---
 # 値を変えた apply で対応する random_password が再生成される。日付など、更新のたびに違う文字列を入れる。
-# 旧値は保存されないため、戻すことはできない（もう一度更新する）。順序と断の扱いは infra/README.md。
+# 戻す用の旧値は別に保管しない（生成値は state に残る）ため、「戻す」はもう一度更新すること。順序と断の扱いは infra/README.md。
 
 variable "admin_api_key_rotation" {
   description = "管理APIキーの更新の契機。変えると再生成され、Parameter Store が新しい値になる。反映には backend の再配布が要る（全セッションが失効する）"

@@ -2,8 +2,9 @@ data "aws_caller_identity" "current" {}
 
 # --- RDS (PostgreSQL) ---
 
-# 資格情報の更新は keepers の値（tfvars の rotation 変数）を変えた apply で行う（#127）。値は保存しないため
-# 「戻す」はもう一度更新すること。順序と断の扱いは infra/README.md「資格情報の更新」。
+# 資格情報の更新は keepers の値（tfvars の rotation 変数）を変えた apply で行う（#127）。戻す用の旧値は
+# 別に保管しない（生成値は state に残る）ため「戻す」はもう一度更新すること。順序と断の扱いは
+# infra/README.md「資格情報の更新」。
 resource "random_password" "db" {
   length  = 32
   special = false
