@@ -114,7 +114,7 @@ aws ssm get-parameter --name "/<project>/<environment>/app/admin-api-key" \
   --with-decryption --query 'Parameter.Value' --output text --region ap-northeast-1
 ```
 
-ローテーションは Parameter Store の値を更新し、backend を再デプロイ（再起動）して反映する。
+更新は下の「資格情報の更新」に従う（Parameter Store を直接書き換えても、次の apply で Terraform の値へ戻る）。
 
 ## 初期データの投入（#373）
 
@@ -138,7 +138,29 @@ Terraformが生成した値（`random_password.origin_verify_token`）をCloudFr
 
 **コンテナ自身からの`/q/*`は検査しない。** compose のhealthcheckがloopback経由で引くため。この緩和は、同じコンテナの中のプロセスが管理エンドポイントへ到達できることを意味する。外から`/q/*`へ届く経路は、CloudFrontが`/api/*`しか流さないことと、この検査の両方で塞ぐ。
 
-値のrotationはCloudFrontとbackendの両方を同時に切り替えられないため、切り替えの瞬間に断が生じる。手順は#127で扱う。
+値の更新はCloudFrontとbackendの両方を同時に切り替えられないため、切り替えの瞬間に断が生じる。順序は下の「資格情報の更新」。
+
+## 資格情報の更新（#127）
+
+管理APIキー・DBパスワード・オリジン識別値は、どれも Terraform の `random_password` が生成元、Parameter Store（識別値は CloudFront の custom header も）が供給先、稼働中の backend コンテナが消費者。`deploy.sh` は配布のたびに Parameter Store から読むため、**Parameter Store を更新しただけでは稼働プロセスは変わらず、Parameter Store を手で書き換えても次の apply で Terraform の値へ戻る。** 3点を揃える手順を1つに固定する。
+
+**契機は tfvars の rotation 変数。** `admin_api_key_rotation` / `db_password_rotation` / `origin_verify_token_rotation` の値（日付など、更新のたびに違う文字列）を変えて apply すると、対応する `random_password` だけが再生成され、供給先が新しい値になる。値は運用リポジトリの tfvars が持つので、いつ何を更新したかがそちらの履歴に残る。`terraform apply -replace` を手で打つ経路は使わない。
+
+更新は 1 つずつ、次の順で行う。
+
+1. tfvars の該当する rotation 変数を変え、plan で **その `random_password` と供給先（Parameter Store。識別値は CloudFront、DBパスワードは RDS も）だけ**が変わることを確かめて apply する
+2. **直後に** backend を再配布する。`.github/workflows/deploy.yml` を `workflow_dispatch` で起動し、`commit_sha` に**いま稼働している commit** の full SHA を渡す（ビルドせず、その commit のイメージを新しい値で起動し直す。稼働中の commit は Actions の Summary か `current.json` から読む）
+3. 反映を確かめる（下表）。結果は運用リポジトリの証跡へ記録する
+
+| 資格情報 | apply が変えるもの | 断 | 確かめること |
+| --- | --- | --- | --- |
+| 管理APIキー | Parameter Store | 再配布までは旧キーが有効。再配布で backend が再起動し**全セッションが失効**する（DECISIONS 22） | 旧キーで 401、新キーで管理画面に入れる。ローダ・SSG など機械側は Parameter Store から新しい値を取り直す |
+| DBパスワード | RDS の master password（`apply_immediately` に関わらず**即時**）と Parameter Store | apply の瞬間から再配布までの間、backend の既存接続は生きるが新規接続は認証に失敗しうる。readiness が落ちうるため利用の少ない時間に行い、apply の直後に再配布する | 再配布後の readiness が 200。ログに認証失敗が続いていない |
+| オリジン識別値 | CloudFront の custom header と Parameter Store | CloudFront の反映（数分）と再配布のどちらが先でも、一致しない間は `/api/*` が 403 になる（DECISIONS 35）。停止を許容する時間帯に行う | 公開 API が 2xx に戻る。識別値なし・誤った識別値の要求が 403 のまま |
+
+**戻し方**: 旧値は保存していないため「戻す」は**もう一度更新する**こと。再配布が失敗して古いプロセスが残った場合、管理APIキーとオリジン識別値は旧値のまま動き続けるので、再配布をやり直す。DBパスワードは RDS 側が先に変わっているため、backend が新規接続できないまま止まりうる。再配布を直して実行するか、もう一度 rotation を変えて apply と再配布を揃える。
+
+3つを同時に変えない。1つ変えるごとに再配布して確かめる。実環境で更新して確かめる工程は運用リポジトリの手順が持つ。
 
 ## DB接続情報（#117）
 
