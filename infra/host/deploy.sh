@@ -3,7 +3,8 @@
 # 呼び出しの直前に、CI が検査した SHA のこのファイルと docker-compose.prod.yml が
 # /opt/abservice へ置かれる（.github/workflows/deploy.yml）。
 #
-# 引数1: デプロイ対象のフルイメージ参照（例: <account>.dkr.ecr.<region>.amazonaws.com/abservice-backend:<tag>）
+# 引数1: デプロイ対象のフルイメージ参照。digest で指す
+#        （例: <account>.dkr.ecr.<region>.amazonaws.com/abservice-backend@sha256:<digest>）
 #
 # インスタンスに固有の値はここへ書かず、user_data が置く /opt/abservice/deploy.env から読む。
 # 前者はインスタンスを作るときに決まり、この手順はアプリと同じ速さで変わる。
@@ -58,6 +59,12 @@ if ! docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 240; 
   docker compose -f docker-compose.prod.yml logs --no-color --tail 200 backend >&2
   exit 1
 fi
+
+# 何が動いているかを、渡した参照ではなく稼働中のコンテナから読んで残す。証跡（運用側の台帳）が
+# 記録する「稼働 image digest」はこの行から取る。コンテナの inspect は image ID しか持たないため、
+# その ID のイメージから RepoDigests を読む（手元でビルドしただけのイメージでは空になるので落とさない）。
+# CI はこの行をそのまま取り出して実コンテナに対して走らせる（ci.yml の container-check）。1行に保つ
+echo "running image: $(docker image inspect "$(docker inspect abservice-backend --format '{{.Image}}')" --format '{{.Id}}{{range .RepoDigests}} {{.}}{{end}}')"
 
 # 差し替えで参照されなくなったレイヤを片付けるのは、新しいものが healthy になってから。失敗した
 # ときに手元へ残しておけば、戻すときに pull を待たずに済む。

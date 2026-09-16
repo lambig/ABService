@@ -289,6 +289,26 @@ jobs:
         run: |
           curl -fsS -H "X-Origin-Verify: $ORIGIN_VERIFY_TOKEN" http://localhost:8080/q/health/ready
 
+      # deploy.sh が healthy の後に出す「稼働 image」の行を、配るファイルからそのまま取り出して
+      # 実コンテナに対して走らせる。構文と配線の検査では拾えない（inspect の項目の有無は動かして
+      # 初めて分かる）。手元でビルドしたイメージは RepoDigests を持たないため、image ID が出ることまでを見る
+      - name: Run the running-image line of deploy.sh against the real container
+        run: |
+          line="$(grep -E '^echo "running image: ' infra/host/deploy.sh)"
+          if [ "$(wc -l <<<"$line")" -ne 1 ]; then
+            echo "infra/host/deploy.sh must contain exactly one 'echo \"running image: ...\"' line." >&2
+            exit 1
+          fi
+          output="$(bash -euo pipefail -c "$line")"
+          echo "$output"
+          case "$output" in
+          "running image: sha256:"*) ;;
+          *)
+            echo "The running-image line did not report the image ID." >&2
+            exit 1
+            ;;
+          esac
+
       # 自分の配信を経由しない要求は届かない。ここが素通りするなら、別の配信から WAF と
       # 経路の振り分けを迂回してオリジンへ届く（#286）
       - name: Reject requests that did not come through the distribution
@@ -350,6 +370,10 @@ jobs:
       # ロールの定義がずれていないかを、実行の前に見る
       - name: Check the deploy roles allow what the deploy calls
         run: scripts/check-deploy-permissions.sh
+
+      # 発行するタグの接頭辞と保持規則の接頭辞がずれると、イメージは規則の対象外のまま溜まる（#158）
+      - name: Check the deploy issues the tags the ECR retention rule selects
+        run: scripts/check-deploy-image-tag.sh
 
       - uses: actions/setup-node@v4
         with:
