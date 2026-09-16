@@ -179,7 +179,7 @@ Terraformが生成した値（`random_password.origin_verify_token`）をCloudFr
 
 1. **書き込みを止める。** 障害の発生時刻・最後に正常だった時刻を控え、いまの DB のスナップショットを取る（復元元を決めるため、いまの DB は消さない）
 2. **復元点を tfvars に入れて apply する。** `db_restore_to_time`（RFC3339 の UTC。自動バックアップの窓の中）か `db_restore_snapshot_identifier` のどちらか一方。`aws_db_instance.restored` が常設と同じサブネットグループ・SG で現れ、パスワードは apply が生成値へ揃える。plan にこのインスタンスと Parameter Store 以外の変更が出たら apply しない。backend の接続先はまだ常設のまま
-3. **内容を確かめる。** EC2 から復元済みインスタンスへ接続し（Session Manager。`psql` はコンテナで動かす）、`flyway_schema_history` の最終版が稼働中の backend の migration に収まること、作品・記事・サイト文言の件数と、参照している画像キーがバケットに在ることを見る
+3. **内容を確かめる。** EC2 から復元済みインスタンス（output `rds_restored_endpoint`）へ接続し（Session Manager。`psql` はコンテナで動かす）、`flyway_schema_history` の最終版が稼働中の backend の migration に収まること、作品・記事・サイト文言の件数と、参照している画像キーがバケットに在ることを見る
 4. **接続先を切り替える。** `db_active = "restored"` で apply し、**直後に**稼働中の backend の commit を再配布する（[資格情報の更新](#資格情報の更新127) の手順 2 と同じ。deploy.sh が配布のたびに `db/host` を読む）。backend の起動時に Flyway が不足分の migration を適用するので、復元点が古いぶんはここで前進する
 5. **公開面を揃える。** 復元で撤回済みの内容が「公開」に戻っていないかを**管理画面で確認してから** `rebuild-public` を実行する。公開データの世代は不透明な値なので、この確認は機構で代替されない。復元より前の成果物への `rollback` は世代が一致しないため拒否される
 6. **常設へ戻す。** 復元済みインスタンスのスナップショットを取り、`db_deletion_protection = false` で apply したうえで、`db_main_snapshot_identifier` にそのスナップショットを入れて常設を置換する（`terraform apply -replace=aws_db_instance.main`）。常設が出来たら `db_active = "main"` で apply して再配布し、復元点の変数を消して復元済みインスタンスを消し、保護を true に戻す。`db_main_snapshot_identifier` は作成のときにだけ効き、以後は変えても消しても置換にならない

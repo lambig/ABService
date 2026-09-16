@@ -37,3 +37,8 @@ output "frontend_admin_bucket_name" {
   description = "frontend-admin配信用S3バケット名"
   value       = aws_s3_bucket.frontend_admin.bucket
 }
+
+output "rds_restored_endpoint" {
+  description = "復元済みインスタンスのエンドポイント（ホスト:ポート）。復元点を指定していない間は null（#130）"
+  value       = one(aws_db_instance.restored[*].endpoint)
+}
