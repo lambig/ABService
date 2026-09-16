@@ -63,7 +63,7 @@ terraform apply cutover.tfplan
 
 ## ロールバック（インフラ変更）
 
-変更前の構成へ戻して plan し、実リソースに適用する。**state の旧バージョンを復元しても実リソースは戻らない**ため、通常の切り戻し手段にはしない。state の復元は state 自体を壊した場合の復旧で、現物との照合が必要。DB の migration と内容の復旧は 復旧方針（#130） を参照。
+変更前の構成へ戻して plan し、実リソースに適用する。**state の旧バージョンを復元しても実リソースは戻らない**ため、通常の切り戻し手段にはしない。state の復元は state 自体を壊した場合の復旧で、現物との照合が必要。DB の migration と内容の復旧は [バックアップと復旧](#バックアップと復旧130) を参照。
 
 ## CI/CD（backendデプロイ、#128）との連携
 
@@ -161,6 +161,34 @@ Terraformが生成した値（`random_password.origin_verify_token`）をCloudFr
 **戻し方**: 戻す用の旧値を別に保管しないため「戻す」は**もう一度更新する**こと（生成値は Terraform の state には残る。state の保護は従来どおりで、そこから旧値を取り出して戻す手順は持たない）。再配布が失敗して古いプロセスが残った場合、管理APIキーとオリジン識別値は旧値のまま動き続けるので、再配布をやり直す。DBパスワードは RDS 側が先に変わっているため、backend が新規接続できないまま止まりうる。再配布を直して実行するか、もう一度 rotation を変えて apply と再配布を揃える。
 
 3つを同時に変えない。1つ変えるごとに再配布して確かめる。実環境で更新して確かめる工程は運用リポジトリの手順が持つ。
+
+## バックアップと復旧（#130）
+
+復旧は「全部を同じ commit へ戻す」操作ではない。戻す単位が 6 つあり、それぞれの記録の所在が違う。
+
+| 単位 | 記録と保持 | 戻し方 |
+| --- | --- | --- |
+| backend のコード（イメージ） | ECR に `sha-<full SHA>` で直近 10 件 | Deploy の `workflow_dispatch`（[ロールバック（backendデプロイ）](#ロールバックbackendデプロイ)） |
+| DB のスキーマ（Flyway の版） | DB の `flyway_schema_history` | 前進のみ。下記 |
+| public / admin の成果物 | release バケットに世代ごと（[release/README.md](release/README.md)） | Deploy frontend の `rollback` |
+| 公開データの世代 | DB（不透明な UUID。大小比較しない） | `rebuild-public` で成果物を現在の DB に揃える |
+| DB の内容 | RDS の自動バックアップ（`db_backup_retention_days` 日。任意時点への復元を含む）と削除時の最終スナップショット | 下記の順序 |
+| 画像 | アセットバケット（versioning 有効）。確定後の `assets/` は**追記のみ**で、backend が消せるのは `pending/` だけ（`AssetPendingDelete`） | 戻すものが無い。過去の時点へ戻した DB が参照する画像は必ず在る |
+
+**DB は常設のインスタンスを上書きせず、別のインスタンスへ復元して接続先を切り替える。** 常設は `deletion_protection` で守り（`db_deletion_protection`、既定 true）、`terraform destroy` や置換は明示的に false にしてからでなければ通らない。
+
+1. **書き込みを止める。** 障害の発生時刻・最後に正常だった時刻を控え、いまの DB のスナップショットを取る（復元元を決めるため、いまの DB は消さない）
+2. **復元点を tfvars に入れて apply する。** `db_restore_to_time`（RFC3339 の UTC。自動バックアップの窓の中）か `db_restore_snapshot_identifier` のどちらか一方。`aws_db_instance.restored` が常設と同じサブネットグループ・SG で現れ、パスワードは apply が生成値へ揃える。plan にこのインスタンスと Parameter Store 以外の変更が出たら apply しない。backend の接続先はまだ常設のまま
+3. **内容を確かめる。** EC2 から復元済みインスタンスへ接続し（Session Manager。`psql` はコンテナで動かす）、`flyway_schema_history` の最終版が稼働中の backend の migration に収まること、作品・記事・サイト文言の件数と、参照している画像キーがバケットに在ることを見る
+4. **接続先を切り替える。** `db_active = "restored"` で apply し、**直後に**稼働中の backend の commit を再配布する（[資格情報の更新](#資格情報の更新127) の手順 2 と同じ。deploy.sh が配布のたびに `db/host` を読む）。backend の起動時に Flyway が不足分の migration を適用するので、復元点が古いぶんはここで前進する
+5. **公開面を揃える。** 復元で撤回済みの内容が「公開」に戻っていないかを**管理画面で確認してから** `rebuild-public` を実行する。公開データの世代は不透明な値なので、この確認は機構で代替されない。復元より前の成果物への `rollback` は世代が一致しないため拒否される
+6. **常設へ戻す。** 復元済みインスタンスのスナップショットを取り、`db_deletion_protection = false` で apply したうえで、`db_main_snapshot_identifier` にそのスナップショットを入れて常設を置換する（`terraform apply -replace=aws_db_instance.main`）。常設が出来たら `db_active = "main"` で apply して再配布し、復元点の変数を消して復元済みインスタンスを消し、保護を true に戻す。`db_main_snapshot_identifier` は作成のときにだけ効き、以後は変えても消しても置換にならない
+
+**Flyway は前進のみ。** backend を過去の commit へ戻せるのは、その commit が持つ migration が DB の `flyway_schema_history` に収まる範囲だけ。DB の方が先へ進んでいる（戻したい commit に無い版が適用済み）なら、旧イメージへ戻すだけでは復旧にならず、互換性のある forward fix か、この節の DB の復元を選ぶ。`baseline-on-migrate` は使わない（[スキーマ移行（Flyway）](#スキーマ移行flyway)）。
+
+**RPO / RTO の見立て。** 任意時点への復元はトランザクションログを 5 分ごとに取るため、失うのは最大でその程度。所要は復元（`db.t4g.micro` で十数分）+ apply + 再配布 + 照合。目標値と実測は運用リポジトリが持つ。クロスリージョンの複製は持たない（1 リージョンの喪失は受け入れる）。
+
+検査は `infra/tests/recovery.tftest.hcl`（既定で常設 1 台が保護され、復元点で 2 台目が同じ網の位置に現れ、`db_active` で接続先が動き、復元点のない切り替えと 2 つの復元点の同時指定は plan で止まる。backend の削除権限が `pending/` に限られる）。実環境で復元して確かめる工程は運用リポジトリの手順が持つ。
 
 ## DB接続情報（#117）
 
