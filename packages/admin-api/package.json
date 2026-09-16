@@ -1,0 +1,37 @@
+{
+  "name": "abservice-admin-api",
+  "version": "1.0.0",
+  "description": "Admin API client shared by the E2E seed and the initial data loader",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "prettier --check . && eslint .",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "abservice-eslint-config": "*",
+    "eslint": "^10.0.0",
+    "eslint-plugin-functional": "^10.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": "24.20.0",
+    "npm": "11.19.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lambig/ABService.git",
+    "directory": "packages/admin-api"
+  },
+  "author": "Lambig",
+  "license": "MIT"
+}
