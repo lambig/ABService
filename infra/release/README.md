@@ -73,8 +73,8 @@ CIのE2EジョブはPlaywrightの後に `node infra/release/public-generation-ac
 1. 初回の両画面配布、管理画面からのAPI呼出しとS3画像PUT。
 2. 記事を編集・非公開化して内容再ビルド。世代の未反映→一致、旧HTMLの失効、admin記録の不変を確認。ビルド中の更新は配布せず拒否すること。
 3. 意図的に配布を失敗させ、currentが進まずpendingが残ること。同世代の成果物へのrollback、撤回前の世代へのrollback拒否、最新データのrecoverをそれぞれ確認。
-4. publicの未存在URLの404本文と、APIの403/404のProblem Detailsを別々に確認（#125）。
+4. public/adminの未存在URLの404本文・GET/HEAD・no-storeと、APIの403/404のProblem Details、欠落したJS/画像の応答を別々に確認。公開解除・削除後の旧URLでも404を確認（#125）。
 5. pendingがある状態で通常Deployを起動し、preflight失敗・backend未実行を確認。通常配布中に手動frontend操作を待機させ、両画面の配布完了後に進むことを確認。
 6. 通常配布C→frontend rollback Aの後で古い祖先BのCIを再実行し、staleのSummaryとbackend/frontendのskip、current/last-normal不変を確認。次の子孫Dは許可されることも確認する。backend失敗・frontend部分失敗の後も受理記録が残ることを確認する。スキップしたrunや受理記録を配布成功の証跡として扱わない。
 
-静的S3の未存在キーを公開サイトの404本文に変換する経路は #125 の残件。distribution全体のcustom error responseはAPI応答までHTMLに変えるため採用していない。CSP（#240）・通知（#168）・実環境の復旧演習（#130）を含む残条件の正は各Issue。
+静的404の構成・移行順序は [../README.md](../README.md#静的ページの404125)。配布前に両画面の `404.html` を必須とし、404成果物を欠く旧アーカイブへのrollbackも拒否する。旧currentは移行のため引き続き読めるが、管理404を含む通常配布を先に完了してから関数を有効にする。実AWSでの404受け入れは #125 の残件。CSP（#240）・通知（#168）・実環境の復旧演習（#130）を含む残条件の正は各Issue。

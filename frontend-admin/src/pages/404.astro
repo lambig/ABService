@@ -1,0 +1,12 @@
+---
+import AdminLayout from '$layouts/AdminLayout.astro';
+import { ALBUM_LIST_PATH } from '$lib/paths';
+---
+
+<AdminLayout title="ページが見つかりません">
+  <div class="space-y-4 py-6">
+    <h1 class="text-3xl font-semibold">ページが見つかりません</h1>
+    <p class="text-muted-foreground">お探しのページは見つかりませんでした。</p>
+    <a class="underline underline-offset-4" href={ALBUM_LIST_PATH}>作品の一覧へ戻る</a>
+  </div>
+</AdminLayout>

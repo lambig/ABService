@@ -151,6 +151,22 @@ OAC 経由の S3 は REST エンドポイントで、ディレクトリ索引を
 - 結び付けるのは静的サイトの2つの振り分けだけ。`/api/*` へ結ぶと拡張子を持たない API の経路まで書き換わる
 - **E2E の配信（`e2e/scripts/serve-app.mjs`）は同じファイルを読み、`handler` へ要求を通して解決する。** 写して並べると片方が黙って古くなり、検査が本番と違う解決で緑になる
 
+### 静的ページの404（#125）
+
+公開・管理の2つのbehaviorだけに `static_page_404`（Lambda@Edge、origin-response）を結び付ける。書換え後のHTMLキーが404なら、そのオリジンのビルド済み404本文をHTTP 404で返す。公開は `404.html`、管理は `admin/404.html`。HEADは同じステータス・表現ヘッダーで本文を返さない。404応答は `Cache-Control: no-store` とし、未存在URLへの応答が新しいページの配布後も残ることを避ける。
+
+- S3はListBucket権限がないと未存在キーも403になる。静的2バケットのOACに限り、当該distributionのSourceArn条件で `s3:ListBucket` を許可する。ルート要求はindex.htmlに書き換え、query stringはオリジンへ渡さないため、閲覧者向けの一覧取得経路は作らない。アセット・releaseバケットの権限は広げない。
+- 403・5xxを未存在とみなさない。API・アセットのbehaviorには接続せず、distribution共通のcustom error responseも置かない。欠落したJS/CSS/画像はHTMLに置換しない。直接の `/404.html`・`/admin/404.html` は存在する静的ファイルとして200で取得できる。
+- LambdaはviewerのHost・query・要求パスをS3へ渡さず、Terraformがパッケージに含めたオリジンと固定キーの対応だけを使う。実行ロールはその2オブジェクトのGetObjectと当該アカウントの各リージョンへのログ出力のみ。404本文を取得できない・形式不正・512 KiB超の場合は、内部情報を含めない503を返す。
+- 関数はus-east-1の番号付きversionを使用する。Node.js 22ランタイム同梱のAWS SDK v3を使い、依存パッケージを別途インストールせずTerraformのarchive providerでzipを生成する。SDKのminor版はランタイム更新に従うため、ランタイム更新時も受け入れを再確認する。環境変数やレイヤーには依存しない。
+- 未存在ページのオリジン応答時にはLambda実行とS3 GetObjectが増える。実環境での遅延・費用・権限・リージョン複製・キャッシュの受け入れはABAffairsに記録する。通常のActions配布はTerraformをapplyしないため、IaCの適用とフロント成果物の配布は別工程になる。
+
+既存環境へ導入するときは、先に両フロントの404成果物を配布し、その後にこのTerraform構成を適用する。関数の関連付け・OACポリシー変更の伝播が完了してから、公開/管理の未存在URL、非公開化後の旧URL、GET/HEAD、APIのProblem Details、欠落したアセットを確認する。初回構築でバケットが空の間や関数伝播中の応答を受け入れ完了としない。Terraform実行主体にはLambda作成・公開・関連付け、IAM PassRoleおよびLambda@Edgeのサービスリンクロール作成に必要な権限が必要。関数を廃止するときは先に関連付けを外し、複製削除を待ってから削除する。
+
+ローカル/CIでは `node --test infra/functions/*.test.mjs infra/release/*.test.mjs` と `terraform test`、E2Eの `static-404.spec.ts` を実行する。E2Eも本番の応答変換関数を使い、S3取得だけをローカルファイルへ置き換える。AWS実環境の伝播や実行権限まで実証するテストではない。
+
+仕様の参照元: [S3 GetObjectの403/404](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html)、[Lambda@Edgeの制約](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-at-edge-function-restrictions.html)、[エッジ関数の組合せとヘッダー](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/edge-function-restrictions-all.html)、[エラー応答のキャッシュ](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/custom-error-pages-expiration.html)。
+
 ## ロールバック（backendデプロイ）
 
 ECRのライフサイクルポリシーにより直近10件のタグ付きイメージが保持される。障害時は`.github/workflows/deploy.yml`を`workflow_dispatch`で手動起動し、`commit_sha`に直前の正常なcommitのfull SHAを指定して再デプロイする（再ビルドは行わず、ECRの既存イメージをそのままEC2へpull・再起動するだけなので数十秒で完了する）。ロールバック後、mainブランチの履歴は`git revert`で追随させる（force-push・履歴書き換えはしない）。

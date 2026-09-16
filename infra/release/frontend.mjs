@@ -139,7 +139,7 @@ export const createDelivery = (config, aws = execute, generation = () => readGen
   const archive = (site, root, id, codeSha) => {
     const files = filesUnder(root).map((path) => ({ path, sha256: digest(join(root, path)) }));
     assert.ok(files.some((file) => file.path === 'index.html'), `${site}: missing index.html`);
-    assert.ok(site !== 'public' || files.some((file) => file.path === '404.html'), 'Missing public 404.html');
+    assert.ok(files.some((file) => file.path === '404.html'), `Missing ${site} 404.html`);
     assert.ok(site !== 'public' || files.every((file) => !/^(admin|assets|api)(\/|$)/.test(file.path)), 'Public artifacts overlap another origin');
     const entry = { releaseId: id, codeSha, files };
     call('s3', 'sync', root, `s3://${config.releaseBucket}/releases/${id}/${site}/`, '--only-show-errors');
@@ -193,7 +193,8 @@ export const createDelivery = (config, aws = execute, generation = () => readGen
     const sites = action === 'rebuild-public' ? ['public'] : ['public', 'admin'];
     const roots = { public: resolve(publicRoot), admin: adminRoot ? resolve(adminRoot) : null };
     // Validate both builds before writing either live origin.
-    sites.forEach((site) => assert.ok(filesUnder(roots[site]).includes('index.html')));
+    sites.forEach((site) => ['index.html', '404.html'].forEach((file) =>
+      assert.ok(filesUnder(roots[site]).includes(file), `Missing ${site} ${file}`)));
     assert.equal(buildMetadata?.version, 1, 'Missing public build generation record');
     assert.equal(buildMetadata.codeSha, codeSha, 'Build code differs from selected code');
     validateGeneration(buildMetadata.generation);
@@ -212,6 +213,8 @@ export const createDelivery = (config, aws = execute, generation = () => readGen
     const record = validateManifest(read(`manifests/${targetId}.json`));
     assert.equal(record.version, 2, 'Legacy artifacts have no public data generation; rebuild current data');
     assert.equal(validateGeneration(generation()), record.public.generation, 'Archived public data is obsolete; rebuild current data');
+    ['public', 'admin'].forEach((site) => assert.ok(record[site].files.some((file) => file.path === '404.html'),
+      `Archived ${site} has no 404.html; deploy a build with static error pages`));
     const previous = current();
     const pending = read('pending.json');
     const roots = Object.fromEntries(['public', 'admin'].map((site) => {
