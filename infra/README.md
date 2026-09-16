@@ -57,6 +57,8 @@ terraform apply cutover.tfplan
 
 公開サイトの検索対象化は `public_indexing_enabled` で切替と分ける。既定falseでは `X-Robots-Tag: noindex, nofollow` を付ける。受け入れ後にtrueにする。管理画面とAPIのnoindexは解除しない。noindexはアクセス制御ではない。
 
+公開サイトの `public/robots.txt` はルートの `/robots.txt` として配布し、`/admin` と `/api` をクロール対象から除外する。これは検索公開後も公開ページだけを対象にするための案内であり、秘匿や認証の境界ではない。`X-Robots-Tag`、管理API認証、CloudFrontの振り分けを置き換えず、`robots.txt` 自体は誰でも取得できる前提にする。
+
 実ドメイン・既存レコード・切替日時・復旧先は運用リポジトリが持つ。
 
 ## ロールバック（インフラ変更）
