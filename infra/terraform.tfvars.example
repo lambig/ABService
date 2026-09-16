@@ -5,7 +5,7 @@
 
 domain_name = "<your-domain>"
 
-# アラームの通知先。SNS からの購読確認メールを踏むまで届かない（#168）
+# アラームの通知先。SNS からの購読確認メールが2通（主リージョンと us-east-1）届き、両方を踏むまで通知は届かない（#168）
 alarm_email = "<alerts@your-domain>"
 
 # 以下は変更したい場合のみ上書きする（デフォルトはvariables.tf参照）

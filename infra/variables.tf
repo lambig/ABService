@@ -139,7 +139,7 @@ variable "public_indexing_enabled" {
 # --- 監視と通知（#168） ---
 
 variable "alarm_email" {
-  description = "アラームの通知先メールアドレス。運用側の値のため terraform.tfvars（gitignore対象）でのみ指定する。購読の確認メールを踏むまで届かない"
+  description = "アラームの通知先メールアドレス。運用側の値のため terraform.tfvars（gitignore対象）でのみ指定する。トピックはリージョンごと（主リージョンと us-east-1）にあり、購読の確認メールは2通届く。両方を踏むまで通知は届かない"
   type        = string
   sensitive   = true
 }

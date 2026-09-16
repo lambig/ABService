@@ -49,6 +49,13 @@ override_resource {
 }
 
 override_resource {
+  target = aws_sns_topic.alarms_us_east_1
+  values = {
+    arn = "arn:aws:sns:us-east-1:123456789012:abservice-alarms"
+  }
+}
+
+override_resource {
   target = aws_cloudwatch_log_group.backend
   values = {
     arn = "arn:aws:logs:ap-northeast-1:123456789012:log-group:/abservice/production/backend"
@@ -66,13 +73,15 @@ variables {
 run "prepare_plan_dependencies" {
   command = apply
   plan_options {
-    target = [aws_acm_certificate.cloudfront, aws_cloudfront_response_headers_policy.security, aws_lambda_function.static_page_404, aws_sns_topic.alarms, aws_cloudwatch_log_group.backend]
+    target = [aws_acm_certificate.cloudfront, aws_cloudfront_response_headers_policy.security, aws_lambda_function.static_page_404, aws_sns_topic.alarms, aws_sns_topic.alarms_us_east_1, aws_cloudwatch_log_group.backend]
   }
 }
 
 run "alarms_before_cutover" {
   command = plan
 
+  // An alarm action must live in the alarm's own region: the primary-region alarms notify the
+  // primary topic, the us-east-1 alarms (CloudFront, Route53 health check) the us-east-1 topic.
   assert {
     condition = alltrue([
       for alarm in [
@@ -83,16 +92,32 @@ run "alarms_before_cutover" {
         aws_cloudwatch_metric_alarm.rds_free_storage,
         aws_cloudwatch_metric_alarm.rds_connections,
         aws_cloudwatch_metric_alarm.backend_errors,
-        aws_cloudwatch_metric_alarm.cloudfront_5xx,
-        aws_cloudwatch_metric_alarm.public_api_health,
       ] : alarm.alarm_actions == toset([aws_sns_topic.alarms.arn]) && alarm.ok_actions == toset([aws_sns_topic.alarms.arn])
     ])
-    error_message = "Every alarm must notify the single topic on both alarm and recovery."
+    error_message = "Primary-region alarms must notify the primary-region topic on both alarm and recovery."
   }
 
   assert {
-    condition     = aws_sns_topic_subscription.alarm_email.protocol == "email" && aws_sns_topic_subscription.alarm_email.topic_arn == aws_sns_topic.alarms.arn
-    error_message = "The notification target is an email subscription on the alarm topic."
+    condition = alltrue([
+      for alarm in [
+        aws_cloudwatch_metric_alarm.cloudfront_5xx,
+        aws_cloudwatch_metric_alarm.public_api_health,
+      ] : alarm.alarm_actions == toset([aws_sns_topic.alarms_us_east_1.arn]) && alarm.ok_actions == toset([aws_sns_topic.alarms_us_east_1.arn])
+    ])
+    error_message = "us-east-1 alarms must notify the us-east-1 topic on both alarm and recovery."
+  }
+
+  assert {
+    condition     = startswith(aws_sns_topic.alarms.arn, "arn:aws:sns:ap-northeast-1:") && startswith(aws_sns_topic.alarms_us_east_1.arn, "arn:aws:sns:us-east-1:")
+    error_message = "The two topics must sit in the regions their alarms live in."
+  }
+
+  assert {
+    condition = alltrue([
+      for subscription in [aws_sns_topic_subscription.alarm_email, aws_sns_topic_subscription.alarm_email_us_east_1] :
+      subscription.protocol == "email" && subscription.endpoint == "alerts@example.invalid"
+    ]) && aws_sns_topic_subscription.alarm_email.topic_arn == aws_sns_topic.alarms.arn && aws_sns_topic_subscription.alarm_email_us_east_1.topic_arn == aws_sns_topic.alarms_us_east_1.arn
+    error_message = "Both topics deliver to the same email address; each needs its own confirmed subscription."
   }
 
   assert {

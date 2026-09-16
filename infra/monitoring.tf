@@ -2,16 +2,19 @@
 #
 # ログはコンテナの stdout（prod は JSON）を Docker の awslogs ドライバがそのまま運ぶ（docker-compose.logs.yml）。
 # ホストのディスクとメモリは標準指標に無いため CloudWatch agent が送り、それ以外はサービスの標準指標を使う。
-# 通知先は SNS の1トピックで、宛先（メール）は tfvars が持つ。値はリポジトリに書かない。
+# 通知先は SNS のトピックをリージョンごとに1つ（主リージョンと us-east-1）で、宛先（メール）は tfvars が持つ。
+# 値はリポジトリに書かない。
 #
 # readiness（/q/*）は配信が /api/* しか流さないため外から引けない。代わりに公開 API の1経路を Route53 の
 # ヘルスチェックで引き、公開 URL の失敗として拾う。判断は docs/DECISIONS.md。
 
 locals {
   backend_log_group_name = "/${var.project_name}/${var.environment}/backend"
-  alarm_actions          = [aws_sns_topic.alarms.arn]
-  host_metrics_namespace = "CWAgent"
-  backend_log_namespace  = "${var.project_name}/backend"
+  # アラームのアクションはアラームと同じリージョンに要る。主リージョンと us-east-1 で別のトピックを持つ
+  alarm_actions           = [aws_sns_topic.alarms.arn]
+  alarm_actions_us_east_1 = [aws_sns_topic.alarms_us_east_1.arn]
+  host_metrics_namespace  = "CWAgent"
+  backend_log_namespace   = "${var.project_name}/backend"
 
   # 形の誤りは validate で落とす（agent は設定を読めないと黙って何も送らない）
   cloudwatch_agent_config = jsondecode(file("${path.module}/monitoring/cloudwatch-agent.json"))
@@ -55,14 +58,30 @@ resource "aws_ssm_parameter" "cloudwatch_agent_config" {
 }
 
 # --- 通知先 ---
+#
+# CloudWatch アラームのアクションはアラームと同じリージョンの SNS でなければならず、Route53 ヘルスチェックの
+# 指標とアラームは us-east-1 にしか無い。そのため主リージョンと us-east-1 に1つずつトピックを持ち、宛先は同じ
+# メールにする。リージョン間の転送（EventBridge / Lambda）は部品と権限が増えるため採らない。
+# メールの購読は宛先が確認を踏むまで届かない（トピックごとに1通。運用側の手順）
 
 resource "aws_sns_topic" "alarms" {
   name = "${var.project_name}-alarms"
 }
 
-# メールの購読は宛先が確認を踏むまで届かない（運用側の手順）
 resource "aws_sns_topic_subscription" "alarm_email" {
   topic_arn = aws_sns_topic.alarms.arn
+  protocol  = "email"
+  endpoint  = var.alarm_email
+}
+
+resource "aws_sns_topic" "alarms_us_east_1" {
+  provider = aws.us_east_1
+  name     = "${var.project_name}-alarms"
+}
+
+resource "aws_sns_topic_subscription" "alarm_email_us_east_1" {
+  provider  = aws.us_east_1
+  topic_arn = aws_sns_topic.alarms_us_east_1.arn
   protocol  = "email"
   endpoint  = var.alarm_email
 }
@@ -85,7 +104,7 @@ resource "aws_route53_health_check" "public_api" {
 }
 
 # --- アラーム ---
-# どれも通知先は同じトピック。復旧（OK）も通知し、止まったことと戻ったことの両方を残す
+# 通知先は自分のリージョンのトピック。復旧（OK）も通知し、止まったことと戻ったことの両方を残す
 
 resource "aws_cloudwatch_metric_alarm" "ec2_status_check" {
   alarm_name          = "${var.project_name}-ec2-status-check"
@@ -199,7 +218,7 @@ resource "aws_cloudwatch_metric_alarm" "backend_errors" {
   ok_actions          = local.alarm_actions
 }
 
-# CloudFront と Route53 ヘルスチェックの指標は us-east-1 にしか無い
+# CloudFront と Route53 ヘルスチェックの指標は us-east-1 にしか無い。通知先も同じリージョンのトピック
 resource "aws_cloudwatch_metric_alarm" "cloudfront_5xx" {
   provider            = aws.us_east_1
   alarm_name          = "${var.project_name}-cloudfront-5xx"
@@ -213,8 +232,8 @@ resource "aws_cloudwatch_metric_alarm" "cloudfront_5xx" {
   threshold           = var.cloudfront_5xx_alarm_percent
   comparison_operator = "GreaterThanThreshold"
   treat_missing_data  = "notBreaching"
-  alarm_actions       = local.alarm_actions
-  ok_actions          = local.alarm_actions
+  alarm_actions       = local.alarm_actions_us_east_1
+  ok_actions          = local.alarm_actions_us_east_1
 }
 
 resource "aws_cloudwatch_metric_alarm" "public_api_health" {
@@ -230,6 +249,6 @@ resource "aws_cloudwatch_metric_alarm" "public_api_health" {
   threshold           = 1
   comparison_operator = "LessThanThreshold"
   treat_missing_data  = "breaching"
-  alarm_actions       = local.alarm_actions
-  ok_actions          = local.alarm_actions
+  alarm_actions       = local.alarm_actions_us_east_1
+  ok_actions          = local.alarm_actions_us_east_1
 }

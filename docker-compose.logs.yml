@@ -9,7 +9,8 @@ services:
         awslogs-region: ${REGION:?}
         awslogs-group: ${BACKEND_LOG_GROUP:?}
         awslogs-stream: backend
-        # 届かない間はバッファに溜め、溢れたら捨てる。既定（blocking）はログの宛先が落ちるとアプリの
-        # 書き出しが止まる。ログの欠落よりアプリの停止を避ける側に倒す
+        # 配送が詰まった間（宛先が遅い・一時的に届かない）はバッファに溜め、溢れたら捨てる。既定（blocking）は
+        # 配送が詰まるとアプリの書き出しが止まる。ログの欠落よりアプリの停止を避ける側に倒す。ドライバの
+        # 初期化失敗（ロググループが無い・権限が無い）はこの範囲外で、コンテナの起動失敗になる
         mode: non-blocking
         max-buffer-size: 4m
