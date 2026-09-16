@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "paths": {
+      // 依存する abservice-admin-api の型が参照する。tsc は依存の tsconfig を読まないため同じ対応をここにも置く
+      "@api-schema": ["../../frontend-admin/src/lib/api/schema.d.ts"]
+    },
+    "lib": ["ES2023", "DOM"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "verbatimModuleSyntax": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    // Node が型を剥がして直接読むため、import は拡張子まで書く
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}

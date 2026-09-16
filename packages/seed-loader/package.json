@@ -1,0 +1,44 @@
+{
+  "name": "abservice-seed-loader",
+  "version": "1.0.0",
+  "description": "Loads the initial site content, albums and articles through the admin API (#373)",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "load": "node src/cli.ts",
+    "acceptance": "node scripts/acceptance.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "prettier --check . && eslint .",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "abservice-admin-api": "*",
+    "abservice-patterns": "*"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "@types/node": "^24.0.0",
+    "abservice-eslint-config": "*",
+    "eslint": "^10.0.0",
+    "eslint-plugin-functional": "^10.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": "24.20.0",
+    "npm": "11.19.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lambig/ABService.git",
+    "directory": "packages/seed-loader"
+  },
+  "author": "Lambig",
+  "license": "MIT"
+}
