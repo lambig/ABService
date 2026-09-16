@@ -129,19 +129,18 @@ run "instance_role_scopes_observability" {
     target = [aws_iam_role_policy.app]
   }
 
+  // Terraform 1.9 evaluates every clause of a `for ... if` filter, so statements are first selected
+  // by Sid alone and only then inspected (other statements carry a string Action or no Condition).
   assert {
-    condition = length([
-      for statement in jsondecode(aws_iam_role_policy.app.policy).Statement :
-      statement if statement.Sid == "WriteBackendLogs" && statement.Resource == "${aws_cloudwatch_log_group.backend.arn}:*" && toset(statement.Action) == toset(["logs:CreateLogStream", "logs:PutLogEvents"])
-    ]) == 1
+    condition = (
+      one([for statement in jsondecode(aws_iam_role_policy.app.policy).Statement : statement if statement.Sid == "WriteBackendLogs"]).Resource == "${aws_cloudwatch_log_group.backend.arn}:*"
+      && toset(one([for statement in jsondecode(aws_iam_role_policy.app.policy).Statement : statement if statement.Sid == "WriteBackendLogs"]).Action) == toset(["logs:CreateLogStream", "logs:PutLogEvents"])
+    )
     error_message = "The instance may write only to the backend log group."
   }
 
   assert {
-    condition = length([
-      for statement in jsondecode(aws_iam_role_policy.app.policy).Statement :
-      statement if statement.Sid == "PutHostMetrics" && statement.Condition.StringEquals["cloudwatch:namespace"] == "CWAgent"
-    ]) == 1
+    condition     = try(one([for statement in jsondecode(aws_iam_role_policy.app.policy).Statement : statement if statement.Sid == "PutHostMetrics"]).Condition.StringEquals["cloudwatch:namespace"], "") == "CWAgent"
     error_message = "The agent may publish metrics only into its own namespace."
   }
 }
