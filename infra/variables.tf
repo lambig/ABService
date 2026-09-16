@@ -135,3 +135,59 @@ variable "public_indexing_enabled" {
   type        = bool
   default     = false
 }
+
+# --- 監視と通知（#168） ---
+
+variable "alarm_email" {
+  description = "アラームの通知先メールアドレス。運用側の値のため terraform.tfvars（gitignore対象）でのみ指定する。購読の確認メールを踏むまで届かない"
+  type        = string
+  sensitive   = true
+}
+
+variable "log_retention_days" {
+  description = "backend のログ（CloudWatch Logs）の保持日数"
+  type        = number
+  default     = 30
+}
+
+variable "cpu_utilization_alarm_percent" {
+  description = "EC2 の CPU 使用率（平均・5分×3回）がこれを超えたら通知する"
+  type        = number
+  default     = 80
+}
+
+variable "disk_used_alarm_percent" {
+  description = "EC2 ルートボリュームの使用率がこれを超えたら通知する（旧世代イメージの滞留を拾う。#336）"
+  type        = number
+  default     = 80
+}
+
+variable "memory_used_alarm_percent" {
+  description = "EC2 のメモリ使用率（平均・5分×3回）がこれを超えたら通知する"
+  type        = number
+  default     = 90
+}
+
+variable "rds_free_storage_alarm_bytes" {
+  description = "RDS の空きストレージがこれを下回ったら通知する（既定 2GiB）"
+  type        = number
+  default     = 2147483648
+}
+
+variable "rds_connections_alarm_count" {
+  description = "RDS の接続数がこれを超えたら通知する（db.t4g.micro の上限は 100 前後）"
+  type        = number
+  default     = 80
+}
+
+variable "error_log_alarm_count" {
+  description = "backend の ERROR ログが5分にこの件数以上出たら通知する"
+  type        = number
+  default     = 3
+}
+
+variable "cloudfront_5xx_alarm_percent" {
+  description = "配信の 5xx 率（5分平均）がこれを超えたら通知する"
+  type        = number
+  default     = 5
+}

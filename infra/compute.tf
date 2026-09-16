@@ -78,6 +78,21 @@ resource "aws_iam_role_policy" "app" {
           "ecr:GetDownloadUrlForLayer"
         ]
         Resource = aws_ecr_repository.backend.arn
+      },
+      {
+        # Docker の awslogs ドライバが backend のログを運ぶ（docker-compose.logs.yml）。宛先はこのグループだけ
+        Sid      = "WriteBackendLogs"
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = "${aws_cloudwatch_log_group.backend.arn}:*"
+      },
+      {
+        # CloudWatch agent がホストのディスク・メモリを送る。名前空間は agent の設定と揃える
+        Sid       = "PutHostMetrics"
+        Effect    = "Allow"
+        Action    = "cloudwatch:PutMetricData"
+        Resource  = "*"
+        Condition = { StringEquals = { "cloudwatch:namespace" = local.host_metrics_namespace } }
       }
     ]
   })
@@ -90,9 +105,10 @@ resource "aws_iam_instance_profile" "ec2" {
 
 locals {
   user_data = templatefile("${path.module}/templates/user_data.sh.tpl", {
-    aws_region   = var.aws_region
-    project_name = var.project_name
-    environment  = var.environment
+    aws_region                 = var.aws_region
+    project_name               = var.project_name
+    environment                = var.environment
+    cloudwatch_agent_parameter = aws_ssm_parameter.cloudwatch_agent_config.name
   })
 }
 

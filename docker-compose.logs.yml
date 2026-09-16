@@ -1,0 +1,15 @@
+# 本番だけが重ねる上書き。backend の stdout（prod は JSON。#118）を CloudWatch Logs へ運ぶ（#168）。
+# docker-compose.prod.yml と一緒に SSM Run Command が配り、deploy.sh が両方を指定して起動する。
+# 分けてあるのは、CI のコンテナ検査（AWS の資格情報を持たない）が prod の compose をそのまま動かすため。
+services:
+  backend:
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${REGION:?}
+        awslogs-group: ${BACKEND_LOG_GROUP:?}
+        awslogs-stream: backend
+        # 届かない間はバッファに溜め、溢れたら捨てる。既定（blocking）はログの宛先が落ちるとアプリの
+        # 書き出しが止まる。ログの欠落よりアプリの停止を避ける側に倒す
+        mode: non-blocking
+        max-buffer-size: 4m

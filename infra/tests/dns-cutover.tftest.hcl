@@ -43,6 +43,7 @@ override_resource {
 
 variables {
   domain_name = "example.invalid"
+  alarm_email = "alerts@example.invalid"
 }
 
 // Terraform 1.9 mock overrides become known at apply, unlike ACM plan-time values.

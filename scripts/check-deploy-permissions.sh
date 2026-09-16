@@ -17,6 +17,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly CALLERS=(
   ".github/workflows/deploy.yml:infra/cicd.tf"
   "infra/host/deploy.sh:infra/compute.tf"
+  "infra/templates/user_data.sh.tpl:infra/compute.tf"
 )
 
 # CLI の綴りから API の名前が導けないもの
@@ -47,6 +48,14 @@ ACTIONS
 ecr:BatchGetImage docker compose pull
 ecr:GetDownloadUrlForLayer docker compose pull
 ecr:BatchCheckLayerAvailability docker compose pull
+logs:CreateLogStream docker awslogs driver
+logs:PutLogEvents docker awslogs driver
+ACTIONS
+    ;;
+  "infra/templates/user_data.sh.tpl")
+    cat <<'ACTIONS'
+ssm:GetParameter amazon-cloudwatch-agent fetch-config
+cloudwatch:PutMetricData amazon-cloudwatch-agent
 ACTIONS
     ;;
   esac
