@@ -209,9 +209,9 @@ E2E配信も同じJSONから強制CSPを返す。ローカル/CIはサイト・A
 
 ## ロールバック（backendデプロイ）
 
-イメージのタグは commit ごとに `sha-<full SHA>` の1つだけで、移動するタグ（`latest`）は発行しない。ECRのライフサイクルポリシーはこの接頭辞のタグ付きイメージを直近10件保持し、発行する接頭辞と保持する接頭辞が揃っていることは `scripts/check-deploy-image-tag.sh` が CI で突き合わせる（ずれると、規則の対象外のイメージが数に入らず溜まり続ける）。ホストへ渡す参照はタグではなく **digest**（`<repo>@sha256:…`）で、配った時点の実体が後から差し替わらない。タグと digest は Actions のログと Summary に、稼働中のコンテナの digest は `deploy.sh` の出力（`running image:`）に出る。
+イメージのタグは commit ごとに `sha-<full SHA>` の1つだけで、移動するタグ（`latest`）は発行しない。リポジトリは IMMUTABLE で、**同じ commit のイメージは二度は作らない**——その commit のタグが既に在れば、通常の配布でもビルドと push を飛ばして在るものを配る（同じ commit の再ビルドは同じ実体にならないため）。ECRのライフサイクルポリシーはこの接頭辞のタグ付きイメージを直近10件保持し、発行する接頭辞と保持する接頭辞が揃っていることは `scripts/check-deploy-image-tag.sh` が CI で突き合わせる（ずれると、規則の対象外のイメージが数に入らず溜まり続ける）。ホストへ渡す参照はタグではなく **digest**（`<repo>@sha256:…`）。タグと digest は Actions のログと Summary に、稼働中のコンテナの image ID と digest は `deploy.sh` の出力（`running image:`）に出る。
 
-障害時は`.github/workflows/deploy.yml`を`workflow_dispatch`で手動起動し、`commit_sha`に直前の正常なcommitのfull SHAを指定して再デプロイする（再ビルドは行わず、ECRの既存イメージをそのままEC2へpull・再起動するだけなので数十秒で完了する）。戻せるのは保持されている直近10件の commit まで。ロールバック後、mainブランチの履歴は`git revert`で追随させる（force-push・履歴書き換えはしない）。
+障害時は`.github/workflows/deploy.yml`を`workflow_dispatch`で手動起動し、`commit_sha`に直前の正常なcommitのfull SHAを指定して再デプロイする（再ビルドは行わず、ECRの既存イメージをそのままEC2へpull・再起動するだけなので数十秒で完了する）。戻るのは**その commit に最初に配った実体**で、戻せるのは保持されている直近10件の commit まで。期限切れで消えた commit を指定すると、ビルドせずに止まる。ロールバック後、mainブランチの履歴は`git revert`で追随させる（force-push・履歴書き換えはしない）。
 
 手動起動は`commit_sha`を必須とし、既存イメージの再デプロイだけを行う。イメージのタグもEC2へ配る`deploy.sh`・`docker-compose.prod.yml`も、そのcommitから決まる（戻すのはイメージだけで手順は現在のまま、という組み合わせを作らない）。新しいcommitを本番へ出す経路はmainへのpush（＋CI成功）だけで、手動起動から検査していないcommitをビルドして出すことはできない。
 

@@ -15,7 +15,12 @@ variables {
 run "retain_only_deployed_tags" {
   command = plan
   plan_options {
-    target = [aws_ecr_lifecycle_policy.backend]
+    target = [aws_ecr_repository.backend, aws_ecr_lifecycle_policy.backend]
+  }
+
+  assert {
+    condition     = aws_ecr_repository.backend.image_tag_mutability == "IMMUTABLE"
+    error_message = "A commit tag must never move to another digest; rollback restores the artifact first deployed for that commit."
   }
 
   assert {

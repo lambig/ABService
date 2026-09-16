@@ -133,15 +133,36 @@ jobs:
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             echo "Redeploying the image built from $(git rev-parse HEAD) without rebuilding"
-            echo "build=false" >> "$GITHUB_OUTPUT"
           else
             echo "Deploying commit $CI_HEAD_SHA verified by CI run $CI_RUN_ID"
-            echo "build=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # 通常経路: CIが成功したcommitのイメージをビルドしてpushする。
+      # 同じ commit のイメージを二度は作らない。ベースイメージやパッケージの取得を含むビルドは、同じ
+      # commit でも同じ実体にならないため、作り直すとタグが別の digest へ移り、以前その commit で配った
+      # 実体は untagged になって消える。ロールバックが戻すのは「その commit に最初に配った実体」であり、
+      # それを保つには在るものを使うほかない（DECISIONS 16）。タグが在れば通常経路でもビルドと push を飛ばす。
+      # 手動起動（ロールバック）でタグが無ければ、保持の期限を過ぎたか一度も配っていない commit なので止める
+      - name: Check whether the image for this commit already exists
+        id: existing
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          if aws ecr describe-images --repository-name "$REPOSITORY" --image-ids imageTag="$TAG" >/dev/null 2>&1; then
+            echo "Reusing the image already built for $TAG; it is not rebuilt or pushed again."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "No image is tagged $TAG in $REPOSITORY." >&2
+            echo "Rollback can only target a commit whose image is still retained (the 10 most recent deploys)." >&2
+            exit 1
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # 通常経路: CIが成功したcommitのイメージをビルドしてpushする（その commit のイメージが無いときだけ）。
       - name: Build image
-        if: steps.resolve.outputs.build == 'true'
+        if: steps.existing.outputs.exists == 'false'
         env:
           REGISTRY: ${{ steps.ecr-login.outputs.registry }}
           REPOSITORY: ${{ vars.ECR_REPOSITORY }}
@@ -154,7 +175,7 @@ jobs:
       # ECR へ入れる前に、実機が動かせる架構であることを確かめる。ランナーの種類が変わっても
       # ここで気付ける（動かない manifest を push してからでは、失敗するのはデプロイの最中になる）
       - name: Verify the image architecture matches the host
-        if: steps.resolve.outputs.build == 'true'
+        if: steps.existing.outputs.exists == 'false'
         env:
           REGISTRY: ${{ steps.ecr-login.outputs.registry }}
           REPOSITORY: ${{ vars.ECR_REPOSITORY }}
@@ -168,17 +189,15 @@ jobs:
           echo "image architecture: $ARCH"
 
       - name: Push image
-        if: steps.resolve.outputs.build == 'true'
+        if: steps.existing.outputs.exists == 'false'
         env:
           REGISTRY: ${{ steps.ecr-login.outputs.registry }}
           REPOSITORY: ${{ vars.ECR_REPOSITORY }}
           TAG: ${{ steps.resolve.outputs.tag }}
         run: docker push "$REGISTRY/$REPOSITORY:$TAG"
 
-      # 配るのはタグではなく digest。リポジトリは MUTABLE のため、タグは後から別の実体を指しうるが、
-      # digest は配った時点の実体を一意に表す。ロールバック経路（再ビルドしない）では、このステップが
-      # 「そのタグのイメージが ECR に在ること」の確認も兼ねる（無ければ describe-images が失敗する）。
-      # 証跡（運用側の台帳）が記録する「稼働 image digest」の出所でもある
+      # 配るのはタグではなく digest。タグは IMMUTABLE で動かないが、配った実体をログと Summary に
+      # 一意に残すのは digest であり、証跡（運用側の台帳）が記録する「稼働 image digest」の出所になる
       - name: Resolve the image digest
         id: digest
         env:

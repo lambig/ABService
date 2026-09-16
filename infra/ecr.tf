@@ -1,7 +1,13 @@
 # backendコンテナイメージの配布先（#121）。CI/CD（#128）からpushし、EC2からpullする。
+#
+# タグは commit ごとに1つ（sha-<full SHA>）で、一度押し込んだら動かさない。同じ commit を作り直しても同じ実体には
+# ならない（ベースイメージやパッケージの取得を含む）ため、タグが別の digest へ移ると、以前その commit で配った実体が
+# untagged になって消え、ロールバックが「当時の実体」を戻せなくなる。配布は在るタグを再利用し（deploy.yml）、
+# IMMUTABLE はそれ以外の経路からもタグを動かせないようにする。保持規則で期限切れになったタグは消えるため、その後に
+# 同じ commit を配り直す経路は残る（そのときは新しい実体になる）。
 resource "aws_ecr_repository" "backend" {
   name                 = "${var.project_name}-backend"
-  image_tag_mutability = "MUTABLE"
+  image_tag_mutability = "IMMUTABLE"
 
   image_scanning_configuration {
     scan_on_push = true

@@ -61,8 +61,10 @@ if ! docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 240; 
 fi
 
 # 何が動いているかを、渡した参照ではなく稼働中のコンテナから読んで残す。証跡（運用側の台帳）が
-# 記録する「稼働 image digest」はこの行から取る
-echo "running image: $(docker inspect abservice-backend --format '{{index .RepoDigests 0}}')"
+# 記録する「稼働 image digest」はこの行から取る。コンテナの inspect は image ID しか持たないため、
+# その ID のイメージから RepoDigests を読む（手元でビルドしただけのイメージでは空になるので落とさない）。
+# CI はこの行をそのまま取り出して実コンテナに対して走らせる（ci.yml の container-check）。1行に保つ
+echo "running image: $(docker image inspect "$(docker inspect abservice-backend --format '{{.Image}}')" --format '{{.Id}}{{range .RepoDigests}} {{.}}{{end}}')"
 
 # 差し替えで参照されなくなったレイヤを片付けるのは、新しいものが healthy になってから。失敗した
 # ときに手元へ残しておけば、戻すときに pull を待たずに済む。
