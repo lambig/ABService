@@ -42,6 +42,28 @@ const trackRowOf = (page: Page, name: string): Locator =>
 /** 額に添えるラベル。額が出ていないことは、ラベルの不在でしか言えない */
 const PRICE_LABEL = '頒布価格';
 
+/** 作品の顔（プレイヤーかカバー画像）の一辺の上限。共有描画（`HERO_CLASS`）と揃える */
+const HERO_MAX_SIDE = 700;
+
+/**
+ * 作品の顔は正方形で、一辺は本文幅か上限の小さい方。本文幅より狭いときは本文の中央に置かれる（#415）。
+ *
+ * 高さだけを見ると、高さが上限で止まり幅が本文いっぱいに伸びた横長でも通ってしまう。幅と高さの一致で
+ * 正方形を、本文の中心との一致で配置を見る。
+ */
+const expectHeroSquare = async (page: Page, hero: Locator): Promise<void> => {
+  const box = await hero.boundingBox();
+  const column = await page.locator('[data-public-album]').boundingBox();
+  expect(box).not.toBeNull();
+  expect(column).not.toBeNull();
+  expect(box?.width).toBeCloseTo(box?.height ?? 0, 0);
+  expect(box?.width).toBeCloseTo(Math.min(column?.width ?? 0, HERO_MAX_SIDE), 0);
+  expect((box?.x ?? 0) + (box?.width ?? 0) / 2).toBeCloseTo(
+    (column?.x ?? 0) + (column?.width ?? 0) / 2,
+    0,
+  );
+};
+
 /**
  * 曲目は畳んで置かれる（#415）。行を見る前に開く。開いていない状態で行の可視性を見ると、
  * 曲目そのものが壊れていなくても落ちる。
@@ -162,10 +184,10 @@ test.describe('作品の詳細', () => {
     await expect(page.locator(`a[href="${showcase.audioUrl}"]`)).toHaveCount(0);
 
     /*
-     * 埋め込み枠は正方形で、絵（アートワーク）が出る大きさを取る（#415）。高さの上限は共有描画が持つ。
+     * 埋め込み枠は正方形で、絵（アートワーク）が出る大きさを取る（#415）。一辺の上限は共有描画が持つ。
+     * 既定の幅（1280）では本文幅が上限を超えるため、上限の正方形が本文の中央に置かれる。
      */
-    const box = await embed.boundingBox();
-    expect(box?.height).toBeCloseTo(Math.min(box?.width ?? 0, 700), 0);
+    await expectHeroSquare(page, embed);
 
     /*
      * 埋め込み枠から下は畳んだ曲目まで1画面に収まる。同じ絵を複数の名前で撮ると、レビューでは同じものを
@@ -309,8 +331,7 @@ test.describe('作品の詳細', () => {
      */
     const bodyCover = page.locator('article img[data-album-cover]');
     await expect(bodyCover).toHaveJSProperty('naturalWidth', coverImageAsset.width);
-    const coverBox = await bodyCover.boundingBox();
-    expect(coverBox?.height).toBeCloseTo(Math.min(coverBox?.width ?? 0, 700), 0);
+    await expectHeroSquare(page, bodyCover);
 
     /*
      * リンクプレビューもカバー画像になる。**本体に出ているのと同じ画像であること**まで見る——

@@ -125,7 +125,8 @@ describe("公開記事の描画", () => {
       },
       "/assets",
     );
-    expect(html).toContain("aspect-square max-h-[700px] w-full");
+    expect(html).toContain("mx-auto block aspect-square w-full max-w-[700px]");
+    expect(html).not.toContain("max-h-[700px]");
     expect(html).toContain("visual=true");
     expect(html).not.toContain('height="166"');
   });
@@ -200,7 +201,7 @@ describe("公開記事の描画", () => {
   it("音源を持たない作品は、カバー画像をプレイヤーと同じ枠に置く", () => {
     const html = renderAlbum(album, "/assets");
     expect(html).toContain(
-      '<img data-album-cover class="border-border aspect-square max-h-[700px] w-full rounded-md border object-cover"',
+      '<img data-album-cover class="border-border mx-auto block aspect-square w-full max-w-[700px] rounded-md border object-cover"',
     );
     expect(html.indexOf("</header>")).toBeLessThan(html.indexOf("data-album-cover"));
     expect(html.indexOf("data-album-cover")).toBeLessThan(html.indexOf("prose-body"));
