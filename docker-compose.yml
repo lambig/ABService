@@ -23,6 +23,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
+      start_interval: 2s
 
   # Keycloak Identity Server
   keycloak:
@@ -108,11 +110,16 @@ services:
     networks:
       - abservice-network
     command: server /data --console-address ":9001"
+    # 起動直後は start_interval で細かく見る。interval だけだと最初の判定まで interval ぶん待つため、
+    # `up --wait` や depends_on の service_healthy がそのまま起動待ちの下限になる（#431）。
+    # start_interval は Docker Engine 25 以降。
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
       timeout: 20s
       retries: 3
+      start_period: 30s
+      start_interval: 2s
 
   # MinIO bucket bootstrap (アセット保管バケットを作成して終了する一過性コンテナ)
   #
