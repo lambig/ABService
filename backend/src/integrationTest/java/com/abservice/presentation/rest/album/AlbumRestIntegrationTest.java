@@ -203,13 +203,14 @@ class AlbumRestIntegrationTest {
                                 + "\"artistDisplayName\":\"更新後アーティスト\",\"isdn\":\"2784702901978\","
                                 + "\"coverImageKey\":\"01a0233d-d25a-7c3b-924f-236ee154fecc.png\","
                                 + "\"event\":{\"name\":\"コミックマーケット104\",\"date\":\"2026-01-01\","
-                                + "\"place\":\"東京ビッグサイト\",\"spaceNumber\":\"東ホ-01a\"}}")
+                                + "\"place\":\"東京ビッグサイト\",\"spaceNumber\":\"東ホ-01a\",\"circleName\":\"合同サークル\"}}")
                 .when().put("/api/v1/albums/" + albumId).then().statusCode(200);
 
         authorized().when().get("/api/v1/admin/albums/" + albumId).then().statusCode(200)
                 .body("isdn", equalTo("2784702901978"))
                 .body("coverImageUrl", equalTo("/assets/01a0233d-d25a-7c3b-924f-236ee154fecc.png"))
-                .body("eventSpaceNumber", equalTo("東ホ-01a"));
+                .body("eventSpaceNumber", equalTo("東ホ-01a"))
+                .body("eventCircleName", equalTo("合同サークル"));
     }
 
     @Test

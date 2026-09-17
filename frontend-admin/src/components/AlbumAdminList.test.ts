@@ -20,6 +20,7 @@ const albumOf = (index: number): AdminAlbum => ({
   eventDate: null,
   eventPlace: null,
   eventSpaceNumber: null,
+  eventCircleName: null,
   eventNote: null,
   publishedAt: null,
   coverImageUrl: null,

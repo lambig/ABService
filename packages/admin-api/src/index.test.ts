@@ -234,6 +234,7 @@ describe('管理APIクライアント', () => {
       eventDate: null,
       eventPlace: 'Place',
       eventSpaceNumber: null,
+      eventCircleName: 'Circle',
       eventNote: null,
       publishedAt: null,
       coverImageKey: 'cover',
@@ -272,7 +273,7 @@ describe('管理APIクライアント', () => {
       catalogNumber: 'CAT-1',
       coverImageKey: 'cover',
       descriptionFormat: 'PLAIN_TEXT',
-      event: { name: 'Event', place: 'Place' },
+      event: { name: 'Event', place: 'Place', circleName: 'Circle' },
       tracks: [{ trackId: 'track-1', tunes: [{ tuneTitle: 'Tune' }] }],
       externalAudios: [{ externalAudioId: 'ea-1', url: 'https://soundcloud.com/x' }],
     });

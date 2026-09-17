@@ -188,6 +188,8 @@ public class AlbumCreationService implements DomainService {
      *            会場（nullable）
      * @param spaceNumber
      *            スペース番号（nullable）
+     * @param circleName
+     *            頒布サークル名（nullable）
      * @param note
      *            補足情報（nullable）
      */
@@ -196,6 +198,7 @@ public class AlbumCreationService implements DomainService {
             Result<Optional<BusinessDate>> date,
             @Nullable String place,
             @Nullable String spaceNumber,
+            @Nullable String circleName,
             @Nullable String note) {
     }
 
@@ -258,6 +261,7 @@ public class AlbumCreationService implements DomainService {
                                 date.orElse(null),
                                 event.place(),
                                 event.spaceNumber(),
+                                event.circleName(),
                                 event.note())
                                 .withErrorField("event.name"))
                 .map(Optional::of);

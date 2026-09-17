@@ -68,6 +68,9 @@ public class AlbumTableRecord extends AuditableTableRecord<AlbumTableRecord> {
     @Column(name = "event_space_number", length = 50)
     private String eventSpaceNumber;
 
+    @Column(name = "event_circle_name", length = 255)
+    private String eventCircleName;
+
     @Column(name = "event_note", columnDefinition = "TEXT")
     private String eventNote;
 

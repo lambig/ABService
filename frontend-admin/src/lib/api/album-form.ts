@@ -23,6 +23,7 @@ export const ALBUM_FIELD_PATHS = [
   'event.date',
   'event.place',
   'event.spaceNumber',
+  'event.circleName',
   'event.note',
   'basePrice.amount',
   'basePrice.currency',
@@ -72,6 +73,7 @@ export const EMPTY_DRAFT: AlbumDraft = {
   'event.date': '',
   'event.place': '',
   'event.spaceNumber': '',
+  'event.circleName': '',
   'event.note': '',
   'basePrice.amount': '',
   'basePrice.currency': '',
@@ -100,6 +102,7 @@ export const draftOf = (album: AdminAlbumDetail): AlbumDraft => ({
   'event.date': album.eventDate ?? '',
   'event.place': album.eventPlace ?? '',
   'event.spaceNumber': album.eventSpaceNumber ?? '',
+  'event.circleName': album.eventCircleName ?? '',
   'event.note': album.eventNote ?? '',
   'basePrice.amount': amountText(album.basePrice?.amount),
   'basePrice.currency': album.basePrice?.currency ?? '',
@@ -155,6 +158,7 @@ const eventOf = (draft: AlbumDraft): AlbumFields['event'] => {
     date: presence(draft['event.date']),
     place: presence(draft['event.place']),
     spaceNumber: presence(draft['event.spaceNumber']),
+    circleName: presence(draft['event.circleName']),
     note: presence(draft['event.note']),
   };
 

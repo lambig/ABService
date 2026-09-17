@@ -83,6 +83,7 @@ class AlbumMapperTest {
                                 31))
                 .setEventPlace("Tokyo Big Sight")
                 .setEventSpaceNumber("East A-01")
+                .setEventCircleName("Joint circle")
                 .setEventNote("Event note");
         album.getTracks()
                 .add(
@@ -116,6 +117,7 @@ class AlbumMapperTest {
             assertThat(domain.eventReleasedAt().name().value()).isEqualTo("Comiket 104");
             assertThat(domain.eventReleasedAt().place()).isEqualTo("Tokyo Big Sight");
             assertThat(domain.eventReleasedAt().spaceNumber()).isEqualTo("East A-01");
+            assertThat(domain.eventReleasedAt().circleName()).isEqualTo("Joint circle");
             assertThat(domain.eventReleasedAt().note()).isEqualTo("Event note");
             assertThat(domain.tracks()).hasSize(1);
             final var track = domain.tracks().get(0);
@@ -183,6 +185,7 @@ class AlbumMapperTest {
                                 3),
                         "Mapped Place",
                         "West B-02",
+                        "Mapped Circle",
                         "Mapped Note"),
                 CatalogNumber.of("MAPPED-CAT-001"),
                 Isdn.of("2794123456780"),

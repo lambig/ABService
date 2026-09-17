@@ -69,6 +69,7 @@ final class AlbumViewMapper {
                 toDateString(entity.getEventDate()),
                 entity.getEventPlace(),
                 entity.getEventSpaceNumber(),
+                entity.getEventCircleName(),
                 entity.getEventNote(),
                 entity.getPublishedAt(),
                 entity.getCoverImageKey(),

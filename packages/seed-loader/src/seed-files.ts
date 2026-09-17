@@ -132,6 +132,7 @@ interface AlbumFile {
     readonly date?: string;
     readonly place?: string;
     readonly spaceNumber?: string;
+    readonly circleName?: string;
     readonly note?: string;
   };
   readonly basePrice?: { readonly amount: number; readonly currency?: string };
@@ -155,6 +156,7 @@ const albumFileDecoder = object<AlbumFile>({
       date: optional(string),
       place: optional(string),
       spaceNumber: optional(string),
+      circleName: optional(string),
       note: optional(string),
     }),
   ),

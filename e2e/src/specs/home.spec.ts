@@ -1,6 +1,7 @@
 import {
   albumArticle,
   coverlessArticle,
+  imageArticle,
   pagination,
   plainArticle,
   quietArticle,
@@ -29,6 +30,7 @@ const leadingTitles = [
   plainArticle.title,
   quietArticle.title,
   coverlessArticle.title,
+  imageArticle.title,
 ];
 
 const homeArticleTitles = [

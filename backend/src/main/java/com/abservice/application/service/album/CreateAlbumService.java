@@ -74,6 +74,7 @@ public class CreateAlbumService implements CommandService<CreateAlbumInput, Crea
                                 resolveEventDate(e.date()),
                                 e.place(),
                                 e.spaceNumber(),
+                                e.circleName(),
                                 e.note()))
                 .orElse(null);
     }

@@ -2763,6 +2763,7 @@ export interface components {
             eventDate: string | null;
             eventPlace: string | null;
             eventSpaceNumber: string | null;
+            eventCircleName: string | null;
             eventNote: string | null;
             publishedAt: components["schemas"]["Instant"] | null;
             coverImageKey: string | null;
@@ -2794,6 +2795,7 @@ export interface components {
             eventDate: string | null;
             eventPlace: string | null;
             eventSpaceNumber: string | null;
+            eventCircleName: string | null;
             eventNote: string | null;
             publishedAt: components["schemas"]["Instant"] | null;
             coverImageUrl: string | null;
@@ -2979,6 +2981,7 @@ export interface components {
             date?: string;
             place?: string;
             spaceNumber?: string;
+            circleName?: string;
             note?: string;
         };
         EventRequest1: {
@@ -2986,6 +2989,7 @@ export interface components {
             date?: string;
             place?: string;
             spaceNumber?: string;
+            circleName?: string;
             note?: string;
         };
         EventRequest2: {
@@ -2993,6 +2997,7 @@ export interface components {
             date?: string;
             place?: string;
             spaceNumber?: string;
+            circleName?: string;
             note?: string;
         };
         ExternalAudioRequest: {
@@ -3065,6 +3070,7 @@ export interface components {
             eventDate: string | null;
             eventPlace: string | null;
             eventSpaceNumber: string | null;
+            eventCircleName: string | null;
             eventNote: string | null;
             publishedAt: components["schemas"]["Instant"];
             coverImageUrl: string | null;
@@ -3095,6 +3101,7 @@ export interface components {
             eventDate: string | null;
             eventPlace: string | null;
             eventSpaceNumber: string | null;
+            eventCircleName: string | null;
             eventNote: string | null;
             publishedAt: components["schemas"]["Instant"];
             coverImageUrl: string | null;

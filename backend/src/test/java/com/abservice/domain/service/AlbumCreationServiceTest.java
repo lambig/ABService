@@ -270,6 +270,7 @@ class AlbumCreationServiceTest {
                         eventDate,
                         "東京ビッグサイト",
                         "東ホ-01a",
+                        "合同サークル",
                         "新譜あります"),
                 null,
                 null);
@@ -306,6 +307,7 @@ class AlbumCreationServiceTest {
                 new EventFields(
                         "コミックマーケット104",
                         invalidEventDate,
+                        null,
                         null,
                         null,
                         null),
@@ -355,6 +357,7 @@ class AlbumCreationServiceTest {
                 new EventFields(
                         "   ",
                         NO_EVENT_DATE,
+                        null,
                         null,
                         null,
                         null),
@@ -432,6 +435,7 @@ class AlbumCreationServiceTest {
                 new EventFields(
                         "   ",
                         NO_EVENT_DATE,
+                        null,
                         null,
                         null,
                         null),

@@ -19,6 +19,7 @@ export type AlbumPresentation = Readonly<{
   eventDate: string | null;
   eventPlace: string | null;
   eventSpaceNumber: string | null;
+  eventCircleName: string | null;
   eventNote: string | null;
   basePrice: Readonly<{ amount: number; currency: string }> | null;
   externalAudios: readonly Readonly<{ url: string }>[];
@@ -34,13 +35,48 @@ export type AlbumPresentation = Readonly<{
   }>[];
 }>;
 
+const joinPresent = (parts: readonly (string | null)[]): string =>
+  parts.filter((part) => part !== null).join(" ");
+
+/**
+ * 頒布イベントは「日付 イベント名 会場」で1行、「スペース サークル名」で折り返して1行（#415）。
+ * 会場は探す手掛かり、スペース番号は当日その場で見つけるための値のため、スペース番号だけを立てる。
+ */
 const eventInfo = (album: AlbumPresentation): string => {
-  const place = [album.eventPlace, album.eventSpaceNumber]
-    .filter((value) => value !== null)
-    .join(" ");
+  const whereAndWhen = joinPresent([
+    album.eventDate === null
+      ? null
+      : `<time datetime="${escape(album.eventDate)}">${formatCalendarDate(album.eventDate)}</time>`,
+    album.eventName === null ? null : properNoun(album.eventName),
+    album.eventPlace === null ? null : escape(album.eventPlace),
+  ]);
+  const spaceAndCircle = joinPresent([
+    album.eventSpaceNumber === null
+      ? null
+      : `<strong class="text-foreground font-semibold">${escape(album.eventSpaceNumber)}</strong>`,
+    album.eventCircleName === null ? null : properNoun(album.eventCircleName),
+  ]);
+  const lines = [whereAndWhen, spaceAndCircle]
+    .filter((line) => line !== "")
+    .join("<br />\n");
   return album.eventName === null
     ? ""
-    : `<div data-album-event class="text-muted-foreground text-sm">${properNoun(album.eventName)}${album.eventDate === null ? "" : ` <time datetime="${escape(album.eventDate)}">${formatCalendarDate(album.eventDate)}</time>`}${place === "" ? "" : ` ${escape(place)}`}${album.eventNote === null ? "" : `<p>${escape(album.eventNote)}</p>`}</div>`;
+    : `<div data-album-event class="text-muted-foreground text-sm space-y-1"><p>${lines}</p>${album.eventNote === null ? "" : `<p>${escape(album.eventNote)}</p>`}</div>`;
+};
+
+/**
+ * 頒布情報の節。頒布イベントと、記事に展開したときの頒布価格をまとめる（価格はイベントの子情報）。
+ * どちらも無い作品は節ごと出さない。
+ */
+const distribution = (
+  album: AlbumPresentation,
+  subheading: string,
+  price: string,
+): string => {
+  const event = eventInfo(album);
+  return [event === "", price === ""].every(Boolean)
+    ? ""
+    : `<section data-album-distribution class="space-y-2"><${subheading} class="text-lg font-medium">頒布情報</${subheading}>${event}${price}</section>`;
 };
 type Tune = AlbumPresentation["tracks"][number]["tunes"][number];
 const creditOf = (tune: Tune): string =>
@@ -76,7 +112,26 @@ export const renderBody = (
       ? `<div class="prose-body">${renderMarkup(body ?? "", { assetBasePath })}</div>`
       : `<p class="whitespace-pre-wrap">${escape(body ?? "")}</p>`;
 
-/** 記事の前置きは試聴と曲目の間。introHtml は共有描画の出力専用で、入力文字列は渡さない。 */
+/**
+ * 作品の顔（ヒーロー）の枠。試聴プレイヤーか、音源を持たない作品ではカバー画像が同じ枠に入る。
+ * 正方形で、一辺は本文幅か 700px の小さい方。上限を幅の側に置くのは、高さだけを抑えると本文幅が
+ * 700px を超える画面で横長になるため。本文幅より狭くなるときは中央に置く（絵だけが中央でも、
+ * 左揃えの文と軸がずれる違和は無い）。プレイヤーの絵（アートワーク）を作品の顔として使う意図のため、
+ * コンパクトな帯ではなく絵が出る大きさを取る（#415）。
+ */
+const HERO_CLASS =
+  "border-border mx-auto block aspect-square w-full max-w-[700px] rounded-md border";
+
+/**
+ * 記事の前置き（記事本文）は作品の概要と曲目の間。introHtml は共有描画の出力専用で、入力文字列は渡さない。
+ *
+ * 並びは「基本情報 → 顔（プレイヤーか画像）→ 概要 → 記事本文 → 曲目 → 原作の出典 → 頒布情報（イベント・価格）」。
+ * 顔は見出しの直後に置き、文より先に絵が入る。
+ *
+ * 記事へ展開する（embedded）ときは、作品の見出し・発売日・品番を出さない——記事の見出しが作品を名指しており、
+ * 同じ大きさの見出しが2つ並ぶと段差が読めない。発売日は記事の公開日と無ラベルで並ぶと見分けられず、
+ * 品番は作品ページの URL と作品ページが持つ。
+ */
 export const renderAlbum = (
   album: AlbumPresentation,
   assetBasePath: string,
@@ -86,26 +141,56 @@ export const renderAlbum = (
     introHtml?: string;
   }> = {},
 ): string => {
-  const heading = options.embedded === true ? "h2" : "h1";
-  const subheading = options.embedded === true ? "h3" : "h2";
+  const embedded = options.embedded === true;
+  const subheading = embedded ? "h3" : "h2";
   const identifiers = [album.catalogNumber, album.isdn]
     .filter((value) => value !== null)
     .join(" / ");
-  const cover =
-    album.externalAudios.length === 0 && allowedImage(album.coverImageUrl)
-      ? `<img class="border-border w-full max-w-64 rounded-md border object-cover" src="${escape(album.coverImageUrl)}" alt="" decoding="async" />`
-      : "";
-  const audio =
-    album.externalAudios.length === 0
+  const headline = embedded
+    ? ""
+    : `<h1 class="text-3xl font-semibold">${properNoun(album.title)}</h1>`;
+  const artist =
+    album.artistDisplayName === options.defaultArtistName
       ? ""
-      : `<section data-album-audio class="space-y-4"><${subheading} class="text-lg font-medium">試聴</${subheading}>${album.externalAudios.map((item) => `<iframe class="border-border w-full rounded-md border" src="${escape(toEmbedUrl(item.url))}" title="${escape(album.title)} の試聴" height="166" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay"></iframe>`).join("")}</section>`;
+      : `<p class="text-muted-foreground">${properNoun(album.artistDisplayName)}</p>`;
+  const releaseDate = embedded
+    ? ""
+    : `<p class="text-muted-foreground text-sm"><time datetime="${escape(album.releaseDate)}">${formatCalendarDate(album.releaseDate)}</time></p>`;
+  const identifierLine =
+    [embedded, identifiers === ""].some(Boolean)
+      ? ""
+      : `<p class="text-muted-foreground text-sm">${properNoun(identifiers)}</p>`;
+  const facts = `${headline}${artist}${releaseDate}${identifierLine}`;
+  const header = facts === "" ? "" : `<header class="space-y-2">${facts}</header>`;
+  /*
+   * 作品の顔。音源があればプレイヤー（見出しは付けない。絵として置くもので、節ではない）。無ければ
+   * カバー画像を同じ枠に入れ、音源の有無で体裁を変えない。どちらも無い作品は枠ごと出さない。
+   */
+  const hero =
+    album.externalAudios.length > 0
+      ? `<section data-album-audio class="space-y-4">${album.externalAudios.map((item) => `<iframe class="${HERO_CLASS}" src="${escape(toEmbedUrl(item.url))}" title="${escape(album.title)} の試聴" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay"></iframe>`).join("")}</section>`
+      : allowedImage(album.coverImageUrl)
+        ? `<img data-album-cover class="${HERO_CLASS} object-cover" src="${escape(album.coverImageUrl)}" alt="" decoding="async" />`
+        : "";
+  /*
+   * 曲目は畳んで置き、読みたい人が開く。長い曲目が記事の本文とイベント情報の間を押し広げないため。
+   * 開閉はブラウザの details に任せ、スクリプトを要らなくする（プレビュー文書はスクリプトを実行しない）。
+   */
   const tracks =
     album.tracks.length === 0
       ? ""
-      : `<section data-album-tracks class="space-y-4"><${subheading} class="text-lg font-medium">曲目</${subheading}>${renderTracks(album.tracks)}</section>`;
+      : `<details data-album-tracks class="space-y-4"><summary class="cursor-pointer"><${subheading} class="inline text-lg font-medium">曲目</${subheading}></summary>${renderTracks(album.tracks)}</details>`;
+  /*
+   * 原作の出典は曲目の後ろ。曲目全体を指す一文（「「○○」より各曲」）で、どのトラックがどれかは述べない
+   * ため、曲目の行には入れず、並びの直後に置く（#365）。
+   */
+  const originalWork =
+    album.originalWorkNote === null
+      ? ""
+      : `<p data-album-original-work class="text-muted-foreground">${escape(album.originalWorkNote)}</p>`;
   const price =
-    options.embedded === true && album.basePrice !== null
-      ? `<p data-album-price class="text-muted-foreground text-sm">${formatPrice(album.basePrice.amount, album.basePrice.currency)}</p>`
+    embedded && album.basePrice !== null
+      ? `<p data-album-price class="text-muted-foreground text-sm">頒布価格 ${formatPrice(album.basePrice.amount, album.basePrice.currency)}</p>`
       : "";
-  return `<section data-public-album class="space-y-8" aria-label="${escape(album.title)}"><header class="flex flex-col gap-4 sm:flex-row">${cover}<div class="min-w-0 space-y-2"><${heading} class="text-3xl font-semibold">${properNoun(album.title)}</${heading}>${album.artistDisplayName === options.defaultArtistName ? "" : `<p class="text-muted-foreground">${properNoun(album.artistDisplayName)}</p>`}${album.originalWorkNote === null ? "" : `<p class="text-muted-foreground">${escape(album.originalWorkNote)}</p>`}<p class="text-muted-foreground text-sm"><time datetime="${escape(album.releaseDate)}">${formatCalendarDate(album.releaseDate)}</time></p>${identifiers === "" ? "" : `<p class="text-muted-foreground text-sm">${properNoun(identifiers)}</p>`}</div></header>${renderBody(album.description, album.descriptionFormat, assetBasePath)}${audio}${options.introHtml ?? ""}${tracks}${eventInfo(album)}${price}</section>`;
+  return `<section data-public-album class="space-y-8" aria-label="${escape(album.title)}">${header}${hero}${renderBody(album.description, album.descriptionFormat, assetBasePath)}${options.introHtml ?? ""}${tracks}${originalWork}${distribution(album, subheading, price)}</section>`;
 };

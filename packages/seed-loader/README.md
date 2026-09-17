@@ -58,6 +58,7 @@ SEED_API_BASE_URL=<バックエンドの起点> ADMIN_API_KEY=<管理APIの鍵> 
     "date": "2026-03-30",
     "place": "会場",
     "spaceNumber": "A-01",
+    "circleName": "頒布サークル名（名義と違うときだけ）",
     "note": "補足"
   },
   "basePrice": { "amount": 1500, "currency": "JPY" },

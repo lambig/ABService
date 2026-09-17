@@ -74,6 +74,8 @@ public record CreateAlbumRequest(
      *            会場（nullable）
      * @param spaceNumber
      *            スペース番号（nullable）
+     * @param circleName
+     *            頒布サークル名（nullable。名義と違うことがある）
      * @param note
      *            補足情報（nullable）
      */
@@ -82,6 +84,7 @@ public record CreateAlbumRequest(
             @Nullable String date,
             @Nullable String place,
             @Nullable String spaceNumber,
+            @Nullable String circleName,
             @Nullable String note) {
     }
 }

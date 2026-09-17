@@ -73,6 +73,7 @@ class EventReleasedAtTest {
                 date,
                 "東京流通センター",
                 "第1展示場A-01a",
+                "合同サークル",
                 "新譜あります");
 
         assertThat(event.name().value()).isEqualTo("M3-2023秋");
@@ -92,11 +93,13 @@ class EventReleasedAtTest {
                 null,
                 null,
                 null,
+                null,
                 null);
 
         assertThat(event.name()).isEqualTo(name);
         assertThat(event.date()).isNull();
         assertThat(event.spaceNumber()).isNull();
+        assertThat(event.circleName()).isNull();
         assertThat(event.place()).isNull();
         assertThat(event.note()).isNull();
     }
@@ -106,6 +109,7 @@ class EventReleasedAtTest {
     void testCreateWithNullName() {
         assertThatThrownBy(
                 () -> EventReleasedAt.of(
+                        null,
                         null,
                         null,
                         null,
@@ -127,12 +131,14 @@ class EventReleasedAtTest {
                 date,
                 "東京ビッグサイト",
                 "東ホ-01a",
+                "サークル",
                 "備考");
         final EventReleasedAt event2 = EventReleasedAt.of(
                 "コミケ101",
                 date,
                 "東京ビッグサイト",
                 "東ホ-01a",
+                "サークル",
                 "備考");
 
         assertThat(event1.equivalentTo(event2)).isTrue();
@@ -237,11 +243,13 @@ class EventReleasedAtTest {
                 date,
                 "東京ビッグサイト",
                 "東ホ-01a",
+                "サークル",
                 "備考");
 
         assertThat(result).isInstanceOf(Result.Success.class);
         assertThat(result.resolve().name().value()).isEqualTo("コミケ104");
         assertThat(result.resolve().date()).isEqualTo(date);
+        assertThat(result.resolve().circleName()).isEqualTo("サークル");
     }
 
     @Test
@@ -249,6 +257,7 @@ class EventReleasedAtTest {
     void testFromInputFailsWithBlankName() {
         final Result<EventReleasedAt> result = EventReleasedAt.fromInput(
                 "   ",
+                null,
                 null,
                 null,
                 null,

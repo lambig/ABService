@@ -42,6 +42,7 @@ const detail = {
   eventDate: null,
   eventPlace: null,
   eventSpaceNumber: null,
+  eventCircleName: null,
   eventNote: null,
   publishedAt: null,
   coverImageKey: null,

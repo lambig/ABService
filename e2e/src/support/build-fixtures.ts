@@ -48,10 +48,12 @@ export const showcase = {
   eventDate: '2026-08-13',
   eventPlace: 'E2E 会場',
   eventSpaceNumber: 'A-01',
+  /** 頒布サークル名。名義と別に持ち、頒布イベントの行の末尾に出る（#415） */
+  eventCircleName: 'E2E 頒布サークル',
   /** 頒布の基準額（#349）。作品紹介の記事にだけ出る */
   basePrice: 1500,
-  /** 画面に出る形。投入値と並べて置き、整形の結果をシナリオから読めるようにする */
-  basePriceText: '￥1,500',
+  /** 画面に出る形（ラベル込み）。投入値と並べて置き、整形の結果をシナリオから読めるようにする */
+  basePriceText: '頒布価格 1,500円',
   /**
    * 原作の出典の記述（#365）。
    *
@@ -61,7 +63,7 @@ export const showcase = {
   originalWorkNote: '「E2E 原作ゲーム」より各曲',
   /** Markdown として描画されることを、要素ごとに確かめるための断片 */
   description: {
-    heading: '概要',
+    heading: 'コンセプト',
     lead: 'E2E で画面を確認するための作品。',
     bullet: '箇条書き',
     emphasis: '強調',
@@ -202,8 +204,11 @@ export const quiet = {
     name: 'E2E 音源なしイベント',
     /* リリース日と別の日にする。同じ日にすると time[datetime] がどちらの日付か区別できない */
     date: '2026-08-14',
+    /** 画面に出る形。投入値と並べて置き、整形の結果をシナリオから読めるようにする */
+    dateText: '2026年8月14日',
     place: 'E2E 会場',
     spaceNumber: 'B-02',
+    circleName: 'E2E 音源なし合同',
     note: 'E2E 音源なしの補足',
   },
 } as const;
@@ -234,15 +239,29 @@ export const albumArticle = {
     heading: '記事の見出し',
     lead: 'E2E で記事の本文を確かめる。',
   },
-  /**
-   * 画像の配信ベース判定を確かめるための `src`。
-   *
-   * <p>
-   * 配信ベース配下のものは描かれ、`/assets/../api/...` のように解決後は配下から出るものは画像ごと
-   * 落ちる（#289）。**プレビューと公開が同じ設定で判定していること**を同じ本文から見るため、この
-   * 記事の本文へ両方を入れておく。
-   * </p>
-   */
+} as const;
+
+/**
+ * 本文に画像を持つ記事。作品を参照しないノート。
+ *
+ * <p>
+ * 画像の配信ベース判定を確かめるための入力。配信ベース配下のものは描かれ、`/assets/../api/...` のように
+ * 解決後は配下から出るものは画像ごと落ちる（#289）。**プレビューと公開が同じ設定で判定していること**を
+ * 同じ本文から見るため、1つの記事の本文へ両方を入れておく。
+ * </p>
+ *
+ * <p>
+ * 作品紹介記事（`albumArticle`）には入れない。実体を置いていないため描かれる側も壊れ画像として写り、
+ * 記事の体裁を見る証跡の邪魔になる。本文画像の運用はアセットエクスプローラ（#213）まで始めないため、
+ * 検査の入力はこの記事に閉じ込める。
+ * </p>
+ */
+export const imageArticle = {
+  title: 'E2E 本文画像の記事',
+  introShort: '本文の画像の配信パス判定を確かめるための記事。',
+  body: {
+    heading: '本文画像の見出し',
+  },
   image: {
     allowedSrc: '/assets/e2e-body-image.png',
     allowedAlt: 'E2E 本文の画像',
@@ -324,13 +343,19 @@ export const siteContent = {
 export const pagination = {
   /** 画面が1ページに並べる件数 */
   perPage: 20,
-  /** 作品紹介3件・ノート1件と合わせて1ページを1件だけ超える */
-  filler: 17,
+  /** 作品紹介3件・ノート2件と合わせて1ページを1件だけ超える */
+  filler: 16,
   titleOf: (index: number): string => `E2E ページ送り記事 ${String(index)}`,
 } as const;
 
-/** #380で作品紹介を1件増やした際に廃止した詰め物。旧DBからこの予約済みタイトルだけを片付ける。 */
-export const retiredPaginationArticleTitle = pagination.titleOf(18);
+/**
+ * 名のある記事を1件増やすたびに廃止した詰め物。旧DBからこれらの予約済みタイトルだけを片付ける
+ * （#380 で作品紹介を、#415 で本文画像の記事を増やした）。
+ */
+export const retiredPaginationArticleTitles = [
+  pagination.titleOf(18),
+  pagination.titleOf(17),
+] as const;
 
 const showcaseSeed: AlbumSeed = {
   title: showcase.title,
@@ -353,6 +378,7 @@ const showcaseSeed: AlbumSeed = {
     date: showcase.eventDate,
     place: showcase.eventPlace,
     spaceNumber: showcase.eventSpaceNumber,
+    circleName: showcase.eventCircleName,
   },
   basePrice: { amount: showcase.basePrice },
   originalWorkNote: showcase.originalWorkNote,
@@ -441,21 +467,27 @@ const draftSeed: AlbumSeed = {
 const albumArticleSeed = (albumId: string): ArticleSeed => ({
   articleType: 'ALBUM',
   title: albumArticle.title,
-  body: [
-    `## ${albumArticle.body.heading}`,
-    '',
-    albumArticle.body.lead,
-    '',
-    `![${albumArticle.image.allowedAlt}](${albumArticle.image.allowedSrc})`,
-    '',
-    `![${albumArticle.image.deviantAlt}](${albumArticle.image.deviantSrc})`,
-    '',
-  ].join('\n'),
+  body: [`## ${albumArticle.body.heading}`, '', albumArticle.body.lead, ''].join('\n'),
   bodyFormat: 'MARKDOWN',
   introShort: albumArticle.introShort,
   albumId,
   tags: albumArticle.tags,
 });
+
+const imageArticleSeed: ArticleSeed = {
+  articleType: 'NOTE',
+  title: imageArticle.title,
+  body: [
+    `## ${imageArticle.body.heading}`,
+    '',
+    `![${imageArticle.image.allowedAlt}](${imageArticle.image.allowedSrc})`,
+    '',
+    `![${imageArticle.image.deviantAlt}](${imageArticle.image.deviantSrc})`,
+    '',
+  ].join('\n'),
+  bodyFormat: 'MARKDOWN',
+  introShort: imageArticle.introShort,
+};
 
 const quietArticleSeed = (albumId: string): ArticleSeed => ({
   articleType: 'ALBUM',
@@ -610,13 +642,16 @@ export const seedForBuild = async (): Promise<void> => {
 
   await ensureAlbumCoverImage(showcaseAlbumId, coverImageAsset);
 
-  const retired = await findArticleByTitle(retiredPaginationArticleTitle);
-  await (retired === undefined ? Promise.resolve() : deleteArticle(retired.articleId));
+  for (const title of retiredPaginationArticleTitles) {
+    const retired = await findArticleByTitle(title);
+    await (retired === undefined ? Promise.resolve() : deleteArticle(retired.articleId));
+  }
 
   for (const index of Array.from({ length: pagination.filler }, (_unused, i) => i + 1)) {
     await ensureArticle(fillerArticleSeed(index), 'PUBLISHED');
   }
 
+  await ensureArticle(imageArticleSeed, 'PUBLISHED');
   await ensureArticle(
     { articleType: 'ALBUM', title: coverlessArticle.title, albumId: coverlessAlbumId },
     'PUBLISHED',

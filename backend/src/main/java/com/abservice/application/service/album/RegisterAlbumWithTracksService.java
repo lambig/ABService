@@ -106,6 +106,7 @@ public class RegisterAlbumWithTracksService
                                         "ALBUM_EVENT_DATE_INVALID"),
                                 e.place(),
                                 e.spaceNumber(),
+                                e.circleName(),
                                 e.note()))
                 .orElse(null);
     }

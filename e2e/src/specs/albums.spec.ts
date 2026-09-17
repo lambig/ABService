@@ -11,7 +11,7 @@ import {
   showcaseTracks,
 } from '../support/build-fixtures.ts';
 import { coverImageAsset } from '../support/cover-image.ts';
-import { capture, captureFocused, clickWithEvidence } from '../support/evidence.ts';
+import { capture, captureFocused, captureWhole, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 
 /**
@@ -20,9 +20,6 @@ import { expect, test } from '../support/fixtures.ts';
  * 見るのは #197 が確定した内容が画面に出ているかで、項目の並びや文字装飾は対象にしない。外部サービスの
  * 埋め込みは遮断されている（`fixtures.ts`）ため、埋め込み枠は「音源が渡っていること」で確かめる。
  */
-
-/** 試聴の節の見出し。文言は画面の実装が持つ */
-const AUDIO_SECTION_HEADING = '試聴';
 
 /**
  * 曲目の一覧。
@@ -42,8 +39,38 @@ const TUNE_ROW = 'ol > li';
 const trackRowOf = (page: Page, name: string): Locator =>
   page.locator(`${TRACK_LIST} > li`).filter({ hasText: name }).first();
 
-/** 額の整形が出す通貨の記号。額が出ていないことは、記号の不在でしか言えない */
-const CURRENCY_SIGN = '￥';
+/** 額に添えるラベル。額が出ていないことは、ラベルの不在でしか言えない */
+const PRICE_LABEL = '頒布価格';
+
+/** 作品の顔（プレイヤーかカバー画像）の一辺の上限。共有描画（`HERO_CLASS`）と揃える */
+const HERO_MAX_SIDE = 700;
+
+/**
+ * 作品の顔は正方形で、一辺は本文幅か上限の小さい方。本文幅より狭いときは本文の中央に置かれる（#415）。
+ *
+ * 高さだけを見ると、高さが上限で止まり幅が本文いっぱいに伸びた横長でも通ってしまう。幅と高さの一致で
+ * 正方形を、本文の中心との一致で配置を見る。
+ */
+const expectHeroSquare = async (page: Page, hero: Locator): Promise<void> => {
+  const box = await hero.boundingBox();
+  const column = await page.locator('[data-public-album]').boundingBox();
+  expect(box).not.toBeNull();
+  expect(column).not.toBeNull();
+  expect(box?.width).toBeCloseTo(box?.height ?? 0, 0);
+  expect(box?.width).toBeCloseTo(Math.min(column?.width ?? 0, HERO_MAX_SIDE), 0);
+  expect((box?.x ?? 0) + (box?.width ?? 0) / 2).toBeCloseTo(
+    (column?.x ?? 0) + (column?.width ?? 0) / 2,
+    0,
+  );
+};
+
+/**
+ * 曲目は畳んで置かれる（#415）。行を見る前に開く。開いていない状態で行の可視性を見ると、
+ * 曲目そのものが壊れていなくても落ちる。
+ */
+const openTracks = async (page: Page): Promise<void> => {
+  await page.locator('[data-album-tracks] > summary').click();
+};
 
 const albumPathOf = async (catalogNumber: string): Promise<string> => {
   const album = await findAlbumByCatalogNumber(catalogNumber);
@@ -127,10 +154,10 @@ test.describe('作品の一覧', () => {
    */
   test('額を持つ作品でも、一覧と詳細に額は出ない', async ({ page }) => {
     await page.goto('/albums');
-    await expect(page.getByText(CURRENCY_SIGN)).toHaveCount(0);
+    await expect(page.getByText(PRICE_LABEL)).toHaveCount(0);
 
     await page.goto(await albumPathOf(showcase.catalogNumber));
-    await expect(page.getByText(CURRENCY_SIGN)).toHaveCount(0);
+    await expect(page.getByText(PRICE_LABEL)).toHaveCount(0);
   });
 });
 
@@ -138,8 +165,8 @@ test.describe('作品の詳細', () => {
   test('試聴は埋め込みで完結し、取得元へ出る導線を置かない', async ({ page }) => {
     await page.goto(await albumPathOf(showcase.catalogNumber));
 
-    const audioSection = page.getByRole('heading', { level: 2, name: AUDIO_SECTION_HEADING });
-    await expect(audioSection).toBeVisible();
+    /* 試聴は節ではなく作品の顔として置くため、見出しを持たない（#415）。枠の存在で見る */
+    await expect(page.locator('[data-album-audio] iframe')).toBeVisible();
 
     /*
      * 埋め込み枠には音源の URL がそのまま渡る（許可リストはバックエンドの ExternalAudioUrl が持つ）。
@@ -157,7 +184,13 @@ test.describe('作品の詳細', () => {
     await expect(page.locator(`a[href="${showcase.audioUrl}"]`)).toHaveCount(0);
 
     /*
-     * 埋め込み枠から下は曲目まで1画面に収まる。同じ絵を複数の名前で撮ると、レビューでは同じものを
+     * 埋め込み枠は正方形で、絵（アートワーク）が出る大きさを取る（#415）。一辺の上限は共有描画が持つ。
+     * 既定の幅（1280）では本文幅が上限を超えるため、上限の正方形が本文の中央に置かれる。
+     */
+    await expectHeroSquare(page, embed);
+
+    /*
+     * 埋め込み枠から下は畳んだ曲目まで1画面に収まる。同じ絵を複数の名前で撮ると、レビューでは同じものを
      * 二度見ることになるため、この帯の証跡はここだけで撮る。
      */
     await captureFocused(page, embed, '06-album-detail-audio-and-tracks');
@@ -173,7 +206,8 @@ test.describe('作品の詳細', () => {
     await expect(
       page.getByRole('listitem').filter({ hasText: showcase.description.bullet }),
     ).toBeVisible();
-    await expect(page.locator('strong')).toHaveText(showcase.description.emphasis);
+    /* 概要の中だけを見る。頒布イベントのスペース番号も強調（strong）で出る（#415） */
+    await expect(page.locator('.prose-body strong')).toHaveText(showcase.description.emphasis);
   });
 
   test('曲目にチューンとクレジットが出る', async ({ page }) => {
@@ -194,6 +228,7 @@ test.describe('作品の詳細', () => {
 
   test('トラック名を持たないトラックは、チューン名を繋いだものが名になる', async ({ page }) => {
     await page.goto(await albumPathOf(showcase.catalogNumber));
+    await openTracks(page);
 
     /*
      * 名の綴りそのものを見る（#360）。「チューン名が出ている」だけでは、繋ぎ方も順序も確かめられない。
@@ -207,6 +242,7 @@ test.describe('作品の詳細', () => {
 
   test('名もクレジットも持たないチューンは、名にも曲目の行にも出ない', async ({ page }) => {
     await page.goto(await albumPathOf(showcase.catalogNumber));
+    await openTracks(page);
 
     /*
      * 間奏（名もクレジットも持たないチューン）を挟んだトラック。名に現れないだけでなく、曲目の行にも
@@ -233,8 +269,18 @@ test.describe('作品の詳細', () => {
     await expect(narrationTunes).toContainText(narration.tuneCredit);
   });
 
-  test('曲目はトラック番号の順に、組み合わせごとの名で並ぶ', async ({ page }) => {
+  test('曲目は畳まれて置かれ、開くとトラック番号の順に、組み合わせごとの名で並ぶ', async ({
+    page,
+  }) => {
     await page.goto(await albumPathOf(showcase.catalogNumber));
+
+    /*
+     * 既定は畳んだ状態（#415）。長い曲目が本文と頒布情報の間を押し広げないため。開くまで行は見えない。
+     */
+    await expect(page.locator('[data-album-tracks]')).not.toHaveAttribute('open');
+    await expect(page.locator(TRACK_LIST)).toBeHidden();
+    await openTracks(page);
+    await expect(page.locator(TRACK_LIST)).toBeVisible();
 
     /*
      * 曲目の見出しの下の一覧を、名だけ取り出して並びごと突き合わせる。組み合わせは8通りあり、
@@ -275,17 +321,17 @@ test.describe('作品の詳細', () => {
     await page.goto(await albumPathOf(quiet.catalogNumber));
 
     await expect(page.getByRole('heading', { level: 1, name: quiet.title })).toBeVisible();
-    await expect(page.getByRole('heading', { level: 2, name: AUDIO_SECTION_HEADING })).toHaveCount(
-      0,
-    );
+    await expect(page.locator('[data-album-audio]')).toHaveCount(0);
     await expect(page.locator('meta[name="twitter:player"]')).toHaveCount(0);
 
     /*
-     * プレイヤーが無い側では、カバー画像が本体に出る（#197）。描かれたことまで見る——要素があるだけの
-     * 状態は、配信が取り次いでいないときも同じに見える。
+     * プレイヤーが無い側では、カバー画像がプレイヤーと同じ枠（作品の顔）に出る（#197、#415）。描かれた
+     * ことまで見る——要素があるだけの状態は、配信が取り次いでいないときも同じに見える。枠の大きさは
+     * 音源のある作品のプレイヤーと同じ（幅いっぱいの正方形、上限 700px）。
      */
-    const bodyCover = page.locator('article img');
+    const bodyCover = page.locator('article img[data-album-cover]');
     await expect(bodyCover).toHaveJSProperty('naturalWidth', coverImageAsset.width);
+    await expectHeroSquare(page, bodyCover);
 
     /*
      * リンクプレビューもカバー画像になる。**本体に出ているのと同じ画像であること**まで見る——
@@ -299,9 +345,14 @@ test.describe('作品の詳細', () => {
     expect(previewImage).toContain(await attributeOf(bodyCover, 'src'));
 
     await capture(page, '07-album-detail-without-audio');
+    /*
+     * 音源を持たない作品の体裁は、顔がカバー画像に替わるだけで音源のある作品と同じ（#415）。並び全体
+     * （顔 → 概要 → 曲目 → 頒布情報）を1枚で読めるよう、ページ全体も撮る。
+     */
+    await captureWhole(page, '07a-album-detail-without-audio-whole');
   });
 
-  test('原作の出典は、書かれた綴りのまま出る', async ({ page }) => {
+  test('原作の出典は、書かれた綴りのまま曲目の後ろに出る', async ({ page }) => {
     await page.goto(await albumPathOf(showcase.catalogNumber));
 
     /*
@@ -309,13 +360,18 @@ test.describe('作品の詳細', () => {
      * 「より各曲」と言っていない盤でも同じ文が出てしまう。ここで見ているのは、入れた一文が
      * 加工されずに出ることそのもの。
      */
-    await expect(page.getByText(showcase.originalWorkNote, { exact: true })).toBeVisible();
+    const note = page.getByText(showcase.originalWorkNote, { exact: true });
+    await expect(note).toBeVisible();
 
     /*
      * トラックの行には出ない。トラックと原作の対応は述べていない（述べない意図がある）ため、
-     * 曲目の側に置くと、システムが対応を主張したことになる（#89）。
+     * 曲目の側に置くと、システムが対応を主張したことになる（#89）。曲目全体を指す一文のため、
+     * 置き場は曲目の直後（#415）。
      */
     await expect(page.locator(TRACK_LIST)).not.toContainText(showcase.originalWorkNote);
+    const tracksBox = await page.locator('[data-album-tracks]').boundingBox();
+    const noteBox = await note.boundingBox();
+    expect(noteBox?.y).toBeGreaterThanOrEqual((tracksBox?.y ?? 0) + (tracksBox?.height ?? 0));
   });
 
   test('原作の出典を持たない作品には、その行が出ない', async ({ page }) => {
@@ -335,14 +391,31 @@ test.describe('作品の詳細', () => {
     await expect(page.getByText(quiet.artistDisplayName)).toBeVisible();
   });
 
-  test('品番と ISDN、初出イベントの5項目が出る', async ({ page }) => {
+  test('品番と ISDN、頒布情報の節に6項目が「日付 名 会場 / スペース サークル」の順に出る', async ({
+    page,
+  }) => {
     await page.goto(await albumPathOf(quiet.catalogNumber));
 
     await expect(page.getByText(`${quiet.catalogNumber} / ${quiet.isdn}`)).toBeVisible();
 
-    await expect(page.getByText(quiet.event.name)).toBeVisible();
-    await expect(page.locator(`time[datetime="${quiet.event.date}"]`)).toBeVisible();
-    await expect(page.getByText(`${quiet.event.place} ${quiet.event.spaceNumber}`)).toBeVisible();
+    /*
+     * 頒布の案内は「頒布情報」の節に置き、日付・名・会場の行と、スペース番号から折り返した行で読む（#415）。
+     * スペース番号は当日その場で探す値のため強調され、会場は強調されない。
+     */
+    await expect(page.getByRole('heading', { level: 2, name: '頒布情報' })).toBeVisible();
+    const event = page.locator('[data-album-event]');
+    await expect(event.locator('time')).toHaveAttribute('datetime', quiet.event.date);
+    await expect(event.locator('p').first()).toHaveText(
+      [
+        quiet.event.dateText,
+        quiet.event.name,
+        quiet.event.place,
+        quiet.event.spaceNumber,
+        quiet.event.circleName,
+      ].join(' '),
+    );
+    await expect(event.locator('p').first().locator('br')).toHaveCount(1);
+    await expect(event.locator('strong')).toHaveText(quiet.event.spaceNumber);
     await expect(page.getByText(quiet.event.note)).toBeVisible();
   });
 
@@ -350,7 +423,9 @@ test.describe('作品の詳細', () => {
     await page.goto(await albumPathOf(quiet.catalogNumber));
 
     await expect(page.getByText(quiet.description)).toBeVisible();
-    await expect(page.locator('strong')).toHaveCount(0);
+    /* 記法として解釈されていれば概要の器（prose-body）ごと現れる。スペース番号の強調はこの外にある */
+    await expect(page.locator('.prose-body')).toHaveCount(0);
+    await expect(page.getByText(quiet.description).locator('strong')).toHaveCount(0);
   });
 
   test('下書きの詳細は開けない', async ({ page }) => {
