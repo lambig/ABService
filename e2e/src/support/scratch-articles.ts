@@ -31,13 +31,14 @@ import { workerTag } from './worker.ts';
 export const SCRATCH_TITLE_PREFIX = 'E2E-SCRATCH 記事';
 
 /**
- * この worker が作る記事のタイトルの接頭辞（`E2E-SCRATCH 記事 W0` 等）。
+ * この worker が作る記事のタイトルの接頭辞（`E2E-SCRATCH 記事 [W0]` 等）。
  *
  * <p>
- * ヘルパで作るときも、画面から入力するときも、片付けで拾うときも、同じこの値を使う。
+ * ヘルパで作るときも、画面から入力するときも、片付けで拾うときも、同じこの値を使う。印は括弧で閉じる。
+ * 閉じないと、片付けが接頭辞の前方一致で拾うため、`W1` の片付けが `W10` 以降の scratch まで拾う。
  * </p>
  */
-export const scratchTitlePrefix = (): string => `${SCRATCH_TITLE_PREFIX} ${workerTag()}`;
+export const scratchTitlePrefix = (): string => `${SCRATCH_TITLE_PREFIX} [${workerTag()}]`;
 
 /**
  * 作った記事。
