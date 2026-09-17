@@ -35,6 +35,7 @@ const album: AlbumPresentation = {
   eventDate: "2026-08-15",
   eventPlace: "会場",
   eventSpaceNumber: "A-01",
+  eventCircleName: "<circle>",
   eventNote: "<note>",
   basePrice: { amount: 1200, currency: "JPY" },
 };
@@ -66,10 +67,53 @@ describe("公開記事の描画", () => {
       html.indexOf("data-album-price"),
     );
     expect(html).toContain('src="/assets/cover.png"');
-    expect(html).toContain("会場 A-01");
-    expect(html).toContain("￥1,200");
+    expect(html).toContain("頒布価格 1,200円");
     expect(html).toContain("&lt;note&gt;");
     expect(html).toContain('translate="no"');
+  });
+  it("頒布イベントは日付・名・会場・スペース・サークル名の順に1行で、スペース番号だけを立てる", () => {
+    const html = renderArticle({ ...article, album }, "/assets");
+    const event = /<div data-album-event[^>]*><p>(?<line>.*?)<\/p>/u.exec(html)
+      ?.groups?.["line"];
+    expect(event).toMatch(
+      /^<time[^>]*>2026年8月15日<\/time> <span[^>]*>イベント<\/span> 会場 <strong[^>]*>A-01<\/strong> <span[^>]*>&lt;circle&gt;<\/span>$/u,
+    );
+    expect(html).not.toMatch(/<strong[^>]*>会場/u);
+  });
+  it("記事へ展開した作品は、見出しと発売日を出さず、曲目を畳み、原作の出典を曲目の後ろに置く", () => {
+    const note = { ...album, originalWorkNote: "「原作」より各曲" };
+    const embedded = renderArticle({ ...article, album: note }, "/assets");
+    expect(embedded).not.toContain('<h2 class="text-3xl');
+    expect(embedded).not.toContain("2026年8月14日");
+    expect(embedded).toContain('aria-label="&lt;album&gt;"');
+    expect(embedded).toContain("<details data-album-tracks");
+    expect(embedded).not.toContain("<details data-album-tracks open");
+    expect(embedded.indexOf("data-album-tracks")).toBeLessThan(
+      embedded.indexOf("data-album-original-work"),
+    );
+    expect(embedded.indexOf("data-album-original-work")).toBeLessThan(
+      embedded.indexOf("data-album-event"),
+    );
+    expect(embedded).toContain("「原作」より各曲");
+
+    const standalone = renderAlbum(note, "/assets");
+    expect(standalone).toContain("&lt;album&gt;</span></h1>");
+    expect(standalone).toContain("2026年8月14日");
+    expect(standalone.indexOf("data-album-tracks")).toBeLessThan(
+      standalone.indexOf("data-album-original-work"),
+    );
+  });
+  it("試聴の枠は正方形で上限の高さを持ち、アートワークを出す visual 表示で埋め込む", () => {
+    const html = renderAlbum(
+      {
+        ...album,
+        externalAudios: [{ url: "https://soundcloud.com/example/test" }],
+      },
+      "/assets",
+    );
+    expect(html).toContain("aspect-square max-h-[700px] w-full");
+    expect(html).toContain("visual=true");
+    expect(html).not.toContain('height="166"');
   });
   it.each([
     "javascript:alert(1)",
@@ -113,7 +157,7 @@ describe("公開記事の描画", () => {
     );
     expect(html).not.toContain("data-album-event");
     expect(html).not.toContain("<img");
-    expect(html).not.toContain("￥");
+    expect(html).not.toContain("頒布価格");
     expect(html).not.toContain("会場");
   });
   it("プレイヤーの後ろに記事本文を置き、作品ページでは価格を出さない", () => {

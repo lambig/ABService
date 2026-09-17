@@ -42,8 +42,16 @@ const TUNE_ROW = 'ol > li';
 const trackRowOf = (page: Page, name: string): Locator =>
   page.locator(`${TRACK_LIST} > li`).filter({ hasText: name }).first();
 
-/** 額の整形が出す通貨の記号。額が出ていないことは、記号の不在でしか言えない */
-const CURRENCY_SIGN = '￥';
+/** 額に添えるラベル。額が出ていないことは、ラベルの不在でしか言えない */
+const PRICE_LABEL = '頒布価格';
+
+/**
+ * 曲目は畳んで置かれる（#415）。行を見る前に開く。開いていない状態で行の可視性を見ると、
+ * 曲目そのものが壊れていなくても落ちる。
+ */
+const openTracks = async (page: Page): Promise<void> => {
+  await page.locator('[data-album-tracks] > summary').click();
+};
 
 const albumPathOf = async (catalogNumber: string): Promise<string> => {
   const album = await findAlbumByCatalogNumber(catalogNumber);
@@ -127,10 +135,10 @@ test.describe('作品の一覧', () => {
    */
   test('額を持つ作品でも、一覧と詳細に額は出ない', async ({ page }) => {
     await page.goto('/albums');
-    await expect(page.getByText(CURRENCY_SIGN)).toHaveCount(0);
+    await expect(page.getByText(PRICE_LABEL)).toHaveCount(0);
 
     await page.goto(await albumPathOf(showcase.catalogNumber));
-    await expect(page.getByText(CURRENCY_SIGN)).toHaveCount(0);
+    await expect(page.getByText(PRICE_LABEL)).toHaveCount(0);
   });
 });
 
@@ -157,7 +165,13 @@ test.describe('作品の詳細', () => {
     await expect(page.locator(`a[href="${showcase.audioUrl}"]`)).toHaveCount(0);
 
     /*
-     * 埋め込み枠から下は曲目まで1画面に収まる。同じ絵を複数の名前で撮ると、レビューでは同じものを
+     * 埋め込み枠は正方形で、絵（アートワーク）が出る大きさを取る（#415）。高さの上限は共有描画が持つ。
+     */
+    const box = await embed.boundingBox();
+    expect(box?.height).toBeCloseTo(Math.min(box?.width ?? 0, 700), 0);
+
+    /*
+     * 埋め込み枠から下は畳んだ曲目まで1画面に収まる。同じ絵を複数の名前で撮ると、レビューでは同じものを
      * 二度見ることになるため、この帯の証跡はここだけで撮る。
      */
     await captureFocused(page, embed, '06-album-detail-audio-and-tracks');
@@ -173,7 +187,8 @@ test.describe('作品の詳細', () => {
     await expect(
       page.getByRole('listitem').filter({ hasText: showcase.description.bullet }),
     ).toBeVisible();
-    await expect(page.locator('strong')).toHaveText(showcase.description.emphasis);
+    /* 概要の中だけを見る。頒布イベントのスペース番号も強調（strong）で出る（#415） */
+    await expect(page.locator('.prose-body strong')).toHaveText(showcase.description.emphasis);
   });
 
   test('曲目にチューンとクレジットが出る', async ({ page }) => {
@@ -194,6 +209,7 @@ test.describe('作品の詳細', () => {
 
   test('トラック名を持たないトラックは、チューン名を繋いだものが名になる', async ({ page }) => {
     await page.goto(await albumPathOf(showcase.catalogNumber));
+    await openTracks(page);
 
     /*
      * 名の綴りそのものを見る（#360）。「チューン名が出ている」だけでは、繋ぎ方も順序も確かめられない。
@@ -207,6 +223,7 @@ test.describe('作品の詳細', () => {
 
   test('名もクレジットも持たないチューンは、名にも曲目の行にも出ない', async ({ page }) => {
     await page.goto(await albumPathOf(showcase.catalogNumber));
+    await openTracks(page);
 
     /*
      * 間奏（名もクレジットも持たないチューン）を挟んだトラック。名に現れないだけでなく、曲目の行にも
@@ -233,8 +250,18 @@ test.describe('作品の詳細', () => {
     await expect(narrationTunes).toContainText(narration.tuneCredit);
   });
 
-  test('曲目はトラック番号の順に、組み合わせごとの名で並ぶ', async ({ page }) => {
+  test('曲目は畳まれて置かれ、開くとトラック番号の順に、組み合わせごとの名で並ぶ', async ({
+    page,
+  }) => {
     await page.goto(await albumPathOf(showcase.catalogNumber));
+
+    /*
+     * 既定は畳んだ状態（#415）。長い曲目が本文と頒布情報の間を押し広げないため。開くまで行は見えない。
+     */
+    await expect(page.locator('[data-album-tracks]')).not.toHaveAttribute('open');
+    await expect(page.locator(TRACK_LIST)).toBeHidden();
+    await openTracks(page);
+    await expect(page.locator(TRACK_LIST)).toBeVisible();
 
     /*
      * 曲目の見出しの下の一覧を、名だけ取り出して並びごと突き合わせる。組み合わせは8通りあり、
@@ -301,7 +328,7 @@ test.describe('作品の詳細', () => {
     await capture(page, '07-album-detail-without-audio');
   });
 
-  test('原作の出典は、書かれた綴りのまま出る', async ({ page }) => {
+  test('原作の出典は、書かれた綴りのまま曲目の後ろに出る', async ({ page }) => {
     await page.goto(await albumPathOf(showcase.catalogNumber));
 
     /*
@@ -309,13 +336,18 @@ test.describe('作品の詳細', () => {
      * 「より各曲」と言っていない盤でも同じ文が出てしまう。ここで見ているのは、入れた一文が
      * 加工されずに出ることそのもの。
      */
-    await expect(page.getByText(showcase.originalWorkNote, { exact: true })).toBeVisible();
+    const note = page.getByText(showcase.originalWorkNote, { exact: true });
+    await expect(note).toBeVisible();
 
     /*
      * トラックの行には出ない。トラックと原作の対応は述べていない（述べない意図がある）ため、
-     * 曲目の側に置くと、システムが対応を主張したことになる（#89）。
+     * 曲目の側に置くと、システムが対応を主張したことになる（#89）。曲目全体を指す一文のため、
+     * 置き場は曲目の直後（#415）。
      */
     await expect(page.locator(TRACK_LIST)).not.toContainText(showcase.originalWorkNote);
+    const tracksBox = await page.locator('[data-album-tracks]').boundingBox();
+    const noteBox = await note.boundingBox();
+    expect(noteBox?.y).toBeGreaterThanOrEqual((tracksBox?.y ?? 0) + (tracksBox?.height ?? 0));
   });
 
   test('原作の出典を持たない作品には、その行が出ない', async ({ page }) => {
@@ -335,14 +367,29 @@ test.describe('作品の詳細', () => {
     await expect(page.getByText(quiet.artistDisplayName)).toBeVisible();
   });
 
-  test('品番と ISDN、初出イベントの5項目が出る', async ({ page }) => {
+  test('品番と ISDN、頒布イベントの6項目が「日付 名 会場 スペース サークル」の順に出る', async ({
+    page,
+  }) => {
     await page.goto(await albumPathOf(quiet.catalogNumber));
 
     await expect(page.getByText(`${quiet.catalogNumber} / ${quiet.isdn}`)).toBeVisible();
 
-    await expect(page.getByText(quiet.event.name)).toBeVisible();
-    await expect(page.locator(`time[datetime="${quiet.event.date}"]`)).toBeVisible();
-    await expect(page.getByText(`${quiet.event.place} ${quiet.event.spaceNumber}`)).toBeVisible();
+    /*
+     * 頒布の案内は1行で読む（#415）。日付が先、サークル名が末尾。スペース番号は当日その場で探す値のため
+     * 強調され、会場は強調されない。
+     */
+    const event = page.locator('[data-album-event]');
+    await expect(event.locator('time')).toHaveAttribute('datetime', quiet.event.date);
+    await expect(event.locator('p').first()).toHaveText(
+      [
+        quiet.event.dateText,
+        quiet.event.name,
+        quiet.event.place,
+        quiet.event.spaceNumber,
+        quiet.event.circleName,
+      ].join(' '),
+    );
+    await expect(event.locator('strong')).toHaveText(quiet.event.spaceNumber);
     await expect(page.getByText(quiet.event.note)).toBeVisible();
   });
 
@@ -350,7 +397,9 @@ test.describe('作品の詳細', () => {
     await page.goto(await albumPathOf(quiet.catalogNumber));
 
     await expect(page.getByText(quiet.description)).toBeVisible();
-    await expect(page.locator('strong')).toHaveCount(0);
+    /* 記法として解釈されていれば概要の器（prose-body）ごと現れる。スペース番号の強調はこの外にある */
+    await expect(page.locator('.prose-body')).toHaveCount(0);
+    await expect(page.getByText(quiet.description).locator('strong')).toHaveCount(0);
   });
 
   test('下書きの詳細は開けない', async ({ page }) => {

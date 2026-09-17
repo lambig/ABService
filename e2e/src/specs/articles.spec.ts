@@ -194,7 +194,12 @@ test.describe('記事の詳細', () => {
 
   test('作品紹介の記事内に試聴・本文・曲目・イベント・価格が順に展開される', async ({ page }) => {
     await page.goto(await articlePathOf(albumArticle.title));
-    await expect(page.getByRole('heading', { level: 2, name: showcase.title })).toBeVisible();
+    /*
+     * 作品の見出しは記事の中では出さない（#415）。記事の見出しが作品を名指しており、同じ大きさの
+     * 見出しが2つ並ぶと段差が読めない。作品の区画自身は名を aria-label で持つ。
+     */
+    await expect(page.getByRole('heading', { level: 2, name: showcase.title })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: showcase.title })).toBeVisible();
     await expect(page.locator('[data-album-tracks]')).toContainText(
       showcaseTracks.titledWithTune.name,
     );
@@ -224,6 +229,7 @@ test.describe('記事の詳細', () => {
     await expect(reference).toContainText(showcase.eventName);
     await expect(reference).toContainText(showcase.eventPlace);
     await expect(reference).toContainText(showcase.eventSpaceNumber);
+    await expect(reference).toContainText(showcase.eventCircleName);
     await expect(reference).toContainText(showcase.basePriceText);
     /* 記事の詳細（10）と同じ画面の別の見どころのため、その枝番に置く */
     await captureFocused(

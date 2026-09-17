@@ -33,9 +33,16 @@ export const formatPublishedDate = (isoDateTime: string): string =>
  *
  * 額は通貨の最小単位で持つ（円なら1円、ドルならセント）。主要単位への直し方は通貨ごとに違うため、
  * 桁数を持たず整形器へ聞く。書き並べると、通貨が増えるたびにここも直すことになる。
+ *
+ * 通貨は記号でなく名で出す（「1,500円」「15.00米ドル」）。頒布の案内は「頒布価格 1,500円」と読み、
+ * 記号（￥）で始まる表記は同人頒布の慣習から外れる（#415）。
  */
 export const formatPrice = (amount: number, currency: string): string => {
-  const format = new Intl.NumberFormat('ja-JP', { style: 'currency', currency });
+  const format = new Intl.NumberFormat('ja-JP', {
+    style: 'currency',
+    currency,
+    currencyDisplay: 'name',
+  });
 
   return format.format(amount / 10 ** minorUnitDigitsOf(format));
 };

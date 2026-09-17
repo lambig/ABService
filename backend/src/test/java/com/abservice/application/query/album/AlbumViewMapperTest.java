@@ -47,6 +47,7 @@ class AlbumViewMapperTest {
                         1));
         entity.setEventPlace("東京ビッグサイト");
         entity.setEventSpaceNumber("東ホ-01a");
+        entity.setEventCircleName("合同サークル");
         entity.setEventNote("新譜あります");
         entity.setCoverImageKey("01a0233d-d25a-7c3b-924f-236ee154fecc.png");
 
@@ -79,6 +80,7 @@ class AlbumViewMapperTest {
         assertThat(view.eventDate()).isEqualTo("2026-01-01");
         assertThat(view.eventPlace()).isEqualTo("東京ビッグサイト");
         assertThat(view.eventSpaceNumber()).isEqualTo("東ホ-01a");
+        assertThat(view.eventCircleName()).isEqualTo("合同サークル");
         assertThat(view.eventNote()).isEqualTo("新譜あります");
         assertThat(view.coverImageUrl()).isEqualTo("/assets/01a0233d-d25a-7c3b-924f-236ee154fecc.png");
         assertThat(view.externalAudios())
@@ -126,6 +128,7 @@ class AlbumViewMapperTest {
         assertThat(view.eventDate()).isNull();
         assertThat(view.eventPlace()).isNull();
         assertThat(view.eventSpaceNumber()).isNull();
+        assertThat(view.eventCircleName()).isNull();
         assertThat(view.eventNote()).isNull();
         assertThat(view.coverImageUrl()).isNull();
         assertThat(view.externalAudios()).isEmpty();

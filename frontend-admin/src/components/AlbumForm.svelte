@@ -158,18 +158,20 @@
         [
           { path: 'event.date', label: '開催日', kind: 'date', choices: [] },
           text('event.name', 'イベント名'),
-          text('event.spaceNumber', 'スペース番号'),
         ],
+        /* スペースの情報は対で入れる。サークル名は名義と違うことがある（合同・委託） */
+        [text('event.spaceNumber', 'スペース番号'), text('event.circleName', 'サークル名')],
         [text('event.place', '会場'), text('event.note', '補足')],
       ],
-      /* 公開サイトの初出イベントと同じ並び（名・日付・会場・スペース番号） */
+      /* 公開サイトの頒布イベントと同じ並び（日付・名・会場・スペース番号・サークル名） */
       summaryOf: (draft) =>
         summaryLine(
           [
-            draft['event.name'],
             draft['event.date'],
+            draft['event.name'],
             draft['event.place'],
             draft['event.spaceNumber'],
+            draft['event.circleName'],
           ],
           ' ',
         ),

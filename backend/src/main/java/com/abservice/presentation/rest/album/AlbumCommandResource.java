@@ -163,6 +163,7 @@ public class AlbumCommandResource {
                                 e.date(),
                                 e.place(),
                                 e.spaceNumber(),
+                                e.circleName(),
                                 e.note()))
                 .orElse(null);
     }
@@ -233,6 +234,7 @@ public class AlbumCommandResource {
                                 e.date(),
                                 e.place(),
                                 e.spaceNumber(),
+                                e.circleName(),
                                 e.note()))
                 .orElse(null);
     }
@@ -394,6 +396,7 @@ public class AlbumCommandResource {
                                 e.date(),
                                 e.place(),
                                 e.spaceNumber(),
+                                e.circleName(),
                                 e.note()))
                 .orElse(null);
     }

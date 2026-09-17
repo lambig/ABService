@@ -197,6 +197,7 @@ final class AlbumQueryResponses {
                 view.eventDate(),
                 view.eventPlace(),
                 view.eventSpaceNumber(),
+                view.eventCircleName(),
                 view.eventNote(),
                 publicPublishedAt(view),
                 view.coverImageUrl(),
@@ -228,6 +229,7 @@ final class AlbumQueryResponses {
                 view.eventDate(),
                 view.eventPlace(),
                 view.eventSpaceNumber(),
+                view.eventCircleName(),
                 view.eventNote(),
                 publicPublishedAt(view),
                 view.coverImageUrl());
@@ -249,6 +251,7 @@ final class AlbumQueryResponses {
                 view.eventDate(),
                 view.eventPlace(),
                 view.eventSpaceNumber(),
+                view.eventCircleName(),
                 view.eventNote(),
                 view.publishedAt(),
                 view.coverImageKey(),
@@ -280,6 +283,7 @@ final class AlbumQueryResponses {
                 view.eventDate(),
                 view.eventPlace(),
                 view.eventSpaceNumber(),
+                view.eventCircleName(),
                 view.eventNote(),
                 view.publishedAt(),
                 view.coverImageUrl());

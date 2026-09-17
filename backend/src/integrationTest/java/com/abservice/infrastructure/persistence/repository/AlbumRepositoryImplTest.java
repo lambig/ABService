@@ -594,6 +594,7 @@ class AlbumRepositoryImplTest {
                         testReleaseDate,
                         "Test Venue",
                         "A-01",
+                        "Test Circle",
                         "Test Note");
 
         final var album = Album.create(

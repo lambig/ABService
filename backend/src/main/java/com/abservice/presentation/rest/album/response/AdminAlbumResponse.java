@@ -32,6 +32,8 @@ import org.jspecify.annotations.Nullable;
  *            初出イベント会場（nullable）
  * @param eventSpaceNumber
  *            初出イベントスペース番号（nullable）
+ * @param eventCircleName
+ *            初出イベントの頒布サークル名（nullable）
  * @param eventNote
  *            初出イベント補足情報（nullable）
  * @param publishedAt
@@ -50,6 +52,7 @@ public record AdminAlbumResponse(
         @Nullable String eventDate,
         @Nullable String eventPlace,
         @Nullable String eventSpaceNumber,
+        @Nullable String eventCircleName,
         @Nullable String eventNote,
         @Nullable Instant publishedAt,
         @Nullable String coverImageUrl) {

@@ -26,6 +26,7 @@ const detail = {
   eventDate: '2026-02-01',
   eventPlace: null,
   eventSpaceNumber: null,
+  eventCircleName: null,
   eventNote: null,
   publishedAt: null,
   coverImageKey: 'covers/album-1.png',
@@ -108,6 +109,7 @@ describe('要求への写し取り', () => {
       date: undefined,
       place: '会場',
       spaceNumber: undefined,
+      circleName: undefined,
       note: undefined,
     });
   });

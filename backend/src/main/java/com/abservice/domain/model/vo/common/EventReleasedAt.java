@@ -22,7 +22,12 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>
  * コミケ、M3、ライブなどのイベントでアルバムが最初にリリース（頒布）された情報を表すValue
- * Objectです。イベント名、開催日、スペース番号、会場、補足情報を含みます。
+ * Objectです。イベント名、開催日、スペース番号、頒布サークル名、会場、補足情報を含みます。
+ * </p>
+ *
+ * <p>
+ * 頒布サークル名は、そのイベントで作品を出したサークルの名で、作品の名義（{@code ArtistCredit}）とは別に持ちます。
+ * 合同や委託では名義と違う名で出ることがあり、名義から導けないためです。
  * </p>
  *
  * <p>
@@ -32,7 +37,7 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>
  * 生成は2系統です。信頼できる内部生成には {@code of(...)}（不正時は例外）を、外部入力からの生成には
- * {@link #fromInput(String, BusinessDate, String, String, String)}（不正時は
+ * {@link #fromInput(String, BusinessDate, String, String, String, String)}（不正時は
  * {@code Failure} を返す）を使用します。
  * </p>
  */
@@ -48,6 +53,9 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
     /** スペース番号（例: 東A-01） */
     @Nullable
     private final String spaceNumber;
+    /** 頒布サークル名（そのイベントで作品を出した名。名義と違うことがある） */
+    @Nullable
+    private final String circleName;
     /** 会場 */
     @Nullable
     private final String place;
@@ -63,6 +71,7 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
                                 having(EventReleasedAt::name).that(this.name::equivalentTo),
                                 having(EventReleasedAt::date).thatEqualsTo(this.date),
                                 having(EventReleasedAt::spaceNumber).thatEqualsTo(this.spaceNumber),
+                                having(EventReleasedAt::circleName).thatEqualsTo(this.circleName),
                                 having(EventReleasedAt::place).thatEqualsTo(this.place),
                                 having(EventReleasedAt::note).thatEqualsTo(this.note)))
                 .isPresent();
@@ -77,6 +86,8 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      *            開催日（nullable）
      * @param spaceNumber
      *            スペース番号（nullable）
+     * @param circleName
+     *            頒布サークル名（nullable）
      * @param place
      *            会場（nullable）
      * @param note
@@ -86,6 +97,7 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
             EventName name,
             @Nullable BusinessDate date,
             @Nullable String spaceNumber,
+            @Nullable String circleName,
             @Nullable String place,
             @Nullable String note) {
         Policy.<EventName>of(
@@ -99,6 +111,7 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
         this.name = name;
         this.date = date;
         this.spaceNumber = spaceNumber;
+        this.circleName = circleName;
         this.place = place;
         this.note = note;
     }
@@ -113,6 +126,7 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
     public static EventReleasedAt of(String name) {
         return new EventReleasedAt(
                 new EventName(name),
+                null,
                 null,
                 null,
                 null,
@@ -132,6 +146,7 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
         return new EventReleasedAt(
                 new EventName(name),
                 date,
+                null,
                 null,
                 null,
                 null);
@@ -156,6 +171,7 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
                 new EventName(name),
                 date,
                 spaceNumber,
+                null,
                 null,
                 null);
     }
@@ -187,7 +203,7 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
     }
 
     /**
-     * 名前・開催日・会場・スペース番号・補足情報の全項目で生成
+     * 名前・開催日・会場・スペース番号・頒布サークル名・補足情報の全項目で生成
      *
      * @param name
      *            イベント名
@@ -197,6 +213,8 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      *            会場（nullable）
      * @param spaceNumber
      *            スペース番号（nullable）
+     * @param circleName
+     *            頒布サークル名（nullable）
      * @param note
      *            補足情報（nullable）
      * @return EventReleasedAt
@@ -206,11 +224,13 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
             @Nullable BusinessDate date,
             @Nullable String place,
             @Nullable String spaceNumber,
+            @Nullable String circleName,
             @Nullable String note) {
         return new EventReleasedAt(
                 new EventName(name),
                 date,
                 spaceNumber,
+                circleName,
                 place,
                 note);
     }
@@ -232,6 +252,8 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
      *            会場（nullable）
      * @param spaceNumber
      *            スペース番号（nullable）
+     * @param circleName
+     *            頒布サークル名（nullable）
      * @param note
      *            補足情報（nullable）
      * @return 成功時は {@code EventReleasedAt}、失敗時はエラー
@@ -241,6 +263,7 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
             @Nullable BusinessDate date,
             @Nullable String place,
             @Nullable String spaceNumber,
+            @Nullable String circleName,
             @Nullable String note) {
         return EventName.fromInput(name)
                 .map(
@@ -248,6 +271,7 @@ public final class EventReleasedAt implements ValueObject<EventReleasedAt> {
                                 n,
                                 date,
                                 spaceNumber,
+                                circleName,
                                 place,
                                 note));
     }

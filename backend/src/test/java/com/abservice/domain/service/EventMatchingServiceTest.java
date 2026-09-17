@@ -151,6 +151,7 @@ class EventMatchingServiceTest {
                 date2,
                 "東京ビッグサイト",
                 "東ホ-01b",
+                null,
                 null);
 
         assertThat(service.isSameEvent(confirmed, released)).isTrue();
@@ -181,6 +182,7 @@ class EventMatchingServiceTest {
                 date2,
                 "東京ビッグサイト",
                 "東ホ-01a", // date2当日のスペースは東ホ-01bなので不一致
+                null,
                 null);
 
         assertThat(service.isSameEvent(confirmed, released)).isFalse();
@@ -369,6 +371,7 @@ class EventMatchingServiceTest {
                 confirmedDate,
                 "東京流通センター",
                 "第1展示場A-01",
+                null,
                 null);
 
         // 確定イベントと頒布実績が一致

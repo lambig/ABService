@@ -454,6 +454,7 @@ class UpdateAlbumServiceTest {
                                 "2026-01-01",
                                 "東京ビッグサイト",
                                 "東ホ-01a",
+                                "合同サークル",
                                 "新譜あります"),
                         null,
                         null, null, null))

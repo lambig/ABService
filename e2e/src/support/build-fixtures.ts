@@ -48,10 +48,12 @@ export const showcase = {
   eventDate: '2026-08-13',
   eventPlace: 'E2E 会場',
   eventSpaceNumber: 'A-01',
+  /** 頒布サークル名。名義と別に持ち、頒布イベントの行の末尾に出る（#415） */
+  eventCircleName: 'E2E 頒布サークル',
   /** 頒布の基準額（#349）。作品紹介の記事にだけ出る */
   basePrice: 1500,
-  /** 画面に出る形。投入値と並べて置き、整形の結果をシナリオから読めるようにする */
-  basePriceText: '￥1,500',
+  /** 画面に出る形（ラベル込み）。投入値と並べて置き、整形の結果をシナリオから読めるようにする */
+  basePriceText: '頒布価格 1,500円',
   /**
    * 原作の出典の記述（#365）。
    *
@@ -202,8 +204,11 @@ export const quiet = {
     name: 'E2E 音源なしイベント',
     /* リリース日と別の日にする。同じ日にすると time[datetime] がどちらの日付か区別できない */
     date: '2026-08-14',
+    /** 画面に出る形。投入値と並べて置き、整形の結果をシナリオから読めるようにする */
+    dateText: '2026年8月14日',
     place: 'E2E 会場',
     spaceNumber: 'B-02',
+    circleName: 'E2E 音源なし合同',
     note: 'E2E 音源なしの補足',
   },
 } as const;
@@ -353,6 +358,7 @@ const showcaseSeed: AlbumSeed = {
     date: showcase.eventDate,
     place: showcase.eventPlace,
     spaceNumber: showcase.eventSpaceNumber,
+    circleName: showcase.eventCircleName,
   },
   basePrice: { amount: showcase.basePrice },
   originalWorkNote: showcase.originalWorkNote,

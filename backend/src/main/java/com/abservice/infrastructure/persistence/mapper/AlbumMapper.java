@@ -143,6 +143,7 @@ public final class AlbumMapper {
                                         .orElse(null),
                                 entity.getEventPlace(),
                                 entity.getEventSpaceNumber(),
+                                entity.getEventCircleName(),
                                 entity.getEventNote()))
                 .orElse(null);
     }
@@ -301,6 +302,7 @@ public final class AlbumMapper {
         albumEntity.setEventName(event.name().value())
                 .setEventPlace(event.place())
                 .setEventSpaceNumber(event.spaceNumber())
+                .setEventCircleName(event.circleName())
                 .setEventNote(event.note());
         Optional.ofNullable(event.date())
                 .ifPresent(date -> albumEntity.setEventDate(date.asLocalDate()));

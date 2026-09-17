@@ -258,6 +258,7 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
                                 date.orElse(null),
                                 input.place(),
                                 input.spaceNumber(),
+                                input.circleName(),
                                 input.note()).mapErrorFields(field -> "event.name"))
                 .map(Optional::of);
     }

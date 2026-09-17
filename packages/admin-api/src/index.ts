@@ -39,6 +39,8 @@ export interface AlbumSeed {
     readonly date?: string;
     readonly place?: string;
     readonly spaceNumber?: string;
+    /** 頒布サークル名。名義と違うとき（合同・委託）に入れる */
+    readonly circleName?: string;
     readonly note?: string;
   };
   /** 頒布の基準額。省略すると額が決まっていない作品になる */
@@ -210,6 +212,7 @@ const updateRequestOf = (
           ...present('date', detail.eventDate),
           ...present('place', detail.eventPlace),
           ...present('spaceNumber', detail.eventSpaceNumber),
+          ...present('circleName', detail.eventCircleName),
           ...present('note', detail.eventNote),
         },
   ),

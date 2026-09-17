@@ -16,7 +16,7 @@ describe('外部音源の埋め込み先', () => {
       ['url', input],
       ['auto_play', 'false'],
       ['show_user', 'true'],
-      ['visual', 'false'],
+      ['visual', 'true'],
     ]);
     expect(embed.hash).toBe('');
   });
