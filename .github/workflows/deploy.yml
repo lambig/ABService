@@ -161,6 +161,24 @@ jobs:
           fi
 
       # 通常経路: CIが成功したcommitのイメージをビルドしてpushする（その commit のイメージが無いときだけ）。
+      # jar はランナー上の Gradle で組み、Dockerfile はそれを包むだけ（CI の container-check と同じ手順。#431）
+      - name: Set up JDK 25 (Corretto)
+        if: steps.existing.outputs.exists == 'false'
+        uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: '25'
+
+      - name: Set up Gradle
+        if: steps.existing.outputs.exists == 'false'
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build backend
+        if: steps.existing.outputs.exists == 'false'
+        run: |
+          chmod +x backend/gradlew
+          backend/gradlew -p backend --no-daemon --console=plain quarkusBuild
+
       - name: Build image
         if: steps.existing.outputs.exists == 'false'
         env:
