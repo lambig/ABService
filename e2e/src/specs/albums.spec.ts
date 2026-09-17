@@ -11,7 +11,7 @@ import {
   showcaseTracks,
 } from '../support/build-fixtures.ts';
 import { coverImageAsset } from '../support/cover-image.ts';
-import { capture, captureFocused, clickWithEvidence } from '../support/evidence.ts';
+import { capture, captureFocused, captureWhole, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 
 /**
@@ -324,6 +324,11 @@ test.describe('作品の詳細', () => {
     expect(previewImage).toContain(await attributeOf(bodyCover, 'src'));
 
     await capture(page, '07-album-detail-without-audio');
+    /*
+     * 音源を持たない作品の体裁は、顔がカバー画像に替わるだけで音源のある作品と同じ（#415）。並び全体
+     * （顔 → 概要 → 曲目 → 頒布情報）を1枚で読めるよう、ページ全体も撮る。
+     */
+    await captureWhole(page, '07a-album-detail-without-audio-whole');
   });
 
   test('原作の出典は、書かれた綴りのまま曲目の後ろに出る', async ({ page }) => {

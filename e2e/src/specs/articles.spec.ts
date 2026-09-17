@@ -14,7 +14,7 @@ import {
   showcaseTracks,
 } from '../support/build-fixtures.ts';
 import { coverImageAsset } from '../support/cover-image.ts';
-import { capture, captureFocused, clickWithEvidence } from '../support/evidence.ts';
+import { capture, captureFocused, captureWhole, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 import { DEFAULT_PREVIEW_IMAGE } from '../support/site-marks.ts';
 
@@ -281,6 +281,11 @@ test.describe('記事の詳細', () => {
     expect(previewImage).toContain(await attributeOf(cover, 'src'));
 
     await captureFocused(page, reference, '10b-article-album-reference-cover');
+    /*
+     * 音源を持たない作品を紹介する記事の全体。作品紹介記事（10）との違いは顔がカバー画像である
+     * ことだけで、残りの並びが同じであることを1枚で読めるようにする（#415）。
+     */
+    await captureWhole(page, '10d-article-without-audio-whole');
   });
 
   test('作品を参照しない記事には作品への導線が出ず、リンクプレビューは既定の画像になる', async ({
