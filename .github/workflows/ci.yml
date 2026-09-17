@@ -267,9 +267,6 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          # 計測用の一時設定: この PR で arm 用の Gradle キャッシュを作らせ、温まった状態の時間を測る（#431）
-          cache-read-only: false
 
       - name: Ensure gradlew is executable
         run: chmod +x backend/gradlew
