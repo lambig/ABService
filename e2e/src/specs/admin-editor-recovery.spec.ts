@@ -10,8 +10,8 @@ import { expect, test } from '../support/fixtures.ts';
 import { deleteScratchAlbums, seedScratchAlbumDetail } from '../support/scratch-albums.ts';
 import {
   deleteScratchArticles,
+  scratchTitlePrefix,
   seedScratchArticle,
-  SCRATCH_TITLE_PREFIX,
 } from '../support/scratch-articles.ts';
 
 const RESTORE = '退避した入力を復元する';
@@ -71,7 +71,7 @@ test('記事の不完全な入力を復元し、実APIの検証を直して保�
 test('新規記事の直前入力は誤遷移から復旧でき、別editorや既存記事へ混ざらない', async ({ page }) => {
   const article = await seedScratchArticle('別対象');
   const key = keyOf('article', null);
-  const title = `${SCRATCH_TITLE_PREFIX} 復元した新規記事 ${String(Date.now())}`;
+  const title = `${scratchTitlePrefix()} 復元した新規記事 ${String(Date.now())}`;
   await page.goto(`${stack.adminBaseUrl}/articles/new`);
   await signIn(page);
   await page.getByLabel('タイトル', { exact: true }).fill(title);
@@ -97,7 +97,7 @@ test('新規記事の直前入力は誤遷移から復旧でき、別editorや�
 
 test('記事作成後の詳細読込が失敗しても新規作成の退避から重複作成させない', async ({ page }) => {
   const key = keyOf('article', null);
-  const title = `${SCRATCH_TITLE_PREFIX} 作成後の読込失敗 ${String(Date.now())}`;
+  const title = `${scratchTitlePrefix()} 作成後の読込失敗 ${String(Date.now())}`;
   await page.goto(`${stack.adminBaseUrl}/articles/new`);
   await signIn(page);
   await page.getByLabel('タイトル', { exact: true }).fill(title);

@@ -69,8 +69,9 @@ jobs:
     needs: preflight
     name: Build, push, and deploy backend
     # 本番の EC2 は arm64（infra/compute.tf が arm64 の AMI を選ぶ）。amd64 のランナーで作ると、
-    # ECR へ入るのは実機が動かせないイメージになる。エミュレーションでも作れるが、コンテナの中で
-    # Gradle を回すビルドを QEMU に載せることになるため、ランナー自体を arm にする
+    # ECR へ入るのは実機が動かせないイメージになる。jar はランナー上の Gradle で組み、イメージは
+    # それを包むだけなので、架構が効くのはイメージの manifest だけ。実機と同じ架構で組み、押し込む前に
+    # 架構を確かめる（DECISIONS 16）
     runs-on: ubuntu-24.04-arm
     # terraform apply（#129のドメイン準備待ち）でリポジトリ変数が設定されるまでは何もしない。
     # CI経由の起動は、mainへのpushに対するCIが成功した場合だけに限る（PRのCIや失敗・中断は対象外）。

@@ -15,8 +15,8 @@ import { capture, captureFocused, captureWhole, clickWithEvidence } from '../sup
 import { expect, test } from '../support/fixtures.ts';
 import {
   SCRATCH_BASE_PRICE,
-  SCRATCH_CATALOG_PREFIX,
   deleteScratchAlbums,
+  scratchCatalogPrefix,
   seedScratchAlbum,
   seedScratchAlbumDetail,
 } from '../support/scratch-albums.ts';
@@ -181,7 +181,7 @@ test.describe('管理画面の作品の編集', () => {
     await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(title);
     await expect(page.getByLabel(RELEASE_DATE_LABEL)).toHaveValue('2026-09-01');
     await expect(page.getByLabel(CATALOG_NUMBER_LABEL)).toHaveValue(
-      new RegExp(`^${SCRATCH_CATALOG_PREFIX}`, 'u'),
+      new RegExp(`^${scratchCatalogPrefix()}`, 'u'),
     );
     await expect(page.getByLabel(BASE_PRICE_LABEL)).toHaveValue(String(SCRATCH_BASE_PRICE));
 
@@ -601,7 +601,7 @@ test.describe('管理画面の作品の追加', () => {
     await page.getByLabel(RELEASE_DATE_LABEL).fill('2026-10-01');
     await page.getByLabel(ARTIST_LABEL).fill('E2E 追加アーティスト');
     /* 片付けの対象に入るよう、控えではなくカタログナンバーの接頭辞で拾えるようにする */
-    await page.getByLabel(CATALOG_NUMBER_LABEL).fill(`${SCRATCH_CATALOG_PREFIX}${stamp}`);
+    await page.getByLabel(CATALOG_NUMBER_LABEL).fill(`${scratchCatalogPrefix()}${stamp}`);
 
     await clickWithEvidence(
       page,
@@ -627,7 +627,7 @@ test.describe('管理画面の作品の追加', () => {
     await page.getByLabel(TITLE_LABEL).fill(title);
     await page.getByLabel(RELEASE_DATE_LABEL).fill('2026-11-01');
     await page.getByLabel(ARTIST_LABEL).fill('E2E 再認証アーティスト');
-    await page.getByLabel(CATALOG_NUMBER_LABEL).fill(`${SCRATCH_CATALOG_PREFIX}${stamp}`);
+    await page.getByLabel(CATALOG_NUMBER_LABEL).fill(`${scratchCatalogPrefix()}${stamp}`);
     await revokeBrowserSession(page);
 
     await page.getByRole('button', { name: CREATE_LABEL }).click();

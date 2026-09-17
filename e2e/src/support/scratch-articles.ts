@@ -6,6 +6,7 @@ import {
   seedDraftArticle,
 } from './admin-api.ts';
 import { longTextOf } from './long-text.ts';
+import { workerTag } from './worker.ts';
 
 /**
  * シナリオの中だけで使う記事。
@@ -19,10 +20,25 @@ import { longTextOf } from './long-text.ts';
  * <p>
  * 片付けは控えではなくタイトルの接頭辞で拾う。控えを持つと、検査が途中で落ちた回の分が残る。
  * </p>
+ *
+ * <p>
+ * 接頭辞には worker の印が入り、各 worker は自分の印の付いたものだけを片付ける（`worker.ts`）。落ちた回の
+ * 分は次回の `prepare-stack` が印を問わずに片付ける。
+ * </p>
  */
 
 /** 検査のためだけに作る記事のタイトルの接頭辞。シードした記事（`E2E 確認〜`）には当たらない */
 export const SCRATCH_TITLE_PREFIX = 'E2E-SCRATCH 記事';
+
+/**
+ * この worker が作る記事のタイトルの接頭辞（`E2E-SCRATCH 記事 [W0]` 等）。
+ *
+ * <p>
+ * ヘルパで作るときも、画面から入力するときも、片付けで拾うときも、同じこの値を使う。印は括弧で閉じる。
+ * 閉じないと、片付けが接頭辞の前方一致で拾うため、`W1` の片付けが `W10` 以降の scratch まで拾う。
+ * </p>
+ */
+export const scratchTitlePrefix = (): string => `${SCRATCH_TITLE_PREFIX} [${workerTag()}]`;
 
 /**
  * 作った記事。
@@ -40,7 +56,7 @@ export interface ScratchArticle {
 }
 
 const scratchTitle = (purpose: string): string =>
-  `${SCRATCH_TITLE_PREFIX} ${purpose} ${String(Date.now())}`;
+  `${scratchTitlePrefix()} ${purpose} ${String(Date.now())}`;
 
 /**
  * 検査のためだけの記事を1つ作る（下書き）。
@@ -139,14 +155,13 @@ export const seedArticlesBeyondFirstPage = async (): Promise<void> => {
   for (const index of Array.from({ length: shortage }, (_unused, i) => i + 1)) {
     await seedDraftArticle({
       articleType: 'NOTE',
-      title: `${SCRATCH_TITLE_PREFIX} 詰め物 ${String(index)} ${String(Date.now())}`,
+      title: `${scratchTitlePrefix()} 詰め物 ${String(index)} ${String(Date.now())}`,
     });
   }
 };
 
-/** 検査のためだけに作った記事を片付ける。作るシナリオを持つ spec の `afterEach` に置く */
-export const deleteScratchArticles = async (): Promise<void> => {
-  const leftovers = await findArticlesByTitlePrefix(SCRATCH_TITLE_PREFIX);
+const deleteArticlesWithPrefix = async (prefix: string): Promise<void> => {
+  const leftovers = await findArticlesByTitlePrefix(prefix);
 
   /*
    * CONCURRENT-DELETE: 削除を並列に投げると、バックエンドが HR000069（reactive Session を開いた
@@ -157,3 +172,24 @@ export const deleteScratchArticles = async (): Promise<void> => {
     await deleteArticle(article.articleId);
   }
 };
+
+/**
+ * この worker が検査のためだけに作った記事を片付ける。作るシナリオを持つ spec の `afterEach` に置く。
+ *
+ * <p>
+ * 別の worker の scratch には触れない。並列に走っているそれは、いま使われている最中かもしれない。
+ * </p>
+ */
+export const deleteScratchArticles = (): Promise<void> =>
+  deleteArticlesWithPrefix(scratchTitlePrefix());
+
+/**
+ * どの worker が作ったかを問わず、検査のためだけに作った記事をぜんぶ片付ける。
+ *
+ * <p>
+ * 実行の前（`prepare-stack`）に置く。前回の実行が途中で落ちて残したものを、組み立てに混ぜる前に消す。
+ * テストの実行中には使わない（並列の worker が使っている最中のものまで消す）。
+ * </p>
+ */
+export const deleteAllScratchArticles = (): Promise<void> =>
+  deleteArticlesWithPrefix(SCRATCH_TITLE_PREFIX);

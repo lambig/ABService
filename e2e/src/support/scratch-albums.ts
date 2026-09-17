@@ -1,5 +1,6 @@
 import { deleteAlbum, findAlbumsByCatalogNumberPrefix, seedDraftAlbum } from './admin-api.ts';
 import { longTextOf } from './long-text.ts';
+import { workerTag } from './worker.ts';
 
 /**
  * シナリオの中だけで使う作品。
@@ -14,6 +15,11 @@ import { longTextOf } from './long-text.ts';
  * 片付けは控えではなくカタログナンバーの接頭辞で拾う。控えを持つと、検査が途中で落ちた回の分が残る。
  * 削除はべき等なので、画面から消したものへ重ねて送っても成功する。
  * </p>
+ *
+ * <p>
+ * 接頭辞には worker の印が入り、各 worker は自分の印の付いたものだけを片付ける（`worker.ts`）。落ちた回の
+ * 分は次回の `prepare-stack` が印を問わずに片付ける。
+ * </p>
  */
 
 /**
@@ -24,6 +30,15 @@ import { longTextOf } from './long-text.ts';
  * </p>
  */
 export const SCRATCH_CATALOG_PREFIX = 'E2E-SCRATCH-';
+
+/**
+ * この worker が作る作品のカタログナンバーの接頭辞（`E2E-SCRATCH-W0-` 等）。
+ *
+ * <p>
+ * 作るときも、画面から入力するときも、片付けで拾うときも、同じこの値を使う。
+ * </p>
+ */
+export const scratchCatalogPrefix = (): string => `${SCRATCH_CATALOG_PREFIX}${workerTag()}-`;
 
 /** 作った作品。画面から指すためのタイトルと、APIから操作するためのIDを持つ */
 export interface ScratchAlbum {
@@ -54,7 +69,7 @@ export const seedScratchAlbumDetail = async (purpose: string): Promise<ScratchAl
     releaseDate: '2026-09-01',
     artistDisplayName: `E2E ${purpose}アーティスト`,
     artistSortKey: `E2E ${purpose}`,
-    catalogNumber: `${SCRATCH_CATALOG_PREFIX}${stamp}`,
+    catalogNumber: `${scratchCatalogPrefix()}${stamp}`,
     basePrice: { amount: SCRATCH_BASE_PRICE },
   });
 
@@ -97,7 +112,7 @@ export const seedScratchAlbumWithUntitledTrack = async (
     releaseDate: '2026-09-01',
     artistDisplayName: `E2E ${purpose}アーティスト`,
     artistSortKey: `E2E ${purpose}`,
-    catalogNumber: `${SCRATCH_CATALOG_PREFIX}${stamp}`,
+    catalogNumber: `${scratchCatalogPrefix()}${stamp}`,
     tracks: [{ tunes: tuneTitles.map((tuneTitle) => ({ tuneTitle })) }],
   });
 
@@ -126,17 +141,37 @@ export const seedScratchAlbumWithLongestTitle = async (): Promise<string> => {
     releaseDate: '2026-09-01',
     artistDisplayName: longTextOf('E2E 長い名義のアーティスト ', ALBUM_TITLE_MAX_LENGTH),
     artistSortKey: 'E2E ながいたいとる',
-    catalogNumber: `${SCRATCH_CATALOG_PREFIX}${stamp}`,
+    catalogNumber: `${scratchCatalogPrefix()}${stamp}`,
   });
 
   return title;
 };
 
-/** 検査のためだけに作った作品を片付ける。作るシナリオを持つ spec の `afterEach` に置く */
-export const deleteScratchAlbums = async (): Promise<void> => {
-  const leftovers = await findAlbumsByCatalogNumberPrefix(SCRATCH_CATALOG_PREFIX);
+const deleteAlbumsWithPrefix = async (prefix: string): Promise<void> => {
+  const leftovers = await findAlbumsByCatalogNumberPrefix(prefix);
   /* 大量の並列削除で500が返り後続テストに作品が残るため、記事の後片付けと同じく直列に送る。 */
   for (const album of leftovers) {
     await deleteAlbum(album.albumId);
   }
 };
+
+/**
+ * この worker が検査のためだけに作った作品を片付ける。作るシナリオを持つ spec の `afterEach` に置く。
+ *
+ * <p>
+ * 別の worker の scratch には触れない。並列に走っているそれは、いま使われている最中かもしれない。
+ * </p>
+ */
+export const deleteScratchAlbums = (): Promise<void> =>
+  deleteAlbumsWithPrefix(scratchCatalogPrefix());
+
+/**
+ * どの worker が作ったかを問わず、検査のためだけに作った作品をぜんぶ片付ける。
+ *
+ * <p>
+ * 実行の前（`prepare-stack`）に置く。前回の実行が途中で落ちて残したものを、組み立てに混ぜる前に消す。
+ * テストの実行中には使わない（並列の worker が使っている最中のものまで消す）。
+ * </p>
+ */
+export const deleteAllScratchAlbums = (): Promise<void> =>
+  deleteAlbumsWithPrefix(SCRATCH_CATALOG_PREFIX);

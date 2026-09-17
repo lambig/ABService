@@ -8,7 +8,7 @@ import { stack } from '../support/config.ts';
 import { captureFocused } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 import { deleteScratchAlbums, seedScratchAlbumDetail } from '../support/scratch-albums.ts';
-import { deleteScratchArticles, SCRATCH_TITLE_PREFIX } from '../support/scratch-articles.ts';
+import { deleteScratchArticles, scratchTitlePrefix } from '../support/scratch-articles.ts';
 
 const addReference = async (albumId: string, title: string): Promise<string> =>
   seedDraftArticle({
@@ -28,7 +28,7 @@ for (const scenario of ['delete', 'unpublish', 'empty'] as const) {
   test(`${scenario}: 確認後に参照が変わっても実行時の影響記事を表示する`, async ({ page }) => {
     const album = await seedScratchAlbumDetail('実行結果');
     await publishAlbum(album.albumId);
-    const previewTitle = `${SCRATCH_TITLE_PREFIX} 事前確認だけの記事`;
+    const previewTitle = `${scratchTitlePrefix()} 事前確認だけの記事`;
     const previewId = await addReference(album.albumId, previewTitle);
     await publishArticle(previewId);
     await page.goto(stack.adminBaseUrl);
@@ -45,8 +45,8 @@ for (const scenario of ['delete', 'unpublish', 'empty'] as const) {
 
     // CHANGED-REFERENCES: 事前照会と実行の間で実APIの参照状態を変え、応答は差し替えない。
     await deleteArticle(previewId);
-    const actualTitle = `${SCRATCH_TITLE_PREFIX} 実行時に公開中の記事`;
-    const draftTitle = `${SCRATCH_TITLE_PREFIX} 実行時に下書きの記事`;
+    const actualTitle = `${scratchTitlePrefix()} 実行時に公開中の記事`;
+    const draftTitle = `${scratchTitlePrefix()} 実行時に下書きの記事`;
     const actualId = scenario === 'empty' ? null : await addReference(album.albumId, actualTitle);
     await (actualId === null ? Promise.resolve() : publishArticle(actualId));
     await (scenario === 'empty' ? Promise.resolve() : addReference(album.albumId, draftTitle));

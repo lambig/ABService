@@ -4,7 +4,7 @@ import { stack } from '../support/config.ts';
 import { capture } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 import { revokeBrowserSession } from '../support/admin-sessions.ts';
-import { deleteScratchArticles, SCRATCH_TITLE_PREFIX } from '../support/scratch-articles.ts';
+import { deleteScratchArticles, scratchTitlePrefix } from '../support/scratch-articles.ts';
 
 const STORAGE = 'abservice.admin.session';
 const SESSIONS = `${stack.backendBaseUrl}/api/v1/admin/sessions`;
@@ -77,7 +77,7 @@ test.describe('期限付き管理セッション', () => {
     });
     await page.goto(`${stack.adminBaseUrl}/articles/new`);
     await enter(page);
-    await page.getByLabel('タイトル').fill(`${SCRATCH_TITLE_PREFIX} 遅い作成`);
+    await page.getByLabel('タイトル').fill(`${scratchTitlePrefix()} 遅い作成`);
     await page.getByRole('button', { name: '作成する' }).click();
     await responseReady.promise;
     await page.getByRole('button', { name: 'ログアウト' }).click();
@@ -94,7 +94,7 @@ test.describe('期限付き管理セッション', () => {
     const detailUrl = `${stack.backendBaseUrl}/api/v1/admin/articles/*`;
     await page.goto(`${stack.adminBaseUrl}/articles/new`);
     await enter(page);
-    const title = `${SCRATCH_TITLE_PREFIX} 作成直後の失効`;
+    const title = `${scratchTitlePrefix()} 作成直後の失効`;
     await page.getByLabel('タイトル').fill(title);
     await page.route(detailUrl, async (route) => {
       await revokeBrowserSession(page);
