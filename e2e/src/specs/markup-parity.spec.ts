@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 
 import { findArticleByTitle } from '../support/admin-api.ts';
-import { albumArticle } from '../support/build-fixtures.ts';
+import { imageArticle } from '../support/build-fixtures.ts';
 import { stack } from '../support/config.ts';
 import { captureFocused } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
@@ -37,24 +37,25 @@ const articleOf = async (title: string): Promise<{ articleId: string }> => {
  * 逸脱する `src` は画像ごと落ちる（書き換えて救済しない）ため、本文に描かれる画像は1つになる。
  */
 const expectOnlyAllowedImage = async (body: Locator): Promise<void> => {
-  await expect(body.locator(`img[src="${albumArticle.image.allowedSrc}"]`)).toHaveCount(1);
+  await expect(body.locator(`img[src="${imageArticle.image.allowedSrc}"]`)).toHaveCount(1);
   await expect(body.locator('img')).toHaveCount(1);
 };
 
 test.describe('プレビューと公開の一致', () => {
   test('画像の配信ベース判定が、公開ページとプレビューで同じになる', async ({ page }) => {
-    const { articleId } = await articleOf(albumArticle.title);
+    const { articleId } = await articleOf(imageArticle.title);
 
     await page.goto(`/articles/${articleId}`);
     await expect(
-      publicBodyOf(page).getByRole('heading', { name: albumArticle.body.heading }),
+      publicBodyOf(page).getByRole('heading', { name: imageArticle.body.heading }),
     ).toBeVisible();
     await expectOnlyAllowedImage(publicBodyOf(page));
 
     /*
      * 証跡は本文の区画を撮る。**配信ベース配下の画像1つだけが枠として残り、逸脱する画像は枠ごと
      * 出ない**ことが読み取れる（実体を置いていないため、残った1つは壊れ画像として写る。実アセットで
-     * 見た目まで確かめるのは #164 のカバー画像のジャーニー）。
+     * 見た目まで確かめるのは #164 のカバー画像のジャーニー）。入力は本文画像のためだけの記事
+     * （`imageArticle`）に閉じ、作品紹介記事の証跡には壊れ画像を写さない。
      */
     await captureFocused(page, publicBodyOf(page), '58-article-body-images-public');
 
@@ -64,7 +65,7 @@ test.describe('プレビューと公開の一致', () => {
     await page.getByRole('button', { name: OPEN_LABEL }).click();
 
     await expect(
-      previewOf(page).getByRole('heading', { name: albumArticle.body.heading }),
+      previewOf(page).getByRole('heading', { name: imageArticle.body.heading }),
     ).toBeVisible();
     await expectOnlyAllowedImage(previewOf(page));
 

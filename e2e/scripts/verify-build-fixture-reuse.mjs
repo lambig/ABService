@@ -9,7 +9,7 @@ import {
 } from '../src/support/admin-api.ts';
 import {
   pagination,
-  retiredPaginationArticleTitle,
+  retiredPaginationArticleTitles,
   seedForBuild,
   showcase,
 } from '../src/support/build-fixtures.ts';
@@ -36,17 +36,14 @@ export const verifyBuildFixtureReuse = async () => {
   assert.ok(before.tracks.length > 0 && before.externalAudios.length > 0);
   assert.ok(before.coverImageKey);
 
-  // Reproduce the pre-PR database: showcase exists with no cover, plus old filler 18.
+  // Reproduce the pre-PR database: showcase exists with no cover, plus the retired fillers.
   await setAlbumCoverImage(album.albumId, null);
   const legacy = await get(path);
   assert.equal(legacy.coverImageKey, null);
   assert.deepEqual(withoutCoverRevision(legacy), withoutCoverRevision(before));
-  await publishArticle(
-    await seedDraftArticle({
-      articleType: 'NOTE',
-      title: retiredPaginationArticleTitle,
-    }),
-  );
+  for (const title of retiredPaginationArticleTitles) {
+    await publishArticle(await seedDraftArticle({ articleType: 'NOTE', title }));
+  }
 
   await seedForBuild();
   const repaired = await get(path);
@@ -58,7 +55,9 @@ export const verifyBuildFixtureReuse = async () => {
     Buffer.from(await image.arrayBuffer()),
     Buffer.from(await coverImageAsset.body.arrayBuffer()),
   );
-  assert.equal(await findArticleByTitle(retiredPaginationArticleTitle), undefined);
+  for (const title of retiredPaginationArticleTitles) {
+    assert.equal(await findArticleByTitle(title), undefined);
+  }
   assert.equal((await get('/api/v1/articles?size=100')).totalElements, pagination.perPage + 1);
 
   // A further run must reuse the asset and leave the album revision/children unchanged.

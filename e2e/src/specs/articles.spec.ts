@@ -6,6 +6,7 @@ import {
   albumArticle,
   coverlessArticle,
   draftArticle,
+  imageArticle,
   pagination,
   plainArticle,
   quietArticle,
@@ -64,6 +65,7 @@ const firstPageTitles = [
   plainArticle.title,
   quietArticle.title,
   coverlessArticle.title,
+  imageArticle.title,
   ...Array.from({ length: pagination.filler - 1 }, (_unused, index) =>
     pagination.titleOf(pagination.filler - index),
   ),
