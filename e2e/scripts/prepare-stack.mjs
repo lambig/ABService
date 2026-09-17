@@ -7,7 +7,7 @@
  * 現れてほしいデータは**組み立てより前**に入れる必要がある。シナリオの中で投入してもその回の画面には
  * 出ないため、順序をここで固定する。
  *
- *   バックエンドの起動を待つ → 前回の証跡を捨てる → 画面用のデータを入れる → 組む
+ *   バックエンドの起動を待つ → 前回の証跡を捨てる → 前回の実行が残した scratch を消す → 画面用のデータを入れる → 組む
  *
  * バックエンドと DB の起動は受け持たない。落ちたときにどこまで進んだのかを曖昧にしないため、起動は
  * 開発者（ローカル）か CI のステップに任せ、ここでは待つだけにする。
@@ -21,6 +21,8 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 import { stack } from '../src/support/config.ts';
 import { seedForBuild } from '../src/support/build-fixtures.ts';
+import { deleteAllScratchAlbums } from '../src/support/scratch-albums.ts';
+import { deleteAllScratchArticles } from '../src/support/scratch-articles.ts';
 import { verifyBuildFixtureReuse } from './verify-build-fixture-reuse.mjs';
 
 const WAIT_LIMIT_MS = 120_000;
@@ -75,6 +77,13 @@ const build = (workspace, env) => {
 
 await waitForBackend(Date.now() + WAIT_LIMIT_MS);
 clearEvidence();
+/*
+ * STALE-SCRATCH: テストの中で作ったものは作った worker が片付けるが、途中で落ちた回の分は残る。残ったまま
+ * 組むと母集団に混ざる（`scratch-albums.ts` の SHARED-POPULATION）。実行の前に、worker の印を問わず消す。
+ * 記事が作品を参照しうるため、記事を先に消す。
+ */
+await deleteAllScratchArticles();
+await deleteAllScratchAlbums();
 await seedForBuild();
 await (process.env.E2E_VERIFY_SEED_REUSE === 'true'
   ? verifyBuildFixtureReuse()

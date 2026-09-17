@@ -9,8 +9,8 @@ import { stack } from '../support/config.ts';
 import { capture, captureFocused, captureWhole, clickWithEvidence } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 import {
-  SCRATCH_TITLE_PREFIX,
   deleteScratchArticles,
+  scratchTitlePrefix,
   seedScratchArticle,
 } from '../support/scratch-articles.ts';
 
@@ -321,7 +321,7 @@ test.describe('管理画面の記事の編集', () => {
 
 test.describe('管理画面の記事の追加', () => {
   test('必須を入れて作成すると、そのまま続けて編集できる', async ({ page }) => {
-    const title = `${SCRATCH_TITLE_PREFIX} 画面から追加 ${String(Date.now())}`;
+    const title = `${scratchTitlePrefix()} 画面から追加 ${String(Date.now())}`;
 
     await openWithKey(page, ARTICLE_LIST_URL);
     await clickWithEvidence(
@@ -357,7 +357,7 @@ test.describe('管理画面の記事の追加', () => {
   });
 
   test('鍵が断られても入力は残り、入れ直せば続けて作成できる', async ({ page }) => {
-    const title = `${SCRATCH_TITLE_PREFIX} 鍵を入れ直して追加 ${String(Date.now())}`;
+    const title = `${scratchTitlePrefix()} 鍵を入れ直して追加 ${String(Date.now())}`;
 
     /* 認証後にサーバーで失効しても、保存前に書いた入力を再認証へ引き継ぐ。 */
     await page.goto(NEW_ARTICLE_URL);
@@ -394,7 +394,7 @@ test.describe('管理画面の記事の追加', () => {
   });
 
   test('作成した後に競合しても、読み直す先は作った記事である', async ({ page }) => {
-    const title = `${SCRATCH_TITLE_PREFIX} 作成後の競合 ${String(Date.now())}`;
+    const title = `${scratchTitlePrefix()} 作成後の競合 ${String(Date.now())}`;
 
     await openWithKey(page, NEW_ARTICLE_URL);
     await page.getByLabel(TITLE_LABEL).fill(title);
@@ -423,7 +423,7 @@ test.describe('管理画面の記事の追加', () => {
   });
 
   test('読み直しが鍵で止まっても、入れ直せば作った記事が読み込まれる', async ({ page }) => {
-    const title = `${SCRATCH_TITLE_PREFIX} 読み直しの再認証 ${String(Date.now())}`;
+    const title = `${scratchTitlePrefix()} 読み直しの再認証 ${String(Date.now())}`;
 
     await openWithKey(page, NEW_ARTICLE_URL);
     await page.getByLabel(TITLE_LABEL).fill(title);

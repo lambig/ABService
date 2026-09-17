@@ -4,6 +4,7 @@ import { siteContent } from '../support/build-fixtures.ts';
 import { stack } from '../support/config.ts';
 import { capture, captureFocused } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
+import { scratchSiteContentKey } from '../support/scratch-site-contents.ts';
 
 /**
  * 管理画面のサイトの文言（#383）のジャーニー。
@@ -14,9 +15,8 @@ import { expect, test } from '../support/fixtures.ts';
  * </p>
  *
  * <p>
- * 文言には削除の経路が無い（バックエンドも持たない）。検査のためだけに作るキーは**固定のものを1つ**
- * 使い回す——実行ごとに新しいキーを作ると、ローカルのデータベースに消せないものが積み上がる。
- * 保存されたことは、本文へ実行ごとの印を入れて確かめる。
+ * 文言には削除の経路が無い（バックエンドも持たない）。検査のためだけに作るキーは worker ごとに1つを
+ * 使い回す（`scratch-site-contents.ts`）。保存されたことは、本文へ実行ごとの印を入れて確かめる。
  * </p>
  */
 
@@ -30,9 +30,6 @@ const FORMAT_LABEL = '形式';
 const CONTENT_LABEL = '本文';
 const SAVE_LABEL = '保存する';
 const EDIT_LABEL = '編集する';
-
-/** 検査のためだけに使うキー。公開サイトはこれを読まない */
-const SCRATCH_KEY = 'e2e.scratch.text';
 
 /** 形式の表示。列挙子名ではなく画面に出る文言 */
 const MARKDOWN_LABEL = 'Markdown';
@@ -98,25 +95,25 @@ test.describe('管理画面のサイトの文言', () => {
 
     await openSiteContents(page);
 
-    await page.getByLabel(KEY_LABEL).fill(SCRATCH_KEY);
+    await page.getByLabel(KEY_LABEL).fill(scratchSiteContentKey());
     await page.getByLabel(CONTENT_LABEL).fill(written);
     await page.getByRole('button', { name: SAVE_LABEL }).click();
 
     /* 保存できた文言は、引き直さずに一覧へ入る（保存の応答が保存後の内容を返すため） */
-    await expect(rowOf(page, SCRATCH_KEY)).toContainText(written);
-    await captureFocused(page, rowOf(page, SCRATCH_KEY), '68-admin-site-content-saved');
+    await expect(rowOf(page, scratchSiteContentKey())).toContainText(written);
+    await captureFocused(page, rowOf(page, scratchSiteContentKey()), '68-admin-site-content-saved');
 
     /*
      * 画面の中の一覧が変わっただけかもしれない。**保存されたことは、読み直して初めて言える。**
      */
     await reopenSiteContents(page);
-    await expect(rowOf(page, SCRATCH_KEY)).toContainText(written);
+    await expect(rowOf(page, scratchSiteContentKey())).toContainText(written);
 
     /*
      * ここからが書き換え。この画面の中心の用途は、既にある文言を直すことである（#343 が管理画面へ
      * 求めているのもそれ）。一覧の行から編集へ移し、本文だけを変えて保存する。
      */
-    await rowOf(page, SCRATCH_KEY).getByRole('button', { name: EDIT_LABEL }).click();
+    await rowOf(page, scratchSiteContentKey()).getByRole('button', { name: EDIT_LABEL }).click();
     await expect(page.getByLabel(CONTENT_LABEL)).toHaveValue(written);
     await expect(page.getByLabel(KEY_LABEL)).toHaveAttribute('readonly', '');
 
@@ -127,7 +124,7 @@ test.describe('管理画面のサイトの文言', () => {
      * 一覧へ入るのを待ってから読み直す。**押した直後に画面を離れると、送信の途中で中断される**
      * ——保存が終わったかどうかは、応答を受けた一覧が変わったことでしか分からない。
      */
-    await expect(rowOf(page, SCRATCH_KEY)).toContainText(rewritten);
+    await expect(rowOf(page, scratchSiteContentKey())).toContainText(rewritten);
 
     await reopenSiteContents(page);
 
@@ -135,11 +132,15 @@ test.describe('管理画面のサイトの文言', () => {
      * 書き換えであって、もう1件作ったのではない。**同じキーの行が1つだけ**で、前の文言がどこにも
      * 残っていないことまで見る——upsert が更新として効いていなければ、行が2つ並ぶか古い値が残る。
      */
-    await expect(rowOf(page, SCRATCH_KEY)).toHaveCount(1);
-    await expect(rowOf(page, SCRATCH_KEY)).toContainText(rewritten);
+    await expect(rowOf(page, scratchSiteContentKey())).toHaveCount(1);
+    await expect(rowOf(page, scratchSiteContentKey())).toContainText(rewritten);
     await expect(page.getByText(written)).toHaveCount(0);
 
-    await captureFocused(page, rowOf(page, SCRATCH_KEY), '68a-admin-site-content-updated');
+    await captureFocused(
+      page,
+      rowOf(page, scratchSiteContentKey()),
+      '68a-admin-site-content-updated',
+    );
   });
 
   test('キーの形式が受け付けられないときは、その欄にエラーが出る', async ({ page }) => {

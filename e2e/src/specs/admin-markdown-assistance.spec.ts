@@ -2,6 +2,7 @@ import { stack } from '../support/config.ts';
 import { captureFocused } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
 import { deleteScratchArticles, seedScratchArticle } from '../support/scratch-articles.ts';
+import { scratchSiteContentKey } from '../support/scratch-site-contents.ts';
 
 test.afterEach(deleteScratchArticles);
 
@@ -59,8 +60,8 @@ test('サイト文言でも同じ入力支援で入力して保存・再読込�
   await page.getByLabel('管理APIの鍵').fill(stack.adminApiKey);
   await page.getByRole('button', { name: '開く' }).click();
   await expect(page.getByRole('table')).toBeVisible();
-  /* 削除できない文言は既存E2Eと同じ固定キーを使い回す。 */
-  const key = 'e2e.scratch.text';
+  /* 削除できない文言は、サイト文言の spec と同じ worker ごとのキーを使い回す。 */
+  const key = scratchSiteContentKey();
   await page.getByLabel('キー', { exact: true }).fill(key);
   await page.getByLabel('形式', { exact: true }).selectOption('MARKDOWN');
   const body = page.getByLabel('本文', { exact: true });

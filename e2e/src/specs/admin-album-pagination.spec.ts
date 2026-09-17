@@ -4,13 +4,14 @@ import { fetchAdminAlbumPage, seedDraftAlbum } from '../support/admin-api.ts';
 import { stack } from '../support/config.ts';
 import { captureFocused } from '../support/evidence.ts';
 import { expect, test } from '../support/fixtures.ts';
-import { deleteScratchAlbums, SCRATCH_CATALOG_PREFIX } from '../support/scratch-albums.ts';
+import { deleteScratchAlbums, scratchCatalogPrefix } from '../support/scratch-albums.ts';
 
 const NEXT = '次のページ';
 const PREVIOUS = '前のページ';
 const SECOND_PAGE_API = `${stack.backendBaseUrl}/api/v1/admin/albums?page=1&size=50`;
 const LAST_TITLE = 'E2E ページ送り 最後の作品';
-const CATALOG_PREFIX = `${SCRATCH_CATALOG_PREFIX}PAGE-`;
+/** この spec が作る51件だけを絞り込むための接頭辞。worker の印の下に置き、片付けの対象にも入る */
+const catalogPrefix = (): string => `${scratchCatalogPrefix()}PAGE-`;
 
 /** 既存のフィクスチャを残し、検査専用の51件を登録する。既定は登録の新しい順なので末尾を先に作る。 */
 const seed51Albums = async (): Promise<void> => {
@@ -20,7 +21,7 @@ const seed51Albums = async (): Promise<void> => {
     releaseDate: '2026-01-01',
     artistDisplayName: 'E2E アーティスト',
     artistSortKey: 'E2E',
-    catalogNumber: `${CATALOG_PREFIX}LAST`,
+    catalogNumber: `${catalogPrefix()}LAST`,
   });
   for (const index of Array.from({ length: 50 }, (_, i) => i)) {
     await seedDraftAlbum({
@@ -28,10 +29,10 @@ const seed51Albums = async (): Promise<void> => {
       releaseDate: '2026-01-01',
       artistDisplayName: 'E2E アーティスト',
       artistSortKey: 'E2E',
-      catalogNumber: `${CATALOG_PREFIX}${String(index)}`,
+      catalogNumber: `${catalogPrefix()}${String(index)}`,
     });
   }
-  const last = await fetchAdminAlbumPage(1, CATALOG_PREFIX);
+  const last = await fetchAdminAlbumPage(1, catalogPrefix());
   expect(last.totalElements).toBe(51);
   expect(last.items.map((album) => album.title)).toEqual([LAST_TITLE]);
 };
@@ -56,7 +57,7 @@ test.beforeEach(async ({ page }) => {
    */
   await page.route(`${stack.backendBaseUrl}/api/v1/admin/albums?*`, (route) =>
     route.fallback({
-      url: `${route.request().url()}&catalogNumber=${encodeURIComponent(CATALOG_PREFIX)}`,
+      url: `${route.request().url()}&catalogNumber=${encodeURIComponent(catalogPrefix())}`,
     }),
   );
 });
@@ -99,7 +100,7 @@ test.describe('作品一覧のページ送り', () => {
       page.getByRole('navigation', { name: '作品一覧のページ送り' }),
       '35b-admin-albums-after-delete',
     );
-    expect((await fetchAdminAlbumPage(1, CATALOG_PREFIX)).items).toHaveLength(0);
+    expect((await fetchAdminAlbumPage(1, catalogPrefix())).items).toHaveLength(0);
   });
 
   test('2ページ目の通信が失敗しても再試行で同じページを開く', async ({ page }) => {

@@ -433,13 +433,25 @@ export const adminApi = (connection: AdminApiConnection) => {
     return items.find((item) => item.catalogNumber === catalogNumber);
   };
 
-  /** カタログナンバーの接頭辞で作品を探す。検査のためだけに作った作品を控えなしに片付けるために使う */
+  /**
+   * カタログナンバーの接頭辞で作品を探す（下書きを含む）。検査のためだけに作った作品を控えなしに
+   * 片付けるために使う。
+   *
+   * 絞り込みは部分一致のため、接頭辞で選び直す。1ページに収まらないことがあるため全ページたぐる
+   * （先頭のページだけを見ると、溢れた分が片付けから漏れて次の実行に残る）。
+   */
   const findAlbumsByCatalogNumberPrefix = async (
     prefix: string,
   ): Promise<readonly AdminAlbum[]> => {
-    const body = await get('/api/v1/admin/albums?size=100');
-    const { items } = body as { items: readonly AdminAlbum[] };
-    return items.filter((item) => (item.catalogNumber ?? '').startsWith(prefix));
+    const firstPage = await fetchAdminAlbumPage(0, prefix);
+    const remainingPages = await Promise.all(
+      range(Math.max(firstPage.totalPages - 1, 0)).map((index) =>
+        fetchAdminAlbumPage(index + 1, prefix),
+      ),
+    );
+    return [firstPage, ...remainingPages]
+      .flatMap((page) => page.items)
+      .filter((item) => (item.catalogNumber ?? '').startsWith(prefix));
   };
 
   const deleteArticle = (articleId: string): Promise<void> =>
