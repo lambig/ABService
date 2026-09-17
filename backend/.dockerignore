@@ -1,5 +1,3 @@
-build/
-.gradle/
-src/test/
-src/integrationTest/
-*.md
+# Dockerfile.jvm が取り込むのは組み上がった uber-jar だけ。ソースも Gradle の作業ファイルも文脈へ入れない
+*
+!build/*-runner.jar

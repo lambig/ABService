@@ -257,6 +257,23 @@ jobs:
       - name: Check the files the deploy sends to the host
         run: scripts/check-deploy-payload.sh
 
+      # jar はランナー上の Gradle で組む（deploy.yml と同じ手順）。Dockerfile はそれを包むだけで、
+      # コンテナの中で Gradle を回さない（#431。コンテナ内では build cache が効かず、毎回冷えた状態になる）
+      - name: Set up JDK 25 (Corretto)
+        uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Ensure gradlew is executable
+        run: chmod +x backend/gradlew
+
+      - name: Build backend
+        run: backend/gradlew -p backend --no-daemon --console=plain quarkusBuild
+
       # デプロイと同じ Dockerfile。壊れていることに気付けるのが deploy.yml の実行時では遅い
       - name: Build the production image
         run: docker build -f backend/src/main/docker/Dockerfile.jvm -t abservice-backend:ci backend
