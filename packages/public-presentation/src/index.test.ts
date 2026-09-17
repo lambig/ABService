@@ -80,11 +80,16 @@ describe("公開記事の描画", () => {
     );
     expect(html).not.toMatch(/<strong[^>]*>会場/u);
   });
-  it("記事へ展開した作品は、見出しと発売日を出さず、曲目を畳み、原作の出典を曲目の後ろに置く", () => {
-    const note = { ...album, originalWorkNote: "「原作」より各曲" };
+  it("記事へ展開した作品は、見出し・発売日・品番を出さず、曲目を畳み、原作の出典を曲目の後ろに置く", () => {
+    const note = {
+      ...album,
+      originalWorkNote: "「原作」より各曲",
+      catalogNumber: "CAT-001",
+    };
     const embedded = renderArticle({ ...article, album: note }, "/assets");
     expect(embedded).not.toContain('<h2 class="text-3xl');
     expect(embedded).not.toContain("2026年8月14日");
+    expect(embedded).not.toContain("CAT-001");
     expect(embedded).toContain('aria-label="&lt;album&gt;"');
     expect(embedded).toContain("<details data-album-tracks");
     expect(embedded).not.toContain("<details data-album-tracks open");
@@ -99,6 +104,7 @@ describe("公開記事の描画", () => {
     const standalone = renderAlbum(note, "/assets");
     expect(standalone).toContain("&lt;album&gt;</span></h1>");
     expect(standalone).toContain("2026年8月14日");
+    expect(standalone).toContain("CAT-001");
     expect(standalone.indexOf("data-album-tracks")).toBeLessThan(
       standalone.indexOf("data-album-original-work"),
     );
@@ -160,23 +166,35 @@ describe("公開記事の描画", () => {
     expect(html).not.toContain("頒布価格");
     expect(html).not.toContain("会場");
   });
-  it("プレイヤーの後ろに記事本文を置き、作品ページでは価格を出さない", () => {
+  it("見出しの直後にプレイヤー、概要、記事本文の順に置き、作品ページでは価格を出さない", () => {
     const withAudio = {
       ...album,
       externalAudios: [{ url: "https://soundcloud.com/example/test" }],
     };
     const html = renderArticle({ ...article, album: withAudio }, "/assets");
     expect(html.indexOf("data-album-audio")).toBeLessThan(
+      html.indexOf("prose-body"),
+    );
+    expect(html.indexOf("prose-body")).toBeLessThan(
       html.indexOf("data-article-body"),
     );
     expect(html.indexOf("data-article-body")).toBeLessThan(
       html.indexOf("data-album-tracks"),
     );
     expect(html).not.toContain("<img");
+    expect(html).not.toContain("試聴</");
     const standalone = renderAlbum(withAudio, "/assets");
     expect(standalone).toContain("<h1");
     expect(standalone).not.toContain("data-article-body");
     expect(standalone).not.toContain("data-album-price");
+  });
+  it("音源を持たない作品は、カバー画像をプレイヤーと同じ枠に置く", () => {
+    const html = renderAlbum(album, "/assets");
+    expect(html).toContain(
+      '<img data-album-cover class="border-border aspect-square max-h-[700px] w-full rounded-md border object-cover"',
+    );
+    expect(html.indexOf("</header>")).toBeLessThan(html.indexOf("data-album-cover"));
+    expect(html.indexOf("data-album-cover")).toBeLessThan(html.indexOf("prose-body"));
   });
   it("作品の概要と曲目クレジットも安全に描画する", () => {
     const html = renderAlbum(

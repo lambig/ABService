@@ -63,7 +63,7 @@ export const showcase = {
   originalWorkNote: '「E2E 原作ゲーム」より各曲',
   /** Markdown として描画されることを、要素ごとに確かめるための断片 */
   description: {
-    heading: '概要',
+    heading: 'コンセプト',
     lead: 'E2E で画面を確認するための作品。',
     bullet: '箇条書き',
     emphasis: '強調',

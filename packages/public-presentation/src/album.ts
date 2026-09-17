@@ -90,10 +90,21 @@ export const renderBody = (
       : `<p class="whitespace-pre-wrap">${escape(body ?? "")}</p>`;
 
 /**
- * 記事の前置きは試聴と曲目の間。introHtml は共有描画の出力専用で、入力文字列は渡さない。
+ * 作品の顔（ヒーロー）の枠。試聴プレイヤーか、音源を持たない作品ではカバー画像が同じ枠に入る。
+ * 正方形で幅いっぱい・上限 700px。プレイヤーの絵（アートワーク）を作品の顔として使う意図のため、
+ * コンパクトな帯ではなく絵が出る大きさを取る。狭い幅では幅に合わせて縮む（#415）。
+ */
+const HERO_CLASS = "border-border aspect-square max-h-[700px] w-full rounded-md border";
+
+/**
+ * 記事の前置き（記事本文）は作品の概要と曲目の間。introHtml は共有描画の出力専用で、入力文字列は渡さない。
  *
- * 記事へ展開する（embedded）ときは、作品の見出しと発売日を出さない——記事の見出しが作品を名指しており、
- * 同じ大きさの見出しが2つ並ぶと段差が読めない。発売日は記事の公開日と無ラベルで並ぶと見分けられない。
+ * 並びは「基本情報 → 顔（プレイヤーか画像）→ 概要 → 記事本文 → 曲目 → 原作の出典 → 頒布イベント → 頒布価格」。
+ * 顔は見出しの直後に置き、文より先に絵が入る。
+ *
+ * 記事へ展開する（embedded）ときは、作品の見出し・発売日・品番を出さない——記事の見出しが作品を名指しており、
+ * 同じ大きさの見出しが2つ並ぶと段差が読めない。発売日は記事の公開日と無ラベルで並ぶと見分けられず、
+ * 品番は作品ページの URL と作品ページが持つ。
  */
 export const renderAlbum = (
   album: AlbumPresentation,
@@ -109,10 +120,6 @@ export const renderAlbum = (
   const identifiers = [album.catalogNumber, album.isdn]
     .filter((value) => value !== null)
     .join(" / ");
-  const cover =
-    album.externalAudios.length === 0 && allowedImage(album.coverImageUrl)
-      ? `<img class="border-border w-full max-w-64 rounded-md border object-cover" src="${escape(album.coverImageUrl)}" alt="" decoding="async" />`
-      : "";
   const headline = embedded
     ? ""
     : `<h1 class="text-3xl font-semibold">${properNoun(album.title)}</h1>`;
@@ -124,22 +131,21 @@ export const renderAlbum = (
     ? ""
     : `<p class="text-muted-foreground text-sm"><time datetime="${escape(album.releaseDate)}">${formatCalendarDate(album.releaseDate)}</time></p>`;
   const identifierLine =
-    identifiers === ""
+    [embedded, identifiers === ""].some(Boolean)
       ? ""
       : `<p class="text-muted-foreground text-sm">${properNoun(identifiers)}</p>`;
   const facts = `${headline}${artist}${releaseDate}${identifierLine}`;
-  const header =
-    cover === "" && facts === ""
-      ? ""
-      : `<header class="flex flex-col gap-4 sm:flex-row">${cover}${facts === "" ? "" : `<div class="min-w-0 space-y-2">${facts}</div>`}</header>`;
+  const header = facts === "" ? "" : `<header class="space-y-2">${facts}</header>`;
   /*
-   * 試聴は正方形で、幅いっぱい・上限 700px。埋め込みプレイヤーの絵（アートワーク）を作品の顔として使う
-   * 意図のため、コンパクトな帯ではなく絵が出る大きさを取る。狭い幅では幅に合わせて縮む。
+   * 作品の顔。音源があればプレイヤー（見出しは付けない。絵として置くもので、節ではない）。無ければ
+   * カバー画像を同じ枠に入れ、音源の有無で体裁を変えない。どちらも無い作品は枠ごと出さない。
    */
-  const audio =
-    album.externalAudios.length === 0
-      ? ""
-      : `<section data-album-audio class="space-y-4"><${subheading} class="text-lg font-medium">試聴</${subheading}>${album.externalAudios.map((item) => `<iframe class="border-border aspect-square max-h-[700px] w-full rounded-md border" src="${escape(toEmbedUrl(item.url))}" title="${escape(album.title)} の試聴" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay"></iframe>`).join("")}</section>`;
+  const hero =
+    album.externalAudios.length > 0
+      ? `<section data-album-audio class="space-y-4">${album.externalAudios.map((item) => `<iframe class="${HERO_CLASS}" src="${escape(toEmbedUrl(item.url))}" title="${escape(album.title)} の試聴" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay"></iframe>`).join("")}</section>`
+      : allowedImage(album.coverImageUrl)
+        ? `<img data-album-cover class="${HERO_CLASS} object-cover" src="${escape(album.coverImageUrl)}" alt="" decoding="async" />`
+        : "";
   /*
    * 曲目は畳んで置き、読みたい人が開く。長い曲目が記事の本文とイベント情報の間を押し広げないため。
    * 開閉はブラウザの details に任せ、スクリプトを要らなくする（プレビュー文書はスクリプトを実行しない）。
@@ -160,5 +166,5 @@ export const renderAlbum = (
     embedded && album.basePrice !== null
       ? `<p data-album-price class="text-muted-foreground text-sm">頒布価格 ${formatPrice(album.basePrice.amount, album.basePrice.currency)}</p>`
       : "";
-  return `<section data-public-album class="space-y-8" aria-label="${escape(album.title)}">${header}${renderBody(album.description, album.descriptionFormat, assetBasePath)}${audio}${options.introHtml ?? ""}${tracks}${originalWork}${eventInfo(album)}${price}</section>`;
+  return `<section data-public-album class="space-y-8" aria-label="${escape(album.title)}">${header}${hero}${renderBody(album.description, album.descriptionFormat, assetBasePath)}${options.introHtml ?? ""}${tracks}${originalWork}${eventInfo(album)}${price}</section>`;
 };

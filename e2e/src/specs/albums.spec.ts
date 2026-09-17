@@ -21,9 +21,6 @@ import { expect, test } from '../support/fixtures.ts';
  * 埋め込みは遮断されている（`fixtures.ts`）ため、埋め込み枠は「音源が渡っていること」で確かめる。
  */
 
-/** 試聴の節の見出し。文言は画面の実装が持つ */
-const AUDIO_SECTION_HEADING = '試聴';
-
 /**
  * 曲目の一覧。
  *
@@ -146,8 +143,8 @@ test.describe('作品の詳細', () => {
   test('試聴は埋め込みで完結し、取得元へ出る導線を置かない', async ({ page }) => {
     await page.goto(await albumPathOf(showcase.catalogNumber));
 
-    const audioSection = page.getByRole('heading', { level: 2, name: AUDIO_SECTION_HEADING });
-    await expect(audioSection).toBeVisible();
+    /* 試聴は節ではなく作品の顔として置くため、見出しを持たない（#415）。枠の存在で見る */
+    await expect(page.locator('[data-album-audio] iframe')).toBeVisible();
 
     /*
      * 埋め込み枠には音源の URL がそのまま渡る（許可リストはバックエンドの ExternalAudioUrl が持つ）。
@@ -302,17 +299,18 @@ test.describe('作品の詳細', () => {
     await page.goto(await albumPathOf(quiet.catalogNumber));
 
     await expect(page.getByRole('heading', { level: 1, name: quiet.title })).toBeVisible();
-    await expect(page.getByRole('heading', { level: 2, name: AUDIO_SECTION_HEADING })).toHaveCount(
-      0,
-    );
+    await expect(page.locator('[data-album-audio]')).toHaveCount(0);
     await expect(page.locator('meta[name="twitter:player"]')).toHaveCount(0);
 
     /*
-     * プレイヤーが無い側では、カバー画像が本体に出る（#197）。描かれたことまで見る——要素があるだけの
-     * 状態は、配信が取り次いでいないときも同じに見える。
+     * プレイヤーが無い側では、カバー画像がプレイヤーと同じ枠（作品の顔）に出る（#197、#415）。描かれた
+     * ことまで見る——要素があるだけの状態は、配信が取り次いでいないときも同じに見える。枠の大きさは
+     * 音源のある作品のプレイヤーと同じ（幅いっぱいの正方形、上限 700px）。
      */
-    const bodyCover = page.locator('article img');
+    const bodyCover = page.locator('article img[data-album-cover]');
     await expect(bodyCover).toHaveJSProperty('naturalWidth', coverImageAsset.width);
+    const coverBox = await bodyCover.boundingBox();
+    expect(coverBox?.height).toBeCloseTo(Math.min(coverBox?.width ?? 0, 700), 0);
 
     /*
      * リンクプレビューもカバー画像になる。**本体に出ているのと同じ画像であること**まで見る——
