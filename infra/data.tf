@@ -33,20 +33,98 @@ resource "aws_db_instance" "main" {
   multi_az               = var.db_multi_az
   publicly_accessible    = false
 
-  backup_retention_period   = var.db_backup_retention_days
+  backup_retention_period = var.db_backup_retention_days
+
+  # 消すときは最終スナップショットを残す。名は世代で一意にする（前の置換の最終スナップショットは残るので、同じ名では
+  # 次の削除が止まる）。削除は state に入っている値で走るため、世代は置換より前の apply で入れておく
   skip_final_snapshot       = false
-  final_snapshot_identifier = "${var.project_name}-db-final"
+  final_snapshot_identifier = "${var.project_name}-db-final-${var.db_final_snapshot_generation}"
+
+  # 常設の DB は消えない側に置く。作り直し（復元済みの内容で置き換える）は明示的に false にしてから。
+  deletion_protection = var.db_deletion_protection
+
+  # 復元済みの内容で作り直すときだけ入れる（infra/README.md「バックアップと復旧」）。作成のときにだけ効き、
+  # その後に値を変えても消しても作り直しにはならない
+  snapshot_identifier = var.db_main_snapshot_identifier
+
+  lifecycle {
+    ignore_changes = [snapshot_identifier]
+  }
 
   tags = {
     Name = "${var.project_name}-db"
   }
 }
 
+# --- 復元（#130） ---
+# 復元は常設の DB を上書きせず、別のインスタンスへ行う（現在の DB を消さない）。tfvars に復元点を入れると
+# 現れ、消すと消える一時のインスタンス。内容を確かめたら db_active で接続先をこちらへ切り替え、稼働中の
+# commit を再配布する。常設へ戻す手順は infra/README.md「バックアップと復旧」。
+locals {
+  db_restore_requested = var.db_restore_to_time != null || var.db_restore_snapshot_identifier != null
+}
+
+resource "aws_db_instance" "restored" {
+  count = local.db_restore_requested ? 1 : 0
+
+  identifier = "${var.project_name}-db-restored"
+
+  instance_class    = var.db_instance_class
+  storage_type      = "gp3"
+  storage_encrypted = true
+
+  # 復元直後のパスワードは復元点のもの。apply が生成値へ揃えるので、Parameter Store と食い違わない
+  password = random_password.db.result
+
+  db_subnet_group_name   = aws_db_subnet_group.main.name
+  vpc_security_group_ids = [aws_security_group.rds.id]
+  multi_az               = false
+  publicly_accessible    = false
+
+  backup_retention_period = var.db_backup_retention_days
+  skip_final_snapshot     = true
+  deletion_protection     = false
+
+  snapshot_identifier = var.db_restore_snapshot_identifier
+
+  dynamic "restore_to_point_in_time" {
+    for_each = var.db_restore_to_time == null ? [] : [var.db_restore_to_time]
+    content {
+      source_db_instance_identifier = aws_db_instance.main.identifier
+      restore_time                  = restore_to_point_in_time.value
+    }
+  }
+
+  lifecycle {
+    # 復元点は作成のときにだけ効く。別の時点へやり直すときは一度消してから作る（接続先にしている最中に
+    # 値を触って作り直しになるのを避ける）
+    ignore_changes = [snapshot_identifier, restore_to_point_in_time]
+
+    precondition {
+      condition     = (var.db_restore_to_time == null) != (var.db_restore_snapshot_identifier == null)
+      error_message = "Set exactly one of db_restore_to_time (point in time) or db_restore_snapshot_identifier (snapshot)."
+    }
+  }
+
+  tags = {
+    Name = "${var.project_name}-db-restored"
+  }
+}
+
 # アプリケーションはEC2上からSSM Parameter Store経由でDB接続情報を取得する（Secrets Managerはコスト面で不採用）。
+# backend の接続先。db_active で常設と復元済みのどちらかを選ぶ。切り替えは apply の直後に稼働中の commit を
+# 再配布して反映する（deploy.sh が配布のたびに読む。#127 と同じ順序）。
 resource "aws_ssm_parameter" "db_host" {
   name  = "/${var.project_name}/${var.environment}/db/host"
   type  = "String"
-  value = aws_db_instance.main.address
+  value = var.db_active == "restored" ? one(aws_db_instance.restored[*].address) : aws_db_instance.main.address
+
+  lifecycle {
+    precondition {
+      condition     = var.db_active == "main" || local.db_restore_requested
+      error_message = "db_active = \"restored\" needs a restored instance: set db_restore_to_time or db_restore_snapshot_identifier."
+    }
+  }
 }
 
 resource "aws_ssm_parameter" "db_port" {

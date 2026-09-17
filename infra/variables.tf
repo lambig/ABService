@@ -213,3 +213,47 @@ variable "origin_verify_token_rotation" {
   type        = string
   default     = "initial"
 }
+
+# --- バックアップと復旧（#130） ---
+# 復元は常設の DB を上書きせず別インスタンスへ行い、db_active で接続先を切り替える。順序は infra/README.md。
+
+variable "db_deletion_protection" {
+  description = "常設の DB の削除保護。作り直し（復元済みの内容で置き換える）のときだけ false にする"
+  type        = bool
+  default     = true
+}
+
+variable "db_restore_to_time" {
+  description = "復元済みインスタンスを作る復元点（RFC3339 の UTC、例 2026-09-16T00:00:00Z）。db_restore_snapshot_identifier とは同時に指定しない。消すとインスタンスも消える"
+  type        = string
+  default     = null
+}
+
+variable "db_restore_snapshot_identifier" {
+  description = "復元済みインスタンスを作るスナップショット。db_restore_to_time とは同時に指定しない。消すとインスタンスも消える"
+  type        = string
+  default     = null
+}
+
+variable "db_active" {
+  description = "backend の接続先。main は常設、restored は復元済みインスタンス（復元点の指定が要る）。変えた直後に稼働中の commit を再配布する"
+  type        = string
+  default     = "main"
+
+  validation {
+    condition     = contains(["main", "restored"], var.db_active)
+    error_message = "db_active must be \"main\" or \"restored\"."
+  }
+}
+
+variable "db_main_snapshot_identifier" {
+  description = "常設の DB を復元済みの内容で作り直すときのスナップショット。作成のときにだけ効き、以後は変えても消しても作り直しにならない"
+  type        = string
+  default     = null
+}
+
+variable "db_final_snapshot_generation" {
+  description = "常設の DB を消すときに残す最終スナップショットの名の世代（<project>-db-final-<世代>）。前の置換の最終スナップショットは残るので、置換のたびに今回だけの値へ変え、置換より前の apply で state に入れておく（同じ名では作れず削除が止まる）"
+  type        = string
+  default     = "initial"
+}

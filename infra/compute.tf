@@ -54,8 +54,16 @@ resource "aws_iam_role_policy" "app" {
       {
         Sid      = "AssetBucketAccess"
         Effect   = "Allow"
-        Action   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+        Action   = ["s3:GetObject", "s3:PutObject"]
         Resource = "${aws_s3_bucket.assets.arn}/*"
+      },
+      # 確定した画像（assets/）は追記のみで、消す経路を持たない。過去の時点へ戻した DB が参照する画像が
+      # 必ず在るのはこの性質による（#130）。消せるのは受け入れ前（pending/）だけ
+      {
+        Sid      = "AssetPendingDelete"
+        Effect   = "Allow"
+        Action   = "s3:DeleteObject"
+        Resource = "${aws_s3_bucket.assets.arn}/pending/*"
       },
       {
         Sid      = "AssetBucketList"
