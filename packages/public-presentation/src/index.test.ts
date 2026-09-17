@@ -71,14 +71,22 @@ describe("公開記事の描画", () => {
     expect(html).toContain("&lt;note&gt;");
     expect(html).toContain('translate="no"');
   });
-  it("頒布イベントは日付・名・会場・スペース・サークル名の順に1行で、スペース番号だけを立てる", () => {
+  it("頒布情報の節に、日付・名・会場の行とスペース・サークル名の行、価格を置き、スペース番号だけを立てる", () => {
     const html = renderArticle({ ...article, album }, "/assets");
-    const event = /<div data-album-event[^>]*><p>(?<line>.*?)<\/p>/u.exec(html)
-      ?.groups?.["line"];
-    expect(event).toMatch(
-      /^<time[^>]*>2026年8月15日<\/time> <span[^>]*>イベント<\/span> 会場 <strong[^>]*>A-01<\/strong> <span[^>]*>&lt;circle&gt;<\/span>$/u,
+    expect(html).toContain(
+      '<section data-album-distribution class="space-y-2"><h3 class="text-lg font-medium">頒布情報</h3>',
+    );
+    expect(html).toContain(
+      '<p><time datetime="2026-08-15">2026年8月15日</time> <span translate="no" class="notranslate">イベント</span> 会場<br />\n<strong class="text-foreground font-semibold">A-01</strong> <span translate="no" class="notranslate">&lt;circle&gt;</span></p>',
     );
     expect(html).not.toMatch(/<strong[^>]*>会場/u);
+    /* 価格は頒布情報の子。節の中に入り、節の閉じより前にある */
+    const section = /<section data-album-distribution[\s\S]*?<\/section>/u.exec(html)?.[0];
+    expect(section).toContain("data-album-price");
+    /* 作品ページは価格を持たないが、節の見出しは同じ */
+    expect(renderAlbum(album, "/assets")).toContain(
+      '<h2 class="text-lg font-medium">頒布情報</h2>',
+    );
   });
   it("記事へ展開した作品は、見出し・発売日・品番を出さず、曲目を畳み、原作の出典を曲目の後ろに置く", () => {
     const note = {
@@ -164,6 +172,7 @@ describe("公開記事の描画", () => {
     expect(html).not.toContain("data-album-event");
     expect(html).not.toContain("<img");
     expect(html).not.toContain("頒布価格");
+    expect(html).not.toContain("頒布情報");
     expect(html).not.toContain("会場");
   });
   it("見出しの直後にプレイヤー、概要、記事本文の順に置き、作品ページでは価格を出さない", () => {

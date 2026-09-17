@@ -365,7 +365,7 @@ test.describe('作品の詳細', () => {
     await expect(page.getByText(quiet.artistDisplayName)).toBeVisible();
   });
 
-  test('品番と ISDN、頒布イベントの6項目が「日付 名 会場 スペース サークル」の順に出る', async ({
+  test('品番と ISDN、頒布情報の節に6項目が「日付 名 会場 / スペース サークル」の順に出る', async ({
     page,
   }) => {
     await page.goto(await albumPathOf(quiet.catalogNumber));
@@ -373,9 +373,10 @@ test.describe('作品の詳細', () => {
     await expect(page.getByText(`${quiet.catalogNumber} / ${quiet.isdn}`)).toBeVisible();
 
     /*
-     * 頒布の案内は1行で読む（#415）。日付が先、サークル名が末尾。スペース番号は当日その場で探す値のため
-     * 強調され、会場は強調されない。
+     * 頒布の案内は「頒布情報」の節に置き、日付・名・会場の行と、スペース番号から折り返した行で読む（#415）。
+     * スペース番号は当日その場で探す値のため強調され、会場は強調されない。
      */
+    await expect(page.getByRole('heading', { level: 2, name: '頒布情報' })).toBeVisible();
     const event = page.locator('[data-album-event]');
     await expect(event.locator('time')).toHaveAttribute('datetime', quiet.event.date);
     await expect(event.locator('p').first()).toHaveText(
@@ -387,6 +388,7 @@ test.describe('作品の詳細', () => {
         quiet.event.circleName,
       ].join(' '),
     );
+    await expect(event.locator('p').first().locator('br')).toHaveCount(1);
     await expect(event.locator('strong')).toHaveText(quiet.event.spaceNumber);
     await expect(page.getByText(quiet.event.note)).toBeVisible();
   });

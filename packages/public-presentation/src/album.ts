@@ -35,25 +35,48 @@ export type AlbumPresentation = Readonly<{
   }>[];
 }>;
 
+const joinPresent = (parts: readonly (string | null)[]): string =>
+  parts.filter((part) => part !== null).join(" ");
+
 /**
- * 頒布イベントは「日付 イベント名 会場 スペース サークル名」の順に1行で読む（#415）。会場は探す手掛かり、
- * スペース番号は当日その場で見つけるための値のため、スペース番号だけを立てる。
+ * 頒布イベントは「日付 イベント名 会場」で1行、「スペース サークル名」で折り返して1行（#415）。
+ * 会場は探す手掛かり、スペース番号は当日その場で見つけるための値のため、スペース番号だけを立てる。
  */
 const eventInfo = (album: AlbumPresentation): string => {
-  const parts = [
+  const whereAndWhen = joinPresent([
     album.eventDate === null
       ? null
       : `<time datetime="${escape(album.eventDate)}">${formatCalendarDate(album.eventDate)}</time>`,
     album.eventName === null ? null : properNoun(album.eventName),
     album.eventPlace === null ? null : escape(album.eventPlace),
+  ]);
+  const spaceAndCircle = joinPresent([
     album.eventSpaceNumber === null
       ? null
       : `<strong class="text-foreground font-semibold">${escape(album.eventSpaceNumber)}</strong>`,
     album.eventCircleName === null ? null : properNoun(album.eventCircleName),
-  ].filter((part) => part !== null);
+  ]);
+  const lines = [whereAndWhen, spaceAndCircle]
+    .filter((line) => line !== "")
+    .join("<br />\n");
   return album.eventName === null
     ? ""
-    : `<div data-album-event class="text-muted-foreground text-sm space-y-1"><p>${parts.join(" ")}</p>${album.eventNote === null ? "" : `<p>${escape(album.eventNote)}</p>`}</div>`;
+    : `<div data-album-event class="text-muted-foreground text-sm space-y-1"><p>${lines}</p>${album.eventNote === null ? "" : `<p>${escape(album.eventNote)}</p>`}</div>`;
+};
+
+/**
+ * 頒布情報の節。頒布イベントと、記事に展開したときの頒布価格をまとめる（価格はイベントの子情報）。
+ * どちらも無い作品は節ごと出さない。
+ */
+const distribution = (
+  album: AlbumPresentation,
+  subheading: string,
+  price: string,
+): string => {
+  const event = eventInfo(album);
+  return [event === "", price === ""].every(Boolean)
+    ? ""
+    : `<section data-album-distribution class="space-y-2"><${subheading} class="text-lg font-medium">頒布情報</${subheading}>${event}${price}</section>`;
 };
 type Tune = AlbumPresentation["tracks"][number]["tunes"][number];
 const creditOf = (tune: Tune): string =>
@@ -99,7 +122,7 @@ const HERO_CLASS = "border-border aspect-square max-h-[700px] w-full rounded-md 
 /**
  * 記事の前置き（記事本文）は作品の概要と曲目の間。introHtml は共有描画の出力専用で、入力文字列は渡さない。
  *
- * 並びは「基本情報 → 顔（プレイヤーか画像）→ 概要 → 記事本文 → 曲目 → 原作の出典 → 頒布イベント → 頒布価格」。
+ * 並びは「基本情報 → 顔（プレイヤーか画像）→ 概要 → 記事本文 → 曲目 → 原作の出典 → 頒布情報（イベント・価格）」。
  * 顔は見出しの直後に置き、文より先に絵が入る。
  *
  * 記事へ展開する（embedded）ときは、作品の見出し・発売日・品番を出さない——記事の見出しが作品を名指しており、
@@ -166,5 +189,5 @@ export const renderAlbum = (
     embedded && album.basePrice !== null
       ? `<p data-album-price class="text-muted-foreground text-sm">頒布価格 ${formatPrice(album.basePrice.amount, album.basePrice.currency)}</p>`
       : "";
-  return `<section data-public-album class="space-y-8" aria-label="${escape(album.title)}">${header}${hero}${renderBody(album.description, album.descriptionFormat, assetBasePath)}${options.introHtml ?? ""}${tracks}${originalWork}${eventInfo(album)}${price}</section>`;
+  return `<section data-public-album class="space-y-8" aria-label="${escape(album.title)}">${header}${hero}${renderBody(album.description, album.descriptionFormat, assetBasePath)}${options.introHtml ?? ""}${tracks}${originalWork}${distribution(album, subheading, price)}</section>`;
 };
