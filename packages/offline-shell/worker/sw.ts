@@ -5,8 +5,10 @@ const prefix = `abservice-shell:${worker.registration.scope}:`;
 const cacheName = `${prefix}${SHELL.revision}`;
 const urlFor = (entry: Entry): string =>
   new URL(entry.path, worker.registration.scope).href;
-const fail = (): never => {
-  throw new Error("Shell is incomplete or corrupt");
+const fail = (entry: Entry, reason: string): never => {
+  throw new Error(
+    `Shell verification failed: revision=${SHELL.revision}; path=${entry.path}; ${reason}`,
+  );
 };
 const digest = async (response: Response): Promise<string> =>
   Array.from(
@@ -22,12 +24,21 @@ const verified = async (
   response: Response | undefined,
   entry: Entry,
 ): Promise<Response> => {
-  const value = response ?? fail();
-  return value.redirected
-    ? fail()
-    : value.ok && (await digest(value)) === entry.sha256
+  const value = response ?? fail(entry, "cached response missing");
+  const accepted = value.redirected
+    ? fail(entry, `redirected response: url=${value.url}`)
+    : value.ok
       ? value
-      : fail();
+      : fail(entry, `HTTP ${String(value.status)}; url=${value.url}`);
+  const actual = await digest(accepted).catch((error: unknown) =>
+    fail(entry, `response digest failed: ${String(error)}`),
+  );
+  return actual === entry.sha256
+    ? accepted
+    : fail(
+        entry,
+        `SHA-256 mismatch: expected=${entry.sha256}; actual=${actual}; url=${value.url}; content-type=${value.headers.get("Content-Type") ?? "missing"}`,
+      );
 };
 const install = async (): Promise<void> => {
   const cache = await caches.open(cacheName);
@@ -39,8 +50,13 @@ const install = async (): Promise<void> => {
         credentials: "same-origin",
         redirect: "error",
       });
-      const response = await verified(await fetch(request), entry);
-      await cache.put(request, response);
+      const fetched = await fetch(request).catch((error: unknown) =>
+        fail(entry, `fetch failed: ${String(error)}`),
+      );
+      const response = await verified(fetched, entry);
+      await cache.put(request, response).catch((error: unknown) =>
+        fail(entry, `cache write failed: ${String(error)}`),
+      );
     }, Promise.resolve());
   } catch (error) {
     await caches.delete(cacheName);
