@@ -7,21 +7,43 @@
 
 モノリポジトリ。バックエンドは Quarkus（Reactive）、フロントエンドは管理画面・公開画面ともに Astro + Svelte で静的ビルドする。
 
+以下はIaCが定義する構成であり、実環境への適用・受け入れ済みを意味しない。
+
+```mermaid
+flowchart TD
+    User["閲覧者・管理者"] -->|"HTTPS"| CF["CloudFront＋WAF"]
+    DNS["Route53・ACM"] -.-> CF
+    CF -->|"公開ページ"| Public["S3 公開サイト"]
+    CF -->|"/admin*"| Admin["S3 管理画面"]
+    CF -->|"/assets/*"| Assets["S3 画像"]
+    CF -->|"/api/*・HTTP"| EC2["EC2 / Quarkus"]
+    EC2 --> DB["RDS PostgreSQL"]
+    EC2 -->|"検査・確定"| Assets
+    User -->|"署名付きURLでPUT"| Assets
+    Params["SSM Parameter Store"] -->|"配布時に注入"| EC2
 ```
-                         ┌──────────────────────────┐
-                         │       CloudFront         │  単一ドメイン・パスベース
-                         └────────────┬─────────────┘
-        ┌─────────────────┬───────────┼───────────┬─────────────────┐
-        │ /               │ /admin*   │ /api/*    │ /assets/*       │
-┌───────▼────────┐ ┌──────▼───────┐ ┌─▼──────────┐ ┌──────▼────────┐
-│ frontend-public│ │frontend-admin│ │  backend   │ │ assets (S3)   │
-│  (S3, Astro)   │ │ (S3, Astro)  │ │(EC2/Quarkus│ │  OAC読み取り   │
-└────────────────┘ └──────────────┘ └─┬──────────┘ └───────────────┘
-                                      │
-                              ┌───────▼────────┐
-                              │ RDS PostgreSQL │
-                              └────────────────┘
-```
+
+### AWSの境界と運用経路
+
+| 領域 | 構成・経路 |
+| --- | --- |
+| 実行・永続化 | 主リージョンは東京。EC2はpublic subnetに1台、RDSはprivate subnetに置き、DB接続はbackendのSGからのみ許可する。RDSは既定Single-AZ。サイズ・保持期間の正は `infra/variables.tf` と運用側の実設定 |
+| 外部境界 | 閲覧者向けTLSはCloudFrontで終端し、EC2まではHTTP。CloudFront共通の送信元範囲をSGで制限し、backendが `X-Origin-Verify` を照合して自分の配信へ限定する。SSHは開放せず、管理はSSM経由 |
+| 静的配信 | 公開・管理・画像のS3は非公開でOAC経由。CloudFront Functionで静的URLを解決し、Lambda@Edgeで静的ページの404を扱う。APIエラーと画像応答はその変換対象にしない |
+| コード配布 | GitHub ActionsがOIDCで認証。mainのCI成功SHAについて、frontend配布記録のpreflight → ECRのdigestを指定したSSM経由のbackend配布 → frontendのS3同期・CloudFront invalidationを行う |
+| 配布記録 | 配信用3バケットとは別に非公開のreleaseバケットがあり、成果物・manifest・current・pending・通常配布の受理記録を保持する。backendの配布結果とfrontendのcurrentは別の記録 |
+| 監視 | backendログはawslogs、ホストのメモリ・ディスクはCloudWatch agent、EC2/RDS/CloudFrontは標準指標。Route53ヘルスチェックで公開APIを監視し、東京・us-east-1のSNSから通知する |
+| リージョン境界 | CloudFront用ACM・WAF、Lambda@Edgeの元関数、CloudFront/Route53監視用のアラーム・SNSはus-east-1。EC2/RDS/S3/VPC等は主リージョン |
+| IaCの状態 | Terraform state用S3とロック用DynamoDBはアプリ構成と別に初期準備する。状態・秘密を公開リポジトリへ置かない |
+
+### 保存・公開反映・復旧
+
+管理画面での保存はDBを更新する。公開HTMLへの反映は別操作で、`rebuild-public` が公開Query APIを匿名で読み、公開データ世代を照合してSSG・S3同期・CDN失効を行う。SSGに管理APIキーは渡さない。公開解除・削除も保存直後に旧HTMLが消える保証ではなく、配布完了までを確認する。配布途中の失敗ではpendingを残し、復旧するまで次の通常配布・内容再ビルドを止める。詳細は [フロントエンドの配布と復旧](../infra/release/README.md)。
+
+復旧単位はbackendイメージ、DBスキーマ、frontend成果物、公開データ世代、DB内容、画像に分かれる。DBは別インスタンスへ復元して確認後に接続先を切り替え、確定画像は一意キーで追記・保持する。DB復元後は撤回済み内容が戻っていないかを確認してから公開サイトを再生成する。EC2単一・RDS既定Single-AZのため、運用では障害検知と復旧演習を前提にする。操作と保証範囲は [バックアップと復旧](../infra/README.md#バックアップと復旧130)。
+
+構成・汎用機構はABService、実設定・初期投入内容・DNS控え・実施証跡は非公開のABAffairsが持つ。公開後の作品・記事・文言の正はDBに置く。
+
 
 ローカル開発では PostgreSQL と MinIO（S3互換）を docker compose で起動し、フロントエンドとバックエンドはそれぞれの開発サーバで動かす（[../docker/README.md](../docker/README.md)）。AWS 側の構成とデプロイ経路は [../infra/README.md](../infra/README.md) が正。
 
@@ -62,11 +84,13 @@
 ## 認証・認可アーキテクチャ
 
 ### 認証方式
-- **方式**: 固定APIキー。クライアントは `Authorization: Bearer <APIキー>` を付与する（個人利用が前提のため OIDC/Keycloak は採用しない。将来複数ユーザー・ロール管理が必要になった時点で再検討する）
-- **実装**: `presentation/rest/security` の `ApiKeyAuthenticationMechanism`（Quarkus Security の `HttpAuthenticationMechanism`）がヘッダからキーを抽出し、`ApiKeyIdentityProvider` が設定値 `abservice.auth.admin-api-key` と定数時間比較（`MessageDigest.isEqual`）して管理者ロールの `SecurityIdentity` を発行する
-- **キーの供給**: 環境変数 `ADMIN_API_KEY`。本番は Parameter Store（SecureString）の値をデプロイスクリプトが注入し、prod プロファイルでは未設定なら起動に失敗する
-- **セッション**: ステートレス（サーバー側セッションを持たない）
-- **スキーム選択の理由**: Bearer に揃えることで、将来 OIDC のアクセストークンへ差し替えてもクライアント契約が変わらない
+
+- **ブラウザ**: 入力した管理APIキーを `POST /api/v1/admin/sessions` で30分期限の不透明Bearerへ交換する。元キーは保存せず、トークンと期限をタブの `sessionStorage` に保持する。期限は利用・再交換で延長しない。
+- **機械側**: 初期投入ローダ等の管理API利用者は `Authorization: Bearer <APIキー>` を使う。公開サイトのSSGは匿名の公開Query APIを使う。
+- **実装**: `ApiKeyAuthenticationMechanism` がBearerを抽出し、`ApiKeyIdentityProvider` が元キーまたは有効な管理セッションを照合して `admin` のIdentityを発行する。
+- **サーバー側セッション**: `AdminSessions` が単一backendプロセスのメモリにトークンのdigestと期限を保持する。再起動・再配布で全セッションが失効する。複数backendへ拡張するときは共有セッションストアが必要。
+- **キーの供給・更新**: Parameter Store（SecureString）から配布時に `ADMIN_API_KEY` へ注入する。更新はtfvarsのrotation変更・apply・稼働中commitの再配布を組にする。
+- **前提**: 管理者1人。OIDC/Keycloakは採用していない。契約と判断の詳細は [DECISIONS.md](DECISIONS.md) 22。
 
 ### 認可方式
 - **ロール**: 管理者（`admin`）の1種のみ。`SecurityRoles.ADMIN` を唯一の定義とする
@@ -76,10 +100,11 @@
 - **強制**: ArchUnit で `*CommandResource` / `*AdminQueryResource` への `@RolesAllowed` 付与を必須にする
 
 ### セキュリティフロー
-1. クライアント（管理画面・運用者）が `Authorization: Bearer <APIキー>` を付けてバックエンドAPIを呼ぶ
-2. 認証メカニズムがキーを抽出し、IdentityProvider が設定値と照合して管理者ロールを付与する
-3. `@RolesAllowed` が付いたエンドポイントはロールを検査し、公開向けQueryは匿名のまま処理する
-4. 未認証・キー不正は 401（`WWW-Authenticate: Bearer realm="abservice"` 付き）、権限不足は 403 を、いずれも RFC 9457 Problem Details（`urn:abservice:error:UNAUTHORIZED` / `FORBIDDEN`）で返す
+
+1. 管理画面は元のAPIキーでセッションを交換し、以後は期限付きトークンをBearerで送る。ローダ等は元キーをBearerで送る。
+2. 認証機構が元キーまたはセッションを検査し、管理者ロールを付与する。`@RolesAllowed` が操作の権限を検査する。公開Queryは匿名で利用できる。
+3. ログアウトは `DELETE /api/v1/admin/sessions/current` で呼出元セッションを失効させる。ブラウザ側の破棄とサーバー失効の成否は区別する。
+4. 未認証・不正または失効済みの資格情報は401（`WWW-Authenticate: Bearer realm="abservice"` 付き）、権限不足は403を、RFC 9457 Problem Detailsで返す。セッショントークンでの再交換、元キーによるセッション破棄は403。
 
 ## API境界の方針
 

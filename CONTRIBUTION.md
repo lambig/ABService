@@ -46,7 +46,7 @@
 - **データベース**: PostgreSQL
 - **マイグレーション**: Flyway
 - **データアクセス**: Hibernate Reactive Panache（Mutiny）
-- **認証・認可**: APIキー（`Authorization: Bearer`）+ Quarkus Security の `@RolesAllowed`
+- **認証・認可**: 管理画面はAPIキーを期限付きBearerへ交換し、ローダ等はAPIキーをBearerで使用する。認可はQuarkus Securityの `@RolesAllowed`（詳細は `docs/ARCHITECTURE.md`）
 - **フロントエンド管理画面**: Svelte
 - **フロントエンド公開画面**: Svelte + Astro
 - **構成**: モノリポジトリ
