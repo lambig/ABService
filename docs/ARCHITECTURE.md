@@ -31,7 +31,7 @@ flowchart TD
 | 外部境界 | 閲覧者向けTLSはCloudFrontで終端し、EC2まではHTTP。CloudFront共通の送信元範囲をSGで制限し、backendが `X-Origin-Verify` を照合して自分の配信へ限定する。SSHは開放せず、管理はSSM経由 |
 | 静的配信 | 公開・管理・画像のS3は非公開でOAC経由。CloudFront Functionで静的URLを解決し、Lambda@Edgeで静的ページの404を扱う。APIエラーと画像応答はその変換対象にしない |
 | コード配布 | GitHub ActionsがOIDCで認証。mainのCI成功SHAについて、frontend配布記録のpreflight → ECRのdigestを指定したSSM経由のbackend配布 → frontendのS3同期・CloudFront invalidationを行う |
-| 配布記録 | 配信用3バケットとは別に非公開のreleaseバケットがあり、成果物・manifest・current・pending・通常配布の受理記録を保持する。backendの配布結果とfrontendのcurrentは別の記録 |
+| 配布記録 | 配信用3バケットとは別に非公開のreleaseバケットがあり、成果物・manifest・current・pending・通常配布の受理記録を保持する。backendのdigest・配布結果はActionsのログ／Summaryと運用側台帳を証跡とし、frontendのcurrentはreleaseバケットで管理する |
 | 監視 | backendログはawslogs、ホストのメモリ・ディスクはCloudWatch agent、EC2/RDS/CloudFrontは標準指標。Route53ヘルスチェックで公開APIを監視し、東京・us-east-1のSNSから通知する |
 | リージョン境界 | CloudFront用ACM・WAF、Lambda@Edgeの元関数、CloudFront/Route53監視用のアラーム・SNSはus-east-1。EC2/RDS/S3/VPC等は主リージョン |
 | IaCの状態 | Terraform state用S3とロック用DynamoDBはアプリ構成と別に初期準備する。状態・秘密を公開リポジトリへ置かない |
