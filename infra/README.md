@@ -1,6 +1,6 @@
 # infra（Terraform）
 
-ABService v1.0 の AWS インフラ定義。EC2（backend常時起動）+ CloudFront（WAFアタッチ）+ RDS（PostgreSQL）+ S3（frontend配信2バケット・アセット1バケット）+ ECR（backendコンテナイメージ配布先）を単一のTerraform構成として管理する。構成の確定事項はこのファイルが正で、判断の理由は [../docs/DECISIONS.md](../docs/DECISIONS.md)、境界と経路は [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) を参照。
+ABService v1.0 の AWS インフラ定義。EC2（backend常時起動）+ CloudFront（WAFアタッチ）+ RDS（PostgreSQL）+ S3（frontend配信2バケット・アセット1バケット・非公開の配布履歴1バケット）+ ECR（backendコンテナイメージ配布先）を単一のTerraform構成として管理する。構成の確定事項はこのファイルが正で、判断の理由は [../docs/DECISIONS.md](../docs/DECISIONS.md)、境界と経路は [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) を参照。
 
 ## 前提
 
@@ -105,7 +105,7 @@ terraform apply cutover.tfplan
 
 ## 管理者APIキー（#116）
 
-管理操作（Command系API・管理向けQuery API）は `Authorization: Bearer <APIキー>` を要求する。キーはTerraformが生成し、Parameter Store の `/<project>/<environment>/app/admin-api-key`（SecureString）に保存される。`deploy.sh` がこれを取得して backend コンテナへ `ADMIN_API_KEY` として渡すため、デプロイ側の追加設定は不要。
+管理操作（Command系API・管理向けQuery API）はBearer認証を要求する。ブラウザは元のAPIキーを30分期限のセッションへ交換し、以後はトークンを送る。初期投入ローダ等はAPIキーを直接使い、公開サイトのSSGは匿名の公開Query APIを使う。キーはTerraformが生成し、Parameter Store の `/<project>/<environment>/app/admin-api-key`（SecureString）に保存される。`deploy.sh` がこれを取得して backend コンテナへ `ADMIN_API_KEY` として渡すため、デプロイ側の追加設定は不要。
 
 管理画面や手動操作で値が必要な場合は Parameter Store から取得する（値はリポジトリに置かない）。
 
@@ -154,7 +154,7 @@ Terraformが生成した値（`random_password.origin_verify_token`）をCloudFr
 
 | 資格情報 | apply が変えるもの | 断 | 確かめること |
 | --- | --- | --- | --- |
-| 管理APIキー | Parameter Store | 再配布までは旧キーが有効。再配布で backend が再起動し**全セッションが失効**する（DECISIONS 22） | 旧キーで 401、新キーで管理画面に入れる。ローダ・SSG など機械側は Parameter Store から新しい値を取り直す |
+| 管理APIキー | Parameter Store | 再配布までは旧キーが有効。再配布で backend が再起動し**全セッションが失効**する（DECISIONS 22） | 旧キーで 401、新キーで管理画面に入れる。ローダ等の管理API利用者は Parameter Store から新しい値を取り直す。匿名のSSGへキーは渡さない |
 | DBパスワード | RDS の master password（`apply_immediately` に関わらず**即時**）と Parameter Store | apply の瞬間から再配布までの間、backend の既存接続は生きるが新規接続は認証に失敗しうる。readiness が落ちうるため利用の少ない時間に行い、apply の直後に再配布する | 再配布後の readiness が 200。ログに認証失敗が続いていない |
 | オリジン識別値 | CloudFront の custom header と Parameter Store | CloudFront の反映（数分）と再配布のどちらが先でも、一致しない間は `/api/*` が 403 になる（DECISIONS 35）。停止を許容する時間帯に行う | 公開 API が 2xx に戻る。識別値なし・誤った識別値の要求が 403 のまま |
 
