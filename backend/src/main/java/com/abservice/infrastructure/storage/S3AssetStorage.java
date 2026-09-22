@@ -24,8 +24,6 @@ import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 /**
  * S3互換オブジェクトストレージによる {@link AssetStorage} 実装
@@ -69,7 +67,7 @@ public class S3AssetStorage implements AssetStorage {
     private static final String ANY_ENTITY_TAG = "*";
 
     private final S3AsyncClient s3;
-    private final S3Presigner presigner;
+    private final S3UploadPresigner presigner;
     private final String bucket;
     private final String publishedPrefix;
     private final String pendingPrefix;
@@ -92,7 +90,7 @@ public class S3AssetStorage implements AssetStorage {
      */
     public S3AssetStorage(
             S3AsyncClient s3,
-            S3Presigner presigner,
+            S3UploadPresigner presigner,
             @ConfigProperty(name = "abservice.assets.bucket") String bucket,
             @ConfigProperty(name = "abservice.assets.public-base-path") String publicBasePath,
             @ConfigProperty(name = "abservice.assets.pending-prefix") String pendingPrefix,
@@ -208,19 +206,13 @@ public class S3AssetStorage implements AssetStorage {
     }
 
     private PresignedUpload presign(String key, String contentType) {
-        final var presigned = presigner.presignPutObject(
-                PutObjectPresignRequest.builder()
-                        .signatureDuration(presignExpiry)
-                        .putObjectRequest(
-                                PutObjectRequest.builder()
-                                        .bucket(bucket)
-                                        .key(pendingKey(key))
-                                        .contentType(contentType)
-                                        .build())
-                        .build());
-        return new PresignedUpload(
-                presigned.url().toString(),
-                presigned.expiration());
+        return presigner.presign(
+                PutObjectRequest.builder()
+                        .bucket(bucket)
+                        .key(pendingKey(key))
+                        .contentType(contentType)
+                        .build(),
+                presignExpiry);
     }
 
     private GetObjectRequest headRequest(String key, int length) {
