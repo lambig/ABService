@@ -14,7 +14,6 @@ import software.amazon.awssdk.identity.spi.AwsSessionCredentialsIdentity;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
-import software.amazon.awssdk.utils.SdkAutoCloseable;
 
 /**
  * 署名する資格情報の期限を超えないアップロードURLを生成します。
@@ -109,9 +108,5 @@ public class S3UploadPresigner implements AutoCloseable {
     @Override
     public void close() {
         presigner.close();
-        Optional.of(credentialsProvider)
-                .filter(SdkAutoCloseable.class::isInstance)
-                .map(SdkAutoCloseable.class::cast)
-                .ifPresent(SdkAutoCloseable::close);
     }
 }
