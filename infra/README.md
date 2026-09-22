@@ -224,6 +224,8 @@ schemaの正はマイグレーションであり、起動時に適用される�
 
 ## 静的サイト配信
 
+以下は既定構成。CloudFront Free定額への適合を検証するopt-in構成と、キャッシュ・ヘッダー処理の差は [free-compatible.md](free-compatible.md) を参照。互換フラグはプランへの加入を行わない。
+
 公開サイトと管理画面は別々のS3バケットへ置き、CloudFront が経路で振り分ける（`default_cache_behavior` が `frontend_public`、`path_pattern = "/admin*"` の `ordered_cache_behavior` が `frontend_admin`）。
 
 - **振り分けは経路を書き換えない。** ビューアが要求した経路がそのままオリジンのオブジェクトキーになるため、管理画面の成果物はバケットの `admin/` 接頭辞配下へ置く（`/admin/index.html` → キー `admin/index.html`）。`origin_path` では解けない（要求の前に足すため `/admin/admin/...` を引くことになる）

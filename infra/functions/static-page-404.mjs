@@ -40,7 +40,7 @@ export const renderStaticNotFound = async (event, loadPage) => {
 };
 
 let storage;
-const loadS3Page = async (request) => {
+export const loadS3Page = async (request) => {
   // Node.js 22 Lambda runtime supplies AWS SDK v3. No viewer credentials, Host,
   // query string, or path are passed to S3. Terraform packages the origin map.
   storage ??= Promise.all([import('@aws-sdk/client-s3'), import('node:fs/promises')]).then(async ([sdk, fs]) => ({

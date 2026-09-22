@@ -32,3 +32,6 @@ dns_cutover_enabled = false
 serve_www           = false
 
 public_indexing_enabled = false
+
+# Free定額向けの互換性検証（既定false）。加入・無料適用は行わない。infra/free-compatible.mdを参照。
+# cloudfront_free_compatible = false

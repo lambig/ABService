@@ -5,7 +5,18 @@ data "archive_file" "static_page_404" {
   output_path = "${path.module}/.terraform/static-page-404.zip"
   source {
     filename = "index.mjs"
-    content  = file("${path.module}/functions/static-page-404.mjs")
+    content  = var.cloudfront_free_compatible ? replace(file("${path.module}/functions/secured-origin-response.mjs"), "../headers/build-security-headers.mjs", "./build-security-headers.mjs") : file("${path.module}/functions/static-page-404.mjs")
+  }
+  dynamic "source" {
+    for_each = var.cloudfront_free_compatible ? {
+      "static-page-404.mjs"        = file("${path.module}/functions/static-page-404.mjs")
+      "build-security-headers.mjs" = file("${path.module}/headers/build-security-headers.mjs")
+      "security-config.json"       = jsonencode(local.edge_security_config)
+    } : {}
+    content {
+      filename = source.key
+      content  = source.value
+    }
   }
   source {
     filename = "origins.json"

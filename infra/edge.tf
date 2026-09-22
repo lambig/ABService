@@ -179,7 +179,18 @@ resource "aws_cloudfront_distribution" "main" {
     allowed_methods            = ["GET", "HEAD"]
     cached_methods             = ["GET", "HEAD"]
     compress                   = true
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.security["public"].id
+    response_headers_policy_id = var.cloudfront_free_compatible ? null : aws_cloudfront_response_headers_policy.security["public"].id
+    # HTML uses max-age=0,must-revalidate; CachingOptimized forces a 1s floor.
+    cache_policy_id          = var.cloudfront_free_compatible ? local.managed_cache_disabled : null
+    origin_request_policy_id = null
+
+    dynamic "function_association" {
+      for_each = var.cloudfront_free_compatible ? [true] : []
+      content {
+        event_type   = "viewer-response"
+        function_arn = aws_cloudfront_function.security_response["public"].arn
+      }
+    }
 
     function_association {
       event_type   = "viewer-request"
@@ -192,10 +203,13 @@ resource "aws_cloudfront_distribution" "main" {
       include_body = false
     }
 
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
+    dynamic "forwarded_values" {
+      for_each = var.cloudfront_free_compatible ? [] : [true]
+      content {
+        query_string = false
+        cookies {
+          forward = "none"
+        }
       }
     }
   }
@@ -210,7 +224,17 @@ resource "aws_cloudfront_distribution" "main" {
     allowed_methods            = ["GET", "HEAD"]
     cached_methods             = ["GET", "HEAD"]
     compress                   = true
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.security["admin"].id
+    response_headers_policy_id = var.cloudfront_free_compatible ? null : aws_cloudfront_response_headers_policy.security["admin"].id
+    cache_policy_id            = var.cloudfront_free_compatible ? local.managed_cache_disabled : null
+    origin_request_policy_id   = null
+
+    dynamic "function_association" {
+      for_each = var.cloudfront_free_compatible ? [true] : []
+      content {
+        event_type   = "viewer-response"
+        function_arn = aws_cloudfront_function.security_response["admin"].arn
+      }
+    }
 
     function_association {
       event_type   = "viewer-request"
@@ -223,10 +247,13 @@ resource "aws_cloudfront_distribution" "main" {
       include_body = false
     }
 
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
+    dynamic "forwarded_values" {
+      for_each = var.cloudfront_free_compatible ? [] : [true]
+      content {
+        query_string = false
+        cookies {
+          forward = "none"
+        }
       }
     }
   }
@@ -234,23 +261,44 @@ resource "aws_cloudfront_distribution" "main" {
   # アセットは確定後に内容が変わらない（キーがUUIDv7で一意）ため長期キャッシュしてよい
   ordered_cache_behavior {
     path_pattern               = "/assets/*"
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.security["assets"].id
-    target_origin_id           = local.assets_origin_id
-    viewer_protocol_policy     = "redirect-to-https"
-    allowed_methods            = ["GET", "HEAD"]
-    cached_methods             = ["GET", "HEAD"]
-    compress                   = true
+    response_headers_policy_id = var.cloudfront_free_compatible ? null : aws_cloudfront_response_headers_policy.security["assets"].id
+    cache_policy_id            = var.cloudfront_free_compatible ? local.managed_cache_optimized : null
+    origin_request_policy_id   = null
 
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
+    dynamic "function_association" {
+      for_each = var.cloudfront_free_compatible ? [true] : []
+      content {
+        event_type   = "viewer-response"
+        function_arn = aws_cloudfront_function.security_response["assets"].arn
+      }
+    }
+    dynamic "lambda_function_association" {
+      for_each = var.cloudfront_free_compatible ? [true] : []
+      content {
+        event_type   = "origin-response"
+        lambda_arn   = aws_lambda_function.static_page_404.qualified_arn
+        include_body = false
+      }
+    }
+    target_origin_id       = local.assets_origin_id
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    compress               = true
+
+    dynamic "forwarded_values" {
+      for_each = var.cloudfront_free_compatible ? [] : [true]
+      content {
+        query_string = false
+        cookies {
+          forward = "none"
+        }
       }
     }
 
-    min_ttl     = 0
-    default_ttl = 86400
-    max_ttl     = 31536000
+    min_ttl     = var.cloudfront_free_compatible ? null : 0
+    default_ttl = var.cloudfront_free_compatible ? null : 86400
+    max_ttl     = var.cloudfront_free_compatible ? null : 31536000
   }
 
   ordered_cache_behavior {
@@ -260,19 +308,40 @@ resource "aws_cloudfront_distribution" "main" {
     allowed_methods            = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
     cached_methods             = ["GET", "HEAD"]
     compress                   = true
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.security["api"].id
+    response_headers_policy_id = var.cloudfront_free_compatible ? null : aws_cloudfront_response_headers_policy.security["api"].id
+    cache_policy_id            = var.cloudfront_free_compatible ? local.managed_cache_disabled : null
+    origin_request_policy_id   = var.cloudfront_free_compatible ? local.managed_origin_api : null
 
-    forwarded_values {
-      query_string = true
-      headers      = ["Authorization"]
-      cookies {
-        forward = "none"
+    dynamic "function_association" {
+      for_each = var.cloudfront_free_compatible ? [true] : []
+      content {
+        event_type   = "viewer-response"
+        function_arn = aws_cloudfront_function.security_response["api"].arn
+      }
+    }
+    dynamic "lambda_function_association" {
+      for_each = var.cloudfront_free_compatible ? [true] : []
+      content {
+        event_type   = "origin-response"
+        lambda_arn   = aws_lambda_function.static_page_404.qualified_arn
+        include_body = false
       }
     }
 
-    min_ttl     = 0
-    default_ttl = 0
-    max_ttl     = 0
+    dynamic "forwarded_values" {
+      for_each = var.cloudfront_free_compatible ? [] : [true]
+      content {
+        query_string = true
+        headers      = ["Authorization"]
+        cookies {
+          forward = "none"
+        }
+      }
+    }
+
+    min_ttl     = var.cloudfront_free_compatible ? null : 0
+    default_ttl = var.cloudfront_free_compatible ? null : 0
+    max_ttl     = var.cloudfront_free_compatible ? null : 0
   }
 
   restrictions {

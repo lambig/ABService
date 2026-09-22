@@ -19,7 +19,7 @@ moved {
 }
 
 resource "aws_cloudfront_response_headers_policy" "security" {
-  for_each = toset(["public", "admin", "api", "assets"])
+  for_each = var.cloudfront_free_compatible ? toset([]) : toset(["public", "admin", "api", "assets"])
   # Retain the existing admin policy's identity during adoption.
   name = each.key == "admin" ? "${var.project_name}-noindex" : "${var.project_name}-${each.key}-security"
 
