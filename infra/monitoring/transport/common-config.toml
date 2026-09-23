@@ -1,0 +1,3 @@
+[credentials]
+shared_credential_profile = "monitor"
+shared_credential_file = "/run/abservice-monitor/credentials"

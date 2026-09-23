@@ -1,0 +1,10 @@
+[Unit]
+Description=Check monitoring log rotation every fifteen minutes
+
+[Timer]
+OnCalendar=*:0/15
+Persistent=true
+Unit=abservice-monitor-logrotate.service
+
+[Install]
+WantedBy=timers.target

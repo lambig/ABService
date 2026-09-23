@@ -1,0 +1,68 @@
+x-monitor-runtime: &monitor-runtime
+  image: public.ecr.aws/cloudwatch-agent/cloudwatch-agent@sha256:edb2af917acde41563313cb7cf66d963bb5e5ee1b16b31d40b832b653822d687
+  user: "${MONITOR_UID:?}:${MONITOR_GID:?}"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  mem_limit: 256m
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=16m
+  environment:
+    RUN_IN_CONTAINER: "False"
+    AWS_EC2_METADATA_DISABLED: "true"
+  logging:
+    driver: local
+    options:
+      max-size: 2m
+      max-file: "3"
+  volumes:
+    - type: bind
+      source: ${MONITOR_CONFIG_DIR:?}
+      target: /etc/abservice-monitor
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${MONITOR_CREDENTIALS_DIR:?}
+      target: /run/abservice-monitor
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${MONITOR_LOG_DIR:?}
+      target: /var/log/abservice-monitor
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${MONITOR_STATE_DIR:?}
+      target: /opt/aws/amazon-cloudwatch-agent/logs
+      bind:
+        create_host_path: false
+
+services:
+  translate:
+    <<: *monitor-runtime
+    restart: "no"
+    entrypoint: /opt/aws/amazon-cloudwatch-agent/bin/config-translator
+    command:
+      - --mode
+      - onPremise
+      - --config
+      - /etc/abservice-monitor/common-config.toml
+      - --input
+      - /etc/abservice-monitor/agent.json
+      - --output
+      - /opt/aws/amazon-cloudwatch-agent/logs/agent.toml
+  agent:
+    <<: *monitor-runtime
+    restart: unless-stopped
+    depends_on:
+      translate:
+        condition: service_completed_successfully
+    entrypoint: /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent
+    command:
+      - -config
+      - /opt/aws/amazon-cloudwatch-agent/logs/agent.toml
+      - -otelconfig
+      - /opt/aws/amazon-cloudwatch-agent/logs/agent.yaml

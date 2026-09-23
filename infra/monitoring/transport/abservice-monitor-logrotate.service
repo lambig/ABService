@@ -1,0 +1,21 @@
+[Unit]
+Description=Rotate monitoring credential event logs
+After=abservice-monitor-credentials.service
+ConditionPathIsDirectory=/var/log/abservice-monitor
+
+[Service]
+Type=oneshot
+User=abservice-monitor
+Group=abservice-monitor
+UMask=0077
+StateDirectory=abservice-monitor-logrotate
+StateDirectoryMode=0700
+ExecStart=/usr/sbin/logrotate --state /var/lib/abservice-monitor-logrotate/status /etc/abservice/monitor-logrotate.conf
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/log/abservice-monitor
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+CapabilityBoundingSet=
+LimitCORE=0
