@@ -363,6 +363,11 @@ jobs:
         if: ${{ always() }}
         run: docker compose down -v
 
+      - name: Check opt-in colocated database deployment
+        run: |
+          python3 -m unittest discover -s infra/host/cohost -p 'test_*.py'
+          python3 infra/host/cohost/check_runtime.py --image abservice-backend:ci
+
   iac-check:
     needs: changes
     if: ${{ needs.changes.outputs.application == 'true' }}
