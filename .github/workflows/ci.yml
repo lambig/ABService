@@ -428,6 +428,13 @@ jobs:
       - name: Verify DNS preparation and cutover without AWS
         run: terraform -chdir=infra test
 
+      - name: Verify independent backup storage and freshness monitoring
+        run: |
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s infra/cohost-backup -v
+          terraform -chdir=infra/cohost-backup init -backend=false
+          terraform -chdir=infra/cohost-backup validate
+          terraform -chdir=infra/cohost-backup test
+
   e2e:
     needs: changes
     if: ${{ needs.changes.outputs.application == 'true' }}
