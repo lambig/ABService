@@ -40,7 +40,7 @@ resource "aws_acm_certificate_validation" "cloudfront" {
 resource "aws_wafv2_web_acl" "cloudfront" {
   provider    = aws.us_east_1
   name        = "${var.project_name}-cloudfront-waf"
-  description = "CloudFrontディストリビューション用WAF（AWSマネージドルールによる基本的な保護）"
+  description = "CloudFront protection with AWS managed rule groups"
   scope       = "CLOUDFRONT"
 
   default_action {
