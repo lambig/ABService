@@ -16,7 +16,7 @@ terraform -chdir=infra/cohost-backup apply /secure/backup.plan
 
 ## 有効化
 
-1. SNS購読確認メールを承認する。以前の試験用topicの購読とは別。以後このtopicを他の運用通知にも再利用できる。
+1. SNS購読確認メールを承認する。購読はtopicごとに必要。このtopicを他の運用通知にも再利用できる。
 2. 初回正常配布後、独立したbackup認証で手動保存、ホスト外からの取得を成功させる。運用側のsystemd service/timerを設置する。
 3. Lambdaを手動invokeし、`healthy=true`とCloudWatch指標を確認する。Lambda APIのHTTP 200だけでは成功判定しない。
 4. `monitoring_enabled=true`でplan/applyする。初期値falseは準備用であり、実更新を蓄積する前に有効化する。保存用timerを有効化する変数ではない。
