@@ -117,7 +117,32 @@ def main():
         shutil.rmtree(runtime)
         systemctl("start", timer.name)
         await_condition(lambda: status().get("result") == "success", "empty-runtime restart failed")
-        print("systemd smoke: initial refresh, failure retention, timer recovery, stop preservation, empty-runtime restart passed")
+        systemctl("stop", timer.name, service.name)
+
+        def journal_events():
+            output = subprocess.run(["journalctl", "--unit", service.name, "--output=cat", "--no-pager"],
+                                    check=True, capture_output=True, text=True).stdout
+            assert "INVALID_" not in output, "synthetic credentials leaked into journal"
+            events = []
+            for line in output.splitlines():
+                try:
+                    event = json.loads(line)
+                except ValueError:
+                    continue
+                if isinstance(event, dict) and event.get("version") == 1:
+                    events.append(event)
+            return events
+
+        await_condition(lambda: len([e for e in journal_events()
+                                    if e.get("event") == "credential_refresh_success"]) >= 3,
+                        "success events did not reach the journal")
+        events = journal_events()
+        failures = [e for e in events if e.get("event") == "credential_refresh_failure"]
+        assert failures and all(e == {"version": 1, "event": "credential_refresh_failure",
+                                      "code": "helper_failed"} for e in failures)
+        assert any(e.get("event") == "credential_refresh_success"
+                   and e["last_success_at"] == first_success for e in events)
+        print("systemd smoke: initial refresh, failure retention, timer recovery, stop preservation, empty-runtime restart, JSON journal events passed")
     finally:
         subprocess.run(["systemctl", "stop", timer.name, service.name], capture_output=True)
         subprocess.run(["systemctl", "reset-failed", service.name], capture_output=True)

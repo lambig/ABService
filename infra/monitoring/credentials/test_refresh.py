@@ -1,7 +1,9 @@
 """Linux fault tests; every credential below is deliberately invalid synthetic data."""
 
 from datetime import datetime, timedelta, timezone
+from contextlib import redirect_stderr, redirect_stdout
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -67,13 +69,93 @@ class RefreshTests(unittest.TestCase):
     def status(self):
         return json.loads((self.runtime / "status.json").read_text())
 
-    def cli(self):
+    def cli(self, *options):
         return subprocess.run([sys.executable, str(SOURCE), "--config", str(self.config),
-                               "--runtime-directory", str(self.runtime)], capture_output=True, text=True, timeout=10)
+                               "--runtime-directory", str(self.runtime), *options],
+                              capture_output=True, text=True, timeout=10)
+
+    def main_json(self):
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with patch.object(sys, "argv", [str(SOURCE), "--config", str(self.config),
+                                      "--runtime-directory", str(self.runtime), "--log-format", "json"]):
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                result = refresh.main()
+        return result, stdout.getvalue(), stderr.getvalue()
+
+    def test_json_success_contains_only_committed_success_dates(self):
+        result = self.cli("--log-format", "json")
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual("", result.stderr)
+        self.assertEqual(1, len(result.stdout.splitlines()))
+        status = self.status()
+        self.assertEqual({"version": 1, "event": "credential_refresh_success",
+                          "last_success_at": status["last_success_at"],
+                          "last_success_epoch": int(datetime.fromisoformat(status["last_success_at"]).timestamp()),
+                          "credential_expires_at": status["credential_expires_at"]}, json.loads(result.stdout))
+        self.assertNotIn("INVALID_TEST", result.stdout)
+        self.assertNotIn("invalid-test", result.stdout)
+
+    def test_json_helper_failure_has_no_success_timestamp(self):
+        self.run_refresh()
+        before = self.status()["last_success_at"]
+        (self.root / "fail").touch()
+        result = self.cli("--log-format", "json")
+        self.assertEqual(1, result.returncode)
+        self.assertEqual("", result.stdout)
+        self.assertEqual({"version": 1, "event": "credential_refresh_failure", "code": "helper_failed"},
+                         json.loads(result.stderr))
+        self.assertEqual(before, self.status()["last_success_at"])
+
+    def test_json_lock_contention_does_not_report_the_previous_success(self):
+        self.run_refresh()
+        before = (self.runtime / "status.json").read_bytes()
+        with refresh.exclusive(self.runtime):
+            result = self.cli("--log-format", "json")
+        self.assertEqual(1, result.returncode)
+        self.assertEqual("", result.stdout)
+        self.assertEqual({"version": 1, "event": "credential_refresh_failure", "code": "already_running"},
+                         json.loads(result.stderr))
+        self.assertEqual(before, (self.runtime / "status.json").read_bytes())
+
+    def test_json_write_failures_never_emit_success_or_exception_text(self):
+        real_write = refresh.atomic_write
+        for failed_file in ("credentials", "status.json"):
+            with self.subTest(failed_file=failed_file):
+                def fail_write(directory, name, text):
+                    if name == failed_file:
+                        raise OSError("INVALID_TEST_SECRET should not be logged")
+                    return real_write(directory, name, text)
+
+                with patch.object(refresh, "atomic_write", side_effect=fail_write):
+                    result, stdout, stderr = self.main_json()
+                self.assertEqual(1, result)
+                self.assertEqual("", stdout)
+                self.assertEqual({"version": 1, "event": "credential_refresh_failure", "code": "refresh_failed"},
+                                 json.loads(stderr))
+
+    def test_json_event_uses_this_attempt_even_if_status_changes_after_unlock(self):
+        real_refresh = refresh.refresh
+        committed = {}
+
+        def overwrite_after_unlock(config, directory):
+            result = real_refresh(config, directory)
+            committed.update(result)
+            (directory / "status.json").write_text("untrusted INVALID_TEST_SECRET")
+            return {**result, "extra": "INVALID_TEST_SECRET"}
+
+        with patch.object(refresh, "refresh", side_effect=overwrite_after_unlock):
+            result, stdout, stderr = self.main_json()
+        self.assertEqual(0, result, stderr)
+        event = json.loads(stdout)
+        self.assertEqual(committed["last_success_at"], event["last_success_at"])
+        self.assertNotIn("extra", event)
+        self.assertNotIn("INVALID_TEST", stdout + stderr)
 
     def test_publish_permissions_and_no_secret_status_or_console(self):
         result = self.cli()
         self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual("monitor credentials: refreshed\n", result.stdout)
+        self.assertEqual("", result.stderr)
         content = (self.runtime / "credentials").read_text()
         self.assertIn("[monitor]\n", content)
         self.assertIn("aws_session_token = INVALID_TEST_TOKEN\n", content)
