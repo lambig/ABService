@@ -8,6 +8,8 @@
 
 4 behavior・4 origin、WAF、S3 OAC、origin識別ヘッダー、DNS切替と検索公開のゲートは維持する。独自レスポンスヘッダーポリシーとlegacy forwarded_valuesは互換構成では使用しない。
 
+互換構成では配信クラスを`PriceClass_All`に揃え、従来の`cloudfront_price_class`入力は使わない。互換フラグfalseでは従来の入力を維持する。加入前の従量料金に影響するため、プランの読戻しを配信設定の成功と分けて扱う。既存origin/assetを参照する独立構成は [cohost-edge/README.md](cohost-edge/README.md) を参照する。
+
 | 経路 | AWS管理キャッシュポリシー | 注意点 |
 | --- | --- | --- |
 | public（既定）・`/admin*` | CachingDisabled | HTMLの`max-age=0,must-revalidate`や404の`no-store`を最低TTLで上書きしない。これらのbehavior内の`_astro`等もCDNではキャッシュしない。ブラウザ向けCache-Controlは変更しない |

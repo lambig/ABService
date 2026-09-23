@@ -105,9 +105,10 @@ run "free_compatible_preserves_security" {
     error_message = "Compatibility must retain WAF, noindex and the DNS cutover gate."
   }
   assert {
-    condition = (length(aws_cloudfront_distribution.main.origin) == 4 &&
+    condition = (aws_cloudfront_distribution.main.price_class == "PriceClass_All" &&
+      length(aws_cloudfront_distribution.main.origin) == 4 &&
     length(aws_cloudfront_distribution.main.ordered_cache_behavior) == 3)
-    error_message = "The candidate must stay within Free behavior and function size limits."
+    error_message = "The candidate must use global delivery and stay within Free behavior limits."
   }
 }
 

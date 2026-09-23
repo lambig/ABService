@@ -112,7 +112,7 @@ resource "aws_cloudfront_distribution" "main" {
   is_ipv6_enabled     = true
   default_root_object = "index.html"
   aliases             = var.aliases
-  price_class         = "PriceClass_200"
+  price_class         = "PriceClass_All"
   web_acl_id          = aws_wafv2_web_acl.cloudfront.arn
   lifecycle {
     precondition {

@@ -125,7 +125,7 @@ locals {
 resource "aws_cloudfront_distribution" "main" {
   enabled         = true
   is_ipv6_enabled = true
-  price_class     = var.cloudfront_price_class
+  price_class     = var.cloudfront_free_compatible ? "PriceClass_All" : var.cloudfront_price_class
   aliases         = var.serve_www ? [var.domain_name, "www.${var.domain_name}"] : [var.domain_name]
 
   # 配信直下は index.html。resolve_static_uri でも同じ結果になるが、どちらが先に走るかへ

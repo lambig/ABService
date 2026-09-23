@@ -35,8 +35,8 @@ variables {
 run "disabled_preparation" {
   command = plan
   assert {
-    condition     = !aws_cloudfront_distribution.main.enabled && length(aws_cloudfront_distribution.main.aliases) == 0 && length(aws_cloudfront_distribution.main.ordered_cache_behavior) == 3
-    error_message = "Preparation must not enable delivery or aliases and must retain all four routes."
+    condition     = !aws_cloudfront_distribution.main.enabled && aws_cloudfront_distribution.main.price_class == "PriceClass_All" && length(aws_cloudfront_distribution.main.aliases) == 0 && length(aws_cloudfront_distribution.main.ordered_cache_behavior) == 3
+    error_message = "Preparation must keep global delivery disabled, without aliases, and retain all four routes."
   }
   assert {
     condition     = alltrue([for b in concat(tolist(aws_cloudfront_distribution.main.default_cache_behavior), tolist(aws_cloudfront_distribution.main.ordered_cache_behavior)) : b.response_headers_policy_id == null && length(b.forwarded_values) == 0 && length(b.lambda_function_association) == 1 && length([for f in b.function_association : f if f.event_type == "viewer-response"]) == 1])
