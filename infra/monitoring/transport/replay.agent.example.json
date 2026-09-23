@@ -12,9 +12,9 @@
       "files": {
         "collect_list": [
           {
-            "file_path": "/var/log/abservice-monitor/credentials.jsonl",
-            "log_group_name": "REPLACE_LOG_GROUP",
-            "log_stream_name": "REPLACE_LOG_STREAM",
+            "file_path": "/var/log/abservice-monitor/replay.jsonl",
+            "log_group_name": "REPLACE_REPLAY_LOG_GROUP",
+            "log_stream_name": "REPLACE_REPLAY_LOG_STREAM",
             "auto_removal": false,
             "timestamp_format": "\"last_success_at\": \"%Y-%m-%dT%H:%M:%S",
             "timezone": "UTC",

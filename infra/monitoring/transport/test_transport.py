@@ -5,6 +5,7 @@ No AWS resources are created. Run this file directly, not through unittest disco
 """
 
 import collections
+import datetime as dt
 import grp
 import gzip
 import http.server
@@ -50,6 +51,9 @@ class Receiver(http.server.BaseHTTPRequestHandler):
             if operation == 'PutLogEvents':
                 target = self.server.rejected if failed else self.server.accepted
                 target.extend(json.loads(event['message']) for event in body['logEvents'])
+                if not failed:
+                    self.server.envelopes.extend({**event, 'group': body['logGroupName']}
+                                                 for event in body['logEvents'])
         self.send_response(503 if failed else 200)
         self.send_header('Content-Type', 'application/x-amz-json-1.1')
         self.end_headers()
@@ -182,7 +186,7 @@ def main():
         receiver = http.server.ThreadingHTTPServer((gateway, 0), Receiver)
         receiver.outage = threading.Event()
         receiver.lock = threading.Lock()
-        receiver.accepted, receiver.rejected = [], []
+        receiver.accepted, receiver.rejected, receiver.envelopes = [], [], []
         threading.Thread(target=receiver.serve_forever, daemon=True).start()
         config = json.loads((SOURCE / 'agent.example.json').read_text())
         config['agent']['region'] = 'us-east-1'
@@ -190,6 +194,10 @@ def main():
         config['logs']['force_flush_interval'] = 1
         collect = config['logs']['logs_collected']['files']['collect_list'][0]
         collect.update(log_group_name='invalid-transport-test', log_stream_name=name)
+        replay_config = json.loads((SOURCE / 'replay.agent.example.json').read_text())
+        replay_collect = replay_config['logs']['logs_collected']['files']['collect_list'][0]
+        replay_collect.update(log_group_name='invalid-replay-test', log_stream_name=name)
+        config['logs']['logs_collected']['files']['collect_list'].append(replay_collect)
         (config_dir / 'agent.json').write_text(json.dumps(config))
         shutil.copyfile(SOURCE / 'common-config.toml', config_dir / 'common-config.toml')
         override = directory / 'compose.json'
@@ -208,8 +216,58 @@ def main():
             with receiver.lock:
                 return all(event in receiver.accepted for event in events)
 
+        def verify_timestamps(events, expected_group='invalid-transport-test'):
+            with receiver.lock:
+                delivered = list(receiver.envelopes)
+            for event in events:
+                matches = [item for item in delivered if json.loads(item['message']) == event]
+                assert matches, event
+                assert all(item['group'] == expected_group for item in matches)
+                # Both publisher payload and CloudWatch envelope retain the original
+                # successful execution's whole second, never its expiry or read time.
+                assert all(item['timestamp'] == event['last_success_epoch'] * 1000 for item in matches), matches
+
+        def synthetic_success(seconds_ago, fractional=True):
+            when = dt.datetime.now(dt.timezone.utc) - dt.timedelta(seconds=seconds_ago)
+            when = when.replace(microsecond=123456 if fractional else 0)
+            # Put expiry first to ensure the format selects the success key, not
+            # the first ISO timestamp. Exercise both fractional and whole seconds.
+            return {'version': 1, 'event': 'credential_refresh_success',
+                    'credential_expires_at': (when + dt.timedelta(seconds=900)).isoformat(),
+                    'last_success_at': when.isoformat(), 'last_success_epoch': int(when.timestamp())}
+
+        def append_event(path, event):
+            with path.open('a') as output:
+                output.write(json.dumps(event) + '\n')
+
+        # Old archive has a newer mtime than the active file. Normal collection
+        # must not choose it when the agent starts with empty state.
+        archive_only = synthetic_success(600)
+        archive = log.with_suffix('.jsonl.1')
+        append_event(archive, archive_only)
+        archive.chmod(0o600)
+        os.chown(archive, account.pw_uid, account.pw_gid)
+        os.utime(archive, (time.time() + 10, time.time() + 10))
+
         dc('up', '-d')
         wait(lambda: received([first]), 'initial event was not delivered')
+        verify_timestamps([first])
+        assert not received([archive_only]), 'archive entered normal collection'
+
+        delayed = [synthetic_success(300), synthetic_success(240, fractional=False)]
+        for event in delayed:
+            append_event(log, event)
+        wait(lambda: received(delayed), 'delayed success events were not delivered')
+        verify_timestamps(delayed)
+        # Replay uses a separate file and destination without the freshness metric.
+        replay_log = logs / 'replay.jsonl'
+        replayed = synthetic_success(540)
+        append_event(replay_log, replayed)
+        replay_log.chmod(0o600)
+        os.chown(replay_log, account.pw_uid, account.pw_gid)
+        wait(lambda: received([replayed]), 'separate replay was not delivered')
+        verify_timestamps([replayed], 'invalid-replay-test')
+        print('PASS original success timestamps, expiry-first JSON, fractional/whole seconds, isolated replay', flush=True)
         container = json.loads(run('docker', 'inspect', dc('ps', '-q', 'agent')))[0]
         mounts = {m['Destination']: m for m in container['Mounts']}
         assert all(not mounts[path]['RW'] for path in (
@@ -220,6 +278,7 @@ def main():
         rotate()
         normal = publish()
         wait(lambda: received([normal]), 'running-agent rotation lost event')
+        verify_timestamps([normal])
         print('PASS initial shipping, restrictive file modes/mounts, rename rotation', flush=True)
 
         receiver.outage.set()
@@ -268,6 +327,11 @@ def main():
         wait(lambda: received([newest]), 'restart failed to discover newest file')
         time.sleep(3)
         observe_retained(offline, 'stopped across rotations')
+        assert not received([archive_only]), 'archive leaked into live collection'
+        with receiver.lock:
+            successes = [event for event in receiver.accepted
+                         if event['event'] == 'credential_refresh_success' and event != replayed]
+        verify_timestamps(successes)
         with receiver.lock:
             counts = collections.Counter(json.dumps(e, sort_keys=True) for e in receiver.accepted)
         print(f'OBSERVED duplicate deliveries={sum(n - 1 for n in counts.values())}', flush=True)
