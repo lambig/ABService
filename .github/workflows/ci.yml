@@ -403,6 +403,11 @@ jobs:
       - name: Verify frontend delivery failure and recovery
         run: node --test infra/release/*.test.mjs infra/functions/*.test.mjs infra/headers/*.test.mjs infra/monitoring/*.test.mjs
 
+      - name: Verify monitoring credential refresh without AWS
+        run: |
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s infra/monitoring/credentials -p 'test_*.py' -v
+          sudo python3 infra/monitoring/credentials/test_systemd.py
+
       - name: Check formatting
         run: terraform fmt -check -recursive infra
 

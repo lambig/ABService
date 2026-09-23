@@ -192,6 +192,10 @@ Terraformが生成した値（`random_password.origin_verify_token`）をCloudFr
 
 検査は `infra/tests/recovery.tftest.hcl`（既定で常設 1 台が保護され、復元点で 2 台目が同じ網の位置に現れ、`db_active` で接続先が動き、復元点のない切り替えと 2 つの復元点の同時指定は plan で止まる。backend の削除権限が `pending/` に限られる）。実環境で復元して確かめる工程は運用リポジトリの手順が持つ。
 
+## instance profileを持たないホストでの監視資格情報
+
+任意導入の [短期資格情報ファイル更新](monitoring/credentials/README.md) を用意する。Roles Anywhereの発行結果を安全に共有ファイルへ更新する単一実行処理とsystemd timerで、既存EC2の認証・配布経路には接続しない。CA/IAM・agentの起動順序・外部通知・実環境の設定と受け入れは別途必要。
+
 ## DB接続情報（#117）
 
 RDSの接続先とパスワードはTerraformが Parameter Store へ保存する（`/<project>/<environment>/db/host` `.../port` `.../name` `.../username`、パスワードのみ SecureString の `.../password`）。`deploy.sh` がこれらを取得して backend コンテナへ `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USERNAME` / `DB_PASSWORD` として渡す。backend は JDBC（Flywayが使う）とreactiveの接続URLをこのホスト・ポート・DB名から組み立てるため、用途ごとのURLを個別に渡すことはしない（両者が別のデータベースを指し得る形を残さない）。
