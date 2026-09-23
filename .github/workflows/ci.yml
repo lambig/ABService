@@ -435,6 +435,12 @@ jobs:
           terraform -chdir=infra/cohost-backup validate
           terraform -chdir=infra/cohost-backup test
 
+      - name: Verify independent cohost provisioning boundaries
+        run: |
+          terraform -chdir=infra/cohost-host init -backend=false
+          terraform -chdir=infra/cohost-host validate
+          terraform -chdir=infra/cohost-host test
+
   e2e:
     needs: changes
     if: ${{ needs.changes.outputs.application == 'true' }}
