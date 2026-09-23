@@ -30,13 +30,28 @@ agentの既定は `restart: "no"` とし、異常終了やDocker daemon再起動
 
 15分ごとにlogrotateを実行し、dailyまたは1MiB超でrename/createする。copytruncateを使わず、次回のoneshot実行が新ファイルを開く。archiveは圧縮せず最大7世代、maxageは7日。判定はtimer実行時、日数による削除はrotation時なので、サイズ・保持時間の厳密な上限ではない。書込み中のrotationでは旧ファイルへその実行の末尾が入ることがある。
 
-agentは `credentials.jsonl*` を収集し、ファイル自動削除を無効にする。[AWSの設定仕様](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Agent-Configuration-File-Details.html)では、wildcardに一致するファイルのうち最終更新が最新のものだけを選ぶ。稼働中のrename追従と、停止中に複数回rotationされたarchiveの全走査は同じではない。
+agentは現行の `credentials.jsonl` だけを収集し、ファイル自動削除を無効にする。archiveをwildcardに含めず、更新時刻を変えた古いarchiveが通常収集の対象にならないようにする。稼働中のrename追従と、停止中に複数回rotationされたarchiveの全走査は同じではない。
 
 - agentが稼働したままの一時的な配送障害では再試行を行うが、無制限の耐久キューではない。障害中にrotationすると旧ファイルの送信処理が停止し、未送信batchが破棄される場合もある。agentが動いていても欠落しないとは限らない。
 - 永続stateは読み取り位置を保存する。CloudWatchが受理したこととstate更新の原子性やexactly-onceを保証しない。プロセス強制終了・長時間障害・ディスク喪失では欠落や重複があり得る。
 - agent停止中にrotationされたarchiveは、再起動だけでは配送されないことがある。配送障害中のrotationも含め、外部から最終成功時刻の古さを監視し、ホストの状態と保存済みarchiveを確認する。archiveが保持期限を超える前に保全し、必要な再送は通常収集と分けて対象・重複を照合する。遅延した成功イベントの時刻を書き換えない。
 
-欠落・遅延があっても監視を正常扱いしないalarm設計（M<N等）の検証は別途必要。このテンプレートの導入だけで通知経路の受入完了とはしない。
+欠落・遅延があっても監視を正常扱いしないalarm設計の検証は別途必要。M<Nへの変更だけでは、現在のlog timestampで古い成功を再送した場合の誤警報を解消する保証はない。このテンプレートの導入だけで通知経路の受入完了とはしない。
+
+## 成功時刻と再送経路
+
+`timestamp_format` はpublisherのJSONにある `"last_success_at": "` に続くUTC時刻を秒まで読み取る。配送先のlog event timestampは `last_success_epoch * 1000` に一致させる。小数秒を指標と同じ整数秒へ揃え、後ろにある小数秒や `+00:00` を解析対象に含めない。`timezone: "UTC"` と `trim_timestamp: false` により、JSON本文を変更せず、資格情報期限が先に並んでも成功時刻を選ぶ。
+
+これは同梱publisherの出力契約専用であり、任意のJSON形式・ローカル時刻用ではない。キー後の空白、キー名、UTC以外のoffsetなどを変更する場合は設定と実agent試験を合わせて更新する。[AWSの設定仕様](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Agent-Configuration-File-Details.html)では、形式を省略すると現在時刻を使う。時刻を持たない失敗イベントは成功時刻として使わず、成功用metric filterから除外する。失敗イベントのlog timestampを正確な発生時刻として扱わない。
+
+archiveの再送は次のように分離する。
+
+1. 保全したarchiveから必要なイベントを選び、通常ログディレクトリとは別の0700ディレクトリに `replay.jsonl`（0600、専用ユーザー所有）として置く。通常の `credentials.jsonl` へ追記・差替えしない。
+2. `replay.agent.example.json` のregionと再送専用log group/streamを設定し、別の設定ディレクトリへ `agent.json` として置く。`common-config.toml` も配置する。再送専用groupは通常groupと必ず分け、鮮度監視用metric filterを付けない。streamだけの分離では、groupに付くmetric filterを回避できない。
+3. 同じComposeを別project名・別 `MONITOR_CONFIG_DIR` / `MONITOR_LOG_DIR` / `MONITOR_STATE_DIR` で手動起動する。通常agentの読み取り位置や生成設定を共有しない。共有資格情報の準備を先に確認する。
+4. 送受信ID、本文と元の成功時刻、配送先group、欠落・重複・AWSの受理可能な経過時間を照合して終了する。過去ログの再送だけで通常監視のALARMを解除しない。通常publisherが新たに成功し、通常経路へ届くことを復旧条件にする。
+
+再送用のgroup作成・IAM制限・metric filter不在確認・ログ選別は運用側の手順であり、このテンプレートは自動で保証しない。今回のローカル試験はagentの送信内容を検査するもので、実AWSのアラーム再検証は別途必要。
 
 ## ローカル実行試験
 
@@ -49,6 +64,8 @@ sudo python3 infra/monitoring/transport/test_transport.py
 固定imageがなければDockerが取得する。実行コンテナは外部へ接続できないinternal networkに限定し、ホスト上の模擬Logs APIへ送る。資格情報・証明書・ARNは明示的に無効なfixtureで、AWSリソースを作らない。確認対象は次の通り。
 
 - systemdのJSONファイル出力・所有者/権限、read-only mount、稼働中のrename rotation
+- 実publisherの成功時刻と配送envelopeの一致、古い成功・小数秒あり/なし・期限が先に並んだJSON、本文の保持
+- 通常ログよりmtimeが新しいarchiveの収集除外、別ファイルから再送専用groupへの配送
 - 配送先503から未rotationのイベントが回復すること、障害中のrotationによる欠落の観測とローカル保持、回復後の新ファイルから成功/失敗イベントが到着すること
 - stateを保持した再起動で、未rotationの新イベントを収集
 - 停止中の複数rotationから再起動した場合の欠落/重複を記録し、未配送イベントのローカル保持を確認
