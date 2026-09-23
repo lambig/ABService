@@ -441,6 +441,11 @@ jobs:
           terraform -chdir=infra/cohost-host validate
           terraform -chdir=infra/cohost-host test
 
+      - name: Verify the packaged compatibility handler without AWS
+        run: |
+          python3 -m zipfile -e infra/.terraform/static-page-404.zip "$RUNNER_TEMP/free-edge-package"
+          node infra/functions/check-edge-package.mjs "$RUNNER_TEMP/free-edge-package"
+
   e2e:
     needs: changes
     if: ${{ needs.changes.outputs.application == 'true' }}
