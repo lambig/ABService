@@ -69,7 +69,7 @@ class RefreshTests(unittest.TestCase):
 
     def cli(self):
         return subprocess.run([sys.executable, str(SOURCE), "--config", str(self.config),
-                               "--runtime-directory", str(self.runtime)], capture_output=True, text=True)
+                               "--runtime-directory", str(self.runtime)], capture_output=True, text=True, timeout=10)
 
     def test_publish_permissions_and_no_secret_status_or_console(self):
         result = self.cli()
@@ -104,7 +104,6 @@ class RefreshTests(unittest.TestCase):
                  response(7200), {**response(), "Expiration": "no-date"},
                  {**response(), "Expiration": "2030-01-01T00:00:00"},
                  {**response(), "SessionToken": "token\n[admin]"},
-                 {**response(), "SessionToken": "x" * 8193},
                  {**response(), "SecretAccessKey": None}, {"Version": 1}]
         for value in cases:
             with self.subTest(value=value):
@@ -117,6 +116,71 @@ class RefreshTests(unittest.TestCase):
         with self.assertRaises(refresh.RefreshError):
             self.run_refresh()
         self.assertEqual(original, (self.runtime / "credentials").read_bytes())
+
+    def test_opaque_credentials_larger_than_8192_are_published_unchanged(self):
+        data = response()
+        for field in ("AccessKeyId", "SecretAccessKey", "SessionToken"):
+            data[field] = "INVALID_TEST:" + "x" * 9000 + "@,{}[]!é"
+        self.payload(data)
+        self.run_refresh()
+        content = (self.runtime / "credentials").read_text()
+        for field, name in (("AccessKeyId", "aws_access_key_id"),
+                            ("SecretAccessKey", "aws_secret_access_key"),
+                            ("SessionToken", "aws_session_token")):
+            self.assertIn(f"{name} = {data[field]}\n", content)
+        self.assertEqual("success", self.status()["result"])
+
+    def test_empty_and_line_breaking_values_are_rejected_in_each_field(self):
+        self.run_refresh()
+        original = (self.runtime / "credentials").read_bytes()
+        for field in ("AccessKeyId", "SecretAccessKey", "SessionToken"):
+            for value in ("", "token\r[admin]", "token\n[admin]", "token\0suffix"):
+                with self.subTest(field=field, value=value):
+                    self.payload({**response(), field: value})
+                    with self.assertRaisesRegex(refresh.RefreshError, "invalid_helper_response"):
+                        self.run_refresh()
+                    self.assertEqual(original, (self.runtime / "credentials").read_bytes())
+
+    def test_response_byte_budget_accepts_exact_boundary_and_rejects_next_byte(self):
+        raw = json.dumps(response()).encode()
+        boundary = raw + b" " * (refresh.MAX_RESPONSE_BYTES - len(raw))
+        (self.root / "response.json").write_bytes(boundary)
+        self.run_refresh()
+        original = (self.runtime / "credentials").read_bytes()
+        (self.root / "response.json").write_bytes(boundary + b" ")
+        with self.assertRaisesRegex(refresh.RefreshError, "helper_output_too_large"):
+            self.run_refresh()
+        self.assertEqual(original, (self.runtime / "credentials").read_bytes())
+        self.assertEqual("acquire", self.status()["stage"])
+
+    def test_endless_output_is_stopped_and_reaped_without_leaking_or_replacing_credentials(self):
+        self.run_refresh()
+        original = (self.runtime / "credentials").read_bytes()
+        self.helper.write_text(
+            "#!/usr/bin/python3\nimport os, pathlib, sys\n"
+            "pathlib.Path(__file__).with_name('pid').write_text(str(os.getpid()))\n"
+            "print('INVALID_TEST_SECRET', file=sys.stderr)\n"
+            "while True:\n    os.write(1, b'INVALID_TEST_TOKEN' * 1024)\n")
+        result = self.cli()
+        self.assertEqual(1, result.returncode)
+        self.assertIn("helper_output_too_large", result.stderr)
+        self.assertNotIn("INVALID_TEST", result.stdout + result.stderr)
+        self.assertEqual(original, (self.runtime / "credentials").read_bytes())
+        self.assertEqual("helper_output_too_large", self.status()["code"])
+        pid = int((self.root / "pid").read_text())
+        with self.assertRaises(ProcessLookupError):
+            os.kill(pid, 0)
+
+    def test_timeout_covers_partial_output_and_wait_after_stdout_closes(self):
+        self.run_refresh()
+        original = (self.runtime / "credentials").read_bytes()
+        for action in ("os.write(1, b'{')", "os.close(1)"):
+            with self.subTest(action=action):
+                self.helper.write_text("#!/usr/bin/python3\nimport os, time\n" + action + "\ntime.sleep(10)\n")
+                with patch.object(refresh, "HELPER_TIMEOUT_SECONDS", 0.2):
+                    with self.assertRaisesRegex(refresh.RefreshError, "helper_timeout"):
+                        self.run_refresh()
+                self.assertEqual(original, (self.runtime / "credentials").read_bytes())
 
     def test_timeout_retains_good_file(self):
         self.run_refresh()

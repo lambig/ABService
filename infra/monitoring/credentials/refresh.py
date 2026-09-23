@@ -8,16 +8,19 @@ import fcntl
 import json
 import os
 from pathlib import Path
-import re
+import selectors
+import signal
 import stat
 import subprocess
 import sys
 import tempfile
+import time
 
 
 SESSION_SECONDS = 900
 MIN_REMAINING_SECONDS = 780  # 600s agent cache + 120s timer + 60s margin.
 HELPER_TIMEOUT_SECONDS = 45
+# Local resource budget for the entire helper response, NOT an AWS token-size limit.
 MAX_RESPONSE_BYTES = 65536
 
 
@@ -114,29 +117,56 @@ def acquire(command):
     environment = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "HOME": "/nonexistent",
                    "AWS_EC2_METADATA_DISABLED": "true"}
     try:
-        result = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                                stderr=subprocess.DEVNULL, env=environment,
-                                timeout=HELPER_TIMEOUT_SECONDS, check=False)
-    except subprocess.TimeoutExpired:
-        raise RefreshError("helper_timeout") from None
+        process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                   stderr=subprocess.DEVNULL, env=environment, bufsize=0,
+                                   start_new_session=True)
     except OSError:
         raise RefreshError("helper_start_failed") from None
-    if result.returncode:
-        raise RefreshError("helper_failed")
-    return result.stdout
+    deadline = time.monotonic() + HELPER_TIMEOUT_SECONDS
+    output = bytearray()
+    try:
+        with selectors.DefaultSelector() as selector:
+            selector.register(process.stdout, selectors.EVENT_READ)
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0 or not selector.select(remaining):
+                    raise RefreshError("helper_timeout")
+                # Buffer at most the local budget plus one byte, even for endless output.
+                chunk = os.read(process.stdout.fileno(), min(8192, MAX_RESPONSE_BYTES + 1 - len(output)))
+                if not chunk:
+                    break
+                output.extend(chunk)
+                if len(output) > MAX_RESPONSE_BYTES:
+                    raise RefreshError("helper_output_too_large")
+        try:
+            process.wait(timeout=max(0, deadline - time.monotonic()))
+        except subprocess.TimeoutExpired:
+            raise RefreshError("helper_timeout") from None
+        if process.returncode:
+            raise RefreshError("helper_failed")
+        return bytes(output)
+    finally:
+        # Reap the helper and any descendants retaining the pipe, including on limit/timeout.
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        process.wait()
+        process.stdout.close()
 
 
 def validate_response(raw):
+    if len(raw) > MAX_RESPONSE_BYTES:
+        raise RefreshError("helper_output_too_large")
     try:
-        if len(raw) > MAX_RESPONSE_BYTES:
-            raise ValueError("response size")
         data = json.loads(raw)
         if not isinstance(data, dict) or type(data.get("Version")) is not int or data["Version"] != 1:
             raise ValueError("response version")
         for field in ("AccessKeyId", "SecretAccessKey", "SessionToken"):
             value = data.get(field)
-            if (not isinstance(value, str) or not 1 <= len(value) <= 8192
-                    or not re.fullmatch(r"[A-Za-z0-9/+=._-]+", value)):
+            # Treat credentials as opaque strings; only protect the shared INI structure.
+            if (not isinstance(value, str) or not value
+                    or any(character in value for character in ("\r", "\n", "\0"))):
                 raise ValueError("credential format")
         remaining = (expiry(data["Expiration"]) - datetime.now(timezone.utc)).total_seconds()
         if not MIN_REMAINING_SECONDS <= remaining <= SESSION_SECONDS + 60:
