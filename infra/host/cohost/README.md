@@ -71,7 +71,7 @@ python3 infra/host/cohost/deploy.py \
 stateの移設・紛失からの復旧は別の明示操作とし、`--initialize`で既存volumeを取り込まない。
 通常配布ではvolumeを作り直さず、存在しなければ失敗する。
 [external volume](https://docs.docker.com/reference/compose-file/volumes/)なのでComposeの削除操作でもDBは残る。
-volumeはバックアップではなく、ホスト喪失で失われる。実データ更新前に別途ホスト外保存を有効にする。
+volumeはバックアップではなく、ホスト喪失で失われる。実データ更新前に[ホスト外保存](BACKUP.md)を有効にする。
 
 配布は排他ロックを取り、値取得・image pullを終えてから起動する。
 DB TCP readinessとアプリreadiness（migration/DB接続を含む）を待ち、稼働image IDを照合して成功にする。
