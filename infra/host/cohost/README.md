@@ -55,7 +55,7 @@ DBは内部ネットワークだけに接続し、5432を公開しない。backe
 ## 初回と更新
 
 rootまたは専用のDocker操作ユーザーで、保護されたstateディレクトリを使う。
-秘密を含む生成Compose、`current.json`、`previous.json` は mode 0600、親は0700となる。
+秘密を含む生成Compose、`initialization.json`、`current.json`、`previous.json` は mode 0600、親は0700となる。
 Docker操作権限のある利用者はコンテナ環境から秘密を読めるため、その権限も制限する。
 
 ```sh
@@ -66,6 +66,9 @@ python3 infra/host/cohost/deploy.py \
 
 通常更新は `--initialize` を外し、同じname/stateで実行する。
 初回だけ専用ラベル付きvolumeを作り、既存volumeへの初期化は拒否する。
+作成前にstateの絶対パス・固有ID・DB設定を`initialization.json`へ保存し、volumeにも同じIDを付ける。
+この記録が無い別state-dirや、別パスへコピーしたstateで既存DBを採用することは拒否する。
+stateの移設・紛失からの復旧は別の明示操作とし、`--initialize`で既存volumeを取り込まない。
 通常配布ではvolumeを作り直さず、存在しなければ失敗する。
 [external volume](https://docs.docker.com/reference/compose-file/volumes/)なのでComposeの削除操作でもDBは残る。
 volumeはバックアップではなく、ホスト喪失で失われる。実データ更新前に別途ホスト外保存を有効にする。
@@ -88,6 +91,8 @@ OS再起動後はDocker起動と`unless-stopped`で復帰する。起動順序�
 自動rollbackやDBの巻き戻し・削除は行わない。
 
 初回が途中で失敗した場合、volumeは残す。statusとDB初期化状態を確認し、`--initialize`なしで再試行する。
+初回にまだhealthyになっていなくても、同じstate・固有ID・DB設定でのみ再試行できる。
+volume作成前に失敗し、対象volumeが存在しない場合に限り、同じstateで`--initialize`を再実行できる。
 initスクリプト途中の失敗では空volumeを再作成する判断が必要な場合があるが、データを確認せず削除しない。
 出力には秘密を含むAWS/Dockerエラーやアプリログを転載しない。詳細はホスト上でのみ確認する。
 
@@ -103,4 +108,6 @@ python3 infra/host/cohost/check_runtime.py --image <locally-built-app-image>
 
 後者はローカルの専用registryへテストイメージを登録し、実際のdigest配布経路を通す。
 AWSは呼ばず、明示した無効なfixture値を使用する。初回起動・非superuser・データ更新・再起動・
-異なるimageへの再配布・失敗時の記録・手動復帰・volume保持を検査する。実AWSや実機性能の保証ではない。
+異なるimageへの再配布・失敗時の記録・手動復帰・volume保持・stateの取り違え拒否を検査する。
+署名付きアップロードURLを発行し、fixtureのaccess key/session tokenが署名に使われることも確認する。
+URLへのアクセスや出力は行わない。実AWSや実機性能の保証ではない。

@@ -3,6 +3,7 @@ import io
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -73,14 +74,16 @@ class DeployTests(unittest.TestCase):
         def fake_run(*args, **kwargs):
             calls.append(args)
             if args[:3] == ("docker", "volume", "inspect"):
-                return json.dumps([{"Labels": {"abservice.cohost": self.config["name"]}}])
+                identity = deploy.read_json(state / "initialization.json")["id"]
+                return json.dumps([{"Labels": {"abservice.cohost": self.config["name"],
+                                               "abservice.cohost.state": identity}}])
             if args[-1] == "{{.Architecture}}":
                 return "amd64"
             return ""
 
         with patch.object(deploy, "parameters", return_value=VALUES), patch.object(deploy, "run", side_effect=fake_run):
             with patch.object(deploy, "compose", return_value="container"), contextlib.redirect_stdout(io.StringIO()):
-                deploy.deploy(self.config, IMAGE, SOURCE, state)
+                deploy.deploy(self.config, IMAGE, SOURCE, state, initialize=True)
             before = (state / "current.json").read_bytes()
 
             def unhealthy(*args):
@@ -104,6 +107,66 @@ class DeployTests(unittest.TestCase):
             with self.assertRaisesRegex(deploy.DeployError, "existing volume"):
                 deploy.deploy(self.config, IMAGE, SOURCE, self.root / "state", initialize=True)
         self.assertEqual(runner.call_count, 1)
+
+    def test_state_without_initialization_cannot_adopt_volume(self):
+        with patch.object(deploy, "run") as runner, patch.object(deploy, "parameters") as params:
+            with self.assertRaisesRegex(deploy.DeployError, "No initialization record"):
+                deploy.deploy(self.config, IMAGE, SOURCE, self.root / "mistyped-state")
+        runner.assert_not_called()
+        params.assert_not_called()
+
+    def test_failed_initialization_retries_only_same_database_and_state(self):
+        state = self.root / "state"
+        labels = {}
+
+        def fake_run(*args, **kwargs):
+            if args[:3] == ("docker", "volume", "create"):
+                labels.update({"abservice.cohost": self.config["name"],
+                               "abservice.cohost.state": deploy.read_json(state / "initialization.json")["id"]})
+            if args[:3] == ("docker", "volume", "inspect"):
+                return json.dumps([{"Labels": labels}])
+            if args[-1] == "{{.Architecture}}":
+                return "amd64"
+            return ""
+
+        def unhealthy(*args):
+            if "up" in args:
+                raise deploy.DeployError("unhealthy fixture")
+            return ""
+
+        with patch.object(deploy, "parameters", return_value=VALUES), patch.object(deploy, "run", side_effect=fake_run) as runner:
+            with patch.object(deploy, "compose", side_effect=unhealthy), self.assertRaises(deploy.DeployError):
+                deploy.deploy(self.config, IMAGE, SOURCE, state, initialize=True)
+            self.assertFalse((state / "current.json").exists())
+            identity = (state / "initialization.json").read_bytes()
+            self.assertEqual((state / "initialization.json").stat().st_mode & 0o777, 0o600)
+
+            for replacement in ({**VALUES, "db/password": "changed"}, VALUES):
+                changed_config = self.config if replacement != VALUES else {**self.config, "postgres_image": IMAGE}
+                runner.reset_mock()
+                with patch.object(deploy, "parameters", return_value=replacement):
+                    with self.assertRaisesRegex(deploy.DeployError, "Database configuration changed"):
+                        deploy.deploy(changed_config, IMAGE, SOURCE, state)
+                runner.assert_not_called()
+
+            copied = self.root / "copied-state"
+            shutil.copytree(state, copied)
+            runner.reset_mock()
+            with self.assertRaisesRegex(deploy.DeployError, "another state directory"):
+                deploy.deploy(self.config, IMAGE, SOURCE, copied)
+            runner.assert_not_called()
+
+            # A project label alone is insufficient, including after a creation race.
+            labels["abservice.cohost.state"] = "another-state-id"
+            with patch.object(deploy, "compose") as compose:
+                with self.assertRaisesRegex(deploy.DeployError, "ownership/state labels"):
+                    deploy.deploy(self.config, IMAGE, SOURCE, state)
+                compose.assert_not_called()
+            labels["abservice.cohost.state"] = json.loads(identity)["id"]
+            with patch.object(deploy, "compose", return_value="container"), contextlib.redirect_stdout(io.StringIO()):
+                deploy.deploy(self.config, IMAGE, SOURCE, state)
+            self.assertTrue((state / "current.json").exists())
+            self.assertEqual((state / "initialization.json").read_bytes(), identity)
 
 
 if __name__ == "__main__":

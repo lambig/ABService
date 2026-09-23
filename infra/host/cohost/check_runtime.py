@@ -11,6 +11,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+import urllib.parse
 import uuid
 from unittest.mock import patch
 
@@ -117,11 +118,33 @@ def main():
             payload = {"content": "cohost-persisted-fixture", "contentFormat": "PLAIN_TEXT"}
             assert http("/api/v1/site-contents/cohost.test", "PUT", payload)[0] == 401
             assert http("/api/v1/site-contents/cohost.test", "PUT", payload, admin=True)[0] == 200
+            status, body = http("/api/v1/assets/upload-url", "POST", {"contentType": "image/png"}, admin=True)
+            assert status == 200, "Presign did not resolve the process profile"
+            signed = urllib.parse.urlsplit(json.loads(body)["uploadUrl"])
+            query = urllib.parse.parse_qs(signed.query)
+            assert query["X-Amz-Credential"][0].split("/")[0] == credentials["AccessKeyId"]
+            assert query["X-Amz-Security-Token"] == [credentials["SessionToken"]]
+            assert query["X-Amz-Signature"][0]
+            # Do not request or log the URL: signing is local and the key is invalid.
+            print("presign consumed the fixture process credentials and session token", flush=True)
             before = json.loads(http("/api/v1/site-contents")[1])
             assert "cohost-persisted-fixture" in json.dumps(before)
             # Also proves $/quotes/newline DB passwords reach both PostgreSQL and app unchanged.
             assert sql("select count(*) from flyway_schema_history where success") != "0"
             print("initial boot, migration, restricted role, authentication and write passed", flush=True)
+
+            for other_state in (root / "mistyped-state", root / "copied-state"):
+                if other_state.name == "copied-state":
+                    shutil.copytree(state, other_state)
+                try:
+                    deploy.deploy(c, second, "2" * 40, other_state)
+                except deploy.DeployError:
+                    pass
+                else:
+                    raise AssertionError("Another state directory adopted the running database")
+                assert service_id("postgres") == initial_db
+                assert json.loads(http("/api/v1/site-contents")[1]) == before
+            print("mistyped/copied state directories rejected without changing the running database", flush=True)
 
             deploy.compose(c, state / "candidate.compose.json", "restart")
             deploy.deploy(c, first, "1" * 40, state)

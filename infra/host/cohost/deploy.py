@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import uuid
 
 
 class DeployError(Exception):
@@ -180,12 +181,26 @@ def apply_locked(config, image, source, state_dir, initialize, attempt):
     current = read_json(current_path) if current_path.exists() else None
     if current and initialize:
         raise DeployError("Already deployed; initialization is never an update operation")
+    initialization_path = state_dir / "initialization.json"
+    initialization = read_json(initialization_path) if initialization_path.exists() else None
+    if initialization:
+        # A copied/mistyped state directory must not establish a second lock for
+        # the same project. Restore/move of state is an explicit recovery action.
+        if initialization["state_dir"] != str(state_dir) or initialization["name"] != config["name"]:
+            raise DeployError("Initialization belongs to another state directory or project")
+    elif current or not initialize:
+        raise DeployError("No initialization record; refusing to adopt an existing database")
     model = compose_config(config, image, parameters(config))
     # Keep this mount path stable when the checked-out deployment version changes.
     init_file = state_dir / "init-db.sh"
     init_file.write_bytes(Path(__file__).with_name("init-db.sh").read_bytes())
     os.chmod(init_file, 0o644)  # The unprivileged postgres entrypoint must read it.
     model["services"]["postgres"]["volumes"][1]["source"] = escape_compose(str(init_file))
+    database = {"service": model["services"]["postgres"], "volumes": model["volumes"]}
+    if initialization and initialization["database"] != database:
+        # Keep this guard even before the first healthy application deployment:
+        # a failed attempt may already have initialized the persistent database.
+        raise DeployError("Database configuration changed; perform a planned DB operation first")
     if current:
         # This command updates only the app. Changing DB identity/password/image
         # on an existing volume requires a separate, explicit DB operation.
@@ -199,10 +214,19 @@ def apply_locked(config, image, source, state_dir, initialize, attempt):
         names = run("docker", "volume", "ls", "--format", "{{.Name}}").splitlines()
         if volume in names:
             raise DeployError("Refusing to initialize an existing volume")
-        run("docker", "volume", "create", "--label", "abservice.cohost=" + config["name"], volume)
+        if initialization is None:
+            initialization = {"name": config["name"], "state_dir": str(state_dir),
+                              "id": uuid.uuid4().hex, "database": database}
+            # Persist before creation, so a crash after Docker creates the volume
+            # can be retried from this state without recreating or adopting data.
+            write_json(initialization_path, initialization)
+        run("docker", "volume", "create", "--label", "abservice.cohost=" + config["name"],
+            "--label", "abservice.cohost.state=" + initialization["id"], volume)
     info = json.loads(run("docker", "volume", "inspect", volume))[0]
-    if (info.get("Labels") or {}).get("abservice.cohost") != config["name"]:
-        raise DeployError("Database volume ownership label does not match")
+    labels = info.get("Labels") or {}
+    if (labels.get("abservice.cohost") != config["name"]
+            or labels.get("abservice.cohost.state") != initialization["id"]):
+        raise DeployError("Database volume ownership/state labels do not match")
     candidate = state_dir / "candidate.compose.json"
     write_json(candidate, model)
     compose(config, candidate, "config", "--quiet")
