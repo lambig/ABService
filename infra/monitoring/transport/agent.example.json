@@ -1,0 +1,24 @@
+{
+  "agent": {
+    "region": "REPLACE_REGION",
+    "omit_hostname": true,
+    "debug": false,
+    "usage_data": false,
+    "logfile": ""
+  },
+  "logs": {
+    "force_flush_interval": 5,
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/abservice-monitor/credentials.jsonl*",
+            "log_group_name": "REPLACE_LOG_GROUP",
+            "log_stream_name": "REPLACE_LOG_STREAM",
+            "auto_removal": false
+          }
+        ]
+      }
+    }
+  }
+}

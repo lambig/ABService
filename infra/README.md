@@ -196,6 +196,8 @@ Terraformが生成した値（`random_password.origin_verify_token`）をCloudFr
 
 任意導入の [短期資格情報ファイル更新](monitoring/credentials/README.md) を用意する。Roles Anywhereの発行結果を安全に共有ファイルへ更新する単一実行処理とsystemd timerで、既存EC2の認証・配布経路には接続しない。CA/IAM・agentの起動順序・外部通知・実環境の設定と受け入れは別途必要。
 
+JSONイベントの任意導入の [ファイル収集・保持・配送](monitoring/transport/README.md) も用意する。専用ファイルのrename rotationとCloudWatch agent設定を含む。停止中にrotationされたarchiveの全再送は保証しないため、外部の鮮度監視と復旧確認を併せて行う。
+
 ## DB接続情報（#117）
 
 RDSの接続先とパスワードはTerraformが Parameter Store へ保存する（`/<project>/<environment>/db/host` `.../port` `.../name` `.../username`、パスワードのみ SecureString の `.../password`）。`deploy.sh` がこれらを取得して backend コンテナへ `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USERNAME` / `DB_PASSWORD` として渡す。backend は JDBC（Flywayが使う）とreactiveの接続URLをこのホスト・ポート・DB名から組み立てるため、用途ごとのURLを個別に渡すことはしない（両者が別のデータベースを指し得る形を残さない）。
