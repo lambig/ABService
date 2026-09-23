@@ -2,6 +2,8 @@
 
 ABService v1.0 の AWS インフラ定義。EC2（backend常時起動）+ CloudFront（WAFアタッチ）+ RDS（PostgreSQL）+ S3（frontend配信2バケット・アセット1バケット・非公開の配布履歴1バケット）+ ECR（backendコンテナイメージ配布先）を単一のTerraform構成として管理する。構成の確定事項はこのファイルが正で、判断の理由は [../docs/DECISIONS.md](../docs/DECISIONS.md)、境界と経路は [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) を参照。
 
+単一ホストへ backend と PostgreSQL を同居させる opt-in の配布経路は [host/cohost/README.md](host/cohost/README.md) を参照する。これは上記 Terraform や既存 Actions 配布とは独立した実装であり、実環境の採用・配備を意味しない。
+
 ## 前提
 
 - ドメインのRoute53ホストゾーンが作成済みであること（レジストラ側のネームサーバー委譲を含む。#129）
