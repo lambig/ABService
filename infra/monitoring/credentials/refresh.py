@@ -218,20 +218,35 @@ def refresh(config_path, directory):
             raise RefreshError(code) from None
         # Separate files: a status write failure does not roll back published credentials.
         atomic_write(directory, "status.json", json.dumps(status) + "\n")
+        # Return this attempt's committed status; rereading after releasing the lock could
+        # accidentally report another invocation's success as our own.
+        return status
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--runtime-directory", type=Path, required=True)
+    parser.add_argument("--log-format", choices=("text", "json"), default="text")
     args = parser.parse_args()
     try:
-        refresh(args.config, args.runtime_directory)
+        status = refresh(args.config, args.runtime_directory)
     except Exception as error:
         code = str(error) if isinstance(error, RefreshError) else "refresh_failed"
-        print(f"monitor credentials: {code}", file=sys.stderr)
+        if args.log_format == "json":
+            print(json.dumps({"version": 1, "event": "credential_refresh_failure", "code": code}),
+                  file=sys.stderr, flush=True)
+        else:
+            print(f"monitor credentials: {code}", file=sys.stderr)
         return 1
-    print("monitor credentials: refreshed")
+    if args.log_format == "json":
+        # Explicit allowlist: never serialize the helper response, config or whole status.
+        print(json.dumps({"version": 1, "event": "credential_refresh_success",
+                          "last_success_at": status["last_success_at"],
+                          "last_success_epoch": int(expiry(status["last_success_at"]).timestamp()),
+                          "credential_expires_at": status["credential_expires_at"]}), flush=True)
+    else:
+        print("monitor credentials: refreshed")
     return 0
 
 

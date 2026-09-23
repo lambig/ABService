@@ -4,7 +4,7 @@ Linux/Python 3.9以降向けの任意導入コンポーネント。IAM Roles Any
 
 ## 契約
 
-- `refresh.py` は1回実行。成功は終了0、失敗・排他競合は終了1。helperのstdout/stderrや例外本文をログへ出さず、固定の結果コードのみ出力する。
+- `refresh.py` は1回実行。成功は終了0、失敗・排他競合は終了1。既定のテキスト出力は固定の結果コードのみ。`--log-format json` は後述の構造化イベントを出力する。どちらもhelperのstdout/stderrや例外本文をログへ出さない。
 - 設定は `config.example.json` の5項目すべてを指定する。helperは絶対パスの検証済み実行ファイル。環境変数からAWS認証・設定・proxyを継承しない。proxyやHSM等が必要な構成は別途対応が必要。
 - 証明書世代ディレクトリには `certificate.pem` と `private-key.pem` を置く。`current` symlinkは許容し、実行開始時に世代を一度だけ解決する。世代内の2ファイルは通常ファイルとし、発行処理中は削除・上書きしない。鍵は実行ユーザー所有の0600。鍵と証明書の一致・CA/subject/用途・期限を、世代を公開する前に別工程で検証する。
 - 出力ディレクトリは事前作成した絶対パス、実行ユーザー所有0700。symlink経由は拒否する。親ディレクトリと設定・helper・スクリプトは管理者が管理し、別ユーザーに書き込み権限を与えない。
@@ -46,6 +46,21 @@ shared_credential_file = "/run/abservice-monitor/credentials"
 
 設定・取得・検証・公開の失敗はstatusへ書く。runtime/lockを利用できない場合、排他競合、status自体の書込み失敗、強制終了では新しいstatusがない場合がある。終了状態と最終成功時刻の古さを併せて監視する。statusだけで「いま配送できる」と判断しない。
 
+### 構造化イベント
+
+`--log-format json` を指定すると、成功はstdout、失敗はstderrへJSONを1行出力する。同梱serviceはこの形式を指定し、通常はjournalへ記録される。CLIの既定値は従来のtextのまま。イベントの `version` は1で、出力項目は以下に限定する。
+
+| event | version/event以外の項目 | 出力条件 |
+| --- | --- | --- |
+| `credential_refresh_success` | `last_success_at`、整数秒の `last_success_epoch`、`credential_expires_at` | この実行のcredentialsとstatusの原子的な書込みが両方完了した後 |
+| `credential_refresh_failure` | 固定の `code` のみ | 更新の失敗、runtime/lockの利用不可、排他競合、status書込み失敗 |
+
+成功時刻はこの実行で確定したUTC時刻であり、配送時刻で置き換えない。lock解放後にstatusを読み直さないため、別の実行がstatusを更新しても今回の成功と取り違えない。失敗イベントには前回成功時刻を付けず、成功用metric filterに一致させない。helper応答、設定、ARN、証明書情報、資格情報値は出力しない。
+
+収集側では `{ $.event = "credential_refresh_success" }` に一致するイベントの `$.last_success_epoch` を使える。別の `ExecStartPost` でstatusを再読取りして成功イベントを重ねて出さない。journalからの配送、または管理されたログファイルへの出力/収集・権限・rotation/保持の設定は別途必要であり、このserviceだけではCloudWatchへ送信しない。
+
+資格情報の保存、statusの保存、イベントの出力/配送は一つのトランザクションではない。保存後の強制終了や出力先の障害では、正常なファイルがあっても成功イベントが届かない場合がある。イベントの到着を発行成功の唯一の記録にせず、外部では成功時刻が進まない状態を検知する。到着件数だけで正常扱いしたり、イベントのexactly-once配送を仮定したりしない。
+
 この変更は通知を送らない。ホストの資格情報が壊れても検知できる外部からのログ鮮度監視、通知の受信確認、証明書/CRL期限の監視を導入条件とする。残存時間の余裕不足、欠落/重複、保持容量、停止・再起動後の配送、実機メモリ、ホスト喪失からの復旧も別途検証する。
 
 ## ローカル検査
@@ -55,7 +70,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s infra/monitoring/crede
 systemd-analyze verify infra/monitoring/credentials/abservice-monitor-credentials.{service,timer}
 ```
 
-専用のLinux検証環境では次のsystemd実行試験も行う。root権限で一意名のunitを `/run/systemd/system` へ置き、実行自体はテスト用に既存の非特権 `nobody` を使う。本番のユーザー設計には使わない。timer間隔のみ3秒へ短縮し、成功→失敗→次回回復、oneshot後の保持、空のruntimeからの再起動を確認する。finallyで自分のunitと `/run/ab-monitor-test-*` 専用領域を削除する。全ホストの再起動や本番周期の長時間試験ではない。
+専用のLinux検証環境では次のsystemd実行試験も行う。root権限で一意名のunitを `/run/systemd/system` へ置き、実行自体はテスト用に既存の非特権 `nobody` を使う。本番のユーザー設計には使わない。timer間隔のみ3秒へ短縮し、成功→失敗→次回回復、oneshot後の保持、空のruntimeからの再起動、journalへのJSON成功/失敗イベント出力と秘密値非出力を確認する。finallyで自分のunitと `/run/ab-monitor-test-*` 専用領域を削除する。全ホストの再起動や本番周期の長時間試験ではない。
 
 ```sh
 sudo python3 infra/monitoring/credentials/test_systemd.py
