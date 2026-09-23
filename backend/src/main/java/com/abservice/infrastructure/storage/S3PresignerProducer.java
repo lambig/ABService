@@ -1,8 +1,10 @@
 package com.abservice.infrastructure.storage;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Disposes;
 import jakarta.enterprise.inject.Produces;
 import java.net.URI;
+import java.time.Clock;
 import java.util.Optional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -14,12 +16,12 @@ import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 /**
- * 署名付きURL生成器（{@link S3Presigner}）のCDIプロデューサ
+ * 資格情報の期限を考慮するアップロードURL生成器のCDIプロデューサ
  *
  * <p>
  * quarkus-amazon-s3 拡張は S3 クライアントのみを CDI に提供し、presigner は提供しないため自前で組み立てる。設定は
  * 拡張と同じ {@code quarkus.s3.*} を読み、接続先・資格情報の指定を1か所に保つ。資格情報は静的キーの指定が あればそれを使い（開発の
- * MinIO）、無ければ既定のプロバイダ連鎖（本番のインスタンスプロファイル）に委ねる。
+ * MinIO）、無ければ既定のプロバイダ連鎖に委ねる。一時資格情報は期限を返せるプロバイダを使う。
  * </p>
  */
 @ApplicationScoped
@@ -69,10 +71,28 @@ public class S3PresignerProducer {
      */
     @Produces
     @ApplicationScoped
-    public S3Presigner presigner() {
+    public S3UploadPresigner presigner() {
+        final var credentials = credentialsProvider();
+        return new S3UploadPresigner(
+                sdkPresigner(credentials),
+                credentials,
+                Clock.systemUTC());
+    }
+
+    /**
+     * アプリケーション終了時に署名器と資格情報プロバイダを閉じます。
+     *
+     * @param presigner
+     *            終了する署名器
+     */
+    public void close(@Disposes S3UploadPresigner presigner) {
+        presigner.close();
+    }
+
+    private S3Presigner sdkPresigner(AwsCredentialsProvider credentials) {
         final var builder = S3Presigner.builder()
                 .region(Region.of(region))
-                .credentialsProvider(credentialsProvider())
+                .credentialsProvider(credentials)
                 .serviceConfiguration(
                         S3Configuration.builder()
                                 .pathStyleAccessEnabled(pathStyleAccess)

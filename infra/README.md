@@ -214,6 +214,8 @@ schemaの正はマイグレーションであり、起動時に適用される�
 
 画像アセットは管理画面が backend から署名付きURLを受け取り、S3（`aws_s3_bucket.assets`）へ直接 PUT する。実体は backend／CloudFront を経由しないため、サイズ上限はアプリ側の検証（`abservice.assets.max-bytes`）だけで決まる。
 
+URLの有効時間は `abservice.assets.presign-expiry`（既定10分）を上限とし、一時資格情報の残存時間から5秒の余裕を引いた範囲へ短縮する。`expiresAt` はURLの署名と同じ秒単位の期限を返す。SDKが期限情報を返す資格情報プロバイダ（instance profileや`credential_process`など）を利用する。期限情報を持たないセッション資格情報、失効済みの資格情報、署名中に期限を過ぎた要求ではURLを発行しない。次の発行ではプロバイダへ再び問い合わせる。開発用MinIOの静的資格情報では設定した有効時間を維持する。
+
 - 署名付きURLの宛先は受け入れ前の接頭辞（`pending/`）で、配信対象（`assets/`）へは backend の確定処理がバケット内でコピーして移す。クライアントが配信キーへ書き込む経路は無い
 - 配信は CloudFront の `/assets/*` ビヘイビア経由（OAC で S3 を読み取り、バケットは非公開のまま）。オブジェクトキーの接頭辞を `assets/` に揃えているため `origin_path` は使わない。`pending/` は配信パスの外にあるため CloudFront から到達しない
 - 確定後のアセットはキーが一意（UUIDv7）で内容が変わらないため長期キャッシュ設定（`default_ttl` 1日 / `max_ttl` 1年）
