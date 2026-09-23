@@ -56,7 +56,7 @@ services:
       - /opt/aws/amazon-cloudwatch-agent/logs/agent.toml
   agent:
     <<: *monitor-runtime
-    restart: unless-stopped
+    restart: "no"
     depends_on:
       translate:
         condition: service_completed_successfully

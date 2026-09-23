@@ -24,7 +24,7 @@ systemd、logrotate、Docker Compose v2を備えたLinuxホストと、既存の
 
 bind元がない場合は起動を失敗させ、Dockerによるroot所有ディレクトリの自動作成を禁止する。agentのルートFSはread-only、capabilityなし、メモリ上限256MiB。agent自身の診断ログはDocker local driverで2MiB×3ファイルに制限する。これはホスト全体の容量制限ではなく、対象実機でのメモリ受入も別途必要。
 
-ホスト起動時にはtmpfiles → publisher初回成功 → agentの順序を別途構成する。Composeのdepends_onはtranslatorだけを待ち、ホストのpublisher成功を待たない。`/run` は再起動で消えるため、コンテナのrestart設定だけではこの順序を保証できない。起動順序と空runtimeからの復旧を実機で確認するまで、本番の自動起動へ接続しない。
+agentの既定は `restart: "no"` とし、異常終了やDocker daemon再起動による自動起動を無効にする。停止後は資格情報の準備を確認して手動で起動する。ホスト起動時にはtmpfiles → publisher初回成功 → agentの順序を別途構成する。Composeのdepends_onはtranslatorだけを待ち、ホストのpublisher成功を待たない。`/run` は再起動で消えるため、restart policyだけを有効にしてもこの順序を保証できない。自動起動・障害時の再起動は、この順序と空runtimeからの復旧を保証する運用側の仕組みと合わせて導入し、実機で確認する。
 
 ## ローテーションと配送の限界
 
