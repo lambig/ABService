@@ -1,4 +1,5 @@
 mock_provider "aws" {}
+
 override_resource {
   target = aws_s3_bucket.assets
   values = { arn = "arn:aws:s3:::example-assets", id = "example-assets" }
@@ -49,6 +50,27 @@ run "reject_worldwide_ssh" {
   command = plan
   variables { operator_cidr = "0.0.0.0/0" }
   expect_failures = [var.operator_cidr]
+}
+run "ssm_cannot_read_workload_parameters" {
+  command = plan
+  assert {
+    condition = (
+      aws_iam_role_policy.ssm_parameter_boundary.role == "example-ssm" &&
+      jsondecode(aws_iam_role_policy.ssm_parameter_boundary.policy).Statement[0].Effect == "Deny" &&
+      jsondecode(aws_iam_role_policy.ssm_parameter_boundary.policy).Statement[0].Resource == "*" &&
+      toset(jsondecode(aws_iam_role_policy.ssm_parameter_boundary.policy).Statement[0].Action) == toset([
+        "ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath", "ssm:GetParameterHistory"
+      ])
+    )
+    error_message = "The SSM agent must explicitly deny all parameter reads, including ancestor paths and history."
+  }
+  assert {
+    condition = (
+      aws_iam_role_policy_attachment.ssm.role == "example-ssm" &&
+      aws_iam_role_policy_attachment.ssm.policy_arn == "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+    )
+    error_message = "Keep SSM core management permissions on the bounded management role."
+  }
 }
 run "reject_private_key_input" {
   command = plan

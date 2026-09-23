@@ -167,6 +167,18 @@ resource "aws_iam_role_policy_attachment" "ssm" {
   role       = aws_iam_role.ssm.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
+resource "aws_iam_role_policy" "ssm_parameter_boundary" {
+  name = "deny-parameter-reads"
+  role = aws_iam_role.ssm.name
+  # ManagedInstanceCore grants GetParameter(s) on *. Parameter reads belong to
+  # the workload roles, not the management agent. Deny all paths so recursive
+  # ancestor queries and parameter history cannot bypass the boundary.
+  policy = jsonencode({ Version = "2012-10-17", Statement = [{
+    Effect   = "Deny"
+    Action   = ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath", "ssm:GetParameterHistory"]
+    Resource = "*"
+  }] })
+}
 
 output "connection" {
   value = {

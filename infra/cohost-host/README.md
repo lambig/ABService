@@ -48,6 +48,14 @@ Secrets Manager access. The deployment role only reads the configured Parameter
 Store prefix and pulls from the dedicated repository. The backup role only gets
 the separately reviewed writer policy; never add broad permissions to it.
 
+The SSM management role retains `AmazonSSMManagedInstanceCore` for node management,
+but explicitly denies all Parameter Store reads, including history and recursive
+path reads. This overrides the managed policy's broad parameter grants, including
+parameters encrypted with the default SSM key. SSM commands must use the separate
+deployment credential when application parameters are needed; do not rely on the
+agent credential to resolve Parameter Store references in SSM documents. Verify
+both denied parameter reads and continued node/Run Command operation after apply.
+
 Issue separate leaf certificates with CN `<name>-app`, `<name>-deploy` and
 `<name>-backup`. The trust policy checks subject, trust anchor and source account.
 Use 900-second sessions. Store the leaf keys under separate protected directories;
@@ -64,7 +72,8 @@ revocation use the existing operational procedures.
 ## Checks
 
 `terraform validate` and `terraform test` check the schema, bootstrap port and
-asset-retention boundaries, and reject a world-open SSH range or private-key input.
+asset-retention and SSM parameter-read boundaries, and reject a world-open SSH
+range or private-key input.
 Tests use a mock provider and never create AWS resources. Mock plan checks are not
 an AWS IAM/access or real-host acceptance test; read back actual trust policies,
 role permissions, bucket settings and host behavior after applying.
