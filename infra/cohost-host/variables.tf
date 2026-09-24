@@ -22,6 +22,18 @@ variable "operator_cidr" {
   }
 }
 variable "assets_bucket" { type = string }
+variable "origin_https_enabled" {
+  description = "Open HTTPS only to AWS CloudFront origin-facing IPv4 ranges after TLS and origin-token checks."
+  type        = bool
+  default     = false
+  nullable    = false
+}
+variable "origin_http_validation_enabled" {
+  description = "Open HTTP for ACME only after installing the challenge-only listener; never proxy the application on HTTP."
+  type        = bool
+  default     = false
+  nullable    = false
+}
 variable "assets_distribution_arn" {
   description = "Optional same-account CloudFront distribution allowed to read published assets through OAC."
   type        = string

@@ -30,6 +30,21 @@ bind to loopback and PostgreSQL must remain on the internal Docker network. The
 CDN/origin firewall, origin authentication, TLS, headers and acceptance are separate
 work. Creating the host is not a public release.
 
+### Optional origin ports
+
+After installing and testing the [dedicated origin runtime](../host/cohost/ORIGIN.md),
+`origin_http_validation_enabled` opens port 80 for the challenge-only HTTP listener.
+`origin_https_enabled` separately opens port 443 only to AWS's current CloudFront
+origin-facing IPv4 ranges. Both default to false. TLS, origin authentication and
+management-path rejection must pass local checks before opening HTTPS. The shared
+CloudFront IP ranges do not authenticate a specific distribution.
+
+The data source refreshes ranges during Terraform plan/apply, not continuously.
+Arrange operational range-change/failure notifications and reviewed updates.
+Empty ranges or more than 60 combined IPv4 rules fail rather than widen access.
+IPv6, application and database ports remain closed. Inspect the complete saved
+plan and actual firewall after each change; do not apply unrelated resource changes.
+
 ### Optional asset delivery and browser uploads
 
 This root continues to own the existing asset bucket and its policy/CORS. Set

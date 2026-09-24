@@ -22,14 +22,54 @@ resource "aws_lightsail_instance" "host" {
   lifecycle { prevent_destroy = true }
 }
 
+data "aws_ip_ranges" "origin" {
+  count    = var.origin_https_enabled ? 1 : 0
+  services = ["CLOUDFRONT_ORIGIN_FACING"]
+  regions  = ["GLOBAL"]
+}
+
 resource "aws_lightsail_instance_public_ports" "host" {
   instance_name = aws_lightsail_instance.host.name
-  # Bootstrap access only. Application remains loopback-bound until CDN acceptance.
+  # Application and database ports remain private in every phase.
   port_info {
-    protocol  = "tcp"
-    from_port = 22
-    to_port   = 22
-    cidrs     = [var.operator_cidr]
+    protocol          = "tcp"
+    from_port         = 22
+    to_port           = 22
+    cidrs             = [var.operator_cidr]
+    ipv6_cidrs        = []
+    cidr_list_aliases = []
+  }
+  dynamic "port_info" {
+    for_each = var.origin_http_validation_enabled ? [80] : []
+    content {
+      protocol          = "tcp"
+      from_port         = port_info.value
+      to_port           = port_info.value
+      cidrs             = ["0.0.0.0/0"]
+      ipv6_cidrs        = []
+      cidr_list_aliases = []
+    }
+  }
+  dynamic "port_info" {
+    for_each = var.origin_https_enabled ? [443] : []
+    content {
+      protocol          = "tcp"
+      from_port         = port_info.value
+      to_port           = port_info.value
+      cidrs             = sort(data.aws_ip_ranges.origin[0].cidr_blocks)
+      ipv6_cidrs        = []
+      cidr_list_aliases = []
+    }
+  }
+  lifecycle {
+    precondition {
+      condition     = !var.origin_https_enabled || length(try(data.aws_ip_ranges.origin[0].cidr_blocks, [])) > 0
+      error_message = "Refuse HTTPS without CloudFront origin-facing IPv4 ranges."
+    }
+    precondition {
+      condition     = 1 + (var.origin_http_validation_enabled ? 1 : 0) + length(try(data.aws_ip_ranges.origin[0].cidr_blocks, [])) <= 60
+      error_message = "The requested IPv4 rules exceed the Lightsail firewall limit; review before changing access."
+    }
   }
 }
 

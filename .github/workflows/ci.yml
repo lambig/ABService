@@ -367,6 +367,7 @@ jobs:
         run: |
           python3 -m unittest discover -s infra/host/cohost -p 'test_*.py'
           python3 infra/host/cohost/check_runtime.py --image abservice-backend:ci
+          python3 infra/host/cohost/check_origin.py
 
   iac-check:
     needs: changes
