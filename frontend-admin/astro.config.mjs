@@ -35,7 +35,8 @@ export default defineConfig({
       PUBLIC_API_BASE_URL: envField.string({
         context: 'client',
         access: 'public',
-        default: 'http://localhost:8080',
+        // Empty deployment values select this default; keep production requests on the page origin.
+        default: '',
       }),
 
       /*
@@ -65,6 +66,10 @@ export default defineConfig({
      */
     server: {
       proxy: {
+        '/api': {
+          target: 'http://127.0.0.1:8080',
+          changeOrigin: true,
+        },
         '/assets': {
           target: 'http://127.0.0.1:9000/abservice-assets',
           changeOrigin: true,
