@@ -192,13 +192,19 @@ resource "aws_rolesanywhere_profile" "workload" {
   duration_seconds = 900
   role_arns        = [aws_iam_role.workload[each.key].arn]
 }
-resource "aws_iam_role_policy" "app" {
-  role = aws_iam_role.workload["app"].id
-  policy = jsonencode({ Version = "2012-10-17", Statement = [
+locals {
+  app_asset_policy = { Version = "2012-10-17", Statement = [
+    # HeadObject must distinguish an absent asset (404) from denied access (403).
+    # This dedicated bucket contains assets only; no listing of other buckets or versions.
+    { Effect = "Allow", Action = "s3:ListBucket", Resource = local.assets_arn },
     { Effect = "Allow", Action = ["s3:GetObject", "s3:PutObject"],
-    Resource = ["${aws_s3_bucket.assets.arn}/pending/*", "${aws_s3_bucket.assets.arn}/assets/*"] },
-    { Effect = "Allow", Action = "s3:DeleteObject", Resource = "${aws_s3_bucket.assets.arn}/pending/*" }
-  ] })
+    Resource = ["${local.assets_arn}/pending/*", "${local.assets_arn}/assets/*"] },
+    { Effect = "Allow", Action = "s3:DeleteObject", Resource = "${local.assets_arn}/pending/*" }
+  ] }
+}
+resource "aws_iam_role_policy" "app" {
+  role   = aws_iam_role.workload["app"].id
+  policy = jsonencode(local.app_asset_policy)
 }
 resource "aws_iam_role_policy" "deploy" {
   role = aws_iam_role.workload["deploy"].id

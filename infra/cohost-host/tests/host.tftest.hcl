@@ -51,6 +51,23 @@ run "bootstrap_ports_and_asset_retention" {
     error_message = "Do not expose application/database ports during bootstrap."
   }
 }
+run "app_can_distinguish_missing_assets" {
+  command = plan
+  assert {
+    condition = (
+      length(local.app_asset_policy.Statement) == 3 &&
+      local.app_asset_policy.Statement[0].Action == "s3:ListBucket" &&
+      local.app_asset_policy.Statement[0].Resource == "arn:aws:s3:::example-assets" &&
+      local.app_asset_policy.Statement[0].Effect == "Allow" &&
+      toset(local.app_asset_policy.Statement[1].Resource) == toset([
+        "arn:aws:s3:::example-assets/pending/*", "arn:aws:s3:::example-assets/assets/*"
+      ]) &&
+      local.app_asset_policy.Statement[2].Action == "s3:DeleteObject" &&
+      local.app_asset_policy.Statement[2].Resource == "arn:aws:s3:::example-assets/pending/*"
+    )
+    error_message = "Missing-key detection needs ListBucket on only the dedicated asset bucket; keep object access scoped and deletion pending-only."
+  }
+}
 run "reject_worldwide_ssh" {
   command = plan
   variables { operator_cidr = "0.0.0.0/0" }
