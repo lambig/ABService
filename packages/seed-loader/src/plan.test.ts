@@ -167,6 +167,62 @@ describe('計画', () => {
 });
 
 describe('投入先の状態の読み取り', () => {
+  it('多数の作品でも照会を重ねず、既存作品の詳細と欠損の判定を保持する', async () => {
+    const active = new Set<object>();
+    const concurrency: number[] = [];
+    const calls: string[] = [];
+    const read = async <T>(label: string, result: T): Promise<T> => {
+      const ticket = {};
+      active.add(ticket);
+      concurrency.push(active.size);
+      calls.push(label);
+      await Promise.resolve();
+      active.delete(ticket);
+      return result;
+    };
+    const codes = Array.from({ length: 40 }, (_, i) => `TEST-${String(i)}`);
+    const api = {
+      findAlbumByCatalogNumber: (code: string) =>
+        read(`find:${code}`, code === 'TEST-1' ? undefined : { albumId: code }),
+      getAdminAlbumDetail: (id: string) =>
+        read(`detail:${id}`, { albumId: id, publishedAt: null, coverImageKey: 'fixture.jpg' }),
+      findArticlesByTitlePrefix: () => read('articles', []),
+      listSiteContents: () => read('site', []),
+    } as unknown as AdminApi;
+    const taken = await takeSnapshot(api, {
+      ...seed,
+      albums: codes.map((code) => albumSeed(code, false, false)),
+      articles: [articleSeed('参照の重複', false, 'TEST-0')],
+    });
+    expect(Math.max(...concurrency)).toBe(1);
+    expect(taken.albums.size).toBe(39);
+    expect(taken.albums.has('TEST-1')).toBe(false);
+    expect(taken.albums.get('TEST-39')).toStrictEqual({
+      albumId: 'TEST-39',
+      published: false,
+      hasCoverImage: true,
+    });
+    expect(calls).toStrictEqual([
+      ...codes.flatMap((code) =>
+        code === 'TEST-1' ? [`find:${code}`] : [`find:${code}`, `detail:${code}`],
+      ),
+      'articles',
+      'site',
+    ]);
+  });
+
+  it('照会が失敗したら後続の照会を開始せず停止する', async () => {
+    const calls: string[] = [];
+    const api = {
+      findAlbumByCatalogNumber: (code: string) => {
+        calls.push(code);
+        return Promise.reject(new Error('temporary read failure'));
+      },
+    } as unknown as AdminApi;
+    await expect(takeSnapshot(api, seed)).rejects.toThrow('temporary read failure');
+    expect(calls).toStrictEqual(['NEW-1']);
+  });
+
   it('投入内容が同定に使う値だけを照会し、記事の参照先も含める', async () => {
     const asked: string[] = [];
     const api = {

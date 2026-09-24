@@ -66,6 +66,16 @@ export interface Plan {
 
 const unique = (values: readonly string[]): readonly string[] => [...new Set(values)];
 
+/** Keep API reads sequential: an unbounded burst can exhaust a small origin's concurrency. */
+const readSequentially = <T, U>(
+  items: readonly T[],
+  read: (item: T) => Promise<U>,
+): Promise<readonly U[]> =>
+  items.reduce<Promise<readonly U[]>>(
+    async (previous, item) => [...(await previous), await read(item)],
+    Promise.resolve([]),
+  );
+
 /** 投入内容が同定に使う値について、投入先の今の状態を読む */
 export const takeSnapshot = async (api: AdminApi, seed: SeedContent): Promise<Snapshot> => {
   const catalogNumbers = unique([
@@ -75,24 +85,22 @@ export const takeSnapshot = async (api: AdminApi, seed: SeedContent): Promise<Sn
     ),
   ]);
 
-  const albums = await Promise.all(
-    catalogNumbers.map(async (catalogNumber) => {
-      const found = await api.findAlbumByCatalogNumber(catalogNumber);
-      const detail = found === undefined ? undefined : await api.getAdminAlbumDetail(found.albumId);
-      return detail === undefined
-        ? []
-        : [
-            [
-              catalogNumber,
-              {
-                albumId: detail.albumId,
-                published: detail.publishedAt !== null,
-                hasCoverImage: detail.coverImageKey !== null,
-              },
-            ] as const,
-          ];
-    }),
-  );
+  const albums = await readSequentially(catalogNumbers, async (catalogNumber) => {
+    const found = await api.findAlbumByCatalogNumber(catalogNumber);
+    const detail = found === undefined ? undefined : await api.getAdminAlbumDetail(found.albumId);
+    return detail === undefined
+      ? []
+      : [
+          [
+            catalogNumber,
+            {
+              albumId: detail.albumId,
+              published: detail.publishedAt !== null,
+              hasCoverImage: detail.coverImageKey !== null,
+            },
+          ] as const,
+        ];
+  });
 
   const articles = await api.findArticlesByTitlePrefix('');
   const siteContents = await api.listSiteContents();
