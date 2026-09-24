@@ -1,5 +1,10 @@
 mock_provider "aws" {}
 
+override_data {
+  target = data.aws_ip_ranges.origin
+  values = { cidr_blocks = ["192.0.2.0/24", "198.51.100.0/24"] }
+}
+
 override_resource {
   target = aws_s3_bucket.assets
   values = { arn = "arn:aws:s3:::example-assets", id = "example-assets" }
@@ -50,6 +55,55 @@ run "reject_worldwide_ssh" {
   command = plan
   variables { operator_cidr = "0.0.0.0/0" }
   expect_failures = [var.operator_cidr]
+}
+run "https_only_from_cloudfront" {
+  command = plan
+  variables { origin_https_enabled = true }
+  assert {
+    condition = length(aws_lightsail_instance_public_ports.host.port_info) == 2 && alltrue([
+      for p in aws_lightsail_instance_public_ports.host.port_info :
+      p.protocol == "tcp" && p.from_port == p.to_port && (
+        (p.from_port == 22 && toset(p.cidrs) == toset(["192.0.2.1/32"])) ||
+        (p.from_port == 443 && toset(p.cidrs) == toset(["192.0.2.0/24", "198.51.100.0/24"]))
+      )
+    ])
+    error_message = "HTTPS must allow only origin-facing ranges; application and database ports stay closed."
+  }
+}
+run "http_challenge_is_separate_opt_in" {
+  command = plan
+  variables { origin_http_validation_enabled = true }
+  assert {
+    condition = length(aws_lightsail_instance_public_ports.host.port_info) == 2 && alltrue([
+      for p in aws_lightsail_instance_public_ports.host.port_info :
+      p.protocol == "tcp" && p.from_port == p.to_port && (
+        (p.from_port == 22 && toset(p.cidrs) == toset(["192.0.2.1/32"])) ||
+        (p.from_port == 80 && toset(p.cidrs) == toset(["0.0.0.0/0"]))
+      )
+    ])
+    error_message = "The ACME phase must not also open HTTPS or application ports."
+  }
+}
+run "reject_empty_origin_ranges" {
+  command = plan
+  variables { origin_https_enabled = true }
+  override_data {
+    target = data.aws_ip_ranges.origin
+    values = { cidr_blocks = [] }
+  }
+  expect_failures = [aws_lightsail_instance_public_ports.host]
+}
+run "reject_origin_rule_overflow" {
+  command = plan
+  variables {
+    origin_https_enabled           = true
+    origin_http_validation_enabled = true
+  }
+  override_data {
+    target = data.aws_ip_ranges.origin
+    values = { cidr_blocks = ["10.0.0.0/24", "10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24", "10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24", "10.0.7.0/24", "10.0.8.0/24", "10.0.9.0/24", "10.0.10.0/24", "10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/24", "10.0.14.0/24", "10.0.15.0/24", "10.0.16.0/24", "10.0.17.0/24", "10.0.18.0/24", "10.0.19.0/24", "10.0.20.0/24", "10.0.21.0/24", "10.0.22.0/24", "10.0.23.0/24", "10.0.24.0/24", "10.0.25.0/24", "10.0.26.0/24", "10.0.27.0/24", "10.0.28.0/24", "10.0.29.0/24", "10.0.30.0/24", "10.0.31.0/24", "10.0.32.0/24", "10.0.33.0/24", "10.0.34.0/24", "10.0.35.0/24", "10.0.36.0/24", "10.0.37.0/24", "10.0.38.0/24", "10.0.39.0/24", "10.0.40.0/24", "10.0.41.0/24", "10.0.42.0/24", "10.0.43.0/24", "10.0.44.0/24", "10.0.45.0/24", "10.0.46.0/24", "10.0.47.0/24", "10.0.48.0/24", "10.0.49.0/24", "10.0.50.0/24", "10.0.51.0/24", "10.0.52.0/24", "10.0.53.0/24", "10.0.54.0/24", "10.0.55.0/24", "10.0.56.0/24", "10.0.57.0/24", "10.0.58.0/24", "10.0.59.0/24"] }
+  }
+  expect_failures = [aws_lightsail_instance_public_ports.host]
 }
 run "ssm_cannot_read_workload_parameters" {
   command = plan
