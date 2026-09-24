@@ -60,6 +60,7 @@ def check():
                 http_port = int(ports["80/tcp"][0]["HostPort"])
                 tls_port = int(ports["443/tcp"][0]["HostPort"])
                 context = ssl.create_default_context(cafile=str(root/"fullchain.pem"))
+                context.minimum_version = ssl.TLSVersion.TLSv1_2
 
                 def request(path, secure=False, host=domain, token=False, method="GET", sni=domain):
                     conn = http.client.HTTPConnection("127.0.0.1", tls_port if secure else http_port, timeout=5)
