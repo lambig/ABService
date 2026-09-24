@@ -22,6 +22,39 @@ variable "operator_cidr" {
   }
 }
 variable "assets_bucket" { type = string }
+variable "origin_https_enabled" {
+  description = "Open HTTPS only to AWS CloudFront origin-facing IPv4 ranges after TLS and origin-token checks."
+  type        = bool
+  default     = false
+  nullable    = false
+}
+variable "origin_http_validation_enabled" {
+  description = "Open HTTP for ACME only after installing the challenge-only listener; never proxy the application on HTTP."
+  type        = bool
+  default     = false
+  nullable    = false
+}
+variable "assets_distribution_arn" {
+  description = "Optional same-account CloudFront distribution allowed to read published assets through OAC."
+  type        = string
+  default     = null
+  validation {
+    condition     = var.assets_distribution_arn == null || can(regex("^arn:aws:cloudfront::${var.account_id}:distribution/[A-Z0-9]+$", var.assets_distribution_arn))
+    error_message = "Use one exact CloudFront distribution ARN in the configured account, or null."
+  }
+}
+variable "asset_upload_origins" {
+  description = "Exact HTTPS browser origins for presigned S3 PUT; empty leaves CORS unconfigured."
+  type        = set(string)
+  default     = []
+  nullable    = false
+  validation {
+    condition = alltrue([for origin in var.asset_upload_origins : can(regex(
+      "^https://([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$", origin
+    ))])
+    error_message = "Use exact HTTPS DNS origins without wildcard, port, path, credentials or query."
+  }
+}
 variable "parameter_prefix" {
   type = string
   validation {

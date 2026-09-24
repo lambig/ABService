@@ -22,14 +22,54 @@ resource "aws_lightsail_instance" "host" {
   lifecycle { prevent_destroy = true }
 }
 
+data "aws_ip_ranges" "origin" {
+  count    = var.origin_https_enabled ? 1 : 0
+  services = ["CLOUDFRONT_ORIGIN_FACING"]
+  regions  = ["GLOBAL"]
+}
+
 resource "aws_lightsail_instance_public_ports" "host" {
   instance_name = aws_lightsail_instance.host.name
-  # Bootstrap access only. Application remains loopback-bound until CDN acceptance.
+  # Application and database ports remain private in every phase.
   port_info {
-    protocol  = "tcp"
-    from_port = 22
-    to_port   = 22
-    cidrs     = [var.operator_cidr]
+    protocol          = "tcp"
+    from_port         = 22
+    to_port           = 22
+    cidrs             = [var.operator_cidr]
+    ipv6_cidrs        = []
+    cidr_list_aliases = []
+  }
+  dynamic "port_info" {
+    for_each = var.origin_http_validation_enabled ? [80] : []
+    content {
+      protocol          = "tcp"
+      from_port         = port_info.value
+      to_port           = port_info.value
+      cidrs             = ["0.0.0.0/0"]
+      ipv6_cidrs        = []
+      cidr_list_aliases = []
+    }
+  }
+  dynamic "port_info" {
+    for_each = var.origin_https_enabled ? [443] : []
+    content {
+      protocol          = "tcp"
+      from_port         = port_info.value
+      to_port           = port_info.value
+      cidrs             = sort(data.aws_ip_ranges.origin[0].cidr_blocks)
+      ipv6_cidrs        = []
+      cidr_list_aliases = []
+    }
+  }
+  lifecycle {
+    precondition {
+      condition     = !var.origin_https_enabled || length(try(data.aws_ip_ranges.origin[0].cidr_blocks, [])) > 0
+      error_message = "Refuse HTTPS without CloudFront origin-facing IPv4 ranges."
+    }
+    precondition {
+      condition     = 1 + (var.origin_http_validation_enabled ? 1 : 0) + length(try(data.aws_ip_ranges.origin[0].cidr_blocks, [])) <= 60
+      error_message = "The requested IPv4 rules exceed the Lightsail firewall limit; review before changing access."
+    }
   }
 }
 
@@ -62,11 +102,29 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "assets" {
 }
 resource "aws_s3_bucket_policy" "assets" {
   bucket = aws_s3_bucket.assets.id
-  policy = jsonencode({ Version = "2012-10-17", Statement = [{
+  policy = jsonencode({ Version = "2012-10-17", Statement = concat([{
     Effect    = "Deny", Principal = "*", Action = "s3:*"
-    Resource  = [aws_s3_bucket.assets.arn, "${aws_s3_bucket.assets.arn}/*"]
+    Resource  = [local.assets_arn, "${local.assets_arn}/*"]
     Condition = { Bool = { "aws:SecureTransport" = "false" } }
-  }] })
+    }], var.assets_distribution_arn == null ? [] : [{
+    Sid       = "ReadPublishedAssetsFromDistribution"
+    Effect    = "Allow"
+    Principal = { Service = "cloudfront.amazonaws.com" }
+    Action    = "s3:GetObject"
+    Resource  = "${local.assets_arn}/assets/*"
+    Condition = { StringEquals = { "AWS:SourceArn" = var.assets_distribution_arn } }
+  }]) })
+}
+resource "aws_s3_bucket_cors_configuration" "assets" {
+  count  = length(var.asset_upload_origins) == 0 ? 0 : 1
+  bucket = aws_s3_bucket.assets.id
+  cors_rule {
+    allowed_headers = ["Content-Type"]
+    allowed_methods = ["PUT"]
+    allowed_origins = sort(tolist(var.asset_upload_origins))
+    expose_headers  = ["ETag"]
+    max_age_seconds = 3000
+  }
 }
 resource "aws_s3_bucket_lifecycle_configuration" "assets" {
   bucket     = aws_s3_bucket.assets.id
@@ -107,7 +165,10 @@ resource "aws_rolesanywhere_trust_anchor" "host" {
 }
 
 locals {
-  purposes = toset(["app", "deploy", "backup"])
+  # Derive the ARN from the explicit bucket input so access boundaries are also
+  # fully inspectable in a plan before a new bucket has been created.
+  assets_arn = "arn:aws:s3:::${var.assets_bucket}"
+  purposes   = toset(["app", "deploy", "backup"])
 }
 resource "aws_iam_role" "workload" {
   for_each = local.purposes
