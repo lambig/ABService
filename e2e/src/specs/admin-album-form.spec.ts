@@ -653,7 +653,37 @@ test.describe('管理画面の作品の追加', () => {
     await expect(rowOf(page, title)).toContainText(DRAFT_LABEL);
   });
 
-  test('必須を入れずに作成すると、その欄にエラーが出る', async ({ page }) => {
+  test('名義を省略して作成・更新すると共通名義が保存される', async ({ page }) => {
+    const stamp = String(Date.now());
+    const title = `E2E 共通名義の作品 ${stamp}`;
+    await openAdmin(page);
+    await page.goto(`${stack.adminBaseUrl}/site-contents`);
+    await page
+      .getByRole('row')
+      .filter({ hasText: 'site.artist' })
+      .getByRole('button', { name: EDIT_LABEL })
+      .click();
+    const commonArtist = await page.getByLabel('本文').inputValue();
+    expect(commonArtist.trim()).not.toBe('');
+
+    await page.goto(`${stack.adminBaseUrl}/albums/new`);
+    await openSection(page, '作品');
+    await page.getByLabel(TITLE_LABEL).fill(title);
+    await page.getByLabel(RELEASE_DATE_LABEL).fill('2026-10-01');
+    await page.getByLabel(CATALOG_NUMBER_LABEL).fill(`${scratchCatalogPrefix()}${stamp}`);
+    await expect(page.getByLabel(ARTIST_LABEL)).toHaveValue('');
+    await page.getByRole('button', { name: CREATE_LABEL }).click();
+    await expect(page.getByRole('table')).toBeVisible();
+    await openEdit(page, title);
+    await expect(page.getByLabel(ARTIST_LABEL)).toHaveValue(commonArtist.trim());
+    await page.getByLabel(ARTIST_LABEL).fill('   ');
+    await page.getByRole('button', { name: SAVE_LABEL }).click();
+    await expect(page.getByRole('table')).toBeVisible();
+    await openEdit(page, title);
+    await expect(page.getByLabel(ARTIST_LABEL)).toHaveValue(commonArtist.trim());
+  });
+
+  test('必須を入れずに作成すると、その欄だけにエラーが出る', async ({ page }) => {
     await openAdmin(page);
     await page.getByRole('link', { name: NEW_LABEL }).click();
 
@@ -661,6 +691,6 @@ test.describe('管理画面の作品の追加', () => {
 
     await expect(fieldOf(page, 'title').getByRole('alert')).toBeVisible();
     await expect(fieldOf(page, 'releaseDate').getByRole('alert')).toBeVisible();
-    await expect(fieldOf(page, 'artistDisplayName').getByRole('alert')).toBeVisible();
+    await expect(fieldOf(page, 'artistDisplayName').getByRole('alert')).toHaveCount(0);
   });
 });

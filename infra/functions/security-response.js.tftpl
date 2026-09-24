@@ -1,0 +1,12 @@
+${renderer}
+var config = ${config};
+function handler(event) {
+  var response = event.response;
+  var headers = buildSecurityHeaders(config, ${kind}, ${noindex});
+  // Remove an old cached noindex when search publication is enabled.
+  delete response.headers['x-robots-tag'];
+  Object.keys(headers).forEach(function (name) {
+    response.headers[name.toLowerCase()] = { value: headers[name] };
+  });
+  return response;
+}
