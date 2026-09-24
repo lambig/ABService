@@ -62,11 +62,29 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "assets" {
 }
 resource "aws_s3_bucket_policy" "assets" {
   bucket = aws_s3_bucket.assets.id
-  policy = jsonencode({ Version = "2012-10-17", Statement = [{
+  policy = jsonencode({ Version = "2012-10-17", Statement = concat([{
     Effect    = "Deny", Principal = "*", Action = "s3:*"
-    Resource  = [aws_s3_bucket.assets.arn, "${aws_s3_bucket.assets.arn}/*"]
+    Resource  = [local.assets_arn, "${local.assets_arn}/*"]
     Condition = { Bool = { "aws:SecureTransport" = "false" } }
-  }] })
+    }], var.assets_distribution_arn == null ? [] : [{
+    Sid       = "ReadPublishedAssetsFromDistribution"
+    Effect    = "Allow"
+    Principal = { Service = "cloudfront.amazonaws.com" }
+    Action    = "s3:GetObject"
+    Resource  = "${local.assets_arn}/assets/*"
+    Condition = { StringEquals = { "AWS:SourceArn" = var.assets_distribution_arn } }
+  }]) })
+}
+resource "aws_s3_bucket_cors_configuration" "assets" {
+  count  = length(var.asset_upload_origins) == 0 ? 0 : 1
+  bucket = aws_s3_bucket.assets.id
+  cors_rule {
+    allowed_headers = ["Content-Type"]
+    allowed_methods = ["PUT"]
+    allowed_origins = sort(tolist(var.asset_upload_origins))
+    expose_headers  = ["ETag"]
+    max_age_seconds = 3000
+  }
 }
 resource "aws_s3_bucket_lifecycle_configuration" "assets" {
   bucket     = aws_s3_bucket.assets.id
@@ -107,7 +125,10 @@ resource "aws_rolesanywhere_trust_anchor" "host" {
 }
 
 locals {
-  purposes = toset(["app", "deploy", "backup"])
+  # Derive the ARN from the explicit bucket input so access boundaries are also
+  # fully inspectable in a plan before a new bucket has been created.
+  assets_arn = "arn:aws:s3:::${var.assets_bucket}"
+  purposes   = toset(["app", "deploy", "backup"])
 }
 resource "aws_iam_role" "workload" {
   for_each = local.purposes
