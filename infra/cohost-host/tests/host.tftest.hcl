@@ -82,3 +82,77 @@ run "reject_ipv6_bootstrap_range" {
   variables { operator_cidr = "2001:db8::/32" }
   expect_failures = [var.operator_cidr]
 }
+run "asset_access_disabled_by_default" {
+  command = plan
+  assert {
+    condition = (
+      length(jsondecode(aws_s3_bucket_policy.assets.policy).Statement) == 1 &&
+      jsondecode(aws_s3_bucket_policy.assets.policy).Statement[0].Effect == "Deny" &&
+      jsondecode(aws_s3_bucket_policy.assets.policy).Statement[0].Condition.Bool["aws:SecureTransport"] == "false" &&
+      length(aws_s3_bucket_cors_configuration.assets) == 0
+    )
+    error_message = "Bootstrap must retain the TLS deny and grant no CDN or browser-upload access."
+  }
+}
+run "only_named_distribution_reads_published_assets" {
+  command = plan
+  variables {
+    assets_distribution_arn = "arn:aws:cloudfront::123456789012:distribution/EEXAMPLE"
+    asset_upload_origins    = ["https://admin.example.invalid"]
+  }
+  assert {
+    condition = (
+      length(jsondecode(aws_s3_bucket_policy.assets.policy).Statement) == 2 &&
+      jsondecode(aws_s3_bucket_policy.assets.policy).Statement[1].Effect == "Allow" &&
+      jsondecode(aws_s3_bucket_policy.assets.policy).Statement[1].Principal.Service == "cloudfront.amazonaws.com" &&
+      jsondecode(aws_s3_bucket_policy.assets.policy).Statement[1].Action == "s3:GetObject" &&
+      jsondecode(aws_s3_bucket_policy.assets.policy).Statement[1].Resource == "arn:aws:s3:::example-assets/assets/*" &&
+      jsondecode(aws_s3_bucket_policy.assets.policy).Statement[1].Condition.StringEquals["AWS:SourceArn"] == "arn:aws:cloudfront::123456789012:distribution/EEXAMPLE"
+    )
+    error_message = "Grant only current published-object reads to the named distribution, never pending/version/list/write access."
+  }
+  assert {
+    condition = alltrue([for rule in aws_s3_bucket_cors_configuration.assets[0].cors_rule :
+      toset(rule.allowed_origins) == toset(["https://admin.example.invalid"]) &&
+      toset(rule.allowed_methods) == toset(["PUT"]) &&
+      toset(rule.allowed_headers) == toset(["Content-Type"]) &&
+      toset(rule.expose_headers) == toset(["ETag"])
+    ])
+    error_message = "Browser CORS must allow only explicit origins and the presigned PUT contract."
+  }
+  assert {
+    condition = (
+      aws_s3_bucket_public_access_block.assets.block_public_acls &&
+      aws_s3_bucket_public_access_block.assets.block_public_policy &&
+      aws_s3_bucket_public_access_block.assets.ignore_public_acls &&
+      aws_s3_bucket_public_access_block.assets.restrict_public_buckets &&
+      alltrue([for p in aws_lightsail_instance_public_ports.host.port_info : p.from_port == 22 && p.to_port == 22])
+    )
+    error_message = "Asset access must not weaken bucket privacy or open host ports."
+  }
+}
+run "reject_other_account_distribution" {
+  command = plan
+  variables { assets_distribution_arn = "arn:aws:cloudfront::000000000000:distribution/EEXAMPLE" }
+  expect_failures = [var.assets_distribution_arn]
+}
+run "reject_wildcard_distribution" {
+  command = plan
+  variables { assets_distribution_arn = "arn:aws:cloudfront::123456789012:distribution/*" }
+  expect_failures = [var.assets_distribution_arn]
+}
+run "reject_wildcard_upload_origin" {
+  command = plan
+  variables { asset_upload_origins = ["https://*.example.invalid"] }
+  expect_failures = [var.asset_upload_origins]
+}
+run "reject_plaintext_upload_origin" {
+  command = plan
+  variables { asset_upload_origins = ["http://admin.example.invalid"] }
+  expect_failures = [var.asset_upload_origins]
+}
+run "reject_upload_origin_path" {
+  command = plan
+  variables { asset_upload_origins = ["https://admin.example.invalid/admin"] }
+  expect_failures = [var.asset_upload_origins]
+}

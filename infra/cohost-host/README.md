@@ -30,6 +30,28 @@ bind to loopback and PostgreSQL must remain on the internal Docker network. The
 CDN/origin firewall, origin authentication, TLS, headers and acceptance are separate
 work. Creating the host is not a public release.
 
+### Optional asset delivery and browser uploads
+
+This root continues to own the existing asset bucket and its policy/CORS. Set
+`assets_distribution_arn` to one exact same-account CloudFront distribution ARN
+after configuring OAC signing in the edge root. Only `s3:GetObject` on `assets/*`
+is granted to that distribution; pending uploads, object versions, listing and
+writes are not granted to CloudFront. The TLS-only deny and public access blocks
+remain. A null ARN, the default, leaves the original bootstrap policy unchanged.
+
+Set `asset_upload_origins` to the exact HTTPS browser origins that host the admin
+application, including a temporary delivery-test origin when needed. CORS permits
+only PUT with Content-Type and exposes ETag; it does not grant S3 authentication.
+The backend must still authorize and sign each upload. An empty set, the default,
+does not manage a CORS configuration; changing an existing nonempty set to empty
+removes the CORS resource. Remove temporary origins after acceptance.
+
+Check the saved plan for only the intended bucket policy/CORS changes. Read back
+the actual bucket policy and CORS, test allowed and disallowed preflights, then
+verify signed uploads and OAC retrieval through the real distribution. CORS or
+policy readback alone is not browser/end-to-end acceptance. This option neither
+opens host ports nor configures origin TLS or DNS.
+
 The host, asset bucket, repository and CA secret have `prevent_destroy`; this
 protects against ordinary destructive plans, not manual deletion or removal of the
 resource declaration. Published `assets/` versions have no expiration rule. Only
