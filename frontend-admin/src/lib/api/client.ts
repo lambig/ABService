@@ -133,11 +133,13 @@ export const createAlbum = (
   session: AdminSession,
   fields: AlbumFields,
 ): Promise<ApiResult<Schemas['RegisterAlbumWithTracksResponse']>> =>
-  request<Schemas['RegisterAlbumWithTracksResponse']>(
-    'POST',
-    '/api/v1/albums/with-tracks',
-    session,
-    fields,
+  withAlbumArtist(session, fields, (resolved) =>
+    request<Schemas['RegisterAlbumWithTracksResponse']>(
+      'POST',
+      '/api/v1/albums/with-tracks',
+      session,
+      resolved,
+    ),
   );
 
 /**
@@ -159,11 +161,13 @@ export const updateAlbum = (
   fields: AlbumFields,
   expectedRevision: number,
 ): Promise<ApiResult<Schemas['UpdateAlbumResponse']>> =>
-  request<Schemas['UpdateAlbumResponse']>(
-    'PUT',
-    `/api/v1/albums/${encodeURIComponent(albumId)}`,
-    session,
-    { ...fields, expectedRevision },
+  withAlbumArtist(session, fields, (resolved) =>
+    request<Schemas['UpdateAlbumResponse']>(
+      'PUT',
+      `/api/v1/albums/${encodeURIComponent(albumId)}`,
+      session,
+      { ...resolved, expectedRevision },
+    ),
   );
 
 /**
@@ -368,6 +372,31 @@ export const listSiteContents = async (
   );
 
   return result.kind === 'ok' ? { kind: 'ok', value: result.value.items } : result;
+};
+
+/** 名義の入力は例外だけ。省略時は保存時点の共通名義を確定し、既存作品の名義を後から変えない。 */
+const withAlbumArtist = async <T>(
+  session: AdminSession,
+  fields: AlbumFields,
+  save: (resolved: AlbumFields) => Promise<ApiResult<T>>,
+): Promise<ApiResult<T>> => {
+  const explicit = (fields.artistDisplayName?.trim() ?? '') !== '';
+  const contents = explicit ? null : await listSiteContents(session);
+  const artist =
+    contents?.kind === 'ok'
+      ? (contents.value.find((entry) => entry.key === 'site.artist')?.content.trim() ?? '')
+      : '';
+  return contents === null
+    ? save(fields)
+    : contents.kind !== 'ok'
+      ? contents
+      : artist === ''
+        ? {
+            kind: 'failed',
+            message:
+              'サイトの文言で共通のサークル名（site.artist）を設定してください。異なる名義の作品はアーティスト表示名を入力してください。',
+          }
+        : save({ ...fields, artistDisplayName: artist });
 };
 
 /**

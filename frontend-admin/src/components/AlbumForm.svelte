@@ -1135,6 +1135,11 @@
                         update(field.path, value);
                       }}
                     />
+                    {#if field.path === 'artistDisplayName'}
+                      <p class="text-muted-foreground text-sm">
+                        サークル名と異なる場合だけ入力してください。空欄ならサイトの共通名義を使います。
+                      </p>
+                    {/if}
                   </div>
                 {/each}
 
