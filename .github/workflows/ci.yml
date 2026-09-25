@@ -35,6 +35,8 @@ jobs:
           node-version-file: .nvmrc
       - name: Verify CI selection and aggregation
         run: node --test scripts/ci-policy.test.mjs
+      - name: Verify local commit identity boundary
+        run: bash scripts/git-identity.test.sh
       - name: Select affected tracks
         id: scope
         run: node scripts/ci.mjs select

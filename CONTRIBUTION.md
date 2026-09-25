@@ -109,7 +109,7 @@ git config --local user.email contributor@example.test
 git config --local user.name Contributor
 ```
 
-Claude Codeのコミット前フックは、ローカルの `user.email` がローカルの `abservice.publicEmail` と一致することを検査します。どちらかが空・未設定、または不一致なら拒否し、グローバル設定を代用しません。再クローン時も設定が必要です。既存のクローンでは公開用の `user.email` を確認し、同じ値を `abservice.publicEmail` に追加してください。個人の実値は共有フックやドキュメントへ書き込みません。
+Claude Codeのコミット前フックは、ローカルの `user.email` がローカルの `abservice.publicEmail` と一致し、ローカルの `user.name` も非空であることを検査します。メールの期待値・メール・名義が空または未設定、あるいはメールが不一致なら拒否し、グローバル設定を代用しません。再クローン時も設定が必要です。既存のクローンでは公開用の `user.email` と `user.name` を確認し、メールと同じ値を `abservice.publicEmail` に追加してください。個人の実値は共有フックやドキュメントへ書き込みません。`bash scripts/git-identity.test.sh` で隔離したGit設定を使う回帰検査を実行できます。
 
 ## 本番作業の参照先
 

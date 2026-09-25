@@ -15,8 +15,9 @@ fi
 
 expected=$(git config --local abservice.publicEmail 2>/dev/null)
 email=$(git config --local user.email 2>/dev/null)
+name=$(git config --local user.name 2>/dev/null)
 
-if [ -z "$expected" ] || [ -z "$email" ] || [ "$email" != "$expected" ]; then
+if [ -z "$expected" ] || [ -z "$email" ] || [ "$email" != "$expected" ] || [ -z "$name" ]; then
   cat <<'JSON'
 {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"公開用Git identityのローカル設定が未設定または不一致です。CONTRIBUTION.mdに従い、公開するメールアドレスを確認して `git config --local abservice.publicEmail <公開用メール>` と `git config --local user.email <同じ公開用メール>`、`git config --local user.name <公開用名義>` を設定してください。グローバル設定は代用しません。"}}
 JSON
