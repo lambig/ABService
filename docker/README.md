@@ -128,8 +128,28 @@ docker-compose exec -T postgres psql -U abservice -d abservice -c "CREATE DATABA
 アセットの統合テストは実際に MinIO へ署名付きURLで PUT するため、テスト実行前に以下で起動する。
 
 ```bash
+docker compose build minio minio-init
 docker compose up -d minio minio-init
 ```
+
+#### MinIO の取得と更新
+
+Docker Hub / Quay の既成イメージ取得障害（#351、#459）を避けるため、
+[公式のソース配布方針](https://github.com/minio/minio#source-only-distribution)に従い、
+本体と `mc` を公式リポジトリからビルドする。固定コミット・Go・ベースイメージの正は
+[`minio/Dockerfile`](minio/Dockerfile)。ローカル開発と CI のみに使い、本番 S3 の構成は変更しない。
+初回は Go の依存取得とコンパイルが必要で、GitHub・Go module proxy・Docker Hub・Debian の配布元へ接続する。
+通常の再実行には Docker のビルドキャッシュを利用できる。
+
+更新時は公式のリリースとセキュリティ修正を確認し、タグに対応する完全なコミット ID と
+イメージの revision ラベルを揃えて変更する。Go は保守対象系列のパッチ版、ベースイメージは
+検証したダイジェストへ更新する。`latest` や取得可能な古い MinIO イメージへ戻さない。
+ソースとベースは固定するが、Debian パッケージの更新は取り込むため、バイト単位の同一性は保証しない。
+
+更新の受け入れは `docker compose build --no-cache --pull minio minio-init` で両方を作り直し、
+起動・バケット初期化に続いて Backend full check と実スタック E2E を最後まで通す。
+署名付き PUT、アセットの読み取り・削除、`assets/` の匿名読み取りと `pending/` の非公開性を確認する。
+ビルドしたバイナリの `--version` には上流コミットと Go の版が出る。ライセンスはイメージ内に保持する。
 
 ### pgAdmin（開発環境のみ）
 - **ポート**: 5050

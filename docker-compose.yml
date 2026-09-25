@@ -93,10 +93,11 @@ services:
       - abservice-network
 
   # MinIO (S3 Compatible Object Storage)
-  # 取得元は MinIO 自身が配るレジストリ。Docker Hub の minio/minio は引けない
-  # （repository does not exist）ため、そちらは指せない。
+  # 公式ソースの固定コミットからビルドする。取得・更新手順は docker/README.md。
   minio:
-    image: quay.io/minio/minio:latest
+    build:
+      context: ./docker/minio
+      target: minio
     container_name: abservice-minio
     restart: unless-stopped
     environment:
@@ -127,7 +128,9 @@ services:
   # 配信するのは同じ接頭辞だけで、受け入れ前 (pending/) は配信パスの外にある (infra/README.md)。
   # ローカルには CloudFront が無いため、同じ「配信対象だけが届く」形をバケットの側で作る。
   minio-init:
-    image: quay.io/minio/mc:latest
+    build:
+      context: ./docker/minio
+      target: mc
     container_name: abservice-minio-init
     depends_on:
       minio:
