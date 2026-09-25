@@ -53,7 +53,7 @@ export const renderArticle = (
           embedded: true,
           defaultArtistName,
           bodyParts: {
-            lead: `<div data-article-body>${parts.lead}</div>`,
+            lead: `<div data-article-body class="empty:hidden">${parts.lead}</div>`,
             details: `<div data-article-details class="empty:hidden">${parts.details}</div>`,
           },
         });
