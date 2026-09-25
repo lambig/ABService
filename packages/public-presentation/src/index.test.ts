@@ -206,6 +206,17 @@ describe("公開記事の描画", () => {
     expect(html.indexOf("data-album-tracks")).toBeLessThan(html.indexOf("注意事項"));
     expect(html).toContain("大切な注記");
   });
+  it("説明文が無く注意事項から始まる場合も、注意事項は曲目より下に置く", () => {
+    const body = "## 注意事項\n\n保持する注記\n\n## 頒布案内\n\n店舗への案内";
+    const standalone = renderAlbum({ ...album, description: body }, "/assets");
+    const embedded = renderArticle({ ...article, body, bodyFormat: "MARKDOWN", album }, "/assets");
+    for (const html of [standalone, embedded]) {
+      expect(html.indexOf("data-album-tracks")).toBeLessThan(html.indexOf("注意事項"));
+      expect(html.indexOf("注意事項")).toBeLessThan(html.indexOf("頒布案内"));
+      expect(html).toContain("保持する注記");
+      expect(html).toContain("店舗への案内");
+    }
+  });
   it("音源を持たない作品は、カバー画像をプレイヤーと同じ枠に置く", () => {
     const html = renderAlbum(album, "/assets");
     expect(html).toContain(

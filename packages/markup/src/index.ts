@@ -47,7 +47,7 @@ const renderer = (options: RenderOptions) =>
 /**
  * 冒頭の説明と、次の見出しから始まる補足を描画する。
  * 文書全体を変換してから最上位の節だけで分けるため、参照リンク・脚注・入れ子を保つ。
- * 最初が見出しの場合はその節を説明に含め、見出しが無ければ全文を説明にする。
+ * 最初が見出しの場合は説明を空にし、見出しが無ければ全文を説明にする。
  * @param markdown 入力のMarkdown。
  * @param options アセット等の描画設定。
  * @returns サニタイズ済みの説明と補足のHTML。
@@ -55,10 +55,8 @@ const renderer = (options: RenderOptions) =>
 export function renderMarkupParts(markdown: string, options: RenderOptions): Readonly<{ lead: string; details: string }> {
   const processor = renderer(options);
   const tree = processor.runSync(processor.parse(markdown));
-  const boundary = tree.children.findIndex((node, index) =>
-    node.type === 'element' && /^h[1-6]$/u.test(node.tagName) &&
-    tree.children.slice(0, index).some((preceding) =>
-      preceding.type === 'element' && preceding.tagName.match(/^h[1-6]$/u) === null),
+  const boundary = tree.children.findIndex((node) =>
+    node.type === 'element' && /^h[1-6]$/u.test(node.tagName),
   );
   const split = boundary === -1 ? tree.children.length : boundary;
   return {
