@@ -5,6 +5,7 @@
     renderArticle,
     renderArticleHeader,
     renderArticleBody,
+    renderArticleBodyParts,
     renderPageFrame,
     renderSiteNav,
   } from 'abservice-public-presentation';
@@ -139,12 +140,17 @@
   });
   /** 見出し・本文だけを更新し、同じ作品のプレイヤーとスクロール位置を保持する。 */
   $effect(() => {
+    const parts = renderArticleBodyParts(draft, PUBLIC_ASSET_BASE_PATH);
     const regions = [
       [
         '[data-article-header]',
         renderArticleHeader({ ...draft, publishedAt, tags: tags.map((tag) => tag.name) }),
       ],
-      ['[data-article-body]', renderArticleBody(draft, PUBLIC_ASSET_BASE_PATH)],
+      [
+        '[data-article-body]',
+        albumId === null ? renderArticleBody(draft, PUBLIC_ASSET_BASE_PATH) : parts.lead,
+      ],
+      ['[data-article-details]', parts.details],
     ] as const;
     regions.forEach(([selector, html]) => {
       const container = frameDocument?.querySelector(selector);

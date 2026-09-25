@@ -59,7 +59,8 @@ describe("公開記事の描画", () => {
     expect(html).toContain("2026年8月15日");
     expect(html).toContain("data-public-album");
     expect(html).toContain("&lt;track&gt;");
-    expect(html).toContain("<strong>作品の説明</strong>");
+    expect(html).not.toContain("<strong>作品の説明</strong>");
+    expect(renderAlbum(album, "/assets")).toContain("<strong>作品の説明</strong>");
     expect(html.indexOf("data-album-tracks")).toBeLessThan(
       html.indexOf("data-album-event"),
     );
@@ -176,27 +177,34 @@ describe("公開記事の描画", () => {
     expect(html).not.toContain("頒布情報");
     expect(html).not.toContain("会場");
   });
-  it("見出しの直後にプレイヤー、概要、記事本文の順に置き、作品ページでは価格を出さない", () => {
+  it("記事は本文を一度だけ表示し、説明の直後に曲目、補足を置く", () => {
     const withAudio = {
       ...album,
       externalAudios: [{ url: "https://soundcloud.com/example/test" }],
     };
-    const html = renderArticle({ ...article, album: withAudio }, "/assets");
+    const html = renderArticle({ ...article, body: "説明文\n\n## 頒布の案内\n\n補足本文", bodyFormat: "MARKDOWN", album: withAudio }, "/assets");
     expect(html.indexOf("data-album-audio")).toBeLessThan(
       html.indexOf("prose-body"),
-    );
-    expect(html.indexOf("prose-body")).toBeLessThan(
-      html.indexOf("data-article-body"),
     );
     expect(html.indexOf("data-article-body")).toBeLessThan(
       html.indexOf("data-album-tracks"),
     );
+    expect(html.indexOf("data-album-tracks")).toBeLessThan(html.indexOf("data-article-details"));
+    expect(html.match(/説明文/gu)).toHaveLength(1);
+    expect(html.match(/補足本文/gu)).toHaveLength(1);
+    expect(html).not.toContain("作品の説明");
     expect(html).not.toContain("<img");
     expect(html).not.toContain("試聴</");
     const standalone = renderAlbum(withAudio, "/assets");
     expect(standalone).toContain("<h1");
     expect(standalone).not.toContain("data-article-body");
     expect(standalone).not.toContain("data-album-price");
+  });
+  it("作品単独でも説明、曲目、見出し以降の補足の順を保つ", () => {
+    const html = renderAlbum({ ...album, description: "説明文\n\n## 注意事項\n\n大切な注記" }, "/assets");
+    expect(html.indexOf("説明文")).toBeLessThan(html.indexOf("data-album-tracks"));
+    expect(html.indexOf("data-album-tracks")).toBeLessThan(html.indexOf("注意事項"));
+    expect(html).toContain("大切な注記");
   });
   it("音源を持たない作品は、カバー画像をプレイヤーと同じ枠に置く", () => {
     const html = renderAlbum(album, "/assets");

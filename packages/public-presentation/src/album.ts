@@ -1,4 +1,4 @@
-import { renderMarkup } from "abservice-markup";
+import { renderMarkup, renderMarkupParts } from "abservice-markup";
 import { toEmbedUrl } from "abservice-external-audio";
 import { formatCalendarDate, formatPrice } from "./format";
 import { allowedImage, escape, properNoun } from "./html";
@@ -112,6 +112,19 @@ export const renderBody = (
       ? `<div class="prose-body">${renderMarkup(body ?? "", { assetBasePath })}</div>`
       : `<p class="whitespace-pre-wrap">${escape(body ?? "")}</p>`;
 
+/** 見出しで区切られた補足を曲目の後ろへ置き、説明文を先に読む。 */
+export const renderBodyParts = (body: string | null, format: string, assetBasePath: string): Readonly<{ lead: string; details: string }> => {
+  const parts = format === "MARKDOWN"
+    ? renderMarkupParts(body ?? "", { assetBasePath })
+    : null;
+  return parts === null
+    ? { lead: renderBody(body, format, assetBasePath), details: "" }
+    : {
+        lead: parts.lead.trim() === "" ? "" : `<div class="prose-body">${parts.lead}</div>`,
+        details: parts.details.trim() === "" ? "" : `<div class="prose-body">${parts.details}</div>`,
+      };
+};
+
 /**
  * 作品の顔（ヒーロー）の枠。試聴プレイヤーか、音源を持たない作品ではカバー画像が同じ枠に入る。
  * 正方形で、一辺は本文幅か 700px の小さい方。上限を幅の側に置くのは、高さだけを抑えると本文幅が
@@ -123,9 +136,9 @@ const HERO_CLASS =
   "border-border mx-auto block aspect-square w-full max-w-[700px] rounded-md border";
 
 /**
- * 記事の前置き（記事本文）は作品の概要と曲目の間。introHtml は共有描画の出力専用で、入力文字列は渡さない。
+ * 記事本文があるときは作品概要と置き換える。bodyPartsは共有描画の出力専用。
  *
- * 並びは「基本情報 → 顔（プレイヤーか画像）→ 概要 → 記事本文 → 曲目 → 原作の出典 → 頒布情報（イベント・価格）」。
+ * 並びは「基本情報 → 顔（プレイヤーか画像）→ 説明 → 曲目 → 原作の出典 → 補足 → 頒布情報」。
  * 顔は見出しの直後に置き、文より先に絵が入る。
  *
  * 記事へ展開する（embedded）ときは、作品の見出し・発売日・品番を出さない——記事の見出しが作品を名指しており、
@@ -138,7 +151,7 @@ export const renderAlbum = (
   options: Readonly<{
     embedded?: boolean;
     defaultArtistName?: string | null;
-    introHtml?: string;
+    bodyParts?: Readonly<{ lead: string; details: string }>;
   }> = {},
 ): string => {
   const embedded = options.embedded === true;
@@ -192,5 +205,6 @@ export const renderAlbum = (
     embedded && album.basePrice !== null
       ? `<p data-album-price class="text-muted-foreground text-sm">頒布価格 ${formatPrice(album.basePrice.amount, album.basePrice.currency)}</p>`
       : "";
-  return `<section data-public-album class="space-y-8" aria-label="${escape(album.title)}">${header}${hero}${renderBody(album.description, album.descriptionFormat, assetBasePath)}${options.introHtml ?? ""}${tracks}${originalWork}${distribution(album, subheading, price)}</section>`;
+  const body = options.bodyParts ?? renderBodyParts(album.description, album.descriptionFormat, assetBasePath);
+  return `<section data-public-album class="space-y-8" aria-label="${escape(album.title)}">${header}${hero}${body.lead}${tracks}${originalWork}${body.details}${distribution(album, subheading, price)}</section>`;
 };
