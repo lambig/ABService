@@ -1,5 +1,6 @@
 import { API_BASE_URL } from 'astro:env/server';
 
+import { createJsonFetcher } from './json-fetcher';
 import type { components } from './schema';
 
 type Schemas = components['schemas'];
@@ -36,15 +37,7 @@ const PAGE_SIZE = 100;
  * 欠けたページで公開サイトを作るより、作らない方がよい。
  * </p>
  */
-const fetchPublic = async <T>(path: string): Promise<T> => {
-  const response = await fetch(`${API_BASE_URL}${path}`);
-  const body: unknown = response.ok
-    ? await response.json()
-    : await Promise.reject(
-        new Error(`GET ${path} が失敗しました（HTTP ${String(response.status)}）`),
-      );
-  return body as T;
-};
+const fetchPublic = createJsonFetcher(API_BASE_URL);
 
 /** ページ送りの応答。総ページ数から残りを決めるために使う */
 interface PagedResponse<T> {
