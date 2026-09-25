@@ -36,6 +36,40 @@ test('bulk callers retain every result without overlapping response bodies', asy
   assert.equal(maximum, 1);
 });
 
+test('HTTP failure waits for non-empty response body cancellation before the next request', async (t) => {
+  const cancellation = Promise.withResolvers();
+  t.after(() => cancellation.resolve());
+  const events = [];
+  const body = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode('service unavailable'));
+    },
+    cancel() {
+      events.push('cancel-start');
+      return cancellation.promise.then(() => events.push('cancel-end'));
+    },
+  });
+  const request = createJsonFetcher('https://example.test', async (url) => {
+    events.push(url);
+    return url.endsWith('/first')
+      ? new Response(body, { status: 503 })
+      : Response.json({ retained: true });
+  });
+  const failed = assert.rejects(request('/first'), /GET \/first.*HTTP 503/);
+  const following = request('/next');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(events, ['https://example.test/first', 'cancel-start']);
+  cancellation.resolve();
+  await failed;
+  assert.deepEqual(await following, { retained: true });
+  assert.deepEqual(events, [
+    'https://example.test/first',
+    'cancel-start',
+    'cancel-end',
+    'https://example.test/next',
+  ]);
+});
+
 for (const failure of ['http', 'network', 'json']) {
   test(`${failure} failure rejects its caller and releases the next request`, async () => {
     let calls = 0;

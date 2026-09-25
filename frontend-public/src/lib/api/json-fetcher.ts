@@ -1,4 +1,4 @@
-/** ビルド内の公開API照会を、JSONの読取り完了まで1件ずつ進める。 */
+/** ビルド内の公開API照会を、本文の読取りまたはキャンセル完了まで1件ずつ進める。 */
 export const createJsonFetcher = (baseUrl: string, fetcher: typeof fetch = fetch) => {
   const queue = { tail: Promise.resolve() };
 
@@ -7,8 +7,10 @@ export const createJsonFetcher = (baseUrl: string, fetcher: typeof fetch = fetch
       const response = await fetcher(`${baseUrl}${path}`);
       const body: unknown = response.ok
         ? await response.json()
-        : await Promise.reject(
-            new Error(`GET ${path} が失敗しました（HTTP ${String(response.status)}）`),
+        : await Promise.resolve(response.body?.cancel()).then(() =>
+            Promise.reject(
+              new Error(`GET ${path} が失敗しました（HTTP ${String(response.status)}）`),
+            ),
           );
       return body as T;
     });
