@@ -1,0 +1,45 @@
+Browser tab: 9, Title: "PR 458 synthetic layout evidence", URL: "http://127.0.0.1:8771/article.html".
+1 AXWebArea PR 458 synthetic layout evidence, URL: 127.0.0.1:8771/article.html
+	2 link Description: Example Circle, Value: 127.0.0.1:8771/
+	3 container 主要な導線
+		4 content list
+			5 link Description: トップ, Value: 127.0.0.1:8771/
+			6 link Description: 作品, Value: 127.0.0.1:8771/albums
+			7 link Description: 記事, Value: 127.0.0.1:8771/articles
+	8 container
+		9 text Article
+		10 heading Sample Album の紹介, Value: 1
+			11 text Sample Album の紹介
+		12 container Sample Album
+			13 text 架空の作品を使った説明文です。曲目はこの直後に表示されます。
+			32 container
+				33 button (expanded) 曲目, Secondary Actions: Collapse
+					34 heading 曲目, Value: 3
+						35 text 曲目
+				36 content list
+					37 container
+						38 text 1 First Set  /  Example Performer
+						39 content list
+							40 container
+								41 text First Tune （作曲: Example Composer / 編曲: Example Arranger）
+							42 container
+								43 text Second Tune （作曲: Traditional）
+					44 container
+						45 text 2 Second Track
+			17 text 各構成曲の出典を保持する例
+			18 heading 注意事項, Value: 2
+				19 text 注意事項
+			20 text この注意事項は曲目より下に残します。
+			21 heading 店舗情報, Value: 2
+				22 text 店舗情報
+			23 link Description: 架空の店舗, Value: example.com/store
+			24 container
+				25 heading 頒布情報, Value: 3
+					26 text 頒布情報
+				27 text 2026年1月2日
+				28 text 架空イベント  サンプル会場
+				29 text A-01
+				30 text Example Circle 別日程の補足を残す例 頒布価格 1,200円
+	31 text © 2026 Example Circle
+
+The focused UI element is 33 button (expanded) 曲目, Secondary Actions: Collapse

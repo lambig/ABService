@@ -1,0 +1,42 @@
+Browser tab: 9, Title: "PR 458 synthetic layout evidence", URL: "http://127.0.0.1:8771/album-heading-first.html".
+1 AXWebArea PR 458 synthetic layout evidence, URL: 127.0.0.1:8771/album-heading-first.html
+	2 link Description: Example Circle, Value: 127.0.0.1:8771/
+	3 container 主要な導線
+		4 content list
+			5 link Description: トップ, Value: 127.0.0.1:8771/
+			6 link Description: 作品, Value: 127.0.0.1:8771/albums
+			7 link Description: 記事, Value: 127.0.0.1:8771/articles
+	8 container Sample Album
+		9 container
+			10 heading Sample Album, Value: 1
+				11 text Sample Album
+			12 text 2026年1月1日
+			13 text EXAMPLE-001
+		29 container
+			30 button (expanded) 曲目, Secondary Actions: Collapse
+				31 heading 曲目, Value: 2
+					32 text 曲目
+			33 content list
+				34 container
+					35 text 1 First Set  /  Example Performer
+					36 content list
+						37 container
+							38 text First Tune （作曲: Example Composer / 編曲: Example Arranger）
+						39 container
+							40 text Second Tune （作曲: Traditional）
+				41 container
+					42 text 2 Second Track
+		17 text 各構成曲の出典を保持する例
+		18 heading 注意事項, Value: 2
+			19 text 注意事項
+		20 text 説明が見出しから始まる場合も、注意事項は曲目の下です。
+		21 container
+			22 heading 頒布情報, Value: 2
+				23 text 頒布情報
+			24 text 2026年1月2日
+			25 text 架空イベント  サンプル会場
+			26 text A-01
+			27 text Example Circle 別日程の補足を残す例
+	28 text © 2026 Example Circle
+
+The focused UI element is 30 button (expanded) 曲目, Secondary Actions: Collapse

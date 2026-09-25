@@ -1,0 +1,105 @@
+{
+  "album": {
+    "albumId": "example-album",
+    "title": "Sample Album",
+    "artistDisplayName": "Example Circle",
+    "originalWorkNote": "各構成曲の出典を保持する例",
+    "releaseDate": "2026-01-01",
+    "catalogNumber": "EXAMPLE-001",
+    "isdn": null,
+    "description": "架空の作品を使った説明文です。曲目はこの直後に表示されます。\n\n## 注意事項\n\nこの注意事項は曲目より下に残します。\n\n## 店舗情報\n\n[架空の店舗](https://example.com/store)",
+    "descriptionFormat": "MARKDOWN",
+    "tracks": [
+      {
+        "trackNo": 1,
+        "title": "First Set",
+        "artistDisplayName": "Example Performer",
+        "tunes": [
+          {
+            "tuneTitle": "First Tune",
+            "composerCreditOverride": "Example Composer",
+            "arrangerCreditOverride": "Example Arranger"
+          },
+          {
+            "tuneTitle": "Second Tune",
+            "composerCreditOverride": "Traditional",
+            "arrangerCreditOverride": null
+          }
+        ]
+      },
+      {
+        "trackNo": 2,
+        "title": "Second Track",
+        "artistDisplayName": null,
+        "tunes": []
+      }
+    ],
+    "externalAudios": [],
+    "coverImageUrl": null,
+    "eventName": "架空イベント",
+    "eventDate": "2026-01-02",
+    "eventPlace": "サンプル会場",
+    "eventSpaceNumber": "A-01",
+    "eventCircleName": "Example Circle",
+    "eventNote": "別日程の補足を残す例",
+    "basePrice": {
+      "amount": 1200,
+      "currency": "JPY"
+    }
+  },
+  "article": {
+    "title": "Sample Album の紹介",
+    "body": "架空の作品を使った説明文です。曲目はこの直後に表示されます。\n\n## 注意事項\n\nこの注意事項は曲目より下に残します。\n\n## 店舗情報\n\n[架空の店舗](https://example.com/store)",
+    "bodyFormat": "MARKDOWN",
+    "publishedAt": null,
+    "tags": [],
+    "album": {
+      "albumId": "example-album",
+      "title": "Sample Album",
+      "artistDisplayName": "Example Circle",
+      "originalWorkNote": "各構成曲の出典を保持する例",
+      "releaseDate": "2026-01-01",
+      "catalogNumber": "EXAMPLE-001",
+      "isdn": null,
+      "description": "架空の作品を使った説明文です。曲目はこの直後に表示されます。\n\n## 注意事項\n\nこの注意事項は曲目より下に残します。\n\n## 店舗情報\n\n[架空の店舗](https://example.com/store)",
+      "descriptionFormat": "MARKDOWN",
+      "tracks": [
+        {
+          "trackNo": 1,
+          "title": "First Set",
+          "artistDisplayName": "Example Performer",
+          "tunes": [
+            {
+              "tuneTitle": "First Tune",
+              "composerCreditOverride": "Example Composer",
+              "arrangerCreditOverride": "Example Arranger"
+            },
+            {
+              "tuneTitle": "Second Tune",
+              "composerCreditOverride": "Traditional",
+              "arrangerCreditOverride": null
+            }
+          ]
+        },
+        {
+          "trackNo": 2,
+          "title": "Second Track",
+          "artistDisplayName": null,
+          "tunes": []
+        }
+      ],
+      "externalAudios": [],
+      "coverImageUrl": null,
+      "eventName": "架空イベント",
+      "eventDate": "2026-01-02",
+      "eventPlace": "サンプル会場",
+      "eventSpaceNumber": "A-01",
+      "eventCircleName": "Example Circle",
+      "eventNote": "別日程の補足を残す例",
+      "basePrice": {
+        "amount": 1200,
+        "currency": "JPY"
+      }
+    }
+  }
+}
