@@ -1,6 +1,6 @@
 import { formatPublishedDate } from "./format";
 import { escape } from "./html";
-import { renderAlbum, renderBody, type AlbumPresentation } from "./album";
+import { renderAlbum, renderBody, renderBodyParts, type AlbumPresentation } from "./album";
 
 export { formatCalendarDate, formatPrice, formatPublishedDate } from "./format";
 export { renderAlbum, type AlbumPresentation } from "./album";
@@ -27,20 +27,35 @@ export const renderArticleBody = (
   assetBasePath: string,
 ): string => renderBody(article.body, article.bodyFormat, assetBasePath);
 
-/** 作品紹介記事は作品詳細を展開し、本文を試聴と曲目の間へ入れる。 */
+/**
+ * 作品紹介の本文を、曲目の前の説明と後ろの補足へ描画する。
+ * @param article 入力本文と形式。
+ * @param assetBasePath 許可する画像配信先。
+ * @returns 説明と補足のサニタイズ済みHTML。
+ */
+export const renderArticleBodyParts = (
+  article: Pick<ArticlePresentation, "body" | "bodyFormat">,
+  assetBasePath: string,
+): Readonly<{ lead: string; details: string }> => renderBodyParts(article.body, article.bodyFormat, assetBasePath);
+
+/** 作品紹介記事は本文を一度だけ使い、冒頭の説明の直後へ曲目を置く。 */
 export const renderArticle = (
   article: ArticlePresentation,
   assetBasePath: string,
   defaultArtistName: string | null = null,
 ): string => {
   const body = `<div data-article-body>${renderArticleBody(article, assetBasePath)}</div>`;
+  const parts = renderArticleBodyParts(article, assetBasePath);
   const content =
     article.album === null
       ? body
       : renderAlbum(article.album, assetBasePath, {
           embedded: true,
           defaultArtistName,
-          introHtml: body,
+          bodyParts: {
+            lead: `<div data-article-body class="empty:hidden">${parts.lead}</div>`,
+            details: `<div data-article-details class="empty:hidden">${parts.details}</div>`,
+          },
         });
   return `<article class="flex gap-3 py-6"><div class="border-primary shrink-0 border-r-2 pt-12"><p class="text-primary rotate-180 text-xs leading-none font-medium tracking-widest italic [writing-mode:vertical-rl]">Article</p></div><div class="min-w-0 flex-1 space-y-8"><header data-article-header class="space-y-2">${renderArticleHeader(article)}</header>${content}</div></article>`;
 };

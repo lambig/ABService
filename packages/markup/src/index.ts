@@ -33,6 +33,38 @@ const sanitizeSchema = {
   tagNames: [...(defaultSchema.tagNames ?? []), 'details', 'summary'],
 };
 
+const renderer = (options: RenderOptions) =>
+  unified()
+    .use(remarkParse)
+    .use(remarkGfm)
+    .use(remarkDirective)
+    .use(remarkDetailsDirective)
+    .use(remarkRehype)
+    .use(rehypeSanitize, sanitizeSchema)
+    .use(rehypeRestrictImageSource, options.assetBasePath)
+    .use(rehypeStringify);
+
+/**
+ * 冒頭の説明と、次の見出しから始まる補足を描画する。
+ * 文書全体を変換してから最上位の節だけで分けるため、参照リンク・脚注・入れ子を保つ。
+ * 最初が見出しの場合は説明を空にし、見出しが無ければ全文を説明にする。
+ * @param markdown 入力のMarkdown。
+ * @param options アセット等の描画設定。
+ * @returns サニタイズ済みの説明と補足のHTML。
+ */
+export function renderMarkupParts(markdown: string, options: RenderOptions): Readonly<{ lead: string; details: string }> {
+  const processor = renderer(options);
+  const tree = processor.runSync(processor.parse(markdown));
+  const boundary = tree.children.findIndex((node) =>
+    node.type === 'element' && /^h[1-6]$/u.test(node.tagName),
+  );
+  const split = boundary === -1 ? tree.children.length : boundary;
+  return {
+    lead: processor.stringify({ ...tree, children: tree.children.slice(0, split) }),
+    details: processor.stringify({ ...tree, children: tree.children.slice(split) }),
+  };
+}
+
 /**
  * Markdown をサニタイズ済みの HTML へ描画する。
  *
@@ -55,16 +87,5 @@ const sanitizeSchema = {
  * @returns サニタイズ済みの HTML 文字列
  */
 export function renderMarkup(markdown: string, options: RenderOptions): string {
-  return String(
-    unified()
-      .use(remarkParse)
-      .use(remarkGfm)
-      .use(remarkDirective)
-      .use(remarkDetailsDirective)
-      .use(remarkRehype)
-      .use(rehypeSanitize, sanitizeSchema)
-      .use(rehypeRestrictImageSource, options.assetBasePath)
-      .use(rehypeStringify)
-      .processSync(markdown),
-  );
+  return String(renderer(options).processSync(markdown));
 }

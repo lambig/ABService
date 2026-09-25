@@ -1,8 +1,45 @@
 import { describe, expect, it } from 'vitest';
 
-import { renderMarkup } from './index.js';
+import { renderMarkup, renderMarkupParts } from './index.js';
 
 const ASSET_BASE_PATH = '/assets';
+
+describe('説明と補足の分割', () => {
+  const parts = (text: string) => renderMarkupParts(text, { assetBasePath: ASSET_BASE_PATH });
+  it('文書全体の変換結果を保持し、次の最上位見出しで分ける', () => {
+    const text = '説明\n\n[出典][ref]\n\n## 補足\n\n注記[^a]\n\n[ref]: https://example.com/source\n\n[^a]: 脚注';
+    const result = parts(text);
+    expect(result.lead).toContain('href="https://example.com/source"');
+    expect(result.lead).not.toContain('<h2>補足</h2>');
+    expect(result.details).toContain('<h2>補足</h2>');
+    expect(result.details).toContain('脚注');
+    expect(result.lead + result.details).toBe(render(text));
+  });
+  it('引用・コード・折畳み内の見出しでは分けない', () => {
+    const text = '> ## 引用\n> 説明\n\n```md\n## code\n```\n\n:::details[参照]\n## 内部\n本文\n:::\n\n## 補足\n本文';
+    const result = parts(text);
+    expect(result.lead).toContain('</blockquote>');
+    expect(result.lead).toContain('</details>');
+    expect(result.details).toContain('<h2>補足</h2>');
+    expect(result.lead + result.details).toBe(render(text));
+  });
+  it('見出し無しと空文書では説明だけを返す', () => {
+    expect(parts('説明')).toEqual({ lead: '<p>説明</p>', details: '' });
+    expect(parts('')).toEqual({ lead: '', details: '' });
+  });
+  it('冒頭が注意事項でも説明へ取り込まず、補足に置く', () => {
+    const text = '## 注意事項\n\n保持する注記';
+    expect(parts(text)).toEqual({ lead: '', details: render(text) });
+  });
+  it('両領域で同じサニタイザーと画像制限を維持する', () => {
+    const text = '[bad](javascript:alert(1))\n\n## 補足\n\n![bad](/other/image.png)\n\n<script>alert(1)</script>';
+    const result = parts(text);
+    expect(result.lead + result.details).toBe(render(text));
+    expect(result.lead + result.details).not.toContain('javascript:');
+    expect(result.details).not.toContain('<script');
+    expect(result.details).not.toContain('src="/other');
+  });
+});
 
 function render(markdown: string): string {
   return renderMarkup(markdown, { assetBasePath: ASSET_BASE_PATH });
