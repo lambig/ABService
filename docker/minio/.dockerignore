@@ -1,0 +1,2 @@
+# Never send locally persisted object data to the image builder.
+*

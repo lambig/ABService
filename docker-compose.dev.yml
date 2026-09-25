@@ -109,9 +109,11 @@ services:
       - abservice-dev-network
 
   # MinIO for object storage testing
-  # 取得元は基本の compose と揃える（Docker Hub の minio/minio は引けない）。
+  # 基本の compose と同じ公式ソースの固定コミットからビルドする。
   minio:
-    image: quay.io/minio/minio:latest
+    build:
+      context: ./docker/minio
+      target: minio
     container_name: abservice-minio-dev
     restart: unless-stopped
     environment:
