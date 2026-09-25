@@ -99,6 +99,18 @@ ABService/
 2. 開発環境の起動: `docker-compose up -d`
 3. 各サービスの個別起動（必要に応じて）
 
+### 公開用 Git identity
+
+コミットに使う公開用メールアドレスと名義を、クローンしたリポジトリで明示します。次の値は例なので、自分が公開してよい値へ置き換えてください。GitHubのnoreplyアドレスも利用できます。
+
+```bash
+git config --local abservice.publicEmail contributor@example.test
+git config --local user.email contributor@example.test
+git config --local user.name Contributor
+```
+
+Claude Codeのコミット前フックは、ローカルの `user.email` がローカルの `abservice.publicEmail` と一致し、ローカルの `user.name` も非空であることを検査します。メールの期待値・メール・名義が空または未設定、あるいはメールが不一致なら拒否し、グローバル設定を代用しません。再クローン時も設定が必要です。既存のクローンでは公開用の `user.email` と `user.name` を確認し、メールと同じ値を `abservice.publicEmail` に追加してください。個人の実値は共有フックやドキュメントへ書き込みません。`bash scripts/git-identity.test.sh` で隔離したGit設定を使う回帰検査を実行できます。
+
 ## 本番作業の参照先
 
 ABService 側の構築・配布・ロールバック機構の技術的な操作と契約は [infra/README.md](infra/README.md) を正とします。実環境での作業順序・停止条件・切替判断・証跡は非公開の運用リポジトリ（ABAffairs）を正とし、実環境の設定値や投入データもそこで管理して公開 PR には入れません。開発側の依存関係とリリース阻害条件は [ロードマップ #224](https://github.com/lambig/ABService/issues/224)・各 issue・milestone を参照してください。
