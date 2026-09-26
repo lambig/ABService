@@ -1,6 +1,6 @@
 # Installation contract PoC (#292)
 
-`parseManifest(unknown)` と `assessReadiness(manifest, environment)` は I/O に依存しない。
+`projectManifest(unknown)`、`parseManifest(unknown)`、`assessReadiness(manifest, environment)` は I/O に依存しない。
 Zodは外部入力の深い検証とreadonly snapshotの生成を担う。既存lock内の4.4.3を直接依存として宣言した。
 
 ## 契約 v1
@@ -9,11 +9,29 @@ Zodは外部入力の深い検証とreadonly snapshotの生成を担う。既存
 - アプリの安定版を `[major, minor, patch]` で表し、互換範囲は `[minInclusive, maxExclusive)`。
   prereleaseやSemVer範囲文字列はこのPoCでは扱わない。
 - Album/TrackのID・タイトルをprojectionへ写し、音源やartworkを論理assetIdで参照する。
-  Tune DBの項目は不要。projection生成APIは後続。
+  Tune DBの項目は不要。
 - trackの音源は必ずrequiredかつaudio media type。artwork/presentationはassetのrequired設定に従う。
 - checksumはalgorithmとvalueの対。ハッシュ方式は未決のためopaqueな契約とし、計算はadapterの責務。
   inventoryにはローカルの実バイトから計算した観測値を渡す。manifestの期待値を転記してはいけない。
 - asset ID重複・track ID重複・参照切れ・不正数値・空の互換範囲を拒否する。
+
+## Projectionの入力境界
+
+v1.0のAlbum/Trackには会場用音源のasset IDがないため、canonicalなID・タイトル・曲順と、配布用assetとの対応表を分ける。
+公開APIはtrack IDを返さないため入力元にはせず、IDを持つ読み取りデータのsnapshotを使う。
+URL・storage key・SoundCloudの埋め込み先から論理asset IDを推測しない。
+対応表とassetのchecksumは呼び出し元が用意し、曲の対応漏れを成功扱いで除外しない。
+
+アルバムの選択順は呼び出し元の意図として保ち、曲順はcanonicalなtrackNoに従う。
+公開可否・配布権限の判定はこの純粋変換では行わず、入力を用意する境界で担う。
+
+FLACは試聴端末向けの限定配布を前提とする。準備時の認証・配布対象の認可・取得URLの発行は
+配布APIの責務であり、このManifestはアクセス許可を与えない。公開画像の配信経路に音源を載せない。
+端末は準備済みの音源をオフラインで再生するため、期限付き取得URLや認証情報はManifestへ含めない。
+
+複数のTrackに同じ音源実体を使う場合は、対応表から同じassetIdを参照する。
+assetsにはその実体を1件だけ載せるため、readinessの必要容量も1回分となる。
+曲名の一致だけでは再録・別録音・別マスターを同一視せず、音源の対応付けは呼び出し元が決定する。
 
 ## Readiness
 
