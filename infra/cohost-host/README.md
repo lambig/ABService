@@ -75,6 +75,28 @@ published objects or any object version. ECR tags are immutable; this root does
 not expire tagged images. Track storage growth and preserve the deployed/previous
 digests when performing explicit image retention.
 
+### Optional private audio storage
+
+`private_audio_bucket` defaults to null: no audio resources or permissions are
+created. A distinct DNS-safe bucket name explicitly provisions an audio-only
+bucket with all public access blocks, BucketOwnerEnforced ownership, versioning,
+AES256 encryption, TLS-only access and `prevent_destroy`. No expiry, browser CORS
+or CloudFront/OAC grants are added. Do not add this bucket to the edge origins.
+
+Only the app role receives ListBucket for missing-key HEAD detection and
+GetObject/PutObject on `audio/verified/*`. It cannot delete objects or versions,
+change ACLs or access other buckets through this policy. The application uses
+conditional PUT and verifies saved metadata before confirmation. These policy
+tests are mock plans; verify actual allowed/denied requests before enablement.
+
+Write the output bucket name to `private-audio/bucket` under the existing private
+Parameter Store prefix, and prepare the dedicated host temporary directory as
+described in the [runtime instructions](../host/cohost/README.md). This root does
+not write parameters or enable the application. Disable the runtime to stop
+access; do not set the bucket input back to null as an application toggle, since
+that would request destruction and be rejected by `prevent_destroy`. Data
+retention and eventual removal require a separate reviewed operational decision.
+
 ## Secret and certificate handoff
 
 Generate the CA outside Terraform. Only its certificate enters the input/state.

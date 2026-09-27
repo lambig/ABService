@@ -144,6 +144,7 @@ resource "aws_cloudfront_distribution" "main" {
       https_port             = var.backend_https_port
       origin_protocol_policy = var.backend_protocol
       origin_ssl_protocols   = ["TLSv1.2"]
+      origin_read_timeout    = var.backend_response_timeout
     }
     custom_header {
       name  = "X-Origin-Verify"

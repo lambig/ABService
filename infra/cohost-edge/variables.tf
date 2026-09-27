@@ -23,6 +23,16 @@ variable "backend_https_port" {
   type    = number
   default = 443
 }
+variable "backend_response_timeout" {
+  description = "API origin response wait; raise explicitly for private audio after checking the distribution quota and real upload timings."
+  type        = number
+  default     = 30
+  nullable    = false
+  validation {
+    condition     = var.backend_response_timeout >= 1 && var.backend_response_timeout <= 60 && floor(var.backend_response_timeout) == var.backend_response_timeout
+    error_message = "Use an integer from 1 to 60 seconds supported by the pinned provider."
+  }
+}
 variable "backend_protocol" {
   type    = string
   default = "https-only"

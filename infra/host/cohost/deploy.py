@@ -51,7 +51,7 @@ def check_digest(value):
 
 def validate(config, image, source):
     required = {"name", "region", "parameter_prefix", "postgres_image", "auth_dir", "bind_address", "port"}
-    if set(config) != required:
+    if not required <= set(config) or set(config) - required - {"private_audio"}:
         raise DeployError("Config must contain exactly the documented fields")
     if not re.fullmatch(r"[a-z][a-z0-9-]{0,39}", config["name"]):
         raise DeployError("Invalid Compose project name")
@@ -69,12 +69,28 @@ def validate(config, image, source):
     auth = Path(config["auth_dir"])
     if not auth.is_absolute() or not auth.is_dir() or not (auth / "config").is_file():
         raise DeployError("auth_dir must contain the prepared AWS profile config")
+    if "private_audio" in config:
+        audio = config["private_audio"]
+        if not isinstance(audio, dict) or set(audio) != {"enabled", "temporary_dir"} or type(audio["enabled"]) is not bool:
+            raise DeployError("private_audio requires a boolean enabled and a temporary_dir")
+        directory = Path(audio["temporary_dir"])
+        if (not directory.is_absolute() or not directory.is_dir() or directory.resolve() != directory
+                or directory == Path(directory.anchor)
+                or directory == auth.resolve() or directory in auth.resolve().parents
+                or auth.resolve() in directory.parents):
+            raise DeployError("Private audio needs a separate, existing, canonical directory")
+        metadata = directory.stat()
+        if metadata.st_uid != 1000 or metadata.st_gid != 1000 or metadata.st_mode & 0o777 != 0o700:
+            raise DeployError("Private audio directory must be owned by 1000:1000 and mode 0700")
 
 
 def parameters(config):
     values = {}
-    for key in ("db/name", "db/username", "db/password", "db/admin-password",
-                "app/admin-api-key", "app/origin-verify-token", "assets/bucket"):
+    keys = ["db/name", "db/username", "db/password", "db/admin-password",
+            "app/admin-api-key", "app/origin-verify-token", "assets/bucket"]
+    if config.get("private_audio", {}).get("enabled", False):
+        keys.append("private-audio/bucket")
+    for key in keys:
         response = json.loads(run("aws", "ssm", "get-parameter", "--region", config["region"],
                                   "--name", config["parameter_prefix"] + "/" + key,
                                   "--with-decryption", "--output", "json"))
@@ -89,6 +105,11 @@ def parameters(config):
             raise DeployError("Use a dedicated application database and non-admin role")
     if values["db/password"] == values["db/admin-password"]:
         raise DeployError("Application and database administrator passwords must differ")
+    if "private-audio/bucket" in values:
+        bucket = values["private-audio/bucket"]
+        if (not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,61}[a-z0-9]", bucket)
+                or bucket == values["assets/bucket"]):
+            raise DeployError("Private audio needs a distinct, DNS-safe bucket")
     return values
 
 
@@ -103,6 +124,7 @@ def compose_config(config, image, values):
         "AWS_SHARED_CREDENTIALS_FILE": "/dev/null", "AWS_EC2_METADATA_DISABLED": "true",
         "JAVA_TOOL_OPTIONS": "-Xms128m -Xmx384m -XX:MaxMetaspaceSize=192m -XX:ActiveProcessorCount=2",
         "QUARKUS_DATASOURCE_JDBC_MAX_SIZE": "8", "QUARKUS_DATASOURCE_REACTIVE_MAX_SIZE": "12",
+        "ABSERVICE_PRIVATE_AUDIO_ENABLED": "false",
     }
     model = {
         "services": {
@@ -137,6 +159,17 @@ def compose_config(config, image, values):
         "networks": {"egress": {}, "database": {"internal": True}},
         "volumes": {"data": {"external": True, "name": config["name"] + "-postgres"}},
     }
+    if config.get("private_audio", {}).get("enabled", False):
+        backend_env.update({
+            "ABSERVICE_PRIVATE_AUDIO_ENABLED": "true",
+            "ABSERVICE_PRIVATE_AUDIO_BUCKET": values["private-audio/bucket"],
+            "ABSERVICE_PRIVATE_AUDIO_TEMPORARY_DIRECTORY": "/var/lib/abservice/private-audio",
+        })
+        model["services"]["backend"]["volumes"].append({
+            "type": "bind", "source": config["private_audio"]["temporary_dir"],
+            "target": "/var/lib/abservice/private-audio", "read_only": False,
+            "bind": {"create_host_path": False},
+        })
     # Compose interpolates even JSON strings. Preserve literal $, quotes and newlines
     # in Parameter Store values; no secrets are evaluated as shell/Compose syntax.
     return escape_compose(model)
@@ -160,6 +193,10 @@ def compose(config, path, *args):
 def deploy(config, image, source, state_dir, initialize=False):
     validate(config, image, source)
     state_dir = Path(state_dir).resolve()
+    if "private_audio" in config:
+        directory = Path(config["private_audio"]["temporary_dir"])
+        if directory == state_dir or directory in state_dir.parents or state_dir in directory.parents:
+            raise DeployError("Private audio and deployment state directories must be separate")
     state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     if state_dir.stat().st_uid != os.geteuid() or state_dir.stat().st_mode & 0o077:
         raise DeployError("State directory must be owned by the operator and mode 0700")

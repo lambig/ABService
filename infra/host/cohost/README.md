@@ -82,6 +82,37 @@ OS再起動後はDocker起動と`unless-stopped`で復帰する。起動順序�
 保存を確保してDB内の状態も変える別操作として扱う。環境変数だけの変更では既存DBの認証は変わらない。
 非rootのアプリDB所有者はアプリDB/schema内のmigrationは可能だが、role/DB作成やsuperuser権限は持たない。
 
+## 非公開音源の明示的な有効化
+
+既存設定では音源機能を無効にし、追加のParameter Store値も一時領域も要求しない。
+有効化する場合だけ、非公開の配布設定に次の任意項目を追加する。
+
+```json
+"private_audio": {
+  "enabled": true,
+  "temporary_dir": "/var/lib/abservice/private-audio"
+}
+```
+
+ホストの専用ディレクトリは事前にUID/GID `1000:1000`、mode `0700`で用意する。
+既存データに再帰的な所有権変更を行わない。絶対パス・実在・symlinkを含まない正規パスを要求し、
+認証ディレクトリや配布stateとの同一・包含関係を拒否する。ホストのパスをコンテナの
+`/var/lib/abservice/private-audio`へ読み書き可能でbindし、暗黙のホストディレクトリ作成は行わない。
+これはディスク領域でありtmpfsではない。512MiBのアプリ内総予算に加え、DB・ログ・OS用の空き容量と
+監視を別途確保する。予算はファイルシステムのquotaを代替しない。
+
+Parameter Storeの既存prefix配下に `private-audio/bucket` を用意する。公開画像とは異なる、
+英小文字・数字・ハイフンだけの専用バケット名を指定する。資格情報は既存のapp用process profileを使い、
+静的AWSキーは追加しない。[ホストIaC](../../cohost-host/README.md)の任意バケット/IAMを先に検査する。
+`ABSERVICE_PRIVATE_AUDIO_ENABLED`、`ABSERVICE_PRIVATE_AUDIO_BUCKET`、
+`ABSERVICE_PRIVATE_AUDIO_TEMPORARY_DIRECTORY`を渡し、入力期限・保持期限・総予算は
+[アプリの既定値](../../../docs/PRIVATE_AUDIO_INGESTION.md)を使う。
+
+[originの音源用経路](ORIGIN.md)とCDNを別途準備し、有効化は実環境受け入れ後に行う。
+`enabled: false`への変更または項目の削除でAPIを404へ戻す。falseでも項目を残す場合は専用領域の
+パス・所有者・権限を検査する。停止でS3の音源・DBの登録・ホスト一時領域を削除しない。
+再起動後の専有・残骸回収はアプリが行う。音源用bindの追加/除去はDB設定変更として扱わない。
+
 ## 失敗と手動復帰
 
 `attempt.json` が直近の試行、`current.json` が最後にhealthyを確認した配布。
@@ -111,3 +142,5 @@ AWSは呼ばず、明示した無効なfixture値を使用する。初回起動�
 異なるimageへの再配布・失敗時の記録・手動復帰・volume保持・stateの取り違え拒否を検査する。
 署名付きアップロードURLを発行し、fixtureのaccess key/session tokenが署名に使われることも確認する。
 URLへのアクセスや出力は行わない。実AWSや実機性能の保証ではない。
+音源の既定無効・有効化と実予約・一時領域の書込み/専有・再起動後の照会・無効化も検査する。
+この配布試験はS3への実送信を行わず、実FLACの保存はアプリ結合試験、実IAM/CDNは運用受け入れで確認する。

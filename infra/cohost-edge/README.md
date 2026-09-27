@@ -41,6 +41,16 @@ charges. Subscription deletion can schedule cancellation at the billing-period
 boundary; read back actual status rather than infer it from stack deletion.
 
 Managed cache policies keep public/admin/API uncached and cache immutable assets.
+`backend_response_timeout` preserves the existing 30-second API origin wait by
+default; an explicit integer up to 60 seconds is supported by this configuration
+and its pinned provider. It applies to the shared API origin, not the S3 origins.
+For private audio, verify the distribution quota and measure the real upload,
+inspection and storage timings before choosing this value. A longer Nginx wait
+does not override CloudFront's limit. A 504 or lost response does not establish
+that saving failed: query the registration and use the confirmation/recovery
+contract rather than blindly uploading again. Keep the audio bucket out of CDN
+origins/OAC and validate anonymous rejection independently.
+
 The Free candidate uses `PriceClass_All`. Read back actual subscription admission;
 a valid CloudFront configuration alone does not prove eligibility for Free.
 Viewer-response functions cover normal/cache-hit responses; Lambda@Edge supplies

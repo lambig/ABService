@@ -55,6 +55,7 @@ def main():
     state = root / "state-$literal"
     tags = []
     registry_created = False
+    audio = root / "private-audio"
 
     def http(path, method="GET", payload=None, origin=True, admin=False):
         headers = {"Content-Type": "application/json"}
@@ -157,6 +158,35 @@ def main():
             assert deploy.read_json(state / "previous.json")["image"] == first
             print("restart and distinct-image deployment preserved DB/data and previous version", flush=True)
 
+            audio_api = "/api/v1/admin/private-audio/registrations"
+            assert http(audio_api, "POST", admin=True)[0] == 404
+            audio.mkdir(mode=0o700)
+            # CI's host UID can differ from the fixed application UID. Change only
+            # this disposable directory, never a production path or its contents.
+            docker("run", "--rm", "--user", "0:0", "--entrypoint", "chown",
+                   "-v", str(audio) + ":/audio", args.image, "1000:1000", "/audio")
+            c["private_audio"] = {"enabled": True, "temporary_dir": str(audio)}
+            with patch.object(deploy, "parameters", return_value={**VALUES, "private-audio/bucket": "invalid-audio-fixture"}):
+                deploy.deploy(c, second, "2" * 40, state)
+                assert service_id("postgres") == initial_db
+                status, body = http(audio_api, "POST", admin=True)
+                assert status == 201, "Private audio reservation did not use opt-in configuration"
+                audio_id = json.loads(body)["audioId"]
+                assert http(audio_api, "POST")[0] == 401
+                # Runtime initialization acquires the dedicated directory as UID 1000.
+                docker("exec", service_id("backend"), "sh", "-c",
+                       "test -w /var/lib/abservice/private-audio && test -f /var/lib/abservice/private-audio/.audio-owner.lock")
+                deploy.compose(c, state / "candidate.compose.json", "restart", "backend")
+                deploy.deploy(c, second, "2" * 40, state)
+                assert http(audio_api + "/" + audio_id, admin=True)[0] == 200
+            c["private_audio"]["enabled"] = False
+            deploy.deploy(c, second, "2" * 40, state)
+            assert http(audio_api, "POST", admin=True)[0] == 404
+            assert json.loads(http("/api/v1/site-contents")[1]) == before
+            assert service_id("postgres") == initial_db
+            del c["private_audio"]
+            print("private audio opt-in, writable storage, restart and disable preserved DB/data", flush=True)
+
             # A real non-app image must never become a successful release.
             (root / "Dockerfile").write_text("FROM postgres:15-alpine\nENTRYPOINT [\"false\"]\n")
             broken_tag = name + ":broken"
@@ -196,6 +226,10 @@ def main():
             for tag in reversed(tags):
                 subprocess.run(["docker", "image", "rm", tag], capture_output=True)
         finally:
+            if audio.exists():
+                # Only the random, test-owned fixture tree is reclaimed.
+                docker("run", "--rm", "--user", "0:0", "--entrypoint", "chown",
+                       "-v", str(audio) + ":/audio", args.image, "-R", f"{os.getuid()}:{os.getgid()}", "/audio")
             shutil.rmtree(root)
 
 

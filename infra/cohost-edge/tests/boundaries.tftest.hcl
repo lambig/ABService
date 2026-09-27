@@ -35,6 +35,10 @@ variables {
 run "disabled_preparation" {
   command = plan
   assert {
+    condition     = alltrue([for origin in aws_cloudfront_distribution.main.origin : one(origin.custom_origin_config).origin_read_timeout == 30 if origin.origin_id == "api"])
+    error_message = "Keep the existing default API response wait."
+  }
+  assert {
     condition     = !aws_cloudfront_distribution.main.enabled && aws_cloudfront_distribution.main.price_class == "PriceClass_All" && length(aws_cloudfront_distribution.main.aliases) == 0 && length(aws_cloudfront_distribution.main.ordered_cache_behavior) == 3
     error_message = "Preparation must keep global delivery disabled, without aliases, and retain all four routes."
   }
@@ -54,6 +58,19 @@ run "disabled_preparation" {
     condition     = alltrue([for f in aws_cloudfront_function.security_response : length(f.code) < 10000])
     error_message = "Generated CloudFront Functions must fit the code-size limit."
   }
+}
+run "explicit_api_response_wait" {
+  command = plan
+  variables { backend_response_timeout = 60 }
+  assert {
+    condition     = alltrue([for origin in aws_cloudfront_distribution.main.origin : one(origin.custom_origin_config).origin_read_timeout == 60 if origin.origin_id == "api"])
+    error_message = "The requested API wait must reach the custom origin."
+  }
+}
+run "reject_unbounded_api_response_wait" {
+  command = plan
+  variables { backend_response_timeout = 61 }
+  expect_failures = [var.backend_response_timeout]
 }
 run "reject_unverified_enablement" {
   command = plan

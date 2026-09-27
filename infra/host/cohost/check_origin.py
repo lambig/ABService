@@ -18,6 +18,12 @@ def run(*args):
 
 def check():
     domain = "origin.example.invalid"
+    try:
+        render(domain, private_audio=True)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Accepted private audio without TLS")
     for invalid in ("a;return 200", "a\nb", "*.example.invalid", "127.0.0.1", "https://example.invalid", "example.invalid/", "-a.example.invalid"):
         try:
             render(invalid)
@@ -37,7 +43,7 @@ def check():
             "-subj", "/CN="+domain, "-addext", "subjectAltName=DNS:"+domain,
             "-keyout", str(root/"privkey.pem"), "-out", str(root/"fullchain.pem"))
         # A fixture backend exposes /q/ deliberately, to detect proxy bypasses.
-        backend = """server { listen 8080; server_name _;
+        backend = """server { listen 8080; server_name _; client_max_body_size 0;
             location /api/ {
                 if ($http_x_origin_verify != deliberately-invalid-test-token) { return 403; }
                 return 200 'accepted';
@@ -45,8 +51,8 @@ def check():
             location /q/ { return 200 'management-must-not-escape'; }
         }
 """
-        for tls in (False, True):
-            conf = render(domain, tls)["nginx.conf"]
+        for tls, private_audio in ((False, False), (True, False), (True, True)):
+            conf = render(domain, tls, private_audio)["nginx.conf"]
             conf = conf.replace("/var/log/abservice-origin/error.log", "/tmp/error.log")
             conf = conf.replace("/var/log/abservice-origin/access.log", "/tmp/access.log")
             conf = conf.replace("/var/lib/abservice/acme", "/fixture")
@@ -62,15 +68,17 @@ def check():
                 context = ssl.create_default_context(cafile=str(root/"fullchain.pem"))
                 context.minimum_version = ssl.TLSVersion.TLSv1_2
 
-                def request(path, secure=False, host=domain, token=False, method="GET", sni=domain):
+                def request(path, secure=False, host=domain, token=False, method="GET", sni=domain,
+                            extra_headers=None, body=None):
                     conn = http.client.HTTPConnection("127.0.0.1", tls_port if secure else http_port, timeout=5)
                     if secure:
                         conn.sock = context.wrap_socket(socket.create_connection(("127.0.0.1", tls_port), 5), server_hostname=sni)
                     headers = {"Host": host}
+                    headers.update(extra_headers or {})
                     if token:
                         headers["X-Origin-Verify"] = "deliberately-invalid-test-token"
                     try:
-                        conn.request(method, path, headers=headers)
+                        conn.request(method, path, body=body, headers=headers)
                         response = conn.getresponse()
                         return response.status, response.read()
                     finally:
@@ -91,6 +99,25 @@ def check():
                 for path in ("/api/v1/site-contents", "/q/health", "/", "/.well-known/acme-challenge/../privkey.pem"):
                     assert request(path, token=True)[0] == 404
                 if tls:
+                    upload = "/api/v1/admin/private-audio/registrations/12345678-1234-1234-1234-123456789abc/content"
+                    # Send headers without the body: an immediate upstream response
+                    # proves neither Content-Length nor chunked uploads are buffered.
+                    for headers, prefix in (({"Content-Length": str(2 * 1024 * 1024)}, None),
+                                            ({"Transfer-Encoding": "chunked"}, b"1\r\nx\r\n")):
+                        if private_audio or "Content-Length" in headers:
+                            assert request(upload, secure=True, token=True, method="PUT",
+                                           extra_headers=headers, body=prefix)[0] == (200 if private_audio else 413)
+                    for path in (upload + "/extra", upload.replace("12345678-", "invalid-"),
+                                 "/api/v1/site-contents"):
+                        assert request(path, secure=True, token=True, method="PUT",
+                                       extra_headers={"Content-Length": str(2 * 1024 * 1024)})[0] == 413
+                    assert request(upload, secure=True, token=True, method="PUT",
+                                   extra_headers={"Content-Length": str(256 * 1024 * 1024 + 1)})[0] == 413
+                    if private_audio:
+                        assert request(upload, secure=True, token=True, method="PUT",
+                                       extra_headers={"Content-Length": str(256 * 1024 * 1024)})[0] == 200
+                        assert request(upload, secure=True, token=True, method="POST")[0] == 403
+                        assert request(upload, secure=True, method="PUT")[0] == 403
                     assert request("/api/v1/site-contents", secure=True, token=True)[0] == 200
                     assert request("/api/v1/site-contents", secure=True)[0] == 403
                     for path in ("/q/health", "/", "/api/../q/health", "/api/%2e%2e/q/health"):
@@ -111,6 +138,7 @@ def check():
                 subprocess.run(["docker", "rm", "-f", container], capture_output=True, timeout=20)
         print(json.dumps({"httpChallengeOnly": True, "tlsApiOnly": True, "tokenPreserved": True,
                           "managementBypassRejected": True, "hostAndSniRejected": True,
+                          "privateAudioOptInStreamingAndSizeBoundaries": True,
                           "image": json.loads(run("docker", "image", "inspect", image))[0]["RepoDigests"]}))
 
 
