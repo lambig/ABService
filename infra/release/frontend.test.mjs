@@ -59,6 +59,29 @@ const deploy = (context, id = '100-1', target = codeSha) => {
     publicRoot: context.publicRoot, adminRoot: context.adminRoot, buildMetadata: context.buildMetadata(target) });
 };
 
+test('candidate evidence survives separately from delivery state and is not overwritten', () => {
+  const context = setup();
+  const record = { version: 1, repository: 'owner/repo', codeSha, branch: 'release/1.10',
+    tag: 'v1.10.0', ciRunId: '123', ciAttempt: 2 };
+  context.delivery.recordCandidate({ ...record, ignored: 'not persisted' }, '100-1', codeSha);
+  assert.deepEqual(JSON.parse(context.objects.get('candidates/100-1.json')), record);
+  assert.deepEqual([...context.objects.keys()], ['candidates/100-1.json']);
+  assert.throws(() => context.delivery.recordCandidate(record, '100-1', codeSha), /already exists/);
+  assert.throws(() => context.delivery.recordCandidate(record, '101-1', 'b'.repeat(40)));
+  context.failWhen((args) => args[1] === 'put-object');
+  assert.throws(() => context.delivery.recordCandidate(record, '101-1', codeSha), /injected/);
+  assert.ok(!context.objects.has('candidates/101-1.json'));
+});
+
+test('redeployment and rollback use retained artifacts without consulting a deleted release branch', () => {
+  const context = setup();
+  const first = deploy(context);
+  deploy(context, '101-1');
+  deploy(context, '102-1', 'b'.repeat(40));
+  assert.deepEqual(context.delivery.rollback({ targetId: '100-1', id: '103-1' }), first);
+  assert.equal(JSON.parse(context.objects.get('last-normal.json')).codeSha, 'b'.repeat(40));
+});
+
 test('both error pages are required before archives or live writes', () => {
   for (const site of ['public', 'admin']) {
     const context = setup();
@@ -184,7 +207,8 @@ const normalJobs = (decision) => {
   const workflow = readFileSync(new URL('../../.github/workflows/deploy.yml', import.meta.url), 'utf8');
   const block = (name) => workflow.split(`\n  ${name}:\n`)[1].split(/\n  [\w-]+:\n/)[0];
   const context = { cancelled: () => false,
-    github: { ref: 'refs/heads/main', event_name: 'workflow_run', repository: 'owner/repo', run_attempt: '1',
+    inputs: { action: 'release' },
+    github: { ref: 'refs/heads/main', event_name: 'workflow_dispatch', repository: 'owner/repo', run_attempt: '1',
       event: { workflow_run: { conclusion: 'success', head_branch: 'main', event: 'push', head_repository: { full_name: 'owner/repo' } } } },
     vars: { AWS_DEPLOY_ROLE_ARN: 'backend-role' },
     needs: { preflight: { result: 'success', outputs: { deploy: String(decision.deploy), attempt: '1' } },

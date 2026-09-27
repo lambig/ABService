@@ -1,24 +1,36 @@
 name: Deploy
 
-# 本番へ出せるのはCIが成功したcommitだけとする。mainへのpushを直接のトリガーにすると、CIが失敗する
-# commitでもデプロイが先に完了しうるため、CIの完了を受けて起動し、対象をそのCIが検査したSHAへ固定する。
+# mainへの統合は配布しない。main上の制御workflowから、検証済みrelease候補を明示的に配布する。
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
   workflow_dispatch:
     inputs:
+      action:
+        description: "検証済み候補の配布、または保存済みbackendイメージへの切り戻し"
+        required: true
+        type: choice
+        options: [rollback, release]
+        default: rollback
+      release_branch:
+        description: "release時: 候補ブランチ（release/1.10等）"
+        type: string
+      release_tag:
+        description: "release時: 候補SHAに固定したタグ（v1.10.0等）"
+        type: string
+      ci_run_id:
+        description: "release時: 候補ブランチへのpushで成功したCI run ID"
+        type: string
       commit_sha:
-        description: "再デプロイする commit の full SHA（ロールバック用）。そのSHAのイメージ・deploy.sh・compose を使い、ビルドは行わない"
+        description: "対象commitのfull SHA。releaseは検証済み候補、rollbackは保存済みイメージのみ"
         required: true
         type: string
 
 permissions:
   id-token: write
   contents: read
+  actions: read
 
 # preflightから両画面の配布完了まで、手動frontend操作も同じgroupで待たせる。
-# queueはgroupで待ち始めた順（CIの完了順）であり、commit順ではない。
+# queueはgroupで待ち始めた順（手動起動の待機順）であり、commit順ではない。
 concurrency:
   group: deploy-production
   cancel-in-progress: false
@@ -29,11 +41,7 @@ jobs:
     name: Check frontend release before backend deployment
     if: >-
       github.ref == 'refs/heads/main' &&
-      github.event_name == 'workflow_run' &&
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event_name == 'workflow_dispatch' && inputs.action == 'release' &&
       vars.AWS_DEPLOY_ROLE_ARN != '' && vars.AWS_FRONTEND_DEPLOY_ROLE_ARN != ''
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -41,7 +49,8 @@ jobs:
       attempt: ${{ steps.release-state.outputs.attempt }}
       deploy: ${{ steps.release-state.outputs.deploy }}
     env:
-      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+      RELEASE_SHA: ${{ inputs.commit_sha }}
+      RELEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}
       FRONTEND_PUBLIC_BUCKET: ${{ vars.FRONTEND_PUBLIC_BUCKET }}
       FRONTEND_ADMIN_BUCKET: ${{ vars.FRONTEND_ADMIN_BUCKET }}
       FRONTEND_RELEASE_BUCKET: ${{ vars.FRONTEND_RELEASE_BUCKET }}
@@ -49,12 +58,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
+      - name: Verify candidate, tag and complete CI before AWS access
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+          RELEASE_BRANCH: ${{ inputs.release_branch }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          CI_RUN_ID: ${{ inputs.ci_run_id }}
+        run: node infra/release/candidate.mjs
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_FRONTEND_DEPLOY_ROLE_ARN }}
@@ -63,6 +80,7 @@ jobs:
         id: release-state
         run: |
           node infra/release/frontend.mjs preflight
+          node infra/release/frontend.mjs record-candidate
           echo "attempt=$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
 
   deploy:
@@ -74,18 +92,14 @@ jobs:
     # 架構を確かめる（DECISIONS 16）
     runs-on: ubuntu-24.04-arm
     # terraform apply（#129のドメイン準備待ち）でリポジトリ変数が設定されるまでは何もしない。
-    # CI経由の起動は、mainへのpushに対するCIが成功した場合だけに限る（PRのCIや失敗・中断は対象外）。
+    # rollbackだけは既存の復旧経路としてpreflightを通らない。
     if: >-
       !cancelled() && github.ref == 'refs/heads/main' &&
-      vars.AWS_DEPLOY_ROLE_ARN != '' && (
-        (github.event_name == 'workflow_dispatch' && needs.preflight.result == 'skipped') || (
-          needs.preflight.result == 'success' &&
+      github.event_name == 'workflow_dispatch' && vars.AWS_DEPLOY_ROLE_ARN != '' && (
+        (inputs.action == 'rollback' && needs.preflight.result == 'skipped') || (
+          inputs.action == 'release' && needs.preflight.result == 'success' &&
           needs.preflight.outputs.deploy == 'true' &&
-          needs.preflight.outputs.attempt == github.run_attempt &&
-          github.event.workflow_run.conclusion == 'success' &&
-          github.event.workflow_run.head_branch == 'main' &&
-          github.event.workflow_run.event == 'push' &&
-          github.event.workflow_run.head_repository.full_name == github.repository))
+          needs.preflight.outputs.attempt == github.run_attempt))
 
     outputs:
       commit_sha: ${{ steps.resolve.outputs.commit_sha }}
@@ -97,7 +111,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha || inputs.commit_sha }}
+          ref: ${{ inputs.commit_sha }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -112,16 +126,16 @@ jobs:
       - name: Resolve image tag
         id: resolve
         env:
-          EVENT_NAME: ${{ github.event_name }}
+          ACTION: ${{ inputs.action }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
-          CI_RUN_ID: ${{ github.event.workflow_run.id }}
-          CI_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          CI_RUN_ID: ${{ inputs.ci_run_id }}
+          CI_HEAD_SHA: ${{ inputs.commit_sha }}
         run: |
           # commit_sha が空だと checkout が既定のブランチへ倒れ、配るファイルと対象イメージが
           # 別の commit のものになる。ビルドも配布もする前に止める
-          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -z "$COMMIT_SHA" ]; then
-            echo "commit_sha is required: manual deploy only redeploys the image built from that commit." >&2
-            echo "To ship a new commit, push it to main and let CI gate the deploy." >&2
+          if ! [[ "$COMMIT_SHA" =~ ^[a-f0-9]{40}$ ]] || [ "$(git rev-parse HEAD)" != "$COMMIT_SHA" ]; then
+            echo "commit_sha must be the checked-out full SHA." >&2
+            echo "Use action=release with successful release-branch CI to ship a new commit." >&2
             exit 1
           fi
 
@@ -132,7 +146,7 @@ jobs:
           echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "attempt=$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
 
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+          if [ "$ACTION" = "rollback" ]; then
             echo "Redeploying the image built from $(git rev-parse HEAD) without rebuilding"
           else
             echo "Deploying commit $CI_HEAD_SHA verified by CI run $CI_RUN_ID"
@@ -142,18 +156,18 @@ jobs:
       # commit でも同じ実体にならないため、作り直すとタグが別の digest へ移り、以前その commit で配った
       # 実体は untagged になって消える。ロールバックが戻すのは「その commit に最初に配った実体」であり、
       # それを保つには在るものを使うほかない（DECISIONS 16）。タグが在れば通常経路でもビルドと push を飛ばす。
-      # 手動起動（ロールバック）でタグが無ければ、保持の期限を過ぎたか一度も配っていない commit なので止める
+      # action=rollbackでタグが無ければ、保持の期限を過ぎたか一度も配っていない commit なので止める
       - name: Check whether the image for this commit already exists
         id: existing
         env:
-          EVENT_NAME: ${{ github.event_name }}
+          ACTION: ${{ inputs.action }}
           REPOSITORY: ${{ vars.ECR_REPOSITORY }}
           TAG: ${{ steps.resolve.outputs.tag }}
         run: |
           if aws ecr describe-images --repository-name "$REPOSITORY" --image-ids imageTag="$TAG" >/dev/null 2>&1; then
             echo "Reusing the image already built for $TAG; it is not rebuilt or pushed again."
             echo "exists=true" >> "$GITHUB_OUTPUT"
-          elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+          elif [ "$ACTION" = "rollback" ]; then
             echo "No image is tagged $TAG in $REPOSITORY." >&2
             echo "Rollback can only target a commit whose image is still retained (the 10 most recent deploys)." >&2
             exit 1
@@ -322,7 +336,8 @@ jobs:
   frontend:
     needs: deploy
     # backendの手動rollbackはfrontendを再ビルドしない。そちらは保存済み成果物から別途戻す。
-    if: ${{ github.event_name == 'workflow_run' && needs.deploy.result == 'success' && needs.deploy.outputs.attempt == github.run_attempt }}
+    if: ${{ inputs.action == 'release' && needs.deploy.result == 'success' && needs.deploy.outputs.attempt == github.run_attempt }}
     uses: ./.github/workflows/deploy-frontend.yml
     with:
       commit_sha: ${{ needs.deploy.outputs.commit_sha }}
+      normal_release: true

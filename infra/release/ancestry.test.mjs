@@ -31,3 +31,35 @@ test('real Git history permits initial/equal/forward/revert and skips stale, rej
   assert.throws(() => deploymentDecision(c, fork, ancestor), /diverged/);
   assert.throws(() => deploymentDecision('f'.repeat(40), c, ancestor), /Cannot compare/);
 });
+
+test('short-lived candidates advance from main; hotfix commits reach main without unreleased features or cherry-pick', (t) => {
+  const cwd = mkdtempSync(join(tmpdir(), 'release-branches-'));
+  t.after(() => rmSync(cwd, { recursive: true, force: true }));
+  const git = (...args) => execFileSync('git', ['-c', 'user.name=Release test', '-c', 'user.email=release@example.invalid',
+    '-c', 'commit.gpgsign=false', ...args], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  const commit = (name) => {
+    writeFileSync(join(cwd, name), name);
+    git('add', name); git('commit', '-m', name);
+    return git('rev-parse', 'HEAD');
+  };
+  git('init', '--initial-branch=main');
+  commit('initial');
+  git('branch', 'release/1.10');
+  const candidate = commit('candidate-fix');
+  git('checkout', 'release/1.10'); git('merge', '--ff-only', 'main');
+  assert.equal(git('rev-parse', 'HEAD'), candidate);
+  git('tag', 'v1.10.0');
+  git('checkout', 'main'); git('branch', '-d', 'release/1.10');
+  commit('future-feature');
+  git('checkout', '-b', 'hotfix', 'v1.10.0');
+  const fix = commit('urgent-fix');
+  git('checkout', 'main'); git('merge', '--no-ff', 'hotfix', '-m', 'integrate hotfix');
+  git('checkout', '-b', 'release/1.10.1', fix);
+  assert.equal(git('rev-parse', 'HEAD'), fix);
+  assert.equal(git('ls-tree', '--name-only', 'HEAD').includes('future-feature'), false);
+  assert.equal(gitAncestor(fix, git('rev-parse', 'main'), cwd), true);
+  assert.equal(deploymentDecision(candidate, fix, (a, b) => gitAncestor(a, b, cwd)).deploy, true);
+  git('tag', 'v1.10.1');
+  git('checkout', 'main'); git('branch', '-d', 'hotfix', 'release/1.10.1');
+  assert.equal(git('rev-parse', 'v1.10.1'), fix);
+});

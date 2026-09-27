@@ -237,7 +237,20 @@ export const createDelivery = (config, aws = execute, generation = () => readGen
     return { savedGeneration, deliveredGeneration, codeSha: active?.public.codeSha ?? null,
       pending, needsRebuild: pending || savedGeneration !== deliveredGeneration };
   };
-  return { preflight, acceptNormal, resolveCode, publish, rollback, status };
+  const recordCandidate = (record, id, target) => {
+    releaseId(id); sha(target);
+    assert.equal(record.version, 1);
+    assert.equal(record.codeSha, target);
+    assert.match(record.repository ?? '', /^[\w.-]+\/[\w.-]+$/);
+    assert.match(record.branch ?? '', /^release\/[0-9]+\.[0-9]+(?:\.[0-9]+)?$/);
+    assert.match(record.tag ?? '', /^v[0-9]+\.[0-9]+\.[0-9]+$/);
+    assert.match(record.ciRunId ?? '', /^[1-9][0-9]*$/);
+    assert.ok(Number.isSafeInteger(record.ciAttempt) && record.ciAttempt > 0);
+    assert.equal(read(`candidates/${id}.json`), null, 'Candidate evidence already exists');
+    write(`candidates/${id}.json`, { version: 1, codeSha: target, repository: record.repository,
+      branch: record.branch, tag: record.tag, ciRunId: record.ciRunId, ciAttempt: record.ciAttempt });
+  };
+  return { preflight, acceptNormal, resolveCode, publish, rollback, status, recordCandidate };
 };
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -247,6 +260,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     apiBaseUrl: env.API_BASE_URL });
   const [command, action] = process.argv.slice(2);
   const operations = {
+    'record-candidate': () => delivery.recordCandidate(JSON.parse(readFileSync('candidate.json', 'utf8')), env.RELEASE_ID, env.RELEASE_SHA),
     preflight: () => {
       const decision = delivery.acceptNormal(env.RELEASE_SHA);
       writeFileSync(env.GITHUB_OUTPUT, `deploy=${decision.deploy}\n`, { flag: 'a' });

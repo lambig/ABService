@@ -1,6 +1,6 @@
 # フロントエンドの配布と復旧
 
-通常のコード配布は main の CI → frontend配布記録のpreflight → backend Deploy 成功 → Deploy frontend の順に進む。preflightはfrontendロールでpending不在とcurrentの読取り・形式を検査し、失敗するとbackendへ進まない。初回のcurrent不在は許すが、権限・通信・JSONエラーは初回扱いしない。検査helperはCI成功SHA、通常のfrontend配布helperとビルド対象はbackendが実際に配ったfull SHAに固定する。
+通常のコード配布はmain上の **Deploy** を `action=release` で起動し、候補検証 → frontend配布記録のpreflight → backend Deploy成功 → Deploy frontendの順に進む。入力・候補の更新・緊急修正は [リリース手順](../../docs/RELEASE_WORKFLOW.md) を参照。mainへの統合では自動配布しない。候補検証とpreflightのhelperは起動時のmain SHA、通常のfrontend配布helperとビルド対象はbackendが実際に配った候補full SHAに固定する。preflightはfrontendロールでpending不在とcurrentの読取り・形式を検査し、失敗するとbackendへ進まない。初回のcurrent不在は許すが、権限・通信・JSONエラーは初回扱いしない。
 
 内容の変更だけを配る場合は GitHub Actions の **Deploy frontend** を main から実行し、`action=rebuild-public` を選ぶ。公開中の public の SHA を記録から取得し、管理画面はビルド・配布しない。手動操作のhelperは起動時のmain SHAを使う。初回の配布記録が無い間は再ビルドできない。
 
@@ -12,7 +12,7 @@
 
 通常配布のpreflightでは、ロック取得後に `last-normal.json` のコードSHA（通常配布として最後に受理した世代）と今回のCI成功SHAをGitの全履歴で比較する。初回・同一SHA・受理済みSHAの子孫への更新だけを許可する。許可したSHAは **backend実行前** にこの記録へ保存し、保存に失敗するとbackendへ進まない。backendの失敗、frontendのビルド失敗・部分配布、明示的なfrontend/backend rollback、内容再ビルドではこの記録を巻き戻さない。受理の記録であり、配布成功の証拠ではない。
 
-たとえば通常配布Cの後でfrontendだけをAへrollbackしても、通常配布の基準はCのまま。遅れて祖先BのCIが成功した場合は、preflightのSummaryへstaleによるスキップを表示し、backend/frontendを実行せず全配布記録を維持する。Cの子孫Dは許可する。`git revert`による新しい子孫commitも通常配布できる。同一の受理済みSHAは再実行を許すため、明示rollback後でもCのCI/Deploy再実行はCへ戻す操作になる。
+たとえば通常配布Cの後でfrontendだけをAへrollbackしても、通常配布の基準はCのまま。祖先Bを候補として通常Deployを起動した場合は、preflightのSummaryへstaleによるスキップを表示し、backend/frontendを実行せずcurrent/last-normalを維持する（候補検証の記録は残す）。Cの子孫Dは許可する。`git revert`による新しい子孫commitも通常配布できる。同一の受理済みSHAは再実行を許すため、明示rollback後でもCを指定したDeployの全ジョブ再実行はCへ戻す操作になる。
 
 履歴が分岐、比較対象commitが不明、public/adminのコードSHAが不一致、activeのSHAが受理済み世代の履歴外の場合は停止する。`last-normal.json` の読取り不能・形式不正も停止する。`current.json` があるのに受理記録が無い場合は **active SHAから自動初期化しない**。activeはrollback済みかもしれないため、通常配布を止め、releaseバケットのversion履歴とDeploy記録から最後の受理世代を復元してから再開する。current/受理記録の両方が無い新規環境だけを初回として扱う。旧版を試験配布した環境でも、受理履歴を確定せずactive SHAを転記しない。
 
@@ -32,7 +32,7 @@ Terraform 適用後の output と運用側の値を、GitHub Actions の Variabl
 | `PUBLIC_SITE_URL` | 正規サイトのHTTPS origin（パスなし） |
 | `FRONTEND_BUILD_API_BASE_URL` | 公開Query APIへ到達できるHTTPS origin（DNS切替前はCloudFrontのorigin） |
 
-ロール変数が空の間は配布ジョブがskipする。backend Deploy の Variables も別途必要で、初回は両者を設定してから main の CI 成功を起こす。管理画面の API の起点は空文字列で、閲覧中のサイトと同じ origin を使う。APIキーはSSGに渡さない。
+ロール変数が空の間は配布ジョブがskipする。backend Deploy の Variables も別途必要で、初回は両者を設定してから検証済みrelease候補を明示配布する。管理画面の API の起点は空文字列で、閲覧中のサイトと同じ origin を使う。APIキーはSSGに渡さない。
 
 ## 内容を反映する
 
@@ -51,6 +51,8 @@ S3への複数ファイルの同期は原子的ではなく、DBの保存とも�
 ## 配布記録と切り戻し
 
 非公開のreleaseバケットが、各配布のファイルとSHA-256、public/adminそれぞれのコードSHAを保持する。manifestのversion 2はさらに `public.generation` を持つ。`manifests/<run番号>-<attempt>.json` はその操作の対象、`current.json` は最後に配布完了した組合せ。`last-normal.json` は `{ "version": 1, "codeSha": "<full SHA>" }` 形式の独立した通常配布受理記録で、過去のmanifestには含めず、rollbackでも書き戻さない。操作開始時は `pending.json` を先に書き、全処理成功後に消す。
+
+`candidates/<Deploy run番号>-<attempt>.json` は検証した候補のSHA・タグ・ブランチ・CI run/attemptを記録する。候補ブランチ削除後も追跡できるが、配布成功を表すものではない。同じIDへの上書きを拒否し、書込み失敗ではbackendへ進まない。通常Deployの再実行では新しいattemptの記録を作る。
 
 Actions Summaryの `savedGeneration` は照会時のDB保存済み世代、`deliveredGeneration` はcurrentの配布完了世代、`codeSha` はそのpublicコード。`needsRebuild` は世代不一致・旧形式・pendingでtrueとなる。pendingがある間はcurrentも実際のliveの状態を保証しない。Summaryは照会時点の観測であり、その後の編集を自動追跡しない。必要なら同じ環境設定で `node infra/release/frontend.mjs status` を実行する（`GITHUB_STEP_SUMMARY` に出力ファイルを指定）。管理画面への状態表示・自動再ビルド・通知は別の残作業。
 
@@ -75,6 +77,6 @@ CIのE2EジョブはPlaywrightの後に `node infra/release/public-generation-ac
 3. 意図的に配布を失敗させ、currentが進まずpendingが残ること。同世代の成果物へのrollback、撤回前の世代へのrollback拒否、最新データのrecoverをそれぞれ確認。
 4. public/adminの未存在URLの404本文・GET/HEAD・no-storeと、APIの403/404のProblem Details、欠落したJS/画像の応答を別々に確認。公開解除・削除後の旧URLでも404を確認（#125）。
 5. pendingがある状態で通常Deployを起動し、preflight失敗・backend未実行を確認。通常配布中に手動frontend操作を待機させ、両画面の配布完了後に進むことを確認。
-6. 通常配布C→frontend rollback Aの後で古い祖先BのCIを再実行し、staleのSummaryとbackend/frontendのskip、current/last-normal不変を確認。次の子孫Dは許可されることも確認する。backend失敗・frontend部分失敗の後も受理記録が残ることを確認する。スキップしたrunや受理記録を配布成功の証跡として扱わない。
+6. 通常配布C→frontend rollback Aの後で古い祖先Bの候補を指定して通常Deployを起動し、staleのSummaryとbackend/frontendのskip、current/last-normal不変を確認。次の子孫Dは許可されることも確認する。backend失敗・frontend部分失敗の後も受理記録が残ることを確認する。スキップしたrunや受理記録を配布成功の証跡として扱わない。
 
 静的404の構成・移行順序は [../README.md](../README.md#静的ページの404125)。配布前に両画面の `404.html` を必須とし、404成果物を欠く旧アーカイブへのrollbackも拒否する。旧currentは移行のため引き続き読めるが、管理404を含む通常配布を先に完了してから関数を有効にする。実AWSでの404受け入れは #125 の残件。CSP（#240）・通知（#168）・実環境の復旧演習（#130）を含む残条件の正は各Issue。

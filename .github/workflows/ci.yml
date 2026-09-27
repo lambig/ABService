@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, "release/**"]
   pull_request:
-    branches: [main]
+    branches: [main, "release/**"]
   workflow_dispatch:
 
 # GITHUB_TOKEN は読み取りに絞る。CI が触るのは checkout と依存の取得、アーティファクトの添付だけで、

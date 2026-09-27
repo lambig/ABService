@@ -3,6 +3,9 @@ name: Deploy frontend
 on:
   workflow_call:
     inputs:
+      normal_release:
+        type: boolean
+        default: false
       commit_sha:
         required: true
         type: string
@@ -24,19 +27,17 @@ permissions:
 concurrency:
   # 通常配布はcallerがdeploy-productionを保持する。子が再取得するとdeadlockする。
   # 手動操作だけ同じgroupを取得し、通常配布のpreflight〜frontend完了へ割り込まない。
-  group: ${{ github.event_name == 'workflow_dispatch' && 'deploy-production' || format('deploy-frontend-{0}', github.run_id) }}
+  group: ${{ inputs.normal_release != true && 'deploy-production' || format('deploy-frontend-{0}', github.run_id) }}
   cancel-in-progress: false
   queue: max
 
 jobs:
   frontend:
     if: >-
-      github.ref == 'refs/heads/main' && vars.AWS_FRONTEND_DEPLOY_ROLE_ARN != '' && (
-        github.event_name == 'workflow_dispatch' || (
-          github.event.workflow_run.conclusion == 'success' &&
-          github.event.workflow_run.event == 'push' &&
-          github.event.workflow_run.head_branch == 'main' &&
-          github.event.workflow_run.head_repository.full_name == github.repository))
+      github.ref == 'refs/heads/main' && vars.AWS_FRONTEND_DEPLOY_ROLE_ARN != '' &&
+      github.event_name == 'workflow_dispatch' && (
+        inputs.normal_release == true || inputs.action == 'rebuild-public' ||
+        inputs.action == 'rollback' || inputs.action == 'recover')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -47,13 +48,13 @@ jobs:
       PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
       # DNS切替前はCloudFrontのHTTPS originを指定できる。管理鍵は公開ビルドに渡さない。
       API_BASE_URL: ${{ vars.FRONTEND_BUILD_API_BASE_URL }}
-      ACTION: ${{ inputs.action || 'deploy' }}
+      ACTION: ${{ inputs.normal_release == true && 'deploy' || inputs.action }}
       RELEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v4
         with:
           path: delivery
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || inputs.commit_sha }}
+          ref: ${{ inputs.normal_release == true && inputs.commit_sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
