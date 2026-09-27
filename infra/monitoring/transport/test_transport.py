@@ -23,8 +23,37 @@ import time
 SOURCE = Path(__file__).resolve().parent
 
 
+def print_output(label, output):
+    if not output:
+        return
+    if isinstance(output, bytes):
+        output = output.decode('utf-8', errors='replace')
+    for fixture in ('INVALID_TRANSPORT_TEST', 'INVALID_TEST_SECRET', 'INVALID_TEST_TOKEN'):
+        output = output.replace(fixture, '[invalid fixture]')
+    print(f'{label} (last 16384 characters):\n{output[-16384:]}', flush=True)
+
+
 def run(*args, **kwargs):
-    return subprocess.run(args, check=True, capture_output=True, text=True, timeout=300, **kwargs).stdout.strip()
+    try:
+        return subprocess.run(args, check=True, capture_output=True, text=True, timeout=300, **kwargs).stdout.strip()
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+        print(f'Command failed: {args}', flush=True)
+        print_output('stdout', error.stdout)
+        print_output('stderr', error.stderr)
+        raise
+
+
+def diagnose_compose(compose, env):
+    # Startup may fail before any container produces logs; retain ps and stderr too.
+    # Diagnostics must neither hang cleanup nor replace the original exception.
+    for args in (('ps', '--all'), ('logs', '--no-color', '--tail', '60')):
+        try:
+            result = subprocess.run([*compose, *args], env=env, capture_output=True, text=True, timeout=10)
+            print(f'Compose diagnostic {args[0]}: exit={result.returncode}', flush=True)
+            print_output('stdout', result.stdout)
+            print_output('stderr', result.stderr)
+        except (OSError, subprocess.TimeoutExpired) as error:
+            print(f'Compose diagnostic {args[0]} unavailable: {type(error).__name__}', flush=True)
 
 
 def wait(check, description, seconds=90):
@@ -344,8 +373,7 @@ def main():
         print('PASS archive count bounded to seven; no exactly-once/durable-queue claim', flush=True)
     except Exception:
         if compose:
-            result = subprocess.run([*compose, 'logs', '--tail', '60'], env=env, capture_output=True, text=True)
-            print(result.stdout.replace('INVALID_TEST_SECRET', '[invalid fixture]'))
+            diagnose_compose(compose, env)
         raise
     finally:
         cleanup_errors = []
