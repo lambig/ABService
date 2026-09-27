@@ -125,6 +125,8 @@ ABService 側の構築・配布・ロールバック機構の技術的な操作�
 
 ## コーディング規約
 
+Playwrightはrelease候補で全件実行し、PRでは変更したシナリオ・共通fixture・ブラウザ依存の変更を検査します。mainでもシナリオ変更の実行は省略しません。実行条件と追加時の責務は [CI_BROWSER_POLICY](docs/CI_BROWSER_POLICY.md) を参照してください。
+
 ### バックエンド (Quarkus)
 
 - Java コーディング規約に準拠

@@ -25,6 +25,14 @@ jobs:
     outputs:
       application: ${{ steps.scope.outputs.application }}
       listening: ${{ steps.scope.outputs.listening }}
+      browser_plan: ${{ steps.scope.outputs.browser_plan }}
+      browser_e2e: ${{ steps.scope.outputs.browser_e2e }}
+      browser_player: ${{ steps.scope.outputs.browser_player }}
+      browser_storage: ${{ steps.scope.outputs.browser_storage }}
+      browser_shell: ${{ steps.scope.outputs.browser_shell }}
+      browser_offline_player: ${{ steps.scope.outputs.browser_offline_player }}
+      browser_audio_worklet: ${{ steps.scope.outputs.browser_audio_worklet }}
+      browser_visualizer: ${{ steps.scope.outputs.browser_visualizer }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,7 +42,7 @@ jobs:
         with:
           node-version-file: .nvmrc
       - name: Verify CI selection and aggregation
-        run: node --test scripts/ci-policy.test.mjs
+        run: node --test scripts/ci-policy.test.mjs scripts/browser-*.test.mjs
       - name: Verify local commit identity boundary
         run: bash scripts/git-identity.test.sh
       - name: Select affected tracks
@@ -531,6 +539,7 @@ jobs:
 
       # ブラウザは実行ごとに落とすと重い。Playwright のバージョンで鍵を作る
       - name: Cache Playwright browsers
+        if: needs.changes.outputs.browser_e2e == 'true'
         id: playwright-cache
         uses: actions/cache@v4
         with:
@@ -538,6 +547,7 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       - name: Install Playwright browsers
+        if: needs.changes.outputs.browser_e2e == 'true'
         run: npm exec -w abservice-e2e -- playwright install --with-deps chromium
 
       - name: Build backend
@@ -561,10 +571,16 @@ jobs:
             -jar "$jar" > backend.log 2>&1 &
           echo "started: $jar"
 
-      - name: Run E2E
+      - name: Prepare application acceptance stack
         env:
           E2E_VERIFY_SEED_REUSE: 'true'
-        run: npm run test:e2e
+        run: node e2e/scripts/prepare-stack.mjs
+
+      - name: Run E2E
+        if: needs.changes.outputs.browser_e2e == 'true'
+        env:
+          BROWSER_PLAN: ${{ needs.changes.outputs.browser_plan }}
+        run: node scripts/browser-ci.mjs e2e
 
       - name: Verify generation-checked SSG and withdrawn pages against the E2E database
         run: node infra/release/public-generation-acceptance.mjs
@@ -592,7 +608,7 @@ jobs:
 
   player-browser:
     needs: changes
-    if: ${{ needs.changes.outputs.listening == 'true' }}
+    if: ${{ needs.changes.outputs.browser_player == 'true' }}
     name: Player browser (Chromium / FLAC)
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -610,7 +626,9 @@ jobs:
           sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
           npm exec -w abservice-player -- playwright install --with-deps --only-shell chromium
       - name: Run production player browser tests
-        run: npm run test:player:browser
+        env:
+          BROWSER_PLAN: ${{ needs.changes.outputs.browser_plan }}
+        run: node scripts/browser-ci.mjs player
       - name: Upload browser evidence
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
@@ -622,7 +640,7 @@ jobs:
 
   storage-browser:
     needs: changes
-    if: ${{ needs.changes.outputs.listening == 'true' }}
+    if: ${{ needs.changes.outputs.browser_storage == 'true' }}
     name: Storage browser (Chromium / OPFS)
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -640,7 +658,9 @@ jobs:
           sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
           npm exec -w abservice-offline-storage -- playwright install --with-deps --only-shell chromium
       - name: Run production storage browser tests
-        run: npm run test:offline-storage:browser
+        env:
+          BROWSER_PLAN: ${{ needs.changes.outputs.browser_plan }}
+        run: node scripts/browser-ci.mjs storage
       - name: Upload browser results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
@@ -652,7 +672,7 @@ jobs:
 
   shell-browser:
     needs: changes
-    if: ${{ needs.changes.outputs.listening == 'true' }}
+    if: ${{ needs.changes.outputs.browser_shell == 'true' }}
     name: Shell browser (Chromium / Service Worker)
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -670,7 +690,9 @@ jobs:
           sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
           npm exec -w abservice-offline-shell -- playwright install --with-deps --only-shell chromium
       - name: Run production shell browser tests
-        run: npm run test:offline-shell:browser
+        env:
+          BROWSER_PLAN: ${{ needs.changes.outputs.browser_plan }}
+        run: node scripts/browser-ci.mjs shell
       - name: Upload browser evidence
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
@@ -682,7 +704,7 @@ jobs:
 
   offline-player-browser:
     needs: changes
-    if: ${{ needs.changes.outputs.listening == 'true' }}
+    if: ${{ needs.changes.outputs.browser_offline_player == 'true' }}
     name: Offline player integration (Chromium / SW / OPFS / FLAC)
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -700,7 +722,9 @@ jobs:
           sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
           npm exec -w abservice-offline-player -- playwright install --with-deps --only-shell chromium
       - name: Run production player browser tests
-        run: npm run test:offline-player:browser
+        env:
+          BROWSER_PLAN: ${{ needs.changes.outputs.browser_plan }}
+        run: node scripts/browser-ci.mjs offline-player
       - name: Upload browser evidence
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
@@ -710,9 +734,73 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  audio-worklet-browser:
+    needs: changes
+    if: ${{ needs.changes.outputs.browser_audio_worklet == 'true' }}
+    name: AudioWorklet browser (Chromium / playback)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: |
+          # Playwright supplies Chromium; the unrelated Chrome APT mirror is not needed.
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
+          npm exec -w abservice-audio-worklet -- playwright install --with-deps --only-shell chromium
+      - name: Run production audio-worklet browser tests
+        env:
+          BROWSER_PLAN: ${{ needs.changes.outputs.browser_plan }}
+        run: node scripts/browser-ci.mjs audio-worklet
+      - name: Upload browser evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: audio-worklet-browser
+          path: packages/audio-worklet/test-results/
+          if-no-files-found: error
+          retention-days: 7
+
+  visualizer-browser:
+    needs: changes
+    if: ${{ needs.changes.outputs.browser_visualizer == 'true' }}
+    name: Visualizer browser (Chromium / WebGPU)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: |
+          # Playwright supplies Chromium; the unrelated Chrome APT mirror is not needed.
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
+          npm exec -w abservice-visualizer -- playwright install --with-deps --only-shell chromium
+      - name: Run production visualizer browser tests
+        env:
+          BROWSER_PLAN: ${{ needs.changes.outputs.browser_plan }}
+        run: node scripts/browser-ci.mjs visualizer
+      - name: Upload browser evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: visualizer-browser
+          path: packages/visualizer/test-results/
+          if-no-files-found: error
+          retention-days: 7
+
   ci-gate:
     name: CI gate
-    needs: [changes, backend-check, frontend-check, api-types-check, container-check, iac-check, e2e, listening-check, player-browser, storage-browser, shell-browser, offline-player-browser]
+    needs: [changes, backend-check, frontend-check, api-types-check, container-check, iac-check, e2e, listening-check, player-browser, storage-browser, shell-browser, offline-player-browser, audio-worklet-browser, visualizer-browser]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5

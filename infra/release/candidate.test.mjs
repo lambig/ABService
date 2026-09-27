@@ -10,7 +10,8 @@ const fixture = () => ({
     head_repository: { full_name: 'owner/repo' }, head_sha: commit, head_branch: input.branch,
     event: 'push', status: 'completed', conclusion: 'success', run_attempt: 2 },
   'actions/runs/123/attempts/2/jobs?per_page=100&page=1': { total_count: requiredJobs.length,
-    jobs: requiredJobs.map((name) => ({ name, status: 'completed', conclusion: 'success' })) },
+    jobs: requiredJobs.map((name) => ({ name, status: 'completed', conclusion: 'success',
+      steps: [{ name: 'Run E2E', status: 'completed', conclusion: 'success' }] })) },
   'git/ref/heads/release/1.10': { object: { type: 'commit', sha: commit } },
   'git/ref/tags/v1.10.0': { object: { type: 'commit', sha: commit } },
 });
@@ -18,6 +19,13 @@ const verify = (responses = fixture(), patch = {}, onMain = true) => verifyCandi
   assert.ok(Object.hasOwn(responses, path), `Unexpected API path: ${path}`);
   return responses[path];
 }, () => onMain);
+
+test('successful stack acceptance cannot hide omitted Playwright in a release', async () => {
+  const responses = fixture();
+  responses['actions/runs/123/attempts/2/jobs?per_page=100&page=1'].jobs
+    .find((job) => job.name === 'E2E (Playwright / 実スタック)').steps[0].conclusion = 'skipped';
+  await assert.rejects(verify(responses), /must execute Playwright/);
+});
 
 test('release records pin commit, tag and exact successful CI attempt', async () => {
   assert.deepEqual(await verify(), { version: 1, repository: input.repository, codeSha: commit,

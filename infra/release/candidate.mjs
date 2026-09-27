@@ -51,6 +51,9 @@ export const verifyCandidate = async (input, read, isOnMain) => {
     assert.equal(jobs.filter((job) => job.name === name).length, 1, `Missing or duplicate CI job: ${name}; rerun all CI jobs`);
   }
   assert.ok(jobs.every((job) => job.status === 'completed' && job.conclusion === 'success'), 'Release CI must run every job successfully');
+  const e2e = jobs.find((job) => job.name === 'E2E (Playwright / 実スタック)');
+  assert.ok(e2e?.steps?.some((step) => step.name === 'Run E2E' && step.status === 'completed'
+    && step.conclusion === 'success'), 'Release CI must execute Playwright, not only stack acceptance');
   const head = await read(`git/ref/heads/${branch}`);
   assert.equal(head.object?.type, 'commit');
   assert.equal(head.object.sha, commit, 'Release branch moved; validate a new candidate');

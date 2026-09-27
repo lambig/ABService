@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { frontendTasks, gateFailures, jobs, selectTracks, trackWorkspaces } from './ci-policy.mjs';
+import { browserKeys, browserSuites } from './browser-policy.mjs';
 
 const workspace = (name, location, dependencies = {}) => ({
   name, location, dependencies, scripts: { lint: 'lint', typecheck: 'types', test: 'test', build: 'build' },
@@ -67,9 +68,23 @@ test('frontend checks include declared package builds and tests, without startin
 });
 
 const results = (application, listening) => ({
-  changes: { result: 'success', outputs: { application: String(application), listening: String(listening) } },
+  changes: { result: 'success', outputs: { application: String(application), listening: String(listening),
+    browser_plan: JSON.stringify(Object.fromEntries(Object.keys(browserSuites).map((id) => [id, listening ? 'all' : []]))),
+    ...Object.fromEntries(browserKeys.map((key) => [key, String(listening)])) } },
   ...Object.fromEntries(Object.entries(jobs).map(([job, track]) =>
-    [job, { result: { application, listening }[track] ? 'success' : 'skipped' }])),
+    [job, { result: (track.startsWith('browser_') ? listening : { application, listening }[track]) ? 'success' : 'skipped' }])),
+});
+
+test('release/manual gate refuses omitted browser suites even when PR/main would accept the skip', () => {
+  assert.deepEqual(gateFailures(results(true, false)), []);
+  assert.ok(gateFailures(results(true, false), true).length > 0);
+  assert.deepEqual(gateFailures(results(true, true), true), []);
+  const scoped = results(true, true);
+  const plan = JSON.parse(scoped.changes.outputs.browser_plan);
+  plan.e2e = ['e2e/src/specs/smoke.spec.ts'];
+  scoped.changes.outputs.browser_plan = JSON.stringify(plan);
+  assert.deepEqual(gateFailures(scoped), []);
+  assert.ok(gateFailures(scoped, true).length > 0);
 });
 
 test('the gate accepts only intentional skips, including documentation-only PRs', () => {

@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { frontendTasks, gateFailures, selectTracks, tracks } from './ci-policy.mjs';
+import { browserSelection, browserOutputs } from './browser-policy.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const run = (command, args) => execFileSync(command, args, {
@@ -25,18 +26,23 @@ const readWorkspaces = () => {
 
 const select = () => {
   const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
-  const selection = process.env.GITHUB_EVENT_NAME === 'pull_request'
+  const workspaces = readWorkspaces();
+  const files = process.env.GITHUB_EVENT_NAME === 'pull_request'
     ? (() => {
       const base = event.pull_request.base.sha;
       const head = event.pull_request.head.sha;
       assert.match(base, /^[0-9a-f]{40}$/);
       assert.match(head, /^[0-9a-f]{40}$/);
-      const files = run('git', ['diff', '--name-only', '--no-renames', '-z', `${base}...${head}`])
+      return run('git', ['diff', '--name-only', '--no-renames', '-z', `${base}...${head}`])
         .split('\0').filter(Boolean);
-      console.log(`Changed paths: ${files.length}`);
-      return selectTracks(files, readWorkspaces());
     })()
-    : Object.fromEntries(tracks.map((track) => [track, true]));
+    : /^[a-f0-9]{40}$/.test(event.before ?? '') && event.before !== '0'.repeat(40)
+      ? run('git', ['diff', '--name-only', '--no-renames', '-z', event.before, process.env.GITHUB_SHA]).split('\0').filter(Boolean)
+      : [];
+  const plan = browserSelection({ event: process.env.GITHUB_EVENT_NAME, ref: process.env.GITHUB_REF,
+    files, workspaces, exists: (file) => existsSync(new URL(file, new URL('../', import.meta.url))) });
+  const selection = { ...(process.env.GITHUB_EVENT_NAME === 'pull_request' ? selectTracks(files, workspaces)
+    : Object.fromEntries(tracks.map((track) => [track, true]))), ...browserOutputs(plan), browser_plan: JSON.stringify(plan) };
   const lines = Object.entries(selection).map(([track, selected]) => `${track}=${selected}`).join('\n');
   console.log(lines);
   appendFileSync(process.env.GITHUB_OUTPUT, `${lines}\n`);
@@ -54,7 +60,9 @@ const frontend = () => {
 };
 
 const gate = () => {
-  const failures = gateFailures(JSON.parse(process.env.CI_NEEDS));
+  const fullBrowsers = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch'
+    || (process.env.GITHUB_EVENT_NAME === 'push' && process.env.GITHUB_REF?.startsWith('refs/heads/release/'));
+  const failures = gateFailures(JSON.parse(process.env.CI_NEEDS), fullBrowsers);
   assert.deepEqual(failures, [], failures.join('\n'));
   console.log('All selected CI jobs succeeded; only unselected jobs may be skipped.');
 };

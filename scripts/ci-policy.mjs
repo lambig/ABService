@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { browserJobs, browserKeys, browserSuites, browserOutputs } from './browser-policy.mjs';
 
 export const tracks = ['application', 'listening'];
 
@@ -22,10 +23,7 @@ export const jobs = {
   'iac-check': 'application',
   e2e: 'application',
   'listening-check': 'listening',
-  'player-browser': 'listening',
-  'storage-browser': 'listening',
-  'shell-browser': 'listening',
-  'offline-player-browser': 'listening',
+  ...browserJobs,
 };
 
 const dependencies = (workspace) => Object.keys({
@@ -77,10 +75,17 @@ export const frontendTasks = (workspaces, track) => trackWorkspaces(workspaces, 
   return scripts.map((script) => ({ workspace: workspace.name, script }));
 });
 
-export const gateFailures = (needs) => {
+export const gateFailures = (needs, fullBrowsers = false) => {
   const outputs = needs.changes?.outputs;
+  let plan;
+  try {
+    plan = JSON.parse(outputs?.browser_plan);
+    assert.ok(Object.keys(browserSuites).every((id) => plan[id] === 'all' || Array.isArray(plan[id])));
+    assert.ok(Object.entries(browserOutputs(plan)).every(([key, selected]) => outputs[key] === String(selected)));
+  } catch { return ['Browser selection is missing, invalid or inconsistent']; }
   const validSelection = needs.changes?.result === 'success'
-    && tracks.every((track) => ['true', 'false'].includes(outputs?.[track]));
+    && [...tracks, ...browserKeys].every((track) => ['true', 'false'].includes(outputs?.[track]));
+  if (fullBrowsers && Object.keys(browserSuites).some((id) => plan[id] !== 'all')) return ['Release/manual CI requires all browser suites'];
   return validSelection ? Object.entries(jobs).flatMap(([job, track]) => {
     const result = needs[job]?.result;
     const selected = outputs[track] === 'true';
