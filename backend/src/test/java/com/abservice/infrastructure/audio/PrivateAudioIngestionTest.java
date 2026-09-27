@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.abservice.application.port.FlacInspectionLimits;
 import com.abservice.application.port.FlacInspector;
 import com.abservice.application.port.FlacMetadata;
+import com.abservice.application.port.AudioOperationConflictException;
 import com.abservice.application.port.InspectedAudio;
 import com.abservice.application.port.PrivateAudioConflictException;
 import com.abservice.application.port.PrivateAudioRegistration;
@@ -149,7 +150,7 @@ class PrivateAudioIngestionTest {
     void inspectionCommitConflict() {
         database.commit = CompletableFuture.completedFuture(false);
         assertThatThrownBy(() -> ingest(ingestion(2)).get(5, TimeUnit.SECONDS))
-                .hasCauseInstanceOf(IllegalStateException.class);
+                .hasCauseInstanceOf(AudioOperationConflictException.class);
         assertThat(storage.writes.get()).isZero();
         assertThat(snapshot.closed.get()).isEqualTo(1);
     }
@@ -163,7 +164,7 @@ class PrivateAudioIngestionTest {
                 new PrivateAudioRegistration.Expired())) {
             database.state.set(state);
             assertThatThrownBy(() -> ingest(ingestion(2)).get(5, TimeUnit.SECONDS))
-                    .hasCauseInstanceOf(IllegalStateException.class);
+                    .hasCauseInstanceOf(AudioOperationConflictException.class);
         }
         assertThat(sourceOpened.get()).isZero();
         assertThat(storage.writes.get()).isZero();
@@ -275,7 +276,7 @@ class PrivateAudioIngestionTest {
         assertThat(sourceOpened.get()).isEqualTo(1);
         assertThat(storage.writes.get()).isEqualTo(1);
         assertThatThrownBy(() -> start(() -> service.recover(ID)).get(5, TimeUnit.SECONDS))
-                .hasCauseInstanceOf(IllegalStateException.class);
+                .hasCauseInstanceOf(AudioOperationConflictException.class);
     }
 
     @Test

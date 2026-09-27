@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.abservice.application.port.FlacInspectionLimits;
 import com.abservice.application.port.FlacMetadata;
+import com.abservice.application.port.AudioOperationConflictException;
 import com.abservice.application.port.InspectedAudio;
 import com.abservice.application.port.PrivateAudioRegistration;
 import com.abservice.application.port.PrivateAudioStorage;
@@ -81,7 +82,7 @@ class PrivateAudioIngestionIntegrationTest {
             assertThat(row.orElseThrow().state()).isEqualTo(new PrivateAudioRegistration.Confirmed(METADATA));
             assertThat(storage.writes.get()).isZero();
         });
-        asserter.assertFailedWith(() -> service.recover(id), IllegalStateException.class);
+        asserter.assertFailedWith(() -> service.recover(id), AudioOperationConflictException.class);
     }
 
     private record Snapshot(AtomicInteger closed) implements InspectedAudio {

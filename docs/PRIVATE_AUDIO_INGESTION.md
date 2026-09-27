@@ -5,12 +5,12 @@
 実装済みの境界は、非公開音源の検査器、専用の保存アダプタ、DBの登録状態と、それらを結ぶ確定・復旧処理。
 検査器の一時領域管理、登録期限処理、入力読込期限と既定無効の単一実行入口まで接続済み。
 管理者向けの登録予約・状態照会・Albumへのクロスフェード関連付けまで実装済み。
-FLAC本体のHTTP受信・確定/明示復旧APIは #474 の後続作業（C2）であり、
+FLAC本体のHTTP受信・確定/明示復旧APIまで接続済み。
 認証した試聴端末への配布は #475 が担当する。公開画像のアップロードAPIには接続しない。
 取得URLを返す経路はない。CDIの実行入口は明示的に有効化したときだけ専用資源を生成する。
 管理APIの一部が使えるだけで #474 を完了とはしない。
 
-## 管理API（C1）
+## 管理API（C1/C2）
 
 すべて `admin` ロールを要求し、既存の管理Bearer認証を使う。
 実行基盤と同じ `abservice.private-audio.enabled` が厳密な文字列 `true` の場合だけ利用できる。
@@ -21,6 +21,8 @@ FLAC本体のHTTP受信・確定/明示復旧APIは #474 の後続作業（C2）
 | --- | --- |
 | `POST /api/v1/admin/private-audio/registrations` | 本文なし。サーバーが音源IDと15分の受付期限を発行し、201・相対Location・PENDING状態を返す |
 | `GET /api/v1/admin/private-audio/registrations/{audioId}` | 登録状態・予約日時・期限・検査済みなら実測メタデータを返す。URL・保存キーは返さない |
+| `PUT /api/v1/admin/private-audio/registrations/{audioId}/content` | `audio/flac`の生バイト列を送る。期限内のPENDINGのみ受け付け、検査・保存・確定を完了すると200と登録状態を返す |
+| `POST /api/v1/admin/private-audio/registrations/{audioId}/confirm` | 本文なし。INSPECTED/ABANDONEDを保存実体と照合して確定復旧する。CONFIRMEDは200で現在の状態を返す |
 | `GET /api/v1/admin/albums/{albumId}/listening-audio/crossfade` | Albumのクロスフェード選択と専用revisionを返す。未設定はaudioId=null・revision=0、Album未存在は404 |
 | `PUT /api/v1/admin/albums/{albumId}/listening-audio/crossfade` | `audioId`と必須の`expectedRevision`を送る。CONFIRMEDのみ選択でき、成功時に専用revisionを1進める |
 
@@ -32,7 +34,19 @@ Album削除時は選択を除去し、登録記録や保存音源は削除しな
 この経路はクロスフェード専用で、応答のkindは`album-crossfade`。Track IDや曲番号を推測して関連付けない。
 将来の曲別音源は共通の登録・検査・保存基盤を使い、canonical Trackを検査する別の関連付けとして拡張する。
 現時点で曲別の関連付けAPI・Manifest生成・端末配布は提供していない。
-予約後のFLAC送信・確定/復旧の操作手順はC2で接続するため、C1だけでは登録を完結できない。
+
+予約→FLAC送信→状態照会→Album関連付けの順に操作する。送信成功は検査・保存・DB確定の完了を表す。
+不正FLACは400、期限切れ・再送・実行枠の競合・復旧時の実体未存在/不一致は409。
+HTTP容量超過は本文を伴わない413になる場合がある。通信障害・入力期限切れ等は500または接続切断となり、
+失敗応答だけから保存の成否を推測しない。GETで状態を確認し、PENDINGかつ期限内なら同じIDへ再送、
+INSPECTED/ABANDONEDならconfirm、CONFIRMEDならその登録を使用する。EXPIREDでは新しく予約する。
+confirmは入力取得・再検査・再PUTをせず、保存先に到達できない場合も未存在として扱わない。
+
+音源受信はRESTのentity parameterへ全体を渡さず、認可・受付確認後にworkerでHTTP入力を開く。
+Quarkusの有界入力ストリームと既存の入力全体期限を使用し、未読入力を残す失敗は応答後に接続を閉じる。
+Content-Lengthあり・chunkedの両方で最大256MiBを検査する。共通HTTP上限256MiBに加え、
+`PrivateAudioBodyLimit`が音源PUT以外（機能無効時は全経路）を従来の10MiB以下に制限する。
+本文を集約するフィルタをこの経路へ追加しない。フレームワーク更新時は大容量・chunked・送信停止の回帰を実行する。
 
 ## 検査・保存・確定と復旧の接続（B2b1）
 
@@ -50,11 +64,12 @@ DB操作は呼出元のVert.x event-loop contextへ戻し、入力の取得・�
 未存在と推測して再PUTしない。既存IDの競合や割込み後に未存在だった場合も再試行しない。自動削除は行わない。
 
 `recover` はINSPECTEDの先行記録と保存実体を照合して確定する。入力の再取得・再検査・再PUTはしない。
-検査前の予約期限を過ぎても復旧できるが、未存在・不一致・DB障害は失敗として残し、再確定は拒否する。
+検査前の予約期限を過ぎても復旧できるが、未存在・不一致・DB障害は失敗として残し、DBでの再確定は拒否する。
+HTTPのconfirmは既にCONFIRMEDなら状態を返すだけで、再確定の遷移を実行しない。
 DB確定後に応答や一時実体のcloseで失敗した場合は、照会で確定状態を確認する。
 
 これはcoordinatorインスタンス内の同時実行制限。実行入口は一つのcoordinatorと共有一時領域を所有する。
-管理者認可・既定無効化・Albumへの関連付けはC1で接続し、FLAC受信と確定/復旧APIはC2で接続する。
+管理者認可・既定無効化・Albumへの関連付けはC1、FLAC受信と確定/復旧APIはC2で接続している。
 
 ## 実行入口・入力期限・登録期限（B2b2b）
 
@@ -198,7 +213,7 @@ pendingアップロードとverified実体の期限管理は分け、verified全
 S3の根拠: [条件付き書き込み](https://docs.aws.amazon.com/AmazonS3/latest/userguide/conditional-writes.html)、
 [PutObjectのチェックサム](https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html)。
 S3互換MinIOでPUTの競合・チェックサム不一致・匿名取得拒否を検査するが、本番IAM/CDNの受け入れ証跡はDに残す。
-管理APIの予約・照会・関連付けはC1、受信/確定/復旧はC2、実環境の権限と操作手順の受け入れはDで接続する。
+管理APIの予約・照会・関連付けはC1、受信/確定/復旧はC2で接続済み。実環境の権限と操作手順の受け入れはDに残る。
 
 ## 受入条件
 
@@ -238,7 +253,7 @@ S3互換MinIOでPUTの競合・チェックサム不一致・匿名取得拒否�
 入力不合格（`InvalidFlacException`）と、取得障害・検査器不在・混雑・時間切れ（`IOException`）を区別する。
 
 プロセス強制終了・ホスト再起動時にはfinallyを実行できないため、専有領域の次回openで残骸を清掃する。
-HTTPで受信する未確定アップロードの領域・期限管理は、後続のAPIで別途接続する。
+HTTPで受信する未確定実体も同じ専用一時領域・容量予約・入力全体期限の管理下に置く。
 検査器の一時領域上限だけで、全リクエストや確定待ちS3音源の総使用量まで制限できるとはしない。
 
 ## ランタイムと検証
@@ -255,6 +270,8 @@ backend/gradlew -p backend integrationTest --tests '*NativeFlacInspectorIntegrat
 サイズ/時間上限、デコード停止、取得失敗、一時実体の解放を確認する。実作品の音源は含めない。
 `PrivateAudioRuntimeIntegrationTest`では既定無効、実FLACからDB確定、保持期限の照合、
 遅延保存の明示復旧、稼働中の停止を確認する。`DeadlineAudioInputTest`は割込みを無視する取得元も検査する。
+`PrivateAudioUploadRestIntegrationTest`は合成FLACをHTTP受信から実MinIOの非公開保存まで通し、
+10MiB超の入力、chunked、期限切れ・不正形式、明示復旧、HTTP上限、送信停止後の資源回復を検査する。
 
 保存アダプタの統合テストは開発/CIのMinIOを使う。
 `S3PrivateAudioStorageIntegrationTest` は毎回専用の一時バケットを作成し、試験後に削除する。

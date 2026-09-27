@@ -22,6 +22,9 @@ class PrivateAudioDisabledRestIntegrationTest {
         authorized().post("/api/v1/admin/private-audio/registrations").then().statusCode(404)
                 .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
         authorized().get("/api/v1/admin/private-audio/registrations/" + id).then().statusCode(404);
+        authorized().contentType("audio/flac").body(new byte[]{102, 76, 97, 67})
+                .put("/api/v1/admin/private-audio/registrations/" + id + "/content").then().statusCode(404);
+        authorized().post("/api/v1/admin/private-audio/registrations/" + id + "/confirm").then().statusCode(404);
         authorized().get("/api/v1/admin/albums/" + id + "/listening-audio/crossfade").then().statusCode(404);
         authorized().contentType(ContentType.JSON).body(
                 Map.of(
