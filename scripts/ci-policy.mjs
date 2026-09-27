@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { browserJobs, browserKeys, browserSuites, browserOutputs } from './browser-policy.mjs';
+import { browserJobs, browserKeys, browserSuites, browserOutputs, browserSelection } from './browser-policy.mjs';
 
 export const tracks = ['application', 'listening'];
 
@@ -67,6 +67,17 @@ export const selectTracks = (files, workspaces) => {
   return Object.fromEntries(tracks.map((track) => [track, selected.has(track)]));
 };
 
+export const selectCI = ({ event, ref, files, workspaces, exists }) => {
+  const plan = browserSelection({ event, ref, files, workspaces, exists });
+  const selected = event === 'pull_request' || (event === 'push' && ref === 'refs/heads/main')
+    ? selectTracks(files, workspaces) : Object.fromEntries(tracks.map((track) => [track, true]));
+  const browsers = browserOutputs(plan);
+  // Application E2E is a step within the application job, not a separate job.
+  // A conservative browser fallback must never be hidden by track selection.
+  selected.application ||= browsers.browser_e2e;
+  return { ...selected, ...browsers, browser_plan: JSON.stringify(plan) };
+};
+
 export const frontendTasks = (workspaces, track) => trackWorkspaces(workspaces, track).flatMap((workspace) => {
   const scripts = ['lint', 'typecheck', ...(workspace.location === 'e2e' ? [] : ['test']),
     ...(workspace.location.startsWith('packages/') ? ['build'] : [])]
@@ -75,7 +86,7 @@ export const frontendTasks = (workspaces, track) => trackWorkspaces(workspaces, 
   return scripts.map((script) => ({ workspace: workspace.name, script }));
 });
 
-export const gateFailures = (needs, fullBrowsers = false) => {
+export const gateFailures = (needs, fullChecks = false) => {
   const outputs = needs.changes?.outputs;
   let plan;
   try {
@@ -85,7 +96,8 @@ export const gateFailures = (needs, fullBrowsers = false) => {
   } catch { return ['Browser selection is missing, invalid or inconsistent']; }
   const validSelection = needs.changes?.result === 'success'
     && [...tracks, ...browserKeys].every((track) => ['true', 'false'].includes(outputs?.[track]));
-  if (fullBrowsers && Object.keys(browserSuites).some((id) => plan[id] !== 'all')) return ['Release/manual CI requires all browser suites'];
+  if (fullChecks && Object.keys(browserSuites).some((id) => plan[id] !== 'all')) return ['Release/manual CI requires all browser suites'];
+  if (fullChecks && tracks.some((track) => outputs[track] !== 'true')) return ['Release/manual CI requires all tracks'];
   return validSelection ? Object.entries(jobs).flatMap(([job, track]) => {
     const result = needs[job]?.result;
     const selected = outputs[track] === 'true';

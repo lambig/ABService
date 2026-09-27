@@ -2,8 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { frontendTasks, gateFailures, selectTracks, tracks } from './ci-policy.mjs';
-import { browserSelection, browserOutputs } from './browser-policy.mjs';
+import { frontendTasks, gateFailures, selectCI } from './ci-policy.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const run = (command, args) => execFileSync(command, args, {
@@ -39,10 +38,8 @@ const select = () => {
     : /^[a-f0-9]{40}$/.test(event.before ?? '') && event.before !== '0'.repeat(40)
       ? run('git', ['diff', '--name-only', '--no-renames', '-z', event.before, process.env.GITHUB_SHA]).split('\0').filter(Boolean)
       : [];
-  const plan = browserSelection({ event: process.env.GITHUB_EVENT_NAME, ref: process.env.GITHUB_REF,
+  const selection = selectCI({ event: process.env.GITHUB_EVENT_NAME, ref: process.env.GITHUB_REF,
     files, workspaces, exists: (file) => existsSync(new URL(file, new URL('../', import.meta.url))) });
-  const selection = { ...(process.env.GITHUB_EVENT_NAME === 'pull_request' ? selectTracks(files, workspaces)
-    : Object.fromEntries(tracks.map((track) => [track, true]))), ...browserOutputs(plan), browser_plan: JSON.stringify(plan) };
   const lines = Object.entries(selection).map(([track, selected]) => `${track}=${selected}`).join('\n');
   console.log(lines);
   appendFileSync(process.env.GITHUB_OUTPUT, `${lines}\n`);
@@ -60,9 +57,9 @@ const frontend = () => {
 };
 
 const gate = () => {
-  const fullBrowsers = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch'
+  const fullChecks = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch'
     || (process.env.GITHUB_EVENT_NAME === 'push' && process.env.GITHUB_REF?.startsWith('refs/heads/release/'));
-  const failures = gateFailures(JSON.parse(process.env.CI_NEEDS), fullBrowsers);
+  const failures = gateFailures(JSON.parse(process.env.CI_NEEDS), fullChecks);
   assert.deepEqual(failures, [], failures.join('\n'));
   console.log('All selected CI jobs succeeded; only unselected jobs may be skipped.');
 };

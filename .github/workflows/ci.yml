@@ -433,7 +433,9 @@ jobs:
           sudo python3 infra/monitoring/credentials/test_systemd.py
 
       - name: Verify monitoring log transport on an isolated Docker network
-        run: sudo python3 infra/monitoring/transport/test_transport.py
+        run: |
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s infra/monitoring/transport -p 'test_diagnostics.py' -v
+          sudo python3 infra/monitoring/transport/test_transport.py
 
       - name: Check formatting
         run: terraform fmt -check -recursive infra
