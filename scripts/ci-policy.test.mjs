@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { frontendTasks, gateFailures, jobs, selectTracks, trackWorkspaces } from './ci-policy.mjs';
+import { fileURLToPath } from 'node:url';
+import { frontendTasks, gateFailures, jobs, selectCI, selectTracks, trackWorkspaces } from './ci-policy.mjs';
 import { browserKeys, browserSuites } from './browser-policy.mjs';
 
 const workspace = (name, location, dependencies = {}) => ({
@@ -16,6 +18,80 @@ const fixtures = [
   workspace('rules', 'packages/eslint-config'),
   workspace('e2e', 'e2e'),
 ];
+
+const mainSelection = (files, workspaces = fixtures) => selectCI({
+  event: 'push', ref: 'refs/heads/main', files, workspaces,
+});
+
+test('main scopes ordinary player and application changes without repeating browser regressions', () => {
+  for (const [file, application, listening] of [
+    ['packages/player/src/player.ts', false, true],
+    ['frontend-public/src/page.astro', true, false],
+    ['backend/src/Service.java', true, false],
+    ['docs/DECISIONS.md', false, false],
+  ]) {
+    const selected = mainSelection([file]);
+    assert.equal(selected.application, application, file);
+    assert.equal(selected.listening, listening, file);
+    assert.ok(browserKeys.every((key) => selected[key] === false), file);
+  }
+});
+
+test('main retains shared/transitive, metadata, unknown and unavailable-diff coverage', () => {
+  for (const files of [[], ['package-lock.json'], ['packages/player/package.json'],
+    ['scripts/new.mjs'], ['packages/eslint-config/index.js'],
+    ['packages/deleted/old.ts'], ['packages/player/old.ts', 'frontend-public/new.ts']]) {
+    const selected = mainSelection(files);
+    assert.equal(selected.application, true, files.join(','));
+    assert.equal(selected.listening, true, files.join(','));
+  }
+  const linked = fixtures.map((item) => item.name === 'markup'
+    ? { ...item, dependencies: { player: '*' } } : item);
+  assert.equal(mainSelection(['packages/player/src/player.ts'], linked).application, true);
+});
+
+test('main scenario changes still execute their browser suites and containing jobs', () => {
+  for (const [file, suite, application, listening] of [
+    ['packages/player/e2e/play.spec.ts', 'player', false, true],
+    ['e2e/src/specs/page.spec.ts', 'e2e', true, false],
+  ]) {
+    const selected = mainSelection([file]);
+    assert.equal(selected.application, application);
+    assert.equal(selected.listening, listening);
+    assert.deepEqual(JSON.parse(selected.browser_plan)[suite], [file]);
+    assert.equal(selected[`browser_${suite}`], true);
+  }
+  assert.equal(JSON.parse(mainSelection(['packages/player/e2e/support.ts']).browser_plan).player, 'all');
+});
+
+test('browser fallback cannot select application E2E inside a skipped application job', () => {
+  const orphan = [...fixtures, workspace('dsp', 'packages/audio-dsp')];
+  const selected = mainSelection(['packages/audio-dsp/src/index.ts'], orphan);
+  assert.equal(selected.browser_e2e, true);
+  assert.equal(selected.application, true);
+});
+
+test('release and manual CI always select all tracks and complete browser suites', () => {
+  for (const context of [
+    { event: 'push', ref: 'refs/heads/release/1.10' },
+    { event: 'workflow_dispatch', ref: 'refs/heads/main' },
+    { event: 'unknown', ref: 'refs/heads/main' },
+  ]) {
+    const selected = selectCI({ ...context, files: ['docs/DECISIONS.md'], workspaces: fixtures });
+    assert.equal(selected.application, true);
+    assert.equal(selected.listening, true);
+    assert.ok(Object.values(JSON.parse(selected.browser_plan)).every((mode) => mode === 'all'));
+  }
+  const pr = selectCI({ event: 'pull_request', ref: 'refs/pull/1/merge',
+    files: ['packages/player/src/player.ts'], workspaces: fixtures });
+  assert.equal(pr.application, false);
+  assert.equal(pr.listening, true);
+  assert.equal(pr.browser_player, true);
+  const unknownBranch = selectCI({ event: 'push', ref: 'refs/heads/other',
+    files: ['docs/DECISIONS.md'], workspaces: fixtures });
+  assert.equal(unknownBranch.application, true);
+  assert.equal(unknownBranch.listening, true);
+});
 
 test('listening code does not select the application; application code does not select listening', () => {
   assert.deepEqual(selectTracks(['packages/player/src/player.ts'], fixtures), { application: false, listening: true });
@@ -85,6 +161,27 @@ test('release/manual gate refuses omitted browser suites even when PR/main would
   scoped.changes.outputs.browser_plan = JSON.stringify(plan);
   assert.deepEqual(gateFailures(scoped), []);
   assert.ok(gateFailures(scoped, true).length > 0);
+});
+
+test('release/manual gate rejects omitted tracks even with all browser suites successful', () => {
+  for (const track of ['application', 'listening']) {
+    const needs = results(true, true);
+    needs.changes.outputs[track] = 'false';
+    Object.entries(jobs).filter(([, owner]) => owner === track)
+      .forEach(([job]) => { needs[job].result = 'skipped'; });
+    assert.ok(gateFailures(needs, true).length > 0, track);
+    for (const [event, ref, success] of [
+      ['push', 'refs/heads/main', true],
+      ['push', 'refs/heads/release/1.10', false],
+      ['workflow_dispatch', 'refs/heads/main', false],
+    ]) {
+      const result = spawnSync(process.execPath, [fileURLToPath(new URL('./ci.mjs', import.meta.url)), 'gate'], {
+        env: { ...process.env, GITHUB_EVENT_NAME: event, GITHUB_REF: ref, CI_NEEDS: JSON.stringify(needs) },
+        encoding: 'utf8',
+      });
+      assert.equal(result.status, success ? 0 : 1, result.stderr);
+    }
+  }
 });
 
 test('the gate accepts only intentional skips, including documentation-only PRs', () => {
