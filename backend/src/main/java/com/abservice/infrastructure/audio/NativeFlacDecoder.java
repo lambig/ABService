@@ -5,6 +5,8 @@ import com.abservice.application.port.InvalidFlacException;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.RandomAccessFile;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -97,7 +99,13 @@ final class NativeFlacDecoder {
             try {
                 return finishWithFrames(
                         process,
-                        awaitFrames(reader.submit(() -> readFrames(process, metadata)), remaining(started, timeout)),
+                        awaitFrames(
+                                reader.submit(
+                                        () -> readFrames(
+                                                process,
+                                                snapshot,
+                                                metadata)),
+                                remaining(started, timeout)),
                         started,
                         timeout);
             } finally {
@@ -119,12 +127,20 @@ final class NativeFlacDecoder {
         }
     }
 
-    private static FrameTotals readFrames(Process process, FlacMetadata metadata) throws IOException {
+    private static FrameTotals readFrames(
+            Process process,
+            Path snapshot,
+            FlacMetadata metadata) throws IOException {
         try (@SuppressWarnings("PMD.SingleUseLocalVariable") // RESOURCE-CLOSE: owns implicit close.
         var lines = new BufferedReader(
-                new InputStreamReader(process.getInputStream(), StandardCharsets.US_ASCII))) {
+                new InputStreamReader(process.getInputStream(), StandardCharsets.US_ASCII));
+                var input = new RandomAccessFile(snapshot.toFile(), "r")) {
             return lines.lines().filter(line -> line.startsWith("frame="))
-                    .map(line -> frame(line, metadata))
+                    .map(
+                            line -> frame(
+                                    line,
+                                    metadata,
+                                    input))
                     .reduce(
                             new FrameTotals(
                                     0,
@@ -134,7 +150,10 @@ final class NativeFlacDecoder {
         }
     }
 
-    private static FrameTotals frame(String line, FlacMetadata metadata) {
+    private static FrameTotals frame(
+            String line,
+            FlacMetadata metadata,
+            RandomAccessFile input) {
         final var fields = FRAME.matcher(line);
         FlacStreamInfo.require(fields.matches(), "FLAC_ANALYSIS_FORMAT_UNSUPPORTED");
         final long offset = Long.parseLong(fields.group(2));
@@ -145,11 +164,43 @@ final class NativeFlacDecoder {
         FlacStreamInfo.require(samples > 0, "FLAC_FRAME_SAMPLES_INVALID");
         FlacStreamInfo.require(Long.parseLong(fields.group(5)) == metadata.sampleRate(), "FLAC_FRAME_RATE_MISMATCH");
         FlacStreamInfo.require(Long.parseLong(fields.group(6)) == metadata.channels(), "FLAC_FRAME_CHANNELS_MISMATCH");
+        FlacStreamInfo.require(offset >= 42, "FLAC_FRAME_OFFSET_INVALID");
+        FlacStreamInfo.require(offset <= metadata.byteLength() - 4, "FLAC_FRAME_OFFSET_INVALID");
+        FlacStreamInfo.require(
+                frameBits(
+                        input,
+                        offset,
+                        metadata.bitsPerSample()) == metadata.bitsPerSample(),
+                "FLAC_FRAME_BIT_DEPTH_MISMATCH");
         return new FrameTotals(
                 Long.parseLong(fields.group(1)) + 1,
                 offset + bits / 8,
                 samples,
                 offset);
+    }
+
+    /** RFC 9639 section 9.1.4: analysis出力にはないbit depthを同じ検査実体のヘッダから読む。 */
+    private static int frameBits(
+            RandomAccessFile input,
+            long offset,
+            int streamBits) {
+        try {
+            input.seek(offset);
+            final int header = input.readInt();
+            FlacStreamInfo.require((header & 0xfffe0001) == 0xfff80000, "FLAC_FRAME_HEADER_INVALID");
+            return switch ((header >>> 1) & 7) {
+                case 0 -> streamBits;
+                case 1 -> 8;
+                case 2 -> 12;
+                case 4 -> 16;
+                case 5 -> 20;
+                case 6 -> 24;
+                case 7 -> 32;
+                default -> throw new InvalidFlacException("FLAC_FRAME_BIT_DEPTH_UNSUPPORTED");
+            };
+        } catch (IOException failure) {
+            throw new UncheckedIOException(failure);
+        }
     }
 
     private static long remaining(long started, Duration timeout) throws IOException {

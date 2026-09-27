@@ -12,6 +12,8 @@
 - native FLAC（先頭が `fLaC`）。Oggコンテナや、拡張子/Content-Typeの申告による判定は受け入れない。
 - STREAMINFOが先頭にあり長さ34バイト。サンプル数とPCMのMD5が記録されていること。
 - 初期プロファイルはモノ/ステレオ、16/24bit、8〜96kHz。範囲外は明示的に拒否し、変換しない。
+- 各フレームのsampleRate・channels・bit depthはSTREAMINFOと一致すること。途中の量子化変更も拒否する。
+  analysisにbit depthが含まれないため、同じ検査実体のframe offsetからヘッダを読み、コード0はSTREAMINFOを継承する。
 - 初期上限は **256MiB / 2時間**。画像上限・音源の平均サイズ・端末の使用可能容量とは独立する。
 - 全体デコード検査でフレーム破損、CRC・MD5不一致、途中切断等を拒否する。
   実フレームの連続範囲・サンプル数も照合し、末尾データやSTREAMINFOの申告違いを拒否する。
