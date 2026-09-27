@@ -8,6 +8,82 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
+test("schema v2 reuses verified v1 OPFS bytes without rewriting the old package", async ({
+  page,
+}) => {
+  expect(
+    await page.evaluate(async () => {
+      const h = window.storageHarness;
+      const legacy = await h.manifest();
+      const oldStore = await h.open();
+      const signal = new AbortController().signal;
+      const asset = legacy.assets[0];
+      const audio = await (asset === undefined
+        ? Promise.reject(new Error("Missing fixture"))
+        : Promise.resolve(asset));
+      const saved = await oldStore.save(audio.assetId, h.first, signal);
+      const current = h.createAssetStore({
+        ...legacy,
+        schemaVersion: 2,
+        packageVersion: "storage-test-v2",
+        compatibleAppVersion: {
+          minInclusive: [1, 10, 0],
+          maxExclusive: [2, 0, 0],
+        },
+        assets: [
+          {
+            ...audio,
+            checksum: { algorithm: "sha256", value: audio.checksum.value },
+          },
+        ],
+        albums: [
+          {
+            albumId: "album",
+            title: "Album",
+            tracks: [{ trackId: "track", title: "Metadata only", trackNo: 1 }],
+          },
+        ],
+        playbackItems: [
+          {
+            playbackItemId: "demo",
+            kind: "album-crossfade",
+            albumId: "album",
+            title: "Demo",
+            audioAssetId: audio.assetId,
+          },
+        ],
+      });
+      const read =
+        current.kind === "ok"
+          ? await current.value.read(audio.assetId, signal)
+          : current;
+      const assessment =
+        current.kind === "ok"
+          ? await current.value.assess([1, 10, 0], signal)
+          : current;
+      const oldRead = await oldStore.read(audio.assetId, signal);
+      return {
+        saved: saved.kind,
+        matches:
+          read.kind === "ok" &&
+          (await h.digest(read.value)) === (await h.digest(h.first)),
+        oldReadable: oldRead.kind,
+        legacySchema: legacy.schemaVersion,
+        assessment,
+      };
+    }),
+  ).toMatchObject({
+    saved: "ok",
+    matches: true,
+    oldReadable: "ok",
+    legacySchema: 1,
+    assessment: {
+      kind: "ok",
+      value: { packageComplete: true, requiredDownloadBytes: 0 },
+    },
+  });
+});
+
 test("real OPFS survives reload; verified audio can be read without network", async ({
   page,
   context,

@@ -1,6 +1,6 @@
 import { createAssetStore } from "../src/index";
 import type { AssetStore } from "../src/index";
-import type { InstallationManifest } from "abservice-installation";
+import type { InstallationManifestV1 } from "abservice-installation";
 import toneUrl from "./fixtures/tone.flac?url";
 
 const first = await fetch(toneUrl).then((response) => response.blob());
@@ -13,7 +13,9 @@ const digest = async (blob: Blob): Promise<string> =>
     ),
     (byte) => byte.toString(16).padStart(2, "0"),
   ).join("");
-const manifest = async (blob: Blob = first): Promise<InstallationManifest> => ({
+const manifest = async (
+  blob: Blob = first,
+): Promise<InstallationManifestV1> => ({
   schemaVersion: 1,
   packageVersion: "storage-test",
   compatibleAppVersion: { minInclusive: [1, 0, 0], maxExclusive: [2, 0, 0] },

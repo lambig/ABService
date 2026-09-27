@@ -82,7 +82,10 @@ test("保存後の新ページを通信なしで起動し、選曲・再生・�
         downloads.push(url);
       });
   });
-  await play(next);
+  await expect(
+    next.getByRole("button", { name: "Metadata-only song", exact: true }),
+  ).toHaveCount(0);
+  await play(next, "Album crossfade");
   await next.screenshot({
     path: "test-results/offline-player-playing.png",
     fullPage: true,

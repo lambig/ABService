@@ -1,18 +1,22 @@
 import { z } from 'zod';
-
-const id = z.string().trim().min(1);
-const bytes = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
-const version = z.tuple([bytes, bytes, bytes]).readonly();
-const checksum = z.object({ algorithm: id, value: id }).readonly();
-const asset = z
-  .object({
-    assetId: id,
-    mediaType: id,
-    byteLength: bytes,
-    checksum,
-    required: z.boolean(),
-  })
-  .readonly();
+import {
+  bytes,
+  checksum,
+  compare,
+  id,
+  packageShape,
+  unique,
+  version,
+} from './common';
+import { manifestV2Schema } from './v2';
+import type { InstallationManifestV2, PlaybackItem } from './v2';
+export { projectManifestV2 } from './v2';
+export type {
+  InstallationManifestV2,
+  ManifestProjectionV2Input,
+  ManifestProjectionV2Result,
+  PlaybackItem,
+} from './v2';
 const track = z
   .object({
     trackId: id,
@@ -33,22 +37,11 @@ const album = z
 /** 数値3要素の安定版バージョン。pre-release の互換性はこのPoCの対象外。 */
 export type AppVersion = z.infer<typeof version>;
 
-const compare = (left: AppVersion, right: AppVersion): number =>
-  [left[0] - right[0], left[1] - right[1], left[2] - right[2]].find(
-    (difference) => difference !== 0,
-  ) ?? 0;
-const unique = (values: readonly string[]): boolean =>
-  new Set(values).size === values.length;
 const manifestSchema = z
   .object({
+    ...packageShape,
     schemaVersion: z.literal(1),
-    packageVersion: id,
-    compatibleAppVersion: z
-      .object({ minInclusive: version, maxExclusive: version })
-      .readonly(),
     albums: z.array(album).readonly(),
-    presentationAssetIds: z.array(id).readonly(),
-    assets: z.array(asset).readonly(),
   })
   .refine(
     (manifest) =>
@@ -110,8 +103,36 @@ const manifestSchema = z
   )
   .readonly();
 
-/** Album/Trackをcanonical dataとする配布projection。URLや保存キーをidentityにしない。 */
-export type InstallationManifest = z.infer<typeof manifestSchema>;
+/** 保存済みschema v1。新規配布は作品情報と再生項目を分離したv2を用いる。 */
+export type InstallationManifestV1 = z.infer<typeof manifestSchema>;
+
+/** schemaを判別して扱う配布snapshot。読み取り時に保存物のschemaやIDを書き換えない。 */
+export type InstallationManifest =
+  InstallationManifestV1 | InstallationManifestV2;
+
+/** 両schemaを同じ選択境界へ写す。v1のみ、従来のselect呼び出しを保つため項目IDにtrackIdを使う。 */
+export const getPlaybackItems = (
+  manifest: InstallationManifest,
+): readonly PlaybackItem[] =>
+  manifest.schemaVersion === 2
+    ? manifest.playbackItems
+    : Object.freeze(
+        manifest.albums.flatMap((album) =>
+          album.tracks.map((track) =>
+            Object.freeze({
+              kind: 'track' as const,
+              playbackItemId: track.trackId,
+              albumId: album.albumId,
+              trackId: track.trackId,
+              title: track.title,
+              audioAssetId: track.audioAssetId,
+              ...(track.durationSeconds === undefined
+                ? {}
+                : { durationSeconds: track.durationSeconds }),
+            }),
+          ),
+        ),
+      );
 
 /** schemaVersion未対応と、不正な内容を分ける。成功値は入れ子もreadonlyなsnapshot。 */
 export type ManifestResult =
@@ -124,8 +145,12 @@ export const parseManifest = (input: unknown): ManifestResult => {
   const envelope = z
     .object({ schemaVersion: z.number().int() })
     .safeParse(input);
-  const parsed = manifestSchema.safeParse(input);
-  return envelope.success && envelope.data.schemaVersion !== 1
+  const parsed =
+    envelope.success && envelope.data.schemaVersion === 2
+      ? manifestV2Schema.safeParse(input)
+      : manifestSchema.safeParse(input);
+  return envelope.success &&
+    [1, 2].every((supported) => envelope.data.schemaVersion !== supported)
     ? { kind: 'unsupported-schema' }
     : parsed.success
       ? { kind: 'manifest', manifest: parsed.data }
@@ -135,6 +160,154 @@ export const parseManifest = (input: unknown): ManifestResult => {
             (issue) => `${issue.path.join('.')}: ${issue.message}`,
           ),
         };
+};
+
+const projectionSchema = z
+  .object({
+    ...packageShape,
+    albums: z
+      .array(
+        z
+          .object({
+            albumId: id,
+            title: id,
+            tracks: z
+              .array(
+                z
+                  .object({
+                    trackId: id,
+                    trackNo: bytes.positive(),
+                    title: id,
+                  })
+                  .readonly(),
+              )
+              .readonly(),
+          })
+          .readonly(),
+      )
+      .readonly(),
+    trackAudioBindings: z
+      .array(
+        z
+          .object({
+            trackId: id,
+            assetId: id,
+            durationSeconds: z.number().nonnegative().optional(),
+          })
+          .readonly(),
+      )
+      .readonly(),
+    albumArtworkBindings: z
+      .array(
+        z
+          .object({
+            albumId: id,
+            assetId: id,
+          })
+          .readonly(),
+      )
+      .readonly(),
+  })
+  .refine(
+    (input) =>
+      input.albums.every(
+        (item) =>
+          new Set(item.tracks.map((entry) => entry.trackNo)).size ===
+          item.tracks.length,
+      ),
+    'duplicate track number within album',
+  )
+  .refine(
+    (input) => unique(input.trackAudioBindings.map((item) => item.trackId)),
+    'duplicate track audio binding',
+  )
+  .refine(
+    (input) => unique(input.albumArtworkBindings.map((item) => item.albumId)),
+    'duplicate album artwork binding',
+  )
+  .refine(
+    (input) =>
+      input.albums
+        .flatMap((item) => item.tracks)
+        .every((entry) =>
+          input.trackAudioBindings.some(
+            (binding) => binding.trackId === entry.trackId,
+          ),
+        ),
+    'missing track audio binding',
+  )
+  .refine(
+    (input) =>
+      input.trackAudioBindings.every((binding) =>
+        input.albums.some((item) =>
+          item.tracks.some((entry) => entry.trackId === binding.trackId),
+        ),
+      ),
+    'unknown track in audio binding',
+  )
+  .refine(
+    (input) =>
+      input.albumArtworkBindings.every((binding) =>
+        input.albums.some((item) => item.albumId === binding.albumId),
+      ),
+    'unknown album in artwork binding',
+  )
+  .readonly();
+
+/**
+ * v1.0のID付きAlbum/Track snapshotと配布用assetの対応表。
+ * 公開APIの曲目はtrackIdを持たないため入力元にできない。
+ * 音源・artworkの同定とchecksum計算は呼び出し元が担い、URLから推測しない。
+ */
+export type ManifestProjectionInput = z.infer<typeof projectionSchema>;
+
+/** 入力・対応表の不備と、生成先Manifestの契約違反を区別する。 */
+export type ManifestProjectionResult =
+  | Readonly<{ kind: 'manifest'; manifest: InstallationManifestV1 }>
+  | Readonly<{ kind: 'invalid-manifest'; errors: readonly string[] }>
+  | Readonly<{ kind: 'invalid-projection'; errors: readonly string[] }>;
+
+/**
+ * Albumの入力順とTrackのtrackNo昇順でschema v1の配布snapshotを生成する純粋関数。
+ * 音源の対応漏れを黙って除外せず、入力と完成Manifestの両方を検証する。
+ * 公開可否・配布権限の判定や取得処理は行わない。
+ */
+export const projectManifest = (input: unknown): ManifestProjectionResult => {
+  const parsed = projectionSchema.safeParse(input);
+  const projected = parsed.success
+    ? manifestSchema.safeParse({
+        ...parsed.data,
+        schemaVersion: 1,
+        albums: parsed.data.albums.map((item) => ({
+          albumId: item.albumId,
+          title: item.title,
+          artworkAssetId: parsed.data.albumArtworkBindings.find(
+            (binding) => binding.albumId === item.albumId,
+          )?.assetId,
+          tracks: [...item.tracks]
+            .sort((left, right) => left.trackNo - right.trackNo)
+            .map((entry) => {
+              const binding = parsed.data.trackAudioBindings.find(
+                (candidate) => candidate.trackId === entry.trackId,
+              );
+              return {
+                trackId: entry.trackId,
+                title: entry.title,
+                audioAssetId: binding?.assetId,
+                durationSeconds: binding?.durationSeconds,
+              };
+            }),
+        })),
+      })
+    : parsed;
+  return projected.success
+    ? { kind: 'manifest', manifest: projected.data }
+    : {
+        kind: parsed.success ? 'invalid-manifest' : 'invalid-projection',
+        errors: projected.error.issues.map(
+          (issue) => `${issue.path.join('.')}: ${issue.message}`,
+        ),
+      };
 };
 
 const environmentSchema = z
