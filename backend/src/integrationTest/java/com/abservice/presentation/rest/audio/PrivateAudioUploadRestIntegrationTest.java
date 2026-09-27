@@ -19,6 +19,10 @@ import java.net.http.HttpResponse;
 import java.io.ByteArrayInputStream;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.UncheckedIOException;
+import java.io.IOException;
+import java.security.DigestInputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import jakarta.inject.Inject;
@@ -52,23 +56,42 @@ class PrivateAudioUploadRestIntegrationTest {
     @Test
     @DisplayName("10MiBを超える実FLACをHTTPから検査・非公開保存・確定し再送で上書きしない")
     void receivesLargeFlacAndConfirms() throws Exception {
-        final var bytes = fixture(12 * 1024 * 1024);
-        assertThat(bytes.length).isGreaterThan(10 * 1024 * 1024);
+        final var file = fixtureFile(12 * 1024 * 1024);
+        assertThat(Files.size(file)).isGreaterThan(10 * 1024 * 1024);
         final var id = reserve();
-        authorized().contentType("audio/flac").body(bytes).put(content(id)).then().statusCode(200)
+        try (var client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build()) {
+            final var request = HttpRequest.newBuilder(endpoint.resolve(content(id)))
+                    .timeout(Duration.ofSeconds(30))
+                    .header("Authorization", "Bearer test-admin-api-key").header("Content-Type", "audio/flac")
+                    .PUT(HttpRequest.BodyPublishers.ofFile(file)).build();
+            assertThat(client.send(request, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(200);
+        }
+        authorized().get(BASE + "/" + id).then().statusCode(200)
                 .body("state", equalTo("CONFIRMED"))
-                .body("metadata.byteLength", equalTo(bytes.length))
-                .body(
-                        "metadata.sha256",
-                        equalTo(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes))))
+                .body("metadata.byteLength", equalTo((int) Files.size(file)))
+                .body("metadata.sha256", equalTo(sha256(file)))
                 .body("$", not(hasKey("url"))).body("$", not(hasKey("storageKey")));
-        final var stored = storage.getObjectAsBytes(request -> request.bucket(bucket()).key(key(id))).asByteArray();
-        assertThat(stored).isEqualTo(bytes);
+        assertStoredFile(id, file);
         given().get("http://localhost:9000/" + bucket() + "/" + key(id)).then().statusCode(403);
         authorized().post(BASE + "/" + id + "/confirm").then().statusCode(200).body("state", equalTo("CONFIRMED"));
-        authorized().contentType("audio/flac").body(bytes).put(content(id)).then().statusCode(409);
-        assertThat(storage.getObjectAsBytes(request -> request.bucket(bucket()).key(key(id))).asByteArray())
-                .isEqualTo(bytes);
+        try (var socket = openUpload(id, Files.size(file))) {
+            assertThat(status(socket)).contains("409");
+        }
+        assertStoredFile(id, file);
+    }
+
+    private void assertStoredFile(String id, Path expected) throws Exception {
+        final var downloaded = directory.resolve(UUID.randomUUID() + ".download");
+        storage.getObject(request -> request.bucket(bucket()).key(key(id)), downloaded);
+        assertThat(Files.mismatch(expected, downloaded)).isEqualTo(-1);
+    }
+
+    private static String sha256(Path file) throws Exception {
+        final var digest = MessageDigest.getInstance("SHA-256");
+        try (var input = new DigestInputStream(Files.newInputStream(file), digest)) {
+            input.transferTo(OutputStream.nullOutputStream());
+        }
+        return HexFormat.of().formatHex(digest.digest());
     }
 
     @Test
@@ -126,19 +149,32 @@ class PrivateAudioUploadRestIntegrationTest {
     void acceptsChunkedInput() throws Exception {
         final var id = reserve();
         final var bytes = fixture(4096);
+        final var oversized = directory.resolve("oversized.json");
+        try (var writer = Files.newBufferedWriter(oversized)) {
+            writer.write("{\"title\":\"");
+            for (int block = 0; block < 11 * 1024; block++) {
+                writer.write("a".repeat(1024));
+            }
+            writer.write("\"}");
+        }
         try (var client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build()) {
             final var request = HttpRequest.newBuilder(endpoint.resolve(content(id)))
+                    .timeout(Duration.ofSeconds(30))
                     .header("Authorization", "Bearer test-admin-api-key").header("Content-Type", "audio/flac")
                     .PUT(HttpRequest.BodyPublishers.ofInputStream(() -> new ByteArrayInputStream(bytes))).build();
             assertThat(client.send(request, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(200);
             final var tooLarge = HttpRequest.newBuilder(endpoint.resolve("/api/v1/albums"))
+                    .timeout(Duration.ofSeconds(30))
                     .header("Authorization", "Bearer test-admin-api-key").header("Content-Type", "application/json")
                     .POST(
                             HttpRequest.BodyPublishers
-                                    .ofInputStream(
-                                            () -> new ByteArrayInputStream(
-                                                    ("{\"title\":\"" + "a".repeat(11 * 1024 * 1024) + "\"}")
-                                                            .getBytes(StandardCharsets.UTF_8))))
+                                    .ofInputStream(() -> {
+                                        try {
+                                            return Files.newInputStream(oversized);
+                                        } catch (IOException failure) {
+                                            throw new UncheckedIOException(failure);
+                                        }
+                                    }))
                     .build();
             assertThat(client.send(tooLarge, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(413);
         }
@@ -207,6 +243,7 @@ class PrivateAudioUploadRestIntegrationTest {
         final var id = reserve();
         try (var client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).build()) {
             final var request = HttpRequest.newBuilder(endpoint.resolve(content(id)))
+                    .timeout(Duration.ofSeconds(30))
                     .header("Authorization", "Bearer test-admin-api-key").header("Content-Type", "audio/flac")
                     .PUT(HttpRequest.BodyPublishers.ofByteArray(new byte[]{102, 76, 97, 67})).build();
             final var response = client.send(request, HttpResponse.BodyHandlers.ofString());
@@ -237,11 +274,23 @@ class PrivateAudioUploadRestIntegrationTest {
     }
 
     private byte[] fixture(int size) throws Exception {
-        final byte[] raw = new byte[size];
-        new Random(474).nextBytes(raw);
+        return Files.readAllBytes(fixtureFile(size));
+    }
+
+    private Path fixtureFile(int size) throws Exception {
         final var input = directory.resolve(UUID.randomUUID() + ".raw");
         final var output = input.resolveSibling(input.getFileName() + ".flac");
-        Files.write(input, raw);
+        final var random = new Random(474);
+        final byte[] block = new byte[4096];
+        try (var raw = Files.newOutputStream(input)) {
+            for (int written = 0; written < size; written += block.length) {
+                random.nextBytes(block);
+                raw.write(
+                        block,
+                        0,
+                        Math.min(block.length, size - written));
+            }
+        }
         final var encoder = new ProcessBuilder("flac", "--silent", "--force-raw-format", "--endian=little",
                 "--sign=signed",
                 "--channels=2", "--bps=16", "--sample-rate=44100", "--no-padding", "--no-seektable",
@@ -249,7 +298,7 @@ class PrivateAudioUploadRestIntegrationTest {
         try {
             assertThat(encoder.waitFor(30, TimeUnit.SECONDS)).isTrue();
             assertThat(encoder.exitValue()).isZero();
-            return Files.readAllBytes(output);
+            return output;
         } finally {
             encoder.destroyForcibly().onExit().join();
         }
