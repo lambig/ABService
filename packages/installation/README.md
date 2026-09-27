@@ -24,6 +24,7 @@ canonicalデータの余分な項目やassetの取得URLはsnapshotに写さな�
 ## 旧schema・保存物との互換性
 
 `parseManifest` はv1/v2を各schemaで検証し、版を変えず独立したreadonly snapshotを返す。
+v2の配布・保存JSONは全object階層で未知フィールドを拒否する。生成元データの不要項目を除去するprojection入力とは境界を分け、取得URLや認証情報の混入を黙って消して成功扱いにしない。
 未知のschemaはunsupported-schema。旧アプリのv1 parserはv2を未対応として拒否するため、v2をv1と偽って配布しない。
 v2のcompatibleAppVersion.minInclusiveは [1, 10, 0] 以降を必須にする。
 

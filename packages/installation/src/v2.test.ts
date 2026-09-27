@@ -37,7 +37,10 @@ const song = {
 };
 const input: ManifestProjectionV2Input = {
   packageVersion: 'fixture-v2',
-  compatibleAppVersion: { minInclusive: [1, 10, 0], maxExclusive: [2, 0, 0] },
+  compatibleAppVersion: {
+    minInclusive: [1, 10, 0],
+    maxExclusive: [2, 0, 0],
+  },
   albums: [
     {
       albumId: 'album',
@@ -98,7 +101,10 @@ describe('schema v2 playback items', () => {
 
   it('adding a song preserves the existing demo and canonical identities', () => {
     const before = projected();
-    const after = projected({ ...input, playbackItems: [crossfade, song] });
+    const after = projected({
+      ...input,
+      playbackItems: [crossfade, song],
+    });
     expect(after?.albums).toEqual(before?.albums);
     expect(after?.playbackItems[0]).toEqual(before?.playbackItems[0]);
     expect(after === undefined ? [] : getPlaybackItems(after)).toEqual([
@@ -112,13 +118,19 @@ describe('schema v2 playback items', () => {
     const manifest = projected({
       ...input,
       token: 'invalid-fixture-token',
+      compatibleAppVersion: {
+        ...input.compatibleAppVersion,
+        sourceOnly: true,
+      },
       albums: input.albums.map((a) => ({
         ...a,
         externalUrl: 'https://example.invalid/demo',
+        tracks: a.tracks.map((t) => ({ ...t, sourceOnly: true })),
       })),
       assets: input.assets.map((a) => ({
         ...a,
         downloadUrl: 'https://example.invalid/signed',
+        checksum: { ...a.checksum, sourceOnly: true },
       })),
     });
     expect(manifest).not.toBe(input);
@@ -131,6 +143,7 @@ describe('schema v2 playback items', () => {
     expect(Object.isFrozen(audio.checksum)).toBe(false);
     expect(JSON.stringify(manifest)).not.toContain('example.invalid');
     expect(JSON.stringify(manifest)).not.toContain('token');
+    expect(JSON.stringify(manifest)).not.toContain('sourceOnly');
     expect(parseManifest(manifest)).toMatchObject({
       kind: 'manifest',
       manifest,
@@ -195,7 +208,9 @@ describe('schema v2 playback items', () => {
     { playbackItems: [{ ...crossfade, playbackItemId: '' }] },
     { playbackItems: [{ ...crossfade, durationSeconds: Infinity }] },
     { playbackItems: [{ ...crossfade, durationSeconds: -1 }] },
-    { albumArtworkBindings: [{ albumId: 'missing', assetId: audio.assetId }] },
+    {
+      albumArtworkBindings: [{ albumId: 'missing', assetId: audio.assetId }],
+    },
     {
       albumArtworkBindings: [
         { albumId: 'album', assetId: audio.assetId },
@@ -204,16 +219,24 @@ describe('schema v2 playback items', () => {
     },
     { assets: [{ ...audio, byteLength: 0 }, font] },
     { assets: [{ ...audio, byteLength: -1 }, font] },
-    { assets: [{ ...audio, byteLength: Number.MAX_SAFE_INTEGER + 1 }, font] },
+    {
+      assets: [{ ...audio, byteLength: Number.MAX_SAFE_INTEGER + 1 }, font],
+    },
     {
       assets: [
-        { ...audio, checksum: { algorithm: 'md5', value: 'a'.repeat(64) } },
+        {
+          ...audio,
+          checksum: { algorithm: 'md5', value: 'a'.repeat(64) },
+        },
         font,
       ],
     },
     {
       assets: [
-        { ...audio, checksum: { algorithm: 'sha256', value: 'not-a-digest' } },
+        {
+          ...audio,
+          checksum: { algorithm: 'sha256', value: 'not-a-digest' },
+        },
         font,
       ],
     },
@@ -264,6 +287,48 @@ describe('schema v2 playback items', () => {
     ).toMatchObject({ appCompatible: false, offlineReady: false });
   });
 
+  it.each([
+    { token: 'invalid-fixture-token' },
+    { albumArtworkBindings: [] },
+    {
+      compatibleAppVersion: {
+        ...input.compatibleAppVersion,
+        sourceOnly: true,
+      },
+    },
+    {
+      assets: [
+        { ...audio, downloadUrl: 'https://example.invalid/signed' },
+        font,
+      ],
+    },
+    {
+      assets: [
+        { ...audio, checksum: { ...audio.checksum, sourceOnly: true } },
+        font,
+      ],
+    },
+    { albums: input.albums.map((a) => ({ ...a, sourceOnly: true })) },
+    {
+      albums: input.albums.map((a) => ({
+        ...a,
+        tracks: a.tracks.map((t) => ({ ...t, sourceOnly: true })),
+      })),
+    },
+    { playbackItems: [{ ...crossfade, sourceOnly: true }] },
+    { playbackItems: [{ ...song, sourceOnly: true }] },
+  ])('rejects unknown fields in distributed v2 JSON: %j', (patch) => {
+    const downloaded: unknown = JSON.parse(
+      JSON.stringify({ ...projected(), ...patch }),
+    );
+    expect(parseManifest(downloaded)).toMatchObject({
+      kind: 'invalid-manifest',
+    });
+    expect(assessReadiness(downloaded, local)).toMatchObject({
+      kind: 'invalid-manifest',
+    });
+  });
+
   it('counts shared audio once, includes required presentation, and ignores optional missing/corrupt assets', () => {
     const optional = { ...font, assetId: 'optional', required: false };
     const manifest = projected({
@@ -306,7 +371,10 @@ describe('schema v2 playback items', () => {
       assessReadiness(manifest, {
         ...local,
         inventory: [
-          { ...audio, checksum: { ...audio.checksum, value: 'b'.repeat(64) } },
+          {
+            ...audio,
+            checksum: { ...audio.checksum, value: 'b'.repeat(64) },
+          },
           font,
         ],
       }),

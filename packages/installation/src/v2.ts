@@ -41,30 +41,37 @@ const playbackItem = z.discriminatedUnion('kind', [
 /** 音源の選択IDはcanonicalなAlbum/Track IDと独立。クロスフェードにtrackIdはない。 */
 export type PlaybackItem = z.infer<typeof playbackItem>;
 
-const distributionShape = {
+const sha256Checksum = z.object({
+  algorithm: z.literal('sha256'),
+  value: z.string().regex(/^[0-9a-f]{64}$/),
+});
+const projectionAsset = asset.unwrap().extend({
+  byteLength: bytes.positive(),
+  checksum: sha256Checksum.readonly(),
+});
+const projectionPackageShape = {
   ...packageShape,
-  assets: z
-    .array(
-      asset
-        .unwrap()
-        .extend({
-          byteLength: bytes.positive(),
-          checksum: z
-            .object({
-              algorithm: z.literal('sha256'),
-              value: z.string().regex(/^[0-9a-f]{64}$/),
-            })
-            .readonly(),
-        })
-        .readonly(),
-    )
-    .readonly(),
+  assets: z.array(projectionAsset.readonly()).readonly(),
   playbackItems: z.array(playbackItem).readonly(),
 };
 
 export const manifestV2Schema = z
-  .object({
-    ...distributionShape,
+  .strictObject({
+    ...projectionPackageShape,
+    compatibleAppVersion: packageShape.compatibleAppVersion
+      .unwrap()
+      .strict()
+      .readonly(),
+    assets: z
+      .array(
+        projectionAsset
+          .extend({
+            checksum: sha256Checksum.strict().readonly(),
+          })
+          .strict()
+          .readonly(),
+      )
+      .readonly(),
     schemaVersion: z.literal(2),
     albums: z
       .array(
@@ -76,6 +83,7 @@ export const manifestV2Schema = z
               .array(metadataTrack.unwrap().strict().readonly())
               .readonly(),
           })
+          .strict()
           .readonly(),
       )
       .readonly(),
@@ -156,7 +164,7 @@ export type InstallationManifestV2 = z.infer<typeof manifestV2Schema>;
 
 const projectionV2Schema = z
   .object({
-    ...distributionShape,
+    ...projectionPackageShape,
     albums: z.array(metadataAlbum).readonly(),
     albumArtworkBindings: z
       .array(z.object({ albumId: id, assetId: id }).readonly())
@@ -193,7 +201,11 @@ export const projectManifestV2 = (
   const parsed = projectionV2Schema.safeParse(input);
   const projected = parsed.success
     ? manifestV2Schema.safeParse({
-        ...parsed.data,
+        packageVersion: parsed.data.packageVersion,
+        compatibleAppVersion: parsed.data.compatibleAppVersion,
+        assets: parsed.data.assets,
+        playbackItems: parsed.data.playbackItems,
+        presentationAssetIds: parsed.data.presentationAssetIds,
         schemaVersion: 2,
         albums: parsed.data.albums.map((a) => ({
           ...a,
