@@ -4,7 +4,9 @@ from pathlib import Path
 import re
 
 
-def render(domain, tls=False):
+def render(domain, tls=False, private_audio=False):
+    if private_audio and not tls:
+        raise ValueError("Private audio requires TLS")
     if len(domain) > 253 or not re.fullmatch(
         r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?", domain
     ):
@@ -52,7 +54,7 @@ http {
         ssl_certificate /etc/letsencrypt/live/DOMAIN/fullchain.pem;
         ssl_certificate_key /etc/letsencrypt/live/DOMAIN/privkey.pem;
         if ($ssl_server_name != DOMAIN) { return 421; }
-        location /api/ {
+PRIVATE_AUDIO_LOCATION        location /api/ {
             proxy_pass http://127.0.0.1:8080/api/;
             proxy_http_version 1.1;
             proxy_set_header Connection "";
@@ -66,7 +68,22 @@ http {
         }
         location / { return 404; }
     }
-""".replace("DOMAIN", domain)
+""".replace("DOMAIN", domain).replace("PRIVATE_AUDIO_LOCATION", r"""        location ~ "^/api/v1/admin/private-audio/registrations/[0-9a-fA-F-]{36}/content$" {
+            limit_except PUT { deny all; }
+            client_max_body_size 256m;
+            proxy_request_buffering off;
+            proxy_pass http://127.0.0.1:8080;
+            proxy_http_version 1.1;
+            proxy_set_header Connection "";
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-Proto https;
+            proxy_set_header X-Forwarded-For $remote_addr;
+            proxy_connect_timeout 5s;
+            proxy_send_timeout 60s;
+            proxy_read_timeout 300s;
+            # Preserve the origin token and administrator authorization headers.
+        }
+""" if private_audio else "")
     conf += "}\n"
     files = {"nginx.conf": conf, "abservice-origin.service": """[Unit]
 Description=Restricted API origin and ACME HTTP challenge
@@ -127,8 +144,9 @@ if __name__ == "__main__":
     parser.add_argument("--domain", required=True)
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--tls", action="store_true")
+    parser.add_argument("--private-audio", action="store_true")
     args = parser.parse_args()
-    files = render(args.domain, args.tls)
+    files = render(args.domain, args.tls, args.private_audio)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     for name, content in files.items():
         (args.output_dir / name).write_text(content)

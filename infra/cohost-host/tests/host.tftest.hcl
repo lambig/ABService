@@ -51,6 +51,52 @@ run "bootstrap_ports_and_asset_retention" {
     error_message = "Do not expose application/database ports during bootstrap."
   }
 }
+run "private_audio_absent_by_default" {
+  command = plan
+  assert {
+    condition     = length(aws_s3_bucket.private_audio) == 0 && length(aws_iam_role_policy.private_audio) == 0
+    error_message = "Audio must require explicit storage opt-in."
+  }
+}
+run "private_audio_is_separate_and_not_public" {
+  command = plan
+  variables { private_audio_bucket = "example-private-audio" }
+  assert {
+    condition = (
+      aws_s3_bucket.private_audio["enabled"].bucket == "example-private-audio" &&
+      aws_s3_bucket_public_access_block.private_audio["enabled"].block_public_acls &&
+      aws_s3_bucket_public_access_block.private_audio["enabled"].block_public_policy &&
+      aws_s3_bucket_public_access_block.private_audio["enabled"].ignore_public_acls &&
+      aws_s3_bucket_public_access_block.private_audio["enabled"].restrict_public_buckets &&
+      one(aws_s3_bucket_ownership_controls.private_audio["enabled"].rule).object_ownership == "BucketOwnerEnforced" &&
+      one(aws_s3_bucket_versioning.private_audio["enabled"].versioning_configuration).status == "Enabled"
+    )
+    error_message = "Audio needs a dedicated, versioned, private bucket with ACLs disabled."
+  }
+  assert {
+    condition = (
+      length(jsondecode(aws_s3_bucket_policy.private_audio["enabled"].policy).Statement) == 1 &&
+      jsondecode(aws_s3_bucket_policy.private_audio["enabled"].policy).Statement[0].Effect == "Deny" &&
+      jsondecode(aws_s3_bucket_policy.private_audio["enabled"].policy).Statement[0].Condition.Bool["aws:SecureTransport"] == "false" &&
+      length(jsondecode(aws_iam_role_policy.private_audio["enabled"].policy).Statement) == 2 &&
+      jsondecode(aws_iam_role_policy.private_audio["enabled"].policy).Statement[0].Action == "s3:ListBucket" &&
+      jsondecode(aws_iam_role_policy.private_audio["enabled"].policy).Statement[0].Resource == "arn:aws:s3:::example-private-audio" &&
+      toset(jsondecode(aws_iam_role_policy.private_audio["enabled"].policy).Statement[1].Action) == toset(["s3:GetObject", "s3:PutObject"]) &&
+      jsondecode(aws_iam_role_policy.private_audio["enabled"].policy).Statement[1].Resource == "arn:aws:s3:::example-private-audio/audio/verified/*"
+    )
+    error_message = "Keep TLS mandatory; grant only dedicated-bucket missing-key checks and verified-object reads/writes, without deletes or CDN grants."
+  }
+}
+run "reject_shared_audio_bucket" {
+  command = plan
+  variables { private_audio_bucket = "example-assets" }
+  expect_failures = [var.private_audio_bucket]
+}
+run "reject_wildcard_audio_bucket" {
+  command = plan
+  variables { private_audio_bucket = "example-*" }
+  expect_failures = [var.private_audio_bucket]
+}
 run "app_can_distinguish_missing_assets" {
   command = plan
   assert {

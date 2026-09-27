@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 
 import deploy
 
@@ -34,6 +35,72 @@ class DeployTests(unittest.TestCase):
         self.root = Path(self.temporary.name)
         (self.root / "config").write_text("[default]\n")
         self.config = config(self.root)
+
+    def test_private_audio_is_opt_in_and_keeps_database_unchanged(self):
+        disabled = deploy.compose_config(self.config, IMAGE, VALUES)
+        self.assertEqual(disabled["services"]["backend"]["environment"]["ABSERVICE_PRIVATE_AUDIO_ENABLED"], "false")
+        self.assertEqual(len(disabled["services"]["backend"]["volumes"]), 1)
+        self.config["private_audio"] = {"enabled": True, "temporary_dir": "/audio-fixture"}
+        values = {**VALUES, "private-audio/bucket": "invalid-private-audio-fixture"}
+        enabled = deploy.compose_config(self.config, IMAGE, values)
+        self.assertEqual(enabled["services"]["postgres"], disabled["services"]["postgres"])
+        self.assertEqual(enabled["volumes"], disabled["volumes"])
+        backend = enabled["services"]["backend"]
+        self.assertEqual(backend["environment"]["ABSERVICE_PRIVATE_AUDIO_ENABLED"], "true")
+        self.assertEqual(backend["environment"]["ABSERVICE_PRIVATE_AUDIO_BUCKET"], values["private-audio/bucket"])
+        self.assertEqual(backend["volumes"][-1], {
+            "type": "bind", "source": "/audio-fixture", "target": "/var/lib/abservice/private-audio",
+            "read_only": False, "bind": {"create_host_path": False}})
+        requested = []
+        def aws(*args):
+            key = args[args.index("--name") + 1].removeprefix("/fixture/test/")
+            requested.append(key)
+            return json.dumps({"Parameter": {"Value": values[key]}})
+        with patch.object(deploy, "run", side_effect=aws):
+            self.assertEqual(deploy.parameters(self.config), values)
+            values["private-audio/bucket"] = VALUES["assets/bucket"]
+            with self.assertRaises(deploy.DeployError):
+                deploy.parameters(self.config)
+            values["private-audio/bucket"] = "wildcard-*"
+            with self.assertRaises(deploy.DeployError):
+                deploy.parameters(self.config)
+            self.config["private_audio"]["enabled"] = False
+            requested.clear()
+            self.assertEqual(deploy.parameters(self.config), VALUES)
+            self.assertNotIn("private-audio/bucket", requested)
+
+    def test_private_audio_rejects_unsafe_paths_permissions_and_flags(self):
+        auth = self.root / "auth"
+        auth.mkdir()
+        (auth / "config").write_text("[default]\n")
+        self.config["auth_dir"] = str(auth)
+        audio = self.root / "audio"
+        audio.mkdir(mode=0o700)
+        self.config["private_audio"] = {"enabled": True, "temporary_dir": str(audio)}
+        original_stat = Path.stat
+        def fake_stat(path, *args, **kwargs):
+            if path == audio:
+                return SimpleNamespace(st_mode=0o40700, st_uid=1000, st_gid=1000)
+            return original_stat(path, *args, **kwargs)
+        with patch.object(Path, "stat", fake_stat):
+            deploy.validate(self.config, IMAGE, SOURCE)
+            for bad in ("true", 1, None):
+                self.config["private_audio"]["enabled"] = bad
+                with self.assertRaises(deploy.DeployError):
+                    deploy.validate(self.config, IMAGE, SOURCE)
+            self.config["private_audio"]["enabled"] = True
+            for directory in (auth, self.root, Path("/"), Path("relative"), self.root / "missing"):
+                self.config["private_audio"]["temporary_dir"] = str(directory)
+                with self.assertRaises(deploy.DeployError):
+                    deploy.validate(self.config, IMAGE, SOURCE)
+            self.config["private_audio"]["temporary_dir"] = str(audio)
+            with self.assertRaises(deploy.DeployError):
+                deploy.deploy(self.config, IMAGE, SOURCE, audio / "state")
+        for uid, gid, mode in ((0, 1000, 0o40700), (1000, 0, 0o40700), (1000, 1000, 0o40755)):
+            def invalid_stat(path, *args, **kwargs):
+                return SimpleNamespace(st_mode=mode, st_uid=uid, st_gid=gid) if path == audio else original_stat(path, *args, **kwargs)
+            with patch.object(Path, "stat", invalid_stat), self.assertRaises(deploy.DeployError):
+                deploy.validate(self.config, IMAGE, SOURCE)
 
     def test_unpinned_images_and_missing_auth_fail_before_deploy(self):
         for image in ("backend:latest", "sha256:" + "a" * 64, IMAGE + "\n"):
