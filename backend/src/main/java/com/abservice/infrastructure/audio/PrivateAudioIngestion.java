@@ -1,6 +1,7 @@
 package com.abservice.infrastructure.audio;
 
 import com.abservice.application.port.FlacInspectionLimits;
+import com.abservice.application.port.AudioOperationConflictException;
 import com.abservice.application.port.FlacInspector;
 import com.abservice.application.port.FlacMetadata;
 import com.abservice.application.port.InspectedAudio;
@@ -106,7 +107,7 @@ public final class PrivateAudioIngestion {
     }
 
     private static <T> Uni<T> conflict() {
-        return Uni.createFrom().failure(new IllegalStateException("Audio registration state conflict"));
+        return Uni.createFrom().failure(new AudioOperationConflictException());
     }
 
     private <T> Uni<T> admitted(Function<Context, Uni<T>> operation) {

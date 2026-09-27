@@ -1,5 +1,8 @@
 package com.abservice.infrastructure.audio;
 
+import com.abservice.application.port.PrivateAudioOperations;
+import com.abservice.application.port.AudioOperationConflictException;
+
 import com.abservice.application.port.FlacInspectionLimits;
 import com.abservice.application.port.FlacMetadata;
 import com.abservice.application.port.PrivateAudioMaintenance;
@@ -28,7 +31,7 @@ import java.util.function.Function;
 import org.jboss.logging.Logger;
 
 /** 既定無効の単一実行入口。取消後も処理終了まで枠と資源を保持し、終了開始後は新規処理を拒否する。 */
-public final class PrivateAudioRuntime implements AutoCloseable {
+public final class PrivateAudioRuntime implements AutoCloseable, PrivateAudioOperations {
     private static final Logger LOG = Logger.getLogger(PrivateAudioRuntime.class);
     private final Vertx vertx;
     private final Optional<Resources> resources;
@@ -148,7 +151,7 @@ public final class PrivateAudioRuntime implements AutoCloseable {
     }
 
     private static <T> Uni<T> unavailable() {
-        return Uni.createFrom().failure(new IOException("Private audio runtime disabled, busy or stopping"));
+        return Uni.createFrom().failure(new AudioOperationConflictException());
     }
 
     @Override

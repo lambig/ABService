@@ -1,6 +1,7 @@
 package com.abservice.infrastructure.audio;
 
 import com.abservice.application.port.FlacMetadata;
+import com.abservice.application.port.AudioOperationConflictException;
 import com.abservice.application.port.InspectedAudio;
 import com.abservice.application.port.PrivateAudioConflictException;
 import com.abservice.application.port.PrivateAudioStorage;
@@ -109,6 +110,6 @@ final class VerifiedAudioPublication {
     private static FlacMetadata matching(FlacMetadata actual, FlacMetadata expected) throws IOException {
         return Optional.of(actual)
                 .filter(expected::equals)
-                .orElseThrow(() -> new IOException("Stored audio differs from recorded inspection"));
+                .orElseThrow(AudioOperationConflictException::new);
     }
 }

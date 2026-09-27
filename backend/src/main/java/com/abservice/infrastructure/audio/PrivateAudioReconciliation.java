@@ -1,6 +1,7 @@
 package com.abservice.infrastructure.audio;
 
 import com.abservice.application.port.FlacMetadata;
+import com.abservice.application.port.AudioOperationConflictException;
 import com.abservice.application.port.PrivateAudioMaintenance;
 import com.abservice.application.port.PrivateAudioRegistration;
 import com.abservice.application.port.PrivateAudioRegistrations;
@@ -8,7 +9,6 @@ import com.abservice.application.port.PrivateAudioStorage;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.Vertx;
-import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
@@ -32,7 +32,7 @@ final class PrivateAudioReconciliation {
 
     Uni<FlacMetadata> recover(UUID id) {
         return registrations.find(id).chain(
-                found -> found.map(row -> expected(row.state()))
+                found -> found.flatMap(row -> expected(row.state()))
                         .map(
                                 expected -> head(id).chain(
                                         stored -> stored.filter(expected::equals)
@@ -65,9 +65,11 @@ final class PrivateAudioReconciliation {
                                 row -> head(id).chain(
                                         stored -> stored
                                                 .map(
-                                                        actual -> actual.equals(expected(row.state()))
-                                                                ? registrations.confirm(id, actual)
-                                                                : PrivateAudioReconciliation.<Boolean>conflict())
+                                                        actual -> expected(row.state())
+                                                                .filter(actual::equals).isPresent()
+                                                                        ? registrations.confirm(id, actual)
+                                                                        : PrivateAudioReconciliation
+                                                                                .<Boolean>conflict())
                                                 .orElseGet(() -> maintenance.abandonInspected(id, retention))))
                         .orElseGet(() -> Uni.createFrom().item(false)));
     }
@@ -78,15 +80,15 @@ final class PrivateAudioReconciliation {
                         .executeBlocking(() -> storage.find(id), false).toCompletionStage());
     }
 
-    private static FlacMetadata expected(PrivateAudioRegistration.State state) {
+    private static Optional<FlacMetadata> expected(PrivateAudioRegistration.State state) {
         return switch (state) {
-            case PrivateAudioRegistration.Inspected inspected -> inspected.metadata();
-            case PrivateAudioRegistration.Abandoned abandoned -> abandoned.metadata();
-            default -> throw new IllegalStateException("Audio registration is not recoverable");
+            case PrivateAudioRegistration.Inspected inspected -> Optional.of(inspected.metadata());
+            case PrivateAudioRegistration.Abandoned abandoned -> Optional.of(abandoned.metadata());
+            default -> Optional.empty();
         };
     }
 
     private static <T> Uni<T> conflict() {
-        return Uni.createFrom().failure(new IOException("Audio recovery needs matching stored metadata"));
+        return Uni.createFrom().failure(new AudioOperationConflictException());
     }
 }
