@@ -3,7 +3,8 @@
     "target": "ES2022",
     "lib": [
       "ES2022",
-      "DOM"
+      "DOM",
+      "DOM.Iterable"
     ],
     "module": "ESNext",
     "moduleResolution": "bundler",
@@ -21,6 +22,9 @@
     "paths": {
       "player-study/*": [
         "../player/src/*"
+      ],
+      "player-study-e2e/*": [
+        "../player/e2e/*"
       ]
     }
   },
