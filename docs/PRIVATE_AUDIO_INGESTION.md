@@ -297,6 +297,10 @@ backend/gradlew -p backend integrationTest \
   --tests '*AssetUploadRestIntegrationTest'
 ```
 
+音源HTTP試験は専用の `QuarkusTestProfile` で起動し、通常試験からのリソース切替時に
+Reactiveセッション状態を引き継がない。単独実行だけでは起動切替を検証できないため、
+変更後は `backend/gradlew -p backend check integrationTest --rerun` で全件との共存も確認する。
+
 | 確認する境界 | 自動検査 | 実環境に残る条件 |
 | --- | --- | --- |
 | 登録から作品選択 | HTTPで予約→実FLAC受信→確定→Album関連付け、未確定の関連付け拒否、Album削除後も音源保持 | 実作品のクロスフェードで同じ操作を実施し、実測容量・SHA-256を照合 |

@@ -10,6 +10,8 @@ import static org.hamcrest.Matchers.not;
 import com.abservice.test.CleanDatabase;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.QuarkusTestProfile;
+import io.quarkus.test.junit.TestProfile;
 import io.quarkus.test.common.http.TestHTTPResource;
 import java.net.URI;
 import java.net.Socket;
@@ -47,9 +49,14 @@ import io.restassured.RestAssured;
 import io.restassured.config.EncoderConfig;
 
 @QuarkusTest
+@TestProfile(PrivateAudioUploadRestIntegrationTest.AudioRuntime.class)
 @QuarkusTestResource(value = AudioHttpTestResource.class, restrictToAnnotatedClass = true)
 @ExtendWith(CleanDatabase.class)
 class PrivateAudioUploadRestIntegrationTest {
+    /** 専用リソースでの再起動を通常テストと分離し、前の起動のReactiveセッション状態を引き継がない。 */
+    public static class AudioRuntime implements QuarkusTestProfile {
+    }
+
     private static final String BASE = "/api/v1/admin/private-audio/registrations";
     @Inject
     private S3Client storage;
