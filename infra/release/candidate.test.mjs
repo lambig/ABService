@@ -31,12 +31,54 @@ test('release records pin commit, tag and exact successful CI attempt', async ()
 for (const [field, value] of [
   ['workflow_id', 43], ['path', '.github/workflows/other.yml'],
   ['repository', { full_name: 'other/repo' }], ['head_repository', { full_name: 'fork/repo' }],
-  ['event', 'pull_request'], ['event', 'workflow_dispatch'], ['head_branch', 'main'],
+  ['event', 'pull_request'], ['event', 'schedule'], ['head_branch', 'main'],
   ['head_sha', 'b'.repeat(40)], ['status', 'in_progress'], ['conclusion', 'failure'],
   ['conclusion', 'cancelled'], ['run_attempt', 0],
 ]) test(`rejects untrusted/incomplete CI: ${field}=${JSON.stringify(value)}`, async () => {
   const responses = fixture(); responses['actions/runs/123'][field] = value;
   await assert.rejects(verify(responses));
+});
+
+test('manual CI on a pre-migration hotfix candidate is accepted without a release push trigger', async () => {
+  const responses = fixture();
+  responses['actions/runs/123'].event = 'workflow_dispatch';
+  const record = await verify(responses);
+  assert.equal(record.codeSha, commit);
+  assert.equal(record.branch, input.branch);
+  assert.equal(record.ciRunId, '123');
+  assert.equal(record.ciAttempt, 2);
+});
+
+test('manual CI retains branch, SHA, workflow, repository, job, tag and ancestry requirements', async () => {
+  const manual = () => {
+    const responses = fixture();
+    responses['actions/runs/123'].event = 'workflow_dispatch';
+    return responses;
+  };
+  for (const [field, value] of [
+    ['head_branch', 'main'], ['head_branch', 'v1.10.0'], ['head_branch', 'release/1.11'],
+    ['head_sha', 'b'.repeat(40)], ['workflow_id', 43], ['path', '.github/workflows/other.yml'],
+    ['repository', { full_name: 'other/repo' }], ['head_repository', { full_name: 'fork/repo' }],
+    ['status', 'in_progress'], ['conclusion', 'failure'], ['run_attempt', 0],
+  ]) {
+    const responses = manual(); responses['actions/runs/123'][field] = value;
+    await assert.rejects(verify(responses));
+  }
+  for (const conclusion of ['skipped', 'failure', 'cancelled', null]) {
+    const responses = manual();
+    responses['actions/runs/123/attempts/2/jobs?per_page=100&page=1'].jobs[1].conclusion = conclusion;
+    await assert.rejects(verify(responses));
+  }
+  const partial = manual();
+  partial['actions/runs/123/attempts/2/jobs?per_page=100&page=1'] = {
+    total_count: 1, jobs: [{ name: 'CI gate', status: 'completed', conclusion: 'success' }],
+  };
+  await assert.rejects(verify(partial), /Missing or duplicate CI job/);
+  for (const path of ['git/ref/heads/release/1.10', 'git/ref/tags/v1.10.0']) {
+    const responses = manual(); responses[path].object.sha = 'b'.repeat(40);
+    await assert.rejects(verify(responses));
+  }
+  await assert.rejects(verify(manual(), {}, false));
 });
 
 test('missing, skipped or failed jobs cannot masquerade as complete release CI', async () => {

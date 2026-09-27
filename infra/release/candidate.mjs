@@ -31,7 +31,8 @@ export const verifyCandidate = async (input, read, isOnMain) => {
   assert.equal(run.path, '.github/workflows/ci.yml');
   assert.equal(run.repository?.full_name, repository);
   assert.equal(run.head_repository?.full_name, repository, 'Fork CI is not release evidence');
-  assert.equal(run.event, 'push', 'PR/manual CI is not release evidence');
+  // Older production tags predate the release push trigger; dispatch CI on the candidate branch.
+  assert.ok(['push', 'workflow_dispatch'].includes(run.event), 'Only candidate push/manual CI is release evidence');
   assert.equal(run.head_branch, branch);
   assert.equal(run.head_sha, commit);
   assert.equal(run.status, 'completed');

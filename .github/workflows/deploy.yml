@@ -17,7 +17,7 @@ on:
         description: "release時: 候補SHAに固定したタグ（v1.10.0等）"
         type: string
       ci_run_id:
-        description: "release時: 候補ブランチへのpushで成功したCI run ID"
+        description: "release時: 候補ブランチ上のpushまたは手動実行で全件成功したCI run ID"
         type: string
       commit_sha:
         description: "対象commitのfull SHA。releaseは検証済み候補、rollbackは保存済みイメージのみ"
