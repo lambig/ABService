@@ -77,13 +77,13 @@ terraform apply cutover.tfplan
 | `ecr_repository_url`のリポジトリ名部分 | `ECR_REPOSITORY` |
 | `ec2_instance_id` | `EC2_INSTANCE_ID` |
 
-デプロイは**mainへのpushに対するCIが成功したときだけ**自動実行される（ビルド→ECR push→SSM Run Command経由で、そのSHAの`infra/host/deploy.sh`と`docker-compose.prod.yml`をEC2の`/opt/abservice`へ配ってから実行しpull・再起動）。イメージを動かす手順も検査済みのcommitに揃うため、稼働中のホストが古い手順のまま残ることがない（`user_data`が置くのはDockerの準備とインスタンス固有の値`/opt/abservice/deploy.env`まで）。対象はそのCIが検査したcommitのSHAに固定されるため、CI完了後にmainが進んでいても、検査していないcommitが出ることはない。GitHub ActionsはOIDC連携で一時認証情報を取得するため、長期のAWSアクセスキーは発行・保存しない（`aws_iam_openid_connect_provider.github_actions`）。
+通常配布はmain上の **Deploy** を `action=release` で明示起動し、releaseブランチ・タグ・全件CIが同じfull SHAを示すことを照合して開始する。mainへのpushやCI成功だけでは配布しない。入力と候補の作り方は [リリース手順](../docs/RELEASE_WORKFLOW.md) を参照。検証後はビルド→ECR push→SSM Run Command経由で、そのSHAの `infra/host/deploy.sh` と `docker-compose.prod.yml` をEC2へ配ってからpull・再起動する。イメージと実行手順は検証済みSHAに固定し、起動後にmainが進んでも差し替えない。GitHub Actionsは既存のOIDC連携で一時資格情報を取得し、releaseブランチへ信頼先を広げない。
 
 デプロイの成否は、`deploy.sh`がcompose の healthcheck（readinessを引く）を待って決める。起動に失敗するか期限内にhealthyへ至らなければ、コンテナのログを出したうえで非0で終わり、SSMの実行もActionsも失敗する。
 
 イメージはarm64のランナーでビルドし、push前に架構がarm64であることを確かめる（EC2は`data.aws_ami.al2023_arm64`のためamd64のイメージは動かせない）。EC2のbootstrap（`user_data`）が担うのはDockerとdocker composeプラグイン（版を固定し、配布されているsha256と突き合わせる）の導入と、`/opt/abservice/deploy.env`の配置まで。
 
-`AWS_DEPLOY_ROLE_ARN`未設定の間は`deploy.yml`のjobがskipされ、CIが成功しても何も実行されない。上表のAction variables設定後、次回のCI成功から自動的に有効化される。
+`AWS_DEPLOY_ROLE_ARN`未設定の間は`deploy.yml`のjobがskipされ、CIが成功しても何も実行されない。上表とfrontend配布のAction variablesを設定した後、検証済み候補を明示配布する。
 
 ## 監視と通知（#168）
 
@@ -295,9 +295,9 @@ E2E配信も同じJSONから強制CSPを返す。ローカル/CIはサイト・A
 
 イメージのタグは commit ごとに `sha-<full SHA>` の1つだけで、移動するタグ（`latest`）は発行しない。リポジトリは IMMUTABLE で、**同じ commit のイメージは二度は作らない**——その commit のタグが既に在れば、通常の配布でもビルドと push を飛ばして在るものを配る（同じ commit の再ビルドは同じ実体にならないため）。ECRのライフサイクルポリシーはこの接頭辞のタグ付きイメージを直近10件保持し、発行する接頭辞と保持する接頭辞が揃っていることは `scripts/check-deploy-image-tag.sh` が CI で突き合わせる（ずれると、規則の対象外のイメージが数に入らず溜まり続ける）。ホストへ渡す参照はタグではなく **digest**（`<repo>@sha256:…`）。タグと digest は Actions のログと Summary に、稼働中のコンテナの image ID と digest は `deploy.sh` の出力（`running image:`）に出る。
 
-障害時は`.github/workflows/deploy.yml`を`workflow_dispatch`で手動起動し、`commit_sha`に直前の正常なcommitのfull SHAを指定して再デプロイする（再ビルドは行わず、ECRの既存イメージをそのままEC2へpull・再起動するだけなので数十秒で完了する）。戻るのは**その commit に最初に配った実体**で、戻せるのは保持されている直近10件の commit まで。期限切れで消えた commit を指定すると、ビルドせずに止まる。ロールバック後、mainブランチの履歴は`git revert`で追随させる（force-push・履歴書き換えはしない）。
+障害時は`.github/workflows/deploy.yml`を`workflow_dispatch`で手動起動し、`action=rollback` と `commit_sha`に直前の正常なcommitのfull SHAを指定して再デプロイする（再ビルドは行わず、ECRの既存イメージをそのままEC2へpull・再起動するだけなので数十秒で完了する）。戻るのは**その commit に最初に配った実体**で、戻せるのは保持されている直近10件の commit まで。期限切れで消えた commit を指定すると、ビルドせずに止まる。ロールバック後、mainブランチの履歴は`git revert`で追随させる（force-push・履歴書き換えはしない）。
 
-手動起動は`commit_sha`を必須とし、既存イメージの再デプロイだけを行う。イメージのタグもEC2へ配る`deploy.sh`・`docker-compose.prod.yml`も、そのcommitから決まる（戻すのはイメージだけで手順は現在のまま、という組み合わせを作らない）。新しいcommitを本番へ出す経路はmainへのpush（＋CI成功）だけで、手動起動から検査していないcommitをビルドして出すことはできない。
+`action=rollback` は既存イメージの再デプロイだけを行い、イメージと配布手順は指定したfull SHAから決まる。候補ブランチを削除した後も利用できる。新しいcommitのビルド・通常配布は `action=release` の候補検証を通す。frontend・DBの切り戻しは別操作である。
 
 ## frontend 配布・内容更新
 
