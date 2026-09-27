@@ -11,6 +11,9 @@
 
 FROM amazoncorretto:25-al2023-headless
 
+# 非公開音源はlibFLACで全体を検査する。CLIは別プロセスとして実行し、PCMを保存しない。
+RUN dnf install -y flac && dnf clean all
+
 # al2023-headlessにはshadow-utils（groupadd/useradd）が無いため、既存ユーザー名を作らず
 # 非rootの数値UID/GIDを直接指定する。
 WORKDIR /deployments

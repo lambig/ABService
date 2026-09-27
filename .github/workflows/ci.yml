@@ -102,6 +102,9 @@ jobs:
       - name: Ensure gradlew is executable
         run: chmod +x backend/gradlew
 
+      - name: Install FLAC for real audio validation tests
+        run: sudo apt-get update && sudo apt-get install -y flac
+
       # アセットの統合テストは実ストレージを使う。PostgreSQL は service container で用意しているが、MinIO は
       # 起動コマンド指定が必要なため service container にできず、ローカルと同じ docker compose で起動する。
       - name: Build MinIO server and client from pinned official sources
