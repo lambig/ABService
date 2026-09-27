@@ -31,6 +31,8 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.sql.DriverManager;
 import java.util.HexFormat;
+import java.util.Map;
+import java.util.Base64;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -40,6 +42,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.ChecksumAlgorithm;
+import io.restassured.RestAssured;
+import io.restassured.config.EncoderConfig;
 
 @QuarkusTest
 @QuarkusTestResource(value = AudioHttpTestResource.class, restrictToAnnotatedClass = true)
@@ -52,6 +57,104 @@ class PrivateAudioUploadRestIntegrationTest {
     private Path directory;
     @TestHTTPResource
     private URI endpoint;
+
+    @Test
+    @DisplayName("実FLACの予約からAlbum関連付けまで通しても公開情報と画像保存先へ音源が漏れない")
+    void registersAndAssociatesWithoutPublishingAudio() throws Exception {
+        final String album = authorized().contentType("application/json").body(
+                Map.of(
+                        "title",
+                        "Synthetic crossfade acceptance",
+                        "releaseDate",
+                        "2026-01-01",
+                        "artistDisplayName",
+                        "Fixture"))
+                .post("/api/v1/albums").then().statusCode(201).extract().path("albumId");
+        authorized().post("/api/v1/albums/" + album + "/publish").then().statusCode(200);
+        final String before = given().get("/api/v1/albums/" + album).then().statusCode(200).extract().asString();
+        final Object generation = given().get("/api/v1/public-data-generation").then().statusCode(200)
+                .extract().path("generation");
+        final var id = reserve();
+        final var selection = Map.of(
+                "audioId",
+                id,
+                "expectedRevision",
+                0);
+        final var crossfade = "/api/v1/admin/albums/" + album + "/listening-audio/crossfade";
+        authorized().contentType("application/json").body(selection).put(crossfade).then().statusCode(409);
+        final var bytes = fixture(4096);
+        authorized().contentType("audio/flac").body(bytes).put(content(id)).then().statusCode(200)
+                .body("state", equalTo("CONFIRMED"));
+        authorized().contentType("application/json").body(selection).put(crossfade).then().statusCode(200)
+                .body("audioId", equalTo(id)).body("kind", equalTo("album-crossfade")).body("revision", equalTo(1));
+        authorized().get(crossfade).then().statusCode(200).body("audioId", equalTo(id));
+        assertThat(given().get("/api/v1/albums/" + album).then().statusCode(200).extract().asString())
+                .isEqualTo(before);
+        given().get("/api/v1/public-data-generation").then().statusCode(200).body("generation", equalTo(generation));
+        given().get("/api/v1/private-audio/registrations/" + id).then().statusCode(404);
+        given().get("/api/v1/albums/" + album + "/listening-audio/crossfade").then().statusCode(404);
+        given().get("http://localhost:9000/" + bucket() + "/" + key(id)).then().statusCode(403);
+        final var images = ConfigProvider.getConfig().getValue("abservice.assets.bucket", String.class);
+        assertThat(images).isNotEqualTo(bucket());
+        assertThat(storage.listObjectsV2(request -> request.bucket(images).prefix(key(id))).keyCount()).isZero();
+        assertThat(storage.listObjectsV2(request -> request.bucket(images).prefix("assets/" + id)).keyCount()).isZero();
+        authorized().delete("/api/v1/albums/" + album).then().statusCode(200);
+        authorized().get(crossfade).then().statusCode(404);
+        authorized().get(BASE + "/" + id).then().statusCode(200).body("state", equalTo("CONFIRMED"));
+        assertThat(storage.getObjectAsBytes(request -> request.bucket(bucket()).key(key(id))).asByteArray())
+                .isEqualTo(bytes);
+    }
+
+    @Test
+    @DisplayName("検査後に別の正常FLACへ差し替えられた実体を復旧APIが確定せず上書きもしない")
+    void refusesReplacedObjectDuringRecovery() throws Exception {
+        final var first = reserve();
+        authorized().contentType("audio/flac").body(fixture(4096)).put(content(first)).then().statusCode(200);
+        final var second = reserve();
+        final var replacement = fixture(8192);
+        authorized().contentType("audio/flac").body(replacement).put(content(second)).then().statusCode(200);
+        // 故障注入: 管理APIでは許さない保存先の差替えを、テスト所有バケットへ直接行う。
+        storage.copyObject(
+                request -> request.copySource(bucket() + "/" + key(second))
+                        .destinationBucket(bucket()).destinationKey(key(first))
+                        .checksumAlgorithm(ChecksumAlgorithm.SHA256));
+        update(first, "state = 'INSPECTED'");
+        authorized().post(BASE + "/" + first + "/confirm").then().statusCode(409);
+        authorized().get(BASE + "/" + first).then().statusCode(200).body("state", equalTo("INSPECTED"));
+        assertThat(storage.getObjectAsBytes(request -> request.bucket(bucket()).key(key(first))).asByteArray())
+                .isEqualTo(replacement);
+    }
+
+    @Test
+    @DisplayName("音源機能を有効にしても画像の署名付き登録・公開とFLAC形式の拒否を維持する")
+    void keepsImageUploadSeparate() {
+        authorized().contentType("application/json").body(Map.of("contentType", "audio/flac"))
+                .post("/api/v1/assets/upload-url").then().statusCode(400);
+        final var issued = authorized().contentType("application/json").body(Map.of("contentType", "image/png"))
+                .post("/api/v1/assets/upload-url").then().statusCode(200).body("maxBytes", equalTo(1024)).extract();
+        final String assetKey = issued.path("assetKey");
+        final String uploadUrl = issued.path("uploadUrl");
+        final var png = Base64.getDecoder().decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC");
+        given().config(
+                RestAssured.config().encoderConfig(
+                        EncoderConfig.encoderConfig().appendDefaultContentCharsetToContentTypeIfUndefined(false)))
+                .urlEncodingEnabled(false).contentType("image/png").body(png).put(uploadUrl).then().statusCode(200);
+        authorized().post("/api/v1/assets/" + assetKey + "/confirm").then().statusCode(200)
+                .body("url", equalTo("/assets/" + assetKey)).body("sizeBytes", equalTo(png.length));
+        final var images = ConfigProvider.getConfig().getValue("abservice.assets.bucket", String.class);
+        try {
+            assertThat(
+                    given().get("http://localhost:9000/" + images + "/assets/" + assetKey)
+                            .then().statusCode(200).extract().asByteArray())
+                    .isEqualTo(png);
+            assertThat(
+                    storage.listObjectsV2(request -> request.bucket(bucket()).prefix("assets/" + assetKey)).keyCount())
+                    .isZero();
+        } finally {
+            storage.deleteObject(request -> request.bucket(images).key("assets/" + assetKey));
+        }
+    }
 
     @Test
     @DisplayName("10MiBを超える実FLACをHTTPから検査・非公開保存・確定し再送で上書きしない")

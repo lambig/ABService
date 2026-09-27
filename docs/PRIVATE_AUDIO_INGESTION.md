@@ -272,6 +272,10 @@ backend/gradlew -p backend integrationTest --tests '*NativeFlacInspectorIntegrat
 遅延保存の明示復旧、稼働中の停止を確認する。`DeadlineAudioInputTest`は割込みを無視する取得元も検査する。
 `PrivateAudioUploadRestIntegrationTest`は合成FLACをHTTP受信から実MinIOの非公開保存まで通し、
 10MiB超の入力、chunked、期限切れ・不正形式、明示復旧、HTTP上限、送信停止後の資源回復を検査する。
+同じ試験で、SQLによる確定状態の代用をせずに予約→受信→検査/保存→確定→Album関連付け→照会まで通す。
+公開Albumの応答・公開データ世代が変わらず、音源が画像バケットへ保存されず、匿名取得できないことも照合する。
+復旧の障害注入では、別の正常なFLACとその保存メタデータへ実体を差し替え、確定・再PUTを行わないことを確認する。
+音源機能を有効にしたまま画像の署名付きPUT→確定→匿名取得を通し、画像用上限とFLAC形式の拒否を維持する。
 
 保存アダプタの統合テストは開発/CIのMinIOを使う。
 `S3PrivateAudioStorageIntegrationTest` は毎回専用の一時バケットを作成し、試験後に削除する。
@@ -282,6 +286,43 @@ backend/gradlew -p backend integrationTest --tests '*NativeFlacInspectorIntegrat
 CLIは別プロセスで利用し、ライブラリをアプリへ静的リンクしない。
 FLAC CLIのGPLとlibFLACのBSDライセンスは配布パッケージに保持する。
 仕様参照: [RFC 9639](https://www.rfc-editor.org/rfc/rfc9639.html)。
+
+## 結合受け入れと有効化の条件（D）
+
+ローカル/CIの結合検査は次のコマンドで再現する。実DB・MinIO・FLAC CLIが必要で、入力は合成データだけを使う。
+
+```sh
+backend/gradlew -p backend integrationTest \
+  --tests '*PrivateAudioUploadRestIntegrationTest' \
+  --tests '*AssetUploadRestIntegrationTest'
+```
+
+| 確認する境界 | 自動検査 | 実環境に残る条件 |
+| --- | --- | --- |
+| 登録から作品選択 | HTTPで予約→実FLAC受信→確定→Album関連付け、未確定の関連付け拒否、Album削除後も音源保持 | 実作品のクロスフェードで同じ操作を実施し、実測容量・SHA-256を照合 |
+| 非公開と画像の分離 | 音源の匿名取得拒否、公開APIに経路なし、公開Album/世代不変、画像バケットへ音源が入らない、画像の公開往復 | 専用バケット・Block Public Access・IAM・CDN/OACからの隔離、公開ドメインからの拒否 |
+| 不正入力と中断 | 不正形式/期限/再送の拒否、HTTP容量制限、送信停止後の受付再開、検査器の破損/切詰め・一時領域回収 | 実配信経路の容量・期限・切断、ホストのディスク容量と権限、プロセス再起動後の回収 |
+| 確定復旧 | INSPECTED/ABANDONEDの実体照合、未存在/差替えの拒否、確定済みconfirmの冪等応答 | 保存先への認可失敗・通信障害・応答喪失からの復旧、停止時間内の完了 |
+
+この表は検査の対応関係であり、CI成功を実環境受け入れ済みとはしない。検査後の差替え試験で行う
+ストレージへの直接書込みやDB状態変更は隔離したテストの障害注入専用で、運用手順として実施しない。
+認証した端末への取得は #475 の別契約であり、管理者の登録成功から端末配布の成功を推定しない。
+
+有効化前に、以下を配布候補のcommitに対して確認する。実値・操作結果・音源の証跡はABAffairsへ記録する。
+
+1. 専用バケットと最小限の保存/照合権限を用意し、公開画像の配信対象に含めない。アプリ用資格情報で
+   保存・HEAD照合を通し、匿名アクセスと公開CDN経路の拒否を別に検査する。
+2. 専用一時領域の所有者・権限・容量を確認し、enabled/bucket/temporary-directoryを配布設定へ接続する。
+   cohostの`deploy.py`は現状これらの設定・専用領域を生成しないため、その配線と無効時の回帰が必要。
+3. 利用するHTTP経路の上限・入力バッファ・応答待ち時間を確認する。cohostの`origin.py`には
+   共通`client_max_body_size 1m`と`proxy_read_timeout 60s`があり、大容量の管理音源PUT用の経路は未整備。
+   アプリの256MiB上限だけでは通過できない。CDNを含む経路の整備後、実サイズで検証する。
+4. 予約→送信→状態照会→Album関連付けを実行し、送信前のファイルと登録応答の容量・SHA-256を照合する。
+   関連付けの世代はGETで取得し、409では最新状態を読んでから判断する。元の作品情報・公開画像も確認する。
+5. 送信中断・保存応答喪失・停止/再開を検証する。PENDINGは期限内のみ再送、INSPECTED/ABANDONEDは
+   confirm、CONFIRMEDは既存登録を使う。障害時に音源やDB記録を手作業で削除して再送しない。
+6. 無効化で管理音源APIが404となり、一般の作品表示・画像・管理操作が動くことを確認する。
+   関連付け解除や無効化を、登録音源の削除と同一視しない。
 
 ## 後続の #474 / #475 へ渡す条件
 
