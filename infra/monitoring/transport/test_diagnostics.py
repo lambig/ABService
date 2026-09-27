@@ -47,5 +47,71 @@ class DiagnosticsTests(unittest.TestCase):
             self.assertNotIn('INVALID_TEST_SECRET', output.getvalue())
 
 
+class ImageAcquisitionTests(unittest.TestCase):
+    IMAGE = 'registry.example.test/agent@sha256:' + 'a' * 64
+
+    def test_shared_image_is_pulled_once_before_startup_without_pulling(self):
+        compose = ['docker', 'compose', '-f', 'fixture.yml']
+        env = {'FIXTURE': 'true'}
+        with patch.object(transport, 'run', side_effect=[f'{self.IMAGE}\n{self.IMAGE}', '', '']) as run:
+            transport.start_transport(compose, env)
+        self.assertEqual([call.args for call in run.call_args_list], [
+            (*compose, 'config', '--images'), ('docker', 'pull', self.IMAGE),
+            (*compose, 'up', '-d', '--pull', 'never')])
+        self.assertEqual(run.call_args_list[1].kwargs, {'timeout': 90})
+        self.assertEqual(run.call_args_list[2].kwargs, {'env': env})
+
+    def test_only_observed_registry_throttle_retries_with_bounded_backoff(self):
+        error = subprocess.CalledProcessError(1, ['docker', 'pull'], stderr=b'toomanyrequests: Rate exceeded')
+        with patch.object(transport, 'run', side_effect=[error, error, error, '']) as run, \
+                patch.object(transport.time, 'sleep') as sleep, contextlib.redirect_stdout(io.StringIO()):
+            transport.pull_image(self.IMAGE)
+        self.assertEqual(run.call_count, 4)
+        self.assertTrue(all(call.kwargs == {'timeout': 90} for call in run.call_args_list))
+        self.assertEqual([call.args for call in sleep.call_args_list], [(5,), (15,), (30,)])
+
+    def test_exhausted_throttle_retains_final_failure_and_does_not_start(self):
+        error = subprocess.CalledProcessError(1, ['docker', 'pull'], stderr='toomanyrequests: Rate exceeded')
+        with patch.object(transport, 'run', side_effect=[self.IMAGE, error, error, error, error]) as run, \
+                patch.object(transport.time, 'sleep') as sleep, contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaises(subprocess.CalledProcessError) as raised:
+                transport.start_transport(['docker', 'compose'], {})
+        self.assertIs(raised.exception, error)
+        self.assertEqual(run.call_count, 5)
+        self.assertEqual(sleep.call_count, 3)
+        self.assertTrue(all('up' not in call.args for call in run.call_args_list))
+
+    def test_other_pull_failures_are_not_retried(self):
+        for error in (
+                subprocess.CalledProcessError(1, ['docker', 'pull'], stderr='unauthorized'),
+                subprocess.CalledProcessError(1, ['docker', 'pull'], stderr='manifest unknown'),
+                subprocess.TimeoutExpired(['docker', 'pull'], 90), OSError('missing docker')):
+            with self.subTest(error=error), patch.object(transport, 'run', side_effect=error) as run, \
+                    patch.object(transport.time, 'sleep') as sleep:
+                with self.assertRaises(type(error)) as raised:
+                    transport.pull_image(self.IMAGE)
+                self.assertIs(raised.exception, error)
+                run.assert_called_once()
+                sleep.assert_not_called()
+
+    def test_startup_failure_is_not_retried_even_if_it_mentions_throttling(self):
+        error = subprocess.CalledProcessError(1, ['docker', 'compose', 'up'],
+                                             stderr='toomanyrequests: Rate exceeded')
+        with patch.object(transport, 'run', side_effect=[self.IMAGE, '', error]) as run, \
+                patch.object(transport.time, 'sleep') as sleep:
+            with self.assertRaises(subprocess.CalledProcessError) as raised:
+                transport.start_transport(['docker', 'compose'], {})
+        self.assertIs(raised.exception, error)
+        self.assertEqual(run.call_count, 3)
+        sleep.assert_not_called()
+
+    def test_missing_or_unpinned_image_is_rejected_before_pull(self):
+        for images in ('', 'registry.example.test/agent:latest'):
+            with self.subTest(images=images), patch.object(transport, 'run', return_value=images) as run:
+                with self.assertRaises(ValueError):
+                    transport.start_transport(['docker', 'compose'], {})
+                run.assert_called_once()
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -33,14 +33,40 @@ def print_output(label, output):
     print(f'{label} (last 16384 characters):\n{output[-16384:]}', flush=True)
 
 
-def run(*args, **kwargs):
+def run(*args, timeout=300, **kwargs):
     try:
-        return subprocess.run(args, check=True, capture_output=True, text=True, timeout=300, **kwargs).stdout.strip()
+        return subprocess.run(args, check=True, capture_output=True, text=True, timeout=timeout, **kwargs).stdout.strip()
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
         print(f'Command failed: {args}', flush=True)
         print_output('stdout', error.stdout)
         print_output('stderr', error.stderr)
         raise
+
+
+def pull_image(image):
+    for attempt, delay in enumerate((0, 5, 15, 30), start=1):
+        if delay:
+            time.sleep(delay)
+        try:
+            run('docker', 'pull', image, timeout=90)
+            return
+        except subprocess.CalledProcessError as error:
+            stderr = error.stderr or ''
+            if isinstance(stderr, bytes):
+                stderr = stderr.decode('utf-8', errors='replace')
+            if 'toomanyrequests: rate exceeded' not in stderr.lower() or attempt == 4:
+                raise
+            print(f'Registry throttled the image pull; retrying attempt {attempt + 1}/4', flush=True)
+
+
+def start_transport(compose, env):
+    images = set(run(*compose, 'config', '--images', env=env).splitlines())
+    if not images or any('@sha256:' not in image for image in images):
+        raise ValueError('Transport test images must be pinned by digest')
+    for image in sorted(images):
+        pull_image(image)
+    # Both services use the same image. Pull once, then keep startup failures distinct.
+    run(*compose, 'up', '-d', '--pull', 'never', env=env)
 
 
 def diagnose_compose(compose, env):
@@ -278,7 +304,7 @@ def main():
         os.chown(archive, account.pw_uid, account.pw_gid)
         os.utime(archive, (time.time() + 10, time.time() + 10))
 
-        dc('up', '-d')
+        start_transport(compose, env)
         wait(lambda: received([first]), 'initial event was not delivered')
         verify_timestamps([first])
         assert not received([archive_only]), 'archive entered normal collection'

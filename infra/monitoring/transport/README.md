@@ -61,7 +61,13 @@ archiveの再送は次のように分離する。
 sudo python3 infra/monitoring/transport/test_transport.py
 ```
 
-固定imageがなければDockerが取得する。実行コンテナは外部へ接続できないinternal networkに限定し、ホスト上の模擬Logs APIへ送る。資格情報・証明書・ARNは明示的に無効なfixtureで、AWSリソースを作らない。確認対象は次の通り。
+テストはCompose設定からdigest固定imageを列挙し、同じimageを一度だけ取得してから`up --pull never`で起動する。
+取得時に`toomanyrequests: Rate exceeded`が返った場合だけ、5秒・15秒・30秒待って最大4回まで試行する。
+1回のpullは90秒を上限とし、回数超過・timeout・認証拒否・存在しないimage・Compose起動失敗はそのまま失敗する。
+起動やtransportの検査自体は再試行・skipせず、失敗時の診断と後片付けを維持する。
+この取得制御はローカル/CIのテスト用で、運用Composeの起動方針は変えない。
+
+実行コンテナは外部へ接続できないinternal networkに限定し、ホスト上の模擬Logs APIへ送る。資格情報・証明書・ARNは明示的に無効なfixtureで、AWSリソースを作らない。確認対象は次の通り。
 
 - systemdのJSONファイル出力・所有者/権限、read-only mount、稼働中のrename rotation
 - 実publisherの成功時刻と配送envelopeの一致、古い成功・小数秒あり/なし・期限が先に並んだJSON、本文の保持
