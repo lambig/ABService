@@ -1,5 +1,79 @@
+/*
+ * 書体は公開サイトと同じ Klee One（#341）を同梱する（#364）。会場では通信が無いため外部から読めず、
+ * 実体は shell の収録対象になる（欠落・破損は shell 未完了として準備完了を取り下げる）。
+ *
+ * 面の実体は fontsource の subset 別ファイルを使うが、その CSS は unicode-range を持たず、同じ family と
+ * weight の宣言が並ぶと最後の 1 つしか効かない。そのため宣言はここで持つ。日本語の面は範囲を限定せず、
+ * ラテンの面を後に置いて範囲を限定する——両方に当たる文字は後の宣言が勝ち、仮名・漢字は日本語の面だけに
+ * 当たる。どの面にも無い字は、次の family（OS の標準）へ字ごとに落ちる。
+ *
+ * ウェイトは 400 と 600 だけが実体を持つ。`font-synthesis: none` のため、それ以外の指定は近い実体で描かれる。
+ */
+@font-face {
+  font-family: "Klee One";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("@fontsource/klee-one/files/klee-one-japanese-400-normal.woff2")
+    format("woff2");
+}
+@font-face {
+  font-family: "Klee One";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("@fontsource/klee-one/files/klee-one-japanese-600-normal.woff2")
+    format("woff2");
+}
+@font-face {
+  font-family: "Klee One";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("@fontsource/klee-one/files/klee-one-latin-ext-400-normal.woff2")
+    format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Klee One";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("@fontsource/klee-one/files/klee-one-latin-ext-600-normal.woff2")
+    format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Klee One";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("@fontsource/klee-one/files/klee-one-latin-400-normal.woff2")
+    format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Klee One";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("@fontsource/klee-one/files/klee-one-latin-600-normal.woff2")
+    format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
 :root {
-  font-family: Inter, "Noto Sans", Arial, sans-serif;
+  /* 後段は公開サイトの `--font-sans`（packages/public-presentation/src/public.css）と同じ並び */
+  font-family:
+    "Klee One", system-ui, -apple-system, "Hiragino Sans", "Yu Gothic UI",
+    sans-serif;
   color: #23332f;
   background: #f5f4ee;
   font-synthesis: none;

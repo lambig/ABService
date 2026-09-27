@@ -1,6 +1,12 @@
 /* eslint-disable functional/immutable-data -- Test-only instrumentation records real media resources and injects failures without replacing successful FLAC playback. */
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import {
+  JAPANESE_SAMPLE,
+  LATIN_SAMPLE,
+  drawnWithTypeface,
+  loadTypefaces,
+} from "./typeface";
 
 type Probe = {
   media: HTMLAudioElement[];
@@ -165,6 +171,7 @@ test("Manifestの曲目からFLACを再生し、一時停止・シーク・再�
   await select(page, "Reel study");
   await expect(page.locator("#duration")).toHaveText("0:08");
   await play(page);
+  await loadTypefaces(page);
   await page.screenshot({
     path: "test-results/player-playing.png",
     fullPage: true,
@@ -358,6 +365,7 @@ test("縦画面でも操作でき、ページ破棄で全資源を解放する",
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+  await loadTypefaces(page);
   await page.screenshot({
     path: "test-results/player-portrait.png",
     fullPage: true,
@@ -369,4 +377,28 @@ test("縦画面でも操作でき、ページ破棄で全資源を解放する",
   await page.getByRole("button", { name: "Reel study", exact: true }).click();
   await expect(page.locator("#play-status")).toHaveText("待機中");
   expect((await probe(page)).created).toHaveLength(1);
+});
+
+test("日本語の字形を同梱の書体で描き、書体を外から取りに行かない", async ({
+  page,
+}) => {
+  const fonts: string[] = [];
+  page.on("request", (request) => {
+    [request.url()]
+      .filter((url) => url.endsWith(".woff2"))
+      .forEach((url) => {
+        fonts.push(url);
+      });
+  });
+  await page.goto("/");
+  const typefaces = await loadTypefaces(page);
+  /* 日本語とラテンの面 × 2 ウェイト。見本に無い範囲（latin-ext）の面は要求されない */
+  expect(typefaces.filter((face) => face.status === "loaded")).toHaveLength(4);
+  expect(typefaces.filter((face) => face.status === "error")).toHaveLength(0);
+  expect(await drawnWithTypeface(page, JAPANESE_SAMPLE)).toBe(true);
+  expect(await drawnWithTypeface(page, LATIN_SAMPLE)).toBe(true);
+  expect(fonts.length).toBeGreaterThan(0);
+  expect(
+    fonts.every((url) => new URL(url).origin === new URL(page.url()).origin),
+  ).toBe(true);
 });

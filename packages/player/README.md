@@ -27,6 +27,21 @@ OPFSや永続オフライン保存の実装ではない。Manifestのchecksumは
 ffmpegの`sine` source（振幅既定値）→`volume=0.15`→FLAC compression level 12で生成。
 デモの曲名は検証用であり、実在の収録曲を表すものではない。
 
+## 書体
+
+日本語の字形を持つ Klee One（SIL OFL 1.1）を同梱し、公開サイトと同じ字面にする（DECISIONS 25）。
+実体は `@fontsource/klee-one` の subset 別ファイル（japanese / latin / latin-ext の 400 と 600）を使い、
+ビルド時に hash 付きの asset として出る。実行時に外部の書体配信へ取りに行かない。
+
+`@font-face` の宣言は `src/style.css` が持ち、fontsource の subset 別 CSS は使わない。その CSS は
+unicode-range を持たず、同じ family と weight の宣言が並ぶと最後の 1 つしか効かないため。日本語の面は
+範囲を限定せず、ラテンの面を後に置いて範囲を限定する。どの面にも無い字は、次の family（OS の標準）へ
+字ごとに落ちる。
+
+ブラウザ検査（`e2e/typeface.ts`）は、面が読み込まれて日本語とラテンの見本が同梱書体の字形で描かれることを
+幅の比較で見る。`document.fonts.check` は面が無いときも真を返すため、それでは字形の有無を判定できない。
+書体の実体を同一オリジン以外から取りに行かないことも見る。
+
 ## 検証の範囲
 
 実ChromiumでFLACデコードと再生時刻の進行を検査する。停止・選曲・破棄での解放と、
