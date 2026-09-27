@@ -26,12 +26,12 @@ import java.util.stream.IntStream;
  */
 public final class NativeFlacInspector implements FlacInspector {
     private final String executable;
-    private final Path temporaryDirectory;
+    private final AudioTemporaryStore temporaryStore;
     private final Semaphore admission = new Semaphore(1);
 
-    public NativeFlacInspector(String executable, Path temporaryDirectory) {
+    public NativeFlacInspector(String executable, AudioTemporaryStore temporaryStore) {
         this.executable = Objects.requireNonNull(executable);
-        this.temporaryDirectory = Objects.requireNonNull(temporaryDirectory);
+        this.temporaryStore = Objects.requireNonNull(temporaryStore);
     }
 
     @Override
@@ -45,18 +45,15 @@ public final class NativeFlacInspector implements FlacInspector {
     }
 
     private InspectedAudio inspectOwnedSnapshot(InputStream source, FlacInspectionLimits limits) throws IOException {
-        final Path snapshot = Files.createTempFile(
-                temporaryDirectory,
-                "flac-",
-                ".flac");
+        final var snapshot = temporaryStore.allocate(limits.maxBytes());
         try {
             final var metadata = copyAndRead(
                     source,
-                    snapshot,
+                    snapshot.file(),
                     limits);
             NativeFlacDecoder.validate(
                     executable,
-                    snapshot,
+                    snapshot.file(),
                     metadata,
                     limits.decodeTimeout());
             return new Snapshot(snapshot, metadata);
@@ -137,24 +134,24 @@ public final class NativeFlacInspector implements FlacInspector {
                 .orElseThrow(() -> new IOException(message));
     }
 
-    private static void discardAfterFailure(Path file, Exception failure) {
+    private static void discardAfterFailure(AudioTemporaryStore.Lease snapshot, Exception failure) {
         try {
-            Files.deleteIfExists(file);
+            snapshot.close();
         } catch (IOException cleanupFailure) {
             failure.addSuppressed(cleanupFailure);
         }
     }
 
     /** パスを公開せず、読み取りだけを提供する検査済み実体。 */
-    private record Snapshot(Path file, FlacMetadata metadata) implements InspectedAudio {
+    private record Snapshot(AudioTemporaryStore.Lease snapshot, FlacMetadata metadata) implements InspectedAudio {
         @Override
         public InputStream openStream() throws IOException {
-            return Files.newInputStream(file);
+            return snapshot.openStream();
         }
 
         @Override
         public void close() throws IOException {
-            Files.deleteIfExists(file);
+            snapshot.close();
         }
     }
 }

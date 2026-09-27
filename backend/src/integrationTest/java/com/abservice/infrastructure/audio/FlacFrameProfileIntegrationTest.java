@@ -14,6 +14,8 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.security.MessageDigest;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
@@ -21,6 +23,17 @@ import org.junit.jupiter.params.provider.CsvSource;
 class FlacFrameProfileIntegrationTest {
     @TempDir
     private Path directory;
+    private AudioTemporaryStore temporaryStore;
+
+    @BeforeEach
+    void openTemporaryStore() throws Exception {
+        temporaryStore = AudioTemporaryStore.open(directory.resolve("snapshots"), 512L * 1024 * 1024);
+    }
+
+    @AfterEach
+    void closeTemporaryStore() throws Exception {
+        temporaryStore.close();
+    }
 
     @ParameterizedTest
     @CsvSource({"16, 8, 24", "16, 24, 16", "24, 16, 24"})
@@ -29,15 +42,15 @@ class FlacFrameProfileIntegrationTest {
             int middleBits,
             int lastBits) throws Exception {
         final byte[] bytes = fixture(streamBits, new int[]{streamBits, middleBits, lastBits});
-        final Path snapshots = Files.createDirectory(directory.resolve("snapshots"));
-        final var inspector = new NativeFlacInspector("flac", snapshots);
+        final Path snapshots = directory.resolve("snapshots");
+        final var inspector = new NativeFlacInspector("flac", temporaryStore);
         assertThatThrownBy(() -> {
             try (var inspected = inspector.inspect(new ByteArrayInputStream(bytes), FlacInspectionLimits.defaults())) {
                 assertThat(inspected.metadata()).isNotNull();
             }
         }).isInstanceOf(InvalidFlacException.class);
         try (var files = Files.list(snapshots)) {
-            assertThat(files).isEmpty();
+            assertThat(files.map(path -> path.getFileName().toString())).containsExactly(".audio-owner.lock");
         }
     }
 
@@ -45,7 +58,7 @@ class FlacFrameProfileIntegrationTest {
     @CsvSource({"16, 16", "24, 24", "16, 0", "24, 0"})
     void acceptsConsistentDepthAndStreamInfoInheritance(int streamBits, int frameBits) throws Exception {
         final byte[] bytes = fixture(streamBits, new int[]{frameBits, frameBits, frameBits});
-        final var inspector = new NativeFlacInspector("flac", directory);
+        final var inspector = new NativeFlacInspector("flac", temporaryStore);
         try (var inspected = inspector.inspect(new ByteArrayInputStream(bytes), FlacInspectionLimits.defaults())) {
             assertThat(inspected.metadata().bitsPerSample()).isEqualTo(streamBits);
             assertThat(inspected.metadata().totalSamples()).isEqualTo(48);
@@ -67,15 +80,15 @@ class FlacFrameProfileIntegrationTest {
                 "#!/bin/sh\ncase \"$1\" in --test) exit 0;; --analyze) cat <<'FRAMES'\n"
                         + analysis(streamBits, depths) + "FRAMES\n;; *) exit 1;; esac\n");
         Files.setPosixFilePermissions(decoder, PosixFilePermissions.fromString("rwx------"));
-        final Path snapshots = Files.createDirectory(directory.resolve("snapshots"));
-        final var inspector = new NativeFlacInspector(decoder.toString(), snapshots);
+        final Path snapshots = directory.resolve("snapshots");
+        final var inspector = new NativeFlacInspector(decoder.toString(), temporaryStore);
         assertThatThrownBy(() -> {
             try (var inspected = inspector.inspect(new ByteArrayInputStream(bytes), FlacInspectionLimits.defaults())) {
                 assertThat(inspected.metadata()).isNotNull();
             }
         }).isInstanceOf(InvalidFlacException.class).hasMessage("FLAC_FRAME_BIT_DEPTH_MISMATCH");
         try (var files = Files.list(snapshots)) {
-            assertThat(files).isEmpty();
+            assertThat(files.map(path -> path.getFileName().toString())).containsExactly(".audio-owner.lock");
         }
     }
 
