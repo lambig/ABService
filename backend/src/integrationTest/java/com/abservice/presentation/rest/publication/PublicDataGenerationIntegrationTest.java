@@ -84,7 +84,8 @@ class PublicDataGenerationIntegrationTest {
                         SELECT count(*) FROM pg_tables t
                         WHERE schemaname = 'public'
                           AND tablename NOT IN ('flyway_schema_history', 'public_data_generation',
-                                                'private_audio_registration')
+                                                -- 非公開の登録状態・試聴選択は公開Queryの依存対象外。
+                                                'private_audio_registration', 'album_crossfade')
                           AND NOT EXISTS (
                             SELECT 1 FROM pg_trigger g
                             WHERE g.tgrelid = ('public.' || t.tablename)::regclass
@@ -106,6 +107,32 @@ class PublicDataGenerationIntegrationTest {
                     VALUES (gen_random_uuid(), clock_timestamp() + interval '1 hour')
                     """);
             statement.execute("DELETE FROM private_audio_registration");
+            assertThat(generation()).isEqualTo(initial);
+        }
+    }
+
+    @Test
+    @DisplayName("非公開クロスフェード選択の追加・更新・削除は公開Queryの世代を変更しない")
+    void albumCrossfadeDoesNotAdvancePublicGeneration() throws SQLException {
+        authorized().contentType(ContentType.JSON).body("""
+                {"title":"Synthetic crossfade album","releaseDate":"2026-01-01","artistDisplayName":"Fixture"}
+                """).post("/api/v1/albums").then().statusCode(201);
+        try (var connection = connection(); var statement = connection.createStatement()) {
+            statement.execute("""
+                    INSERT INTO private_audio_registration (audio_id, expires_at, state, byte_length,
+                        sha256, sample_rate, channels, bits_per_sample, total_samples)
+                    VALUES (gen_random_uuid(), clock_timestamp() + interval '1 hour', 'CONFIRMED', 100,
+                        repeat('a', 64), 44100, 2, 16, 44100)
+                    """);
+            final String initial = generation();
+            assertThat(statement.executeUpdate("""
+                    INSERT INTO album_crossfade (album_id, audio_id, revision)
+                    SELECT a.album_id, r.audio_id, 1 FROM album a CROSS JOIN private_audio_registration r
+                    """)).isEqualTo(1);
+            assertThat(generation()).isEqualTo(initial);
+            assertThat(statement.executeUpdate("UPDATE album_crossfade SET revision = revision + 1")).isEqualTo(1);
+            assertThat(generation()).isEqualTo(initial);
+            assertThat(statement.executeUpdate("DELETE FROM album_crossfade")).isEqualTo(1);
             assertThat(generation()).isEqualTo(initial);
         }
     }
