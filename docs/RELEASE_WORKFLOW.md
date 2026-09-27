@@ -5,7 +5,7 @@ mainは唯一の継続的な統合先。機能が提供可能になるまでマ�
 ## 候補を作り、配布する
 
 1. mainのCIと対象issueを確認し、候補に含まれる未完成機能のAPI・直接URL・アセット取得が閉じていること、DB移行・起動・ジョブが既存機能を壊さないことを確認する。
-2. mainに含まれるSHAから `release/1.10` のようなブランチを作り、pushする。mainとreleaseへのpushは全件CI、PRは変更範囲に応じたCIを実行する。ブランチ名・版番号はここでは例であり、作成の指示ではない。
+2. mainに含まれるSHAから `release/1.10` のようなブランチを作り、pushする。releaseへのpushはPlaywrightを含む全件CI、PR/mainは [ブラウザ検査の実行条件](CI_BROWSER_POLICY.md) に従う。ブランチ名・版番号はここでは例であり、作成の指示ではない。
 3. 候補を検証する。修正はまずmainに統合し、releaseをmainへfast-forwardする。releaseだけにmerge commitを作る場合も、そのcommit自体がmainへ統合済みでなければ配布できない。cherry-pickやforce-pushで候補の履歴を分岐させない。
 4. SHAが変わるたびにrelease候補の全件CIと受け入れをやり直す。通常はreleaseへのpushで起動し、移行前のタグにpushトリガーがない場合は下記の手順で候補ブランチのCIを手動起動する。CIの再実行は **Re-run all jobs** を使う。部分的な再実行で必要なジョブが欠けたattemptは配布の根拠にできない。
 5. 受け入れ済みのfull SHAに `v1.10.0` のような新しいタグを付けてpushする。タグは `v<major>.<minor>.<patch>`、候補は対応する `release/<major>.<minor>` または `release/<major>.<minor>.<patch>` に限る。既存タグは動かさない。タグ固定後に修正が必要になったら新しい版の候補として検証する。
