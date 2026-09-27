@@ -83,7 +83,8 @@ class PublicDataGenerationIntegrationTest {
                 var rows = statement.executeQuery("""
                         SELECT count(*) FROM pg_tables t
                         WHERE schemaname = 'public'
-                          AND tablename NOT IN ('flyway_schema_history', 'public_data_generation')
+                          AND tablename NOT IN ('flyway_schema_history', 'public_data_generation',
+                                                'private_audio_registration')
                           AND NOT EXISTS (
                             SELECT 1 FROM pg_trigger g
                             WHERE g.tgrelid = ('public.' || t.tablename)::regclass
@@ -92,6 +93,20 @@ class PublicDataGenerationIntegrationTest {
                         """)) {
             assertThat(rows.next()).isTrue();
             assertThat(rows.getLong(1)).isZero();
+        }
+    }
+
+    @Test
+    @DisplayName("非公開音源の技術的な登録状態は公開Queryの世代を変更しない")
+    void privateAudioRegistrationDoesNotAdvancePublicGeneration() throws SQLException {
+        final String initial = generation();
+        try (var connection = connection(); var statement = connection.createStatement()) {
+            statement.execute("""
+                    INSERT INTO private_audio_registration (audio_id, expires_at)
+                    VALUES (gen_random_uuid(), clock_timestamp() + interval '1 hour')
+                    """);
+            statement.execute("DELETE FROM private_audio_registration");
+            assertThat(generation()).isEqualTo(initial);
         }
     }
 
