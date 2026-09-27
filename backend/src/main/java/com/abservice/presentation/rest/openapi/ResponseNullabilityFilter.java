@@ -59,6 +59,7 @@ public class ResponseNullabilityFilter implements OASFilter {
             "com.abservice.presentation.rest.album.response",
             "com.abservice.presentation.rest.article.response",
             "com.abservice.presentation.rest.asset.response",
+            "com.abservice.presentation.rest.audio.response",
             "com.abservice.presentation.rest.publication.response",
             "com.abservice.presentation.rest.security.response",
             "com.abservice.presentation.rest.site.response",

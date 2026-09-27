@@ -14,6 +14,10 @@ import com.abservice.presentation.rest.article.ArticleQueryResource;
 import com.abservice.presentation.rest.article.ArticleTagAdminQueryResource;
 import com.abservice.presentation.rest.article.ArticleTagCommandResource;
 import com.abservice.presentation.rest.asset.AssetCommandResource;
+import com.abservice.presentation.rest.audio.PrivateAudioCommandResource;
+import com.abservice.presentation.rest.audio.AlbumCrossfadeCommandResource;
+import com.abservice.presentation.rest.audio.AlbumCrossfadeAdminQueryResource;
+import com.abservice.presentation.rest.audio.PrivateAudioAdminQueryResource;
 import com.abservice.presentation.rest.publication.PublicDataGenerationQueryResource;
 import com.abservice.presentation.rest.site.SiteContentCommandResource;
 import com.abservice.presentation.rest.site.SiteContentQueryResource;
@@ -65,6 +69,10 @@ public final class DeclaredEndpoints {
             ArticleTagAdminQueryResource.class,
             ArticleTagCommandResource.class,
             AssetCommandResource.class,
+            PrivateAudioCommandResource.class,
+            AlbumCrossfadeCommandResource.class,
+            AlbumCrossfadeAdminQueryResource.class,
+            PrivateAudioAdminQueryResource.class,
             PublicDataGenerationQueryResource.class,
             SiteContentCommandResource.class,
             SiteContentQueryResource.class,

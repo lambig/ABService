@@ -39,7 +39,7 @@ const COVER = '.font-loading-cover';
 /**
  * 印が出るまでの間を、画面から読む。
  *
- * 数をここへ写すと、片方だけ変えたときに検査が意味を失う。出所は `global.css` の
+ * 数をここへ写すと、片方だけ変えたときに検査が意味を失う。出所は `public.css` の
  * `--font-loading-hint-delay` ひとつにする。
  */
 const hintDelayMsOf = async (page: Page): Promise<number> => {
@@ -99,6 +99,9 @@ const BEYOND_CAP_MS = 10_000;
 
 test.describe('書体が届くまでの覆い', () => {
   test('届くまでは覆い、長引けば印を出す', async ({ page }) => {
+    /* 観測中に実時間の上限で覆いが外れないよう、JSの時計を移動前に止める。 */
+    await page.clock.install({ time: 0 });
+    await page.clock.pauseAt(MS_IN_SECOND);
     await page.route(FONT_FILE, stall);
 
     /*
@@ -111,17 +114,45 @@ test.describe('書体が届くまでの覆い', () => {
 
     /*
      * 印は最初から出ているわけではない。すぐ外れる読み込みで印だけが目に残るのを避けるため遅らせる。
-     * 遅延の手前で見て、まだ出ていないことを確かめる——これが無いと、遅延を 0 にしても検査は通る。
+     * CSSの時計はJSの時計とは別なので、実際のアニメーションを止めて経過時刻を指定する。
+     * DOM取得やCIの処理待ちを遅延時間に加算しない。濃さやkeyframe、遅延の値は変更しない。
      */
     const hintDelayMs = await hintDelayMsOf(page);
-    await delay(hintDelayMs * BEFORE_HINT_RATIO);
+    expect(hintDelayMs).toBeGreaterThan(0);
+    const appear = await page
+      .locator(COVER)
+      .evaluateHandle(
+        (cover) =>
+          cover
+            .getAnimations({ subtree: true })
+            .find(
+              (animation) =>
+                animation instanceof CSSAnimation &&
+                animation.animationName === 'font-loading-hint-appear',
+            ) ?? Promise.reject(new Error('印を表示するCSSアニメーションがありません')),
+      );
+    const timing = await appear.evaluate((animation) => {
+      animation.pause();
+      return animation.effect?.getTiming();
+    });
+    expect(timing?.delay).toBe(hintDelayMs);
+    expect(Number(timing?.duration)).toBeGreaterThan(0);
+    await appear.evaluate((animation, time) => {
+      animation.currentTime = time;
+    }, hintDelayMs * BEFORE_HINT_RATIO);
     expect(await hintOpacityOf(page)).toBe(0);
 
     /*
      * 長引けば印が出る。地の色だけの画面は壊れた画面と見分けが付かず、そのまま離脱する理由になる。
      * 証跡はこの状態で撮る。
      */
-    await expect.poll(() => hintOpacityOf(page)).toBeGreaterThan(0);
+    await appear.evaluate(
+      (animation, time) => {
+        animation.currentTime = time;
+      },
+      hintDelayMs + Number(timing?.duration),
+    );
+    expect(await hintOpacityOf(page)).toBeGreaterThan(0);
     await captureWhileCovered(page, '01a-font-loading-cover');
     await expect(page.locator(COVER)).toBeVisible();
 
