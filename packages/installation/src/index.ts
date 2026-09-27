@@ -1,18 +1,22 @@
 import { z } from 'zod';
-
-const id = z.string().trim().min(1);
-const bytes = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
-const version = z.tuple([bytes, bytes, bytes]).readonly();
-const checksum = z.object({ algorithm: id, value: id }).readonly();
-const asset = z
-  .object({
-    assetId: id,
-    mediaType: id,
-    byteLength: bytes,
-    checksum,
-    required: z.boolean(),
-  })
-  .readonly();
+import {
+  bytes,
+  checksum,
+  compare,
+  id,
+  packageShape,
+  unique,
+  version,
+} from './common';
+import { manifestV2Schema } from './v2';
+import type { InstallationManifestV2, PlaybackItem } from './v2';
+export { projectManifestV2 } from './v2';
+export type {
+  InstallationManifestV2,
+  ManifestProjectionV2Input,
+  ManifestProjectionV2Result,
+  PlaybackItem,
+} from './v2';
 const track = z
   .object({
     trackId: id,
@@ -33,20 +37,6 @@ const album = z
 /** 数値3要素の安定版バージョン。pre-release の互換性はこのPoCの対象外。 */
 export type AppVersion = z.infer<typeof version>;
 
-const compare = (left: AppVersion, right: AppVersion): number =>
-  [left[0] - right[0], left[1] - right[1], left[2] - right[2]].find(
-    (difference) => difference !== 0,
-  ) ?? 0;
-const unique = (values: readonly string[]): boolean =>
-  new Set(values).size === values.length;
-const packageShape = {
-  packageVersion: id,
-  compatibleAppVersion: z
-    .object({ minInclusive: version, maxExclusive: version })
-    .readonly(),
-  presentationAssetIds: z.array(id).readonly(),
-  assets: z.array(asset).readonly(),
-};
 const manifestSchema = z
   .object({
     ...packageShape,
@@ -113,8 +103,36 @@ const manifestSchema = z
   )
   .readonly();
 
-/** Album/Trackをcanonical dataとする配布projection。URLや保存キーをidentityにしない。 */
-export type InstallationManifest = z.infer<typeof manifestSchema>;
+/** 保存済みschema v1。新規配布は作品情報と再生項目を分離したv2を用いる。 */
+export type InstallationManifestV1 = z.infer<typeof manifestSchema>;
+
+/** schemaを判別して扱う配布snapshot。読み取り時に保存物のschemaやIDを書き換えない。 */
+export type InstallationManifest =
+  InstallationManifestV1 | InstallationManifestV2;
+
+/** 両schemaを同じ選択境界へ写す。v1のみ、従来のselect呼び出しを保つため項目IDにtrackIdを使う。 */
+export const getPlaybackItems = (
+  manifest: InstallationManifest,
+): readonly PlaybackItem[] =>
+  manifest.schemaVersion === 2
+    ? manifest.playbackItems
+    : Object.freeze(
+        manifest.albums.flatMap((album) =>
+          album.tracks.map((track) =>
+            Object.freeze({
+              kind: 'track' as const,
+              playbackItemId: track.trackId,
+              albumId: album.albumId,
+              trackId: track.trackId,
+              title: track.title,
+              audioAssetId: track.audioAssetId,
+              ...(track.durationSeconds === undefined
+                ? {}
+                : { durationSeconds: track.durationSeconds }),
+            }),
+          ),
+        ),
+      );
 
 /** schemaVersion未対応と、不正な内容を分ける。成功値は入れ子もreadonlyなsnapshot。 */
 export type ManifestResult =
@@ -127,8 +145,12 @@ export const parseManifest = (input: unknown): ManifestResult => {
   const envelope = z
     .object({ schemaVersion: z.number().int() })
     .safeParse(input);
-  const parsed = manifestSchema.safeParse(input);
-  return envelope.success && envelope.data.schemaVersion !== 1
+  const parsed =
+    envelope.success && envelope.data.schemaVersion === 2
+      ? manifestV2Schema.safeParse(input)
+      : manifestSchema.safeParse(input);
+  return envelope.success &&
+    [1, 2].every((supported) => envelope.data.schemaVersion !== supported)
     ? { kind: 'unsupported-schema' }
     : parsed.success
       ? { kind: 'manifest', manifest: parsed.data }
@@ -241,7 +263,8 @@ export type ManifestProjectionInput = z.infer<typeof projectionSchema>;
 
 /** 入力・対応表の不備と、生成先Manifestの契約違反を区別する。 */
 export type ManifestProjectionResult =
-  | Exclude<ManifestResult, { kind: 'unsupported-schema' }>
+  | Readonly<{ kind: 'manifest'; manifest: InstallationManifestV1 }>
+  | Readonly<{ kind: 'invalid-manifest'; errors: readonly string[] }>
   | Readonly<{ kind: 'invalid-projection'; errors: readonly string[] }>;
 
 /**

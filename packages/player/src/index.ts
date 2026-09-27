@@ -11,6 +11,8 @@ export type LocalAssetResolver = (
 export type PlayerSnapshot = Readonly<{
   phase:
     "idle" | "loading" | "ready" | "playing" | "paused" | "ended" | "error";
+  playbackItemId: string | null;
+  /** canonicalな曲ID。作品クロスフェードには存在しない。 */
   trackId: string | null;
   position: number;
   duration: number;
@@ -20,7 +22,7 @@ export type PlayerSnapshot = Readonly<{
 /** 停止は音源を解放し、選択曲を保持する。再取得はselectで行う。dispose後は操作を受け付けない。 */
 export type Player = Readonly<{
   snapshot: () => PlayerSnapshot;
-  select: (trackId: string) => Promise<void>;
+  select: (playbackItemId: string) => Promise<void>;
   play: () => Promise<void>;
   pause: () => void;
   seek: (seconds: number) => void;

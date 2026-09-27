@@ -1,5 +1,9 @@
 /* eslint-disable functional/immutable-data -- Media要素と現在のsession参照はブラウザ副作用の境界に閉じる。外へ通知する状態はimmutable snapshot。 */
-import type { InstallationManifest } from "abservice-installation";
+import { getPlaybackItems } from "abservice-installation";
+import type {
+  InstallationManifest,
+  PlaybackItem,
+} from "abservice-installation";
 import type {
   ConnectPlayback,
   LocalAssetResolver,
@@ -18,6 +22,7 @@ type Session = {
 const idle: PlayerSnapshot = Object.freeze({
   phase: "idle",
   trackId: null,
+  playbackItemId: null,
   position: 0,
   duration: 0,
   error: null,
@@ -93,7 +98,7 @@ export const player = (
       });
     });
   };
-  const load = async (trackId: string, assetId: string): Promise<void> => {
+  const load = async (item: PlaybackItem): Promise<void> => {
     clear();
     const audio = new Audio();
     const abort = new AbortController();
@@ -142,9 +147,14 @@ export const player = (
         "音源を読み込めません。形式・ファイルを確認して曲を選び直してください。",
       );
     });
-    publish({ ...idle, phase: "loading", trackId });
+    publish({
+      ...idle,
+      phase: "loading",
+      playbackItemId: item.playbackItemId,
+      trackId: item.kind === "track" ? item.trackId : null,
+    });
     await Promise.resolve()
-      .then(() => resolve(assetId, session.abort.signal))
+      .then(() => resolve(item.audioAssetId, session.abort.signal))
       .then((blob) => {
         when(current(session), () => {
           session.url = URL.createObjectURL(blob);
@@ -160,23 +170,22 @@ export const player = (
         );
       });
   };
-  const select = async (trackId: string): Promise<void> => {
-    const track = manifest.albums
-      .flatMap((album) => album.tracks)
-      .find((entry) => entry.trackId === trackId);
+  const items = getPlaybackItems(manifest);
+  const select = async (playbackItemId: string): Promise<void> => {
+    const item = items.find((entry) => entry.playbackItemId === playbackItemId);
     await (cell.disposed
       ? Promise.resolve()
-      : track === undefined
+      : item === undefined
         ? (() => {
             clear();
             publish({
               ...idle,
               phase: "error",
-              error: "選択した曲がManifestにありません。",
+              error: "選択した音源がManifestにありません。",
             });
             return Promise.resolve();
           })()
-        : load(track.trackId, track.audioAssetId));
+        : load(item));
   };
   const play = async (): Promise<void> => {
     const session = cell.session;
@@ -243,14 +252,22 @@ export const player = (
   const stop = (): void => {
     when(cell.disposed ? false : true, () => {
       clear();
-      publish({ ...idle, trackId: cell.state.trackId });
+      publish({
+        ...idle,
+        trackId: cell.state.trackId,
+        playbackItemId: cell.state.playbackItemId,
+      });
     });
   };
   const dispose = (): void => {
     when(cell.disposed ? false : true, () => {
       cell.disposed = true;
       clear();
-      publish({ ...idle, trackId: cell.state.trackId });
+      publish({
+        ...idle,
+        trackId: cell.state.trackId,
+        playbackItemId: cell.state.playbackItemId,
+      });
     });
   };
   return Object.freeze({

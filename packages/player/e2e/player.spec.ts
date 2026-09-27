@@ -124,6 +124,34 @@ const released = async (page: Page): Promise<void> => {
   expect(state.errors).toEqual([]);
 };
 
+test("旧schema v1の選択IDとFLAC再生を維持する", async ({ page }) => {
+  await page.goto("/?schema=1");
+  await select(page, "Reel study");
+  await play(page);
+  await page.getByRole("button", { name: "停止", exact: true }).click();
+  await released(page);
+});
+
+test("曲音源のない収録曲を選択肢にせず、作品クロスフェードを再生・再取得できる", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(
+    page.getByRole("button", { name: "Metadata-only song", exact: true }),
+  ).toHaveCount(0);
+  await select(page, "Album crossfade");
+  await play(page);
+  await page.getByRole("button", { name: "停止", exact: true }).click();
+  await released(page);
+  await page
+    .getByRole("button", { name: "音源を読み直す", exact: true })
+    .click();
+  await expect(page.locator("#play-status")).toHaveText("再生できます");
+  await expect(page.locator("#track-title")).toHaveText("Album crossfade");
+  await select(page, "Reel study");
+  await play(page);
+});
+
 test("Manifestの曲目からFLACを再生し、一時停止・シーク・再開・停止できる", async ({
   page,
 }) => {

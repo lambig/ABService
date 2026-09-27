@@ -1,4 +1,4 @@
-export const manifest = {
+export const legacyManifest = {
   schemaVersion: 1,
   packageVersion: "player-study-01",
   compatibleAppVersion: {
@@ -58,5 +58,48 @@ export const manifest = {
       },
       required: true,
     },
+  ],
+};
+
+/** 合成FLACを使うv2 fixture。収録曲一覧には個別音源を持たない曲も含める。 */
+export const manifest = {
+  ...legacyManifest,
+  schemaVersion: 2,
+  packageVersion: "player-study-02",
+  compatibleAppVersion: { minInclusive: [1, 10, 0], maxExclusive: [2, 0, 0] },
+  albums: legacyManifest.albums.map((album) => ({
+    albumId: album.albumId,
+    title: album.title,
+    tracks: [
+      ...album.tracks.map((track, index) => ({
+        trackId: track.trackId,
+        trackNo: index + 1,
+        title: track.title,
+      })),
+      {
+        trackId: `${album.albumId}-metadata-only`,
+        trackNo: album.tracks.length + 1,
+        title: "Metadata-only song",
+      },
+    ],
+  })),
+  playbackItems: [
+    {
+      playbackItemId: "album-demo",
+      kind: "album-crossfade",
+      albumId: "study-01",
+      title: "Album crossfade",
+      audioAssetId: "tone-first",
+    },
+    ...legacyManifest.albums.flatMap((album) =>
+      album.tracks.map((track) => ({
+        playbackItemId: `play-${track.trackId}`,
+        kind: "track",
+        albumId: album.albumId,
+        trackId: track.trackId,
+        title: track.title,
+        audioAssetId: track.audioAssetId,
+      })),
+    ),
   ],
 };

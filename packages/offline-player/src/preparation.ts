@@ -85,7 +85,7 @@ const inspect = async (): Promise<void> => {
     observed.kind === "ok"
       ? assessReadiness(contract, {
           ...observed.value,
-          appVersion: [1, 1, 0],
+          appVersion: [1, 10, 0],
           appShellAvailable: shell,
         })
       : fail(storageMessage(observed.error));
