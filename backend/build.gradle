@@ -79,6 +79,8 @@ dependencies {
     testImplementation 'io.quarkus:quarkus-test-vertx'
     testImplementation 'io.rest-assured:rest-assured'
     testImplementation 'org.assertj:assertj-core:3.27.7'
+    // 非公開音源の保存アダプタを実S3互換HTTP経路で検査する。SDK本体と同じ版に揃える。
+    testImplementation 'software.amazon.awssdk:url-connection-client:2.49.1'
 
     // ArchUnit（アーキテクチャ制約の強制。レイヤー/依存/命名ルールをテストで検証）
     testImplementation 'com.tngtech.archunit:archunit-junit5:1.5.0'
