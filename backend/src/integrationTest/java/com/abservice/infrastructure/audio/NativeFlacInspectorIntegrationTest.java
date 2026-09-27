@@ -23,20 +23,33 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 
 /** 実flacコマンドによる合成音源の検査。DB・S3・実作品を使用しない。 */
 @DisplayName("非公開FLACの実デコード・資源上限・実体所有権")
 class NativeFlacInspectorIntegrationTest {
     @TempDir
     private Path directory;
+    private AudioTemporaryStore temporaryStore;
+
+    @BeforeEach
+    void openTemporaryStore() throws Exception {
+        temporaryStore = AudioTemporaryStore.open(directory.resolve("snapshots"), 512L * 1024 * 1024);
+    }
+
+    @AfterEach
+    void closeTemporaryStore() throws Exception {
+        temporaryStore.close();
+    }
 
     @Test
     @DisplayName("16bit stereoの実測値を返し、元入力の変更から検査済み実体を分離する")
     void retainsVerifiedSnapshot() throws Exception {
         final byte[] bytes = fixture(2, 16);
         final byte[] expected = bytes.clone();
-        final Path snapshots = Files.createDirectory(directory.resolve("snapshots"));
-        final var inspector = new NativeFlacInspector("flac", snapshots);
+        final Path snapshots = directory.resolve("snapshots");
+        final var inspector = new NativeFlacInspector("flac", temporaryStore);
         try (var inspected = inspector.inspect(new ByteArrayInputStream(bytes), FlacInspectionLimits.defaults())) {
             assertThat(inspected.metadata().byteLength()).isEqualTo(bytes.length);
             assertThat(inspected.metadata().sha256())
@@ -71,8 +84,8 @@ class NativeFlacInspectorIntegrationTest {
     @Test
     @DisplayName("上限超過は保存中に打ち切り、失敗した実体を残さない")
     void stopsOversizedStream() throws Exception {
-        final Path snapshots = Files.createDirectory(directory.resolve("snapshots"));
-        final var inspector = new NativeFlacInspector("must-not-run", snapshots);
+        final Path snapshots = directory.resolve("snapshots");
+        final var inspector = new NativeFlacInspector("must-not-run", temporaryStore);
         final var limits = new FlacInspectionLimits(
                 16,
                 1,
@@ -141,8 +154,8 @@ class NativeFlacInspectorIntegrationTest {
     @DisplayName("デコーダ不在は入力不正と区別し、検査失敗の実体を削除する")
     void rejectsUnavailableDecoder() throws Exception {
         final byte[] bytes = fixture(2, 16);
-        final Path snapshots = Files.createDirectory(directory.resolve("snapshots"));
-        final var inspector = new NativeFlacInspector(directory.resolve("missing-decoder").toString(), snapshots);
+        final Path snapshots = directory.resolve("snapshots");
+        final var inspector = new NativeFlacInspector(directory.resolve("missing-decoder").toString(), temporaryStore);
         assertThatThrownBy(() -> inspector.inspect(new ByteArrayInputStream(bytes), FlacInspectionLimits.defaults()))
                 .isInstanceOf(IOException.class);
         assertEmpty(snapshots);
@@ -155,8 +168,8 @@ class NativeFlacInspectorIntegrationTest {
         final Path script = directory.resolve("decoder");
         Files.writeString(script, "#!/bin/sh\nexec sleep 30\n");
         Files.setPosixFilePermissions(script, PosixFilePermissions.fromString("rwx------"));
-        final Path snapshots = Files.createDirectory(directory.resolve("snapshots"));
-        final var inspector = new NativeFlacInspector(script.toString(), snapshots);
+        final Path snapshots = directory.resolve("snapshots");
+        final var inspector = new NativeFlacInspector(script.toString(), temporaryStore);
         final var limits = new FlacInspectionLimits(
                 1_000_000,
                 1,
@@ -172,8 +185,8 @@ class NativeFlacInspectorIntegrationTest {
     @Test
     @DisplayName("取得中断はI/O障害として扱い、一時実体を削除する")
     void cleansUpFailedRead() throws Exception {
-        final Path snapshots = Files.createDirectory(directory.resolve("snapshots"));
-        final var inspector = new NativeFlacInspector("flac", snapshots);
+        final Path snapshots = directory.resolve("snapshots");
+        final var inspector = new NativeFlacInspector("flac", temporaryStore);
         try (var broken = new InputStream() {
             @Override
             public int read() throws IOException {
@@ -187,7 +200,24 @@ class NativeFlacInspectorIntegrationTest {
     }
 
     private NativeFlacInspector inspector() {
-        return new NativeFlacInspector("flac", directory);
+        return new NativeFlacInspector("flac", temporaryStore);
+    }
+
+    @Test
+    @DisplayName("検査済みsnapshotも総容量を占有し、別検査器から上限を迂回できない")
+    void boundsAllRetainedSnapshots() throws Exception {
+        final byte[] bytes = fixture(2, 16);
+        try (var first = inspector().inspect(new ByteArrayInputStream(bytes), FlacInspectionLimits.defaults());
+                var second = inspector().inspect(new ByteArrayInputStream(bytes), FlacInspectionLimits.defaults())) {
+            assertThat(first.metadata().byteLength()).isEqualTo(bytes.length);
+            assertThatThrownBy(
+                    () -> inspector().inspect(new ByteArrayInputStream(bytes), FlacInspectionLimits.defaults()))
+                    .isInstanceOf(IOException.class).hasMessage("Audio temporary capacity exhausted");
+            second.close();
+            try (var next = inspector().inspect(new ByteArrayInputStream(bytes), FlacInspectionLimits.defaults())) {
+                assertThat(next.metadata().byteLength()).isEqualTo(bytes.length);
+            }
+        }
     }
 
     @Test
@@ -240,7 +270,7 @@ class NativeFlacInspectorIntegrationTest {
 
     private static void assertEmpty(Path directory) throws IOException {
         try (var files = Files.list(directory)) {
-            assertThat(files).isEmpty();
+            assertThat(files.map(path -> path.getFileName().toString())).containsExactly(".audio-owner.lock");
         }
     }
 
@@ -279,8 +309,8 @@ class NativeFlacInspectorIntegrationTest {
                 script,
                 "#!/bin/sh\ncase \"$1\" in --test) exec flac \"$@\";; *) exec sleep 30;; esac\n");
         Files.setPosixFilePermissions(script, PosixFilePermissions.fromString("rwx------"));
-        final Path snapshots = Files.createDirectory(directory.resolve("snapshots"));
-        final var inspector = new NativeFlacInspector(script.toString(), snapshots);
+        final Path snapshots = directory.resolve("snapshots");
+        final var inspector = new NativeFlacInspector(script.toString(), temporaryStore);
         final var limits = new FlacInspectionLimits(
                 1_000_000,
                 1,
