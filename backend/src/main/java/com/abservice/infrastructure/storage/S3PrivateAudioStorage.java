@@ -10,7 +10,6 @@ import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import software.amazon.awssdk.core.exception.SdkException;
@@ -29,7 +28,7 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
  */
 public final class S3PrivateAudioStorage implements PrivateAudioStorage {
     private static final Duration CALL_TIMEOUT = Duration.ofMinutes(2);
-    private static final Set<Integer> CONFLICT = Set.of(409, 412);
+    private static final int PRECONDITION_FAILED = 412;
     private final S3Client s3;
     private final String bucket;
 
@@ -49,7 +48,7 @@ public final class S3PrivateAudioStorage implements PrivateAudioStorage {
                             snapshot.metadata().byteLength(),
                             "audio/flac"));
         } catch (S3Exception failure) {
-            throw CONFLICT.contains(failure.statusCode())
+            throw failure.statusCode() == PRECONDITION_FAILED
                     ? new PrivateAudioConflictException(failure)
                     : new IOException("Private audio write failed; reconcile before retry", failure);
         } catch (SdkException | UncheckedIOException failure) {

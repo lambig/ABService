@@ -16,8 +16,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -72,17 +70,43 @@ class S3PrivateAudioStorageTest {
         assertThat(snapshot.closedSnapshots.get()).isZero();
     }
 
-    @ParameterizedTest
-    @ValueSource(ints = {409, 412})
-    @DisplayName("同時書込と使用済みIDを競合として返し、ストリームを閉じる")
-    void rejectsConflictingWrite(int status) {
+    @Test
+    @DisplayName("412は使用済みIDとして拒否し、ストリームを閉じる")
+    void rejectsConflictingWrite() {
         final var snapshot = new Snapshot();
         assertThatThrownBy(() -> storage(new Client((request, body) -> {
             assertThat(request.ifNoneMatch()).isEqualTo("*");
             body.contentStreamProvider().newStream();
-            throw failure(status);
+            throw failure(412);
         })).write(ID, snapshot)).isInstanceOf(PrivateAudioConflictException.class);
         assertThat(snapshot.closedStreams.get()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("409は成否不明として返し、未存在を照合後に同じ検査実体を再試行できる")
+    void keepsSnapshotRetryableAfter409() throws Exception {
+        final var snapshot = new Snapshot();
+        final var conflicting = new Client((request, body) -> {
+            assertThat(request.ifNoneMatch()).isEqualTo("*");
+            body.contentStreamProvider().newStream();
+            throw failure(409);
+        });
+        conflicting.headStatus = 404;
+        assertThatThrownBy(() -> storage(conflicting).write(ID, snapshot))
+                .isExactlyInstanceOf(IOException.class).hasMessageContaining("reconcile")
+                .hasCauseInstanceOf(S3Exception.class);
+        assertThat(storage(conflicting).find(ID)).isEmpty();
+        assertThat(snapshot.closedStreams.get()).isEqualTo(1);
+        assertThat(snapshot.closedSnapshots.get()).isZero();
+
+        final var recovered = new Client((request, body) -> {
+            assertThat(request.ifNoneMatch()).isEqualTo("*");
+            assertThat(body.contentStreamProvider().newStream()).hasBinaryContent(new byte[]{'a', 'b', 'c'});
+        });
+        storage(recovered).write(ID, snapshot);
+        assertThat(storage(recovered).find(ID)).contains(METADATA);
+        assertThat(snapshot.closedStreams.get()).isEqualTo(2);
+        assertThat(snapshot.closedSnapshots.get()).isZero();
     }
 
     @Test
