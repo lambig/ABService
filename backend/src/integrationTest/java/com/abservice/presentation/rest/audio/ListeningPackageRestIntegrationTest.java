@@ -223,6 +223,26 @@ class ListeningPackageRestIntegrationTest {
                 .body("assets.find { it.assetId == '" + artwork + "' }.required", equalTo(true))
                 .extract();
         assertThat(response.asString()).doesNotContain("legacy-cover.png");
+
+        // 故障注入: 記録だけが失われた確定済み画像を作り、同じキーの再確定で補えることを見る。
+        execute("DELETE FROM published_asset WHERE asset_key = '" + artwork + "'");
+        asDevice(token).get(PACKAGE).then().statusCode(200).body("presentationAssetIds", hasSize(0));
+        authorized().post("/api/v1/assets/" + artwork + "/confirm").then().statusCode(200)
+                .body("assetKey", equalTo(artwork)).body("sizeBytes", equalTo(PNG.length));
+        asDevice(token).get(PACKAGE).then().statusCode(200)
+                .body("presentationAssetIds", equalTo(List.of(artwork)));
+        authorized().post("/api/v1/assets/" + artwork + "/confirm").then().statusCode(409);
+    }
+
+    private static void execute(String sql) throws Exception {
+        final var config = ConfigProvider.getConfig();
+        try (var connection = DriverManager.getConnection(
+                config.getValue("quarkus.datasource.jdbc.url", String.class),
+                config.getValue("quarkus.datasource.username", String.class),
+                config.getValue("quarkus.datasource.password", String.class));
+                var statement = connection.createStatement()) {
+            assertThat(statement.executeUpdate(sql)).isEqualTo(1);
+        }
     }
 
     @Test

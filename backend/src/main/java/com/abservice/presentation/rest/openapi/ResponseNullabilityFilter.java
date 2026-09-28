@@ -11,6 +11,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.eclipse.microprofile.openapi.OASFactory;
@@ -67,6 +68,13 @@ public class ResponseNullabilityFilter implements OASFilter {
             "com.abservice.presentation.rest.site.response",
             "com.abservice.presentation.rest.tune.response");
 
+    /** null の値で項目名を出さない出力制御。 */
+    private static final Set<JsonInclude.Include> OMITTING_NULL = Set.of(
+            JsonInclude.Include.NON_NULL,
+            JsonInclude.Include.NON_ABSENT,
+            JsonInclude.Include.NON_EMPTY,
+            JsonInclude.Include.NON_DEFAULT);
+
     @Override
     public void filterOpenAPI(OpenAPI openAPI) {
         final Map<String, Schema> schemas = Optional.ofNullable(openAPI.getComponents())
@@ -98,8 +106,20 @@ public class ResponseNullabilityFilter implements OASFilter {
 
         components.stream()
                 .filter(ResponseNullabilityFilter::isNullable)
+                .filter(Predicate.not(ResponseNullabilityFilter::omitsNull))
                 .map(RecordComponent::getName)
                 .forEach(name -> allowNull(schema, name));
+    }
+
+    /**
+     * null のとき項目名ごと省く出力制御か。Java 側では null を取り得ても、応答に null は現れないため null 型を付けない。
+     * 外部の厳密な schema が null を拒む項目（試聴端末の Manifest の artwork 等）と定義を一致させる。
+     */
+    private static boolean omitsNull(RecordComponent component) {
+        return Optional.ofNullable(component.getAccessor().getAnnotation(JsonInclude.class))
+                .map(JsonInclude::value)
+                .filter(OMITTING_NULL::contains)
+                .isPresent();
     }
 
     private static boolean isNullable(RecordComponent component) {

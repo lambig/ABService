@@ -3961,7 +3961,7 @@ export interface components {
         ListeningAlbumResponse: {
             albumId: string;
             title: string;
-            artworkAssetId?: string | null;
+            artworkAssetId?: string;
             tracks: components["schemas"]["ListeningTrackResponse"][];
         };
         ListeningAppVersionRangeResponse: {

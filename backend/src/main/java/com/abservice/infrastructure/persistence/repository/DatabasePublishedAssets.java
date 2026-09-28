@@ -2,8 +2,10 @@ package com.abservice.infrastructure.persistence.repository;
 
 import com.abservice.application.port.PublishedAsset;
 import com.abservice.application.port.PublishedAssets;
+import com.abservice.infrastructure.persistence.entity.PublishedAssetTableRecord;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.util.Objects;
 import java.util.function.Function;
 import org.hibernate.reactive.mutiny.Mutiny;
 
@@ -32,6 +34,13 @@ public class DatabasePublishedAssets implements PublishedAssets {
                         .setParameter("sha256", asset.sha256())
                         .executeUpdate())
                 .replaceWithVoid();
+    }
+
+    @Override
+    public Uni<Boolean> isRecorded(String assetKey) {
+        return committed(
+                session -> session.find(PublishedAssetTableRecord.class, assetKey)
+                        .map(Objects::nonNull));
     }
 
     /** 呼出元の未commitトランザクションへ合流せず、応答前に独立commitとsession解放を完了する。 */

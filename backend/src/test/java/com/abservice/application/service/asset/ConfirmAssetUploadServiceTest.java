@@ -47,6 +47,29 @@ class ConfirmAssetUploadServiceTest {
     }
 
     @Test
+    @DisplayName("実測値の記録が一時的に失敗しても確定は成功し、同じキーの再確定で記録を補える")
+    void recordingFailureKeepsConfirmationAndIsRepairedByReconfirm() {
+        final var storage = FakeAssetStorage.holding(PNG_HEAD, 512L);
+        final var published = FakePublishedAssets.failingOnce();
+        final var service = service(storage, published);
+
+        final var first = service.execute(new ConfirmAssetUploadInput(PNG_KEY)).await().indefinitely();
+        assertThat(first.url()).isEqualTo(BASE_PATH + "/" + PNG_KEY);
+        assertThat(storage.publishedKeys()).containsExactly(PNG_KEY);
+        assertThat(published.recorded()).as("記録は失敗したまま").isEmpty();
+
+        final var repaired = service.execute(new ConfirmAssetUploadInput(PNG_KEY)).await().indefinitely();
+        assertThat(repaired).isEqualTo(first);
+        assertThat(storage.publishedKeys()).as("再確定はコピーしない").containsExactly(PNG_KEY);
+        assertThat(published.recorded()).singleElement()
+                .satisfies(asset -> assertThat(asset.sha256()).isEqualTo(FakeAssetStorage.sha256Of(PNG_HEAD)));
+
+        assertThatThrownBy(() -> service.execute(new ConfirmAssetUploadInput(PNG_KEY)).await().indefinitely())
+                .as("記録済みの再確定は従来どおり競合")
+                .isInstanceOf(BusinessRuleViolationException.class);
+    }
+
+    @Test
     @DisplayName("検査に通らない実体や確定できない実体の実測値は記録しない")
     void recordsNothingUnlessPublished() {
         final var published = new FakePublishedAssets();
