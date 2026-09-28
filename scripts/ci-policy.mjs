@@ -12,7 +12,7 @@ const ownership = {
   application: ['frontend-public', 'frontend-admin', 'e2e', 'packages/markup', 'packages/patterns',
     'packages/public-presentation', 'packages/admin-api', 'packages/seed-loader'],
   listening: [
-    'packages/audio-dsp', 'packages/audio-worklet', 'packages/installation',
+    'packages/audio-dsp', 'packages/audio-worklet', 'packages/installation', 'packages/distribution-client',
     'packages/player', 'packages/offline-storage', 'packages/offline-shell',
     'packages/offline-player', 'packages/visualizer',
   ],
