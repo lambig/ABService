@@ -3,10 +3,13 @@ package com.abservice.infrastructure.storage;
 import com.abservice.application.port.AssetConfirmConflictException;
 import com.abservice.application.port.AssetStorage;
 import com.abservice.application.port.PresignedUpload;
+import com.abservice.application.port.StoredAssetDigest;
 import com.abservice.application.port.StoredAssetHead;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Duration;
+import java.util.Base64;
+import java.util.HexFormat;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -16,11 +19,14 @@ import org.jboss.logging.Logger;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.async.AsyncResponseTransformer;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.model.ChecksumAlgorithm;
+import software.amazon.awssdk.services.s3.model.ChecksumMode;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
@@ -151,7 +157,36 @@ public class S3AssetStorage implements AssetStorage {
                 .destinationKey(publishedKey(key))
                 .copySourceIfMatch(entityTag)
                 .ifNoneMatch(ANY_ENTITY_TAG)
+                .checksumAlgorithm(ChecksumAlgorithm.SHA256)
                 .build();
+    }
+
+    /**
+     * 確定のコピーで保管先に計算させた実体全体のSHA-256を読みます。実体はバックエンドを経由しない。
+     * 保管先が値を返さない場合は、確定した実体を識別できないため失敗にする。
+     */
+    @Override
+    public Uni<StoredAssetDigest> readPublishedDigest(String key) {
+        return Uni.createFrom()
+                .completionStage(
+                        () -> s3.headObject(
+                                HeadObjectRequest.builder()
+                                        .bucket(bucket)
+                                        .key(publishedKey(key))
+                                        .checksumMode(ChecksumMode.ENABLED)
+                                        .build()))
+                .map(response -> digestOf(key, response));
+    }
+
+    private static StoredAssetDigest digestOf(String key, HeadObjectResponse response) {
+        return new StoredAssetDigest(
+                response.contentLength(),
+                Optional.ofNullable(response.checksumSHA256())
+                        .map(Base64.getDecoder()::decode)
+                        .map(HexFormat.of()::formatHex)
+                        .orElseThrow(
+                                () -> new IllegalStateException(
+                                        "確定した実体のSHA-256を保管先が返しませんでした: key=" + key)));
     }
 
     /**

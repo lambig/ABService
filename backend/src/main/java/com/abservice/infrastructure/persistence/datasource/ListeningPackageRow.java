@@ -9,7 +9,8 @@ import org.jspecify.annotations.Nullable;
  * <p>
  * 公開済みでクロスフェードが確定している作品を、収録曲とチューン構成まで1つの問い合わせで平坦に読む。行の並びは
  * 作品（公開向け一覧の既定順）・曲順・登場順で、同じ作品・曲は複数行にわたる。作品に曲が無ければ曲の列は null、
- * 曲にチューン構成が無ければチューンの列は null になる。
+ * 曲にチューン構成が無ければチューンの列は null になる。artwork は作品のカバー画像が確定済みで実測値を持つときだけ 値を持ち、無ければ
+ * artwork の列はすべて null になる。
  * </p>
  *
  * @param albumId
@@ -26,6 +27,14 @@ import org.jspecify.annotations.Nullable;
  *            音源のサンプルレート
  * @param totalSamples
  *            音源のチャンネル当たりサンプル数
+ * @param artworkKey
+ *            カバー画像のアセットキー（実測値を持つ確定画像が無ければ null）
+ * @param artworkContentType
+ *            カバー画像の Content-Type（同上）
+ * @param artworkByteLength
+ *            カバー画像の実測バイト数（同上）
+ * @param artworkSha256
+ *            カバー画像のSHA-256（同上）
  * @param trackId
  *            収録曲のドメインID（曲が無ければ null）
  * @param trackNo
@@ -45,6 +54,10 @@ public record ListeningPackageRow(
         String sha256,
         int sampleRate,
         long totalSamples,
+        @Nullable String artworkKey,
+        @Nullable String artworkContentType,
+        @Nullable Long artworkByteLength,
+        @Nullable String artworkSha256,
         @Nullable String trackId,
         @Nullable Integer trackNo,
         @Nullable String trackTitle,

@@ -3,11 +3,16 @@ package com.abservice.application.service.asset;
 import com.abservice.application.port.AssetConfirmConflictException;
 import com.abservice.application.port.AssetStorage;
 import com.abservice.application.port.PresignedUpload;
+import com.abservice.application.port.StoredAssetDigest;
 import com.abservice.application.port.StoredAssetHead;
 import io.smallrye.mutiny.Uni;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
@@ -114,6 +119,25 @@ final class FakeAssetStorage implements AssetStorage {
     @Override
     public Uni<Boolean> isPublished(String key) {
         return Uni.createFrom().item(visiblePublishedKeys().contains(key));
+    }
+
+    /** 確定済みのキーだけが実測値を持つ。値は保管している先頭バイト列の SHA-256 で代用する。 */
+    @Override
+    public Uni<StoredAssetDigest> readPublishedDigest(String key) {
+        return publishedKeys.contains(key)
+                ? Uni.createFrom().item(
+                        new StoredAssetDigest(
+                                Objects.requireNonNull(stored).totalBytes(),
+                                sha256Of(stored.prefix())))
+                : Uni.createFrom().failure(new IllegalStateException("not published: " + key));
+    }
+
+    static String sha256Of(byte[] bytes) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(exception);
+        }
     }
 
     @Override

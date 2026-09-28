@@ -287,7 +287,7 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **判断**: 署名付きURLの宛先は受け入れ前の置き場（配信パスの外）とし、確定（confirm）で検査に通った実体を保管先の内部コピーで配信対象へ移す。配信対象のキーへ書き込める署名付きURLは発行しない。確定に至らなかった実体はライフサイクルで期限切れにする。
 
-確定の正しさはコピー操作自身の条件に置く。コピー元が検査したその実体であること（ETagの一致）と、コピー先がまだ無いことを、1回の操作の条件として同時に判定する。前者は検査から確定までの置き換わりを、後者は確定済みキーの上書きを退ける。確定済みかどうかを事前に問い合わせるのは要求を早く断るためであり、同時に走る確定を退けるのはこの問い合わせではない。やり直しは別のキーを払い出して行う。
+確定の正しさはコピー操作自身の条件に置く。コピー元が検査したその実体であること（ETagの一致）と、コピー先がまだ無いことを、1回の操作の条件として同時に判定する。前者は検査から確定までの置き換わりを、後者は確定済みキーの上書きを退ける。確定済みかどうかを事前に問い合わせるのは要求を早く断るためであり、同時に走る確定を退けるのはこの問い合わせではない。やり直しは別のキーを払い出して行う。例外は、確定済みで実測値の記録だけが無いキーの再確定で、コピーをせずに記録を補って成功を返す（「確定した画像の実測値は保管先に計算させ、確定時に記録する」）。
 
 **なぜ**: 署名付きURLは一度発行すると有効期限内は何度でも使える（S3の署名は単回使用にできない）。配信キーへ直接アップロードさせると、確定で検査した実体と、その後にCDNが配信する実体が同一である保証が確定の瞬間に切れる。書き込める場所と配信される場所を分ければ、「確定した実体が配信される」が期限や運用の注意ではなく構造で決まる。受け入れ前を配信パスの外に置くのは、検査前・破棄予定の実体がCDNから到達しないようにするため。
 
@@ -804,7 +804,7 @@ mainのCI完了を配布の契機にせず、main上のworkflow_dispatchでrelea
 
 Manifest は `packages/installation` の schema v2 と同じ項目だけを持つ。端末側は未知の項目を拒否する（#292）ため、サーバー側で項目を足すと配布が止まる。応答の形を schema に合わせて固定し、URL・保存キー・資格情報は載せない。取得URLは別の経路で期限付きに解決する。作品の並びは公開サイトの作品一覧（カタログナンバーの降順）に揃え、来場者が公開サイトで見る順と会場の端末で見る順を一致させる。
 
-**トレードオフ**: 平坦な行から組み立てる分、Query 側に組み立ての責務が乗る（`ListeningPackageView`）。artwork は確定画像の byteLength と SHA-256 を DB が持たないため、この時点では載せていない。
+**トレードオフ**: 平坦な行から組み立てる分、Query 側に組み立ての責務が乗る（`ListeningPackageView`）。artwork は確定時に記録した実測値を持つカバー画像だけを載せる（「確定した画像の実測値は保管先に計算させ、確定時に記録する」）。
 
 **実体**: `infrastructure/persistence/datasource/ListeningPackageDataSource`、`application/query/audio/ListeningPackageView` / `GetListeningPackageService`、`presentation/rest/audio/ListeningPackageListenerQueryResource` と `response/ListeningPackageResponse`。契約は [PRIVATE_AUDIO_INGESTION.md](PRIVATE_AUDIO_INGESTION.md)。
 
@@ -819,3 +819,13 @@ Manifest は `packages/installation` の schema v2 と同じ項目だけを持�
 **トレードオフ**: 端末は音源ごとに URL を解決する要求を1回余分に出す。対象は会場へ持ち出す数十作品で、準備時に限られる。署名は要求ごとに行い、URL をサーバー側に保存しない。PUT と GET の署名は `S3UrlPresigner` が資格情報の固定と期限の計算を共有するが、署名器の実体は分ける。取得 URL は保存側と同じ AWS 標準の provider chain で署名し、公開画像用の署名器（開発時は静的資格情報）を流用しない。保存と取得の資格情報が分かれた環境で、保存は成功するのに取得だけ拒まれる事故を防ぐためで、その分 private audio の実行入口が署名器をもう1つ所有する。端末の資格情報の期限は相対時間へ変換せず絶対時刻の上限として署名器へ渡し、署名後に検査する。署名が遅れても期限が端末トークンを超えない。
 
 **実体**: `application/port/PrivateAudioDownloads`、`infrastructure/storage/S3UrlPresigner` / `S3PrivateAudioDownloads`、`application/query/audio/ResolveListeningAssetUrlService`、`presentation/rest/audio/ListeningPackageListenerQueryResource`、`infra/cohost-host/private-audio.tf`。契約は [PRIVATE_AUDIO_INGESTION.md](PRIVATE_AUDIO_INGESTION.md)。
+
+## 確定した画像の実測値は保管先に計算させ、確定時に記録する
+
+試聴端末へ渡す表示素材（作品の artwork、#475）には byteLength と SHA-256 が要るが、画像アセットの確定は先頭バイト列の検査だけで実体を読まず、DB も配信キーしか持たない（9）。実測値は確定のコピー（`CopyObject`）で保管先に SHA-256 を計算させ、確定後に HEAD で読んでバイト数と合わせて `published_asset` へ記録する。バックエンドは実体を経由しない。
+
+配布パッケージは作品のカバー画像のうち、この記録を持つものだけを表示素材として載せる。記録は付加情報なので、記録の失敗で確定を失敗にしない。配信は確定のコピーで既に成立しており、失敗として返すと呼び出し側は確定できていないと誤って読み、再送は確定済みとして断られて記録を補う経路が無くなる。代わりに、確定済みで記録の無いキーの再確定は、コピーをせずに保管先から実測値を読み直して記録し、成功を返す。配信される実体は変わらないため、18 の「確定済みキーの上書きを退ける」は保たれる。記録済みのキーの再確定は従来どおり競合として断る。この経路は、記録より前に確定した画像を表示素材にするときにも使う。
+
+**トレードオフ**: 確定に HEAD と独立 commit が各1回増える。画像の確定は管理者の操作で頻度は低い。保管先が checksum を返さない場合は確定を失敗にする（実体は配信されるが表示素材にはならない）。ローカルの MinIO と本番の S3 の両方でコピー時の SHA-256 が返ることを統合検査で見る。
+
+**実体**: `V53`（`published_asset`）、`application/port/PublishedAssets` / `StoredAssetDigest`、`infrastructure/storage/S3AssetStorage`、`infrastructure/persistence/repository/DatabasePublishedAssets`、`application/service/asset/ConfirmAssetUploadService`、`infrastructure/persistence/datasource/ListeningPackageDataSource`。契約は [PRIVATE_AUDIO_INGESTION.md](PRIVATE_AUDIO_INGESTION.md)。

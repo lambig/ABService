@@ -11,6 +11,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.eclipse.microprofile.openapi.OASFactory;
@@ -35,8 +36,10 @@ import org.jspecify.annotations.Nullable;
  * </p>
  *
  * <p>
- * 例外は Jackson の出力制御を持つ型（{@code @JsonInclude}）で、そこでは項目名が省略され得る。実際にキーが 出ない項目を
- * {@code required} にすると契約が実応答とずれるため、対象から外す。
+ * 例外は Jackson の出力制御（{@code @JsonInclude}）を持つ型と項目で、そこでは項目名が省略され得る。実際にキーが 出ない項目を
+ * {@code required} にすると契約が実応答とずれるため、対象から外す。型に付いていれば型全体を、項目に付いていれば その項目だけを外す。
+ * 項目単位で外すのは、外部の厳密な schema が null を拒み省略だけを許す項目（試聴端末の Manifest の artwork 等）のためで、
+ * 型全体を外すと常にある項目まで省略可能として定義される。
  * </p>
  *
  * <p>
@@ -65,6 +68,13 @@ public class ResponseNullabilityFilter implements OASFilter {
             "com.abservice.presentation.rest.site.response",
             "com.abservice.presentation.rest.tune.response");
 
+    /** null の値で項目名を出さない出力制御。 */
+    private static final Set<JsonInclude.Include> OMITTING_NULL = Set.of(
+            JsonInclude.Include.NON_NULL,
+            JsonInclude.Include.NON_ABSENT,
+            JsonInclude.Include.NON_EMPTY,
+            JsonInclude.Include.NON_DEFAULT);
+
     @Override
     public void filterOpenAPI(OpenAPI openAPI) {
         final Map<String, Schema> schemas = Optional.ofNullable(openAPI.getComponents())
@@ -89,18 +99,44 @@ public class ResponseNullabilityFilter implements OASFilter {
         final List<RecordComponent> components = List.of(type.getRecordComponents());
 
         components.stream()
+                .filter(ResponseNullabilityFilter::alwaysInOutput)
                 .map(RecordComponent::getName)
                 .collect(Optionals.optionally(Collectors.toUnmodifiableList()))
                 .ifPresent(schema::setRequired);
 
         components.stream()
                 .filter(ResponseNullabilityFilter::isNullable)
+                .filter(Predicate.not(ResponseNullabilityFilter::omitsNull))
                 .map(RecordComponent::getName)
                 .forEach(name -> allowNull(schema, name));
     }
 
+    /**
+     * null のとき項目名ごと省く出力制御か。Java 側では null を取り得ても、応答に null は現れないため null 型を付けない。
+     * 外部の厳密な schema が null を拒む項目（試聴端末の Manifest の artwork 等）と定義を一致させる。
+     */
+    private static boolean omitsNull(RecordComponent component) {
+        return Optional.ofNullable(component.getAccessor().getAnnotation(JsonInclude.class))
+                .map(JsonInclude::value)
+                .filter(OMITTING_NULL::contains)
+                .isPresent();
+    }
+
     private static boolean isNullable(RecordComponent component) {
         return Objects.nonNull(component.getAnnotatedType().getAnnotation(Nullable.class));
+    }
+
+    /**
+     * 項目単位の出力制御を持たない項目は、値の有無によらず項目名を出す。
+     *
+     * <p>
+     * ACCESSOR-ANNOTATION: {@code @JsonInclude} は record component
+     * を対象に宣言していないため、record の項目へ付けた 注釈は component からは見えず、accessor と field
+     * へ伝わる。Jackson が読むのと同じ accessor で判定する。
+     * </p>
+     */
+    public static boolean alwaysInOutput(RecordComponent component) {
+        return Objects.isNull(component.getAccessor().getAnnotation(JsonInclude.class));
     }
 
     /** Jackson の出力制御を持たない型は、値の有無によらず項目名を出す。 */

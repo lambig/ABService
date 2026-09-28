@@ -46,9 +46,14 @@ CDIの実行入口は明示的に有効化したときだけ専用資源を生�
 | `packageVersion` | `packageVersion` 自身を除く Manifest の内容全体（schema 版・互換範囲・表示素材・音源・作品・曲・再生項目の並びと値）の SHA-256。同じ内容なら同じ値、どれか1つでも変われば別の値。時刻や乱数を含まない |
 | `compatibleAppVersion` | `[1,10,0]` 以上 `[2,0,0]` 未満 |
 | `albums[].tracks[]` | canonical な Track の ID・曲順・曲名。曲名が無ければ公開サイトと同じ規則でチューン名から組む。音源を要求しない |
-| `assets[]` | 音源の登録IDを assetId とし、byteLength・SHA-256 は登録テーブルの確定値。`audio/flac`、`required: true`。同じ実体は1件 |
+| `albums[].artworkAssetId` | カバー画像の assetId（配信キー）。確定時に実測値を記録した画像だけを載せ、無い作品では項目自体を省く（schema は null を拒む） |
+| `assets[]` | 音源は登録IDを assetId とし、byteLength・SHA-256 は登録テーブルの確定値で `audio/flac`。表示素材は配信キーを assetId とし、byteLength・SHA-256 は確定時に保管先が計算した値で画像の Content-Type。いずれも `required: true`。同じ実体は1件 |
 | `playbackItems[]` | 作品ごとに1件の `album-crossfade`。ID は `album-crossfade:{albumId}` で、音源の差し替えでは変わらない。長さは totalSamples ÷ sampleRate |
-| `presentationAssetIds` | 空。artwork は digest を持ってから足す |
+| `presentationAssetIds` | 作品の artwork の assetId。作品順で、複数の作品が同じ画像を使っても1件 |
+
+表示素材（artwork）は作品のカバー画像で、確定時に `published_asset` へ記録した実測値を持つものだけを載せる。
+記録の無い画像（この記録より前に確定したもの、記録だけが失敗したもの）は、同じキーで `POST /api/v1/assets/{assetKey}/confirm` を送り直すと、コピーをせずに記録だけが補われ、以後の配布パッケージで表示素材になる。
+表示素材の実体は公開サイトと同じ配信パス（`/assets/{assetId}`）から取る。署名は要らず、音源の取得URLの経路（下記）では解決しない。
 
 URL・保存キー・資格情報は含めない。音源の取得URLは下記の経路で期限付きに解決する。
 関連付けが変わると版が変わり、端末は保存済みの版と比べて更新の要否を判断する。

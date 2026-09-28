@@ -39,8 +39,8 @@ class ListeningPackageViewTest {
     @DisplayName("同じ実体を参照する作品が複数あっても音源は1件で、版は内容だけで決まる")
     void sharesAssetsAndFingerprintsContent() {
         final var view = ListeningPackageView.of(rows(), SEPARATOR);
-        assertThat(view.assets()).extracting(ListeningPackageView.AudioAsset::assetId)
-                .containsExactly(FIRST_AUDIO, SECOND_AUDIO);
+        assertThat(view.assets()).extracting(ListeningPackageView.Asset::assetId)
+                .containsExactly(FIRST_AUDIO.toString(), SECOND_AUDIO.toString());
         assertThat(view.assets().getFirst().mediaType()).isEqualTo("audio/flac");
         assertThat(view.assets().getFirst().checksum())
                 .isEqualTo(new ListeningPackageView.Checksum("sha256", "a".repeat(64)));
@@ -55,6 +55,32 @@ class ListeningPackageViewTest {
         assertThat(shared.packageVersion()).isNotEqualTo(view.packageVersion());
         assertThat(ListeningPackageView.of(List.of(), SEPARATOR).packageVersion())
                 .matches("^[0-9a-f]{64}$").isNotEqualTo(view.packageVersion());
+    }
+
+    @Test
+    @DisplayName("実測値を持つカバー画像だけを表示素材として載せ、同じ画像を使う作品が複数あっても1件で、画像の差し替えは版を変える")
+    void carriesArtworkAsPresentationAssets() {
+        final var plain = ListeningPackageView.of(rows(), SEPARATOR);
+        assertThat(plain.albums()).allSatisfy(album -> assertThat(album.artworkAssetId()).isEmpty());
+        assertThat(plain.presentationAssetIds()).isEmpty();
+
+        final var shared = withArtwork("cover.png", "c".repeat(64));
+        assertThat(shared.albums()).extracting(album -> album.artworkAssetId().orElseThrow())
+                .containsExactly("cover.png", "cover.png");
+        assertThat(shared.presentationAssetIds()).containsExactly("cover.png");
+        assertThat(shared.assets()).extracting(ListeningPackageView.Asset::assetId)
+                .containsExactly(
+                        FIRST_AUDIO.toString(),
+                        "cover.png",
+                        SECOND_AUDIO.toString());
+        assertThat(shared.assets().get(1).mediaType()).isEqualTo("image/png");
+        assertThat(shared.assets().get(1).byteLength()).isEqualTo(2_048L);
+        assertThat(shared.assets().get(1).checksum().value()).isEqualTo("c".repeat(64));
+        assertThat(shared.assets().get(1).required()).isTrue();
+        assertThat(shared.packageVersion()).isNotEqualTo(plain.packageVersion());
+
+        final var replaced = withArtwork("cover.png", "d".repeat(64));
+        assertThat(replaced.packageVersion()).isNotIn(plain.packageVersion(), shared.packageVersion());
     }
 
     @Test
@@ -175,6 +201,10 @@ class ListeningPackageViewTest {
                 "a".repeat(64),
                 44_100,
                 110_250L,
+                null,
+                null,
+                null,
+                null,
                 trackId,
                 Integer.parseInt(trackId.substring(trackId.length() - 1)),
                 trackTitle,
@@ -195,6 +225,10 @@ class ListeningPackageViewTest {
                 null,
                 null,
                 null,
+                null,
+                null,
+                null,
+                null,
                 null);
     }
 
@@ -207,6 +241,46 @@ class ListeningPackageViewTest {
                 row.sha256(),
                 row.sampleRate(),
                 row.totalSamples(),
+                row.artworkKey(),
+                row.artworkContentType(),
+                row.artworkByteLength(),
+                row.artworkSha256(),
+                row.trackId(),
+                row.trackNo(),
+                row.trackTitle(),
+                row.tuneSeq(),
+                row.tuneTitle());
+    }
+
+    /** 全作品が同じカバー画像を使う入力。 */
+    private static ListeningPackageView withArtwork(String key, String sha256) {
+        return ListeningPackageView.of(
+                rows().stream()
+                        .map(
+                                row -> withArtwork(
+                                        row,
+                                        key,
+                                        sha256))
+                        .toList(),
+                SEPARATOR);
+    }
+
+    private static ListeningPackageRow withArtwork(
+            ListeningPackageRow row,
+            String key,
+            String sha256) {
+        return new ListeningPackageRow(
+                row.albumId(),
+                row.albumTitle(),
+                row.audioId(),
+                row.byteLength(),
+                row.sha256(),
+                row.sampleRate(),
+                row.totalSamples(),
+                key,
+                "image/png",
+                2_048L,
+                sha256,
                 row.trackId(),
                 row.trackNo(),
                 row.trackTitle(),

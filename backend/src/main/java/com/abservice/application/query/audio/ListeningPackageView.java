@@ -26,7 +26,8 @@ import org.jspecify.annotations.Nullable;
  * 端末へ渡す項目をすべてここで確定させ、packageVersion はそれら全項目（packageVersion 自身を除く）の canonical
  * な表現の SHA-256 にする。schema の版・互換範囲・表示素材・音源の種別や必須フラグが変わっても版が変わり、
  * 端末は版の一致だけで更新の要否を判断できる。取得URL・保存キー・秘密は持たない。音源の assetId は登録IDで、
- * 再生項目は作品ごとに1件のクロスフェード。項目IDは作品に紐づけて固定し、音源の差し替えでは変えない。
+ * 再生項目は作品ごとに1件のクロスフェード。項目IDは作品に紐づけて固定し、音源の差し替えでは変えない。 artwork
+ * は確定済みで実測値を持つカバー画像だけを表示素材として載せ、assetId は配信キーにする。
  * </p>
  *
  * @param schemaVersion
@@ -36,9 +37,9 @@ import org.jspecify.annotations.Nullable;
  * @param compatibleAppVersion
  *            実行できるアプリの版の範囲
  * @param presentationAssetIds
- *            必須の表示素材の assetId（artwork は digest を持ってから足す）
+ *            必須の表示素材の assetId（作品の artwork。作品順、同じ画像は1件）
  * @param assets
- *            音源（作品順。同じ実体は1件）
+ *            音源と表示素材（作品順。同じ実体は1件）
  * @param albums
  *            作品（公開向け一覧と同じ順）
  * @param playbackItems
@@ -49,7 +50,7 @@ public record ListeningPackageView(
         String packageVersion,
         AppVersionRange compatibleAppVersion,
         List<String> presentationAssetIds,
-        List<AudioAsset> assets,
+        List<Asset> assets,
         List<Album> albums,
         List<Crossfade> playbackItems) {
 
@@ -68,8 +69,6 @@ public record ListeningPackageView(
     static final String AUDIO_MEDIA_TYPE = "audio/flac";
     static final String CHECKSUM_ALGORITHM = "sha256";
     static final String CROSSFADE_KIND = "album-crossfade";
-    /** artwork は確定画像の digest を持ってから足す。それまで表示素材は無い。 */
-    private static final List<String> NO_PRESENTATION_ASSETS = List.of();
     private static final String PLAYBACK_ITEM_PREFIX = CROSSFADE_KIND + ":";
     private static final String LENGTH_TERMINATOR = ":";
 
@@ -93,22 +92,32 @@ public record ListeningPackageView(
 
     private static ListeningPackageView of(
             Contract contract,
-            List<AudioAsset> assets,
+            List<Asset> assets,
             List<Album> albums,
             List<Crossfade> items) {
+        final var presentationAssetIds = presentationAssetIdsOf(albums);
         return new ListeningPackageView(
                 contract.schemaVersion(),
                 fingerprint(
                         contract,
-                        NO_PRESENTATION_ASSETS,
+                        presentationAssetIds,
                         assets,
                         albums,
                         items),
                 contract.compatibleAppVersion(),
-                NO_PRESENTATION_ASSETS,
+                presentationAssetIds,
                 assets,
                 albums,
                 items);
+    }
+
+    /** 表示素材は作品の artwork。作品順に並べ、複数の作品が同じ画像を使っても1件にする。 */
+    private static List<String> presentationAssetIdsOf(List<Album> albums) {
+        return albums.stream()
+                .map(Album::artworkAssetId)
+                .flatMap(Optional::stream)
+                .distinct()
+                .toList();
     }
 
     private static List<Album> albumsOf(List<ListeningPackageRow> rows, String separator) {
@@ -130,6 +139,7 @@ public record ListeningPackageView(
         return new Album(
                 rows.getFirst().albumId(),
                 rows.getFirst().albumTitle(),
+                Optional.ofNullable(rows.getFirst().artworkKey()),
                 tracksOf(rows, separator));
     }
 
@@ -165,17 +175,33 @@ public record ListeningPackageView(
                 .toList();
     }
 
-    private static List<AudioAsset> assetsOf(List<ListeningPackageRow> rows) {
-        return rows.stream()
-                .map(
-                        row -> new AudioAsset(
-                                row.audioId(),
-                                AUDIO_MEDIA_TYPE,
-                                row.byteLength(),
-                                new Checksum(CHECKSUM_ALGORITHM, row.sha256()),
-                                true))
+    /** 作品ごとに音源、次いで artwork の順で並べ、同じ実体は先に現れた位置に1件だけ残す。 */
+    private static List<Asset> assetsOf(List<ListeningPackageRow> rows) {
+        return groupedByAlbum(rows).values().stream()
+                .map(List::getFirst)
+                .flatMap(row -> Stream.concat(Stream.of(audioAsset(row)), artworkAsset(row).stream()))
                 .distinct()
                 .toList();
+    }
+
+    private static Asset audioAsset(ListeningPackageRow row) {
+        return new Asset(
+                row.audioId().toString(),
+                AUDIO_MEDIA_TYPE,
+                row.byteLength(),
+                new Checksum(CHECKSUM_ALGORITHM, row.sha256()),
+                true);
+    }
+
+    private static Optional<Asset> artworkAsset(ListeningPackageRow row) {
+        return Optional.ofNullable(row.artworkKey())
+                .map(
+                        key -> new Asset(
+                                key,
+                                Objects.requireNonNull(row.artworkContentType()),
+                                Objects.requireNonNull(row.artworkByteLength()),
+                                new Checksum(CHECKSUM_ALGORITHM, Objects.requireNonNull(row.artworkSha256())),
+                                true));
     }
 
     private static List<Crossfade> itemsOf(List<ListeningPackageRow> rows) {
@@ -205,7 +231,7 @@ public record ListeningPackageView(
     private static String fingerprint(
             Contract contract,
             List<String> presentationAssetIds,
-            List<AudioAsset> assets,
+            List<Asset> assets,
             List<Album> albums,
             List<Crossfade> items) {
         return HexFormat.of().formatHex(
@@ -247,13 +273,16 @@ public record ListeningPackageView(
         return Stream.of(Integer.toString(number));
     }
 
+    /** artwork の有無は要素数 0 か 1 の並びで表し、空文字列の曲名などと混ざらないようにする。 */
     private static Stream<String> fieldsOf(Album album) {
-        return Stream.concat(
+        return Stream.of(
                 Stream.of(
                         "album",
                         album.albumId(),
                         album.title()),
-                sequenceOf(album.tracks(), ListeningPackageView::fieldsOf));
+                sequenceOf(album.artworkAssetId().stream().toList(), Stream::of),
+                sequenceOf(album.tracks(), ListeningPackageView::fieldsOf))
+                .flatMap(stream -> stream);
     }
 
     private static Stream<String> fieldsOf(Track track) {
@@ -264,10 +293,10 @@ public record ListeningPackageView(
                 track.title());
     }
 
-    private static Stream<String> fieldsOf(AudioAsset asset) {
+    private static Stream<String> fieldsOf(Asset asset) {
         return Stream.of(
                 "asset",
-                asset.assetId().toString(),
+                asset.assetId(),
                 asset.mediaType(),
                 Long.toString(asset.byteLength()),
                 asset.checksum().algorithm(),
@@ -307,10 +336,16 @@ public record ListeningPackageView(
     public record AppVersionRange(List<Integer> minInclusive, List<Integer> maxExclusive) {
     }
 
-    /** 収録曲の説明情報。音源の有無を要求しない。 */
+    /**
+     * 収録曲の説明情報。音源の有無を要求しない。
+     *
+     * @param artworkAssetId
+     *            カバー画像の assetId（配信キー）。確定済みで実測値を持つ画像が無ければ空
+     */
     public record Album(
             String albumId,
             String title,
+            Optional<String> artworkAssetId,
             List<Track> tracks) {
     }
 
@@ -320,9 +355,9 @@ public record ListeningPackageView(
             String title) {
     }
 
-    /** 確定済み音源の実体情報。URL・保存キーを持たない。 */
-    public record AudioAsset(
-            UUID assetId,
+    /** 取得対象の実体（音源と表示素材）。URL・保存キーを持たない。 */
+    public record Asset(
+            String assetId,
             String mediaType,
             long byteLength,
             Checksum checksum,

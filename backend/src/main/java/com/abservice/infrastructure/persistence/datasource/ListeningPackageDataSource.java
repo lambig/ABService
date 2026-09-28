@@ -12,6 +12,8 @@ import org.hibernate.reactive.mutiny.Mutiny;
  * <p>
  * 作品・確定音源・収録曲・チューン構成を1つの問い合わせで読む。複数の問い合わせに分けると、その間に関連付けや 公開状態が変わった作品が混ざり、1つの
  * packageVersion の中で実体とメタデータが食い違う。1問い合わせなら DB の1時点の読みになり、混在は構造上起きない。
+ * カバー画像は確定時に記録した実測値
+ * （{@code published_asset}）を同じ問い合わせで結び、実測値を持たない画像は表示素材として載せない。
  * </p>
  */
 @ApplicationScoped
@@ -31,8 +33,10 @@ public class ListeningPackageDataSource {
     private static final String SNAPSHOT = """
             SELECT new com.abservice.infrastructure.persistence.datasource.ListeningPackageRow(
                 a.domainId, a.title, r.audioId, r.byteLength, r.sha256, r.sampleRate, r.totalSamples,
+                p.assetKey, p.contentType, p.byteLength, p.sha256,
                 t.domainId, t.trackNo, t.title, tt.id.seq, tt.tuneTitle)
             """ + DISTRIBUTABLE_ALBUMS + """
+                LEFT JOIN PublishedAssetTableRecord p ON p.assetKey = a.coverImageKey
                 LEFT JOIN a.tracks t
                 LEFT JOIN t.trackTunes tt
             """ + "WHERE " + DISTRIBUTABLE

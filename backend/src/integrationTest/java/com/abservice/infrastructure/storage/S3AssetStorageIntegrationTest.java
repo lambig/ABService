@@ -8,7 +8,9 @@ import com.abservice.application.port.StoredAssetHead;
 import com.abservice.test.CleanDatabase;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
+import java.security.MessageDigest;
 import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -96,6 +98,21 @@ class S3AssetStorageIntegrationTest {
                 .hasMessageContaining(assetKey);
 
         assertThat(objectBytes(publishedKey(assetKey))).as("検査していない実体は配信対象へ移らない").isEmpty();
+    }
+
+    @Test
+    @DisplayName("確定した実体の実測値（バイト数と実体全体のSHA-256）を保管先の計算値から読める")
+    void readsPublishedDigestComputedByStorage() throws Exception {
+        final var assetKey = assetKey();
+        final var content = pngBytes(256);
+        putPending(assetKey, content);
+        storage.publish(assetKey, readHead(assetKey).entityTag()).await().indefinitely();
+
+        final var digest = storage.readPublishedDigest(assetKey).await().indefinitely();
+
+        assertThat(digest.byteLength()).isEqualTo(256L);
+        assertThat(digest.sha256())
+                .isEqualTo(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content)));
     }
 
     @Test

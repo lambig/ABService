@@ -84,9 +84,10 @@ class PublicDataGenerationIntegrationTest {
                         SELECT count(*) FROM pg_tables t
                         WHERE schemaname = 'public'
                           AND tablename NOT IN ('flyway_schema_history', 'public_data_generation',
-                                                -- 非公開の登録状態・試聴選択・端末資格情報は公開Queryの依存対象外。
+                                                -- 非公開の登録状態・試聴選択・端末資格情報・確定画像の実測値は
+                                                -- 公開Queryの依存対象外。
                                                 'private_audio_registration', 'album_crossfade',
-                                                'listening_device')
+                                                'listening_device', 'published_asset')
                           AND NOT EXISTS (
                             SELECT 1 FROM pg_trigger g
                             WHERE g.tgrelid = ('public.' || t.tablename)::regclass
@@ -124,6 +125,21 @@ class PublicDataGenerationIntegrationTest {
             assertThat(statement.executeUpdate("UPDATE listening_device SET revoked_at = clock_timestamp()"))
                     .isEqualTo(1);
             statement.execute("DELETE FROM listening_device");
+            assertThat(generation()).isEqualTo(initial);
+        }
+    }
+
+    @Test
+    @DisplayName("確定画像の実測値の記録・更新・削除は公開Queryの世代を変更しない")
+    void publishedAssetDoesNotAdvancePublicGeneration() throws SQLException {
+        final String initial = generation();
+        try (var connection = connection(); var statement = connection.createStatement()) {
+            statement.execute("""
+                    INSERT INTO published_asset (asset_key, content_type, byte_length, sha256)
+                    VALUES ('fixture.png', 'image/png', 1, repeat('a', 64))
+                    """);
+            assertThat(statement.executeUpdate("UPDATE published_asset SET byte_length = 2")).isEqualTo(1);
+            statement.execute("DELETE FROM published_asset");
             assertThat(generation()).isEqualTo(initial);
         }
     }

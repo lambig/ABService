@@ -13,6 +13,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.model.ChecksumAlgorithm;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.CopyObjectResponse;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
@@ -57,6 +58,8 @@ class S3AssetStorageRequestTest {
                         request -> {
                             assertThat(request.copySourceIfMatch()).as("コピー元は検査した実体").isEqualTo(ENTITY_TAG);
                             assertThat(request.ifNoneMatch()).as("コピー先はまだ無い").isEqualTo("*");
+                            assertThat(request.checksumAlgorithm()).as("実体全体のSHA-256を保管先に計算させる")
+                                    .isEqualTo(ChecksumAlgorithm.SHA256);
                             assertThat(request.sourceKey()).isEqualTo(PENDING_PREFIX + "/" + KEY);
                             assertThat(request.destinationKey()).isEqualTo("assets/" + KEY);
                         });

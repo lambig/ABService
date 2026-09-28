@@ -3,7 +3,9 @@ package com.abservice.presentation.rest.audio.response;
 import static com.abservice.lib.Iterables.toList;
 
 import com.abservice.application.query.audio.ListeningPackageView;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * 端末へ渡す Manifest v2（{@code packages/installation} の schema v2 と同じ項目だけを持つ）。
@@ -68,7 +70,7 @@ public record ListeningPackageResponse(
      * @param assetId
      *            登録ID。取得URLではない
      * @param mediaType
-     *            {@code audio/flac}
+     *            音源は {@code audio/flac}、表示素材は画像の Content-Type（{@code image/png} など）
      * @param byteLength
      *            実測バイト数
      * @param checksum
@@ -82,9 +84,9 @@ public record ListeningPackageResponse(
             long byteLength,
             ListeningChecksumResponse checksum,
             boolean required) {
-        private static ListeningAssetResponse of(ListeningPackageView.AudioAsset asset) {
+        private static ListeningAssetResponse of(ListeningPackageView.Asset asset) {
             return new ListeningAssetResponse(
-                    asset.assetId().toString(),
+                    asset.assetId(),
                     asset.mediaType(),
                     asset.byteLength(),
                     ListeningChecksumResponse.of(asset.checksum()),
@@ -105,21 +107,28 @@ public record ListeningPackageResponse(
     }
 
     /**
+     * artwork が無い作品では {@code artworkAssetId} の項目自体を出さない（schema は項目の省略だけを許し、null
+     * を拒む）。
+     *
      * @param albumId
      *            作品のドメインID
      * @param title
      *            作品名
+     * @param artworkAssetId
+     *            カバー画像の assetId。確定済みで実測値を持つ画像が無ければ省略
      * @param tracks
      *            収録曲（曲順）。音源を要求しない
      */
     public record ListeningAlbumResponse(
             String albumId,
             String title,
+            @JsonInclude(JsonInclude.Include.NON_NULL) @Nullable String artworkAssetId,
             List<ListeningTrackResponse> tracks) {
         private static ListeningAlbumResponse of(ListeningPackageView.Album album) {
             return new ListeningAlbumResponse(
                     album.albumId(),
                     album.title(),
+                    album.artworkAssetId().orElse(null),
                     toList(ListeningTrackResponse::of)
                             .apply(album.tracks()));
         }

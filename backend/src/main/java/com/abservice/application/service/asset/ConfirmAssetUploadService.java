@@ -2,6 +2,9 @@ package com.abservice.application.service.asset;
 
 import com.abservice.application.port.AssetConfirmConflictException;
 import com.abservice.application.port.AssetStorage;
+import com.abservice.application.port.PublishedAsset;
+import com.abservice.application.port.PublishedAssets;
+import com.abservice.application.port.StoredAssetDigest;
 import com.abservice.application.port.StoredAssetHead;
 import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
@@ -15,6 +18,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Optional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
 
 /**
  * アップロード確定ユースケース
@@ -39,20 +43,28 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * </p>
  *
  * <p>
- * DBを触らないため {@code @WithTransaction} は付与しない。
+ * 確定した実体の実測値（バイト数と SHA-256）は、確定のコピーで保管先に計算させた値を読み、独立したトランザクションで記録する。
+ * 試聴端末へ渡す表示素材の識別に使う。記録の失敗は確定を失敗にしない。確定済みで記録の無いキーをもう一度確定すると、
+ * コピーをせずに記録だけを補って成功を返す（記録済みなら従来どおり競合）。要求の {@code @WithTransaction} は付与しない
+ * （記録は自前の commit で完結する）。
  * </p>
  */
 @ApplicationScoped
 @FailureContract({Failure.VALIDATION, Failure.NOT_FOUND, Failure.CONFLICT})
 public class ConfirmAssetUploadService implements CommandService<ConfirmAssetUploadInput, ConfirmAssetUploadOutput> {
 
+    private static final Logger LOG = Logger.getLogger(ConfirmAssetUploadService.class);
+
     private final AssetStorage assetStorage;
+    private final PublishedAssets publishedAssets;
     private final long maxBytes;
     private final String publicBasePath;
 
     /**
      * @param assetStorage
      *            アセット保管先
+     * @param publishedAssets
+     *            確定した実体の実測値の記録先
      * @param maxBytes
      *            許容する最大バイト数（{@code abservice.assets.max-bytes}）
      * @param publicBasePath
@@ -60,9 +72,11 @@ public class ConfirmAssetUploadService implements CommandService<ConfirmAssetUpl
      */
     public ConfirmAssetUploadService(
             AssetStorage assetStorage,
+            PublishedAssets publishedAssets,
             @ConfigProperty(name = "abservice.assets.max-bytes") long maxBytes,
             @ConfigProperty(name = "abservice.assets.public-base-path") String publicBasePath) {
         this.assetStorage = assetStorage;
+        this.publishedAssets = publishedAssets;
         this.maxBytes = maxBytes;
         this.publicBasePath = publicBasePath;
     }
@@ -75,12 +89,59 @@ public class ConfirmAssetUploadService implements CommandService<ConfirmAssetUpl
 
     /**
      * 一度確定した公開キーへ、別の実体を後から乗せない。確定済みのキーは、同じ署名付きURLで受け入れ前を作り直して
-     * 確定をやり直しても置き換わらない（#285）。
+     * 確定をやり直しても置き換わらない（#285）。確定済みで実測値の記録だけが無いキーは、コピーをせずに記録を補う。
      */
     private Uni<ConfirmAssetUploadOutput> confirmUnlessPublished(String assetKey, boolean published) {
         return published
-                ? Uni.createFrom().failure(alreadyPublished(assetKey))
+                ? repairUnlessRecorded(assetKey)
                 : inspectAndConfirm(assetKey);
+    }
+
+    private Uni<ConfirmAssetUploadOutput> repairUnlessRecorded(String assetKey) {
+        return publishedAssets.isRecorded(assetKey)
+                .flatMap(recorded -> repairOrReject(assetKey, recorded));
+    }
+
+    private Uni<ConfirmAssetUploadOutput> repairOrReject(String assetKey, boolean recorded) {
+        return recorded
+                ? Uni.createFrom().failure(alreadyPublished(assetKey))
+                : repair(assetKey);
+    }
+
+    /**
+     * 確定済みの実体から実測値を読み直して記録する。配信対象は変えないため、同じキーへ何度送っても配信される実体は同じ。
+     * ここでの失敗はそのまま返し、呼び出し側は同じキーで再送できる。
+     */
+    private Uni<ConfirmAssetUploadOutput> repair(String assetKey) {
+        return AssetImageFormat.ofExtension(extensionOf(assetKey))
+                .map(format -> repaired(assetKey, format))
+                .orElseGet(() -> Uni.createFrom().failure(alreadyPublished(assetKey)));
+    }
+
+    private Uni<ConfirmAssetUploadOutput> repaired(String assetKey, AssetImageFormat format) {
+        return assetStorage.readPublishedDigest(assetKey)
+                .call(
+                        digest -> publishedAssets.record(
+                                publishedAsset(
+                                        assetKey,
+                                        format,
+                                        digest)))
+                .map(
+                        digest -> output(
+                                assetKey,
+                                format,
+                                digest.byteLength()));
+    }
+
+    private static PublishedAsset publishedAsset(
+            String assetKey,
+            AssetImageFormat format,
+            StoredAssetDigest digest) {
+        return new PublishedAsset(
+                assetKey,
+                format.contentType(),
+                digest.byteLength(),
+                digest.sha256());
     }
 
     private Uni<ConfirmAssetUploadOutput> inspectAndConfirm(String assetKey) {
@@ -117,12 +178,51 @@ public class ConfirmAssetUploadService implements CommandService<ConfirmAssetUpl
         return assetStorage.publish(assetKey, stored.entityTag())
                 .onFailure(AssetConfirmConflictException.class)
                 .transform(cause -> confirmConflict(assetKey, cause))
+                .chain(() -> recordDigestIfPossible(assetKey, format))
                 .replaceWith(
-                        () -> new ConfirmAssetUploadOutput(
+                        () -> output(
                                 assetKey,
-                                publicBasePath + "/" + assetKey,
-                                format.contentType(),
+                                format,
                                 stored.totalBytes()));
+    }
+
+    private ConfirmAssetUploadOutput output(
+            String assetKey,
+            AssetImageFormat format,
+            long sizeBytes) {
+        return new ConfirmAssetUploadOutput(
+                assetKey,
+                publicBasePath + "/" + assetKey,
+                format.contentType(),
+                sizeBytes);
+    }
+
+    /**
+     * 確定した実体の実測値を保管先から読み、独立commitで記録する。
+     *
+     * <p>
+     * 記録は試聴端末へ渡す表示素材のための付加情報で、配信は確定のコピーで既に成立している。ここでの失敗で確定を失敗として
+     * 返すと、呼び出し側は「確定できていない」と誤って読み、再送は確定済みとして断られる。失敗は警告に留めて確定を成功として
+     * 返し、記録は同じキーの再確定で補う。
+     * </p>
+     */
+    private Uni<Void> recordDigestIfPossible(String assetKey, AssetImageFormat format) {
+        return assetStorage.readPublishedDigest(assetKey)
+                .chain(
+                        digest -> publishedAssets.record(
+                                publishedAsset(
+                                        assetKey,
+                                        format,
+                                        digest)))
+                .onFailure().invoke(failure -> warnUnrecorded(assetKey, failure))
+                .onFailure().recoverWithNull();
+    }
+
+    private static void warnUnrecorded(String assetKey, Throwable failure) {
+        LOG.warnf(
+                failure,
+                "確定した画像の実測値を記録できませんでした。同じキーの再確定で補えます: key=%s",
+                assetKey);
     }
 
     /**
