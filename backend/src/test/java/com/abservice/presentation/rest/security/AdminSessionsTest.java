@@ -13,6 +13,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import java.util.concurrent.CompletableFuture;
@@ -23,14 +24,23 @@ import org.junit.jupiter.api.Test;
 class AdminSessionsTest {
 
     private static final String API_KEY = "test-session-exchange-key";
+    private static final InMemoryListeningDevices NO_DEVICES = new InMemoryListeningDevices(Map.of());
     private static final Instant NOW = Instant.parse("2026-09-15T00:00:00Z");
     private static final AuthenticationRequestContext CONTEXT = supplier -> Uni.createFrom().item(supplier.get());
+
+    /** 端末の資格情報はこの検査の関心ではないため、どのトークンも端末として認めない実装を渡す。 */
+    private static ApiKeyIdentityProvider providerFor(String apiKey, AdminSessions sessions) {
+        return new ApiKeyIdentityProvider(
+                apiKey,
+                sessions,
+                NO_DEVICES);
+    }
 
     @Test
     @DisplayName("キーと異なる不透明トークンを発行し管理権限を認める")
     void issuesOpaqueTokenWithFixedExpiration() {
         final var sessions = new AdminSessions(Clock.fixed(NOW, ZoneOffset.UTC));
-        final var provider = new ApiKeyIdentityProvider(API_KEY, sessions);
+        final var provider = providerFor(API_KEY, sessions);
         final var issued = sessions.exchange(authenticate(provider, API_KEY));
 
         assertThat(issued.token()).matches("abs_session_[0-9a-f]{64}").doesNotContain(API_KEY);
@@ -44,7 +54,7 @@ class AdminSessionsTest {
     void expiresAtTheBoundaryWithoutSliding() {
         final var clock = new AdjustableClock();
         final var sessions = new AdminSessions(clock);
-        final var provider = new ApiKeyIdentityProvider(API_KEY, sessions);
+        final var provider = providerFor(API_KEY, sessions);
         final var issued = sessions.exchange(authenticate(provider, API_KEY));
 
         clock.advance(Duration.ofMinutes(30).minusNanos(1));
@@ -58,7 +68,7 @@ class AdminSessionsTest {
     @DisplayName("トークンから新しいトークンを交換できず期限を延長できない")
     void sessionCannotMintAnotherSession() {
         final var sessions = new AdminSessions();
-        final var provider = new ApiKeyIdentityProvider(API_KEY, sessions);
+        final var provider = providerFor(API_KEY, sessions);
         final var issued = sessions.exchange(authenticate(provider, API_KEY));
         final var identity = authenticate(provider, issued.token());
 
@@ -69,7 +79,7 @@ class AdminSessionsTest {
     @DisplayName("失効したトークンを拒否し別セッションとAPIキーは有効なままにする")
     void revocationAffectsOnlyTheCallingSession() {
         final var sessions = new AdminSessions();
-        final var provider = new ApiKeyIdentityProvider(API_KEY, sessions);
+        final var provider = providerFor(API_KEY, sessions);
         final var keyIdentity = authenticate(provider, API_KEY);
         final var first = sessions.exchange(keyIdentity);
         final var second = sessions.exchange(keyIdentity);
@@ -86,7 +96,7 @@ class AdminSessionsTest {
     @DisplayName("セッションを持たないAPIキーによる破棄は拒否する")
     void keyCannotSelectASessionToRevoke() {
         final var sessions = new AdminSessions();
-        final var provider = new ApiKeyIdentityProvider(API_KEY, sessions);
+        final var provider = providerFor(API_KEY, sessions);
         final var identity = authenticate(provider, API_KEY);
 
         assertThatThrownBy(() -> sessions.revoke(identity)).isInstanceOf(ForbiddenException.class);
@@ -96,9 +106,9 @@ class AdminSessionsTest {
     @DisplayName("キー更新と再起動後は旧キーと旧トークンの双方を拒否する")
     void restartWithRotatedKeyInvalidatesOldCredentials() {
         final var sessions = new AdminSessions();
-        final var provider = new ApiKeyIdentityProvider(API_KEY, sessions);
+        final var provider = providerFor(API_KEY, sessions);
         final var issued = sessions.exchange(authenticate(provider, API_KEY));
-        final var restarted = new ApiKeyIdentityProvider("rotated-session-exchange-key", new AdminSessions());
+        final var restarted = providerFor("rotated-session-exchange-key", new AdminSessions());
 
         assertThatThrownBy(() -> authenticate(restarted, API_KEY))
                 .isInstanceOf(AuthenticationFailedException.class);
@@ -111,7 +121,7 @@ class AdminSessionsTest {
     @DisplayName("トークンの末尾変更・途中欠落・未知のトークンを拒否する")
     void rejectsTamperedAndUnknownTokens() {
         final var sessions = new AdminSessions();
-        final var provider = new ApiKeyIdentityProvider(API_KEY, sessions);
+        final var provider = providerFor(API_KEY, sessions);
         final var issued = sessions.exchange(authenticate(provider, API_KEY));
 
         assertThat(sessions.authenticatedDigest(issued.token() + "0")).isEmpty();
@@ -125,7 +135,7 @@ class AdminSessionsTest {
     void boundsStorageByExpiringTheOldestSession() {
         final var clock = new AdjustableClock();
         final var sessions = new AdminSessions(clock);
-        final var provider = new ApiKeyIdentityProvider(API_KEY, sessions);
+        final var provider = providerFor(API_KEY, sessions);
         final var identity = authenticate(provider, API_KEY);
         final var oldest = sessions.exchange(identity);
         clock.advance(Duration.ofSeconds(1));
@@ -141,7 +151,7 @@ class AdminSessionsTest {
     void discardsExpiredEntriesOnIssue() {
         final var clock = new AdjustableClock();
         final var sessions = new AdminSessions(clock);
-        final var provider = new ApiKeyIdentityProvider(API_KEY, sessions);
+        final var provider = providerFor(API_KEY, sessions);
         final var identity = authenticate(provider, API_KEY);
         final var expired = sessions.exchange(identity);
         clock.advance(Duration.ofMinutes(30));
@@ -155,7 +165,7 @@ class AdminSessionsTest {
     @DisplayName("同時発行と失効が競合しても失効済みセッションを復活させない")
     void concurrentIssueDoesNotRestoreRevokedSession() {
         final var sessions = new AdminSessions();
-        final var provider = new ApiKeyIdentityProvider(API_KEY, sessions);
+        final var provider = providerFor(API_KEY, sessions);
         final var keyIdentity = authenticate(provider, API_KEY);
         final var revoked = sessions.exchange(keyIdentity);
         final var revokedIdentity = authenticate(provider, revoked.token());

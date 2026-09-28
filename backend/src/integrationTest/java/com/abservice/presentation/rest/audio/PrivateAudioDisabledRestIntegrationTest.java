@@ -33,5 +33,9 @@ class PrivateAudioDisabledRestIntegrationTest {
                         "expectedRevision",
                         0))
                 .put("/api/v1/admin/albums/" + id + "/listening-audio/crossfade").then().statusCode(404);
+        authorized().contentType(ContentType.JSON).body(Map.of("label", "端末")).post("/api/v1/admin/listening-devices")
+                .then().statusCode(404);
+        authorized().get("/api/v1/admin/listening-devices").then().statusCode(404);
+        authorized().delete("/api/v1/admin/listening-devices/" + id).then().statusCode(404);
     }
 }
