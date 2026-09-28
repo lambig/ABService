@@ -2,13 +2,9 @@ package com.abservice.infrastructure.storage;
 
 import com.abservice.application.port.PresignedDownload;
 import com.abservice.application.port.PrivateAudioDownloads;
-import com.abservice.infrastructure.audio.PrivateAudioConfig;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -17,54 +13,57 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
  * 専用バケットの確定済み実体を指す署名付きGET URLを発行する。
  *
  * <p>
- * 有効時間は設定値（{@code abservice.private-audio.download-url-expiry}）を上限とし、呼出元が渡す期限と署名資格情報の
- * 残存時間で短縮する。署名はネットワークを使わず、実体の存在は確認しない。バケットが未設定なら発行できない（機能無効時は 手前で未存在として拒む）。
+ * 署名は保存側と同じ資格情報（AWS標準の provider chain）で行い、公開画像用の署名器は使わない。保存と取得の資格情報が
+ * 分かれた環境で、保存は成功するのに取得URLだけ別の資格情報で署名されて拒まれることを防ぐ。有効時間は設定値を上限とし、
+ * 呼出元が渡す絶対の上限と署名資格情報の残存時間で短縮する。署名はネットワークを使わず、実体の存在は確認しない。 構築と寿命は private audio
+ * の実行入口が管理する。
  * </p>
  */
-@ApplicationScoped
-public class S3PrivateAudioDownloads implements PrivateAudioDownloads {
+public final class S3PrivateAudioDownloads implements PrivateAudioDownloads, AutoCloseable {
     private final S3UrlPresigner presigner;
-    private final PrivateAudioConfig config;
-    private final Clock clock;
+    private final AutoCloseable credentials;
+    private final String bucket;
+    private final Duration expiry;
 
-    @Inject
-    public S3PrivateAudioDownloads(S3UrlPresigner presigner, PrivateAudioConfig config) {
-        this(
-                presigner,
-                config,
-                Clock.systemUTC());
-    }
-
-    S3PrivateAudioDownloads(
+    /**
+     * @param presigner
+     *            private audio の資格情報で署名する署名器
+     * @param credentials
+     *            署名器が使う資格情報プロバイダ（終了時に閉じる）
+     * @param bucket
+     *            専用バケット
+     * @param expiry
+     *            取得URLの最大有効時間
+     */
+    public S3PrivateAudioDownloads(
             S3UrlPresigner presigner,
-            PrivateAudioConfig config,
-            Clock clock) {
-        this.presigner = presigner;
-        this.config = config;
-        this.clock = clock;
+            AutoCloseable credentials,
+            String bucket,
+            Duration expiry) {
+        this.presigner = Objects.requireNonNull(presigner);
+        this.credentials = Objects.requireNonNull(credentials);
+        this.bucket = Objects.requireNonNull(bucket);
+        this.expiry = Objects.requireNonNull(expiry);
     }
 
     @Override
     public PresignedDownload presign(UUID audioId, Instant notAfter) {
         return presigner.presignDownload(
                 GetObjectRequest.builder()
-                        .bucket(bucket())
+                        .bucket(bucket)
                         .key(S3PrivateAudioStorage.verifiedKey(audioId))
                         .responseContentType("audio/flac")
                         .build(),
-                requestedDuration(notAfter));
+                expiry,
+                Optional.of(notAfter));
     }
 
-    private String bucket() {
-        return config.bucket()
-                .orElseThrow(() -> new IllegalStateException("A private audio bucket is required to resolve URLs"));
-    }
-
-    /** 設定の有効時間と呼出元の期限の短い方。秒未満は切り捨て、残りが無ければ発行しない。 */
-    private Duration requestedDuration(Instant notAfter) {
-        return Optional.of(Duration.between(clock.instant(), notAfter))
-                .filter(remaining -> remaining.compareTo(config.downloadUrlExpiry()) < 0)
-                .orElse(config.downloadUrlExpiry())
-                .truncatedTo(ChronoUnit.SECONDS);
+    @Override
+    public void close() throws Exception {
+        try {
+            presigner.close();
+        } finally {
+            credentials.close();
+        }
     }
 }

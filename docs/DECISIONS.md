@@ -816,6 +816,6 @@ Manifest は `packages/installation` の schema v2 と同じ項目だけを持�
 
 端末（PWA）は S3 から直接取得し、backend や CloudFront を通すプロキシ経路は作らない。数百 MB の音源を backend に中継させると、準備時の帯域と接続時間を1台の backend が抱える。直接取得のため、専用バケットの CORS を試聴サイトの正確な HTTPS オリジンだけに opt-in で開く（`private_audio_download_origins`、既定は空、GET と `Range` のみ）。バケットのポリシーと Block Public Access は変えない。
 
-**トレードオフ**: 端末は音源ごとに URL を解決する要求を1回余分に出す。対象は会場へ持ち出す数十作品で、準備時に限られる。署名は要求ごとに行い、URL をサーバー側に保存しない。PUT と GET の署名は `S3UrlPresigner` が資格情報の固定と期限の計算を共有する。
+**トレードオフ**: 端末は音源ごとに URL を解決する要求を1回余分に出す。対象は会場へ持ち出す数十作品で、準備時に限られる。署名は要求ごとに行い、URL をサーバー側に保存しない。PUT と GET の署名は `S3UrlPresigner` が資格情報の固定と期限の計算を共有するが、署名器の実体は分ける。取得 URL は保存側と同じ AWS 標準の provider chain で署名し、公開画像用の署名器（開発時は静的資格情報）を流用しない。保存と取得の資格情報が分かれた環境で、保存は成功するのに取得だけ拒まれる事故を防ぐためで、その分 private audio の実行入口が署名器をもう1つ所有する。端末の資格情報の期限は相対時間へ変換せず絶対時刻の上限として署名器へ渡し、署名後に検査する。署名が遅れても期限が端末トークンを超えない。
 
 **実体**: `application/port/PrivateAudioDownloads`、`infrastructure/storage/S3UrlPresigner` / `S3PrivateAudioDownloads`、`application/query/audio/ResolveListeningAssetUrlService`、`presentation/rest/audio/ListeningPackageListenerQueryResource`、`infra/cohost-host/private-audio.tf`。契約は [PRIVATE_AUDIO_INGESTION.md](PRIVATE_AUDIO_INGESTION.md)。

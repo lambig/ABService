@@ -15,6 +15,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -40,6 +41,10 @@ class S3UrlPresignerTest {
             .bucket("test-assets")
             .key("pending/test.png")
             .contentType("image/png")
+            .build();
+    private static final GetObjectRequest DOWNLOAD = GetObjectRequest.builder()
+            .bucket("test-audio")
+            .key("audio/verified/test.flac")
             .build();
     private static final DateTimeFormatter SIGNING_DATE = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'")
             .withZone(ZoneOffset.UTC);
@@ -73,7 +78,8 @@ class S3UrlPresignerTest {
                             .key("audio/verified/test.flac")
                             .responseContentType("audio/flac")
                             .build(),
-                    REQUESTED);
+                    REQUESTED,
+                    Optional.empty());
             final var query = query(download.url());
 
             assertThat(Long.parseLong(query.get("X-Amz-Expires"))).isBetween(285L, 295L);
@@ -83,6 +89,32 @@ class S3UrlPresignerTest {
             assertThat(query.get("X-Amz-Security-Token")).isEqualTo("invalid-session-token");
             assertThat(query.get("response-content-type")).isEqualTo("audio/flac");
             assertThat(URI.create(download.url()).getPath()).isEqualTo("/test-audio/audio/verified/test.flac");
+        }
+    }
+
+    @Test
+    @DisplayName("呼出元の絶対上限が資格情報より近ければ上限まで短縮し、署名中に上限を過ぎたらURLを返さない")
+    void capsDownloadsAtTheCallerDeadline() {
+        final var now = Instant.now();
+        try (var signer = signer(() -> session("invalid-key", now.plusSeconds(300)), Clock.systemUTC())) {
+            final var download = signer.presignDownload(
+                    DOWNLOAD,
+                    REQUESTED,
+                    Optional.of(now.plusSeconds(90)));
+
+            assertThat(Long.parseLong(query(download.url()).get("X-Amz-Expires"))).isBetween(85L, 90L);
+            assertThat(download.expiresAt()).isBeforeOrEqualTo(now.plusSeconds(90));
+        }
+        try (var signer = signer(
+                () -> AwsBasicCredentials.create("invalid-static-key", "invalid-secret"),
+                new AdvancingClock(now, now.plusSeconds(61)))) {
+            assertThatThrownBy(
+                    () -> signer.presignDownload(
+                            DOWNLOAD,
+                            REQUESTED,
+                            Optional.of(now.plusSeconds(60))))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("expired while signing");
         }
     }
 

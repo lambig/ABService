@@ -20,7 +20,6 @@ import java.net.URLDecoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import jakarta.inject.Inject;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.sql.DriverManager;
@@ -35,26 +34,49 @@ import org.eclipse.microprofile.config.ConfigProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 
-/** 実SDKで署名した取得URLを、専用MinIOバケットへ実際に投げて音源の同一性まで見る。 */
+/**
+ * 実SDKで署名した取得URLを、専用MinIOバケットへ実際に投げて音源の同一性まで見る。
+ *
+ * <p>
+ * 公開画像用の静的資格情報（{@code quarkus.s3.aws.credentials.*}）を無効な値にし、private audio
+ * 側（AWS標準の provider chain）だけが正しい資格情報を持つ構成で走らせる。取得URLが公開画像用の署名器で署名されていれば MinIO
+ * が拒むので、 保存側と同じ資格情報で署名していることが取得の成功で固定される。
+ * </p>
+ */
 @QuarkusTest
 @TestProfile(ListeningAssetUrlRestIntegrationTest.AudioRuntime.class)
 @QuarkusTestResource(value = AudioHttpTestResource.class, restrictToAnnotatedClass = true)
 @ExtendWith(CleanDatabase.class)
 @DisplayName("端末向け音源取得URLのHTTP契約")
 class ListeningAssetUrlRestIntegrationTest {
-    /** 専用リソースでの再起動を通常テストと分離し、前の起動のReactiveセッション状態を引き継がない。 */
+    /** 専用リソースでの再起動を通常テストと分離し、公開画像用の静的資格情報を private audio と別の無効な値にする。 */
     public static class AudioRuntime implements QuarkusTestProfile {
+        @Override
+        public Map<String, String> getConfigOverrides() {
+            return Map.of(
+                    "quarkus.s3.aws.credentials.static-provider.access-key-id",
+                    "invalid-shared-key",
+                    "quarkus.s3.aws.credentials.static-provider.secret-access-key",
+                    "invalid-shared-secret");
+        }
     }
 
     private static final String PACKAGE = "/api/v1/listening/package";
     private static final String DEVICES = "/api/v1/admin/listening-devices";
     private static final String REGISTRATIONS = "/api/v1/admin/private-audio/registrations";
     private static final String PROBLEM = "application/problem+json";
-    @Inject
-    private S3Client storage;
+    /** 検査所有の実体を置くための MinIO クライアント。アプリの共有クライアントは無効な資格情報を持つため使わない。 */
+    private final S3Client storage = S3Client.builder().endpointOverride(URI.create("http://localhost:9000"))
+            .forcePathStyle(true).region(Region.US_EAST_1)
+            .credentialsProvider(
+                    StaticCredentialsProvider.create(AwsBasicCredentials.create("minioadmin", "minioadmin123")))
+            .build();
 
     @Test
     @DisplayName("現在のパッケージに含まれる音源だけURLを解決し、そのURLで取得した実体はSHA-256が一致する")
