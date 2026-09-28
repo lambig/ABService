@@ -69,9 +69,10 @@ run "private_audio_is_separate_and_not_public" {
       aws_s3_bucket_public_access_block.private_audio["enabled"].ignore_public_acls &&
       aws_s3_bucket_public_access_block.private_audio["enabled"].restrict_public_buckets &&
       one(aws_s3_bucket_ownership_controls.private_audio["enabled"].rule).object_ownership == "BucketOwnerEnforced" &&
-      one(aws_s3_bucket_versioning.private_audio["enabled"].versioning_configuration).status == "Enabled"
+      one(aws_s3_bucket_versioning.private_audio["enabled"].versioning_configuration).status == "Enabled" &&
+      length(aws_s3_bucket_cors_configuration.private_audio) == 0
     )
-    error_message = "Audio needs a dedicated, versioned, private bucket with ACLs disabled."
+    error_message = "Audio needs a dedicated, versioned, private bucket with ACLs disabled and no browser CORS unless opted in."
   }
   assert {
     condition = (
@@ -86,6 +87,47 @@ run "private_audio_is_separate_and_not_public" {
     )
     error_message = "Keep TLS mandatory; grant only dedicated-bucket missing-key checks and verified-object reads/writes, without deletes or CDN grants."
   }
+}
+run "private_audio_download_cors_is_get_only_opt_in" {
+  command = plan
+  variables {
+    private_audio_bucket           = "example-private-audio"
+    private_audio_download_origins = ["https://listen.example.invalid"]
+  }
+  assert {
+    condition = alltrue([for rule in aws_s3_bucket_cors_configuration.private_audio["enabled"].cors_rule :
+      toset(rule.allowed_origins) == toset(["https://listen.example.invalid"]) &&
+      toset(rule.allowed_methods) == toset(["GET"]) &&
+      toset(rule.allowed_headers) == toset(["Range"]) &&
+      toset(rule.expose_headers) == toset(["ETag", "Content-Length", "Accept-Ranges", "Content-Range"])
+    ])
+    error_message = "Audio CORS must allow only explicit origins and the presigned GET contract."
+  }
+  assert {
+    condition = (
+      length(jsondecode(aws_s3_bucket_policy.private_audio["enabled"].policy).Statement) == 1 &&
+      aws_s3_bucket_public_access_block.private_audio["enabled"].block_public_policy
+    )
+    error_message = "Browser CORS must not weaken the audio bucket policy or public access blocks."
+  }
+}
+run "private_audio_download_origins_need_the_bucket" {
+  command = plan
+  variables { private_audio_download_origins = ["https://listen.example.invalid"] }
+  assert {
+    condition     = length(aws_s3_bucket_cors_configuration.private_audio) == 0
+    error_message = "Download origins alone must not create audio resources."
+  }
+}
+run "reject_wildcard_download_origin" {
+  command = plan
+  variables { private_audio_download_origins = ["https://*.example.invalid"] }
+  expect_failures = [var.private_audio_download_origins]
+}
+run "reject_plaintext_download_origin" {
+  command = plan
+  variables { private_audio_download_origins = ["http://listen.example.invalid"] }
+  expect_failures = [var.private_audio_download_origins]
 }
 run "reject_shared_audio_bucket" {
   command = plan

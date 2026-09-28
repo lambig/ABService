@@ -1,4 +1,5 @@
-# Opt-in storage for verified audio. No CDN/OAC, browser CORS, public ACL or expiry.
+# Opt-in storage for verified audio. No CDN/OAC, public ACL or expiry. Browser CORS is a
+# separate opt-in for presigned GET from the listening site only.
 variable "private_audio_bucket" {
   description = "Dedicated private audio bucket, distinct from published assets; null leaves audio infrastructure absent."
   type        = string
@@ -12,8 +13,22 @@ variable "private_audio_bucket" {
   }
 }
 
+variable "private_audio_download_origins" {
+  description = "Exact HTTPS browser origins allowed to GET presigned audio objects; empty leaves CORS unconfigured."
+  type        = set(string)
+  default     = []
+  nullable    = false
+  validation {
+    condition = alltrue([for origin in var.private_audio_download_origins : can(regex(
+      "^https://([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$", origin
+    ))])
+    error_message = "Use exact HTTPS DNS origins without wildcard, port, path, credentials or query."
+  }
+}
+
 locals {
-  private_audio = var.private_audio_bucket == null ? {} : { enabled = var.private_audio_bucket }
+  private_audio          = var.private_audio_bucket == null ? {} : { enabled = var.private_audio_bucket }
+  private_audio_download = length(var.private_audio_download_origins) == 0 ? {} : local.private_audio
 }
 
 resource "aws_s3_bucket" "private_audio" {
@@ -54,6 +69,19 @@ resource "aws_s3_bucket_policy" "private_audio" {
     Resource  = ["arn:aws:s3:::${each.value}", "arn:aws:s3:::${each.value}/*"]
     Condition = { Bool = { "aws:SecureTransport" = "false" } }
   }] })
+}
+# Devices fetch verified audio straight from S3 with presigned GET URLs; no proxy path
+# through the backend or CloudFront. Range is allowed so interrupted preparation can resume.
+resource "aws_s3_bucket_cors_configuration" "private_audio" {
+  for_each = local.private_audio_download
+  bucket   = aws_s3_bucket.private_audio[each.key].id
+  cors_rule {
+    allowed_headers = ["Range"]
+    allowed_methods = ["GET"]
+    allowed_origins = sort(tolist(var.private_audio_download_origins))
+    expose_headers  = ["ETag", "Content-Length", "Accept-Ranges", "Content-Range"]
+    max_age_seconds = 3000
+  }
 }
 resource "aws_iam_role_policy" "private_audio" {
   for_each = local.private_audio

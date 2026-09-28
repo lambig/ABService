@@ -50,8 +50,27 @@ CDIの実行入口は明示的に有効化したときだけ専用資源を生�
 | `playbackItems[]` | 作品ごとに1件の `album-crossfade`。ID は `album-crossfade:{albumId}` で、音源の差し替えでは変わらない。長さは totalSamples ÷ sampleRate |
 | `presentationAssetIds` | 空。artwork は digest を持ってから足す |
 
-URL・保存キー・資格情報は含めない。音源の取得URLは別の経路で期限付きに解決する（C）。
+URL・保存キー・資格情報は含めない。音源の取得URLは下記の経路で期限付きに解決する。
 関連付けが変わると版が変わり、端末は保存済みの版と比べて更新の要否を判断する。
+
+## 音源の取得URL（#475 C）
+
+`GET /api/v1/listening/package/assets/{assetId}/url` は `listener` ロールだけに開き、現在のパッケージに含まれる音源だけを解決する。
+管理者は403、未認証は401、機能無効時は404。形が不正な assetId は400。
+公開済み作品の確定クロスフェードとして関連付いていない音源は、未確定・未存在・関連付けが外れたものを区別せず404にする（端末に登録の有無を教えない）。
+応答は `assetId`・署名付きの `url`・`expiresAt` で、`Cache-Control: no-store` を付ける。
+
+URLは専用バケットの確定済み実体を指す S3 の署名付き GET で、端末は backend や CloudFront を経由せず S3 から直接取得する。
+署名は保存側と同じ資格情報（AWS 標準の provider chain）で行い、公開画像用の署名器と開発用の静的資格情報は流用しない。
+有効時間は `abservice.private-audio.download-url-expiry`（既定10分、1分〜1時間）を上限とし、
+署名資格情報の残存時間（5秒の余裕込み）と端末の資格情報の期限の短い方へ短縮する。端末の期限は絶対時刻の上限として署名器へ渡し、
+署名後にも期限がそれを超えていないことを検査する。超えていれば URL を返さない。`expiresAt` は署名と同じ秒単位の期限。
+署名は要求ごとに行い、URLを保存しない。発行済みのURLは期限まで有効で、関連付けの差し替えや非公開化は次の解決を404にするだけで、
+既に発行したURLを取り消さない。端末は `packageVersion` の一致で整合を取る（#477）。
+
+ブラウザから S3 へ直接 GET するため、専用バケットの CORS は IaC の `private_audio_download_origins`（既定は空）で
+試聴サイトの正確な HTTPS オリジンだけに開く。許すのは GET と `Range` だけで、PUT・ワイルドカード・他オリジンは許さない。
+バケットのポリシーと Block Public Access は変えない。
 
 ## 管理API（C1/C2）
 

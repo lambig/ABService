@@ -1,8 +1,12 @@
 package com.abservice.infrastructure.audio;
 
+import com.abservice.application.port.PresignedDownload;
+import com.abservice.application.port.PrivateAudioDownloads;
 import com.abservice.application.port.PrivateAudioMaintenance;
 import com.abservice.application.port.PrivateAudioRegistrations;
+import com.abservice.infrastructure.storage.S3PrivateAudioDownloads;
 import com.abservice.infrastructure.storage.S3PrivateAudioStorage;
+import com.abservice.infrastructure.storage.S3UrlPresigner;
 import io.quarkus.runtime.StartupEvent;
 import io.vertx.core.Vertx;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -13,8 +17,10 @@ import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
@@ -67,14 +73,72 @@ public class PrivateAudioRuntimeProducer {
         runtime.close();
     }
 
+    /**
+     * 端末向けの取得URLの署名器を提供します。保存側と同じ AWS 標準の provider chain で署名し、公開画像用の署名器は使いません。
+     * 機能無効時は発行できない実装を返します（手前で未存在として拒むため到達しません）。
+     *
+     * @return 取得URLの発行元
+     */
+    @Produces
+    @Singleton
+    public PrivateAudioDownloads downloads() {
+        return "true".equals(config.enabled())
+                ? enabledDownloads()
+                : new DisabledDownloads();
+    }
+
+    void closeDownloads(@Disposes PrivateAudioDownloads downloads) {
+        Optional.of(downloads)
+                .filter(AutoCloseable.class::isInstance)
+                .map(AutoCloseable.class::cast)
+                .ifPresent(PrivateAudioRuntimeProducer::closeOrFail);
+    }
+
+    private static void closeOrFail(AutoCloseable owned) {
+        try {
+            owned.close();
+        } catch (Exception failure) {
+            throw new IllegalStateException("Private audio download signer did not close", failure);
+        }
+    }
+
+    private S3PrivateAudioDownloads enabledDownloads() {
+        validate(config);
+        final var credentials = DefaultCredentialsProvider.builder().build();
+        try {
+            return new S3PrivateAudioDownloads(
+                    S3UrlPresigner.configured(
+                            credentials,
+                            region,
+                            pathStyle,
+                            endpoint),
+                    credentials,
+                    requiredBucket(),
+                    config.downloadUrlExpiry());
+        } catch (RuntimeException failure) {
+            credentials.close();
+            throw failure;
+        }
+    }
+
+    /** 機能無効時の発行元。API入口が未存在として拒むため、通常は到達しない。 */
+    private static final class DisabledDownloads implements PrivateAudioDownloads {
+        @Override
+        public PresignedDownload presign(UUID audioId, Instant notAfter) {
+            throw new IllegalStateException("Private audio is disabled");
+        }
+    }
+
     private PrivateAudioRuntime enabled() throws IOException {
         validate(config);
-        return enabled(
-                config.bucket()
-                        .filter(value -> value.matches("[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]"))
-                        .filter(value -> Boolean.FALSE.equals(value.equals(publicBucket)))
-                        .orElseThrow(
-                                () -> new IllegalArgumentException("A separate private audio bucket is required")));
+        return enabled(requiredBucket());
+    }
+
+    private String requiredBucket() {
+        return config.bucket()
+                .filter(value -> value.matches("[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]"))
+                .filter(value -> Boolean.FALSE.equals(value.equals(publicBucket)))
+                .orElseThrow(() -> new IllegalArgumentException("A separate private audio bucket is required"));
     }
 
     private PrivateAudioRuntime enabled(String bucket) throws IOException {
@@ -109,6 +173,10 @@ public class PrivateAudioRuntimeProducer {
                 config.maintenanceInterval().toMillis(),
                 60000,
                 86400000);
+        requireRange(
+                config.downloadUrlExpiry().getSeconds(),
+                60,
+                3600);
     }
 
     private static void requireRange(

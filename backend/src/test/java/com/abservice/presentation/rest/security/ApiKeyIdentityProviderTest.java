@@ -64,6 +64,15 @@ class ApiKeyIdentityProviderTest {
         assertThat(identity.hasRole(SecurityRoles.ADMIN)).isFalse();
         assertThat(identity.getPrincipal().getName()).isEqualTo("device:" + DEVICE_ID);
         assertThat(ApiKeyIdentityProvider.deviceIdOf(identity)).contains(DEVICE_ID);
+        assertThat(ApiKeyIdentityProvider.deviceCredentialExpiresAt(identity)).isEqualTo(Instant.MAX);
+    }
+
+    @Test
+    @DisplayName("端末以外の identity から端末の資格情報の期限は読めない")
+    void adminIdentityHasNoDeviceCredentialExpiry() {
+        final var identity = authenticate(CONFIGURED_KEY);
+        assertThatThrownBy(() -> ApiKeyIdentityProvider.deviceCredentialExpiresAt(identity))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test

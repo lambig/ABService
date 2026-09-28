@@ -80,8 +80,17 @@ digests when performing explicit image retention.
 `private_audio_bucket` defaults to null: no audio resources or permissions are
 created. A distinct DNS-safe bucket name explicitly provisions an audio-only
 bucket with all public access blocks, BucketOwnerEnforced ownership, versioning,
-AES256 encryption, TLS-only access and `prevent_destroy`. No expiry, browser CORS
-or CloudFront/OAC grants are added. Do not add this bucket to the edge origins.
+AES256 encryption, TLS-only access and `prevent_destroy`. No expiry or
+CloudFront/OAC grants are added. Do not add this bucket to the edge origins.
+
+`private_audio_download_origins` defaults to empty: no browser CORS. Listening
+devices fetch verified audio straight from S3 through presigned GET URLs that the
+backend issues per request, so the exact HTTPS origin of the listening site must
+be listed here before devices can prepare. The rule allows GET only (with `Range`
+for resumed downloads) and exposes `ETag`, `Content-Length`, `Accept-Ranges` and
+`Content-Range`. It never allows PUT, other origins or wildcards, and it does not
+change the bucket policy or public access blocks. Origins without a bucket create
+nothing.
 
 Only the app role receives ListBucket for missing-key HEAD detection and
 GetObject/PutObject on `audio/verified/*`. It cannot delete objects or versions,

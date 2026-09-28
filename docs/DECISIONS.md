@@ -807,3 +807,15 @@ Manifest は `packages/installation` の schema v2 と同じ項目だけを持�
 **トレードオフ**: 平坦な行から組み立てる分、Query 側に組み立ての責務が乗る（`ListeningPackageView`）。artwork は確定画像の byteLength と SHA-256 を DB が持たないため、この時点では載せていない。
 
 **実体**: `infrastructure/persistence/datasource/ListeningPackageDataSource`、`application/query/audio/ListeningPackageView` / `GetListeningPackageService`、`presentation/rest/audio/ListeningPackageListenerQueryResource` と `response/ListeningPackageResponse`。契約は [PRIVATE_AUDIO_INGESTION.md](PRIVATE_AUDIO_INGESTION.md)。
+
+## 音源の取得URLは端末の要求ごとに期限付きで解決し、S3 から直接取得させる
+
+試聴端末が音源を取る経路（#475）は、Manifest に URL を載せるのではなく、`GET /api/v1/listening/package/assets/{assetId}/url` で音源ごとに署名付き GET URL を解決する。Manifest は配布用の snapshot で、URL は保管場所と資格情報に依存する一時的な値だから、Manifest に埋めると版の入力に一時的な値が混ざり、保管場所の変更や署名の更新で内容が変わっていないのに版が変わる（9 と同じ理由で、URL を恒久的な identity にしない）。
+
+解決するのは現在のパッケージに含まれる音源だけにする。公開済み作品の確定クロスフェードとして関連付いていない音源は、未確定・未存在・関連付けが外れたものを区別せず未存在として拒み、端末に登録の有無を教えない。URL の有効時間は設定の上限（既定10分）を、署名資格情報の残存時間と端末の資格情報の期限で短縮する。端末の資格情報が切れた後に有効な URL が残らないようにするためで、失効（管理者の DELETE）は次の解決を拒むだけで、発行済みの URL は期限まで有効になる。会場ではオフラインで再生するので、サーバー側から取り消す手段は構造上ない。
+
+端末（PWA）は S3 から直接取得し、backend や CloudFront を通すプロキシ経路は作らない。数百 MB の音源を backend に中継させると、準備時の帯域と接続時間を1台の backend が抱える。直接取得のため、専用バケットの CORS を試聴サイトの正確な HTTPS オリジンだけに opt-in で開く（`private_audio_download_origins`、既定は空、GET と `Range` のみ）。バケットのポリシーと Block Public Access は変えない。
+
+**トレードオフ**: 端末は音源ごとに URL を解決する要求を1回余分に出す。対象は会場へ持ち出す数十作品で、準備時に限られる。署名は要求ごとに行い、URL をサーバー側に保存しない。PUT と GET の署名は `S3UrlPresigner` が資格情報の固定と期限の計算を共有するが、署名器の実体は分ける。取得 URL は保存側と同じ AWS 標準の provider chain で署名し、公開画像用の署名器（開発時は静的資格情報）を流用しない。保存と取得の資格情報が分かれた環境で、保存は成功するのに取得だけ拒まれる事故を防ぐためで、その分 private audio の実行入口が署名器をもう1つ所有する。端末の資格情報の期限は相対時間へ変換せず絶対時刻の上限として署名器へ渡し、署名後に検査する。署名が遅れても期限が端末トークンを超えない。
+
+**実体**: `application/port/PrivateAudioDownloads`、`infrastructure/storage/S3UrlPresigner` / `S3PrivateAudioDownloads`、`application/query/audio/ResolveListeningAssetUrlService`、`presentation/rest/audio/ListeningPackageListenerQueryResource`、`infra/cohost-host/private-audio.tf`。契約は [PRIVATE_AUDIO_INGESTION.md](PRIVATE_AUDIO_INGESTION.md)。

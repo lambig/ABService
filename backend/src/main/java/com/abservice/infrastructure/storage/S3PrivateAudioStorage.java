@@ -93,6 +93,11 @@ public final class S3PrivateAudioStorage implements PrivateAudioStorage {
     }
 
     private static String key(UUID audioId) {
+        return verifiedKey(audioId);
+    }
+
+    /** 確定済み実体の保存キー。取得URLの解決も同じキーを指す。 */
+    static String verifiedKey(UUID audioId) {
         return "audio/verified/" + Objects.requireNonNull(audioId) + ".flac";
     }
 

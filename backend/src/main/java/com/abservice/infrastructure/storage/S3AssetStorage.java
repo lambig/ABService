@@ -67,7 +67,7 @@ public class S3AssetStorage implements AssetStorage {
     private static final String ANY_ENTITY_TAG = "*";
 
     private final S3AsyncClient s3;
-    private final S3UploadPresigner presigner;
+    private final S3UrlPresigner presigner;
     private final String bucket;
     private final String publishedPrefix;
     private final String pendingPrefix;
@@ -90,7 +90,7 @@ public class S3AssetStorage implements AssetStorage {
      */
     public S3AssetStorage(
             S3AsyncClient s3,
-            S3UploadPresigner presigner,
+            S3UrlPresigner presigner,
             @ConfigProperty(name = "abservice.assets.bucket") String bucket,
             @ConfigProperty(name = "abservice.assets.public-base-path") String publicBasePath,
             @ConfigProperty(name = "abservice.assets.pending-prefix") String pendingPrefix,
@@ -206,7 +206,7 @@ public class S3AssetStorage implements AssetStorage {
     }
 
     private PresignedUpload presign(String key, String contentType) {
-        return presigner.presign(
+        return presigner.presignUpload(
                 PutObjectRequest.builder()
                         .bucket(bucket)
                         .key(pendingKey(key))

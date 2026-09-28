@@ -20,4 +20,8 @@ public interface PrivateAudioConfig {
     Duration retention();
     @WithDefault("PT15M")
     Duration maintenanceInterval();
+
+    /** 端末へ発行する取得URLの最大有効時間。署名資格情報と端末の資格情報の残存時間で短縮される。 */
+    @WithDefault("PT10M")
+    Duration downloadUrlExpiry();
 }
