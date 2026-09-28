@@ -5,6 +5,7 @@ import com.abservice.infrastructure.persistence.datasource.ListeningPackageRow;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -19,8 +20,8 @@ import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 配布パッケージ（Manifest v2 の内容そのもの）。snapshot の平坦な行から組み、内容の digest を packageVersion
- * にする。
+ * 配布パッケージ（Manifest v3 の内容そのもの）。snapshot の平坦な行から組み、内容の digest を packageVersion
+ * にする。v3 は作品ごとに表示情報（名義・リリース日・カタログナンバー・説明文の原文と形式・原作の出典）を持つ。
  *
  * <p>
  * 端末へ渡す項目をすべてここで確定させ、packageVersion はそれら全項目（packageVersion 自身を除く）の canonical
@@ -56,7 +57,7 @@ public record ListeningPackageView(
 
     /** 現在配布する Manifest の schema 版と互換範囲。 */
     static final Contract CURRENT_CONTRACT = new Contract(
-            2,
+            3,
             new AppVersionRange(
                     List.of(
                             1,
@@ -139,8 +140,21 @@ public record ListeningPackageView(
         return new Album(
                 rows.getFirst().albumId(),
                 rows.getFirst().albumTitle(),
+                presentationOf(rows.getFirst()),
                 Optional.ofNullable(rows.getFirst().artworkKey()),
                 tracksOf(rows, separator));
+    }
+
+    /** 説明文は原文と形式の組でだけ持つ。原文が無ければ形式も載せない。 */
+    private static Presentation presentationOf(ListeningPackageRow row) {
+        return new Presentation(
+                row.artistDisplayName(),
+                Optional.ofNullable(row.releaseDate())
+                        .map(LocalDate::toString),
+                Optional.ofNullable(row.catalogNumber()),
+                Optional.ofNullable(row.description())
+                        .map(text -> new Description(text, row.descriptionFormat())),
+                Optional.ofNullable(row.originalWorkNote()));
     }
 
     private static List<Track> tracksOf(List<ListeningPackageRow> rows, String separator) {
@@ -273,15 +287,30 @@ public record ListeningPackageView(
         return Stream.of(Integer.toString(number));
     }
 
-    /** artwork の有無は要素数 0 か 1 の並びで表し、空文字列の曲名などと混ざらないようにする。 */
+    /**
+     * 任意項目（表示情報・artwork）の有無は要素数 0 か 1 の並びで表す。値の無い項目と空文字列の値を区別し、 隣の項目と混ざらないようにする。
+     */
     private static Stream<String> fieldsOf(Album album) {
         return Stream.of(
                 Stream.of(
                         "album",
                         album.albumId(),
                         album.title()),
+                fieldsOf(album.presentation()),
                 sequenceOf(album.artworkAssetId().stream().toList(), Stream::of),
                 sequenceOf(album.tracks(), ListeningPackageView::fieldsOf))
+                .flatMap(stream -> stream);
+    }
+
+    private static Stream<String> fieldsOf(Presentation presentation) {
+        return Stream.of(
+                Stream.of(presentation.artistDisplayName()),
+                sequenceOf(presentation.releaseDate().stream().toList(), Stream::of),
+                sequenceOf(presentation.catalogNumber().stream().toList(), Stream::of),
+                sequenceOf(
+                        presentation.description().stream().toList(),
+                        description -> Stream.of(description.text(), description.format())),
+                sequenceOf(presentation.originalWorkNote().stream().toList(), Stream::of))
                 .flatMap(stream -> stream);
     }
 
@@ -345,8 +374,40 @@ public record ListeningPackageView(
     public record Album(
             String albumId,
             String title,
+            Presentation presentation,
             Optional<String> artworkAssetId,
             List<Track> tracks) {
+    }
+
+    /**
+     * 作品の表示情報。canonical な Album の事実だけを持ち、layout・scene・effect は持たない。値の無い項目は空。
+     *
+     * @param artistDisplayName
+     *            作品の名義
+     * @param releaseDate
+     *            リリース日（ISO-8601 の日付）
+     * @param catalogNumber
+     *            カタログナンバー
+     * @param description
+     *            説明文の原文と形式。HTML にはしない
+     * @param originalWorkNote
+     *            原作の出典の記述
+     */
+    public record Presentation(
+            String artistDisplayName,
+            Optional<String> releaseDate,
+            Optional<String> catalogNumber,
+            Optional<Description> description,
+            Optional<String> originalWorkNote) {
+    }
+
+    /**
+     * @param text
+     *            説明文の原文
+     * @param format
+     *            {@code PLAIN_TEXT} / {@code MARKDOWN}
+     */
+    public record Description(String text, String format) {
     }
 
     public record Track(

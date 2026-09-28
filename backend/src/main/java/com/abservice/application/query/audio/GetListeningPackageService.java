@@ -11,7 +11,7 @@ import lombok.AllArgsConstructor;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
- * 認証した端末へ渡す配布パッケージの照会。1問い合わせの snapshot から Manifest v2 の内容を組む。
+ * 認証した端末へ渡す配布パッケージの照会。1問い合わせの snapshot から Manifest v3 の内容を組む。
  * 機能無効時は未存在として扱う。取得URLはここでは解決しない。
  */
 @ApplicationScoped

@@ -10,6 +10,8 @@ import {
 } from './common';
 import { manifestV2Schema } from './v2';
 import type { InstallationManifestV2, PlaybackItem } from './v2';
+import { manifestV3Schema } from './v3';
+import type { InstallationManifestV3 } from './v3';
 export { projectManifestV2 } from './v2';
 export type {
   InstallationManifestV2,
@@ -17,6 +19,7 @@ export type {
   ManifestProjectionV2Result,
   PlaybackItem,
 } from './v2';
+export type { InstallationManifestV3 } from './v3';
 const track = z
   .object({
     trackId: id,
@@ -108,15 +111,16 @@ export type InstallationManifestV1 = z.infer<typeof manifestSchema>;
 
 /** schemaを判別して扱う配布snapshot。読み取り時に保存物のschemaやIDを書き換えない。 */
 export type InstallationManifest =
-  InstallationManifestV1 | InstallationManifestV2;
+  | InstallationManifestV1
+  | InstallationManifestV2
+  | InstallationManifestV3;
 
-/** 両schemaを同じ選択境界へ写す。v1のみ、従来のselect呼び出しを保つため項目IDにtrackIdを使う。 */
+/** 各schemaを同じ選択境界へ写す。v2/v3は明示の再生項目、v1のみ従来のselect呼び出しを保つため項目IDにtrackIdを使う。 */
 export const getPlaybackItems = (
   manifest: InstallationManifest,
 ): readonly PlaybackItem[] =>
-  manifest.schemaVersion === 2
-    ? manifest.playbackItems
-    : Object.freeze(
+  manifest.schemaVersion === 1
+    ? Object.freeze(
         manifest.albums.flatMap((album) =>
           album.tracks.map((track) =>
             Object.freeze({
@@ -132,7 +136,8 @@ export const getPlaybackItems = (
             }),
           ),
         ),
-      );
+      )
+    : manifest.playbackItems;
 
 /** schemaVersion未対応と、不正な内容を分ける。成功値は入れ子もreadonlyなsnapshot。 */
 export type ManifestResult =
@@ -145,12 +150,15 @@ export const parseManifest = (input: unknown): ManifestResult => {
   const envelope = z
     .object({ schemaVersion: z.number().int() })
     .safeParse(input);
+  const version = envelope.success ? envelope.data.schemaVersion : undefined;
   const parsed =
-    envelope.success && envelope.data.schemaVersion === 2
-      ? manifestV2Schema.safeParse(input)
-      : manifestSchema.safeParse(input);
+    version === 3
+      ? manifestV3Schema.safeParse(input)
+      : version === 2
+        ? manifestV2Schema.safeParse(input)
+        : manifestSchema.safeParse(input);
   return envelope.success &&
-    [1, 2].every((supported) => envelope.data.schemaVersion !== supported)
+    [1, 2, 3].every((supported) => envelope.data.schemaVersion !== supported)
     ? { kind: 'unsupported-schema' }
     : parsed.success
       ? { kind: 'manifest', manifest: parsed.data }

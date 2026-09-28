@@ -1,5 +1,6 @@
 package com.abservice.infrastructure.persistence.datasource;
 
+import java.time.LocalDate;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
@@ -17,6 +18,18 @@ import org.jspecify.annotations.Nullable;
  *            作品のドメインID
  * @param albumTitle
  *            作品名
+ * @param artistDisplayName
+ *            作品の名義
+ * @param releaseDate
+ *            リリース日（未入力なら null）
+ * @param catalogNumber
+ *            カタログナンバー（未付与なら null）
+ * @param description
+ *            作品の説明文の原文（未入力なら null）
+ * @param descriptionFormat
+ *            説明文の形式（{@code PLAIN_TEXT} / {@code MARKDOWN}）
+ * @param originalWorkNote
+ *            原作の出典の記述（未入力なら null）
  * @param audioId
  *            確定済みクロスフェード音源のID
  * @param byteLength
@@ -49,6 +62,12 @@ import org.jspecify.annotations.Nullable;
 public record ListeningPackageRow(
         String albumId,
         String albumTitle,
+        String artistDisplayName,
+        @Nullable LocalDate releaseDate,
+        @Nullable String catalogNumber,
+        @Nullable String description,
+        String descriptionFormat,
+        @Nullable String originalWorkNote,
         UUID audioId,
         long byteLength,
         String sha256,

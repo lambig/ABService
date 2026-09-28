@@ -8,7 +8,7 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
- * 端末へ渡す Manifest v2（{@code packages/installation} の schema v2 と同じ項目だけを持つ）。
+ * 端末へ渡す Manifest v3（{@code packages/installation} の schema v3 と同じ項目だけを持つ）。
  *
  * <p>
  * {@link ListeningPackageView} を1対1で写す。値をここで足したり変えたりすると packageVersion
@@ -107,13 +107,24 @@ public record ListeningPackageResponse(
     }
 
     /**
-     * artwork が無い作品では {@code artworkAssetId} の項目自体を出さない（schema は項目の省略だけを許し、null
-     * を拒む）。
+     * 値の無い任意項目（表示情報と artwork）は項目自体を出さない（schema は項目の省略だけを許し、null を拒む）。
      *
      * @param albumId
      *            作品のドメインID
      * @param title
      *            作品名
+     * @param artistDisplayName
+     *            作品の名義
+     * @param releaseDate
+     *            リリース日（ISO-8601 の日付）。未入力なら省略
+     * @param catalogNumber
+     *            カタログナンバー。未付与なら省略
+     * @param description
+     *            作品の説明文の原文。HTML にはしない。未入力なら省略
+     * @param descriptionFormat
+     *            説明文の形式（{@code PLAIN_TEXT} / {@code MARKDOWN}）。説明文が無ければ省略
+     * @param originalWorkNote
+     *            原作の出典の記述。未入力なら省略
      * @param artworkAssetId
      *            カバー画像の assetId。確定済みで実測値を持つ画像が無ければ省略
      * @param tracks
@@ -122,12 +133,29 @@ public record ListeningPackageResponse(
     public record ListeningAlbumResponse(
             String albumId,
             String title,
+            String artistDisplayName,
+            @JsonInclude(JsonInclude.Include.NON_NULL) @Nullable String releaseDate,
+            @JsonInclude(JsonInclude.Include.NON_NULL) @Nullable String catalogNumber,
+            @JsonInclude(JsonInclude.Include.NON_NULL) @Nullable String description,
+            @JsonInclude(JsonInclude.Include.NON_NULL) @Nullable String descriptionFormat,
+            @JsonInclude(JsonInclude.Include.NON_NULL) @Nullable String originalWorkNote,
             @JsonInclude(JsonInclude.Include.NON_NULL) @Nullable String artworkAssetId,
             List<ListeningTrackResponse> tracks) {
         private static ListeningAlbumResponse of(ListeningPackageView.Album album) {
+            final var presentation = album.presentation();
             return new ListeningAlbumResponse(
                     album.albumId(),
                     album.title(),
+                    presentation.artistDisplayName(),
+                    presentation.releaseDate().orElse(null),
+                    presentation.catalogNumber().orElse(null),
+                    presentation.description()
+                            .map(ListeningPackageView.Description::text)
+                            .orElse(null),
+                    presentation.description()
+                            .map(ListeningPackageView.Description::format)
+                            .orElse(null),
+                    presentation.originalWorkNote().orElse(null),
                     album.artworkAssetId().orElse(null),
                     toList(ListeningTrackResponse::of)
                             .apply(album.tracks()));

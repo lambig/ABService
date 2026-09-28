@@ -10,6 +10,8 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 
 import com.abservice.test.CleanDatabase;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;
@@ -19,13 +21,19 @@ import io.restassured.http.ContentType;
 import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
+import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.sql.DriverManager;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 import org.eclipse.microprofile.config.ConfigProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -89,7 +97,7 @@ class ListeningPackageRestIntegrationTest {
 
         final var response = asDevice(token).get(PACKAGE).then().statusCode(200).contentType(ContentType.JSON)
                 .header("Cache-Control", "no-store")
-                .body("schemaVersion", equalTo(2))
+                .body("schemaVersion", equalTo(3))
                 .body("compatibleAppVersion.minInclusive", equalTo(MIN_APP_VERSION))
                 .body("compatibleAppVersion.maxExclusive", equalTo(MAX_APP_VERSION))
                 .body("presentationAssetIds", hasSize(0))
@@ -191,6 +199,83 @@ class ListeningPackageRestIntegrationTest {
                                 300,
                                 200,
                                 100));
+    }
+
+    @Test
+    @DisplayName("作品の表示情報を schema v3 で配布し、応答の形は端末側の見本 JSON と一致し、値の無い項目は省く")
+    void distributesPresentationMetadataInTheSharedShape() throws Exception {
+        final String token = device();
+        final String artwork = confirmedImage();
+        final String full = albumWithTracks(
+                "表示情報あり",
+                "\"coverImageKey\":\"" + artwork + "\",\"catalogNumber\":\"AB-001\","
+                        + "\"description\":\"説明文\\n\\n## 補足\",\"descriptionFormat\":\"MARKDOWN\","
+                        + "\"originalWorkNote\":\"原作の出典\",");
+        final String bare = authorized().contentType(ContentType.JSON)
+                .body(
+                        "{\"title\":\"表示情報なし\",\"releaseDate\":\"2026-01-01\",\"artistDisplayName\":\"名義のみ\","
+                                + "\"tracks\":[{\"title\":\"曲\"}]}")
+                .post("/api/v1/albums/with-tracks").then().statusCode(201).extract().path("albumId");
+        clearReleaseDate(bare);
+        assign(
+                full,
+                confirmed(100, "a"),
+                0);
+        assign(
+                bare,
+                confirmed(200, "b"),
+                0);
+        publish(full);
+        publish(bare);
+
+        final var response = asDevice(token).get(PACKAGE).then().statusCode(200)
+                .body("schemaVersion", equalTo(3))
+                .body("albums.find { it.albumId == '" + full + "' }.artistDisplayName", equalTo("Fixture"))
+                .body("albums.find { it.albumId == '" + full + "' }.releaseDate", equalTo("2026-01-01"))
+                .body("albums.find { it.albumId == '" + full + "' }.catalogNumber", equalTo("AB-001"))
+                .body("albums.find { it.albumId == '" + full + "' }.description", equalTo("説明文\n\n## 補足"))
+                .body("albums.find { it.albumId == '" + full + "' }.descriptionFormat", equalTo("MARKDOWN"))
+                .body("albums.find { it.albumId == '" + full + "' }.originalWorkNote", equalTo("原作の出典"))
+                .body("albums.find { it.albumId == '" + bare + "' }.artistDisplayName", equalTo("名義のみ"))
+                .extract();
+        final Map<String, Object> bareAlbum = response.path("albums.find { it.albumId == '" + bare + "' }");
+        assertThat(bareAlbum).doesNotContainKeys(
+                "releaseDate",
+                "catalogNumber",
+                "description",
+                "descriptionFormat",
+                "originalWorkNote",
+                "artworkAssetId");
+        assertThat(bareAlbum).doesNotContainValue(null);
+
+        final var mapper = new ObjectMapper();
+        final JsonNode actual = mapper.readTree(response.asString());
+        final JsonNode example = mapper.readTree(
+                Path.of("../packages/installation/fixtures/manifest-v3.example.json")
+                        .toFile());
+        final var fullAlbum = StreamSupport.stream(actual.path("albums").spliterator(), false)
+                .filter(album -> full.equals(album.path("albumId").asText()))
+                .findFirst().orElseThrow();
+        assertThat(keyPaths(fullAlbum, "")).as("表示情報をすべて持つ作品のキー構成は見本と一致する")
+                .isEqualTo(keyPaths(example.path("albums").get(0), ""));
+        assertThat(keyPaths(actual, "")).as("パッケージ全体のキー構成は見本と一致する")
+                .isEqualTo(keyPaths(example, ""));
+    }
+
+    /** 配列は添字を除いて「[]」にまとめたキーの経路の集合。値の違いは無視し、形だけを比べる。 */
+    private static Set<String> keyPaths(JsonNode node, String prefix) {
+        return node.isObject()
+                ? node.properties().stream()
+                        .flatMap(
+                                entry -> Stream.concat(
+                                        Stream.of(prefix + entry.getKey()),
+                                        keyPaths(entry.getValue(), prefix + entry.getKey() + ".").stream()))
+                        .collect(Collectors.toCollection(TreeSet::new))
+                : node.isArray()
+                        ? StreamSupport.stream(node.spliterator(), false)
+                                .flatMap(element -> keyPaths(element, prefix + "[].").stream())
+                                .collect(Collectors.toCollection(TreeSet::new))
+                        : new TreeSet<>();
     }
 
     @Test
@@ -324,6 +409,20 @@ class ListeningPackageRestIntegrationTest {
 
     private static String sha256Of(byte[] bytes) throws Exception {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+    }
+
+    /** 登録APIはリリース日を必須にするが列はnullableのため、未入力の既存行を再現してリリース日を消す。 */
+    private static void clearReleaseDate(String albumDomainId) throws Exception {
+        final var config = ConfigProvider.getConfig();
+        try (var connection = DriverManager.getConnection(
+                config.getValue("quarkus.datasource.jdbc.url", String.class),
+                config.getValue("quarkus.datasource.username", String.class),
+                config.getValue("quarkus.datasource.password", String.class));
+                var statement = connection.prepareStatement(
+                        "UPDATE album SET release_date = NULL WHERE domain_id = ?")) {
+            statement.setString(1, albumDomainId);
+            assertThat(statement.executeUpdate()).isEqualTo(1);
+        }
     }
 
     /** FLAC実体の検査は基盤の統合試験で扱い、本試験は確定後の配布契約を検査する。 */

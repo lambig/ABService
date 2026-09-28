@@ -32,7 +32,9 @@ public class ListeningPackageDataSource {
     private static final String DISTRIBUTABLE = "a.publishedAt IS NOT NULL AND r.state = 'CONFIRMED'";
     private static final String SNAPSHOT = """
             SELECT new com.abservice.infrastructure.persistence.datasource.ListeningPackageRow(
-                a.domainId, a.title, r.audioId, r.byteLength, r.sha256, r.sampleRate, r.totalSamples,
+                a.domainId, a.title, a.artistDisplayName, a.releaseDate, a.catalogNumber,
+                a.description, a.descriptionFormat, a.originalWorkNote,
+                r.audioId, r.byteLength, r.sha256, r.sampleRate, r.totalSamples,
                 p.assetKey, p.contentType, p.byteLength, p.sha256,
                 t.domainId, t.trackNo, t.title, tt.id.seq, tt.tuneTitle)
             """ + DISTRIBUTABLE_ALBUMS + """

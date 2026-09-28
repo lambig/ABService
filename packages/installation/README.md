@@ -1,6 +1,18 @@
 # Installation contracts (#292)
 
-## 新規配布: schema v2
+## 現行配布: schema v3
+
+backend の配布応答（`GET /api/v1/listening/package`）が返す形。v2 の再生項目・asset・検査規則をそのまま使い、Album に作品の表示情報を足す（#476）。
+
+- `artistDisplayName` は必須。`releaseDate`（`YYYY-MM-DD`）・`catalogNumber`・`description` と `descriptionFormat`（`PLAIN_TEXT` / `MARKDOWN`、2つで一組）・`originalWorkNote` は任意。
+- 値の無い任意項目はキーごと省き、`null` を拒否する。空文字列は canonical な値として受け付ける。
+- 説明文は原文と形式のまま持ち、HTML にしない。描画は端末側が既存の markup 規則で行う。本文中の差し込み画像は asset に含めない。
+- layout・scene・effect などの見せ方は持たない。未知の項目は v2 と同じく拒否する。
+- 形の見本は `fixtures/manifest-v3.example.json`。backend の統合試験も同じ見本とキー構成を照合する。
+
+v3 は backend が組むため、TS 側の projection は持たない。`parseManifest` は v1〜v3 を判別し、`getPlaybackItems` は v2 と v3 を同じく扱う。
+
+## schema v2
 
 `projectManifestV2(unknown)` で作品情報と再生項目を分離する。
 `albums[].tracks` はcanonicalな `trackId / trackNo / title` の説明情報で、音源を要求しない。
