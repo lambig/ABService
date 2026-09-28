@@ -111,7 +111,7 @@ describe('installation readiness', () => {
     ).toMatchObject({ offlineReady: false, packageComplete: true });
   });
   it('未対応schemaと不正manifestを分ける', () => {
-    expect(parseManifest({ ...manifest, schemaVersion: 3 })).toEqual({
+    expect(parseManifest({ ...manifest, schemaVersion: 4 })).toEqual({
       kind: 'unsupported-schema',
     });
     expect(parseManifest(null)).toMatchObject({ kind: 'invalid-manifest' });

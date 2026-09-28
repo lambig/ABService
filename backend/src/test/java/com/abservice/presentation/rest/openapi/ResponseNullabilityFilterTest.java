@@ -23,6 +23,12 @@ class ResponseNullabilityFilterTest {
                 List.of(
                         "albumId",
                         "title",
+                        "artistDisplayName",
+                        "releaseDate",
+                        "catalogNumber",
+                        "description",
+                        "descriptionFormat",
+                        "originalWorkNote",
                         "artworkAssetId",
                         "tracks"));
         filter(
@@ -35,9 +41,19 @@ class ResponseNullabilityFilterTest {
         assertThat(album.getRequired()).containsExactlyInAnyOrder(
                 "albumId",
                 "title",
+                "artistDisplayName",
                 "tracks");
-        assertThat(album.getProperties().get("artworkAssetId").getType())
-                .containsExactly(Schema.SchemaType.STRING);
+        List.of(
+                "releaseDate",
+                "catalogNumber",
+                "description",
+                "descriptionFormat",
+                "originalWorkNote",
+                "artworkAssetId")
+                .forEach(
+                        property -> assertThat(album.getProperties().get(property).getType())
+                                .as(property)
+                                .containsExactly(Schema.SchemaType.STRING));
     }
 
     @Test

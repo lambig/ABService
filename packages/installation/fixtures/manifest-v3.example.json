@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 3,
+  "packageVersion": "0000000000000000000000000000000000000000000000000000000000000000",
+  "compatibleAppVersion": {
+    "minInclusive": [1, 10, 0],
+    "maxExclusive": [2, 0, 0]
+  },
+  "presentationAssetIds": ["0192f8a0-0000-7000-8000-000000000010.png"],
+  "assets": [
+    {
+      "assetId": "0192f8a0-0000-7000-8000-000000000001",
+      "mediaType": "audio/flac",
+      "byteLength": 1024,
+      "checksum": {
+        "algorithm": "sha256",
+        "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "required": true
+    },
+    {
+      "assetId": "0192f8a0-0000-7000-8000-000000000010.png",
+      "mediaType": "image/png",
+      "byteLength": 256,
+      "checksum": {
+        "algorithm": "sha256",
+        "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "required": true
+    }
+  ],
+  "albums": [
+    {
+      "albumId": "0192f8a0-0000-7000-8000-000000000100",
+      "title": "見本の作品",
+      "artistDisplayName": "見本の名義",
+      "releaseDate": "2026-01-01",
+      "catalogNumber": "AB-001",
+      "description": "見本の説明文。\n\n## 補足\n\n段落が続く。",
+      "descriptionFormat": "MARKDOWN",
+      "originalWorkNote": "見本の原作の出典",
+      "artworkAssetId": "0192f8a0-0000-7000-8000-000000000010.png",
+      "tracks": [
+        {
+          "trackId": "0192f8a0-0000-7000-8000-000000000200",
+          "trackNo": 1,
+          "title": "1曲目"
+        }
+      ]
+    }
+  ],
+  "playbackItems": [
+    {
+      "playbackItemId": "album-crossfade:0192f8a0-0000-7000-8000-000000000100",
+      "kind": "album-crossfade",
+      "albumId": "0192f8a0-0000-7000-8000-000000000100",
+      "title": "見本の作品",
+      "audioAssetId": "0192f8a0-0000-7000-8000-000000000001",
+      "durationSeconds": 1.0
+    }
+  ]
+}

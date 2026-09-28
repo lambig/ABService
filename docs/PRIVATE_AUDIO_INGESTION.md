@@ -34,7 +34,8 @@ CDIの実行入口は明示的に有効化したときだけ専用資源を生�
 ## 配布パッケージ（#475 B）
 
 `GET /api/v1/listening/package` は `listener` ロールだけに開く。管理者は403、未認証は401、機能無効時は404。
-応答は `packages/installation` の schema v2 と同じ項目だけを持つ Manifest で、端末側の厳密な検証がそのまま通る。
+応答は `packages/installation` の schema v3 と同じ項目だけを持つ Manifest で、端末側の厳密な検証がそのまま通る。
+応答の形は `packages/installation/fixtures/manifest-v3.example.json` を見本とし、端末側の単体試験と backend の統合試験が同じ見本と照合する。
 `ETag` に `packageVersion` を載せ、`Cache-Control: no-store` で中継やブラウザに残さない。
 
 対象は公開済みの作品のうち、CONFIRMED のクロスフェードが関連付いているもの。下書きは含めず、関連付けの無い作品も含めない。
@@ -45,6 +46,7 @@ CDIの実行入口は明示的に有効化したときだけ専用資源を生�
 | --- | --- |
 | `packageVersion` | `packageVersion` 自身を除く Manifest の内容全体（schema 版・互換範囲・表示素材・音源・作品・曲・再生項目の並びと値）の SHA-256。同じ内容なら同じ値、どれか1つでも変われば別の値。時刻や乱数を含まない |
 | `compatibleAppVersion` | `[1,10,0]` 以上 `[2,0,0]` 未満 |
+| `albums[]` の表示情報 | canonical な Album の `artistDisplayName`（必須）と、任意の `releaseDate`・`catalogNumber`・`description` と `descriptionFormat`（一組）・`originalWorkNote`。値の無い任意項目はキーごと省き、空文字列は値として載せる。説明文は原文と形式（`PLAIN_TEXT` / `MARKDOWN`）のまま載せ、HTML にしない。本文中の差し込み画像は asset に含めない |
 | `albums[].tracks[]` | canonical な Track の ID・曲順・曲名。曲名が無ければ公開サイトと同じ規則でチューン名から組む。音源を要求しない |
 | `albums[].artworkAssetId` | カバー画像の assetId（配信キー）。確定時に実測値を記録した画像だけを載せ、無い作品では項目自体を省く（schema は null を拒む） |
 | `assets[]` | 音源は登録IDを assetId とし、byteLength・SHA-256 は登録テーブルの確定値で `audio/flac`。表示素材は配信キーを assetId とし、byteLength・SHA-256 は確定時に保管先が計算した値で画像の Content-Type。いずれも `required: true`。同じ実体は1件 |

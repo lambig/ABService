@@ -279,7 +279,7 @@ describe('schema v2 playback items', () => {
         ],
       }),
     ).toMatchObject({ kind: 'invalid-manifest' });
-    expect(parseManifest({ ...manifest, schemaVersion: 3 })).toEqual({
+    expect(parseManifest({ ...manifest, schemaVersion: 4 })).toEqual({
       kind: 'unsupported-schema',
     });
     expect(

@@ -3,7 +3,9 @@ package com.abservice.application.query.audio;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.abservice.infrastructure.persistence.datasource.ListeningPackageRow;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.DisplayName;
@@ -125,7 +127,7 @@ class ListeningPackageViewTest {
     @DisplayName("版は Manifest の内容全体を表し、schema の版や互換範囲が変わっても別の版になる")
     void fingerprintsContractAsWell() {
         final var current = ListeningPackageView.of(rows(), SEPARATOR);
-        assertThat(current.schemaVersion()).isEqualTo(2);
+        assertThat(current.schemaVersion()).isEqualTo(3);
         assertThat(current.compatibleAppVersion()).isEqualTo(
                 new ListeningPackageView.AppVersionRange(
                         List.of(
@@ -138,7 +140,7 @@ class ListeningPackageViewTest {
                                 0)));
         assertThat(current.presentationAssetIds()).isEmpty();
         final var nextSchema = ListeningPackageView.of(
-                new ListeningPackageView.Contract(3, current.compatibleAppVersion()),
+                new ListeningPackageView.Contract(4, current.compatibleAppVersion()),
                 rows(),
                 SEPARATOR);
         final var widerRange = ListeningPackageView.of(
@@ -155,6 +157,158 @@ class ListeningPackageViewTest {
         assertThat(nextSchema.albums()).isEqualTo(current.albums());
         assertThat(nextSchema.packageVersion()).isNotEqualTo(current.packageVersion());
         assertThat(widerRange.packageVersion()).isNotIn(current.packageVersion(), nextSchema.packageVersion());
+    }
+
+    @Test
+    @DisplayName("作品の表示情報を持ち、各項目の変更・値なしと空文字の違いで版が変わり、説明文が無ければ形式を持たない")
+    void fingerprintsPresentationMetadata() {
+        final var base = PresentationFields.BASE;
+        final var view = withPresentation(base);
+        assertThat(view.schemaVersion()).isEqualTo(3);
+        assertThat(view.albums().getFirst().presentation()).isEqualTo(
+                new ListeningPackageView.Presentation(
+                        "Artist",
+                        Optional.of("2026-01-01"),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+        assertThat(withPresentation(base.format("MARKDOWN")).packageVersion())
+                .as("説明文が無ければ形式は内容に入らない").isEqualTo(view.packageVersion());
+
+        final var variants = List.of(
+                base,
+                base.artist("Other artist"),
+                base.releaseDate(null),
+                base.catalogNumber("AB-001"),
+                base.catalogNumber(""),
+                base.description("説明"),
+                base.description("説明").format("MARKDOWN"),
+                base.description(""),
+                base.note("出典"),
+                base.note(""));
+        final var versions = variants.stream()
+                .map(fields -> withPresentation(fields).packageVersion())
+                .distinct()
+                .toList();
+        assertThat(versions).hasSize(variants.size());
+        assertThat(
+                withPresentation(base.description("説明").format("MARKDOWN")).albums().getFirst()
+                        .presentation().description())
+                .contains(new ListeningPackageView.Description("説明", "MARKDOWN"));
+    }
+
+    private static ListeningPackageView withPresentation(PresentationFields fields) {
+        return ListeningPackageView.of(
+                rows().stream()
+                        .map(row -> withPresentation(row, fields))
+                        .toList(),
+                SEPARATOR);
+    }
+
+    private static ListeningPackageRow withPresentation(ListeningPackageRow row, PresentationFields fields) {
+        return new ListeningPackageRow(
+                row.albumId(),
+                row.albumTitle(),
+                fields.artist(),
+                fields.releaseDate(),
+                fields.catalogNumber(),
+                fields.description(),
+                fields.format(),
+                fields.note(),
+                row.audioId(),
+                row.byteLength(),
+                row.sha256(),
+                row.sampleRate(),
+                row.totalSamples(),
+                row.artworkKey(),
+                row.artworkContentType(),
+                row.artworkByteLength(),
+                row.artworkSha256(),
+                row.trackId(),
+                row.trackNo(),
+                row.trackTitle(),
+                row.tuneSeq(),
+                row.tuneTitle());
+    }
+
+    /** 表示情報の列の組。各メソッドは1項目だけを差し替えた組を返す。 */
+    private record PresentationFields(
+            String artist,
+            @Nullable LocalDate releaseDate,
+            @Nullable String catalogNumber,
+            @Nullable String description,
+            String format,
+            @Nullable String note) {
+        private static final PresentationFields BASE = new PresentationFields(
+                "Artist",
+                LocalDate.of(
+                        2026,
+                        1,
+                        1),
+                null,
+                null,
+                "PLAIN_TEXT",
+                null);
+
+        private PresentationFields artist(String value) {
+            return new PresentationFields(
+                    value,
+                    releaseDate,
+                    catalogNumber,
+                    description,
+                    format,
+                    note);
+        }
+
+        private PresentationFields releaseDate(@Nullable LocalDate value) {
+            return new PresentationFields(
+                    artist,
+                    value,
+                    catalogNumber,
+                    description,
+                    format,
+                    note);
+        }
+
+        private PresentationFields catalogNumber(@Nullable String value) {
+            return new PresentationFields(
+                    artist,
+                    releaseDate,
+                    value,
+                    description,
+                    format,
+                    note);
+        }
+
+        private PresentationFields description(@Nullable String value) {
+            return new PresentationFields(
+                    artist,
+                    releaseDate,
+                    catalogNumber,
+                    value,
+                    format,
+                    note);
+        }
+
+        private PresentationFields format(String value) {
+            return new PresentationFields(
+                    artist,
+                    releaseDate,
+                    catalogNumber,
+                    description,
+                    value,
+                    note);
+        }
+
+        private PresentationFields note(@Nullable String value) {
+            return new PresentationFields(
+                    artist,
+                    releaseDate,
+                    catalogNumber,
+                    description,
+                    format,
+                    value);
+        }
     }
 
     private static List<ListeningPackageRow> rows() {
@@ -196,6 +350,15 @@ class ListeningPackageViewTest {
         return new ListeningPackageRow(
                 album.albumId(),
                 album.title(),
+                "Artist of " + album.albumId(),
+                LocalDate.of(
+                        2026,
+                        1,
+                        1),
+                null,
+                null,
+                "PLAIN_TEXT",
+                null,
                 album.audioId(),
                 110_250L,
                 "a".repeat(64),
@@ -216,6 +379,15 @@ class ListeningPackageViewTest {
         return new ListeningPackageRow(
                 album.albumId(),
                 album.title(),
+                "Artist of " + album.albumId(),
+                LocalDate.of(
+                        2026,
+                        1,
+                        1),
+                null,
+                null,
+                "PLAIN_TEXT",
+                null,
                 album.audioId(),
                 110_250L,
                 "a".repeat(64),
@@ -236,6 +408,12 @@ class ListeningPackageViewTest {
         return new ListeningPackageRow(
                 row.albumId(),
                 row.albumTitle(),
+                row.artistDisplayName(),
+                row.releaseDate(),
+                row.catalogNumber(),
+                row.description(),
+                row.descriptionFormat(),
+                row.originalWorkNote(),
                 audioId,
                 row.byteLength(),
                 row.sha256(),
@@ -272,6 +450,12 @@ class ListeningPackageViewTest {
         return new ListeningPackageRow(
                 row.albumId(),
                 row.albumTitle(),
+                row.artistDisplayName(),
+                row.releaseDate(),
+                row.catalogNumber(),
+                row.description(),
+                row.descriptionFormat(),
+                row.originalWorkNote(),
                 row.audioId(),
                 row.byteLength(),
                 row.sha256(),

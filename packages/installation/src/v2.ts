@@ -55,42 +55,53 @@ const projectionPackageShape = {
   playbackItems: z.array(playbackItem).readonly(),
 };
 
-export const manifestV2Schema = z
-  .strictObject({
-    ...projectionPackageShape,
-    compatibleAppVersion: packageShape.compatibleAppVersion
-      .unwrap()
-      .strict()
-      .readonly(),
-    assets: z
-      .array(
-        projectionAsset
-          .extend({
-            checksum: sha256Checksum.strict().readonly(),
-          })
-          .strict()
-          .readonly(),
-      )
-      .readonly(),
-    schemaVersion: z.literal(2),
-    albums: z
-      .array(
-        metadataAlbum
-          .unwrap()
-          .extend({
-            artworkAssetId: id.optional(),
-            tracks: z
-              .array(metadataTrack.unwrap().strict().readonly())
-              .readonly(),
-          })
-          .strict()
-          .readonly(),
-      )
-      .readonly(),
+/** 配布 snapshot の Album（v2）。v3 はこれに作品の表示情報を足す。 */
+export const distributedAlbumV2 = metadataAlbum
+  .unwrap()
+  .extend({
+    artworkAssetId: id.optional(),
+    tracks: z.array(metadataTrack.unwrap().strict().readonly()).readonly(),
   })
+  .strict();
+
+/** 検査を掛ける前の v2 の形。v3 は schemaVersion と Album を差し替えて使う。 */
+export const manifestV2Object = z.strictObject({
+  ...projectionPackageShape,
+  compatibleAppVersion: packageShape.compatibleAppVersion
+    .unwrap()
+    .strict()
+    .readonly(),
+  assets: z
+    .array(
+      projectionAsset
+        .extend({
+          checksum: sha256Checksum.strict().readonly(),
+        })
+        .strict()
+        .readonly(),
+    )
+    .readonly(),
+  schemaVersion: z.literal(2),
+  albums: z.array(distributedAlbumV2.readonly()).readonly(),
+});
+
+/** v2 以降の配布 snapshot が共通に持つ構造。schemaVersion と Album の追加項目は版ごとに異なる。 */
+export type DistributedManifestCore = Omit<
+  z.output<typeof manifestV2Object>,
+  'schemaVersion'
+>;
+
+/** 配布 snapshot の参照・一意性・互換範囲の検査。v2 と v3 で同じ規則を使う。 */
+export const withDistributedChecks = <
+  T extends z.ZodType<DistributedManifestCore>,
+>(
+  schema: T,
+  label: string,
+) =>
+  schema
   .refine(
     (m) => compare(m.compatibleAppVersion.minInclusive, [1, 10, 0]) >= 0,
-    'schema v2 requires app >= 1.10.0',
+    `${label} requires app >= 1.10.0`,
   )
   .refine(
     (m) =>
@@ -158,6 +169,11 @@ export const manifestV2Schema = z
     'dangling asset reference',
   )
   .readonly();
+
+export const manifestV2Schema = withDistributedChecks(
+  manifestV2Object,
+  'schema v2',
+);
 
 /** schema v2: 収録曲の説明情報と配布する再生項目を分離したsnapshot。 */
 export type InstallationManifestV2 = z.infer<typeof manifestV2Schema>;

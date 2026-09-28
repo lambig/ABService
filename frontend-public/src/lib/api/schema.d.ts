@@ -3961,6 +3961,12 @@ export interface components {
         ListeningAlbumResponse: {
             albumId: string;
             title: string;
+            artistDisplayName: string;
+            releaseDate?: string;
+            catalogNumber?: string;
+            description?: string;
+            descriptionFormat?: string;
+            originalWorkNote?: string;
             artworkAssetId?: string;
             tracks: components["schemas"]["ListeningTrackResponse"][];
         };
