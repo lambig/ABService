@@ -84,8 +84,9 @@ class PublicDataGenerationIntegrationTest {
                         SELECT count(*) FROM pg_tables t
                         WHERE schemaname = 'public'
                           AND tablename NOT IN ('flyway_schema_history', 'public_data_generation',
-                                                -- 非公開の登録状態・試聴選択は公開Queryの依存対象外。
-                                                'private_audio_registration', 'album_crossfade')
+                                                -- 非公開の登録状態・試聴選択・端末資格情報は公開Queryの依存対象外。
+                                                'private_audio_registration', 'album_crossfade',
+                                                'listening_device')
                           AND NOT EXISTS (
                             SELECT 1 FROM pg_trigger g
                             WHERE g.tgrelid = ('public.' || t.tablename)::regclass
@@ -107,6 +108,22 @@ class PublicDataGenerationIntegrationTest {
                     VALUES (gen_random_uuid(), clock_timestamp() + interval '1 hour')
                     """);
             statement.execute("DELETE FROM private_audio_registration");
+            assertThat(generation()).isEqualTo(initial);
+        }
+    }
+
+    @Test
+    @DisplayName("試聴端末の資格情報の発行・失効・削除は公開Queryの世代を変更しない")
+    void listeningDeviceDoesNotAdvancePublicGeneration() throws SQLException {
+        final String initial = generation();
+        try (var connection = connection(); var statement = connection.createStatement()) {
+            statement.execute("""
+                    INSERT INTO listening_device (device_id, label, token_digest, expires_at)
+                    VALUES (gen_random_uuid(), 'fixture', repeat('a', 64), clock_timestamp() + interval '1 day')
+                    """);
+            assertThat(statement.executeUpdate("UPDATE listening_device SET revoked_at = clock_timestamp()"))
+                    .isEqualTo(1);
+            statement.execute("DELETE FROM listening_device");
             assertThat(generation()).isEqualTo(initial);
         }
     }
