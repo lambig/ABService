@@ -43,6 +43,12 @@ def run(*args, timeout=300, **kwargs):
         raise
 
 
+def registry_throttled(stderr):
+    # Registries report every throttle as the TOOMANYREQUESTS error code; the text after it varies
+    # (Public ECR: "Rate exceeded" per request, "Data limit exceeded" per transferred volume).
+    return 'toomanyrequests:' in stderr.lower()
+
+
 def pull_image(image):
     for attempt, delay in enumerate((0, 5, 15, 30), start=1):
         if delay:
@@ -54,7 +60,7 @@ def pull_image(image):
             stderr = error.stderr or ''
             if isinstance(stderr, bytes):
                 stderr = stderr.decode('utf-8', errors='replace')
-            if 'toomanyrequests: rate exceeded' not in stderr.lower() or attempt == 4:
+            if not registry_throttled(stderr) or attempt == 4:
                 raise
             print(f'Registry throttled the image pull; retrying attempt {attempt + 1}/4', flush=True)
 

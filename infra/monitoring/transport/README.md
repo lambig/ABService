@@ -62,7 +62,7 @@ sudo python3 infra/monitoring/transport/test_transport.py
 ```
 
 テストはCompose設定からdigest固定imageを列挙し、同じimageを一度だけ取得してから`up --pull never`で起動する。
-取得時に`toomanyrequests: Rate exceeded`が返った場合だけ、5秒・15秒・30秒待って最大4回まで試行する。
+取得時にregistryのthrottling（エラーコード`toomanyrequests:`。Public ECRでは`Rate exceeded`・`Data limit exceeded`）が返った場合だけ、5秒・15秒・30秒待って最大4回まで試行する。
 1回のpullは90秒を上限とし、回数超過・timeout・認証拒否・存在しないimage・Compose起動失敗はそのまま失敗する。
 起動やtransportの検査自体は再試行・skipせず、失敗時の診断と後片付けを維持する。
 この取得制御はローカル/CIのテスト用で、運用Composeの起動方針は変えない。

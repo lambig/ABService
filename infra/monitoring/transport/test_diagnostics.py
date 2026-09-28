@@ -61,14 +61,17 @@ class ImageAcquisitionTests(unittest.TestCase):
         self.assertEqual(run.call_args_list[1].kwargs, {'timeout': 90})
         self.assertEqual(run.call_args_list[2].kwargs, {'env': env})
 
-    def test_only_observed_registry_throttle_retries_with_bounded_backoff(self):
-        error = subprocess.CalledProcessError(1, ['docker', 'pull'], stderr=b'toomanyrequests: Rate exceeded')
-        with patch.object(transport, 'run', side_effect=[error, error, error, '']) as run, \
-                patch.object(transport.time, 'sleep') as sleep, contextlib.redirect_stdout(io.StringIO()):
-            transport.pull_image(self.IMAGE)
-        self.assertEqual(run.call_count, 4)
-        self.assertTrue(all(call.kwargs == {'timeout': 90} for call in run.call_args_list))
-        self.assertEqual([call.args for call in sleep.call_args_list], [(5,), (15,), (30,)])
+    def test_registry_throttles_retry_with_bounded_backoff(self):
+        for stderr in (b'toomanyrequests: Rate exceeded',
+                       'Error response from daemon: toomanyrequests: Data limit exceeded'):
+            error = subprocess.CalledProcessError(1, ['docker', 'pull'], stderr=stderr)
+            with self.subTest(stderr=stderr), \
+                    patch.object(transport, 'run', side_effect=[error, error, error, '']) as run, \
+                    patch.object(transport.time, 'sleep') as sleep, contextlib.redirect_stdout(io.StringIO()):
+                transport.pull_image(self.IMAGE)
+            self.assertEqual(run.call_count, 4)
+            self.assertTrue(all(call.kwargs == {'timeout': 90} for call in run.call_args_list))
+            self.assertEqual([call.args for call in sleep.call_args_list], [(5,), (15,), (30,)])
 
     def test_exhausted_throttle_retains_final_failure_and_does_not_start(self):
         error = subprocess.CalledProcessError(1, ['docker', 'pull'], stderr='toomanyrequests: Rate exceeded')
@@ -85,6 +88,7 @@ class ImageAcquisitionTests(unittest.TestCase):
         for error in (
                 subprocess.CalledProcessError(1, ['docker', 'pull'], stderr='unauthorized'),
                 subprocess.CalledProcessError(1, ['docker', 'pull'], stderr='manifest unknown'),
+                subprocess.CalledProcessError(1, ['docker', 'pull'], stderr='too many requests without the error code'),
                 subprocess.TimeoutExpired(['docker', 'pull'], 90), OSError('missing docker')):
             with self.subTest(error=error), patch.object(transport, 'run', side_effect=error) as run, \
                     patch.object(transport.time, 'sleep') as sleep:
