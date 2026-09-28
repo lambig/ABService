@@ -113,12 +113,15 @@ class ListeningDistributionAcceptanceIntegrationTest {
         final String expiringToken = expiring.path("token");
         final String version = version(expiringToken);
 
-        expireIn(expiring.path("device.deviceId"), Duration.ofSeconds(6));
+        final String expiringId = expiring.path("device.deviceId");
+        expireIn(expiringId, Duration.ofSeconds(6));
+        final var deviceExpiresAt = deviceExpiresAt(expiringId);
         final var shortLived = asDevice(expiringToken).get(urlPath(audio)).then().statusCode(200).extract();
-        final var expiresAt = Instant.parse(shortLived.path("expiresAt"));
-        assertThat(expiresAt).isBeforeOrEqualTo(Instant.now().plusSeconds(7));
-        waitUntilAfter(expiresAt);
+        final var urlExpiresAt = Instant.parse(shortLived.path("expiresAt"));
+        assertThat(urlExpiresAt).as("URLの期限は端末の期限を超えない").isBeforeOrEqualTo(deviceExpiresAt);
+        waitUntilAfter(urlExpiresAt);
         assertThat(fetch(shortLived.path("url")).statusCode()).as("期限を過ぎたURLはS3が拒む").isEqualTo(403);
+        waitUntilAfter(deviceExpiresAt);
         asDevice(expiringToken).get(PACKAGE).then().statusCode(401);
         asDevice(expiringToken).get(urlPath(audio)).then().statusCode(401);
 
@@ -299,7 +302,17 @@ class ListeningDistributionAcceptanceIntegrationTest {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
     }
 
-    /** URLの期限は秒単位で切り捨てられるため、期限の1秒後まで待つ。 */
+    /**
+     * 端末の期限を管理APIの一覧から読む。URLの期限は残り時間と署名時刻の秒単位の切り捨てで端末の期限より最大約2秒早くなるため、
+     * 端末の期限切れはこの値を基準に待つ。
+     */
+    private static Instant deviceExpiresAt(String deviceId) {
+        return Instant.parse(
+                authorized().get(DEVICES).then().statusCode(200).extract()
+                        .path("devices.find { it.deviceId == '" + deviceId + "' }.expiresAt"));
+    }
+
+    /** 期限は秒単位で判定されるため、期限の1秒後まで待つ。 */
     private static void waitUntilAfter(Instant expiresAt) throws InterruptedException {
         Thread.sleep(Math.max(0, Duration.between(Instant.now(), expiresAt.plusSeconds(1)).toMillis()));
     }
