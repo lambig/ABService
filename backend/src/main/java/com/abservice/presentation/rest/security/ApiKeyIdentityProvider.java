@@ -13,6 +13,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Instant;
 import java.util.Optional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
@@ -37,6 +38,9 @@ public class ApiKeyIdentityProvider implements IdentityProvider<ApiKeyAuthentica
 
     /** 端末で認証した identity が持つ、端末IDの属性名 */
     static final String LISTENING_DEVICE_ID = "abservice.listening.device-id";
+
+    /** 端末で認証した identity が持つ、資格情報の期限の属性名。端末へ発行する取得URLはこの期限を超えない */
+    static final String LISTENING_DEVICE_EXPIRES_AT = "abservice.listening.device-expires-at";
 
     private final String adminApiKey;
     private final AdminSessions sessions;
@@ -94,6 +98,7 @@ public class ApiKeyIdentityProvider implements IdentityProvider<ApiKeyAuthentica
                 .setPrincipal(new QuarkusPrincipal(DEVICE_PRINCIPAL_PREFIX + device.id()))
                 .addRole(SecurityRoles.LISTENER)
                 .addAttribute(LISTENING_DEVICE_ID, device.id())
+                .addAttribute(LISTENING_DEVICE_EXPIRES_AT, device.expiresAt())
                 .build();
     }
 
@@ -122,5 +127,21 @@ public class ApiKeyIdentityProvider implements IdentityProvider<ApiKeyAuthentica
     /** 端末で認証した要求から端末IDを読む。管理者やセッションの要求は空。 */
     static Optional<Object> deviceIdOf(SecurityIdentity identity) {
         return Optional.ofNullable(identity.getAttribute(LISTENING_DEVICE_ID));
+    }
+
+    /**
+     * 端末で認証した要求から資格情報の期限を読む。
+     *
+     * @param identity
+     *            {@link SecurityRoles#LISTENER} を持つ identity
+     * @return 端末トークンの期限
+     * @throws IllegalStateException
+     *             端末以外の identity（認可で端末に限った経路でだけ呼ぶ）
+     */
+    public static Instant deviceCredentialExpiresAt(SecurityIdentity identity) {
+        return Optional.ofNullable(identity.getAttribute(LISTENING_DEVICE_EXPIRES_AT))
+                .filter(Instant.class::isInstance)
+                .map(Instant.class::cast)
+                .orElseThrow(() -> new IllegalStateException("The request was not authenticated as a device"));
     }
 }

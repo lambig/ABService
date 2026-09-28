@@ -26,13 +26,14 @@ import software.amazon.awssdk.auth.credentials.AwsCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.regions.Region;
 
 /** 実際のSDKで署名し、ネットワークへ送らずにURLの期限・資格情報・要求を検証する。 */
-@DisplayName("S3アップロードURLの資格情報と期限")
-class S3UploadPresignerTest {
+@DisplayName("S3署名付きURLの資格情報と期限")
+class S3UrlPresignerTest {
 
     private static final Duration REQUESTED = Duration.ofMinutes(10);
     private static final PutObjectRequest REQUEST = PutObjectRequest.builder()
@@ -48,7 +49,7 @@ class S3UploadPresignerTest {
     void capsUrlAndReportedExpiryAtCredentialLifetime() {
         final var expiration = Instant.now().plusSeconds(300);
         try (var signer = signer(() -> session("invalid-first-key", expiration), Clock.systemUTC())) {
-            final var upload = signer.presign(REQUEST, REQUESTED);
+            final var upload = signer.presignUpload(REQUEST, REQUESTED);
             final var query = query(upload);
 
             assertThat(Long.parseLong(query.get("X-Amz-Expires"))).isBetween(285L, 295L);
@@ -62,12 +63,36 @@ class S3UploadPresignerTest {
     }
 
     @Test
+    @DisplayName("取得URLも同じ資格情報の固定と期限の短縮で発行し、GET のオブジェクトを指す")
+    void presignsDownloadsWithTheSameCredentialRules() {
+        final var expiration = Instant.now().plusSeconds(300);
+        try (var signer = signer(() -> session("invalid-first-key", expiration), Clock.systemUTC())) {
+            final var download = signer.presignDownload(
+                    GetObjectRequest.builder()
+                            .bucket("test-audio")
+                            .key("audio/verified/test.flac")
+                            .responseContentType("audio/flac")
+                            .build(),
+                    REQUESTED);
+            final var query = query(download.url());
+
+            assertThat(Long.parseLong(query.get("X-Amz-Expires"))).isBetween(285L, 295L);
+            assertThat(download.expiresAt()).isBeforeOrEqualTo(expiration.minusSeconds(5));
+            assertThat(download.expiresAt()).isEqualTo(wireExpiry(query));
+            assertThat(query.get("X-Amz-Credential")).startsWith("invalid-first-key/");
+            assertThat(query.get("X-Amz-Security-Token")).isEqualTo("invalid-session-token");
+            assertThat(query.get("response-content-type")).isEqualTo("audio/flac");
+            assertThat(URI.create(download.url()).getPath()).isEqualTo("/test-audio/audio/verified/test.flac");
+        }
+    }
+
+    @Test
     @DisplayName("静的資格情報では設定した10分を維持し、小数秒を余分に表示しない")
     void retainsConfiguredDurationForStaticCredentials() {
         try (var signer = signer(
                 () -> AwsBasicCredentials.create("invalid-static-key", "invalid-secret"),
                 Clock.systemUTC())) {
-            final var upload = signer.presign(REQUEST, REQUESTED);
+            final var upload = signer.presignUpload(REQUEST, REQUESTED);
 
             assertThat(query(upload).get("X-Amz-Expires")).isEqualTo("600");
             assertThat(upload.expiresAt()).isEqualTo(wireExpiry(query(upload)));
@@ -81,9 +106,9 @@ class S3UploadPresignerTest {
                 session("invalid-old-key", Instant.now().plusSeconds(120)));
         final var calls = new AtomicInteger();
         try (var signer = signer(() -> countedCredentials(current, calls), Clock.systemUTC())) {
-            final var first = signer.presign(REQUEST, REQUESTED);
+            final var first = signer.presignUpload(REQUEST, REQUESTED);
             current.set(session("invalid-new-key", Instant.now().plusSeconds(900)));
-            final var second = signer.presign(REQUEST, REQUESTED);
+            final var second = signer.presignUpload(REQUEST, REQUESTED);
 
             assertThat(calls.get()).isEqualTo(2);
             assertThat(query(first).get("X-Amz-Credential")).startsWith("invalid-old-key/");
@@ -100,7 +125,7 @@ class S3UploadPresignerTest {
                 -1L,
                 0L,
                 4L,
-                5L).forEach(S3UploadPresignerTest::assertRejectedLifetime);
+                5L).forEach(S3UrlPresignerTest::assertRejectedLifetime);
     }
 
     @Test
@@ -112,7 +137,7 @@ class S3UploadPresignerTest {
                         "invalid-secret",
                         "invalid-token"),
                 Clock.systemUTC())) {
-            assertThatThrownBy(() -> signer.presign(REQUEST, REQUESTED))
+            assertThatThrownBy(() -> signer.presignUpload(REQUEST, REQUESTED))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("must include their expiration");
         }
@@ -124,11 +149,11 @@ class S3UploadPresignerTest {
         final var current = new AtomicReference<AwsCredentials>(
                 session("invalid-expired-key", Instant.now().minusSeconds(1)));
         try (var signer = signer(current::get, Clock.systemUTC())) {
-            assertThatThrownBy(() -> signer.presign(REQUEST, REQUESTED))
+            assertThatThrownBy(() -> signer.presignUpload(REQUEST, REQUESTED))
                     .isInstanceOf(IllegalStateException.class);
             current.set(session("invalid-recovered-key", Instant.now().plusSeconds(900)));
 
-            final var recovered = signer.presign(REQUEST, REQUESTED);
+            final var recovered = signer.presignUpload(REQUEST, REQUESTED);
             assertThat(query(recovered).get("X-Amz-Credential")).startsWith("invalid-recovered-key/");
             assertThat(query(recovered).get("X-Amz-Expires")).isEqualTo("600");
         }
@@ -137,8 +162,8 @@ class S3UploadPresignerTest {
     @Test
     @DisplayName("資格情報を取得できないときは古いURLへフォールバックしない")
     void propagatesCredentialProviderFailure() {
-        try (var signer = signer(S3UploadPresignerTest::unavailableCredentials, Clock.systemUTC())) {
-            assertThatThrownBy(() -> signer.presign(REQUEST, REQUESTED))
+        try (var signer = signer(S3UrlPresignerTest::unavailableCredentials, Clock.systemUTC())) {
+            assertThatThrownBy(() -> signer.presignUpload(REQUEST, REQUESTED))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessage("credential provider unavailable");
         }
@@ -151,7 +176,7 @@ class S3UploadPresignerTest {
         try (var signer = signer(
                 () -> session("invalid-key", now.plusSeconds(60)),
                 new AdvancingClock(now, now.plusSeconds(61)))) {
-            assertThatThrownBy(() -> signer.presign(REQUEST, REQUESTED))
+            assertThatThrownBy(() -> signer.presignUpload(REQUEST, REQUESTED))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("expired while signing");
         }
@@ -162,7 +187,7 @@ class S3UploadPresignerTest {
         try (var signer = signer(
                 () -> session("invalid-key", now.plusSeconds(seconds).plusMillis(500)),
                 Clock.fixed(now, ZoneOffset.UTC))) {
-            assertThatThrownBy(() -> signer.presign(REQUEST, REQUESTED))
+            assertThatThrownBy(() -> signer.presignUpload(REQUEST, REQUESTED))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("no remaining validity");
         }
@@ -191,10 +216,10 @@ class S3UploadPresignerTest {
                 .build();
     }
 
-    private static S3UploadPresigner signer(AwsCredentialsProvider provider, Clock clock) {
-        return new S3UploadPresigner(
+    private static S3UrlPresigner signer(AwsCredentialsProvider provider, Clock clock) {
+        return new S3UrlPresigner(
                 S3Presigner.builder()
-                        .credentialsProvider(S3UploadPresignerTest::forbiddenDefaultCredentials)
+                        .credentialsProvider(S3UrlPresignerTest::forbiddenDefaultCredentials)
                         .region(Region.US_EAST_1)
                         .endpointOverride(URI.create("https://storage.example.test"))
                         .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
@@ -204,7 +229,11 @@ class S3UploadPresignerTest {
     }
 
     private static Map<String, String> query(PresignedUpload upload) {
-        return Arrays.stream(URI.create(upload.url()).getRawQuery().split("&"))
+        return query(upload.url());
+    }
+
+    private static Map<String, String> query(String url) {
+        return Arrays.stream(URI.create(url).getRawQuery().split("&"))
                 .map(part -> part.split("=", 2))
                 .collect(
                         Collectors.toUnmodifiableMap(

@@ -312,6 +312,10 @@ class PrivateAudioRuntimeIntegrationTest {
         public Duration maintenanceInterval() {
             return Duration.ofMinutes(15);
         }
+        @Override
+        public Duration downloadUrlExpiry() {
+            return Duration.ofMinutes(10);
+        }
     }
 
     private static final class GatedStorage implements PrivateAudioStorage {

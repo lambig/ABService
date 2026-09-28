@@ -71,9 +71,9 @@ public class S3PresignerProducer {
      */
     @Produces
     @ApplicationScoped
-    public S3UploadPresigner presigner() {
+    public S3UrlPresigner presigner() {
         final var credentials = credentialsProvider();
-        return new S3UploadPresigner(
+        return new S3UrlPresigner(
                 sdkPresigner(credentials),
                 credentials,
                 Clock.systemUTC());
@@ -85,7 +85,7 @@ public class S3PresignerProducer {
      * @param presigner
      *            終了する署名器
      */
-    public void close(@Disposes S3UploadPresigner presigner) {
+    public void close(@Disposes S3UrlPresigner presigner) {
         presigner.close();
     }
 

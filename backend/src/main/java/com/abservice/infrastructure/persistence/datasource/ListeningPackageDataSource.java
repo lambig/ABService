@@ -3,6 +3,7 @@ package com.abservice.infrastructure.persistence.datasource;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
+import java.util.UUID;
 import org.hibernate.reactive.mutiny.Mutiny;
 
 /**
@@ -21,18 +22,25 @@ public class ListeningPackageDataSource {
      * 並びは公開サイトの作品一覧（カタログナンバーの降順、未付与は末尾、同値はドメインIDの降順）に揃える。 公開サイトは
      * {@code sort=catalogNumber} を明示して一覧を引くため、会場の端末でも同じ順に並ぶ。
      */
+    private static final String DISTRIBUTABLE_ALBUMS = """
+            FROM AlbumTableRecord a
+                JOIN AlbumCrossfadeTableRecord c ON c.albumId = a.albumId
+                JOIN PrivateAudioRegistrationTableRecord r ON r.audioId = c.audioId
+            """;
+    private static final String DISTRIBUTABLE = "a.publishedAt IS NOT NULL AND r.state = 'CONFIRMED'";
     private static final String SNAPSHOT = """
             SELECT new com.abservice.infrastructure.persistence.datasource.ListeningPackageRow(
                 a.domainId, a.title, r.audioId, r.byteLength, r.sha256, r.sampleRate, r.totalSamples,
                 t.domainId, t.trackNo, t.title, tt.id.seq, tt.tuneTitle)
-            FROM AlbumTableRecord a
-                JOIN AlbumCrossfadeTableRecord c ON c.albumId = a.albumId
-                JOIN PrivateAudioRegistrationTableRecord r ON r.audioId = c.audioId
+            """ + DISTRIBUTABLE_ALBUMS + """
                 LEFT JOIN a.tracks t
                 LEFT JOIN t.trackTunes tt
-            WHERE a.publishedAt IS NOT NULL AND r.state = 'CONFIRMED'
-            ORDER BY a.catalogNumber DESC NULLS LAST, a.domainId DESC, t.trackNo, tt.id.seq
-            """;
+            """ + "WHERE " + DISTRIBUTABLE
+            + "\nORDER BY a.catalogNumber DESC NULLS LAST, a.domainId DESC, t.trackNo, tt.id.seq";
+
+    /** 配布対象の作品に関連付いた音源か。snapshot と同じ絞り込みで、URL解決を現在のパッケージの範囲に閉じる。 */
+    private static final String DISTRIBUTES = "SELECT COUNT(a) " + DISTRIBUTABLE_ALBUMS + "WHERE " + DISTRIBUTABLE
+            + " AND r.audioId = :audioId";
 
     private final Mutiny.SessionFactory sessionFactory;
 
@@ -48,5 +56,20 @@ public class ListeningPackageDataSource {
     public Uni<List<ListeningPackageRow>> snapshot() {
         return sessionFactory.withSession(
                 session -> session.createQuery(SNAPSHOT, ListeningPackageRow.class).getResultList());
+    }
+
+    /**
+     * 音源が現在の配布対象に含まれるかを返します。
+     *
+     * @param audioId
+     *            音源の登録ID
+     * @return 公開済み作品の確定クロスフェードとして関連付いていれば真
+     */
+    public Uni<Boolean> distributes(UUID audioId) {
+        return sessionFactory.withSession(
+                session -> session.createQuery(DISTRIBUTES, Long.class)
+                        .setParameter("audioId", audioId)
+                        .getSingleResult())
+                .map(count -> count > 0);
     }
 }

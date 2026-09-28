@@ -10,7 +10,10 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 
-/** 実作品・実資格情報を使わず、専用MinIOバケットとAWS標準chainのテスト値を所有する。 */
+/**
+ * 実作品・実資格情報を使わず、専用MinIOバケットとAWS標準chainのテスト値を所有する。 一時領域はJVMの一時ディレクトリ配下に取る（固定の
+ * /tmp は macOS では symlink 経由になるため）。
+ */
 public class AudioHttpTestResource implements QuarkusTestResourceLifecycleManager {
     private final String bucket = "audio-http-test-" + UUID.randomUUID();
     private final Optional<String> oldAccess = Optional.ofNullable(System.getProperty("aws.accessKeyId"));
@@ -33,7 +36,7 @@ public class AudioHttpTestResource implements QuarkusTestResourceLifecycleManage
                 "abservice.private-audio.bucket",
                 bucket,
                 "abservice.private-audio.temporary-directory",
-                "/tmp/" + bucket,
+                System.getProperty("java.io.tmpdir") + "/" + bucket,
                 "abservice.private-audio.input-timeout",
                 "PT15S",
                 "abservice.private-audio.maintenance-interval",

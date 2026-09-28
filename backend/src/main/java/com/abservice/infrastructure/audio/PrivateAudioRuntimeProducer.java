@@ -109,6 +109,10 @@ public class PrivateAudioRuntimeProducer {
                 config.maintenanceInterval().toMillis(),
                 60000,
                 86400000);
+        requireRange(
+                config.downloadUrlExpiry().getSeconds(),
+                60,
+                3600);
     }
 
     private static void requireRange(
