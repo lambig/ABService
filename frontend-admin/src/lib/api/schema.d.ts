@@ -2937,6 +2937,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/listening/package": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ListeningPackageResponse"];
+                    };
+                };
+                /** @description 認証されていない */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 権限が足りない */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 対象が存在しない */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 想定外の失敗 */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public-data-generation": {
         parameters: {
             query?: never;
@@ -3803,6 +3875,27 @@ export interface components {
             device: components["schemas"]["ListeningDeviceResponse"];
             token: string;
         };
+        ListeningAlbumResponse: {
+            albumId: string;
+            title: string;
+            tracks: components["schemas"]["ListeningTrackResponse"][];
+        };
+        ListeningAppVersionRangeResponse: {
+            minInclusive: number[];
+            maxExclusive: number[];
+        };
+        ListeningAssetResponse: {
+            assetId: string;
+            mediaType: string;
+            /** Format: int64 */
+            byteLength: number;
+            checksum: components["schemas"]["ListeningChecksumResponse"];
+            required: boolean;
+        };
+        ListeningChecksumResponse: {
+            algorithm: string;
+            value: string;
+        };
         ListeningDeviceListResponse: {
             devices: components["schemas"]["ListeningDeviceResponse"][];
         };
@@ -3813,6 +3906,31 @@ export interface components {
             createdAt: components["schemas"]["Instant"];
             expiresAt: components["schemas"]["Instant"];
             revokedAt: components["schemas"]["Instant"] | null;
+        };
+        ListeningPackageResponse: {
+            /** Format: int32 */
+            schemaVersion: number;
+            packageVersion: string;
+            compatibleAppVersion: components["schemas"]["ListeningAppVersionRangeResponse"];
+            presentationAssetIds: string[];
+            assets: components["schemas"]["ListeningAssetResponse"][];
+            albums: components["schemas"]["ListeningAlbumResponse"][];
+            playbackItems: components["schemas"]["ListeningPlaybackItemResponse"][];
+        };
+        ListeningPlaybackItemResponse: {
+            playbackItemId: string;
+            kind: string;
+            albumId: string;
+            title: string;
+            audioAssetId: string;
+            /** Format: double */
+            durationSeconds: number;
+        };
+        ListeningTrackResponse: {
+            trackId: string;
+            /** Format: int32 */
+            trackNo: number;
+            title: string;
         };
         PreconditionAffectedArticle: {
             articleId: string;
