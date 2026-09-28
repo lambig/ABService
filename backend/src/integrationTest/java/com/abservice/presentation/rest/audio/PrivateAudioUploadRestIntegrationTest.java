@@ -35,9 +35,7 @@ import java.sql.DriverManager;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.Base64;
-import java.util.Random;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import org.eclipse.microprofile.config.ConfigProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -388,29 +386,9 @@ class PrivateAudioUploadRestIntegrationTest {
     }
 
     private Path fixtureFile(int size) throws Exception {
-        final var input = directory.resolve(UUID.randomUUID() + ".raw");
-        final var output = input.resolveSibling(input.getFileName() + ".flac");
-        final var random = new Random(474);
-        final byte[] block = new byte[4096];
-        try (var raw = Files.newOutputStream(input)) {
-            for (int written = 0; written < size; written += block.length) {
-                random.nextBytes(block);
-                raw.write(
-                        block,
-                        0,
-                        Math.min(block.length, size - written));
-            }
-        }
-        final var encoder = new ProcessBuilder("flac", "--silent", "--force-raw-format", "--endian=little",
-                "--sign=signed",
-                "--channels=2", "--bps=16", "--sample-rate=44100", "--no-padding", "--no-seektable",
-                "--output-name=" + output, input.toString()).redirectError(ProcessBuilder.Redirect.INHERIT).start();
-        try {
-            assertThat(encoder.waitFor(30, TimeUnit.SECONDS)).isTrue();
-            assertThat(encoder.exitValue()).isZero();
-            return output;
-        } finally {
-            encoder.destroyForcibly().onExit().join();
-        }
+        return FlacFixtures.encodedFile(
+                directory,
+                size,
+                474);
     }
 }
