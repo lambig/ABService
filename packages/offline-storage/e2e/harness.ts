@@ -1,7 +1,11 @@
-import { createAssetStore } from "../src/index";
+import { createAssetStore, createPackageStore } from "../src/index";
 import type { AssetStore } from "../src/index";
-import type { InstallationManifestV1 } from "abservice-installation";
+import type {
+  InstallationManifestV1,
+  InstallationManifestV3,
+} from "abservice-installation";
 import toneUrl from "./fixtures/tone.flac?url";
+import distributed from "abservice-installation/fixtures/manifest-v3.example.json?raw";
 
 const first = await fetch(toneUrl).then((response) => response.blob());
 /* A distinct byte fixture tests version isolation; decoding is the player's responsibility. */
@@ -45,7 +49,61 @@ const open = async (blob: Blob = first): Promise<AssetStore> => {
     ? result.value
     : Promise.reject(new Error(result.error));
 };
-const harness = { first, second, digest, manifest, open, createAssetStore };
+/* The same example the backend response is compared with, read as the distribution JSON. */
+const v3 = JSON.parse(distributed) as InstallationManifestV3;
+const generation = (
+  packageVersion: string,
+  title = "見本の作品",
+): InstallationManifestV3 => ({
+  ...v3,
+  packageVersion,
+  albums: v3.albums.map((album) => ({ ...album, title })),
+});
+/* The layout below mirrors src/packages.ts so tests can damage what the store wrote. */
+const packages = (): Promise<FileSystemDirectoryHandle> =>
+  navigator.storage
+    .getDirectory()
+    .then((root) => root.getDirectoryHandle("abservice-packages-v1"));
+const manifestFile = async (
+  packageVersion: string,
+): Promise<FileSystemFileHandle> =>
+  (await packages())
+    .getDirectoryHandle("manifests")
+    .then(async (folder) =>
+      folder.getFileHandle(await digest(new Blob([packageVersion]))),
+    );
+const overwrite = async (
+  file: FileSystemFileHandle,
+  text: string,
+): Promise<void> => {
+  const writer = await file.createWritable();
+  await writer.write(text);
+  await writer.close();
+};
+const tamper = async (packageVersion: string, text: string): Promise<void> =>
+  overwrite(await manifestFile(packageVersion), text);
+const erase = async (packageVersion: string): Promise<void> =>
+  (await packages())
+    .getDirectoryHandle("manifests")
+    .then(async (folder) =>
+      folder.removeEntry(await digest(new Blob([packageVersion]))),
+    );
+const tamperPointer = async (text: string): Promise<void> =>
+  overwrite(await (await packages()).getFileHandle("pointer.json"), text);
+const harness = {
+  first,
+  second,
+  digest,
+  manifest,
+  open,
+  createAssetStore,
+  createPackageStore,
+  v3,
+  generation,
+  tamper,
+  erase,
+  tamperPointer,
+};
 declare global {
   interface Window {
     storageHarness: typeof harness;

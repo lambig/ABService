@@ -3,54 +3,20 @@ import type {
   InstallationManifest,
   LocalEnvironment,
 } from "abservice-installation";
-import type {
-  AssetStore,
-  StorageError,
-  StorageResult,
-  StoredInventory,
-} from "./index";
+import {
+  checkAbort,
+  commit,
+  hash,
+  locked,
+  optional,
+  reject,
+  requireValue,
+} from "./common";
+import type { AssetStore, StorageResult, StoredInventory } from "./index";
 
 type Asset = InstallationManifest["assets"][number];
 type Observation = LocalEnvironment["inventory"][number];
 const namespace = "abservice-assets-v1";
-class Failure extends Error {
-  constructor(readonly code: StorageError) {
-    super(code);
-  }
-}
-const reject = (code: StorageError): never => {
-  throw new Failure(code);
-};
-const requireValue = (condition: boolean, code: StorageError): void =>
-  condition ? undefined : reject(code);
-const checkAbort = (signal: AbortSignal): void => {
-  requireValue(signal.aborted ? false : true, "aborted");
-};
-const errorCode = (error: unknown): StorageError =>
-  error instanceof Failure
-    ? error.code
-    : error instanceof DOMException && error.name === "QuotaExceededError"
-      ? "quota-exceeded"
-      : error instanceof DOMException && error.name === "AbortError"
-        ? "aborted"
-        : "storage-unavailable";
-const capture = async <T>(
-  action: () => Promise<T>,
-): Promise<StorageResult<T>> =>
-  action().then(
-    (value) => ({ kind: "ok", value }),
-    (error: unknown) => ({ kind: "error", error: errorCode(error) }),
-  );
-const hash = async (blob: Blob, signal: AbortSignal): Promise<string> => {
-  checkAbort(signal);
-  const buffer = await blob.arrayBuffer();
-  checkAbort(signal);
-  const digest = await crypto.subtle.digest("SHA-256", buffer);
-  checkAbort(signal);
-  return Array.from(new Uint8Array(digest), (byte) =>
-    byte.toString(16).padStart(2, "0"),
-  ).join("");
-};
 const supported = (asset: Asset): Asset => {
   requireValue(asset.checksum.algorithm === "sha256", "unsupported-checksum");
   requireValue(
@@ -111,16 +77,7 @@ const storedFile = async (
   signal: AbortSignal,
 ): Promise<File | undefined> => {
   const name = await filename(supported(asset), signal);
-  return root
-    .getFileHandle(name)
-    .then((handle) => handle.getFile())
-    .catch((error: unknown) =>
-      error instanceof DOMException && error.name === "NotFoundError"
-        ? undefined
-        : Promise.reject(
-            error instanceof Error ? error : new Failure("storage-unavailable"),
-          ),
-    );
+  return optional(root.getFileHandle(name).then((handle) => handle.getFile()));
 };
 const inventory = async (
   manifest: InstallationManifest,
@@ -152,50 +109,10 @@ const write = async (
   const root = await directory();
   const name = await filename(asset, signal);
   const file = await root.getFileHandle(name, { create: true });
-  checkAbort(signal);
-  const stream = await file.createWritable();
-  /* close is the commit boundary. An abort after close starts cannot promise rollback. */
-  try {
-    checkAbort(signal);
-    await stream.write(blob);
-    checkAbort(signal);
-    await stream.close();
-  } catch (error) {
-    await stream.abort().catch(() => undefined);
-    throw error;
-  }
+  await commit(file, blob, signal);
   /* Once committed, verify the stored bytes even when the caller subsequently cancels. */
   await verify(asset, await file.getFile(), new AbortController().signal);
 };
-const locked = <T>(
-  signal: AbortSignal,
-  action: () => Promise<T>,
-): Promise<StorageResult<T>> =>
-  capture(async () => {
-    checkAbort(signal);
-    /* Browser capabilities can be absent despite the DOM declaration. */
-    /* eslint-disable @typescript-eslint/no-unnecessary-condition -- DOM types assume capabilities that older browsers may lack. */
-    requireValue(
-      typeof navigator.storage?.getDirectory === "function" &&
-        typeof navigator.locks?.request === "function",
-      "storage-unavailable",
-    );
-    /* A common lock also protects inspect from concurrent writes by another adapter/tab. */
-    return navigator.locks
-      .request(namespace, { signal }, () => {
-        checkAbort(signal);
-        return action();
-      })
-      .catch((error: unknown) =>
-        signal.aborted
-          ? reject("aborted")
-          : Promise.reject(
-              error instanceof Error
-                ? error
-                : new Failure("storage-unavailable"),
-            ),
-      );
-  });
 const store = (manifest: InstallationManifest): AssetStore => {
   const assetFor = (assetId: string): Asset =>
     supported(
@@ -204,9 +121,9 @@ const store = (manifest: InstallationManifest): AssetStore => {
     );
   return {
     save: (assetId, blob, signal) =>
-      locked(signal, () => write(assetFor(assetId), blob, signal)),
+      locked(namespace, signal, () => write(assetFor(assetId), blob, signal)),
     read: (assetId, signal) =>
-      locked(signal, async () => {
+      locked(namespace, signal, async () => {
         const asset = assetFor(assetId);
         const file =
           (await storedFile(await directory(), asset, signal)) ??
@@ -214,9 +131,10 @@ const store = (manifest: InstallationManifest): AssetStore => {
         await verify(asset, file, signal);
         return file.slice(0, file.size, asset.mediaType);
       }),
-    inspect: (signal) => locked(signal, () => inventory(manifest, signal)),
+    inspect: (signal) =>
+      locked(namespace, signal, () => inventory(manifest, signal)),
     assess: (appVersion, signal) =>
-      locked(signal, async () =>
+      locked(namespace, signal, async () =>
         assessReadiness(manifest, {
           ...(await inventory(manifest, signal)),
           appVersion,

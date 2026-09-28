@@ -21,6 +21,7 @@ const messages: Record<StorageError, string> = {
   missing: "音源が未保存です。オンラインで保存してください。",
   aborted: "保存を中止しました。",
   "quota-exceeded": "保存容量が不足しています。空き容量を確保してください。",
+  conflict: "同じ版の配布物が保存済みの内容と異なります。",
   "storage-unavailable": "この環境では保存領域を確認できません。",
 };
 export const storageMessage = (error: StorageError): string => messages[error];
