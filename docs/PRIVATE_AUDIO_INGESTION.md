@@ -31,6 +31,28 @@ CDIの実行入口は明示的に有効化したときだけ専用資源を生�
 失効は以後の認証を拒むもので、既に認証され実行中の要求を取り消す機能ではない。
 端末側で既に保存した配布物の扱いは #477 が定める。
 
+## 配布パッケージ（#475 B）
+
+`GET /api/v1/listening/package` は `listener` ロールだけに開く。管理者は403、未認証は401、機能無効時は404。
+応答は `packages/installation` の schema v2 と同じ項目だけを持つ Manifest で、端末側の厳密な検証がそのまま通る。
+`ETag` に `packageVersion` を載せ、`Cache-Control: no-store` で中継やブラウザに残さない。
+
+対象は公開済みの作品のうち、CONFIRMED のクロスフェードが関連付いているもの。下書きは含めず、関連付けの無い作品も含めない。
+作品・確定音源・収録曲・チューン構成を1つの問い合わせで読み、1つの版の中で実体とメタデータが食い違わないようにする。
+並びは公開向け一覧の既定（リリース日の新しい順、同値はドメインIDの降順）、収録曲は曲順。
+
+| 項目 | 由来 |
+| --- | --- |
+| `packageVersion` | 内容（作品・曲・音源・再生項目）の SHA-256。同じ内容なら同じ値、変われば別の値。時刻や乱数を含まない |
+| `compatibleAppVersion` | `[1,10,0]` 以上 `[2,0,0]` 未満 |
+| `albums[].tracks[]` | canonical な Track の ID・曲順・曲名。曲名が無ければ公開サイトと同じ規則でチューン名から組む。音源を要求しない |
+| `assets[]` | 音源の登録IDを assetId とし、byteLength・SHA-256 は登録テーブルの確定値。`audio/flac`、`required: true`。同じ実体は1件 |
+| `playbackItems[]` | 作品ごとに1件の `album-crossfade`。ID は `album-crossfade:{albumId}` で、音源の差し替えでは変わらない。長さは totalSamples ÷ sampleRate |
+| `presentationAssetIds` | 空。artwork は digest を持ってから足す |
+
+URL・保存キー・資格情報は含めない。音源の取得URLは別の経路で期限付きに解決する（C）。
+関連付けが変わると版が変わり、端末は保存済みの版と比べて更新の要否を判断する。
+
 ## 管理API（C1/C2）
 
 すべて `admin` ロールを要求し、既存の管理Bearer認証を使う。

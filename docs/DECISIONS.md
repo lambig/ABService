@@ -793,3 +793,17 @@ mainのCI完了を配布の契機にせず、main上のworkflow_dispatchでrelea
 **トレードオフ**: 認証のたびに DB を1回引く（管理者の照合は設定値との定数時間比較で済むが、端末は digest の照合が要る）。端末の数は会場に置く台数で、要求は準備時に限られるため、キャッシュは持たない。トークンの接頭辞で照合先を選ぶため、接頭辞は契約の一部になる。
 
 **実体**: `V52`（`listening_device`）、`application/port/ListeningDevices`、`application/audio/ListeningDeviceToken`、`presentation/rest/security/ApiKeyIdentityProvider` と `SecurityRoles.LISTENER`、`presentation/rest/audio/ListeningDeviceCommandResource` / `ListeningDeviceAdminQueryResource`。契約は [PRIVATE_AUDIO_INGESTION.md](PRIVATE_AUDIO_INGESTION.md)。
+
+## 配布パッケージは1問い合わせの snapshot から組み、版は内容の digest にする
+
+試聴端末へ渡す Manifest（#475）は、公開済みでクロスフェードが確定した作品・その収録曲・チューン構成・音源の実測値を、1つの問い合わせで平坦に読んでから組む。作品・曲・音源を別々の問い合わせで引くと、その間に関連付けや公開状態が変わった作品が混ざり、1つの版の中で実体とメタデータが食い違う。1問い合わせなら DB の1時点の読みになり、混在は構造上起きない。行数は作品×曲×チューン構成の積になるが、対象は会場へ持ち出す数十作品で、読み取りは準備時に限られる。
+
+`packageVersion` は生成の時刻や連番ではなく、内容（作品・曲・音源・再生項目の並びと値）の SHA-256 にする。同じ内容なら同じ版になり、端末は保存済みの版と比べるだけで更新の要否を判断できる。時刻を版にすると、内容が変わっていなくても準備のたびに新版になり、端末が再取得を迫られる。連番はサーバー側に状態を要し、再起動や復元で巻き戻る。
+
+再生項目の ID は作品に紐づけて固定し（`album-crossfade:{albumId}`）、音源の差し替えでは変えない。項目は「その作品のクロスフェード」であり、実体が入れ替わっても端末が選ぶものは同じ。実体の違いは assetId と checksum が表し、版が変わる。
+
+Manifest は `packages/installation` の schema v2 と同じ項目だけを持つ。端末側は未知の項目を拒否する（#292）ため、サーバー側で項目を足すと配布が止まる。応答の形を schema に合わせて固定し、URL・保存キー・資格情報は載せない。取得URLは別の経路で期限付きに解決する。
+
+**トレードオフ**: 平坦な行から組み立てる分、Query 側に組み立ての責務が乗る（`ListeningPackageView`）。artwork は確定画像の byteLength と SHA-256 を DB が持たないため、この時点では載せていない。
+
+**実体**: `infrastructure/persistence/datasource/ListeningPackageDataSource`、`application/query/audio/ListeningPackageView` / `GetListeningPackageService`、`presentation/rest/audio/ListeningPackageListenerQueryResource` と `response/ListeningPackageResponse`。契約は [PRIVATE_AUDIO_INGESTION.md](PRIVATE_AUDIO_INGESTION.md)。

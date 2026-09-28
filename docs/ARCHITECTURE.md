@@ -98,7 +98,8 @@ flowchart TD
 - **アノテーション**: リソースクラスへ `@RolesAllowed(SecurityRoles.ADMIN)` または `@RolesAllowed(SecurityRoles.LISTENER)` を付与する
 - **認証必須**: 全集約の `*CommandResource`（作成・更新・削除・公開/非公開）、管理向けQuery（`/api/v1/admin/**`）、公開サイトが参照しないマスタ系Query（`/api/v1/tunes`）
 - **認証不要**: 公開向けQuery（`/api/v1/albums`・`/api/v1/articles`）。`Audience.PUBLIC` として公開中のものだけを返し、下書きは未存在として扱う
-- **強制**: ArchUnit で `*CommandResource` / `*AdminQueryResource` への `@RolesAllowed` 付与を必須にする
+- **端末向け**: 配布パッケージ（`/api/v1/listening/**`）は `listener` ロールだけに開く。管理者は403
+- **強制**: ArchUnit で `*CommandResource` / `*AdminQueryResource` / `*ListenerQueryResource` への `@RolesAllowed` 付与を必須にする
 
 ### セキュリティフロー
 

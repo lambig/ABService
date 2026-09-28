@@ -20,6 +20,7 @@ import com.abservice.presentation.rest.audio.AlbumCrossfadeAdminQueryResource;
 import com.abservice.presentation.rest.audio.PrivateAudioAdminQueryResource;
 import com.abservice.presentation.rest.audio.ListeningDeviceCommandResource;
 import com.abservice.presentation.rest.audio.ListeningDeviceAdminQueryResource;
+import com.abservice.presentation.rest.audio.ListeningPackageListenerQueryResource;
 import com.abservice.presentation.rest.publication.PublicDataGenerationQueryResource;
 import com.abservice.presentation.rest.site.SiteContentCommandResource;
 import com.abservice.presentation.rest.site.SiteContentQueryResource;
@@ -77,6 +78,7 @@ public final class DeclaredEndpoints {
             PrivateAudioAdminQueryResource.class,
             ListeningDeviceCommandResource.class,
             ListeningDeviceAdminQueryResource.class,
+            ListeningPackageListenerQueryResource.class,
             PublicDataGenerationQueryResource.class,
             SiteContentCommandResource.class,
             SiteContentQueryResource.class,

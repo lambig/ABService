@@ -301,6 +301,22 @@ class LayeredArchitectureTest {
     }
 
     /**
+     * 端末向け Query REST リソース（{@code *ListenerQueryResource}）は {@code @RolesAllowed}
+     * で保護しなければならない。
+     *
+     * <p>
+     * 配布パッケージと音源の取得は、準備する端末だけに開く。無認証で公開すると限定配布の音源が公開経路へ漏れる。
+     * </p>
+     */
+    @ArchTest
+    void listenerQueryResourcesShouldRequireAuthorization(JavaClasses classes) {
+        classes().that().resideInAPackage(PRESENTATION).and().haveSimpleNameEndingWith("ListenerQueryResource")
+                .should().beAnnotatedWith("jakarta.annotation.security.RolesAllowed")
+                .as("端末向け Query REST リソースは @RolesAllowed で保護する（限定配布の音源を無認証で公開しない）")
+                .allowEmptyShould(true).check(classes);
+    }
+
+    /**
      * ApplicationService の {@code execute} / {@code query} は {@code Uni<...>}
      * を返さなければならない。
      *
