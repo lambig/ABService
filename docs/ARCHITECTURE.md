@@ -87,14 +87,15 @@ flowchart TD
 
 - **ブラウザ**: 入力した管理APIキーを `POST /api/v1/admin/sessions` で30分期限の不透明Bearerへ交換する。元キーは保存せず、トークンと期限をタブの `sessionStorage` に保持する。期限は利用・再交換で延長しない。
 - **機械側**: 初期投入ローダ等の管理API利用者は `Authorization: Bearer <APIキー>` を使う。公開サイトのSSGは匿名の公開Query APIを使う。
-- **実装**: `ApiKeyAuthenticationMechanism` がBearerを抽出し、`ApiKeyIdentityProvider` が元キーまたは有効な管理セッションを照合して `admin` のIdentityを発行する。
+- **試聴端末**: 管理者が `POST /api/v1/admin/listening-devices` で発行する期限付きの端末トークン（既定30日、最長90日）をBearerで送る。端末は管理APIキーを持たない。サーバーはdigestと期限・失効時刻だけをDBに置き、管理者のDELETEで即時に失効する。契約は [PRIVATE_AUDIO_INGESTION.md](PRIVATE_AUDIO_INGESTION.md)。
+- **実装**: `ApiKeyAuthenticationMechanism` がBearerを抽出し、`ApiKeyIdentityProvider` が元キー・有効な管理セッション・有効な端末トークンを照合して `admin` または `listener` のIdentityを発行する。端末トークンは接頭辞で見分け、DB時計で期限と失効を判定する。
 - **サーバー側セッション**: `AdminSessions` が単一backendプロセスのメモリにトークンのdigestと期限を保持する。再起動・再配布で全セッションが失効する。複数backendへ拡張するときは共有セッションストアが必要。
 - **キーの供給・更新**: Parameter Store（SecureString）から配布時に `ADMIN_API_KEY` へ注入する。更新はtfvarsのrotation変更・apply・稼働中commitの再配布を組にする。
 - **前提**: 管理者1人。OIDC/Keycloakは採用していない。契約と判断の詳細は [DECISIONS.md](DECISIONS.md) 22。
 
 ### 認可方式
-- **ロール**: 管理者（`admin`）の1種のみ。`SecurityRoles.ADMIN` を唯一の定義とする
-- **アノテーション**: リソースクラスへ `@RolesAllowed(SecurityRoles.ADMIN)` を付与する
+- **ロール**: 管理者（`admin`）と試聴端末（`listener`）の2種。定義は `SecurityRoles` だけが持つ。端末は管理者ではなく、管理者は端末ではない——配布パッケージの取得は端末だけに開き、管理操作は管理者だけに開く
+- **アノテーション**: リソースクラスへ `@RolesAllowed(SecurityRoles.ADMIN)` または `@RolesAllowed(SecurityRoles.LISTENER)` を付与する
 - **認証必須**: 全集約の `*CommandResource`（作成・更新・削除・公開/非公開）、管理向けQuery（`/api/v1/admin/**`）、公開サイトが参照しないマスタ系Query（`/api/v1/tunes`）
 - **認証不要**: 公開向けQuery（`/api/v1/albums`・`/api/v1/articles`）。`Audience.PUBLIC` として公開中のものだけを返し、下書きは未存在として扱う
 - **強制**: ArchUnit で `*CommandResource` / `*AdminQueryResource` への `@RolesAllowed` 付与を必須にする

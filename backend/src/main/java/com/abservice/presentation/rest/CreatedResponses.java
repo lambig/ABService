@@ -43,4 +43,28 @@ public final class CreatedResponses {
                 .header(HttpHeaders.LOCATION, location)
                 .build();
     }
+
+    /**
+     * 秘密（一度だけ渡すトークン）を含む表現の、作成に成功した応答を組みます。
+     *
+     * <p>
+     * 形は {@link #at} と同じで、加えて保存を禁じるヘッダを付ける。表現を要求元のキャッシュや中継に残さないため。
+     * </p>
+     *
+     * @param <T>
+     *            作られた資源の表現の型
+     * @param location
+     *            作られた資源を指す相対参照
+     * @param body
+     *            作られた資源の表現（秘密を含む）
+     * @return 201 と {@code Location} と表現、保存禁止のヘッダを持つ応答
+     */
+    public static <T> RestResponse<T> withoutCaching(String location, T body) {
+        return RestResponse.ResponseBuilder.<T>create(RestResponse.StatusCode.CREATED)
+                .entity(body)
+                .header(HttpHeaders.LOCATION, location)
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .header("Pragma", "no-cache")
+                .build();
+    }
 }

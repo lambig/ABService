@@ -1,5 +1,8 @@
 package com.abservice.presentation.rest.security;
 
+import com.abservice.application.audio.ListeningDeviceToken;
+import com.abservice.application.port.ListeningDevice;
+import com.abservice.application.port.ListeningDevices;
 import io.quarkus.security.AuthenticationFailedException;
 import io.quarkus.security.identity.AuthenticationRequestContext;
 import io.quarkus.security.identity.IdentityProvider;
@@ -10,15 +13,17 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.Optional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
- * APIキーまたは期限付き管理トークンを照合する IdentityProvider
+ * APIキー・期限付き管理トークン・端末トークンを照合する IdentityProvider
  *
  * <p>
- * 一致した場合のみ {@link SecurityRoles#ADMIN} ロールを持つ SecurityIdentity を発行し、不一致は
- * {@link AuthenticationFailedException} として失敗させる。照合はタイミング攻撃を避けるため
- * {@link MessageDigest#isEqual} による定数時間比較で行う。
+ * 一致した場合のみ {@link SecurityRoles#ADMIN} または {@link SecurityRoles#LISTENER}
+ * ロールを持つ SecurityIdentity を発行し、不一致は {@link AuthenticationFailedException}
+ * として失敗させる。APIキーの照合は タイミング攻撃を避けるため {@link MessageDigest#isEqual}
+ * による定数時間比較で行う。端末トークンは接頭辞で 見分け、digestをDBで照合する（期限・失効の判定はDB時計）。
  * </p>
  */
 @ApplicationScoped
@@ -27,20 +32,31 @@ public class ApiKeyIdentityProvider implements IdentityProvider<ApiKeyAuthentica
     /** SecurityIdentity の principal 名（個人利用前提のため管理者ひとりを表す固定名） */
     private static final String ADMIN_PRINCIPAL = "admin";
 
+    /** 端末の principal 名の接頭辞。端末IDで区別する */
+    private static final String DEVICE_PRINCIPAL_PREFIX = "device:";
+
+    /** 端末で認証した identity が持つ、端末IDの属性名 */
+    static final String LISTENING_DEVICE_ID = "abservice.listening.device-id";
+
     private final String adminApiKey;
     private final AdminSessions sessions;
+    private final ListeningDevices devices;
 
     /**
      * @param adminApiKey
      *            管理操作に要求するAPIキー（{@code abservice.auth.admin-api-key}）
      * @param sessions
      *            期限付き管理セッション
+     * @param devices
+     *            試聴端末の資格情報
      */
     public ApiKeyIdentityProvider(
             @ConfigProperty(name = "abservice.auth.admin-api-key") String adminApiKey,
-            AdminSessions sessions) {
+            AdminSessions sessions,
+            ListeningDevices devices) {
         this.adminApiKey = adminApiKey;
         this.sessions = sessions;
+        this.devices = devices;
     }
 
     @Override
@@ -54,7 +70,16 @@ public class ApiKeyIdentityProvider implements IdentityProvider<ApiKeyAuthentica
             AuthenticationRequestContext context) {
         return matchesAdminApiKey(request.apiKey())
                 ? Uni.createFrom().item(adminIdentity())
-                : authenticateSession(request.apiKey());
+                : ListeningDeviceToken.isWellFormed(request.apiKey())
+                        ? authenticateDevice(request.apiKey())
+                        : authenticateSession(request.apiKey());
+    }
+
+    private Uni<SecurityIdentity> authenticateDevice(String token) {
+        return devices.findActiveByDigest(ListeningDeviceToken.digestOf(token))
+                .map(
+                        device -> device.map(ApiKeyIdentityProvider::deviceIdentity)
+                                .orElseThrow(() -> new AuthenticationFailedException("Invalid credential")));
     }
 
     private Uni<SecurityIdentity> authenticateSession(String token) {
@@ -62,6 +87,14 @@ public class ApiKeyIdentityProvider implements IdentityProvider<ApiKeyAuthentica
                 .map(ApiKeyIdentityProvider::sessionIdentity)
                 .map(Uni.createFrom()::item)
                 .orElseGet(() -> Uni.createFrom().failure(new AuthenticationFailedException("Invalid credential")));
+    }
+
+    private static SecurityIdentity deviceIdentity(ListeningDevice device) {
+        return QuarkusSecurityIdentity.builder()
+                .setPrincipal(new QuarkusPrincipal(DEVICE_PRINCIPAL_PREFIX + device.id()))
+                .addRole(SecurityRoles.LISTENER)
+                .addAttribute(LISTENING_DEVICE_ID, device.id())
+                .build();
     }
 
     private static SecurityIdentity sessionIdentity(String digest) {
@@ -84,5 +117,10 @@ public class ApiKeyIdentityProvider implements IdentityProvider<ApiKeyAuthentica
                 .addRole(SecurityRoles.ADMIN)
                 .addAttribute(AdminSessions.API_KEY_IDENTITY, Boolean.TRUE)
                 .build();
+    }
+
+    /** 端末で認証した要求から端末IDを読む。管理者やセッションの要求は空。 */
+    static Optional<Object> deviceIdOf(SecurityIdentity identity) {
+        return Optional.ofNullable(identity.getAttribute(LISTENING_DEVICE_ID));
     }
 }
