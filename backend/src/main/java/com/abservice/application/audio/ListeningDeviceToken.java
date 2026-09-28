@@ -6,6 +6,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.HexFormat;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 /**
  * 試聴端末のBearerトークン。発行応答で一度だけ渡し、サーバーにはdigestだけを残す。
@@ -21,6 +22,7 @@ import java.util.Optional;
 public record ListeningDeviceToken(String value) {
     private static final String PREFIX = "abs_device_";
     private static final int RANDOM_HEX_LENGTH = 64;
+    private static final Pattern WELL_FORMED = Pattern.compile("^" + PREFIX + "[0-9a-f]{" + RANDOM_HEX_LENGTH + "}$");
     private static final SecureRandom RANDOM = new SecureRandom();
 
     public ListeningDeviceToken {
@@ -35,11 +37,12 @@ public record ListeningDeviceToken(String value) {
         return new ListeningDeviceToken(PREFIX + HexFormat.of().formatHex(bytes));
     }
 
-    /** 接頭辞と長さだけの形式判定。照合はdigestで行う。 */
+    /**
+     * 接頭辞・長さ・小文字hexの形式判定。値オブジェクトの不変条件であり、認証機構が照合先を選ぶ判定でもある。
+     * 形式が合う値でも有効性はdigestの照合で決まる。
+     */
     public static boolean isWellFormed(String presented) {
-        return presented.startsWith(PREFIX)
-                ? presented.length() == PREFIX.length() + RANDOM_HEX_LENGTH
-                : false;
+        return WELL_FORMED.matcher(presented).matches();
     }
 
     public static String digestOf(String presented) {

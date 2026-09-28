@@ -100,6 +100,7 @@ class ListeningDeviceRestIntegrationTest {
         asDevice(token).post("/api/v1/admin/sessions").then().statusCode(403);
         asDevice("abs_device_" + "0".repeat(64)).get(DEVICES).then().statusCode(401)
                 .body("type", equalTo("urn:abservice:error:UNAUTHORIZED"));
+        asDevice("abs_device_" + "x".repeat(64)).get(DEVICES).then().statusCode(401);
         given().get(DEVICES).then().statusCode(401);
         given().contentType(ContentType.JSON).body(Map.of("label", "x")).post(DEVICES).then().statusCode(401);
         given().delete(DEVICES + "/" + UUID.randomUUID()).then().statusCode(401);

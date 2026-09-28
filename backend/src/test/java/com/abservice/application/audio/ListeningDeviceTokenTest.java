@@ -35,7 +35,11 @@ class ListeningDeviceTokenTest {
         assertThat(ListeningDeviceToken.isWellFormed("abs_device_" + "a".repeat(63))).isFalse();
         assertThat(ListeningDeviceToken.isWellFormed("abs_device_" + "a".repeat(65))).isFalse();
         assertThat(ListeningDeviceToken.isWellFormed("")).isFalse();
+        assertThat(ListeningDeviceToken.isWellFormed("abs_device_" + "x".repeat(64))).isFalse();
+        assertThat(ListeningDeviceToken.isWellFormed("abs_device_" + "A".repeat(64))).isFalse();
         assertThatThrownBy(() -> new ListeningDeviceToken("abs_device_short"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new ListeningDeviceToken("abs_device_" + "x".repeat(64)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }
