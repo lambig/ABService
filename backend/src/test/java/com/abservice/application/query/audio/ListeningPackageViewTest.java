@@ -41,6 +41,11 @@ class ListeningPackageViewTest {
         final var view = ListeningPackageView.of(rows(), SEPARATOR);
         assertThat(view.assets()).extracting(ListeningPackageView.AudioAsset::assetId)
                 .containsExactly(FIRST_AUDIO, SECOND_AUDIO);
+        assertThat(view.assets().getFirst().mediaType()).isEqualTo("audio/flac");
+        assertThat(view.assets().getFirst().checksum())
+                .isEqualTo(new ListeningPackageView.Checksum("sha256", "a".repeat(64)));
+        assertThat(view.assets().getFirst().required()).isTrue();
+        assertThat(view.playbackItems().getFirst().kind()).isEqualTo("album-crossfade");
         assertThat(view.packageVersion()).matches("^[0-9a-f]{64}$")
                 .isEqualTo(ListeningPackageView.of(rows(), SEPARATOR).packageVersion());
         final var shared = ListeningPackageView.of(
@@ -50,6 +55,42 @@ class ListeningPackageViewTest {
         assertThat(shared.packageVersion()).isNotEqualTo(view.packageVersion());
         assertThat(ListeningPackageView.of(List.of(), SEPARATOR).packageVersion())
                 .matches("^[0-9a-f]{64}$").isNotEqualTo(view.packageVersion());
+    }
+
+    @Test
+    @DisplayName("版は Manifest の内容全体を表し、schema の版や互換範囲が変わっても別の版になる")
+    void fingerprintsContractAsWell() {
+        final var current = ListeningPackageView.of(rows(), SEPARATOR);
+        assertThat(current.schemaVersion()).isEqualTo(2);
+        assertThat(current.compatibleAppVersion()).isEqualTo(
+                new ListeningPackageView.AppVersionRange(
+                        List.of(
+                                1,
+                                10,
+                                0),
+                        List.of(
+                                2,
+                                0,
+                                0)));
+        assertThat(current.presentationAssetIds()).isEmpty();
+        final var nextSchema = ListeningPackageView.of(
+                new ListeningPackageView.Contract(3, current.compatibleAppVersion()),
+                rows(),
+                SEPARATOR);
+        final var widerRange = ListeningPackageView.of(
+                new ListeningPackageView.Contract(
+                        current.schemaVersion(),
+                        new ListeningPackageView.AppVersionRange(
+                                current.compatibleAppVersion().minInclusive(),
+                                List.of(
+                                        3,
+                                        0,
+                                        0))),
+                rows(),
+                SEPARATOR);
+        assertThat(nextSchema.albums()).isEqualTo(current.albums());
+        assertThat(nextSchema.packageVersion()).isNotEqualTo(current.packageVersion());
+        assertThat(widerRange.packageVersion()).isNotIn(current.packageVersion(), nextSchema.packageVersion());
     }
 
     private static List<ListeningPackageRow> rows() {

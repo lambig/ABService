@@ -9,12 +9,13 @@ import java.util.List;
  * 端末へ渡す Manifest v2（{@code packages/installation} の schema v2 と同じ項目だけを持つ）。
  *
  * <p>
- * 項目を足すと端末側の厳密な検証が拒否するため、schema と一致する形に保つ。URL・保存キー・秘密は含まない。 artwork は
- * presentation asset として別途足す。
+ * {@link ListeningPackageView} を1対1で写す。値をここで足したり変えたりすると packageVersion
+ * が内容を表さなくなるため、 項目の確定は View 側で行う。項目を足すと端末側の厳密な検証が拒否するため、schema と一致する形に保つ。
+ * URL・保存キー・秘密は含まない。
  * </p>
  *
  * @param schemaVersion
- *            常に 2
+ *            Manifest の schema 版
  * @param packageVersion
  *            内容の digest。同じ内容なら同じ値
  * @param compatibleAppVersion
@@ -37,22 +38,12 @@ public record ListeningPackageResponse(
         List<ListeningAlbumResponse> albums,
         List<ListeningPlaybackItemResponse> playbackItems) {
 
-    private static final int SCHEMA_VERSION = 2;
-    private static final List<Integer> MIN_APP_VERSION = List.of(
-            1,
-            10,
-            0);
-    private static final List<Integer> MAX_APP_VERSION = List.of(
-            2,
-            0,
-            0);
-
     public static ListeningPackageResponse of(ListeningPackageView view) {
         return new ListeningPackageResponse(
-                SCHEMA_VERSION,
+                view.schemaVersion(),
                 view.packageVersion(),
-                new ListeningAppVersionRangeResponse(MIN_APP_VERSION, MAX_APP_VERSION),
-                List.of(),
+                ListeningAppVersionRangeResponse.of(view.compatibleAppVersion()),
+                view.presentationAssetIds(),
                 toList(ListeningAssetResponse::of)
                         .apply(view.assets()),
                 toList(ListeningAlbumResponse::of)
@@ -68,6 +59,9 @@ public record ListeningPackageResponse(
      *            この版未満
      */
     public record ListeningAppVersionRangeResponse(List<Integer> minInclusive, List<Integer> maxExclusive) {
+        private static ListeningAppVersionRangeResponse of(ListeningPackageView.AppVersionRange range) {
+            return new ListeningAppVersionRangeResponse(range.minInclusive(), range.maxExclusive());
+        }
     }
 
     /**
@@ -91,10 +85,10 @@ public record ListeningPackageResponse(
         private static ListeningAssetResponse of(ListeningPackageView.AudioAsset asset) {
             return new ListeningAssetResponse(
                     asset.assetId().toString(),
-                    "audio/flac",
+                    asset.mediaType(),
                     asset.byteLength(),
-                    new ListeningChecksumResponse("sha256", asset.sha256()),
-                    true);
+                    ListeningChecksumResponse.of(asset.checksum()),
+                    asset.required());
         }
     }
 
@@ -105,6 +99,9 @@ public record ListeningPackageResponse(
      *            小文字hex 64桁
      */
     public record ListeningChecksumResponse(String algorithm, String value) {
+        private static ListeningChecksumResponse of(ListeningPackageView.Checksum checksum) {
+            return new ListeningChecksumResponse(checksum.algorithm(), checksum.value());
+        }
     }
 
     /**
@@ -172,7 +169,7 @@ public record ListeningPackageResponse(
         private static ListeningPlaybackItemResponse of(ListeningPackageView.Crossfade item) {
             return new ListeningPlaybackItemResponse(
                     item.playbackItemId(),
-                    "album-crossfade",
+                    item.kind(),
                     item.albumId(),
                     item.title(),
                     item.audioAssetId().toString(),

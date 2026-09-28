@@ -18,7 +18,8 @@ public class ListeningPackageDataSource {
 
     /**
      * 公開済みで、CONFIRMED のクロスフェードが関連付いた作品だけを対象にする。下書きは含めない。
-     * 並びは公開向け一覧の既定（リリース日の新しい順、同値はドメインIDの降順）に揃える。
+     * 並びは公開サイトの作品一覧（カタログナンバーの降順、未付与は末尾、同値はドメインIDの降順）に揃える。 公開サイトは
+     * {@code sort=catalogNumber} を明示して一覧を引くため、会場の端末でも同じ順に並ぶ。
      */
     private static final String SNAPSHOT = """
             SELECT new com.abservice.infrastructure.persistence.datasource.ListeningPackageRow(
@@ -30,7 +31,7 @@ public class ListeningPackageDataSource {
                 LEFT JOIN a.tracks t
                 LEFT JOIN t.trackTunes tt
             WHERE a.publishedAt IS NOT NULL AND r.state = 'CONFIRMED'
-            ORDER BY a.releaseDate DESC, a.domainId DESC, t.trackNo, tt.id.seq
+            ORDER BY a.catalogNumber DESC NULLS LAST, a.domainId DESC, t.trackNo, tt.id.seq
             """;
 
     private final Mutiny.SessionFactory sessionFactory;

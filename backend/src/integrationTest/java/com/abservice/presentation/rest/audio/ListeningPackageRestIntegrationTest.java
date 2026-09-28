@@ -3,6 +3,7 @@ package com.abservice.presentation.rest.audio;
 import static com.abservice.presentation.rest.AdminAuth.authorized;
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 
@@ -139,6 +140,50 @@ class ListeningPackageRestIntegrationTest {
     }
 
     @Test
+    @DisplayName("作品は公開サイトの一覧と同じ順（カタログナンバーの降順、未付与は末尾）で並ぶ")
+    void ordersAlbumsLikePublicCatalog() throws Exception {
+        final String token = device();
+        final String unnumbered = albumWithTracks("番号なし");
+        final String older = albumWithCatalogNumber("旧作", "AB-001");
+        final String newer = albumWithCatalogNumber("新作", "AB-002");
+        assign(
+                unnumbered,
+                confirmed(100, "a"),
+                0);
+        assign(
+                older,
+                confirmed(200, "b"),
+                0);
+        assign(
+                newer,
+                confirmed(300, "c"),
+                0);
+        publish(unnumbered);
+        publish(older);
+        publish(newer);
+
+        asDevice(token).get(PACKAGE).then().statusCode(200)
+                .body(
+                        "albums.albumId",
+                        contains(
+                                newer,
+                                older,
+                                unnumbered))
+                .body(
+                        "playbackItems.albumId",
+                        contains(
+                                newer,
+                                older,
+                                unnumbered))
+                .body(
+                        "assets.byteLength",
+                        contains(
+                                300,
+                                200,
+                                100));
+    }
+
+    @Test
     @DisplayName("配布パッケージは端末だけが取得でき、管理者は403・無認証は401になる")
     void onlyDevicesCanRead() {
         final String token = device();
@@ -162,11 +207,19 @@ class ListeningPackageRestIntegrationTest {
         return given().header("Authorization", "Bearer " + token);
     }
 
-    /** 1曲目は曲名を持ち、2曲目は曲名を持たずチューン名だけを持つ。 */
     private static String albumWithTracks(String title) {
+        return albumWithTracks(title, "");
+    }
+
+    private static String albumWithCatalogNumber(String title, String catalogNumber) {
+        return albumWithTracks(title, "\"catalogNumber\":\"" + catalogNumber + "\",");
+    }
+
+    /** 1曲目は曲名を持ち、2曲目は曲名を持たずチューン名だけを持つ。 */
+    private static String albumWithTracks(String title, String extraFields) {
         return authorized().contentType(ContentType.JSON)
                 .body(
-                        "{\"title\":\"" + title + "\",\"releaseDate\":\"2026-01-01\","
+                        "{\"title\":\"" + title + "\"," + extraFields + "\"releaseDate\":\"2026-01-01\","
                                 + "\"artistDisplayName\":\"Fixture\",\"tracks\":["
                                 + "{\"title\":\"1曲目\"},"
                                 + "{\"tunes\":[{\"tuneTitle\":\"Reel\"},{\"tuneTitle\":\"Jig\"}]}]}")
