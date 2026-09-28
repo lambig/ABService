@@ -24,11 +24,12 @@ class ConfirmAssetUploadServiceTest {
             0};
 
     @Test
-    @DisplayName("形式とサイズが妥当なら公開配信URLを返す")
+    @DisplayName("形式とサイズが妥当なら公開配信URLを返し、確定した実体の実測値を記録する")
     void confirmsValidAsset() {
         final var storage = FakeAssetStorage.holding(PNG_HEAD, 512L);
+        final var published = new FakePublishedAssets();
 
-        final var output = service(storage).execute(new ConfirmAssetUploadInput(PNG_KEY))
+        final var output = service(storage, published).execute(new ConfirmAssetUploadInput(PNG_KEY))
                 .await().indefinitely();
 
         assertThat(output.assetKey()).isEqualTo(PNG_KEY);
@@ -37,6 +38,27 @@ class ConfirmAssetUploadServiceTest {
         assertThat(output.sizeBytes()).isEqualTo(512L);
         assertThat(storage.publishedKeys()).as("検査に通った実体は配信対象として確定する").containsExactly(PNG_KEY);
         assertThat(storage.discardedKeys()).isEmpty();
+        assertThat(published.recorded()).singleElement().satisfies(asset -> {
+            assertThat(asset.assetKey()).isEqualTo(PNG_KEY);
+            assertThat(asset.contentType()).isEqualTo("image/png");
+            assertThat(asset.byteLength()).isEqualTo(512L);
+            assertThat(asset.sha256()).isEqualTo(FakeAssetStorage.sha256Of(PNG_HEAD));
+        });
+    }
+
+    @Test
+    @DisplayName("検査に通らない実体や確定できない実体の実測値は記録しない")
+    void recordsNothingUnlessPublished() {
+        final var published = new FakePublishedAssets();
+        assertThatThrownBy(
+                () -> service(FakeAssetStorage.holding(PNG_HEAD, MAX_BYTES + 1), published)
+                        .execute(new ConfirmAssetUploadInput(PNG_KEY)).await().indefinitely())
+                .isInstanceOf(ValidationException.class);
+        assertThatThrownBy(
+                () -> service(FakeAssetStorage.replacedAfterRead(PNG_HEAD, 512L), published)
+                        .execute(new ConfirmAssetUploadInput(PNG_KEY)).await().indefinitely())
+                .isInstanceOf(BusinessRuleViolationException.class);
+        assertThat(published.recorded()).isEmpty();
     }
 
     @Test
@@ -136,8 +158,13 @@ class ConfirmAssetUploadServiceTest {
     }
 
     private static ConfirmAssetUploadService service(FakeAssetStorage storage) {
+        return service(storage, new FakePublishedAssets());
+    }
+
+    private static ConfirmAssetUploadService service(FakeAssetStorage storage, FakePublishedAssets published) {
         return new ConfirmAssetUploadService(
                 storage,
+                published,
                 MAX_BYTES,
                 BASE_PATH);
     }

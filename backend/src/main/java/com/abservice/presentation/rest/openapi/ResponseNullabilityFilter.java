@@ -35,8 +35,10 @@ import org.jspecify.annotations.Nullable;
  * </p>
  *
  * <p>
- * 例外は Jackson の出力制御を持つ型（{@code @JsonInclude}）で、そこでは項目名が省略され得る。実際にキーが 出ない項目を
- * {@code required} にすると契約が実応答とずれるため、対象から外す。
+ * 例外は Jackson の出力制御（{@code @JsonInclude}）を持つ型と項目で、そこでは項目名が省略され得る。実際にキーが 出ない項目を
+ * {@code required} にすると契約が実応答とずれるため、対象から外す。型に付いていれば型全体を、項目に付いていれば その項目だけを外す。
+ * 項目単位で外すのは、外部の厳密な schema が null を拒み省略だけを許す項目（試聴端末の Manifest の artwork 等）のためで、
+ * 型全体を外すと常にある項目まで省略可能として定義される。
  * </p>
  *
  * <p>
@@ -89,6 +91,7 @@ public class ResponseNullabilityFilter implements OASFilter {
         final List<RecordComponent> components = List.of(type.getRecordComponents());
 
         components.stream()
+                .filter(ResponseNullabilityFilter::alwaysInOutput)
                 .map(RecordComponent::getName)
                 .collect(Optionals.optionally(Collectors.toUnmodifiableList()))
                 .ifPresent(schema::setRequired);
@@ -101,6 +104,19 @@ public class ResponseNullabilityFilter implements OASFilter {
 
     private static boolean isNullable(RecordComponent component) {
         return Objects.nonNull(component.getAnnotatedType().getAnnotation(Nullable.class));
+    }
+
+    /**
+     * 項目単位の出力制御を持たない項目は、値の有無によらず項目名を出す。
+     *
+     * <p>
+     * ACCESSOR-ANNOTATION: {@code @JsonInclude} は record component
+     * を対象に宣言していないため、record の項目へ付けた 注釈は component からは見えず、accessor と field
+     * へ伝わる。Jackson が読むのと同じ accessor で判定する。
+     * </p>
+     */
+    public static boolean alwaysInOutput(RecordComponent component) {
+        return Objects.isNull(component.getAccessor().getAnnotation(JsonInclude.class));
     }
 
     /** Jackson の出力制御を持たない型は、値の有無によらず項目名を出す。 */

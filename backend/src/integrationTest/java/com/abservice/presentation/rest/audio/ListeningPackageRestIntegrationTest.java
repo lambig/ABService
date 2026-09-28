@@ -5,17 +5,24 @@ import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 
 import com.abservice.test.CleanDatabase;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;
+import io.restassured.RestAssured;
+import io.restassured.config.EncoderConfig;
 import io.restassured.http.ContentType;
 import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
+import java.security.MessageDigest;
 import java.sql.DriverManager;
+import java.util.Base64;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -40,6 +47,9 @@ class ListeningPackageRestIntegrationTest {
             2,
             0,
             0);
+    /** 1x1 の PNG。検査用プロファイルの上限（1024 バイト）に収まる。 */
+    private static final byte[] PNG = Base64.getDecoder().decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC");
 
     /** 一時領域はJVMの一時ディレクトリ配下に取る（固定の /tmp は macOS では symlink 経由になるため）。 */
     public static class Enabled implements QuarkusTestProfile {
@@ -184,6 +194,38 @@ class ListeningPackageRestIntegrationTest {
     }
 
     @Test
+    @DisplayName("確定時に実測値を記録したカバー画像だけを表示素材として載せ、記録の無い画像の作品は項目ごと省く")
+    void carriesConfirmedArtworkOnly() throws Exception {
+        final String token = device();
+        final String artwork = confirmedImage();
+        final String withArtwork = albumWithTracks("画像あり", "\"coverImageKey\":\"" + artwork + "\",");
+        final String legacy = albumWithTracks("記録なし", "\"coverImageKey\":\"legacy-cover.png\",");
+        assign(
+                withArtwork,
+                confirmed(100, "a"),
+                0);
+        assign(
+                legacy,
+                confirmed(200, "b"),
+                0);
+        publish(withArtwork);
+        publish(legacy);
+
+        final var response = asDevice(token).get(PACKAGE).then().statusCode(200)
+                .body("albums", hasSize(2))
+                .body("albums.find { it.albumId == '" + withArtwork + "' }.artworkAssetId", equalTo(artwork))
+                .body("albums.find { it.albumId == '" + legacy + "' }", not(hasKey("artworkAssetId")))
+                .body("presentationAssetIds", equalTo(List.of(artwork)))
+                .body("assets", hasSize(3))
+                .body("assets.find { it.assetId == '" + artwork + "' }.mediaType", equalTo("image/png"))
+                .body("assets.find { it.assetId == '" + artwork + "' }.byteLength", equalTo(PNG.length))
+                .body("assets.find { it.assetId == '" + artwork + "' }.checksum.value", equalTo(sha256Of(PNG)))
+                .body("assets.find { it.assetId == '" + artwork + "' }.required", equalTo(true))
+                .extract();
+        assertThat(response.asString()).doesNotContain("legacy-cover.png");
+    }
+
+    @Test
     @DisplayName("配布パッケージは端末だけが取得でき、管理者は403・無認証は401になる")
     void onlyDevicesCanRead() {
         final String token = device();
@@ -243,6 +285,25 @@ class ListeningPackageRestIntegrationTest {
                                 revision))
                 .put("/api/v1/admin/albums/" + album + "/listening-audio/crossfade").then().statusCode(200)
                 .extract();
+    }
+
+    /** 画像は実際の経路（署名付きURLへの PUT と確定）で確定させ、確定時に記録した実測値が Manifest に載ることを見る。 */
+    private static String confirmedImage() {
+        final var issued = authorized().contentType(ContentType.JSON).body(Map.of("contentType", "image/png"))
+                .post("/api/v1/assets/upload-url").then().statusCode(200).extract();
+        final String assetKey = issued.path("assetKey");
+        final String uploadUrl = issued.path("uploadUrl");
+        given().config(
+                RestAssured.config().encoderConfig(
+                        EncoderConfig.encoderConfig().appendDefaultContentCharsetToContentTypeIfUndefined(false)))
+                .urlEncodingEnabled(false).contentType("image/png").body(PNG).put(uploadUrl).then()
+                .statusCode(200);
+        authorized().post("/api/v1/assets/" + assetKey + "/confirm").then().statusCode(200);
+        return assetKey;
+    }
+
+    private static String sha256Of(byte[] bytes) throws Exception {
+        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
     }
 
     /** FLAC実体の検査は基盤の統合試験で扱い、本試験は確定後の配布契約を検査する。 */

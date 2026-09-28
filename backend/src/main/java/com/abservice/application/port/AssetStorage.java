@@ -65,6 +65,19 @@ public interface AssetStorage {
     Uni<Void> publish(String key, String entityTag);
 
     /**
+     * 配信対象として確定した実体の実測値を読み出します。
+     *
+     * <p>
+     * SHA-256 は確定のコピーで保管先に計算させた値で、バックエンドは実体を読まない。確定していないキーや、保管先が 値を持たない実体は失敗になる。
+     * </p>
+     *
+     * @param key
+     *            アセットキー
+     * @return 実体のバイト数とSHA-256
+     */
+    Uni<StoredAssetDigest> readPublishedDigest(String key);
+
+    /**
      * 配信対象として既に確定済みかを返します。
      *
      * <p>

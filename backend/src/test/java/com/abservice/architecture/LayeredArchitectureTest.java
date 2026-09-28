@@ -391,9 +391,10 @@ class LayeredArchitectureTest {
                 .filter(type -> !type.isAnnotatedWith(JsonInclude.class))
                 .forEach(type -> {
                     final var properties = Arrays.stream(type.reflect().getRecordComponents())
+                            .filter(ResponseNullabilityFilter::alwaysInOutput)
                             .map(RecordComponent::getName).toList();
                     assertThat(schemas.get(type.getSimpleName()).getRequired())
-                            .as("%s の全応答項目が必須であること", type.getName())
+                            .as("%s の出力制御を持たない全応答項目が必須であること", type.getName())
                             .containsExactlyInAnyOrderElementsOf(properties);
                 });
     }

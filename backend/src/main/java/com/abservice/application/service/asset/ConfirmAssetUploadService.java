@@ -2,6 +2,8 @@ package com.abservice.application.service.asset;
 
 import com.abservice.application.port.AssetConfirmConflictException;
 import com.abservice.application.port.AssetStorage;
+import com.abservice.application.port.PublishedAsset;
+import com.abservice.application.port.PublishedAssets;
 import com.abservice.application.port.StoredAssetHead;
 import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
@@ -39,7 +41,9 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * </p>
  *
  * <p>
- * DBを触らないため {@code @WithTransaction} は付与しない。
+ * 確定した実体の実測値（バイト数と SHA-256）は、確定のコピーで保管先に計算させた値を読み、独立したトランザクションで記録する。
+ * 試聴端末へ渡す表示素材の識別に使う。記録だけが失敗した確定は 500 で返り、配信は成立している。その画像を表示素材に
+ * するには別のキーで登録し直す。要求の {@code @WithTransaction} は付与しない（記録は自前の commit で完結する）。
  * </p>
  */
 @ApplicationScoped
@@ -47,12 +51,15 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 public class ConfirmAssetUploadService implements CommandService<ConfirmAssetUploadInput, ConfirmAssetUploadOutput> {
 
     private final AssetStorage assetStorage;
+    private final PublishedAssets publishedAssets;
     private final long maxBytes;
     private final String publicBasePath;
 
     /**
      * @param assetStorage
      *            アセット保管先
+     * @param publishedAssets
+     *            確定した実体の実測値の記録先
      * @param maxBytes
      *            許容する最大バイト数（{@code abservice.assets.max-bytes}）
      * @param publicBasePath
@@ -60,9 +67,11 @@ public class ConfirmAssetUploadService implements CommandService<ConfirmAssetUpl
      */
     public ConfirmAssetUploadService(
             AssetStorage assetStorage,
+            PublishedAssets publishedAssets,
             @ConfigProperty(name = "abservice.assets.max-bytes") long maxBytes,
             @ConfigProperty(name = "abservice.assets.public-base-path") String publicBasePath) {
         this.assetStorage = assetStorage;
+        this.publishedAssets = publishedAssets;
         this.maxBytes = maxBytes;
         this.publicBasePath = publicBasePath;
     }
@@ -117,12 +126,25 @@ public class ConfirmAssetUploadService implements CommandService<ConfirmAssetUpl
         return assetStorage.publish(assetKey, stored.entityTag())
                 .onFailure(AssetConfirmConflictException.class)
                 .transform(cause -> confirmConflict(assetKey, cause))
+                .chain(() -> recordDigest(assetKey, format))
                 .replaceWith(
                         () -> new ConfirmAssetUploadOutput(
                                 assetKey,
                                 publicBasePath + "/" + assetKey,
                                 format.contentType(),
                                 stored.totalBytes()));
+    }
+
+    /** 確定した実体の実測値を保管先から読み、独立commitで記録する。 */
+    private Uni<Void> recordDigest(String assetKey, AssetImageFormat format) {
+        return assetStorage.readPublishedDigest(assetKey)
+                .chain(
+                        digest -> publishedAssets.record(
+                                new PublishedAsset(
+                                        assetKey,
+                                        format.contentType(),
+                                        digest.byteLength(),
+                                        digest.sha256())));
     }
 
     /**
