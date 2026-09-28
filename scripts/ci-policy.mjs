@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { browserJobs, browserKeys, browserSuites, browserOutputs, browserSelection } from './browser-policy.mjs';
 
-export const tracks = ['application', 'listening'];
+// Workspace tracks own npm workspaces. The infrastructure track owns no workspace:
+// its checks read infra/ and the tooling around it, never installed packages.
+const workspaceTracks = ['application', 'listening'];
+export const tracks = [...workspaceTracks, 'infrastructure'];
 
 // Ownership is deliberately coarse. Unknown workspaces belong to both tracks
 // until their boundary is decided; checks must not disappear when packages grow.
@@ -20,7 +23,7 @@ export const jobs = {
   'frontend-check': 'application',
   'api-types-check': 'application',
   'container-check': 'application',
-  'iac-check': 'application',
+  'iac-check': 'infrastructure',
   e2e: 'application',
   'listening-check': 'listening',
   ...browserJobs,
@@ -32,7 +35,7 @@ const dependencies = (workspace) => Object.keys({
 });
 
 export const trackWorkspaces = (workspaces, track) => {
-  assert.ok(tracks.includes(track), `Unknown CI track: ${track}`);
+  assert.ok(workspaceTracks.includes(track), `Unknown CI track: ${track}`);
   const known = Object.values(ownership).flat();
   const roots = workspaces.filter((workspace) =>
     ownership[track].includes(workspace.location) || !known.includes(workspace.location));
@@ -45,7 +48,7 @@ export const trackWorkspaces = (workspaces, track) => {
 };
 
 export const selectTracks = (files, workspaces) => {
-  const members = Object.fromEntries(tracks.map((track) =>
+  const members = Object.fromEntries(workspaceTracks.map((track) =>
     [track, new Set(trackWorkspaces(workspaces, track).map((workspace) => workspace.name))]));
   const fileTracks = (file) => {
     // Package metadata can change dependency edges or workspace membership.
@@ -53,11 +56,14 @@ export const selectTracks = (files, workspaces) => {
     const owner = workspaces.filter((workspace) => file.startsWith(`${workspace.location}/`))
       .sort((a, b) => b.location.length - a.location.length)[0];
     // Only non-executable documentation is excluded. Unknown code, tooling,
-    // workflows, root dependencies and runtime settings require both tracks.
+    // workflows and runtime settings require every track. Package metadata
+    // concerns workspaces only; infrastructure checks install no packages.
     return [
-      { matches: /(^|\/)package(?:-lock)?\.json$/.test(file), selected: tracks },
-      { matches: Boolean(owner), selected: tracks.filter((track) => members[track].has(owner?.name)) },
-      { matches: /^(backend|frontend-public|frontend-admin|e2e|infra|docker)\//.test(file)
+      { matches: /(^|\/)package(?:-lock)?\.json$/.test(file), selected: workspaceTracks },
+      { matches: Boolean(owner), selected: workspaceTracks.filter((track) => members[track].has(owner?.name)) },
+      // Application jobs also run infra/ host and release checks, so infra/ keeps both.
+      { matches: /^infra\//.test(file), selected: ['application', 'infrastructure'] },
+      { matches: /^(backend|frontend-public|frontend-admin|e2e|docker)\//.test(file)
         || /^docker-compose[^/]*\.ya?ml$/.test(file), selected: ['application'] },
       { matches: /^docs\/.*\.md$/.test(file) || /^[^/]+\.md$/.test(file), selected: [] },
       { matches: true, selected: tracks },

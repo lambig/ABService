@@ -24,15 +24,17 @@ const mainSelection = (files, workspaces = fixtures) => selectCI({
 });
 
 test('main scopes ordinary player and application changes without repeating browser regressions', () => {
-  for (const [file, application, listening] of [
-    ['packages/player/src/player.ts', false, true],
-    ['frontend-public/src/page.astro', true, false],
-    ['backend/src/Service.java', true, false],
-    ['docs/DECISIONS.md', false, false],
+  for (const [file, application, listening, infrastructure] of [
+    ['packages/player/src/player.ts', false, true, false],
+    ['frontend-public/src/page.astro', true, false, false],
+    ['backend/src/Service.java', true, false, false],
+    ['infra/compute.tf', true, false, true],
+    ['docs/DECISIONS.md', false, false, false],
   ]) {
     const selected = mainSelection([file]);
     assert.equal(selected.application, application, file);
     assert.equal(selected.listening, listening, file);
+    assert.equal(selected.infrastructure, infrastructure, file);
     assert.ok(browserKeys.every((key) => selected[key] === false), file);
   }
 });
@@ -80,49 +82,74 @@ test('release and manual CI always select all tracks and complete browser suites
     const selected = selectCI({ ...context, files: ['docs/DECISIONS.md'], workspaces: fixtures });
     assert.equal(selected.application, true);
     assert.equal(selected.listening, true);
+    assert.equal(selected.infrastructure, true);
     assert.ok(Object.values(JSON.parse(selected.browser_plan)).every((mode) => mode === 'all'));
   }
   const pr = selectCI({ event: 'pull_request', ref: 'refs/pull/1/merge',
     files: ['packages/player/src/player.ts'], workspaces: fixtures });
   assert.equal(pr.application, false);
   assert.equal(pr.listening, true);
+  assert.equal(pr.infrastructure, false);
   assert.equal(pr.browser_player, true);
   const unknownBranch = selectCI({ event: 'push', ref: 'refs/heads/other',
     files: ['docs/DECISIONS.md'], workspaces: fixtures });
   assert.equal(unknownBranch.application, true);
   assert.equal(unknownBranch.listening, true);
+  assert.equal(unknownBranch.infrastructure, true);
 });
+
+const only = (...selected) => ({
+  application: selected.includes('application'),
+  listening: selected.includes('listening'),
+  infrastructure: selected.includes('infrastructure'),
+});
+const every = only('application', 'listening', 'infrastructure');
+const workspacesOnly = only('application', 'listening');
 
 test('listening code does not select the application; application code does not select listening', () => {
-  assert.deepEqual(selectTracks(['packages/player/src/player.ts'], fixtures), { application: false, listening: true });
-  assert.deepEqual(selectTracks(['frontend-public/src/page.astro'], fixtures), { application: true, listening: false });
-  assert.deepEqual(selectTracks(['packages/public-presentation/src/index.ts'], fixtures), { application: true, listening: false });
-  assert.deepEqual(selectTracks(['backend/src/Service.java'], fixtures), { application: true, listening: false });
+  assert.deepEqual(selectTracks(['packages/player/src/player.ts'], fixtures), only('listening'));
+  assert.deepEqual(selectTracks(['frontend-public/src/page.astro'], fixtures), only('application'));
+  assert.deepEqual(selectTracks(['packages/public-presentation/src/index.ts'], fixtures), only('application'));
+  assert.deepEqual(selectTracks(['backend/src/Service.java'], fixtures), only('application'));
 });
 
-test('shared dependencies and cross-track consumers select both tracks transitively', () => {
-  assert.deepEqual(selectTracks(['packages/eslint-config/index.js'], fixtures), { application: true, listening: true });
+test('only infrastructure, CI and unknown tooling changes select the infrastructure track', () => {
+  ['backend/src/Service.java', 'frontend-admin/src/page.ts', 'e2e/src/specs/page.spec.ts',
+    'docker/backend/Dockerfile', 'docker-compose.yml', 'packages/player/src/player.ts'].forEach((file) =>
+    assert.equal(selectTracks([file], fixtures).infrastructure, false, file));
+  // Application jobs run infra/ host and release checks too, so infra/ keeps the application.
+  ['infra/compute.tf', 'infra/monitoring/transport/test_transport.py'].forEach((file) =>
+    assert.deepEqual(selectTracks([file], fixtures), only('application', 'infrastructure'), file));
+  ['scripts/check-deploy-permissions.sh', 'scripts/ci-policy.mjs', '.github/workflows/ci.yml',
+    '.github/workflows/deploy.yml'].forEach((file) =>
+    assert.deepEqual(selectTracks([file], fixtures), every, file));
+});
+
+test('shared dependencies and cross-track consumers select both workspace tracks transitively', () => {
+  assert.deepEqual(selectTracks(['packages/eslint-config/index.js'], fixtures), workspacesOnly);
   const linked = fixtures.map((item) => item.name === 'markup'
     ? { ...item, dependencies: { player: '*' } } : item);
-  assert.deepEqual(selectTracks(['packages/player/src/player.ts'], linked), { application: true, listening: true });
+  assert.deepEqual(selectTracks(['packages/player/src/player.ts'], linked), workspacesOnly);
   assert.ok(trackWorkspaces(linked, 'application').some((item) => item.name === 'player'));
+  assert.throws(() => trackWorkspaces(fixtures, 'infrastructure'));
 });
 
-test('metadata, unknown files, empty diffs and unknown workspaces fail closed to both tracks', () => {
-  ['package-lock.json', '.github/workflows/ci.yml', '.nvmrc', 'scripts/new.mjs',
-    'packages/player/package.json', 'packages/deleted/src/file.ts'].forEach((file) =>
-    assert.deepEqual(selectTracks([file], fixtures), { application: true, listening: true }, file));
-  assert.deepEqual(selectTracks([], fixtures), { application: true, listening: true });
+test('metadata selects the workspace tracks; unknown files, empty diffs and unknown workspaces fail closed', () => {
+  ['package-lock.json', 'packages/player/package.json'].forEach((file) =>
+    assert.deepEqual(selectTracks([file], fixtures), workspacesOnly, file));
+  ['.github/workflows/ci.yml', '.nvmrc', 'scripts/new.mjs', 'packages/deleted/src/file.ts'].forEach((file) =>
+    assert.deepEqual(selectTracks([file], fixtures), every, file));
+  assert.deepEqual(selectTracks([], fixtures), every);
   const added = [...fixtures, workspace('new', 'packages/new')];
-  assert.deepEqual(selectTracks(['packages/new/index.ts'], added), { application: true, listening: true });
+  assert.deepEqual(selectTracks(['packages/new/index.ts'], added), workspacesOnly);
   assert.ok(frontendTasks(added, 'application').some((task) => task.workspace === 'new'));
   assert.ok(frontendTasks(added, 'listening').some((task) => task.workspace === 'new'));
 });
 
 test('both paths of a rename select both owners; documentation exclusion does not hide executable docs', () => {
-  assert.deepEqual(selectTracks(['packages/player/old.ts', 'frontend-public/new.ts'], fixtures), { application: true, listening: true });
-  assert.deepEqual(selectTracks(['README.md', 'docs/DECISIONS.md'], fixtures), { application: false, listening: false });
-  assert.deepEqual(selectTracks(['docs/generator.mjs'], fixtures), { application: true, listening: true });
+  assert.deepEqual(selectTracks(['packages/player/old.ts', 'frontend-public/new.ts'], fixtures), workspacesOnly);
+  assert.deepEqual(selectTracks(['README.md', 'docs/DECISIONS.md'], fixtures), only());
+  assert.deepEqual(selectTracks(['docs/generator.mjs'], fixtures), every);
 });
 
 test('dependency cycles terminate and missing check scripts are rejected', () => {
@@ -143,12 +170,14 @@ test('frontend checks include declared package builds and tests, without startin
   assert.ok(listening.some((task) => task.workspace === 'offline' && task.script === 'build'));
 });
 
-const results = (application, listening) => ({
+const results = (application, listening, infrastructure = application) => ({
   changes: { result: 'success', outputs: { application: String(application), listening: String(listening),
+    infrastructure: String(infrastructure),
     browser_plan: JSON.stringify(Object.fromEntries(Object.keys(browserSuites).map((id) => [id, listening ? 'all' : []]))),
     ...Object.fromEntries(browserKeys.map((key) => [key, String(listening)])) } },
   ...Object.fromEntries(Object.entries(jobs).map(([job, track]) =>
-    [job, { result: (track.startsWith('browser_') ? listening : { application, listening }[track]) ? 'success' : 'skipped' }])),
+    [job, { result: (track.startsWith('browser_') ? listening : { application, listening, infrastructure }[track])
+      ? 'success' : 'skipped' }])),
 });
 
 test('release/manual gate refuses omitted browser suites even when PR/main would accept the skip', () => {
@@ -164,7 +193,7 @@ test('release/manual gate refuses omitted browser suites even when PR/main would
 });
 
 test('release/manual gate rejects omitted tracks even with all browser suites successful', () => {
-  for (const track of ['application', 'listening']) {
+  for (const track of ['application', 'listening', 'infrastructure']) {
     const needs = results(true, true);
     needs.changes.outputs[track] = 'false';
     Object.entries(jobs).filter(([, owner]) => owner === track)
@@ -197,6 +226,20 @@ test('selected jobs cannot fail, disappear, cancel or skip and still pass the ga
     assert.equal(gateFailures(needs).length, 1, String(result));
   });
   assert.equal(gateFailures({ ...results(true, false), 'player-browser': { result: 'failure' } }).length, 1);
+});
+
+test('the IaC check is required only when the infrastructure track is selected', () => {
+  assert.equal(jobs['iac-check'], 'infrastructure');
+  assert.deepEqual(gateFailures(results(true, false, false)), []);
+  assert.deepEqual(gateFailures(results(false, false, true)), []);
+  ['failure', 'cancelled', 'skipped', undefined].forEach((result) => {
+    const needs = { ...results(false, false, true), 'iac-check': { result } };
+    assert.deepEqual(gateFailures(needs), [`iac-check: ${result ?? 'missing'} (required=true)`], String(result));
+  });
+  assert.equal(gateFailures({ ...results(true, false, false), 'iac-check': { result: 'failure' } }).length, 1);
+  const missing = results(true, true);
+  delete missing.changes.outputs.infrastructure;
+  assert.equal(gateFailures(missing).length, 1);
 });
 
 test('failed selection or missing/invalid selection outputs never produce a green gate', () => {

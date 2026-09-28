@@ -25,6 +25,7 @@ jobs:
     outputs:
       application: ${{ steps.scope.outputs.application }}
       listening: ${{ steps.scope.outputs.listening }}
+      infrastructure: ${{ steps.scope.outputs.infrastructure }}
       browser_plan: ${{ steps.scope.outputs.browser_plan }}
       browser_e2e: ${{ steps.scope.outputs.browser_e2e }}
       browser_player: ${{ steps.scope.outputs.browser_player }}
@@ -389,7 +390,7 @@ jobs:
 
   iac-check:
     needs: changes
-    if: ${{ needs.changes.outputs.application == 'true' }}
+    if: ${{ needs.changes.outputs.infrastructure == 'true' }}
     name: IaC (terraform fmt / validate)
     runs-on: ubuntu-latest
 
