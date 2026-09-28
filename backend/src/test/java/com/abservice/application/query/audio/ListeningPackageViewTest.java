@@ -58,6 +58,44 @@ class ListeningPackageViewTest {
     }
 
     @Test
+    @DisplayName("曲名に改行や区切り文字で別の曲を装った文字列を埋め込んでも、曲数が違えば別の版になる")
+    void serializationIsUnambiguous() {
+        final var twoTracks = ListeningPackageView.of(rows(), SEPARATOR);
+        final var embedded = ListeningPackageView.of(
+                List.of(
+                        track(
+                                ALBUM_A,
+                                "track-1",
+                                "Opening\ntrack\u001ftrack-2\u001f2\u001fReel / Jig",
+                                1,
+                                "Opening tune"),
+                        withoutTracks(ALBUM_B)),
+                SEPARATOR);
+        assertThat(twoTracks.albums().getFirst().tracks()).hasSize(2);
+        assertThat(embedded.albums().getFirst().tracks()).hasSize(1);
+        assertThat(embedded.packageVersion()).isNotEqualTo(twoTracks.packageVersion());
+        final var lengthAsTitle = ListeningPackageView.of(
+                List.of(
+                        track(
+                                ALBUM_A,
+                                "track-1",
+                                "7:Opening",
+                                1,
+                                "Opening tune")),
+                SEPARATOR);
+        final var plain = ListeningPackageView.of(
+                List.of(
+                        track(
+                                ALBUM_A,
+                                "track-1",
+                                "Opening",
+                                1,
+                                "Opening tune")),
+                SEPARATOR);
+        assertThat(lengthAsTitle.packageVersion()).isNotEqualTo(plain.packageVersion());
+    }
+
+    @Test
     @DisplayName("版は Manifest の内容全体を表し、schema の版や互換範囲が変わっても別の版になる")
     void fingerprintsContractAsWell() {
         final var current = ListeningPackageView.of(rows(), SEPARATOR);

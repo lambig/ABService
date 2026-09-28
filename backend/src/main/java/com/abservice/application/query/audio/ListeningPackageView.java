@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
@@ -70,8 +71,7 @@ public record ListeningPackageView(
     /** artwork は確定画像の digest を持ってから足す。それまで表示素材は無い。 */
     private static final List<String> NO_PRESENTATION_ASSETS = List.of();
     private static final String PLAYBACK_ITEM_PREFIX = CROSSFADE_KIND + ":";
-    private static final String FIELD_SEPARATOR = "\u001f";
-    private static final String VERSION_SEPARATOR = ".";
+    private static final String LENGTH_TERMINATOR = ":";
 
     public static ListeningPackageView of(List<ListeningPackageRow> rows, String tuneTitleSeparator) {
         return of(
@@ -196,7 +196,10 @@ public record ListeningPackageView(
      * Manifest の内容から版を決める。packageVersion 自身を除く全項目の並びと値だけに依存し、時刻や乱数を含めない。
      *
      * <p>
-     * 各項目を1行の文字列に写し、改行で繋いだ列の SHA-256 を取る。区切りに現れない文字を境に使うため、 隣り合う値が入れ替わっても同じ列にはならない。
+     * 各項目を「UTF-8 のバイト長、区切り、値」の連結で書き並べ、その列の SHA-256 を取る。長さが先に確定するため、値に改行や
+     * 制御文字が含まれても境界がずれず、異なる内容が同じ列になることはない（prefix-free な符号）。要素数が変わる並びは
+     * 要素数を先頭に置き、レコードは種別の札を先頭に置いて札ごとに項目数を固定する。生の区切り文字で繋ぐ方式は、値に
+     * 区切り文字が含まれると別の内容が同じ列になりうる。
      * </p>
      */
     private static String fingerprint(
@@ -208,63 +211,61 @@ public record ListeningPackageView(
         return HexFormat.of().formatHex(
                 sha256().digest(
                         Stream.of(
-                                linesOf(contract),
-                                Stream.of(lineOf(presentationAssetIds)),
-                                assets.stream().map(ListeningPackageView::lineOf),
-                                albums.stream().flatMap(ListeningPackageView::linesOf),
-                                items.stream().map(ListeningPackageView::lineOf))
+                                fieldsOf(contract),
+                                sequenceOf(presentationAssetIds, Stream::of),
+                                sequenceOf(assets, ListeningPackageView::fieldsOf),
+                                sequenceOf(albums, ListeningPackageView::fieldsOf),
+                                sequenceOf(items, ListeningPackageView::fieldsOf))
                                 .flatMap(stream -> stream)
-                                .collect(Collectors.joining("\n"))
+                                .map(ListeningPackageView::lengthPrefixed)
+                                .collect(Collectors.joining())
                                 .getBytes(StandardCharsets.UTF_8)));
     }
 
-    private static Stream<String> linesOf(Contract contract) {
+    private static String lengthPrefixed(String value) {
+        return value.getBytes(StandardCharsets.UTF_8).length + LENGTH_TERMINATOR + value;
+    }
+
+    private static <T> Stream<String> sequenceOf(List<T> elements, Function<T, Stream<String>> fields) {
+        return Stream.concat(
+                Stream.of(Integer.toString(elements.size())),
+                elements.stream().flatMap(fields));
+    }
+
+    private static Stream<String> fieldsOf(Contract contract) {
         return Stream.of(
-                String.join(
-                        FIELD_SEPARATOR,
+                Stream.of(
                         "schema",
-                        Integer.toString(contract.schemaVersion())),
-                String.join(
-                        FIELD_SEPARATOR,
-                        "compatible",
-                        versionOf(contract.compatibleAppVersion().minInclusive()),
-                        versionOf(contract.compatibleAppVersion().maxExclusive())));
+                        Integer.toString(contract.schemaVersion()),
+                        "compatible"),
+                sequenceOf(contract.compatibleAppVersion().minInclusive(), ListeningPackageView::fieldOf),
+                sequenceOf(contract.compatibleAppVersion().maxExclusive(), ListeningPackageView::fieldOf))
+                .flatMap(stream -> stream);
     }
 
-    private static String lineOf(List<String> presentationAssetIds) {
-        return Stream.concat(Stream.of("presentation"), presentationAssetIds.stream())
-                .collect(Collectors.joining(FIELD_SEPARATOR));
+    private static Stream<String> fieldOf(Integer number) {
+        return Stream.of(Integer.toString(number));
     }
 
-    private static String versionOf(List<Integer> version) {
-        return version.stream()
-                .map(String::valueOf)
-                .collect(Collectors.joining(VERSION_SEPARATOR));
-    }
-
-    private static Stream<String> linesOf(Album album) {
+    private static Stream<String> fieldsOf(Album album) {
         return Stream.concat(
                 Stream.of(
-                        String.join(
-                                FIELD_SEPARATOR,
-                                "album",
-                                album.albumId(),
-                                album.title())),
-                album.tracks().stream().map(ListeningPackageView::lineOf));
+                        "album",
+                        album.albumId(),
+                        album.title()),
+                sequenceOf(album.tracks(), ListeningPackageView::fieldsOf));
     }
 
-    private static String lineOf(Track track) {
-        return String.join(
-                FIELD_SEPARATOR,
+    private static Stream<String> fieldsOf(Track track) {
+        return Stream.of(
                 "track",
                 track.trackId(),
                 Integer.toString(track.trackNo()),
                 track.title());
     }
 
-    private static String lineOf(AudioAsset asset) {
-        return String.join(
-                FIELD_SEPARATOR,
+    private static Stream<String> fieldsOf(AudioAsset asset) {
+        return Stream.of(
                 "asset",
                 asset.assetId().toString(),
                 asset.mediaType(),
@@ -274,9 +275,8 @@ public record ListeningPackageView(
                 Boolean.toString(asset.required()));
     }
 
-    private static String lineOf(Crossfade item) {
-        return String.join(
-                FIELD_SEPARATOR,
+    private static Stream<String> fieldsOf(Crossfade item) {
+        return Stream.of(
                 "item",
                 item.playbackItemId(),
                 item.kind(),
