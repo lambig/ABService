@@ -59,13 +59,15 @@ const isPointer = (value: unknown): value is Pointer =>
 const readPointer = async (
   root: FileSystemDirectoryHandle,
 ): Promise<Pointer> => {
-  const text = await optional(
-    root
-      .getFileHandle(pointerName)
-      .then((handle) => handle.getFile())
-      .then((file) => file.text()),
-  );
-  const value = text === undefined ? {} : parseJson(text);
+  /* A committed pointer is never empty; zero bytes is a first creation that never committed. */
+  const text =
+    (await optional(
+      root
+        .getFileHandle(pointerName)
+        .then((handle) => handle.getFile())
+        .then((file) => file.text()),
+    )) ?? "";
+  const value = text === "" ? {} : parseJson(text);
   return isPointer(value) ? value : reject("corrupt");
 };
 /* One file holds both slots, so a single close commits or keeps both. */

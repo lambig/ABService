@@ -21,7 +21,7 @@
 - 保存先はasset実体と別のディレクトリ `abservice-packages-v1`。Manifestは `manifests/` の下に、packageVersionのSHA-256をファイル名にして置く。packageVersionにスラッシュ・ドット・日本語が含まれても、パスとしては解釈しない。
 - 2つのslotは1つのpointerファイルにまとめる。createWritableのcloseがcommit境界なので、close前に失敗すれば両slotとも旧値のまま残る。
 - `stage` は配布応答と同じstrict parseに通したManifestを書き、そのあとでpendingを付け替える。activeは変えない。Manifestを書いた直後に中断された場合に残るのは、どのslotからも参照されないファイルだけ。
-- `read` は読むたびにstrict parseを通し、ファイル中のpackageVersionがslotの値と一致することを確かめる。JSONが壊れている・未知の項目がある・別の版が入っている場合はcorrupt、ファイルが無ければmissing。pointer自体が壊れている場合も、推測で直さずにcorruptを返す。
+- `read` は読むたびにstrict parseを通し、ファイル中のpackageVersionがslotの値と一致することを確かめる。JSONが壊れている・未知の項目がある・別の版が入っている場合はcorrupt、ファイルが無ければmissing。中身のあるpointerが不正な場合も、推測で直さずにcorruptを返す。0バイトのpointerだけは、初回作成がcommitされずに終わったもの（空のままのファイルが残る）として、両slotとも空のpointerと扱う。commitされるpointerは空の状態でも`{}`なので、0バイトになることはない。
 - activeかpendingが参照している世代を、同じpackageVersionで別の内容に置き換えることはしない（conflict）。packageVersionは内容のdigestなので、同じ版で内容が違うのは配布側の異常として扱う。ただし保存済みのファイルが読めない場合は、同じ版の正しい内容で上書きして修復する。
 - `promote` はpendingを読める状態か確かめてからactiveへ移す。昇格の時機（全タブ終了後の起動時）、asset・app互換・shellの再検証、利用中の世代の保護、不要世代の削除は呼び出し側の準備・起動処理が受け持つ。`discardPending` は参照だけを外し、ファイルは残す。
 - `list` は保存済みの世代と、それを参照しているslotを返す。読めないファイルは数だけを返し、保存パスは外に出さない。

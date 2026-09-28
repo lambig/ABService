@@ -256,6 +256,62 @@ test("a failed pointer commit keeps both previous slots", async ({ page }) => {
   });
 });
 
+test("a failed first pointer commit leaves an empty store that can be staged again", async ({
+  page,
+}) => {
+  expect(
+    await page.evaluate(async () => {
+      const h = window.storageHarness;
+      const store = h.createPackageStore();
+      const signal = new AbortController().signal;
+      /* eslint-disable-next-line @typescript-eslint/unbound-method -- The native close is called with its stream receiver and restored afterward. */
+      const nativeClose = FileSystemWritableFileStream.prototype.close;
+      const closes = { value: 0 };
+      /* The manifest file commits; the first pointer file is created but its commit fails. */
+      FileSystemWritableFileStream.prototype.close = async function () {
+        closes.value += 1;
+        return closes.value > 1
+          ? Promise.reject(
+              new DOMException("injected disk failure", "QuotaExceededError"),
+            )
+          : nativeClose.call(this);
+      };
+      const failed = await store.stage(h.v3, signal).finally(() => {
+        FileSystemWritableFileStream.prototype.close = nativeClose;
+      });
+      const pointer = await (
+        await (
+          await (
+            await navigator.storage.getDirectory()
+          ).getDirectoryHandle("abservice-packages-v1")
+        ).getFileHandle("pointer.json")
+      ).getFile();
+      const active = await store.read("active", signal);
+      const pending = await store.read("pending", signal);
+      const retried = await store.stage(h.v3, signal);
+      const staged = await store.read("pending", signal);
+      return {
+        failed,
+        pointerBytes: pointer.size,
+        active,
+        pending,
+        retried,
+        staged: staged.kind === "ok" ? staged.value?.packageVersion : staged,
+        expected: h.v3.packageVersion,
+      };
+    }),
+  ).toEqual({
+    failed: { kind: "error", error: "quota-exceeded" },
+    pointerBytes: 0,
+    active: { kind: "ok", value: undefined },
+    pending: { kind: "ok", value: undefined },
+    retried: { kind: "ok", value: undefined },
+    staged: "0000000000000000000000000000000000000000000000000000000000000000",
+    expected:
+      "0000000000000000000000000000000000000000000000000000000000000000",
+  });
+});
+
 test("a referenced generation cannot be replaced by different content under the same version", async ({
   page,
 }) => {
