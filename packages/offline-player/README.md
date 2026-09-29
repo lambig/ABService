@@ -36,6 +36,7 @@ http://127.0.0.1:4179/offline-player/ を開き、`fixtureToken` を入力して
 - Worklet の平均負荷率（通知の区間ごとの値の分布）
 - `playbackStats` の音切れと遅延。停止・選び直しで接続を捨てる直前の値を残す
 - 「DSP ベンチマーク」ボタン: 選んでいる音源（未選択なら最初の音源）を main thread で decode し、チャンネルの配列をコピーせずに worker へ移して、先頭 30 秒について同じ DSP の quantum ごとの処理時間を測る。decode の間は main thread が塞がるため、押したときだけ走る。再生前は sampleRate を 48000 と仮定する
+- ベンチマークと実再生は別の証拠として測り、重ねない。重ねると worker と decode の負荷で Worklet の平均負荷率と音切れが悪くなるため。再生中・読み込み中はボタンを押せず、ベンチマークの間は再生を始められない。実際の sampleRate で測るには、一度再生して一時停止してから押す
 
 `npm exec -w abservice-offline-player -- playwright install --with-deps --only-shell chromium` の後、`npm run test:offline-player:browser`。
 

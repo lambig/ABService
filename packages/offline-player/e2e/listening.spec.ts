@@ -324,24 +324,93 @@ test("hashの負荷ノブで描画寸法とfpsを下げ、#probeでCPUとGPUを�
   expect((await observe(page)).errors).toEqual([]);
 });
 
-test("#probeで音声側の通知・Workletの平均負荷・音切れを示し、操作したときだけDSPベンチマークを走らせる", async ({
+test("#probeで音声側の通知・Workletの平均負荷・音切れを示し、DSPベンチマークは再生と重ねずに走らせる", async ({
   page,
 }) => {
+  /* The worker's reply is held until the test releases it, so that the running state can be observed. */
+  await page.addInitScript(() => {
+    const gate: { release: () => void } = { release: () => undefined };
+    const released = new Promise<void>((resolve) => {
+      gate.release = resolve;
+    });
+    (
+      globalThis as typeof globalThis & { releaseBenchmark: () => void }
+    ).releaseBenchmark = () => {
+      gate.release();
+    };
+    const NativeWorker = Worker;
+    globalThis.Worker = class extends NativeWorker {
+      override addEventListener(
+        ...args: Parameters<Worker["addEventListener"]>
+      ): void {
+        const [type, listener, options] = args;
+        (type === "message" && typeof listener === "function"
+          ? () => {
+              super.addEventListener(
+                type,
+                (event) => {
+                  void released.then(() => {
+                    listener.call(this, event);
+                  });
+                },
+                options,
+              );
+            }
+          : () => {
+              super.addEventListener(...args);
+            })();
+      }
+    };
+  });
   await prepare(page);
   await expect(page.locator("#probe-benchmark")).toBeHidden();
   await page.goto("/offline-player/#probe");
   await page.reload();
-  await selectAndPlay(page);
+  const benchmark = page.locator("#probe-benchmark");
   const overlay = page.locator("#probe");
+  await selectAndPlay(page);
   await expect(overlay).toContainText(/audio sampleRate \d+ quantum [\d.]+ ms/);
   await expect(overlay).toContainText(/notifications [1-9]\d* interval p50 [\d.]+/);
   await expect(overlay).toContainText(/worklet load p50 [\d.]+%/);
   await expect(overlay).toContainText(/underrun \d+ events [\d.]+ s \/ [\d.]+ s/);
+  /* The benchmark would load the Worklet it is compared with, so it cannot start while playing. */
+  await expect(benchmark).toBeDisabled();
   await expect(overlay).toContainText("dsp bench -");
-  await page.locator("#probe-benchmark").click();
+  const quantum = /audio sampleRate \d+ quantum ([\d.]+) ms/u.exec(
+    (await overlay.textContent()) ?? "",
+  )?.[1];
+  await page.locator("#pause").click();
+  await expect(page.locator("#play-status")).toHaveText("一時停止");
+  await expect(benchmark).toBeEnabled();
+  await benchmark.click();
+  await expect(overlay).toContainText("dsp bench running");
+  /* Playback cannot start while the benchmark runs either. */
+  await expect(page.locator("#play")).toBeDisabled();
+  await expect(benchmark).toBeDisabled();
+  await page.evaluate(() => {
+    (
+      globalThis as typeof globalThis & { releaseBenchmark: () => void }
+    ).releaseBenchmark();
+  });
   await expect(overlay).toContainText(
-    /dsp bench [1-9]\d* quanta \([\d.]+ s\) p50 [\d.]+ \/ p95 [\d.]+ \/ max [\d.]+ ms/,
+    /dsp bench [1-9]\d* quanta of [\d.]+ ms \([\d.]+ s\) p50 [\d.]+ \/ p95 [\d.]+ \/ max [\d.]+ ms/,
   );
+  /* After playing once, the benchmark decodes at the device rate, so its quantum matches the live one. */
+  expect(quantum).toBeDefined();
+  await expect(overlay).toContainText(`quanta of ${quantum ?? ""} ms`);
+  await expect(page.locator("#play")).toBeEnabled();
+  const notificationsBefore = Number(
+    /notifications (\d+)/u.exec((await overlay.textContent()) ?? "")?.[1],
+  );
+  await page.locator("#play").click();
+  await expect(page.locator("#play-status")).toHaveText("再生中");
+  await expect
+    .poll(async () =>
+      Number(/notifications (\d+)/u.exec((await overlay.textContent()) ?? "")?.[1]),
+    )
+    .toBeGreaterThan(notificationsBefore);
+  await expect(overlay).toContainText(/worklet load p50 [\d.]+%/);
+  await expect(overlay).toContainText(/underrun \d+ events [\d.]+ s \/ [\d.]+ s/);
   /* Stopping drops the connection; the last playback stats stay on screen instead of disappearing or going back. */
   const played = async (): Promise<number> =>
     Number(

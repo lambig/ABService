@@ -176,7 +176,7 @@ export const createAudioProbe = (capacity = 600) => {
             ? "dsp bench running"
             : bench.kind === "failed"
               ? `dsp bench failed: ${bench.message}`
-              : `dsp bench ${String(bench.result.quanta)} quanta (${bench.seconds.toFixed(1)} s) p50 ${bench.result.p50Ms.toFixed(3)} / p95 ${bench.result.p95Ms.toFixed(3)} / max ${bench.result.maxMs.toFixed(3)} ms · p95 ${percent(bench.result.p95Ratio)} max ${percent(bench.result.maxRatio)} of quantum`,
+              : `dsp bench ${String(bench.result.quanta)} quanta of ${bench.result.quantumMs.toFixed(2)} ms (${bench.seconds.toFixed(1)} s) p50 ${bench.result.p50Ms.toFixed(3)} / p95 ${bench.result.p95Ms.toFixed(3)} / max ${bench.result.maxMs.toFixed(3)} ms · p95 ${percent(bench.result.p95Ratio)} max ${percent(bench.result.maxRatio)} of quantum`,
       ];
     },
   });

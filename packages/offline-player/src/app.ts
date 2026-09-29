@@ -47,6 +47,17 @@ const audioProbe = probeRequested(location.hash)
   : undefined;
 /* The device rate is known only once playback has created the AudioContext; before that the common rate is assumed. */
 const fallbackSampleRate = 48000;
+/*
+ * The benchmark and real playback are separate pieces of evidence: running both at once would let the worker and the
+ * decode load the Worklet and inflate its load and underruns. The benchmark waits for playback to stop, and playback
+ * waits for the benchmark.
+ */
+const benchmarkBlocked: readonly PlayerSnapshot["phase"][] = [
+  "loading",
+  "playing",
+];
+const benchmarkAllowed = (phase: PlayerSnapshot["phase"]): boolean =>
+  benchmarkBlocked.every((blocked) => blocked !== phase);
 const phases: Record<PlayerSnapshot["phase"], string> = {
   idle: "待機中",
   loading: "読み込み中",
@@ -72,7 +83,15 @@ const render = (
     data?.albums.find((album) => album.albumId === selection?.albumId)
       ?.title ?? "YOUR SELECTION";
   status.textContent = phases[state.phase];
-  play.disabled = ["idle", "loading", "error", "playing"].includes(state.phase);
+  const benchmarking = audioProbe?.benchmarking() === true;
+  play.disabled = [
+    benchmarking,
+    ["idle", "loading", "error", "playing"].includes(state.phase),
+  ].some(Boolean);
+  element("#probe-benchmark", HTMLButtonElement).disabled = [
+    benchmarking,
+    benchmarkBlocked.includes(state.phase),
+  ].some(Boolean);
   pause.disabled = state.phase !== "playing";
   stop.disabled = state.phase === "idle";
   retry.hidden =
@@ -221,6 +240,7 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
       items.find((entry) => entry.playbackItemId === selected) ?? items[0];
     const measure = async (): Promise<void> => {
       probe?.benchmark({ kind: "running" });
+      render(data, controller.snapshot());
       report();
       try {
         const audio = await resolverFor(contract)(
@@ -235,12 +255,14 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
       } catch (error) {
         probe?.benchmark({ kind: "failed", message: String(error) });
       }
+      render(data, controller.snapshot());
       report();
     };
     const ready = [
       probe !== undefined,
       probe?.benchmarking() === false,
       item !== undefined,
+      benchmarkAllowed(controller.snapshot().phase),
     ].every(Boolean);
     await (ready ? measure() : Promise.resolve());
   };
@@ -276,7 +298,9 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
     element("#library", HTMLElement).append(section);
   });
   play.addEventListener("click", () => {
-    void controller.play();
+    void (audioProbe?.benchmarking() === true
+      ? undefined
+      : controller.play());
   });
   pause.addEventListener("click", controller.pause);
   stop.addEventListener("click", controller.stop);
