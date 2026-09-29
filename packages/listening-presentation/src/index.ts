@@ -2,8 +2,16 @@ import { getPlaybackItems } from 'abservice-installation';
 import type { InstallationManifest, PlaybackItem } from 'abservice-installation';
 import { renderMarkup } from 'abservice-markup';
 
-/** 作品の収録曲。説明のための一覧で、再生できる項目ではない。 */
-export type ListeningTrack = Readonly<{ trackId: string; title: string }>;
+/**
+ * 作品の収録曲。説明のための一覧で、再生できる項目ではない。
+ * trackNo は canonical な曲番号で、連番とは限らない（欠番もありうる）。配列の位置から推測しない。
+ * 曲番号を持たない schema v1 の Manifest では省く。
+ */
+export type ListeningTrack = Readonly<{
+  trackId: string;
+  trackNo?: number;
+  title: string;
+}>;
 
 /**
  * 試聴画面が表示する作品の事実。値の無い項目はキーごと省き、placeholder を事実として持たない。
@@ -110,7 +118,11 @@ const present = (
     ...(artwork === undefined ? {} : { artwork }),
     tracks: Object.freeze(
       album.tracks.map((track) =>
-        Object.freeze({ trackId: track.trackId, title: track.title }),
+        Object.freeze({
+          trackId: track.trackId,
+          ...('trackNo' in track ? { trackNo: track.trackNo } : {}),
+          title: track.title,
+        }),
       ),
     ),
   });

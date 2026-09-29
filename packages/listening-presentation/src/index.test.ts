@@ -52,7 +52,13 @@ describe('toPresentationData', () => {
       catalogNumber: 'AB-001',
       originalWorkNote: '見本の原作の出典',
       artwork,
-      tracks: [{ trackId: '0192f8a0-0000-7000-8000-000000000200', title: '1曲目' }],
+      tracks: [
+        {
+          trackId: '0192f8a0-0000-7000-8000-000000000200',
+          trackNo: 1,
+          title: '1曲目',
+        },
+      ],
     });
     expect(data.albums[0]?.descriptionHtml).toContain('<h2>補足</h2>');
     /* The catalogue track has no audio, so the only playable item is the album crossfade. */
@@ -150,8 +156,66 @@ describe('toPresentationData', () => {
     expect(data.albums[0]).toEqual({
       albumId: '0192f8a0-0000-7000-8000-000000000100',
       title: '見本の作品',
-      tracks: [{ trackId: '0192f8a0-0000-7000-8000-000000000200', title: '1曲目' }],
+      tracks: [
+        {
+          trackId: '0192f8a0-0000-7000-8000-000000000200',
+          trackNo: 1,
+          title: '1曲目',
+        },
+      ],
     });
+  });
+
+  it('keeps the canonical track numbers as given, including gaps, instead of deriving them from the order', () => {
+    const data = toPresentationData(
+      withAlbum({
+        tracks: [
+          {
+            trackId: '0192f8a0-0000-7000-8000-000000000201',
+            trackNo: 2,
+            title: '2曲目',
+          },
+          {
+            trackId: '0192f8a0-0000-7000-8000-000000000205',
+            trackNo: 5,
+            title: '5曲目',
+          },
+        ],
+      }),
+      new Map(),
+    );
+
+    expect(data.albums[0]?.tracks).toEqual([
+      { trackId: '0192f8a0-0000-7000-8000-000000000201', trackNo: 2, title: '2曲目' },
+      { trackId: '0192f8a0-0000-7000-8000-000000000205', trackNo: 5, title: '5曲目' },
+    ]);
+  });
+
+  it('omits the track number for schema v1, which has none', () => {
+    const legacy = parse({
+      schemaVersion: 1,
+      packageVersion: 'legacy',
+      compatibleAppVersion: example.compatibleAppVersion,
+      presentationAssetIds: [],
+      assets: example.assets,
+      albums: [
+        {
+          albumId: 'legacy-album',
+          title: '旧版の作品',
+          tracks: [
+            {
+              trackId: 'legacy-track',
+              title: '旧版の曲',
+              audioAssetId: '0192f8a0-0000-7000-8000-000000000001',
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(toPresentationData(legacy, new Map()).albums[0]?.tracks).toEqual([
+      { trackId: 'legacy-track', title: '旧版の曲' },
+    ]);
   });
 });
 
