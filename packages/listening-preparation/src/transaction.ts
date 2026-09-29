@@ -1,58 +1,25 @@
 import type { DistributionResult } from 'abservice-distribution-client';
-import { assessReadiness } from 'abservice-installation';
-import type { InstallationManifest, Readiness } from 'abservice-installation';
-import type {
-  AssetStore,
-  PackageStore,
-  StorageResult,
-} from 'abservice-offline-storage';
+import type { InstallationManifest } from 'abservice-installation';
+import type { AssetStore, PackageStore } from 'abservice-offline-storage';
 import type {
   PreparationDependencies,
-  PreparationFailure,
   PreparationResult,
   Prepared,
 } from './index';
+import {
+  observe,
+  requirePlayable,
+  requireThat,
+  settle,
+  stop,
+  stored,
+} from './steps';
 
 type Asset = InstallationManifest['assets'][number];
 type Wiring = Required<PreparationDependencies>;
-type Observed = Readonly<{ readiness: Readiness; availableBytes: number }>;
 
-/* The payload is the whole diagnosis, so an escaped Stop cannot carry a token or signed URL. */
-class Stop extends Error {
-  constructor(readonly failure: PreparationFailure) {
-    super(failure.stage);
-  }
-}
-const stop = (failure: PreparationFailure): never => {
-  throw new Stop(failure);
-};
-const requireThat = (condition: boolean, failure: PreparationFailure): void =>
-  condition ? undefined : stop(failure);
-const stored = <T>(result: StorageResult<T>): T =>
-  result.kind === 'ok'
-    ? result.value
-    : stop({ stage: 'storage', error: result.error });
 const withStatus = (status: number | undefined) =>
   status === undefined ? {} : { status };
-
-/* Readiness is always computed from the bytes actually stored, never from what this run believes it saved. */
-const observe = async (
-  manifest: InstallationManifest,
-  assets: AssetStore,
-  wiring: Wiring,
-  appShellAvailable: boolean,
-  signal: AbortSignal,
-): Promise<Observed> => {
-  const inventory = stored(await assets.inspect(signal));
-  const readiness = assessReadiness(manifest, {
-    ...inventory,
-    appVersion: wiring.appVersion,
-    appShellAvailable,
-  });
-  return readiness.kind === 'assessed'
-    ? { readiness, availableBytes: inventory.availableBytes }
-    : stop({ stage: 'storage', error: 'invalid-manifest' });
-};
 
 /* The fetched blob lives only until it is saved; assets are fetched one at a time to bound peak memory. */
 const fetchOne = async (
@@ -122,7 +89,13 @@ const transaction = async (
           ...withStatus(fetched.status),
         });
   const assets = stored(wiring.openAssets(manifest));
-  const before = await observe(manifest, assets, wiring, false, signal);
+  const before = await observe(
+    manifest,
+    assets,
+    wiring.appVersion,
+    false,
+    signal,
+  );
   /* Checked before staging: an incompatible or unfittable candidate is never recorded as pending. */
   requireThat(before.readiness.appCompatible, {
     stage: 'incompatible',
@@ -148,13 +121,10 @@ const transaction = async (
       return [...done, asset.assetId];
     }, Promise.resolve([]));
   const shell = await wiring.appShellAvailable(signal).catch(() => false);
-  const after = await observe(manifest, assets, wiring, shell, signal);
-  requireThat(after.readiness.packageComplete, {
-    stage: 'incomplete',
-    missingAssetIds: after.readiness.missingAssetIds,
-    corruptAssetIds: after.readiness.corruptAssetIds,
-  });
-  requireThat(after.readiness.appShellAvailable, { stage: 'shell' });
+  requirePlayable(
+    manifest,
+    await observe(manifest, assets, wiring.appVersion, shell, signal),
+  );
   return {
     packageVersion: manifest.packageVersion,
     activation,
@@ -166,12 +136,8 @@ export const runPreparation = (
   wiring: Wiring,
   signal: AbortSignal,
 ): Promise<PreparationResult> =>
-  transaction(wiring, signal).then(
+  settle<Prepared, PreparationResult>(
+    () => transaction(wiring, signal),
     (value) => ({ kind: 'prepared', value }),
-    (error: unknown) =>
-      error instanceof Stop
-        ? { kind: 'failed', failure: error.failure }
-        : Promise.reject(
-            error instanceof Error ? error : new Error('preparation failed'),
-          ),
+    (failure) => ({ kind: 'failed', failure }),
   );
