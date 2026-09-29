@@ -324,6 +324,44 @@ test("hashの負荷ノブで描画寸法とfpsを下げ、#probeでCPUとGPUを�
   expect((await observe(page)).errors).toEqual([]);
 });
 
+test("#probeで音声側の通知・Workletの平均負荷・音切れを示し、操作したときだけDSPベンチマークを走らせる", async ({
+  page,
+}) => {
+  await prepare(page);
+  await expect(page.locator("#probe-benchmark")).toBeHidden();
+  await page.goto("/offline-player/#probe");
+  await page.reload();
+  await selectAndPlay(page);
+  const overlay = page.locator("#probe");
+  await expect(overlay).toContainText(/audio sampleRate \d+ quantum [\d.]+ ms/);
+  await expect(overlay).toContainText(/notifications [1-9]\d* interval p50 [\d.]+/);
+  await expect(overlay).toContainText(/worklet load p50 [\d.]+%/);
+  await expect(overlay).toContainText(/underrun \d+ events [\d.]+ s \/ [\d.]+ s/);
+  await expect(overlay).toContainText("dsp bench -");
+  await page.locator("#probe-benchmark").click();
+  await expect(overlay).toContainText(
+    /dsp bench [1-9]\d* quanta \([\d.]+ s\) p50 [\d.]+ \/ p95 [\d.]+ \/ max [\d.]+ ms/,
+  );
+  /* Stopping drops the connection; the last playback stats stay on screen instead of disappearing or going back. */
+  const played = async (): Promise<number> =>
+    Number(
+      /underrun \d+ events [\d.]+ s \/ ([\d.]+) s/u.exec(
+        (await overlay.textContent()) ?? "",
+      )?.[1] ?? Number.NaN,
+    );
+  const beforeStop = await played();
+  await page.locator("#stop").click();
+  await expect
+    .poll(async () =>
+      (await observe(page)).contexts.every((state) => state === "closed"),
+    )
+    .toBe(true);
+  /* The overlay is refreshed once a second; wait for a refresh after the connection is gone. */
+  await page.waitForTimeout(1100);
+  expect(await played()).toBeGreaterThanOrEqual(beforeStop);
+  expect((await observe(page)).errors).toEqual([]);
+});
+
 test("WebGPU未対応でも音響解析と再生操作を維持する", async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "gpu", { value: undefined });

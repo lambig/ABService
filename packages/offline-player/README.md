@@ -30,6 +30,13 @@ http://127.0.0.1:4179/offline-player/ を開き、`fixtureToken` を入力して
 
 実機での調整と観測は、URL の hash で行う（例: `/offline-player/#probe&scale=0.5&fps=30`）。`probe` で CPU（1 回の描画までの main thread 全体と、そのうちの renderer）と GPU を分けた観測、起動時の計測点を画面に重ね、`dpr`・`scale`・`effects`・`fps` で描画の予算を変える（範囲は `packages/visualizer` の README）。hash だけを変えたときは読み込み直す。
 
+`probe` では音声側も重ねる（#290 の計測契約）。
+
+- sampleRate と render quantum の長さ、特徴量の通知の件数と間隔（AudioContext の時刻）
+- Worklet の平均負荷率（通知の区間ごとの値の分布）
+- `playbackStats` の音切れと遅延。停止・選び直しで接続を捨てる直前の値を残す
+- 「DSP ベンチマーク」ボタン: 選んでいる音源（未選択なら最初の音源）を main thread で decode し、チャンネルの配列をコピーせずに worker へ移して、先頭 30 秒について同じ DSP の quantum ごとの処理時間を測る。decode の間は main thread が塞がるため、押したときだけ走る。再生前は sampleRate を 48000 と仮定する
+
 `npm exec -w abservice-offline-player -- playwright install --with-deps --only-shell chromium` の後、`npm run test:offline-player:browser`。
 
 ブラウザ試験は同じbrowser contextでの全ページ終了と新ページ起動を扱う。
