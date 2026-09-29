@@ -1,0 +1,30 @@
+{
+  "name": "abservice-listening-preparation",
+  "version": "1.0.0",
+  "description": "Listening package preparation transaction",
+  "type": "module",
+  "private": true,
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "abservice-distribution-client": "*",
+    "abservice-installation": "*",
+    "abservice-offline-storage": "*"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "@types/node": "^24.0.0",
+    "abservice-eslint-config": "*",
+    "eslint": "^10.0.0",
+    "eslint-plugin-functional": "^10.0.0",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.2.4"
+  },
+  "engines": { "node": "24.20.0", "npm": "11.19.0" },
+  "license": "MIT"
+}
