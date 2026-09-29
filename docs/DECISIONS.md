@@ -829,3 +829,19 @@ Manifest は `packages/installation` の schema v3 と同じ項目だけを持�
 **トレードオフ**: 確定に HEAD と独立 commit が各1回増える。画像の確定は管理者の操作で頻度は低い。保管先が checksum を返さない場合は確定を失敗にする（実体は配信されるが表示素材にはならない）。ローカルの MinIO と本番の S3 の両方でコピー時の SHA-256 が返ることを統合検査で見る。
 
 **実体**: `V53`（`published_asset`）、`application/port/PublishedAssets` / `StoredAssetDigest`、`infrastructure/storage/S3AssetStorage`、`infrastructure/persistence/repository/DatabasePublishedAssets`、`application/service/asset/ConfirmAssetUploadService`、`infrastructure/persistence/datasource/ListeningPackageDataSource`。契約は [PRIVATE_AUDIO_INGESTION.md](PRIVATE_AUDIO_INGESTION.md)。
+
+## 試聴端末は廉価な大判寄りのタブレットを下限とし、CPU と GPU の配分は一次性能ゲートの実測で決める
+
+試聴インスタレーション（#195）が支える端末の下限は、廉価な大判寄りの Android タブレットとする。特定の展示機の事情ではなく、ABService のサポート範囲の制限として扱う。目標の体験（#479）はこの下限で成立しなければならず、上位の端末でしか成り立たない表現を通常時の完成形にしない。
+
+この下限で効く制約は、画面の広さに対する描画量（fill-rate）と、会場での長時間稼働による発熱である。全画面の効果や背景はピクセル数に比例して重くなり、画面の大きいタブレットでは DPR をそのまま使うと毎フレーム塗る量が大きい。廉価な SoC は発熱で性能を落とすため、起動直後に余裕があっても長時間の後に予算を割り込む。
+
+描画量は、内部の描画解像度を画面より下げて拡大し、背景や効果の層は低い解像度、文字と artwork は高い解像度というように、層ごとに解像度を分けられるようにして抑える。全画面の効果を何重にも重ねない。
+
+計算の役割は、意味で分ける。CPU は presentation の状態、AudioFeatures から描画パラメータへの写し、時間軸と状態遷移など、意味を持つ計算を受け持つ。GPU は raster と合成、およびピクセル・頂点ごとに描画へ局所的な空間並列の計算を受け持つ。現行の `packages/visualizer` がこの境界に沿っている（`mapFeatures` が音楽的意味を粗い描画パラメータへ写し、`scene.wgsl` がそのパラメータと時刻からピクセル空間の変化を評価する）。ピクセル・頂点単位の並列計算を CPU へ移すと、要素数・転送量・buffer の更新が増えて CPU とメモリ帯域をかえって圧迫しうるうえ、fill-rate が律速なら全画面を塗るコストは移しても消えない。そのため「動きは CPU に寄せる」とは決めない。GPU 側の compute shader や大規模な simulation は既定にせず、実測で必要と分かった場合だけ採る。
+
+CPU と GPU のどちらに寄せるかは、#479 を仕上げる前の一次性能ゲート（#290 / #291）で決める。表現を作り込んだ後で「この下限では届かない」と分かると、作り直しが期限に間に合わない。#479 の目標に近い負荷をかけ、30 分以上の稼働後の main thread の CPU 時間と GPU の frame time を分けて記録し、律速している側に応じて、worker / WASM・内部解像度と層ごとの解像度・GPU 側の評価の軽量化のどれで予算へ戻すかを選ぶ。WASM で速くなるのは CPU 側の処理だけで、GPU が律速ならそこで効くのは描画量の調整であるため、両者を分けて測らないと対策を選べない。WASM は目的にせず、長時間稼働後に CPU 側の計算が予算を超え、worker へ分けても収まらないときの手段とする。
+
+**トレードオフ**: 配分を実測まで決めないため、#479 の制作は一次性能ゲートの結果を待ってから本格化する。要素数・更新頻度・効果の層は、下限の端末で測った予算から決め、上位の端末での見栄えを基準にしない。
+
+**実体**: `packages/visualizer/src/index.ts`（`mapFeatures`）と `packages/visualizer/src/scene.wgsl`。判定の項目と発火条件は #291 の一次性能ゲート、DSP の JS / WASM 採否は #290、表現の設計原則は #479。
