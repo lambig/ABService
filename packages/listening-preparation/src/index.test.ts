@@ -366,6 +366,26 @@ describe('prepare', () => {
     expect(packages.state.active).toBe(manifest);
   });
 
+  it('refuses an active package whose content differs under the same version, keeping pending and fetching nothing', async () => {
+    const [album] = example.albums as readonly Record<string, unknown>[];
+    const altered = parse({
+      ...example,
+      albums: [{ ...album, title: '書き換えた題' }],
+    });
+    const { packages, remote, run } = setup({
+      slots: { active: altered, pending: newer },
+    });
+
+    await expect(run()).resolves.toEqual({
+      kind: 'failed',
+      failure: { stage: 'storage', error: 'conflict' },
+    });
+    expect(packages.state.active).toBe(altered);
+    expect(packages.state.pending).toBe(newer);
+    expect(packages.staged).toEqual([]);
+    expect(remote.requested).toEqual([]);
+  });
+
   it('is not ready while the shell of the same generation is incomplete', async () => {
     const unavailable = setup({ shell: () => Promise.resolve(false) });
     await expect(unavailable.run()).resolves.toEqual({

@@ -7,7 +7,7 @@
 1. 配布client で package を取得する（strictな検証は client が行う）。
 2. そのManifestでasset storeを開き、保存済み実体の観測から readiness を判定する。
 3. appが互換範囲外なら `incompatible`、不足・破損したrequired assetを取り直す空きが無ければ `capacity` で止める。どちらもpendingへ記録しない。
-4. active と同じ版なら、切り替えは不要（`current`）。残っている別の版のpendingは外す。そのままにすると、次回起動で配布中の版より古いpendingへ切り替わる。違う版ならpendingとして保存する（`on-restart`）。activeが読めない場合も後者とし、それを修復とする。
+4. active と同じ版なら、切り替えは不要（`current`）。残っている別の版のpendingは外す。そのままにすると、次回起動で配布中の版より古いpendingへ切り替わる。違う版ならpendingとして保存する（`on-restart`）。activeが読めない場合も後者とし、それを修復とする。同じ版で内容が違う場合は、packageVersionが内容のdigestであることに反するため、package storeの `stage` と同じく `conflict`（stage `storage`）で止め、pendingも変えない。
 5. 不足・破損したrequired assetを、Manifestの順に1つずつ取得して保存する。checksumの照合は保存する側が保存の前後に行う。
 6. 取得を終えたら観測し直し、required assetが揃い、同じ世代のshellが完全なときだけ `prepared` を返す。
 
@@ -34,7 +34,7 @@ activeはここでは置き換えない。昇格・旧版の維持・不要世�
 | `incompatible` | 配布中のpackageがこのappの版に対応しない | appを更新する |
 | `capacity` | 必要容量が空きを超える | 空きを確保する |
 | `asset` | required assetの取得か保存に失敗した | 分類に従う。再試行では保存済みの実体を取り直さない |
-| `storage` | 保存領域の観測・世代の保存に失敗した | 保存領域を確認する |
+| `storage` | 保存領域の観測・世代の保存に失敗した。activeと同じ版で内容が違う場合は `conflict` | 保存領域を確認する。`conflict` は配布側か保存物の異常として調べる |
 | `shell` | assetは揃ったが、同じ世代のshellが完全でない | shellを保存し直す |
 | `incomplete` | 取得後の観測で、まだ不足・破損がある | 再試行する |
 

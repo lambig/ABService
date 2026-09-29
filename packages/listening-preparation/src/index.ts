@@ -45,7 +45,7 @@ export type Prepared = Readonly<{
  * - incompatible: 配布中の package がこのアプリの版に対応しない。保存もしない
  * - capacity: 不足・破損した required asset を取り直す空きが無い。取得を始めない
  * - asset: required asset の取得か保存に失敗した。それまでに保存した asset は残り、再試行で取り直さない
- * - storage: 保存領域の観測・世代の保存に失敗した
+ * - storage: 保存領域の観測・世代の保存に失敗した。active と同じ版で内容が違う場合は conflict
  * - shell: asset は揃ったが、同じ世代の shell が完全でない
  * - incomplete: 取得を終えた後の観測で、まだ不足・破損した required asset がある
  */

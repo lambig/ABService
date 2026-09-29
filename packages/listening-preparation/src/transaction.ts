@@ -86,16 +86,20 @@ const fetchOne = async (
 /*
  * A candidate equal to active needs no switch; any older pending would otherwise be promoted over it.
  * An unreadable active is not treated as current, so staging the candidate becomes its repair.
+ * packageVersion is a content digest: the same version with different content is a conflict, as in stage.
  */
 const record = async (
   packages: PackageStore,
   manifest: InstallationManifest,
   signal: AbortSignal,
 ): Promise<Prepared['activation']> => {
-  const active = await packages.read('active', signal);
-  const current =
-    active.kind === 'ok' &&
-    active.value?.packageVersion === manifest.packageVersion;
+  const read = await packages.read('active', signal);
+  const active = read.kind === 'ok' ? read.value : undefined;
+  const current = active?.packageVersion === manifest.packageVersion;
+  requireThat(
+    current ? JSON.stringify(active) === JSON.stringify(manifest) : true,
+    { stage: 'storage', error: 'conflict' },
+  );
   stored(
     await (current
       ? packages.discardPending(signal)
