@@ -63,6 +63,29 @@ AudioFeaturesの帯域・onset意味論は `packages/audio-dsp` の実装のJSDo
 - 一時停止では、GPU資源を放す直前に今の構図を静止画へ写してcanvasの背景に敷き、直前の構図を保つ（#479 paused）。描画値と縮退の判定は一時停止をまたいで残す。
 - 再開で新しい監督を作り、描き始めるか縮退した時点で静止画を外す。一度縮退した描画は、停止・選曲するまで作り直さない。
 
+## 負荷ノブと観測（#291 B）
+
+`src/budget.ts` の `RendererBudget` は、#479 の表現要素を削らずに下限の端末で予算へ戻すための調整だけを持つ。
+
+| ノブ | hash の名前 | 範囲 | 既定 |
+|---|---|---|---|
+| DPR の上限 | `dpr` | 0.5–3 | 2 |
+| 内部の描画解像度の倍率（低く描いて拡大） | `scale` | 0.25–1 | 1 |
+| effect の強さの倍率 | `effects` | 0–1 | 1 |
+| 描画の上限 fps（速い rAF は見送る） | `fps` | 10–120 | 60 |
+
+既定値は現行の見え方を変えない。`offline-player` は URL の hash（例: `#probe&scale=0.5&fps=30`）から読む。query ではなく hash を使うのは、Service Worker が query 付きのナビゲーションを扱わず、オフラインで開けなくなるため。
+
+`src/probe.ts` はフレームごとの観測を直近 600 フレームだけ持ち、分布（p50 / p95 / max）を返す。次の三つを分けて記録する。
+
+- cycle CPU: 1 回の描画までに main thread が使った時間の合計。特徴量から描画値への変換（`mapFeatures`）・presentation state・作品情報などの DOM 更新・renderer を含む。worker・GPU 寄せ・WASM Spike の要否はこれで判断する。呼び出し側が測って `cycle` で渡す。
+- renderer CPU: renderer の中で描画値を書いて submit するまで（WebGPU の命令作成の CPU コスト）。
+- GPU: submit から `onSubmittedWorkDone` まで（queue の待ちを含む上限値）。
+
+CPU と GPU を分けるのは、どちらが律速かで効く対策が違うため（`docs/DECISIONS.md`「試聴端末は廉価な大判寄りのタブレットを下限とし、CPU と GPU の配分は一次性能ゲートの実測で決める」）。`offline-player` は `#probe` のとき、この要約と起動時の計測点（script の評価・曲目の準備・最初のフレーム）を画面に重ねて表示する。
+
+層ごとの解像度（背景・effect を低く、文字・artwork を高く）は、現行の renderer が1パスの全画面描画のため未対応。パスの分け方は #479 B の scene と合わせて決める。
+
 ## ブラウザ検証
 
 ```sh

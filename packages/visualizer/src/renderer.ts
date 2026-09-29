@@ -1,6 +1,15 @@
 /* eslint-disable functional/immutable-data -- Canvas/WebGPU resource adapters require imperative DOM and pixel buffer updates. */
+import { defaultBudget, drawSize } from "./budget";
+import type { RendererBudget } from "./budget";
 import type { PresentationFrame } from "./index";
+import type { FrameSample } from "./probe";
 import shader from "./scene.wgsl?raw";
+
+/** 描画の予算と、フレームごとの観測の受け取り先。観測は指定したときだけ取る。 */
+export type RendererOptions = Readonly<{
+  budget?: RendererBudget;
+  onSample?: (sample: FrameSample) => void;
+}>;
 
 /** Rendererの音響に依存しない描画・破棄境界。 */
 export type Renderer = Readonly<{
@@ -52,7 +61,9 @@ const atlas = (): HTMLCanvasElement => {
 export const createRenderer = async (
   canvas: HTMLCanvasElement,
   signal: AbortSignal,
+  options: RendererOptions = {},
 ): Promise<Renderer> => {
+  const budget = options.budget ?? defaultBudget;
   const gpu =
     "gpu" in navigator ? navigator.gpu : unavailable("WebGPU unavailable");
   const adapter =
@@ -106,20 +117,14 @@ export const createRenderer = async (
     return Object.freeze({
       lost: device.lost,
       render: (frame: PresentationFrame): void => {
-        const ratio = Math.min(window.devicePixelRatio, 2);
-        const width = Math.max(
-          1,
-          Math.min(
-            device.limits.maxTextureDimension2D,
-            Math.floor(canvas.clientWidth * ratio),
-          ),
-        );
-        const height = Math.max(
-          1,
-          Math.min(
-            device.limits.maxTextureDimension2D,
-            Math.floor(canvas.clientHeight * ratio),
-          ),
+        const begin = performance.now();
+        /* Drawn at the budgeted size and stretched to the canvas' CSS size: fewer pixels to fill. */
+        const { width, height } = drawSize(
+          canvas.clientWidth,
+          canvas.clientHeight,
+          window.devicePixelRatio,
+          budget,
+          device.limits.maxTextureDimension2D,
         );
         const resizeWidth =
           canvas.width === width
@@ -149,7 +154,7 @@ export const createRenderer = async (
             frame.impulse,
             frame.textOffset,
             frame.textOpacity,
-            frame.effectIntensity,
+            frame.effectIntensity * budget.effectDensity,
             frame.textureScale,
           ]),
         );
@@ -169,6 +174,24 @@ export const createRenderer = async (
         pass.draw(3);
         pass.end();
         device.queue.submit([encoder.finish()]);
+        const submitted = performance.now();
+        const sample = options.onSample;
+        /* GPU completion is measured from submit; it includes queue waits, so it is an upper bound. */
+        (sample === undefined
+          ? () => undefined
+          : () => {
+              const rendererCpuMs = submitted - begin;
+              void device.queue.onSubmittedWorkDone().then(
+                () => {
+                  sample({
+                    rendererCpuMs,
+                    gpuMs: performance.now() - submitted,
+                    pixels: width * height,
+                  });
+                },
+                () => undefined,
+              );
+            })();
       },
       dispose: (): void => {
         buffer.destroy();

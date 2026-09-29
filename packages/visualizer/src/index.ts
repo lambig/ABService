@@ -8,6 +8,21 @@ export type {
   PresentationState,
   PresentationTransition,
 } from "./state";
+export {
+  defaultBudget,
+  drawSize,
+  due,
+  parseBudget,
+  probeRequested,
+} from "./budget";
+export type { RendererBudget } from "./budget";
+export { createProbe, distribution } from "./probe";
+export type {
+  Distribution,
+  FrameProbe,
+  FrameSample,
+  ProbeSummary,
+} from "./probe";
 
 /** 描画だけの値域を持つsnapshot。Rendererは音響特徴量を参照しない。 */
 export type PresentationFrame = Readonly<{
