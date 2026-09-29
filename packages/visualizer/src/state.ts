@@ -50,7 +50,13 @@ const table: Readonly<
   Record<PresentationState, Partial<Record<Kind, PresentationState>>>
 > = {
   idle: { select: "selected", fail: "error" },
-  selected: { select: "selected", play: "playing", fail: "error", clear: "idle" },
+  selected: {
+    select: "selected",
+    play: "playing",
+    stop: "selected",
+    fail: "error",
+    clear: "idle",
+  },
   playing: {
     select: "selected",
     pause: "paused",
@@ -77,7 +83,8 @@ const table: Readonly<
     fail: "error",
     clear: "idle",
   },
-  error: { select: "selected", clear: "idle" },
+  /* Stopping keeps the selection; from an error it returns to that selection at rest. */
+  error: { select: "selected", stop: "selected", clear: "idle" },
 };
 /* Selecting again, moving the position, stopping or failing starts from rest; pausing keeps the composition. */
 const resetting: ReadonlySet<Kind> = new Set<Kind>([

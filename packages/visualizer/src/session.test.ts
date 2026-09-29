@@ -1,8 +1,8 @@
 /* eslint-disable functional/immutable-data -- The fakes record renders and disposals so tests can inspect them. */
 import { describe, expect, it } from "vitest";
-import { restingFrame } from "./index";
+import { restingFrame, transition } from "./index";
 import type { Renderer } from "./renderer";
-import { superviseRenderer } from "./session";
+import { planSession, superviseRenderer } from "./session";
 import type { DegradedReason, RendererStatus } from "./session";
 
 type Fake = Renderer & {
@@ -169,5 +169,37 @@ describe("superviseRenderer", () => {
     expect(first.disposed).toBe(true);
     expect(statuses).toEqual(["starting", "disposed"]);
     expect(supervisor.status()).toBe("disposed");
+  });
+});
+
+describe("planSession", () => {
+  const moving = { ...restingFrame, timeSeconds: 4, impulse: 0.8 };
+
+  it("releases the GPU at the end but keeps the frame, since ending does not reset it", () => {
+    const step = transition("playing", { kind: "end" });
+    expect(planSession(step, moving)).toEqual({
+      session: "release",
+      frame: moving,
+    });
+  });
+
+  it("resets the frame only when the transition says so", () => {
+    expect(planSession(transition("playing", { kind: "stop" }), moving)).toEqual({
+      session: "release",
+      frame: restingFrame,
+    });
+    expect(planSession(transition("playing", { kind: "seek" }), moving)).toEqual({
+      session: "keep",
+      frame: restingFrame,
+    });
+  });
+
+  it("draws while playing, keeps a still while paused and never rebuilds for a seek begun paused", () => {
+    expect(planSession(transition("paused", { kind: "play" }), moving).session).toBe("draw");
+    expect(planSession(transition("playing", { kind: "pause" }), moving)).toEqual({
+      session: "still",
+      frame: moving,
+    });
+    expect(planSession(transition("paused", { kind: "seek" }), moving).session).toBe("keep");
   });
 });

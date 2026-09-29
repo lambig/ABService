@@ -509,6 +509,37 @@ test("最後まで再生すると終了へ移り、選び直すと前の作品�
   expect((await observe(page)).errors).toEqual([]);
 });
 
+test("音源の読み込みに失敗した後に停止すると、選択を残したまま選択の状態へ戻る", async ({
+  page,
+}) => {
+  /* Audio blobs are replaced with bytes the media element cannot decode, so loading fails with the selection kept. */
+  await page.addInitScript(() => {
+    /* eslint-disable-next-line @typescript-eslint/unbound-method -- The native static is invoked on URL itself. */
+    const create = URL.createObjectURL;
+    URL.createObjectURL = (object: Blob | MediaSource) =>
+      create.call(
+        URL,
+        object instanceof Blob && object.type.startsWith("audio/")
+          ? new Blob(["not audio"], { type: object.type })
+          : object,
+      );
+  });
+  const canvas = page.locator("#visualizer");
+  await prepare(page);
+  await page.getByRole("button", { name: "Reel study", exact: true }).click();
+  await expect(page.locator("#play-status")).toHaveText(
+    "読み込みに失敗しました",
+  );
+  await expect(canvas).toHaveAttribute("data-presentation-state", "error");
+  await page.locator("#stop").click();
+  await expect(page.locator("#play-status")).toHaveText("待機中");
+  await expect(canvas).toHaveAttribute("data-presentation-state", "selected");
+  await expect(
+    page.getByRole("button", { name: "Reel study", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  expect((await observe(page)).errors).toEqual([]);
+});
+
 test("WebGPU未対応でも音響解析と再生操作を維持する", async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "gpu", { value: undefined });

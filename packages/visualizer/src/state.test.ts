@@ -62,6 +62,22 @@ describe("presentation state", () => {
     });
   });
 
+  it("returns to the kept selection at rest when stopped after a failure or before playing", () => {
+    (["error", "selected"] as const).forEach((from) => {
+      expect(transition(from, { kind: "stop" })).toEqual({
+        state: "selected",
+        resetFrame: true,
+      });
+    });
+    expect(
+      followPlayback(
+        "error",
+        { phase: "error", playbackItemId: "item-1" },
+        { phase: "idle", playbackItemId: "item-1" },
+      ),
+    ).toEqual({ state: "selected", resetFrame: true });
+  });
+
   it("keeps the controls reachable after a failure and recovers by selecting again", () => {
     expect(run([{ kind: "select" }, { kind: "play" }, { kind: "fail" }, { kind: "select" }])).toEqual({
       state: "selected",

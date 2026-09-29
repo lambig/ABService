@@ -12,7 +12,7 @@ import {
 } from "abservice-visualizer";
 import type { FrameProbe, PresentationState } from "abservice-visualizer";
 import { createRenderer } from "abservice-visualizer/renderer";
-import { superviseRenderer } from "abservice-visualizer/session";
+import { planSession, superviseRenderer } from "abservice-visualizer/session";
 import type {
   RendererStatus,
   RendererSupervisor,
@@ -250,14 +250,15 @@ export const presentation = (
     state.supervisor = supervisor;
     status.textContent = messages.starting;
   };
-  /* The presentation state, not the player phase, decides the GPU lifetime; a seek while playing keeps drawing from rest. */
+  /* The presentation state, through planSession, decides the GPU lifetime and whether the frame goes back to rest. */
   const sync = (snapshot: PlayerSnapshot): void => {
     const step = followPlayback(state.presentation, state.observed, snapshot);
+    const plan = planSession(step, state.frame);
     state.observed = snapshot;
     state.presentation = step.state;
+    state.frame = plan.frame;
     canvas.dataset["presentationState"] = step.state;
-    (step.resetFrame ? reset : () => undefined)();
-    const playing = (): void => {
+    const drawn = (): void => {
       (state.supervisor === null
         ? state.degraded
           ? () => undefined
@@ -266,31 +267,22 @@ export const presentation = (
           ? draw
           : () => undefined)();
     };
-    /* A seek that began paused has no session to draw with and keeps the still. */
-    const seeking = (): void => {
+    const keep = (): void => {
       (state.supervisor !== null && state.animation === null
         ? draw
         : () => undefined)();
     };
-    const stopped = (): void => {
-      (step.state === "paused"
-        ? () => {
-            release(true);
-            status.textContent = state.degraded
-              ? messages.degraded
-              : messages.resting;
-          }
-        : () => {
-            dispose();
-            state.degraded = false;
-            status.textContent = messages.resting;
-          })();
+    const still = (): void => {
+      release(true);
+      status.textContent = state.degraded ? messages.degraded : messages.resting;
     };
-    (step.state === "playing"
-      ? playing
-      : step.state === "seeking"
-        ? seeking
-        : stopped)();
+    /* Releasing leaves the frame to the plan; only resetFrame puts it back at rest. */
+    const released = (): void => {
+      release(false);
+      state.degraded = false;
+      status.textContent = messages.resting;
+    };
+    ({ draw: drawn, keep, still, release: released })[plan.session]();
   };
   const update = (features: AudioFeatures): void => {
     state.frame = mapFeatures(features, state.frame);
