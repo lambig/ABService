@@ -227,6 +227,7 @@ test("未完了の新版へは切り替えず、共有する実体を残した�
     await page.goto(entry);
     await prepareOnline(page);
     const current = await restart(page, context);
+    await expect(current.locator("#readiness")).toHaveText(saved);
     await damage(current, fault);
     const next = await restart(current, context);
     await expect(next.locator("#readiness")).toHaveText(unready);
