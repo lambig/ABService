@@ -1,6 +1,6 @@
 # Listening package preparation
 
-試聴端末の準備トランザクション。配布中のpackageを取得し、不足・破損したrequired assetだけを取り直して、再起動待ちのpendingにする。取得は `packages/distribution-client`、Manifestの世代とasset実体の保存は `packages/offline-storage` に任せ、ここは両者をつなぐ順序と止め方だけを持つ。画面・Service Worker・起動時の昇格は持たない。
+試聴端末の準備と起動の処理。準備（`prepare`）は配布中のpackageを取得し、不足・破損したrequired assetだけを取り直して、再起動待ちのpendingにする。起動（`startup`）は全タブの終了後にpendingをactiveへ昇格し、不要世代を削除する。取得は `packages/distribution-client`、Manifestの世代とasset実体の保存は `packages/offline-storage` に任せ、ここは両者をつなぐ順序と止め方だけを持つ。画面・Service Workerは持たない。
 
 ## 手順
 
@@ -11,7 +11,22 @@
 5. 不足・破損したrequired assetを、Manifestの順に1つずつ取得して保存する。checksumの照合は保存する側が保存の前後に行う。
 6. 取得を終えたら観測し直し、required assetが揃い、同じ世代のshellが完全なときだけ `prepared` を返す。
 
-activeはここでは置き換えない。昇格・旧版の維持・不要世代の削除は、全タブ終了後の起動処理が受け持つ。
+activeはここでは置き換えない。昇格・旧版の維持・不要世代の削除は、次の「起動」が受け持つ。
+
+## 起動
+
+`startup` はページの起動時に呼ぶ。世代の利用はロック `abservice-generations-v1` で排他する。
+
+1. exclusiveを `ifAvailable` で取る。取れなければ、他のタブが世代を使っているので、昇格も削除もしない（`skipped`）。
+2. 取れたら、pendingを検証する。互換・required assetの実体・同じ世代のshellが揃っていれば、activeへ昇格する（`promoted`）。揃わなければpendingのまま残す（`deferred`）。旧activeは変わらず、準備を実行し直せば続きから取り直せる。
+3. active・pendingのどちらからも参照されないManifestと、どちらのManifestからも参照されないasset実体を削除する。どちらかのslotが読めないときは、残すべき実体が分からないため、assetを削除しない。
+4. exclusiveを放し、ページの終了（`lifetime` の中止）までsharedを持つ。
+5. activeを検証し、`ready` / `not-ready`（理由は準備の失敗と同じ分類）/ `unreadable`（Manifestの欠落・破損・保存領域の消去）/ `none` を返す。この起動で昇格したpackageは直前に検証済みのため、実体を読み直さない。
+
+- 昇格・削除が他のタブの利用と重ならないのは、世代を使う全ページが `startup` のsharedを持つ場合に限る。`prepare` もこの保持の間に呼ぶ。保持の間は他のタブのexclusiveが取れないため、準備中のpendingやassetが削除されることはない。
+- ロックの順序は、世代 → package → assetに固定する。世代のロックは、package storeとasset storeのロックの外側でだけ取る。
+- exclusiveが取れた起動のたびに不要世代を削除するため、その直後に残る世代はactiveとpendingの2つまでになる。exclusiveが取れない起動が続く間は、準備で差し替えられた古いpendingが残り、次にexclusiveが取れた起動で削除される。
+- Web Locksの実ブラウザでの振る舞い（別タブのsharedでexclusiveが取れないこと）は、試聴端末の受け入れ試験で扱う。
 
 ## 再試行と中断
 
@@ -44,4 +59,4 @@ optional assetは取得しない。readinessはoptionalの欠落を準備完了�
 
 ## 検証の入口
 
-`npm run test:listening-preparation`。配布client・package store・asset storeを差し替えた単体試験で、配布応答と同じ見本（`packages/installation/fixtures/manifest-v3.example.json`、クロスフェードのみ）を使う。実OPFS・実Chromiumでの準備から通信なしの起動までは、試聴端末の受け入れ試験で扱う。
+`npm run test:listening-preparation`。配布client・package store・asset store・Web Locksを差し替えた単体試験で、配布応答と同じ見本（`packages/installation/fixtures/manifest-v3.example.json`、クロスフェードのみ）を使う。実OPFS・実Chromiumでの準備から通信なしの起動までは、試聴端末の受け入れ試験で扱う。

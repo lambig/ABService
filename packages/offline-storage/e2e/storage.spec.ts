@@ -423,6 +423,75 @@ test("cross-tab lock cancellation does not affect committed bytes", async ({
   ).toMatchObject({ kind: "ok", value: { packageComplete: true } });
 });
 
+test("collectAssets keeps content referenced by any kept manifest and removes the rest", async ({
+  page,
+}) => {
+  expect(
+    await page.evaluate(async () => {
+      const h = window.storageHarness;
+      const signal = new AbortController().signal;
+      const older = await h.manifest();
+      const newer = await h.manifest(h.second);
+      await (await h.open()).save("../音源/one", h.first, signal);
+      await (await h.open(h.second)).save("../音源/one", h.second, signal);
+      const before = await h.storedAssets();
+      const keepBoth = await h.collectAssets([older, newer], signal);
+      const keepNewer = await h.collectAssets([newer], signal);
+      const newerStore = await h.open(h.second);
+      const olderStore = await h.open();
+      return {
+        before,
+        keepBoth,
+        keepNewer,
+        newer: (await newerStore.read("../音源/one", signal)).kind,
+        older: await olderStore.read("../音源/one", signal),
+        remaining: await h.storedAssets(),
+        none: await h.collectAssets([], signal),
+        empty: await h.storedAssets(),
+      };
+    }),
+  ).toEqual({
+    before: 2,
+    keepBoth: { kind: "ok", value: 0 },
+    keepNewer: { kind: "ok", value: 1 },
+    newer: "ok",
+    older: { kind: "error", error: "missing" },
+    remaining: 1,
+    none: { kind: "ok", value: 1 },
+    empty: 0,
+  });
+});
+
+test("collectAssets rejects an invalid manifest and removes nothing", async ({
+  page,
+}) => {
+  expect(
+    await page.evaluate(async () => {
+      const h = window.storageHarness;
+      const signal = new AbortController().signal;
+      const manifest = await h.manifest();
+      await (await h.open()).save("../音源/one", h.first, signal);
+      const aborted = new AbortController();
+      aborted.abort("cancelled by user");
+      return {
+        invalid: await h.collectAssets(
+          [
+            manifest,
+            { ...manifest, schemaVersion: 99 } as unknown as typeof manifest,
+          ],
+          signal,
+        ),
+        aborted: await h.collectAssets([], aborted.signal),
+        remaining: await h.storedAssets(),
+      };
+    }),
+  ).toEqual({
+    invalid: { kind: "error", error: "invalid-manifest" },
+    aborted: { kind: "error", error: "aborted" },
+    remaining: 1,
+  });
+});
+
 test("cancellation after close begins does not report rollback of a committed asset", async ({
   page,
 }) => {

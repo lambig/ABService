@@ -1,6 +1,15 @@
 import { parseManifest } from "abservice-installation";
 import type { InstallationManifest } from "abservice-installation";
-import { commit, hash, locked, optional, reject, requireValue } from "./common";
+import {
+  commit,
+  files,
+  hash,
+  locked,
+  optional,
+  reject,
+  removeExcept,
+  requireValue,
+} from "./common";
 import type {
   PackageSlot,
   PackageStore,
@@ -9,10 +18,6 @@ import type {
 } from "./index";
 
 type Pointer = Readonly<Partial<Record<PackageSlot, string>>>;
-/* Declared here so that consumers need not enable the DOM.AsyncIterable lib. */
-type Listing = FileSystemDirectoryHandle & {
-  values: () => AsyncIterator<FileSystemDirectoryHandle | FileSystemFileHandle>;
-};
 const namespace = "abservice-packages-v1";
 const slots: readonly PackageSlot[] = ["active", "pending"];
 const pointerName = "pointer.json";
@@ -144,15 +149,6 @@ const discardPending = async (signal: AbortSignal): Promise<void> => {
     ? Promise.resolve()
     : writePointer(root, pointerOf(pointer.active), signal));
 };
-const entries = async <T>(
-  iterator: AsyncIterator<T>,
-  collected: readonly T[] = [],
-): Promise<readonly T[]> => {
-  const next = await iterator.next();
-  return next.done === true
-    ? collected
-    : entries(iterator, [...collected, next.value]);
-};
 const describe = async (
   handle: FileSystemFileHandle,
   pointer: Pointer,
@@ -172,15 +168,24 @@ const describe = async (
 const list = async (): Promise<StoredPackages> => {
   const root = await directory();
   const pointer = await readPointer(root);
-  const folder = (await manifests(root)) as Listing;
-  const handles = await entries(folder.values());
+  const handles = await files(await manifests(root));
   const described = await Promise.all(
-    handles.flatMap((handle) =>
-      handle.kind === "file" ? [describe(handle, pointer)] : [],
-    ),
+    handles.map((handle) => describe(handle, pointer)),
   );
   const packages = described.filter((item) => item !== undefined);
   return { packages, unreadable: described.length - packages.length };
+};
+/* Kept by name, so a referenced file stays even when it is unreadable; staging the same version repairs it. */
+const collect = async (signal: AbortSignal): Promise<number> => {
+  const root = await directory();
+  const pointer = await readPointer(root);
+  const kept = await Promise.all(
+    slots.flatMap((slot) => {
+      const version = pointer[slot];
+      return version === undefined ? [] : [filename(version)];
+    }),
+  );
+  return removeExcept(await manifests(root), new Set(kept), signal);
 };
 export const buildPackageStore = (): PackageStore => ({
   stage: (input, signal) => {
@@ -199,4 +204,5 @@ export const buildPackageStore = (): PackageStore => ({
   discardPending: (signal) =>
     locked(namespace, signal, () => discardPending(signal)),
   list: (signal) => locked(namespace, signal, list),
+  collect: (signal) => locked(namespace, signal, () => collect(signal)),
 });

@@ -10,6 +10,7 @@ import {
   locked,
   optional,
   reject,
+  removeExcept,
   requireValue,
 } from "./common";
 import type { AssetStore, StorageResult, StoredInventory } from "./index";
@@ -143,6 +144,29 @@ const store = (manifest: InstallationManifest): AssetStore => {
       ),
   };
 };
+/* Content identity, not generation, decides what stays: an asset shared by the kept manifests is kept once. */
+export const collectUnreferenced = (
+  inputs: readonly InstallationManifest[],
+  signal: AbortSignal,
+): Promise<StorageResult<number>> =>
+  locked(namespace, signal, async () => {
+    const kept = await inputs.reduce<Promise<ReadonlySet<string>>>(
+      async (previous, input) => {
+        const names = await previous;
+        const parsed = parseManifest(input);
+        const manifest =
+          parsed.kind === "manifest"
+            ? parsed.manifest
+            : reject("invalid-manifest");
+        const added = await Promise.all(
+          manifest.assets.map((asset) => filename(asset, signal)),
+        );
+        return new Set([...names, ...added]);
+      },
+      Promise.resolve(new Set<string>()),
+    );
+    return removeExcept(await directory(), kept, signal);
+  });
 export const buildStore = (
   input: InstallationManifest,
 ): StorageResult<AssetStore> => {
