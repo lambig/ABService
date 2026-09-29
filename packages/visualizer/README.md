@@ -37,6 +37,55 @@ onsetは強度のピークを取り込み、時定数0.16秒で減衰する。�
 `previous`には`restingFrame`またはmapperが返したframeを渡す。時刻の巻き戻りでは平滑化をresetする。
 AudioFeaturesの帯域・onset意味論は `packages/audio-dsp` の実装のJSDocと単体テストを正とする。このfake sourceは描画検証用であり、DSPの代替実装ではない。
 
+## presentation state の契約（#479 A）
+
+`src/state.ts` は試聴体験の状態の語彙と遷移だけを持つ純粋な契約。見せ方（layout・mapping・effect・動きの強さ・時間展開）は固定しない。
+
+- 状態: `idle` / `selected` / `playing` / `paused` / `seeking` / `ended` / `error`。停止後・終了後の戻り先は `selected`。
+- `transition(state, event)` が次の状態と、描画値を静止値へ戻すか（`resetFrame`）を返す。選び直し・seek・停止・失敗・clearでは戻し、旧い作品・旧い再生位置の平滑化とimpulseを残さない。一時停止では戻さず、直前の構図を保つ。
+- その状態で起きえない出来事（例: `idle` での `play`、`seeking` 以外での `seeked`）では状態を変えない。順序の乱れた通知から状態を作らない。
+- rendererへの入力は `PresentationInput`（状態・`PresentationFrame`・作品の表示内容）だけ。rendererはAudioFeatures・Manifest・playerを参照しない。表示内容は検証済みの表示データ（`packages/listening-presentation`）の作品 `ListeningAlbum` をそのまま渡し、どの事実をどう見せるかは renderer の側が決める。`listening-presentation` へは型だけで依存する。
+- `PresentationInput` は状態ごとに形を分ける。`idle` は表示内容を持たず、`error` は任意、それ以外は必ず持つ。成り立たない組み合わせは型の段階で作れない。
+- player の状態からこの出来事への写しは #476 C後半、rendererが表示内容を描くことは #479 B が受け持つ。
+
+## 描画セッションの監督と縮退（#291 A）
+
+`src/session.ts` の `superviseRenderer` は、1つの描画セッションのrendererの寿命を監督する。rendererを作る関数は呼び出し側が渡す（GPUなしで単体試験できる）。
+
+- device lostでは今のrendererを破棄し、作り直しを**1回だけ**試す。描画中の例外もlostと同じに扱う。
+- 作り直しが失敗するか、作り直したrendererもまたlostしたら `degraded` へ移り、無限に再試行しない。WebGPUが使えない・初期化に失敗した場合も `degraded`。
+- `degraded` で止めるのは描画だけ。再生・作品情報・操作は呼び出し側で保つ。
+- `dispose` の後は、遅れて完了したrendererも破棄し、lostも無視する。
+- 回転・fullscreen復帰は、rendererが毎フレームcanvas寸法を照合して追う（作り直さない）。
+
+`offline-player` は再生のたびにこの監督を作り、一時停止・停止・選曲・pagehideで破棄する。GPU資源を持つのは再生中だけ。
+
+- 一時停止では、GPU資源を放す直前に今の構図を静止画へ写してcanvasの背景に敷き、直前の構図を保つ（#479 paused）。描画値と縮退の判定は一時停止をまたいで残す。
+- 再開で新しい監督を作り、描き始めるか縮退した時点で静止画を外す。一度縮退した描画は、停止・選曲するまで作り直さない。
+
+## 負荷ノブと観測（#291 B）
+
+`src/budget.ts` の `RendererBudget` は、#479 の表現要素を削らずに下限の端末で予算へ戻すための調整だけを持つ。
+
+| ノブ | hash の名前 | 範囲 | 既定 |
+|---|---|---|---|
+| DPR の上限 | `dpr` | 0.5–3 | 2 |
+| 内部の描画解像度の倍率（低く描いて拡大） | `scale` | 0.25–1 | 1 |
+| effect の強さの倍率 | `effects` | 0–1 | 1 |
+| 描画の上限 fps（速い rAF は見送る） | `fps` | 10–120 | 60 |
+
+既定値は現行の見え方を変えない。`offline-player` は URL の hash（例: `#probe&scale=0.5&fps=30`）から読む。query ではなく hash を使うのは、Service Worker が query 付きのナビゲーションを扱わず、オフラインで開けなくなるため。
+
+`src/probe.ts` はフレームごとの観測を直近 600 フレームだけ持ち、分布（p50 / p95 / max）を返す。次の三つを分けて記録する。
+
+- cycle CPU: 1 回の描画までに main thread が使った時間の合計。特徴量から描画値への変換（`mapFeatures`）・presentation state・作品情報などの DOM 更新・renderer を含む。worker・GPU 寄せ・WASM Spike の要否はこれで判断する。呼び出し側が測って `cycle` で渡す。
+- renderer CPU: renderer の中で描画値を書いて submit するまで（WebGPU の命令作成の CPU コスト）。
+- GPU: submit から `onSubmittedWorkDone` まで（queue の待ちを含む上限値）。
+
+CPU と GPU を分けるのは、どちらが律速かで効く対策が違うため（`docs/DECISIONS.md`「試聴端末は廉価な大判寄りのタブレットを下限とし、CPU と GPU の配分は一次性能ゲートの実測で決める」）。`offline-player` は `#probe` のとき、この要約と起動時の計測点（script の評価・曲目の準備・最初のフレーム）を画面に重ねて表示する。
+
+層ごとの解像度（背景・effect を低く、文字・artwork を高く）は、現行の renderer が1パスの全画面描画のため未対応。パスの分け方は #479 B の scene と合わせて決める。
+
 ## ブラウザ検証
 
 ```sh

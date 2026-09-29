@@ -28,6 +28,8 @@
 `npm ci` → `npm run build:offline-player` → `npm run preview -w abservice-offline-player`。
 http://127.0.0.1:4179/offline-player/ を開き、`fixtureToken` を入力して保存する。準備後にすべてのタブを閉じ、同じURLを通信なしで開き直す。
 
+実機での調整と観測は、URL の hash で行う（例: `/offline-player/#probe&scale=0.5&fps=30`）。`probe` で CPU（1 回の描画までの main thread 全体と、そのうちの renderer）と GPU を分けた観測、起動時の計測点を画面に重ね、`dpr`・`scale`・`effects`・`fps` で描画の予算を変える（範囲は `packages/visualizer` の README）。hash だけを変えたときは読み込み直す。
+
 `npm exec -w abservice-offline-player -- playwright install --with-deps --only-shell chromium` の後、`npm run test:offline-player:browser`。
 
 ブラウザ試験は同じbrowser contextでの全ページ終了と新ページ起動を扱う。
