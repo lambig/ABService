@@ -118,6 +118,14 @@ test("配布元から準備し、全タブを閉じた後の通信なしの新�
   await prepareOnline(page);
   /* 音源 2 つと artwork の 3 つを、この端末の保存領域へ内容で識別して置く */
   expect(await storedAssets(page)).toBe(3);
+  /*
+   * Every request of the offline listening, from the navigation of the restarted page through the fonts, the audio
+   * and the artwork. Preparation is done, so what is recorded from here comes only from the offline restart.
+   */
+  const asked: string[] = [];
+  context.on("request", (request) => {
+    asked.push(request.url());
+  });
   const next = await restart(page, context);
   await expect(next.locator("#readiness")).toHaveText(saved);
   await expect(next.locator("#token")).toHaveValue("");
@@ -130,10 +138,6 @@ test("配布元から準備し、全タブを閉じた後の通信なしの新�
   await expect(
     next.getByRole("button", { name: "Metadata-only song", exact: true }),
   ).toHaveCount(0);
-  const asked: string[] = [];
-  context.on("request", (request) => {
-    asked.push(request.url());
-  });
   /* 準備済みの端末では、通常の試聴に token の入力を出さない */
   await expect(next.locator("#preparation")).toBeHidden();
   await expect(next.locator("#open-preparation")).toBeVisible();
@@ -179,6 +183,17 @@ test("配布元から準備し、全タブを閉じた後の通信なしの新�
     ),
   ).toBe(true);
   expect(fetched).toEqual([]);
+  /* Nothing is even attempted outside the app's own origin: no external audio, fonts or images. */
+  const origin = new URL(next.url()).origin;
+  /* The record reaches back to the page navigation itself, so startup requests are covered too. */
+  expect(
+    asked.some((url) => new URL(url).pathname === new URL(next.url()).pathname),
+  ).toBe(true);
+  expect(
+    asked.filter(
+      (url) => url.startsWith("http") && new URL(url).origin !== origin,
+    ),
+  ).toEqual([]);
 });
 
 test("別タブが旧版を使っている間は切り替えず、全タブを閉じた後に新版へ昇格し、旧版だけの実体を削除する", async ({
