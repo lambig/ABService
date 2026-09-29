@@ -20,7 +20,8 @@
         <h1>A moment to listen.</h1>
         <p>アルバムから曲を選び、再生してください。</p>
       </section>
-      <section class="preparation" aria-label="オフライン準備">
+      <button id="open-preparation" hidden>配布物を準備する</button>
+      <section id="preparation" class="preparation" aria-label="オフライン準備" hidden>
         <h2>持ち出す前に、保存する</h2>
         <p id="readiness" role="status" aria-live="polite">
           保存状態を確認しています
@@ -47,6 +48,11 @@
             <h2 id="track-title">曲を選んでください</h2>
             <p id="play-status" role="status" aria-live="polite">待機中</p>
           </div>
+          <section id="album-info" aria-label="作品の情報" hidden>
+            <img id="artwork" alt="" hidden />
+            <p id="artist" hidden></p>
+            <div id="description" hidden></div>
+          </section>
           <label for="seek">再生位置</label
           ><input
             id="seek"

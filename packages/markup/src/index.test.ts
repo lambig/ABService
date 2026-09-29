@@ -155,6 +155,44 @@ describe('マークアップ描画', () => {
     });
   });
 
+  describe('通信の無い端末向けの描画', () => {
+    const offline = (markdown: string) =>
+      renderMarkup(markdown, { offline: true });
+
+    it('配信ベースパス配下の画像も含め、画像をすべて落とす', () => {
+      expect(offline('![表紙](/assets/cover.png)\n\n本文')).not.toContain(
+        '<img',
+      );
+      expect(offline('![表紙](/assets/cover.png)\n\n本文')).toContain('本文');
+    });
+
+    it('リンクは外し、文字は残す', () => {
+      const html = offline('[公式サイト](https://example.com/) で頒布する');
+      expect(html).not.toContain('<a');
+      expect(html).not.toContain('https://example.com/');
+      expect(html).toContain('公式サイト で頒布する');
+    });
+
+    it('リンク内の強調や自動リンクも文字として残す', () => {
+      const html = offline('[**強調**の説明](https://example.com/) と https://example.org/');
+      expect(html).not.toContain('<a');
+      expect(html).toContain('<strong>強調</strong>の説明');
+      expect(html).toContain('https://example.org/');
+    });
+
+    it('サニタイズと生HTMLの不描画は同じ', () => {
+      const html = offline('<script>alert(1)</script>\n\n**本文**');
+      expect(html).not.toContain('<script');
+      expect(html).toContain('<strong>本文</strong>');
+    });
+
+    it('配信ベースパスを渡す描画ではリンクを残す', () => {
+      expect(render('[公式サイト](https://example.com/)')).toContain(
+        'href="https://example.com/"',
+      );
+    });
+  });
+
   describe('スタイルを焼き付けない', () => {
     it('出力にクラス属性を含まない', () => {
       const html = render(

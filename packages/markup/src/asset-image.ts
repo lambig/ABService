@@ -12,11 +12,12 @@ type VisitResult = typeof CONTINUE | [typeof SKIP, number];
  * （DECISIONS 24）。`data:` も同様に落とす。
  *
  * @param assetBasePath
- *            アセットの配信ベースパス（バックエンドの `abservice.assets.public-base-path` と揃える）
+ *            アセットの配信ベースパス（バックエンドの `abservice.assets.public-base-path` と揃える）。
+ *            undefined のときは画像をすべて除く（通信の無い端末向け）
  * @returns rehype のトランスフォーマ
  */
 export function rehypeRestrictImageSource(
-  assetBasePath: string,
+  assetBasePath: string | undefined,
 ): (tree: Root) => undefined {
   const allowedPrefix = validatedPrefix(assetBasePath);
   return (tree: Root): undefined => {
@@ -32,7 +33,11 @@ export function rehypeRestrictImageSource(
 const VALIDATION_ORIGIN = 'https://asset-validation.invalid';
 
 /** 不正な設定で許可範囲を拡張しない。ルート全体もアセット配下とは扱わない。 */
-function validatedPrefix(basePath: string): string | undefined {
+function validatedPrefix(basePath: string | undefined): string | undefined {
+  return basePath === undefined ? undefined : validatedPath(basePath);
+}
+
+function validatedPath(basePath: string): string | undefined {
   const url = parseRootRelative(basePath);
   return url !== undefined && url.pathname === basePath && basePath !== '/'
     ? basePath.endsWith('/')

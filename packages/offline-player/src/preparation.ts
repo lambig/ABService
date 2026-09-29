@@ -161,6 +161,24 @@ const activate = (registration: ServiceWorkerRegistration): Promise<void> => {
       });
 };
 
+/*
+ * The preparation surface (token and saving) is shown only while this device is not ready or when opened on purpose,
+ * so that listening never presents a credential prompt.
+ */
+const surface = (open: boolean): void => {
+  const section = document.querySelector<HTMLElement>("#preparation");
+  const opener = document.querySelector<HTMLElement>("#open-preparation");
+  (section === null
+    ? () => undefined
+    : () => {
+        section.hidden = open ? false : true;
+      })();
+  (opener === null
+    ? () => undefined
+    : () => {
+        opener.hidden = open;
+      })();
+};
 /* The package this page plays. It changes only at startup, never while the page is open. */
 const session: { active: InstallationManifest | undefined } = {
   active: undefined,
@@ -341,6 +359,16 @@ export const preparation = {
           describeActive(started.active, started.maintenance);
         }
       : () => undefined)();
+    surface(
+      started.kind === "started" && started.active.kind === "ready"
+        ? false
+        : true,
+    );
+    document
+      .querySelector("#open-preparation")
+      ?.addEventListener("click", () => {
+        surface(true);
+      });
     controls().forEach((button) => {
       button.disabled = false;
     });

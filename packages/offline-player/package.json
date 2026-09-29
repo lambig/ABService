@@ -42,6 +42,7 @@
     "abservice-distribution-client": "*",
     "abservice-installation": "*",
     "abservice-listening-preparation": "*",
+    "abservice-listening-presentation": "*",
     "abservice-player": "*",
     "abservice-offline-storage": "*",
     "abservice-offline-shell": "*",
