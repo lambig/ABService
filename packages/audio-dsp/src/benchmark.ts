@@ -33,6 +33,33 @@ export type BenchmarkOptions = Readonly<{
   config?: SpectralConfig;
 }>;
 
+const invalid = (message: string): never => {
+  throw new RangeError(message);
+};
+/* A zero quantum or a negative limit would make the quantum count unbounded or negative. */
+const checked = (
+  options: BenchmarkOptions,
+): Readonly<{ quantumFrames: number; maxQuanta: number }> => {
+  const quantumFrames = options.quantumFrames ?? 128;
+  const maxQuanta = options.maxQuanta ?? Number.MAX_SAFE_INTEGER;
+  return [
+    Number.isFinite(options.sampleRate) && options.sampleRate > 0
+      ? undefined
+      : "sampleRate must be a positive finite number",
+    Number.isSafeInteger(quantumFrames) && quantumFrames > 0
+      ? undefined
+      : "quantumFrames must be a positive integer",
+    Number.isSafeInteger(maxQuanta) && maxQuanta >= 0
+      ? undefined
+      : "maxQuanta must be a non-negative integer",
+  ]
+    .filter((message): message is string => message !== undefined)
+    .reduce<Readonly<{ quantumFrames: number; maxQuanta: number }>>(
+      (_, message) => invalid(message),
+      { quantumFrames, maxQuanta },
+    );
+};
+
 const percentile = (sorted: readonly number[], fraction: number): number =>
   sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * fraction))] ??
   0;
@@ -40,17 +67,15 @@ const percentile = (sorted: readonly number[], fraction: number): number =>
 /**
  * 同じ DSP（`createFeatureStream`）へ PCM を quantum ずつ渡し、1 quantum ごとの処理時間を測る。
  * Worklet と同じく、特徴量の生成まで含めて測る。PCM は借用するだけで保持しない。
+ * sampleRate は正の有限値、quantumFrames は正の整数、maxQuanta は 0 以上の整数（0 は測らない）。外れたら RangeError。
  */
 export const benchmarkFeatureStream = (
   channels: readonly Float32Array[],
   options: BenchmarkOptions,
 ): QuantumBenchmark => {
-  const quantumFrames = options.quantumFrames ?? 128;
+  const { quantumFrames, maxQuanta } = checked(options);
   const length = channels[0]?.length ?? 0;
-  const quanta = Math.min(
-    Math.floor(length / quantumFrames),
-    options.maxQuanta ?? Number.MAX_SAFE_INTEGER,
-  );
+  const quanta = Math.min(Math.floor(length / quantumFrames), maxQuanta);
   const state: { stream: FeatureStream } = {
     stream: createFeatureStream({
       ...(options.config ?? defaultSpectralConfig),

@@ -65,6 +65,44 @@ describe("benchmarkFeatureStream", () => {
     expect(result.p95Ms).toBeGreaterThanOrEqual(0);
   });
 
+  it.each([
+    ["quantumFrames", { quantumFrames: 0 }],
+    ["quantumFrames", { quantumFrames: -128 }],
+    ["quantumFrames", { quantumFrames: 1.5 }],
+    ["quantumFrames", { quantumFrames: Number.NaN }],
+    ["quantumFrames", { quantumFrames: Number.POSITIVE_INFINITY }],
+    ["maxQuanta", { maxQuanta: -1 }],
+    ["maxQuanta", { maxQuanta: 2.5 }],
+    ["maxQuanta", { maxQuanta: Number.NaN }],
+    ["sampleRate", { sampleRate: 0 }],
+    ["sampleRate", { sampleRate: Number.NaN }],
+  ])("rejects an invalid %s before measuring: %o", (name, override) => {
+    const now = () => 0;
+    expect(() =>
+      benchmarkFeatureStream([sine(128 * 4, 48000)], {
+        sampleRate: 48000,
+        now,
+        ...override,
+      }),
+    ).toThrow(new RegExp(`^${name} `, "u"));
+  });
+
+  it("accepts the smallest valid limits", () => {
+    const sampleRate = 48000;
+    const input = [sine(128 * 4, sampleRate)];
+    expect(
+      benchmarkFeatureStream(input, { sampleRate, now: () => 0, maxQuanta: 0 }),
+    ).toMatchObject({ quanta: 0, maxMs: 0 });
+    expect(
+      benchmarkFeatureStream(input, {
+        sampleRate,
+        now: () => 0,
+        quantumFrames: 1,
+        maxQuanta: 3,
+      }),
+    ).toMatchObject({ quanta: 3, quantumFrames: 1 });
+  });
+
   it("reports nothing measured for input shorter than a quantum", () => {
     expect(
       benchmarkFeatureStream([new Float32Array(10)], {
