@@ -38,4 +38,4 @@
 
 ## 検証の入口
 
-`npm run test:distribution-client`。fetchを差し替えた単体試験で、backendの配布応答と同じ見本（`packages/installation/fixtures/manifest-v3.example.json`）を使う。実backend・実ブラウザでの取得（CORSを含む）は、試聴端末の受け入れ試験で扱う。
+`npm run test:distribution-client`。fetchを差し替えた単体試験で、backendの配布応答と同じ見本（`packages/installation/fixtures/manifest-v3.example.json`）を使う。実ブラウザでの取得は、`packages/offline-player` のブラウザ試験が同一originの検証用配布元で確かめる。実backend・実S3からの取得（本番CORSを含む）は、実Androidの受け入れ（#478）とリリースの受け入れ（#480）で扱う。

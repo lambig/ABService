@@ -2,6 +2,7 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import type { AudioFeatures } from "abservice-audio-dsp";
+import { distribute, prepareAndReload } from "./support";
 
 type Probe = {
   contexts: AudioContext[];
@@ -79,14 +80,10 @@ const selectAndPlay = async (
   await page.locator("#play").click();
   await expect(page.locator("#play-status")).toHaveText("再生中");
 };
-const prepare = async (page: Page): Promise<void> => {
-  await page.goto("/offline-player/");
-  await expect(page.locator("#prepare")).toBeEnabled();
-  await page.locator("#prepare").click();
-  await expect(page.locator("#readiness")).toHaveText(
-    "オフライン再生の準備ができました",
-  );
-};
+const prepare = prepareAndReload;
+test.beforeEach(async ({ request }) => {
+  await distribute(request, "v1");
+});
 
 test("オフライン新ページで実FLACの特徴量がWebGPU描画を駆動する", async ({
   page,
