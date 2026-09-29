@@ -381,6 +381,78 @@ test("versions containing slashes, dots and Japanese are data, not paths", async
   });
 });
 
+test("collect removes only manifests no slot references, keeping a referenced file even when it is unreadable", async ({
+  page,
+}) => {
+  expect(
+    await page.evaluate(async () => {
+      const h = window.storageHarness;
+      const store = h.createPackageStore();
+      const signal = new AbortController().signal;
+      await store.stage(h.generation("old"), signal);
+      await store.promote(signal);
+      await store.stage(h.generation("abandoned"), signal);
+      await store.stage(h.generation("new"), signal);
+      const before = await h.storedManifests();
+      await h.tamper("new", "{");
+      const collected = await store.collect(signal);
+      const listed = await store.list(signal);
+      const repaired = await store.stage(h.generation("new"), signal);
+      const pending = await store.read("pending", signal);
+      await store.promote(signal);
+      const afterPromote = await store.collect(signal);
+      return {
+        before,
+        collected,
+        listed,
+        repaired,
+        pending:
+          pending.kind === "ok" ? pending.value?.packageVersion : pending,
+        afterPromote,
+        remaining: await h.storedManifests(),
+        again: await store.collect(signal),
+      };
+    }),
+  ).toEqual({
+    before: 3,
+    collected: { kind: "ok", value: 1 },
+    listed: {
+      kind: "ok",
+      value: {
+        packages: [{ packageVersion: "old", slots: ["active"] }],
+        unreadable: 1,
+      },
+    },
+    repaired: { kind: "ok", value: undefined },
+    pending: "new",
+    afterPromote: { kind: "ok", value: 1 },
+    remaining: 1,
+    again: { kind: "ok", value: 0 },
+  });
+});
+
+test("collect removes nothing when the pointer is corrupt", async ({ page }) => {
+  expect(
+    await page.evaluate(async () => {
+      const h = window.storageHarness;
+      const store = h.createPackageStore();
+      const signal = new AbortController().signal;
+      await store.stage(h.generation("old"), signal);
+      await store.promote(signal);
+      await store.stage(h.generation("new"), signal);
+      await store.discardPending(signal);
+      await h.tamperPointer("[]");
+      return {
+        collected: await store.collect(signal),
+        remaining: await h.storedManifests(),
+      };
+    }),
+  ).toEqual({
+    collected: { kind: "error", error: "corrupt" },
+    remaining: 2,
+  });
+});
+
 test("pre-aborted operations and cancelled lock waits change nothing", async ({
   page,
   context,
@@ -397,10 +469,11 @@ test("pre-aborted operations and cancelled lock waits change nothing", async ({
         store.promote(controller.signal),
         store.discardPending(controller.signal),
         store.list(controller.signal),
+        store.collect(controller.signal),
       ]);
     }),
   ).toEqual(
-    Array.from({ length: 5 }, () => ({ kind: "error", error: "aborted" })),
+    Array.from({ length: 6 }, () => ({ kind: "error", error: "aborted" })),
   );
   const other = await context.newPage();
   await other.goto("/");

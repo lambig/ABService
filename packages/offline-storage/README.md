@@ -13,6 +13,7 @@
 - 容量見積りは予約ではない。追加1音源分を保守的に見積もり、実書き込みのQuotaExceededErrorも扱う。容量が不明な場合は未評価とし、十分・不足を捏造しない。
 - packageCompleteは音源の準備状態。Service Workerによるshell保存を扱わないため、このadapterのassessはappShellAvailableをfalseとする。ブラウザデータ消去・自動退避に対する保証や、navigator.storage.persist()の許可取得も含まない。
 - AssetStoreは渡されたManifestの世代だけを参照する。旧世代の実体を保持するため、新旧のManifestが同じ実体を共有できる。どの世代を使うかはpackage storeが決める。
+- `collectAssets` は渡したManifestのどれからも参照されない実体を削除する。実体は内容（assetId・サイズ・checksum）で識別するため、複数の世代が共有する実体は1つとして残る。Manifestが1つでも不正なら何も削除しない。別タブで使用中の世代や保存中の実体を知らないため、呼び出し側が他のタブの利用を排他してから呼ぶ。
 
 ## 準備済みpackageの世代
 
@@ -25,6 +26,7 @@
 - activeかpendingが参照している世代を、同じpackageVersionで別の内容に置き換えることはしない（conflict）。packageVersionは内容のdigestなので、同じ版で内容が違うのは配布側の異常として扱う。ただし保存済みのファイルが読めない場合は、同じ版の正しい内容で上書きして修復する。
 - `promote` はpendingを読める状態か確かめてからactiveへ移す。昇格の時機（全タブ終了後の起動時）、asset・app互換・shellの再検証、利用中の世代の保護、不要世代の削除は呼び出し側の準備・起動処理が受け持つ。`discardPending` は参照だけを外し、ファイルは残す。
 - `list` は保存済みの世代と、それを参照しているslotを返す。読めないファイルは数だけを返し、保存パスは外に出さない。
+- `collect` はactive・pendingのどちらからも参照されないManifestファイルを削除する。残すかどうかはslotの版から求めたファイル名で決めるため、参照中のファイルは読めなくても残り、同じ版の `stage` で修復できる。pointerが不正なら何も削除しない。
 - 操作は同一originの全タブで、ロック `abservice-packages-v1` の排他で直列化する。asset実体のロックと両方を取る場合は、package → assetの順に取る。
 
 ## 検証の入口

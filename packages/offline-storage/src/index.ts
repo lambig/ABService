@@ -5,7 +5,7 @@ import type {
   ReadinessResult,
 } from "abservice-installation";
 import { buildPackageStore } from "./packages";
-import { buildStore } from "./store";
+import { buildStore, collectUnreferenced } from "./store";
 
 /**
  * 保存方式を外へ漏らさない、回復理由の分類。容量見積り失敗と容量不足は区別する。
@@ -53,6 +53,16 @@ export const createAssetStore = (
   manifest: InstallationManifest,
 ): StorageResult<AssetStore> => buildStore(manifest);
 
+/**
+ * 渡したManifestのどれからも参照されないasset実体を削除し、削除した数を返す。実体は内容（assetId・サイズ・checksum）で識別する。
+ * 保存中の世代・別タブで使用中の世代を知らないため、呼び出し側が他のタブの利用を排他してから呼ぶ。
+ * Manifestを1つも渡さなければ、全実体を削除する。
+ */
+export const collectAssets = (
+  keep: readonly InstallationManifest[],
+  signal: AbortSignal,
+): Promise<StorageResult<number>> => collectUnreferenced(keep, signal);
+
 /** 準備済みpackageの参照先。activeは再生が読む世代、pendingは昇格を待つ候補。 */
 export type PackageSlot = "active" | "pending";
 
@@ -70,7 +80,7 @@ export type StoredPackages = Readonly<{
 
 /**
  * ManifestをpackageVersionごとに保存し、active/pendingの参照を1つのpointerで切り替える。
- * asset実体・配布APIからの取得・昇格の時機・不要世代の削除は扱わない。
+ * asset実体・配布APIからの取得・昇格の時機・削除してよい時機の判断は扱わない。
  */
 export type PackageStore = Readonly<{
   /** strictに検証したManifestを保存してpendingにする。activeは変えない。 */
@@ -89,6 +99,11 @@ export type PackageStore = Readonly<{
   discardPending: (signal: AbortSignal) => Promise<StorageResult<void>>;
   /** 保存済みの世代を、参照しているslotとともに返す。 */
   list: (signal: AbortSignal) => Promise<StorageResult<StoredPackages>>;
+  /**
+   * active・pendingのどちらからも参照されないManifestを削除し、削除した数を返す。参照中のファイルは読めなくても残す。
+   * 別タブで使用中の世代を知らないため、呼び出し側が他のタブの利用を排他してから呼ぶ。
+   */
+  collect: (signal: AbortSignal) => Promise<StorageResult<number>>;
 }>;
 
 /** OPFS/Web Locksへのアクセスは操作時のみ。同一originの全タブで1つの排他ロックを共有する。 */

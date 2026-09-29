@@ -41,6 +41,45 @@ export const hash = async (
     byte.toString(16).padStart(2, "0"),
   ).join("");
 };
+/* Declared here so that consumers need not enable the DOM.AsyncIterable lib. */
+type Listing = FileSystemDirectoryHandle & {
+  values: () => AsyncIterator<FileSystemDirectoryHandle | FileSystemFileHandle>;
+};
+const drain = async <T>(
+  iterator: AsyncIterator<T>,
+  collected: readonly T[] = [],
+): Promise<readonly T[]> => {
+  const next = await iterator.next();
+  return next.done === true
+    ? collected
+    : drain(iterator, [...collected, next.value]);
+};
+/** The file entries directly under a directory. Order is not guaranteed. */
+export const files = async (
+  folder: FileSystemDirectoryHandle,
+): Promise<readonly FileSystemFileHandle[]> =>
+  (await drain((folder as Listing).values())).flatMap((handle) =>
+    handle.kind === "file" ? [handle] : [],
+  );
+/**
+ * Removes every file under the directory whose name is not kept, one at a time, and returns how many were removed.
+ * A file already gone counts as removed by someone else, not as a failure.
+ */
+export const removeExcept = async (
+  folder: FileSystemDirectoryHandle,
+  kept: ReadonlySet<string>,
+  signal: AbortSignal,
+): Promise<number> =>
+  (await files(folder))
+    .filter((handle) => (kept.has(handle.name) ? false : true))
+    .reduce<Promise<number>>(async (previous, handle) => {
+      const removed = await previous;
+      checkAbort(signal);
+      const deleted = await optional(
+        folder.removeEntry(handle.name).then(() => true),
+      );
+      return deleted === true ? removed + 1 : removed;
+    }, Promise.resolve(0));
 /** Resolves an absent entry to undefined; every other failure stays a failure. */
 export const optional = <T>(lookup: Promise<T>): Promise<T | undefined> =>
   lookup.catch((error: unknown) =>

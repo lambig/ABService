@@ -1,4 +1,8 @@
-import { createAssetStore, createPackageStore } from "../src/index";
+import {
+  collectAssets,
+  createAssetStore,
+  createPackageStore,
+} from "../src/index";
 import type { AssetStore } from "../src/index";
 import type {
   InstallationManifestV1,
@@ -90,6 +94,27 @@ const erase = async (packageVersion: string): Promise<void> =>
     );
 const tamperPointer = async (text: string): Promise<void> =>
   overwrite(await (await packages()).getFileHandle("pointer.json"), text);
+/* Counts what is on disk, independently of the store's own listing. */
+const stored = async (namespace: string, folder?: string): Promise<number> => {
+  const root = await (
+    await navigator.storage.getDirectory()
+  ).getDirectoryHandle(namespace, { create: true });
+  const target =
+    folder === undefined
+      ? root
+      : await root.getDirectoryHandle(folder, { create: true });
+  const iterator = (
+    target as FileSystemDirectoryHandle & {
+      values: () => AsyncIterator<FileSystemHandle>;
+    }
+  ).values();
+  const count = async (seen: number): Promise<number> =>
+    (await iterator.next()).done === true ? seen : count(seen + 1);
+  return count(0);
+};
+const storedAssets = (): Promise<number> => stored("abservice-assets-v1");
+const storedManifests = (): Promise<number> =>
+  stored("abservice-packages-v1", "manifests");
 const harness = {
   first,
   second,
@@ -98,6 +123,9 @@ const harness = {
   open,
   createAssetStore,
   createPackageStore,
+  collectAssets,
+  storedAssets,
+  storedManifests,
   v3,
   generation,
   tamper,

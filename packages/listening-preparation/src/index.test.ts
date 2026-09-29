@@ -117,6 +117,7 @@ const packageDisk = (
       return Promise.resolve(ok(undefined));
     },
     list: () => Promise.resolve(ok({ packages: [], unreadable: 0 })),
+    collect: () => Promise.resolve(ok(0)),
   };
   return { state, staged, store };
 };
