@@ -58,7 +58,10 @@ AudioFeaturesの帯域・onset意味論は `packages/audio-dsp` の実装のJSDo
 - `dispose` の後は、遅れて完了したrendererも破棄し、lostも無視する。
 - 回転・fullscreen復帰は、rendererが毎フレームcanvas寸法を照合して追う（作り直さない）。
 
-`offline-player` は再生のたびにこの監督を作り、停止・選曲・pagehideで破棄する。
+`offline-player` は再生のたびにこの監督を作り、一時停止・停止・選曲・pagehideで破棄する。GPU資源を持つのは再生中だけ。
+
+- 一時停止では、GPU資源を放す直前に今の構図を静止画へ写してcanvasの背景に敷き、直前の構図を保つ（#479 paused）。描画値と縮退の判定は一時停止をまたいで残す。
+- 再開で新しい監督を作り、描き始めるか縮退した時点で静止画を外す。一度縮退した描画は、停止・選曲するまで作り直さない。
 
 ## ブラウザ検証
 

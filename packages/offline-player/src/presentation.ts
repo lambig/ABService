@@ -4,7 +4,10 @@ import type { PlayerSnapshot } from "abservice-player";
 import { mapFeatures, restingFrame } from "abservice-visualizer";
 import { createRenderer } from "abservice-visualizer/renderer";
 import { superviseRenderer } from "abservice-visualizer/session";
-import type { RendererSupervisor } from "abservice-visualizer/session";
+import type {
+  RendererStatus,
+  RendererSupervisor,
+} from "abservice-visualizer/session";
 
 const messages = {
   starting: "描画を準備しています",
@@ -13,6 +16,12 @@ const messages = {
   degraded: "描画を利用できません。再生と操作は続けられます。",
   resting: "再生すると音に合わせて描画します",
 } as const;
+
+/* A session has settled once it can draw or has given up drawing. */
+const settled: ReadonlySet<RendererStatus> = new Set<RendererStatus>([
+  "running",
+  "degraded",
+]);
 
 export const presentation = (
   canvas: HTMLCanvasElement,
@@ -39,11 +48,54 @@ export const presentation = (
         })();
     state.animation = null;
   };
-  const dispose = (): void => {
+  /* A paused scene stays visible as a still behind the released canvas; the token drops a still that arrives after resuming. */
+  const still: { token: number; url: string | null } = { token: 0, url: null };
+  const thaw = (): void => {
+    still.token += 1;
+    (still.url === null
+      ? () => undefined
+      : () => {
+          URL.revokeObjectURL(still.url as string);
+        })();
+    still.url = null;
+    canvas.style.backgroundImage = "";
+  };
+  const freeze = (supervisor: RendererSupervisor): void => {
+    thaw();
+    const token = still.token;
+    /* The canvas can be copied only within the task that rendered it, so the current frame is drawn once more here. */
+    supervisor.render(state.frame);
+    const copy = document.createElement("canvas");
+    copy.width = canvas.width;
+    copy.height = canvas.height;
+    copy.getContext("2d")?.drawImage(canvas, 0, 0);
+    copy.toBlob((blob) => {
+      (blob !== null && token === still.token
+        ? () => {
+            still.url = URL.createObjectURL(blob);
+            canvas.style.backgroundImage = `url("${still.url}")`;
+            canvas.style.backgroundSize = "100% 100%";
+          }
+        : () => undefined)();
+    });
+  };
+  /* The GPU session lives only while playing; the frame and the degraded verdict outlive it across a pause. */
+  const release = (keepStill: boolean): void => {
     cancelFrame();
     const supervisor = state.supervisor;
     state.supervisor = null;
+    /* A repeated pause snapshot has no session left and keeps the still it already has. */
+    (keepStill
+      ? supervisor?.status() === "running"
+        ? () => {
+            freeze(supervisor);
+          }
+        : () => undefined
+      : thaw)();
     supervisor?.dispose();
+  };
+  const dispose = (): void => {
+    release(false);
     state.frame = restingFrame;
   };
   const draw = (): void => {
@@ -71,6 +123,10 @@ export const presentation = (
           ? () => {
               status.textContent = messages[next];
               state.degraded = next === "degraded";
+              /* The still is kept until the new session can draw over it or has given up. */
+              (settled.has(next)
+                ? thaw
+                : () => undefined)();
               (next === "running" && state.animation === null
                 ? draw
                 : () => undefined)();
@@ -94,9 +150,13 @@ export const presentation = (
           : () => undefined)();
     };
     const stopped = (): void => {
-      cancelFrame();
       (snapshot.phase === "paused"
-        ? () => undefined
+        ? () => {
+            release(true);
+            status.textContent = state.degraded
+              ? messages.degraded
+              : messages.resting;
+          }
         : () => {
             dispose();
             state.degraded = false;

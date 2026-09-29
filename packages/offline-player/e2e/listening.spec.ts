@@ -11,6 +11,7 @@ type Probe = {
   uniforms: number[][];
   errors: string[];
   devices: GPUDevice[];
+  released: number;
 };
 type Scope = typeof globalThis & { listeningProbe: Probe };
 test.beforeEach(async ({ context }) => {
@@ -22,6 +23,7 @@ test.beforeEach(async ({ context }) => {
       uniforms: [],
       errors: [],
       devices: [],
+      released: 0,
     };
     (globalThis as Scope).listeningProbe = probe;
     /* eslint-disable-next-line @typescript-eslint/unbound-method -- Native method is invoked with its actual adapter receiver. */
@@ -29,6 +31,9 @@ test.beforeEach(async ({ context }) => {
     GPUAdapter.prototype.requestDevice = async function (...args) {
       const device = await requestDevice.apply(this, args);
       probe.devices.push(device);
+      void device.lost.then(() => {
+        probe.released += 1;
+      });
       return device;
     };
     const NativeContext = AudioContext;
@@ -250,6 +255,45 @@ test("device lostから1回だけ描画を作り直し、再び失えば縮退�
   await expect(page.locator("#play-status")).toHaveText("再生中");
   await page.locator("#pause").click();
   await expect(page.locator("#play-status")).toHaveText("一時停止");
+  expect((await observe(page)).errors).toEqual([]);
+});
+
+test("一時停止でGPU資源を放し、再開で作り直して描画を続ける", async ({
+  page,
+}) => {
+  const gpu = () =>
+    page.evaluate(() => {
+      const probe = (globalThis as Scope).listeningProbe;
+      return { devices: probe.devices.length, released: probe.released };
+    });
+  await prepare(page);
+  await selectAndPlay(page);
+  await expect(page.locator("#visualizer-status")).toHaveText(
+    "音に合わせて描画します",
+  );
+  const playing = await gpu();
+  await page.locator("#pause").click();
+  await expect(page.locator("#play-status")).toHaveText("一時停止");
+  /* The last composition stays on screen as a still once the GPU is gone. */
+  await expect(page.locator("#visualizer")).toHaveCSS(
+    "background-image",
+    /^url\("blob:/u,
+  );
+  /* Every device created so far is destroyed while paused; nothing is held for a long pause. */
+  await expect.poll(async () => (await gpu()).released).toBe(playing.devices);
+  const paused = (await observe(page)).uniforms.length;
+  await page.waitForTimeout(250);
+  expect((await observe(page)).uniforms).toHaveLength(paused);
+  await page.locator("#play").click();
+  await expect(page.locator("#play-status")).toHaveText("再生中");
+  await expect.poll(async () => (await gpu()).devices).toBe(playing.devices + 1);
+  await expect(page.locator("#visualizer-status")).toHaveText(
+    "音に合わせて描画します",
+  );
+  await expect(page.locator("#visualizer")).toHaveCSS("background-image", "none");
+  await expect
+    .poll(async () => (await observe(page)).uniforms.length)
+    .toBeGreaterThan(paused);
   expect((await observe(page)).errors).toEqual([]);
 });
 
