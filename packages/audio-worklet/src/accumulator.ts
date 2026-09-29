@@ -74,3 +74,19 @@ export const collectRms = (
     ? collect(result.features.rms)
     : { valid: false, window: emptyWindow, features: null };
 };
+
+/**
+ * 通知の区間の平均負荷率。区間の処理時間の合計を、区間の音声の長さで割る。1 に達すると間に合わない。
+ * Worklet の中の時計は 1 ms 分解能で1回ごとの分布は出せないため、区間の平均だけを求める。
+ * 音声の長さが 0 なら undefined。
+ */
+export const meanLoad = (
+  busyMs: number,
+  frames: number,
+  sampleRate: number,
+): number | undefined =>
+  [frames > 0, sampleRate > 0, Number.isFinite(busyMs), busyMs >= 0].every(
+    Boolean,
+  )
+    ? busyMs / ((frames / sampleRate) * 1000)
+    : undefined;

@@ -99,3 +99,8 @@ export type {
   SpectralStream,
   SpectralPushResult,
 } from "./spectral";
+
+/** 同じDSPをquantumずつ渡して処理時間の分布と余裕を測る。Worklet内の計測の代わりに使う近似。 */
+export { benchmarkFeatureStream } from "./benchmark";
+/** ベンチマークの結果と設定。 */
+export type { BenchmarkOptions, QuantumBenchmark } from "./benchmark";

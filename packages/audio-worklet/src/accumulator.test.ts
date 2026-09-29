@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { collectRms, emptyWindow, intervalFrames } from "./accumulator";
+import {
+  collectRms,
+  emptyWindow,
+  intervalFrames,
+  meanLoad,
+} from "./accumulator";
 import type { PcmBlock } from "abservice-audio-dsp";
 
 const block = (start: number, frames: number, level: number): PcmBlock => ({
@@ -78,4 +83,21 @@ describe("notification window", () => {
       expect(() => intervalFrames(48000, rate)).toThrow(RangeError);
     },
   );
+});
+
+describe("meanLoad", () => {
+  it("relates the busy time of an interval to the audio it covered", () => {
+    /* 1600 frames at 48 kHz is 33.3 ms of audio; 10 ms of work is 30 %. */
+    expect(meanLoad(10, 1600, 48000)).toBeCloseTo(0.3);
+    expect(meanLoad(0, 1600, 48000)).toBe(0);
+  });
+
+  it.each([
+    [10, 0, 48000],
+    [10, 1600, 0],
+    [Number.NaN, 1600, 48000],
+    [-1, 1600, 48000],
+  ])("reports nothing for busy %s over %s frames at %s Hz", (busy, frames, rate) => {
+    expect(meanLoad(busy, frames, rate)).toBeUndefined();
+  });
 });

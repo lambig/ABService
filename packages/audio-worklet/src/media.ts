@@ -1,6 +1,7 @@
 /* eslint-disable functional/immutable-data -- Web Audio graph, epoch and disposal are confined to this media adapter. */
 import { audioFeatures } from "abservice-audio-dsp";
 import type { AudioFeatures } from "abservice-audio-dsp";
+import { meanLoad } from "./accumulator";
 import processorUrl from "./features-processor.ts?worker&url";
 
 /** 解析を失っても音声の直接出力は維持し、障害を表示側へ通知する。 */
@@ -8,14 +9,56 @@ export type MediaAnalysisOptions = Readonly<{
   onFeatures: (features: AudioFeatures) => void;
   onReset: () => void;
   onError: (error: Error) => void;
+  /** 通知の区間の Worklet の平均負荷率（`meanLoad`）。性能の計測でだけ使う。 */
+  onLoad?: (load: number) => void;
 }>;
+
+/**
+ * 出力の途切れと遅延の累計（`AudioContext.playbackStats`）。秒単位。
+ * 対応していないブラウザ、または再生を始める前は null。
+ */
+export type AudioPlaybackStats = Readonly<{
+  underrunDuration: number;
+  underrunEvents: number;
+  totalDuration: number;
+  averageLatency: number;
+  minimumLatency: number;
+  maximumLatency: number;
+}>;
+
+const playbackStats = (
+  context: AudioContext | null,
+): AudioPlaybackStats | null => {
+  /* Not in the DOM types yet; browsers without it return undefined. */
+  const stats =
+    context === null
+      ? undefined
+      : (Reflect.get(context, "playbackStats") as
+          | AudioPlaybackStats
+          | undefined);
+  return stats === undefined
+    ? null
+    : Object.freeze({
+        underrunDuration: stats.underrunDuration,
+        underrunEvents: stats.underrunEvents,
+        totalDuration: stats.totalDuration,
+        averageLatency: stats.averageLatency,
+        minimumLatency: stats.minimumLatency,
+        maximumLatency: stats.maximumLatency,
+      });
+};
 
 /** 借用したmediaとsignalに寿命を合わせる。playはユーザー操作の同一呼び出し内で行う。 */
 export const connectMediaAnalysis = (
   media: HTMLAudioElement,
   signal: AbortSignal,
   options: MediaAnalysisOptions,
-): Readonly<{ play: () => void; pause: () => void; seek: () => void }> => {
+): Readonly<{
+  play: () => void;
+  pause: () => void;
+  seek: () => void;
+  stats: () => AudioPlaybackStats | null;
+}> => {
   const state: {
     context: AudioContext | null;
     source: MediaElementAudioSourceNode | null;
@@ -53,7 +96,11 @@ export const connectMediaAnalysis = (
     options.onReset();
   };
   const receive = (event: MessageEvent<unknown>): void => {
-    const data = event.data as { epoch?: unknown; features?: unknown } | null;
+    const data = event.data as {
+      epoch?: unknown;
+      features?: unknown;
+      load?: { busyMs?: unknown; frames?: unknown } | null;
+    } | null;
     const features = data?.features as AudioFeatures | null | undefined;
     const accept = (): void => {
       const result = audioFeatures(features as AudioFeatures);
@@ -62,6 +109,12 @@ export const connectMediaAnalysis = (
             options.onFeatures(result.features);
           }
         : () => undefined)();
+      const load = meanLoad(
+        Number(data?.load?.busyMs),
+        Number(data?.load?.frames),
+        state.context?.sampleRate ?? 0,
+      );
+      (load === undefined ? () => undefined : () => options.onLoad?.(load))();
     };
     const blocked = [
       signal.aborted,
@@ -146,5 +199,10 @@ export const connectMediaAnalysis = (
   signal.addEventListener("abort", dispose, { once: true });
   media.addEventListener("seeking", reset, { signal });
   media.addEventListener("seeked", reset, { signal });
-  return Object.freeze({ play, pause, seek: reset });
+  return Object.freeze({
+    play,
+    pause,
+    seek: reset,
+    stats: () => playbackStats(state.context),
+  });
 };
