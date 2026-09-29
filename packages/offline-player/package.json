@@ -39,7 +39,9 @@
   "author": "Lambig",
   "license": "MIT",
   "dependencies": {
+    "abservice-distribution-client": "*",
     "abservice-installation": "*",
+    "abservice-listening-preparation": "*",
     "abservice-player": "*",
     "abservice-offline-storage": "*",
     "abservice-offline-shell": "*",

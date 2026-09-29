@@ -1,22 +1,46 @@
 # Offline player integration PoC
 
-保存方式をプレイヤーへ漏らさずに、保存済みManifest・shell・音源を一つの試聴操作へ接続する。Manifestはshellのビルド世代に含めるため、起動時のオンライン取得を前提にしない。任意の配布package選択・動的Manifest更新は別の判断とする。
+配布元から試聴packageを準備し、保存済みのManifest・shell・音源を一つの試聴操作へ接続する。保存方式をプレイヤーへ漏らさない。準備は `packages/listening-preparation` の `prepare`、起動時の昇格・不要世代の削除は同じく `startup` を使い、取得は `packages/distribution-client` を通す。
 
-再生resolverはOPFSの実体検証済みBlobだけを返す。通信が戻っていても再生操作から自動ダウンロードしない。保存操作で欠落・破損した音源だけを取得し、途中で失敗しても準備完了としない。保存済みの正常音源は利用できる。全packageの原子的更新は主張しない。
+## 準備と起動
 
-readinessは実OPFS inventoryと、同じshell世代の全ファイル検証結果から判定する。判定はその時点の観測であり、以後の消去や破損を保証しない。選曲時にも音源を再検証し、失敗時は準備完了表示を取り下げる。shellの世代更新は全タブを閉じて切り替える先行PoCの方針に従う。
+- 起動時に `startup` で、このページが再生に使うactive packageを決める。他のタブが開いていなければ、準備済みのpendingを検証して昇格し、どこからも参照されない世代を削除する。曲目はactive packageのManifestから組む。
+- 「アプリと音源を保存」は、入力欄の端末tokenで配布元からpackageを取得し、不足・破損した実体だけを取り直して、pendingとして準備する。新しい版はすべてのタブを閉じて開き直した後に切り替わる。activeと同じ版なら切り替えずにその場で修復する。
+- tokenは入力欄と準備の呼び出しの間だけ持ち、保存もログ出力もしない。入力欄はこのPoCの検証用で、本番のtoken入力とpresentationは #476 が受け持つ。
+- 再生resolverはOPFSの実体検証済みBlobだけを返す。通信が戻っていても再生操作から自動ダウンロードしない。途中で失敗しても準備完了としない。
+- readinessは実OPFS inventoryと、同じshell世代の全ファイル検証結果から判定する。判定はその時点の観測であり、以後の消去や破損を保証しない。選曲時にも音源を再検証し、失敗時は準備完了表示を取り下げる。
+- 失敗の表示と `console.warn` の診断には、段階・assetId・mediaType・分類だけを出し、tokenと署名URLは出さない。
 
 `/offline-player/` 専用scopeで先行shellのworkerを再利用する。音源はshellのallowlistに含めない。既存公開・管理画面への導入ではない。プレイヤーのUIは統合操作を試すデモとして独立させ、合成音fixture・基本スタイルは先行playerを参照する。本番の共通UI設計はこの段階では確定しない。
+
+## 検証用の配布元
+
+`distribution.ts` は、`vite preview` にだけ足す検証用の配布元。backendの試聴配布APIと同じ経路（package、音源の取得URLの解決、`/assets/{assetId}` の公開画像）と応答の形を、同梱の合成FLACと1画素のPNGで返す。本番の配布元ではなく、tokenと署名URLは形だけを真似る。
+
+- token は `distribution.ts` の `fixtureToken`。
+- 配布する版は2つ。v1は作品クロスフェードと曲音源の併用（音源2つとartworkを必須）。v2は作品クロスフェードのみで、v1と音源1つ・artworkを共有する。`POST /__distribution?version=v2` で切り替える。
+- 通信の失敗・期限切れ・中断は、試験側がPlaywrightのrouteで差し込む。
 
 ## 実行
 
 `npm ci` → `npm run build:offline-player` → `npm run preview -w abservice-offline-player`。
-http://127.0.0.1:4179/offline-player/ を開いて保存する。準備完了後にタブを閉じ、同じURLを通信なしで開き直す。
+http://127.0.0.1:4179/offline-player/ を開き、`fixtureToken` を入力して保存する。準備後にすべてのタブを閉じ、同じURLを通信なしで開き直す。
 
 `npm exec -w abservice-offline-player -- playwright install --with-deps --only-shell chromium` の後、`npm run test:offline-player:browser`。
-ブラウザ試験は同じbrowser contextでの全ページ終了と新ページ起動を扱う。ブラウザプロセス/OS再起動、Android実機の可聴出力・音切れ・長時間メモリ・消去耐性の評価とは区別する。
 
-Vite previewと同梱合成音は検証専用。本番配布時の旧shell世代保持、永続化許可、容量管理、失われたshellの修復、本番UIの確定は本PoCの範囲に含めない。
+ブラウザ試験は同じbrowser contextでの全ページ終了と新ページ起動を扱う。
+
+- 準備から通信なしの起動・選曲・再生までと、再生時に通信しないこと
+- 別タブが旧版を使っている間は昇格せず、全タブを閉じた後に昇格し、旧版だけが使っていた実体を削除すること（実Web Locks）
+- 未完了の新版へ切り替えず旧版で起動し、再準備で続きから取り直すこと
+- 起動時の実体の欠落・破損の検出と、欠けた実体だけの取り直し
+- 取得中のtoken期限切れ・署名URLの期限切れ・取得途中の中断の後、検証済みの実体を取り直さないこと。診断にtokenと署名URLを出さないこと
+- 容量不足・app非互換・形の正しくないtokenでは取得を始めないこと
+- shell・書体の欠落を準備完了としないこと
+
+ブラウザプロセス/OS再起動、Android実機の可聴出力・音切れ・長時間メモリ・消去耐性、実backendと実S3からの取得（本番CORSを含む）の評価とは区別する。
+
+Vite previewと同梱合成音は検証専用。永続化許可、失われたshellの修復、本番UIの確定は本PoCの範囲に含めない。
 
 ## shellのビルド
 

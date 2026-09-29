@@ -26,7 +26,7 @@ activeはここでは置き換えない。昇格・旧版の維持・不要世�
 - 昇格・削除が他のタブの利用と重ならないのは、世代を使う全ページが `startup` のsharedを持つ場合に限る。`prepare` もこの保持の間に呼ぶ。保持の間は他のタブのexclusiveが取れないため、準備中のpendingやassetが削除されることはない。
 - ロックの順序は、世代 → package → assetに固定する。世代のロックは、package storeとasset storeのロックの外側でだけ取る。
 - exclusiveが取れた起動のたびに不要世代を削除するため、その直後に残る世代はactiveとpendingの2つまでになる。exclusiveが取れない起動が続く間は、準備で差し替えられた古いpendingが残り、次にexclusiveが取れた起動で削除される。
-- Web Locksの実ブラウザでの振る舞い（別タブのsharedでexclusiveが取れないこと）は、試聴端末の受け入れ試験で扱う。
+- Web Locksの実ブラウザでの振る舞い（別タブのsharedでexclusiveが取れないこと）は、`packages/offline-player` のブラウザ試験で確かめる。
 
 ## 再試行と中断
 
@@ -59,4 +59,4 @@ optional assetは取得しない。readinessはoptionalの欠落を準備完了�
 
 ## 検証の入口
 
-`npm run test:listening-preparation`。配布client・package store・asset store・Web Locksを差し替えた単体試験で、配布応答と同じ見本（`packages/installation/fixtures/manifest-v3.example.json`、クロスフェードのみ）を使う。実OPFS・実Chromiumでの準備から通信なしの起動までは、試聴端末の受け入れ試験で扱う。
+`npm run test:listening-preparation`。配布client・package store・asset store・Web Locksを差し替えた単体試験で、配布応答と同じ見本（`packages/installation/fixtures/manifest-v3.example.json`、クロスフェードのみ）を使う。実OPFS・実Chromiumでの準備から通信なしの起動までは、`packages/offline-player` のブラウザ試験で扱う。
