@@ -10,6 +10,7 @@ type Probe = {
   features: AudioFeatures[];
   uniforms: number[][];
   errors: string[];
+  devices: GPUDevice[];
 };
 type Scope = typeof globalThis & { listeningProbe: Probe };
 test.beforeEach(async ({ context }) => {
@@ -20,8 +21,16 @@ test.beforeEach(async ({ context }) => {
       features: [],
       uniforms: [],
       errors: [],
+      devices: [],
     };
     (globalThis as Scope).listeningProbe = probe;
+    /* eslint-disable-next-line @typescript-eslint/unbound-method -- Native method is invoked with its actual adapter receiver. */
+    const requestDevice = GPUAdapter.prototype.requestDevice;
+    GPUAdapter.prototype.requestDevice = async function (...args) {
+      const device = await requestDevice.apply(this, args);
+      probe.devices.push(device);
+      return device;
+    };
     const NativeContext = AudioContext;
     globalThis.AudioContext = class extends NativeContext {
       constructor(...args: ConstructorParameters<typeof NativeContext>) {
@@ -193,6 +202,54 @@ test("Worklet取得失敗でも音源の再生・シーク・停止は維持す�
       (await observe(page)).contexts.every((state) => state === "closed"),
     )
     .toBe(true);
+  expect((await observe(page)).errors).toEqual([]);
+});
+
+test("device lostから1回だけ描画を作り直し、再び失えば縮退して再生を続ける", async ({
+  page,
+}) => {
+  await prepare(page);
+  await selectAndPlay(page);
+  await expect(page.locator("#visualizer-status")).toHaveText(
+    "音に合わせて描画します",
+  );
+  const loseCurrent = () =>
+    page.evaluate(() => {
+      (globalThis as Scope).listeningProbe.devices.at(-1)?.destroy();
+    });
+  const devicesBefore = await page.evaluate(
+    () => (globalThis as Scope).listeningProbe.devices.length,
+  );
+  await loseCurrent();
+  /* The status reads running both before and after the recovery; the new device shows that it happened. */
+  await expect
+    .poll(() =>
+      page.evaluate(() => (globalThis as Scope).listeningProbe.devices.length),
+    )
+    .toBe(devicesBefore + 1);
+  await expect(page.locator("#visualizer-status")).toHaveText(
+    "音に合わせて描画します",
+  );
+  const uniformsAfterRecovery = (await observe(page)).uniforms.length;
+  await expect
+    .poll(async () => (await observe(page)).uniforms.length)
+    .toBeGreaterThan(uniformsAfterRecovery);
+  await loseCurrent();
+  await expect(page.locator("#visualizer-status")).toHaveText(
+    "描画を利用できません。再生と操作は続けられます。",
+  );
+  /* No third renderer is attempted; audio analysis and playback carry on. */
+  await page.waitForTimeout(300);
+  expect(
+    await page.evaluate(() => (globalThis as Scope).listeningProbe.devices.length),
+  ).toBe(devicesBefore + 1);
+  const featuresBefore = (await observe(page)).features.length;
+  await expect
+    .poll(async () => (await observe(page)).features.length)
+    .toBeGreaterThan(featuresBefore);
+  await expect(page.locator("#play-status")).toHaveText("再生中");
+  await page.locator("#pause").click();
+  await expect(page.locator("#play-status")).toHaveText("一時停止");
   expect((await observe(page)).errors).toEqual([]);
 });
 

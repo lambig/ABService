@@ -3,25 +3,33 @@ import type { AudioFeatures } from "abservice-audio-dsp";
 import type { PlayerSnapshot } from "abservice-player";
 import { mapFeatures, restingFrame } from "abservice-visualizer";
 import { createRenderer } from "abservice-visualizer/renderer";
-import type { Renderer } from "abservice-visualizer/renderer";
+import { superviseRenderer } from "abservice-visualizer/session";
+import type { RendererSupervisor } from "abservice-visualizer/session";
+
+const messages = {
+  starting: "描画を準備しています",
+  running: "音に合わせて描画します",
+  recovering: "描画を準備し直しています",
+  degraded: "描画を利用できません。再生と操作は続けられます。",
+  resting: "再生すると音に合わせて描画します",
+} as const;
 
 export const presentation = (
   canvas: HTMLCanvasElement,
   status: HTMLElement,
 ) => {
-  type Session = { abort: AbortController; renderer: Renderer | null };
   const state: {
-    session: Session | null;
+    supervisor: RendererSupervisor | null;
     phase: PlayerSnapshot["phase"];
     frame: typeof restingFrame;
     animation: number | null;
-    failed: boolean;
+    degraded: boolean;
   } = {
-    session: null,
+    supervisor: null,
     phase: "idle",
     frame: restingFrame,
     animation: null,
-    failed: false,
+    degraded: false,
   };
   const cancelFrame = (): void => {
     (state.animation === null
@@ -33,59 +41,52 @@ export const presentation = (
   };
   const dispose = (): void => {
     cancelFrame();
-    const session = state.session;
-    state.session = null;
-    session?.abort.abort();
-    session?.renderer?.dispose();
+    const supervisor = state.supervisor;
+    state.supervisor = null;
+    supervisor?.dispose();
     state.frame = restingFrame;
-  };
-  const fail = (): void => {
-    dispose();
-    state.failed = true;
-    status.textContent = "描画を利用できません。再生と操作は続けられます。";
   };
   const draw = (): void => {
     state.animation = null;
-    const render = (): void => {
-      try {
-        state.session?.renderer?.render(state.frame);
-        state.animation = requestAnimationFrame(draw);
-      } catch {
-        fail();
-      }
-    };
-    (state.phase === "playing" &&
-      state.session?.renderer !== null &&
-      state.session !== null
-      ? render
+    const supervisor = state.supervisor;
+    (state.phase === "playing" && supervisor?.status() === "running"
+      ? () => {
+          supervisor.render(state.frame);
+          state.animation = requestAnimationFrame(draw);
+        }
       : () => undefined)();
   };
+  /* Rendering recovers once from a lost device; after that it degrades and playback carries on without it. */
   const start = (): void => {
-    const session: Session = { abort: new AbortController(), renderer: null };
-    state.session = session;
-    status.textContent = "描画を準備しています";
-    void createRenderer(canvas, session.abort.signal)
-      .then((renderer) => {
-        const accept = (): void => {
-          session.renderer = renderer;
-          status.textContent = "音に合わせて描画します";
-          renderer.render(state.frame);
-          draw();
-          void renderer.lost.then(() => {
-            (state.session === session ? fail : () => undefined)();
-          });
-        };
-        (state.session === session ? accept : renderer.dispose)();
-      })
-      .catch(() => {
-        (state.session === session ? fail : () => undefined)();
-      });
+    /* The first status arrives while the supervisor is still being created, so it is compared through a holder. */
+    const own: { supervisor: RendererSupervisor | undefined } = {
+      supervisor: undefined,
+    };
+    const supervisor = superviseRenderer({
+      create: (signal) => createRenderer(canvas, signal),
+      onStatus: (next) => {
+        const current =
+          own.supervisor !== undefined && state.supervisor === own.supervisor;
+        (current && next !== "disposed"
+          ? () => {
+              status.textContent = messages[next];
+              state.degraded = next === "degraded";
+              (next === "running" && state.animation === null
+                ? draw
+                : () => undefined)();
+            }
+          : () => undefined)();
+      },
+    });
+    own.supervisor = supervisor;
+    state.supervisor = supervisor;
+    status.textContent = messages.starting;
   };
   const sync = (snapshot: PlayerSnapshot): void => {
     state.phase = snapshot.phase;
     const playing = (): void => {
-      (state.session === null
-        ? state.failed
+      (state.supervisor === null
+        ? state.degraded
           ? () => undefined
           : start
         : state.animation === null
@@ -98,8 +99,8 @@ export const presentation = (
         ? () => undefined
         : () => {
             dispose();
-            state.failed = false;
-            status.textContent = "再生すると音に合わせて描画します";
+            state.degraded = false;
+            status.textContent = messages.resting;
           })();
     };
     (snapshot.phase === "playing" ? playing : stopped)();
