@@ -76,7 +76,13 @@ AudioFeaturesの帯域・onset意味論は `packages/audio-dsp` の実装のJSDo
 
 既定値は現行の見え方を変えない。`offline-player` は URL の hash（例: `#probe&scale=0.5&fps=30`）から読む。query ではなく hash を使うのは、Service Worker が query 付きのナビゲーションを扱わず、オフラインで開けなくなるため。
 
-`src/probe.ts` はフレームごとの観測を直近 600 フレームだけ持ち、分布（p50 / p95 / max）を返す。CPU（描画値を書いて submit するまで）と GPU（submit から `onSubmittedWorkDone` まで。queue の待ちを含む上限値）を分けて記録する。どちらが律速かで効く対策が違うため（`docs/DECISIONS.md`「試聴端末は廉価な大判寄りのタブレットを下限とし、CPU と GPU の配分は一次性能ゲートの実測で決める」）。`offline-player` は `#probe` のとき、この要約と起動時の計測点（script の評価・曲目の準備・最初のフレーム）を画面に重ねて表示する。
+`src/probe.ts` はフレームごとの観測を直近 600 フレームだけ持ち、分布（p50 / p95 / max）を返す。次の三つを分けて記録する。
+
+- cycle CPU: 1 回の描画までに main thread が使った時間の合計。特徴量から描画値への変換（`mapFeatures`）・presentation state・作品情報などの DOM 更新・renderer を含む。worker・GPU 寄せ・WASM Spike の要否はこれで判断する。呼び出し側が測って `cycle` で渡す。
+- renderer CPU: renderer の中で描画値を書いて submit するまで（WebGPU の命令作成の CPU コスト）。
+- GPU: submit から `onSubmittedWorkDone` まで（queue の待ちを含む上限値）。
+
+CPU と GPU を分けるのは、どちらが律速かで効く対策が違うため（`docs/DECISIONS.md`「試聴端末は廉価な大判寄りのタブレットを下限とし、CPU と GPU の配分は一次性能ゲートの実測で決める」）。`offline-player` は `#probe` のとき、この要約と起動時の計測点（script の評価・曲目の準備・最初のフレーム）を画面に重ねて表示する。
 
 層ごとの解像度（背景・effect を低く、文字・artwork を高く）は、現行の renderer が1パスの全画面描画のため未対応。パスの分け方は #479 B の scene と合わせて決める。
 

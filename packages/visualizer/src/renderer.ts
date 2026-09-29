@@ -180,11 +180,11 @@ export const createRenderer = async (
         (sample === undefined
           ? () => undefined
           : () => {
-              const cpuMs = submitted - begin;
+              const rendererCpuMs = submitted - begin;
               void device.queue.onSubmittedWorkDone().then(
                 () => {
                   sample({
-                    cpuMs,
+                    rendererCpuMs,
                     gpuMs: performance.now() - submitted,
                     pixels: width * height,
                   });

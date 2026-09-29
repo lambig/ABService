@@ -308,7 +308,8 @@ test("hashの負荷ノブで描画寸法とfpsを下げ、#probeでCPUとGPUを�
   await selectAndPlay(page);
   await expect(page.locator("#probe")).toBeVisible();
   await expect(page.locator("#probe")).toContainText("budget dpr 2 scale 0.5");
-  await expect(page.locator("#probe")).toContainText(/cpu p50 [\d.]+/);
+  await expect(page.locator("#probe")).toContainText(/cycle cpu p50 [\d.]+/);
+  await expect(page.locator("#probe")).toContainText(/renderer cpu p50 [\d.]+/);
   await expect(page.locator("#probe")).toContainText(/gpu \(submit→done\) p50 [\d.]+/);
   await expect(page.locator("#probe")).toContainText(/interval p50 [\d.]+/);
   await expect(page.locator("#probe")).toContainText("listening:script");

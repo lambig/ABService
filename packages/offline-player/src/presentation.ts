@@ -37,6 +37,20 @@ const probe: FrameProbe | undefined = probeRequested(location.hash)
   ? createProbe()
   : undefined;
 
+/* Main-thread work between two drawn frames; the next drawn frame reports it as its cycle. */
+const work = { pendingMs: 0 };
+/** main thread の仕事を測り、次に描くフレームの cycleCpu に足す。`#probe` のときだけ測る。 */
+export const measured = <A extends unknown[]>(
+  task: (...args: A) => void,
+): ((...args: A) => void) =>
+  probe === undefined
+    ? task
+    : (...args: A): void => {
+        const begin = performance.now();
+        task(...args);
+        work.pendingMs += performance.now() - begin;
+      };
+
 /** 観測の要約と起動時の計測点。`#probe` のときだけ作る。 */
 export const probeReport = (): string | undefined => {
   const summary = probe?.summary();
@@ -54,7 +68,8 @@ export const probeReport = (): string | undefined => {
         ...marks,
         `budget dpr ${String(budget.maxDevicePixelRatio)} scale ${String(budget.renderScale)} effects ${String(budget.effectDensity)} fps ${String(budget.targetFps)}`,
         `frames ${String(summary.frames)} skipped ${String(summary.skipped)} pixels ${String(summary.pixels ?? 0)}`,
-        format("cpu", summary.cpu),
+        format("cycle cpu", summary.cycleCpu),
+        format("renderer cpu", summary.rendererCpu),
         format("gpu (submit→done)", summary.gpu),
         format("interval", summary.interval),
       ].join("\n");
@@ -157,14 +172,21 @@ export const presentation = (
           }
         : () => undefined)();
     };
+    /* A drawn frame closes the cycle with the work since the previous one; a skipped frame's own work carries over. */
+    const close = (): void => {
+      probe?.cycle(work.pendingMs + performance.now() - now);
+      work.pendingMs = 0;
+    };
     (state.phase === "playing" && supervisor?.status() === "running"
       ? () => {
           (due(now, state.drawnAt, budget)
             ? () => {
                 render(supervisor);
+                close();
               }
             : () => {
                 probe?.skip();
+                work.pendingMs += performance.now() - now;
               })();
           state.animation = requestAnimationFrame(draw);
         }
@@ -248,5 +270,5 @@ export const presentation = (
   const update = (features: AudioFeatures): void => {
     state.frame = mapFeatures(features, state.frame);
   };
-  return Object.freeze({ sync, update, reset, dispose });
+  return Object.freeze({ sync, update: measured(update), reset, dispose });
 };

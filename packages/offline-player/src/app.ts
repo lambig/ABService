@@ -12,7 +12,7 @@ import "player-study/style.css";
 import "./style.css";
 import { preparation, storageMessage } from "./preparation";
 import { connectMediaAnalysis } from "abservice-audio-worklet/media";
-import { presentation, probeReport } from "./presentation";
+import { measured, presentation, probeReport } from "./presentation";
 
 /* Startup cost is measured from navigation start: script evaluated, library ready, first frame drawn. */
 performance.mark("listening:script");
@@ -165,7 +165,8 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
   const controller = createPlayer(
     contract,
     resolverFor(contract),
-    (state) => {
+    /* The DOM updates for a player change count towards the next frame's cycle when probing. */
+    measured((state: PlayerSnapshot) => {
       render(data, state);
       showAlbum(
         data,
@@ -174,7 +175,7 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
       );
       visual.sync(state);
       (state.phase === "error" ? preparation.invalidate : () => undefined)();
-    },
+    }),
     (media, signal) => {
       analysisStatus.textContent = "";
       return connectMediaAnalysis(media, signal, {

@@ -65,22 +65,24 @@ describe("renderer budget", () => {
 });
 
 describe("frame probe", () => {
-  it("summarises CPU, GPU and frame intervals separately", () => {
+  it("summarises renderer CPU, whole-cycle CPU, GPU and frame intervals separately", () => {
     const probe = createProbe();
     [1, 2, 3, 4, 100].forEach((cpuMs, index) => {
       probe.record({
-        cpuMs,
+        rendererCpuMs: cpuMs,
         gpuMs: cpuMs * 2,
         intervalMs: 16 + index,
         pixels: 640 * 400,
       });
+      probe.cycle(cpuMs + 5);
     });
     probe.skip();
 
     expect(probe.summary()).toEqual({
       frames: 5,
       skipped: 1,
-      cpu: { p50: 3, p95: 100, max: 100 },
+      rendererCpu: { p50: 3, p95: 100, max: 100 },
+      cycleCpu: { p50: 8, p95: 105, max: 105 },
       gpu: { p50: 6, p95: 200, max: 200 },
       interval: { p50: 18, p95: 20, max: 20 },
       pixels: 256000,
@@ -90,12 +92,14 @@ describe("frame probe", () => {
   it("keeps only the most recent samples so that a long run does not grow memory", () => {
     const probe = createProbe(3);
     [1, 2, 3, 4, 5].forEach((cpuMs) => {
-      probe.record({ cpuMs, pixels: 1 });
+      probe.record({ rendererCpuMs: cpuMs, pixels: 1 });
+      probe.cycle(cpuMs);
     });
 
     expect(probe.summary()).toMatchObject({
       frames: 3,
-      cpu: { p50: 4, max: 5 },
+      rendererCpu: { p50: 4, max: 5 },
+      cycleCpu: { p50: 4, max: 5 },
     });
     expect(probe.summary()).not.toHaveProperty("gpu");
   });
