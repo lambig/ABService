@@ -18,6 +18,9 @@ type Probe = {
   devices: GPUDevice[];
   released: number;
   states: string[];
+  /** 最後に Worklet から届いた通知の epoch。古い通知を差し込む試験の基準にする。 */
+  epoch: number;
+  media: HTMLAudioElement[];
 };
 type Scope = typeof globalThis & { listeningProbe: Probe };
 test.beforeEach(async ({ context }) => {
@@ -31,8 +34,17 @@ test.beforeEach(async ({ context }) => {
       devices: [],
       released: 0,
       states: [],
+      epoch: 0,
+      media: [],
     };
     (globalThis as Scope).listeningProbe = probe;
+    const NativeAudio = Audio;
+    globalThis.Audio = class extends NativeAudio {
+      constructor(...args: ConstructorParameters<typeof NativeAudio>) {
+        super(...args);
+        probe.media.push(this);
+      }
+    };
     /* Every change of the presentation state is kept, including a seek that lasts only a moment. */
     new MutationObserver((records) => {
       records.forEach((record) => {
@@ -74,8 +86,10 @@ test.beforeEach(async ({ context }) => {
         probe.nodes.push(this);
         this.port.addEventListener(
           "message",
-          (event: MessageEvent<{ features: AudioFeatures }>) => {
+          (event: MessageEvent<{ epoch: number; features: AudioFeatures }>) => {
             probe.features.push(event.data.features);
+            /* A message injected by a test carries an older epoch; the latest real one is kept. */
+            probe.epoch = Math.max(probe.epoch, event.data.epoch);
           },
         );
       }
@@ -672,6 +686,148 @@ test("音源の読み込みに失敗しても、別の作品を選び直せば�
     );
     expect((await observe(page)).errors).toEqual([]);
   });
+});
+
+/*
+ * A message is injected on a Worklet node's port as if the processor had sent it. Its timeSeconds is a marker far
+ * beyond any real playback time, so a frame drawn from it is recognisable in the uniforms (index 2 is the time).
+ */
+const inject = (
+  page: Page,
+  marker: number,
+  epochOffset: number,
+  node = -1,
+): Promise<void> =>
+  page.evaluate(
+    ({ marker, epochOffset, node }) => {
+      const probe = (globalThis as Scope).listeningProbe;
+      probe.nodes.at(node)?.port.dispatchEvent(
+        new MessageEvent("message", {
+          data: {
+            epoch: probe.epoch + epochOffset,
+            features: {
+              timeSeconds: marker,
+              rms: 1,
+              lowEnergy: 1,
+              midEnergy: 1,
+              highEnergy: 1,
+              onset: 1,
+              spectralCentroidHz: 12000,
+            },
+          },
+        }),
+      );
+    },
+    { marker, epochOffset, node },
+  );
+const drawnAt = async (page: Page, marker: number): Promise<boolean> =>
+  (await observe(page)).uniforms.some((uniform) => uniform[2] === marker);
+const epochOf = (page: Page): Promise<number> =>
+  page.evaluate(() => (globalThis as Scope).listeningProbe.epoch);
+/* A stale message is offered for a while, across several frames; none of it may reach a drawn frame. */
+const neverDrawn = async (
+  page: Page,
+  marker: number,
+  epochOffset: number,
+  node = -1,
+): Promise<void> => {
+  await Array.from({ length: 10 }).reduce<Promise<void>>(
+    (previous) =>
+      previous.then(async () => {
+        await inject(page, marker, epochOffset, node);
+        await page.waitForTimeout(40);
+      }),
+    Promise.resolve(),
+  );
+  expect(await drawnAt(page, marker)).toBe(false);
+};
+
+test("一時停止・シーク・終了・選び直しの後に、前の区間の特徴量を描画へ入れない", async ({
+  page,
+}) => {
+  await prepare(page);
+  await selectAndPlay(page);
+  await expect
+    .poll(async () => (await observe(page)).features.length)
+    .toBeGreaterThan(2);
+  /* Control: a message of the current epoch while playing is drawn, so the injection reaches the drawing path. */
+  await expect
+    .poll(async () => {
+      await inject(page, 1_000_000, 0);
+      return drawnAt(page, 1_000_000);
+    })
+    .toBe(true);
+  /* Seek while playing: the epoch moves on, and a message of the previous epoch is dropped. */
+  const beforeSeek = await epochOf(page);
+  await page.locator("#seek").fill("3");
+  await expect.poll(() => epochOf(page)).toBeGreaterThan(beforeSeek);
+  await neverDrawn(page, 2_000_000, -1);
+  /* Pause: even a message of the current epoch is dropped, and does not come back on resume. */
+  await page.locator("#pause").click();
+  await expect(page.locator("#play-status")).toHaveText("一時停止");
+  await neverDrawn(page, 3_000_000, 0);
+  const beforeResume = await epochOf(page);
+  await page.locator("#play").click();
+  await expect(page.locator("#play-status")).toHaveText("再生中");
+  await expect.poll(() => epochOf(page)).toBeGreaterThan(beforeResume);
+  await neverDrawn(page, 3_000_000, -1);
+  expect(await drawnAt(page, 3_000_000)).toBe(false);
+  /* End: after the last frame of the track, a late message is dropped and a replay starts clean. */
+  await page.locator("#seek").fill("7.8");
+  await expect(page.locator("#play-status")).toHaveText("再生終了");
+  await neverDrawn(page, 4_000_000, 0);
+  /* Reselect: the previous track's node is closed; a message on it never reaches the new track's drawing. */
+  await selectAndPlay(page, "Air study");
+  await expect
+    .poll(async () => (await observe(page)).features.length)
+    .toBeGreaterThan(2);
+  await neverDrawn(page, 5_000_000, 0, 0);
+  expect(await drawnAt(page, 4_000_000)).toBe(false);
+  expect((await observe(page)).errors).toEqual([]);
+});
+
+test("無音になると特徴量は有限のまま静まり、前の立ち上がりや帯域の反応を残さない", async ({
+  page,
+}) => {
+  await prepare(page);
+  await selectAndPlay(page);
+  await expect
+    .poll(async () =>
+      (await observe(page)).features.some((frame) => frame.rms > 0.01),
+    )
+    .toBe(true);
+  /* Muting the media makes the analysed input silent while playback carries on. */
+  const heard = (await observe(page)).features.length;
+  await page.evaluate(() => {
+    const media = (globalThis as Scope).listeningProbe.media.at(-1);
+    (media === undefined
+      ? () => undefined
+      : () => {
+          media.muted = true;
+        })();
+  });
+  await page.waitForTimeout(1500);
+  const silent = (await observe(page)).features.slice(heard);
+  const settled = silent.slice(-10);
+  expect(settled).toHaveLength(10);
+  expect(
+    silent.every((frame) => Object.values(frame).every(Number.isFinite)),
+  ).toBe(true);
+  expect(
+    settled.every((frame) =>
+      [frame.rms, frame.lowEnergy, frame.midEnergy, frame.highEnergy, frame.onset].every(
+        (value) => value < 0.01,
+      ),
+    ),
+  ).toBe(true);
+  /* The drawing settles too: no impulse or effect is left, and the background is back near rest. */
+  const last = (await observe(page)).uniforms.at(-1) ?? [];
+  expect(last.every(Number.isFinite)).toBe(true);
+  expect(last[7]).toBeLessThan(0.01);
+  expect(last[10]).toBeLessThan(0.01);
+  expect(Math.abs((last[6] ?? 0) - 0.15)).toBeLessThan(0.01);
+  await expect(page.locator("#play-status")).toHaveText("再生中");
+  expect((await observe(page)).errors).toEqual([]);
 });
 
 test("WebGPU未対応でも音響解析と再生操作を維持する", async ({ page }) => {
