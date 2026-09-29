@@ -48,6 +48,7 @@
   "author": "Lambig",
   "license": "MIT",
   "dependencies": {
-    "abservice-audio-dsp": "*"
+    "abservice-audio-dsp": "*",
+    "abservice-listening-presentation": "*"
   }
 }
