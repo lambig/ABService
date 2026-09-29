@@ -2,6 +2,11 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import type { AudioFeatures } from "abservice-audio-dsp";
+import {
+  drawnWithTypeface,
+  JAPANESE_SAMPLE,
+  loadTypefaces,
+} from "player-study-e2e/typeface";
 import { distribute, prepareAndReload } from "./support";
 
 type Probe = {
@@ -538,6 +543,135 @@ test("音源の読み込みに失敗した後に停止すると、選択を残�
     page.getByRole("button", { name: "Reel study", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   expect((await observe(page)).errors).toEqual([]);
+});
+
+test("素早く続けて選び直しても、最後に選んだ作品だけを残し、前の作品の音や描画を残さない", async ({
+  page,
+}) => {
+  const reel = page.getByRole("button", { name: "Reel study", exact: true });
+  const air = page.getByRole("button", { name: "Air study", exact: true });
+  const canvas = page.locator("#visualizer");
+  await prepare(page);
+  await selectAndPlay(page);
+  /* Four selections in a row while playing, none of them awaited. */
+  await air.click();
+  await reel.click();
+  await air.click();
+  await reel.click();
+  await air.click();
+  await expect(page.locator("#play-status")).toHaveText("再生できます");
+  await expect(page.locator("#track-title")).toHaveText("Air study");
+  await expect(air).toHaveAttribute("aria-pressed", "true");
+  await expect(reel).toHaveAttribute("aria-pressed", "false");
+  await expect(canvas).toHaveAttribute("data-presentation-state", "selected");
+  /* The first playback's audio graph is closed; none of the skipped selections left one behind. */
+  await expect
+    .poll(async () =>
+      (await observe(page)).contexts.every((state) => state === "closed"),
+    )
+    .toBe(true);
+  await page.locator("#play").click();
+  await expect(page.locator("#play-status")).toHaveText("再生中");
+  await expect(canvas).toHaveAttribute("data-presentation-state", "playing");
+  await expect
+    .poll(async () =>
+      (await observe(page)).contexts.filter((state) => state !== "closed"),
+    )
+    .toEqual(["running"]);
+  const featuresBefore = (await observe(page)).features.length;
+  await expect
+    .poll(async () => (await observe(page)).features.length)
+    .toBeGreaterThan(featuresBefore);
+  expect((await observe(page)).errors).toEqual([]);
+});
+
+test("音源の読み込みに失敗しても、別の作品を選び直せば再生と描画に戻る", async ({
+  page,
+}) => {
+  /* Only the first audio blob is replaced with undecodable bytes; the next selection loads normally. */
+  await page.addInitScript(() => {
+    /* eslint-disable-next-line @typescript-eslint/unbound-method -- The native static is invoked on URL itself. */
+    const create = URL.createObjectURL;
+    const remaining = { failures: 1 };
+    URL.createObjectURL = (object: Blob | MediaSource) => {
+      const broken =
+        object instanceof Blob &&
+        object.type.startsWith("audio/") &&
+        remaining.failures > 0;
+      remaining.failures -= broken ? 1 : 0;
+      return create.call(
+        URL,
+        broken ? new Blob(["not audio"], { type: object.type }) : object,
+      );
+    };
+  });
+  const canvas = page.locator("#visualizer");
+  await prepare(page);
+  await page.getByRole("button", { name: "Reel study", exact: true }).click();
+  await expect(page.locator("#play-status")).toHaveText(
+    "読み込みに失敗しました",
+  );
+  await expect(canvas).toHaveAttribute("data-presentation-state", "error");
+  await selectAndPlay(page, "Air study");
+  await expect(canvas).toHaveAttribute("data-presentation-state", "playing");
+  await expect(page.locator("#error")).toBeEmpty();
+  await expect
+    .poll(async () => (await observe(page)).features.length)
+    .toBeGreaterThan(2);
+  await expect
+    .poll(async () => (await observe(page)).uniforms.length)
+    .toBeGreaterThan(0);
+  expect((await observe(page)).errors).toEqual([]);
+});
+
+/* Tablet-like sizes in both orientations; the narrow phone portrait is covered by the offline listening test. */
+(
+  [
+    ["landscape", { width: 1280, height: 800 }],
+    ["portrait", { width: 800, height: 1280 }],
+  ] as const
+).forEach(([orientation, size]) => {
+  test(`${orientation}: 操作でき、横にはみ出さず、日本語を同梱の書体で描く`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(size);
+    await prepare(page);
+    await selectAndPlay(page);
+    await page.locator("#pause").click();
+    await expect(page.locator("#play-status")).toHaveText("一時停止");
+    await page.locator("#seek").fill("2");
+    await expect(page.locator("#position")).toHaveText("0:02");
+    await page.locator("#play").click();
+    await expect(page.locator("#play-status")).toHaveText("再生中");
+    /* The evidence shows the drawing, not the moment before the first frame. */
+    await expect(page.locator("#visualizer-status")).toHaveText(
+      "音に合わせて描画します",
+    );
+    const drawn = (await observe(page)).uniforms.length;
+    await expect
+      .poll(async () => (await observe(page)).uniforms.length)
+      .toBeGreaterThan(drawn);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    const typefaces = await loadTypefaces(page);
+    expect(
+      typefaces.filter((face) => face.status === "loaded").length,
+    ).toBeGreaterThan(0);
+    expect(await drawnWithTypeface(page, JAPANESE_SAMPLE)).toBe(true);
+    await page.screenshot({
+      path: `test-results/listening-${orientation}.png`,
+      fullPage: true,
+    });
+    await page.locator("#stop").click();
+    await expect(page.locator("#visualizer")).toHaveAttribute(
+      "data-presentation-state",
+      "selected",
+    );
+    expect((await observe(page)).errors).toEqual([]);
+  });
 });
 
 test("WebGPU未対応でも音響解析と再生操作を維持する", async ({ page }) => {
