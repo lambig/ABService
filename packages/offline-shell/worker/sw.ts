@@ -59,6 +59,8 @@ const install = async (): Promise<void> => {
       );
     }, Promise.resolve());
   } catch (error) {
+    /* A rejected install is not reliably reported by the browser; log the diagnosis where DevTools shows the worker. */
+    console.error(error instanceof Error ? error.message : String(error));
     await caches.delete(cacheName);
     throw error;
   }

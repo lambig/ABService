@@ -88,6 +88,12 @@ test("saved HTML, JS and CSS boot in a new offline page", async ({
   );
 });
 
+/* What the worker logs is the line a person reads in DevTools when saving fails. */
+const reasons = {
+  http: "HTTP 503",
+  corrupt: "SHA-256 mismatch",
+  redirect: "fetch failed",
+} as const;
 (["http", "corrupt", "redirect"] as const).forEach((fault) => {
   test(`failed ${fault} update keeps old generation and a later retry activates`, async ({
     page,
@@ -95,8 +101,24 @@ test("saved HTML, JS and CSS boot in a new offline page", async ({
     request,
   }) => {
     await prepare(page);
+    const logged: string[] = [];
+    context.on("serviceworker", (worker) => {
+      worker.on("console", (message) => {
+        /* eslint-disable-next-line functional/immutable-data -- Collects what the real worker logs. */
+        logged.push(message.text());
+      });
+    });
     await request.post(`/__control?version=v2&fault=${fault}`);
     expect(await update(page)).toBe("redundant");
+    await expect
+      .poll(() => logged)
+      .toEqual([
+        expect.stringMatching(
+          new RegExp(
+            `^Shell verification failed: revision=[a-f0-9]{64}; path=releases/[a-f0-9]{64}/style\\.css; ${reasons[fault]}`,
+          ),
+        ),
+      ]);
     expect(
       await page.evaluate(
         async () =>

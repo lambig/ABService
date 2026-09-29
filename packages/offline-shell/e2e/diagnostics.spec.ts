@@ -24,6 +24,9 @@ const install = async (
   );
   const put = mock.fn(write);
   const remove = mock.fn(() => Promise.resolve(true));
+  const logged = mock.fn((message: unknown) => {
+    void message;
+  });
   const installed = new Promise<void>((resolve, reject) => {
     new Script(
       ts.transpileModule(source, {
@@ -59,10 +62,15 @@ const install = async (
       Request,
       URL,
       crypto: webcrypto,
+      console: { error: logged },
     });
   });
-  return { installed, put, remove };
+  return { installed, put, remove, logged };
 };
+/* The logged line is the one a person reads in DevTools; it must match what the install rejects with. */
+const logs = (
+  worker: Awaited<ReturnType<typeof install>>,
+): readonly unknown[] => worker.logged.mock.calls.map((call) => call.arguments[0]);
 
 test("diagnostics: valid bytes are cached without consuming the response", async () => {
   const download = mock.fn(() => Promise.resolve(new Response(content)));
@@ -75,6 +83,7 @@ test("diagnostics: valid bytes are cached without consuming the response", async
   expect(request?.cache).toBe("no-store");
   expect(request?.redirect).toBe("error");
   expect(await response?.text()).toBe(content);
+  expect(logs(worker)).toEqual([]);
 });
 
 test("diagnostics: HTTP failure identifies revision and path and rolls back", async () => {
@@ -84,6 +93,11 @@ test("diagnostics: HTTP failure identifies revision and path and rolls back", as
   await expect(worker.installed).rejects.toThrow(
     `revision=${revision}; path=${path}; HTTP 404`,
   );
+  expect(logs(worker)).toEqual([
+    expect.stringContaining(
+      `Shell verification failed: revision=${revision}; path=${path}; HTTP 404`,
+    ),
+  ]);
   expect(worker.put.mock.callCount()).toBe(0);
   expect(worker.remove.mock.calls[0]?.arguments).toEqual([cacheName]);
 });
@@ -121,6 +135,9 @@ test("diagnostics: cache write rejection is distinct from verification failure",
   await expect(worker.installed).rejects.toThrow(
     `revision=${revision}; path=${path}; cache write failed: Error: storage unavailable`,
   );
+  expect(logs(worker)).toEqual([
+    expect.stringContaining("cache write failed"),
+  ]);
   expect(worker.put.mock.callCount()).toBe(1);
   expect(worker.remove.mock.calls[0]?.arguments).toEqual([cacheName]);
 });
