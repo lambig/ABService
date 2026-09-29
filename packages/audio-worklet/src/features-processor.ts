@@ -15,6 +15,9 @@ class FeaturesProcessor extends AudioWorkletProcessor {
   private phase = 0;
   private peak = 0;
   private latest: AudioFeatures | null = null;
+  /* Date.now は 1 ms 分解能のため、1回ごとではなく通知の区間の合計だけを持つ。 */
+  private busyMs = 0;
+  private busyFrames = 0;
   private readonly interval: number;
 
   constructor(options: { processorOptions?: { notificationHz?: number } }) {
@@ -34,6 +37,8 @@ class FeaturesProcessor extends AudioWorkletProcessor {
         this.phase = 0;
         this.peak = 0;
         this.latest = null;
+        this.busyMs = 0;
+        this.busyFrames = 0;
       };
       (typeof data?.epoch === "number" && Number.isSafeInteger(data.epoch)
         ? reset
@@ -43,6 +48,7 @@ class FeaturesProcessor extends AudioWorkletProcessor {
 
   process(inputs: Float32Array[][]): boolean {
     const channels = inputs[0] ?? [];
+    const begin = Date.now();
     const result = this.stream.push({
       channels,
       sampleRate,
@@ -53,16 +59,21 @@ class FeaturesProcessor extends AudioWorkletProcessor {
       this.latest = features;
       this.peak = Math.max(this.peak, features.onset);
     });
+    this.busyMs += Date.now() - begin;
+    this.busyFrames += channels[0]?.length ?? 0;
     this.phase += channels[0]?.length ?? 0;
     const latest = this.latest;
     const notify = (): void => {
       this.port.postMessage({
         epoch: this.epoch,
         features: { ...latest, onset: this.peak },
+        load: { busyMs: this.busyMs, frames: this.busyFrames },
       });
       this.phase %= this.interval;
       this.peak = 0;
       this.latest = null;
+      this.busyMs = 0;
+      this.busyFrames = 0;
     };
     (this.phase >= this.interval && latest !== null
       ? notify
