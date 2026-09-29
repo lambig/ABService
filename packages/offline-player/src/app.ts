@@ -1,5 +1,4 @@
 /* eslint-disable functional/immutable-data -- DOM描画とイベント登録をデモ境界に閉じ、プレイヤーのsnapshotを表示する。 */
-import { getPlaybackItems } from "abservice-installation";
 import type { InstallationManifest } from "abservice-installation";
 import {
   artworkAssetIds,
@@ -48,18 +47,18 @@ const phases: Record<PlayerSnapshot["phase"], string> = {
 };
 const time = (seconds: number): string =>
   `${String(Math.floor(seconds / 60))}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+/* Everything shown comes from the presentation data; the Manifest stays with the player and the store. */
 const render = (
-  manifest: InstallationManifest | undefined,
+  data: PresentationData | undefined,
   state: PlayerSnapshot,
 ): void => {
-  const items = manifest === undefined ? [] : getPlaybackItems(manifest);
-  const selection = items.find(
+  const selection = data?.playbackItems.find(
     (entry) => entry.playbackItemId === state.playbackItemId,
   );
   element("#track-title", HTMLElement).textContent =
     selection?.title ?? "音源を選んでください";
   element("#album-title", HTMLElement).textContent =
-    manifest?.albums.find((album) => album.albumId === selection?.albumId)
+    data?.albums.find((album) => album.albumId === selection?.albumId)
       ?.title ?? "YOUR SELECTION";
   status.textContent = phases[state.phase];
   play.disabled = ["idle", "loading", "error", "playing"].includes(state.phase);
@@ -159,12 +158,12 @@ const showAlbum = (
   (albumId === shown.albumId ? () => undefined : replace)();
 };
 const open = (contract: InstallationManifest, data: PresentationData): void => {
-  const items = getPlaybackItems(contract);
+  const items = data.playbackItems;
   const controller = createPlayer(
     contract,
     resolverFor(contract),
     (state) => {
-      render(contract, state);
+      render(data, state);
       showAlbum(
         data,
         items.find((item) => item.playbackItemId === state.playbackItemId)
@@ -185,7 +184,7 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
       });
     },
   );
-  contract.albums.forEach((album, index) => {
+  data.albums.forEach((album, index) => {
     const section = document.createElement("section");
     const heading = document.createElement("h2");
     heading.textContent = album.title;
@@ -225,7 +224,7 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
     controller.seek(Number(seek.value));
   });
   window.addEventListener("pagehide", controller.dispose, { once: true });
-  render(contract, controller.snapshot());
+  render(data, controller.snapshot());
 };
 const start = async (): Promise<void> => {
   window.addEventListener("pagehide", visual.dispose, { once: true });
