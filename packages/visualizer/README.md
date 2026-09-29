@@ -41,12 +41,14 @@ AudioFeaturesの帯域・onset意味論は `packages/audio-dsp` の実装のJSDo
 
 `src/state.ts` は試聴体験の状態の語彙と遷移だけを持つ純粋な契約。見せ方（layout・mapping・effect・動きの強さ・時間展開）は固定しない。
 
-- 状態: `idle` / `selected` / `playing` / `paused` / `seeking` / `ended` / `error`。停止後・終了後の戻り先は `selected`。
+- 状態: `idle` / `selected` / `playing` / `paused` / `seeking` / `ended` / `error`。停止後・終了後の戻り先は `selected`。選択が残る停止は、再生前（`selected`）やエラー（`error`）からでも `selected` へ戻り、描画値を静止値へ戻す。
 - `transition(state, event)` が次の状態と、描画値を静止値へ戻すか（`resetFrame`）を返す。選び直し・seek・停止・失敗・clearでは戻し、旧い作品・旧い再生位置の平滑化とimpulseを残さない。一時停止では戻さず、直前の構図を保つ。
 - その状態で起きえない出来事（例: `idle` での `play`、`seeking` 以外での `seeked`）では状態を変えない。順序の乱れた通知から状態を作らない。
 - rendererへの入力は `PresentationInput`（状態・`PresentationFrame`・作品の表示内容）だけ。rendererはAudioFeatures・Manifest・playerを参照しない。表示内容は検証済みの表示データ（`packages/listening-presentation`）の作品 `ListeningAlbum` をそのまま渡し、どの事実をどう見せるかは renderer の側が決める。`listening-presentation` へは型だけで依存する。
 - `PresentationInput` は状態ごとに形を分ける。`idle` は表示内容を持たず、`error` は任意、それ以外は必ず持つ。成り立たない組み合わせは型の段階で作れない。
-- player の状態からこの出来事への写しは #476 C後半、rendererが表示内容を描くことは #479 B が受け持つ。
+- `followPlayback(state, previous, next)` は再生の観測（`PlaybackObservation`）の前後から出来事を作り（`playbackEvents`）、状態を進める。新しい読み込みは select、停止して選択が残れば stop・残らなければ clear、`seeking` に入れば seek、出れば出た先の再生の有無を持つ seeked。位置の更新だけの観測からは出来事を作らない。
+- visualizer は player に依存しない。`PlaybackObservation` は `abservice-player` の `PlayerSnapshot` が構造的に満たす形だけを受け取る（`listening-presentation` に置くと、その型に依存する visualizer との間で依存が循環するため）。
+- rendererが表示内容を描くことは #479 B が受け持つ。
 
 ## 描画セッションの監督と縮退（#291 A）
 
@@ -59,6 +61,8 @@ AudioFeaturesの帯域・onset意味論は `packages/audio-dsp` の実装のJSDo
 - 回転・fullscreen復帰は、rendererが毎フレームcanvas寸法を照合して追う（作り直さない）。
 
 `offline-player` は再生のたびにこの監督を作り、一時停止・停止・選曲・pagehideで破棄する。GPU資源を持つのは再生中だけ。
+
+`planSession(step, frame)` は状態の変化から、描画の寿命（`draw` / `keep` / `still` / `release`）と次の描画値を決める純粋な関数。GPU を放すことと描画値を戻すことは分け、描画値は `resetFrame` のときだけ静止値へ戻す（例: 最後まで再生して `ended` へ移るときは GPU を放すが描画値は保つ）。ページを閉じるときの破棄だけは描画値まで捨てる。
 
 - 一時停止では、GPU資源を放す直前に今の構図を静止画へ写してcanvasの背景に敷き、直前の構図を保つ（#479 paused）。描画値と縮退の判定は一時停止をまたいで残す。
 - 再開で新しい監督を作り、描き始めるか縮退した時点で静止画を外す。一度縮退した描画は、停止・選曲するまで作り直さない。

@@ -1,6 +1,40 @@
 /* eslint-disable functional/immutable-data -- The supervisor owns the current renderer and its retry budget for one presentation session. */
+import { restingFrame } from "./index";
 import type { PresentationFrame } from "./index";
 import type { Renderer } from "./renderer";
+import type { PresentationState, PresentationTransition } from "./state";
+
+/**
+ * 状態の変化を受けて描画の寿命をどうするか。
+ * - draw: 描く。セッションが無ければ作る
+ * - keep: 今のセッションがあれば描き続け、無ければ作らない（一時停止中から入ったシークで GPU を作り直さない）
+ * - still: 直前の構図を静止画に残して GPU を放す
+ * - release: GPU を放す
+ */
+export type SessionPlan = "draw" | "keep" | "still" | "release";
+
+const plans: Readonly<Record<PresentationState, SessionPlan>> = {
+  idle: "release",
+  selected: "release",
+  playing: "draw",
+  paused: "still",
+  seeking: "keep",
+  ended: "release",
+  error: "release",
+};
+
+/**
+ * 状態の変化から、描画の寿命と次の描画値を決める純粋な関数。
+ * GPU を放すことと描画値を戻すことは分け、描画値は `resetFrame` のときだけ静止値へ戻す。
+ */
+export const planSession = (
+  step: PresentationTransition,
+  frame: PresentationFrame,
+): Readonly<{ session: SessionPlan; frame: PresentationFrame }> =>
+  Object.freeze({
+    session: plans[step.state],
+    frame: step.resetFrame ? restingFrame : frame,
+  });
 
 /**
  * 描画の状態。再生・作品情報・操作はどの状態でも保つ。

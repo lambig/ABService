@@ -1,7 +1,11 @@
 /* eslint-disable functional/immutable-data -- DOM描画とイベント登録をデモ境界に閉じ、プレイヤーのsnapshotを表示する。 */
 import { getPlaybackItems, parseManifest } from "abservice-installation";
-import { createPlayer } from "./index";
-import type { LocalAssetResolver, PlayerSnapshot } from "./index";
+import { createPlayer, settledPhase } from "./index";
+import type {
+  LocalAssetResolver,
+  PlayerSnapshot,
+  SettledPhase,
+} from "./index";
 import { legacyManifest, manifest as currentManifest } from "./fixture";
 import "./style.css";
 
@@ -29,7 +33,7 @@ const manifest =
 const parsed = parseManifest(manifest);
 const items =
   parsed.kind === "manifest" ? getPlaybackItems(parsed.manifest) : [];
-const phases: Record<PlayerSnapshot["phase"], string> = {
+const phases: Record<SettledPhase, string> = {
   idle: "待機中",
   loading: "読み込み中",
   ready: "再生できます",
@@ -49,14 +53,15 @@ const render = (state: PlayerSnapshot): void => {
   element("#album-title", HTMLElement).textContent =
     manifest.albums.find((album) => album.albumId === selection?.albumId)
       ?.title ?? "YOUR SELECTION";
-  status.textContent = phases[state.phase];
-  play.disabled = ["idle", "loading", "error", "playing"].includes(state.phase);
-  pause.disabled = state.phase !== "playing";
-  stop.disabled = state.phase === "idle";
+  const phase = settledPhase(state);
+  status.textContent = phases[phase];
+  play.disabled = ["idle", "loading", "error", "playing"].includes(phase);
+  pause.disabled = phase !== "playing";
+  stop.disabled = phase === "idle";
   retry.hidden =
     state.playbackItemId === null
       ? true
-      : ["idle", "error"].includes(state.phase)
+      : ["idle", "error"].includes(phase)
         ? false
         : true;
   seek.disabled = state.duration === 0;

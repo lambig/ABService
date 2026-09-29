@@ -10,7 +10,17 @@ import type {
   PlaybackConnection,
   Player,
   PlayerSnapshot,
+  SeekResume,
+  SettledPhase,
+  SnapshotFacts,
 } from "./index";
+
+type Patch = Partial<SnapshotFacts> &
+  (
+    | Readonly<{ phase?: SettledPhase; resumeTo?: never }>
+    | Readonly<{ phase: "seeking"; resumeTo: SeekResume }>
+    | Readonly<{ phase?: never; resumeTo: SeekResume }>
+  );
 
 type Session = {
   audio: HTMLAudioElement;
@@ -68,10 +78,33 @@ export const player = (
     state: idle,
     disposed: false,
   };
-  const publish = (patch: Partial<PlayerSnapshot>): void => {
-    cell.state = Object.freeze({ ...cell.state, ...patch });
+  /* resumeTo belongs to seeking only; leaving seeking drops it instead of carrying it into another phase. */
+  const publish = (patch: Patch): void => {
+    const merged = { ...cell.state, ...patch } as SnapshotFacts & {
+      phase: PlayerSnapshot["phase"];
+      resumeTo?: SeekResume;
+    };
+    const facts: SnapshotFacts = {
+      playbackItemId: merged.playbackItemId,
+      trackId: merged.trackId,
+      position: merged.position,
+      duration: merged.duration,
+      error: merged.error,
+    };
+    cell.state = Object.freeze(
+      merged.phase === "seeking"
+        ? { ...facts, phase: "seeking", resumeTo: merged.resumeTo ?? "paused" }
+        : { ...facts, phase: merged.phase },
+    );
     changed(cell.state);
   };
+  /* A seek started from a seek keeps where the first one returns to. */
+  const resumeOf = (state: PlayerSnapshot): SeekResume =>
+    state.phase === "seeking"
+      ? state.resumeTo
+      : state.phase === "playing"
+        ? "playing"
+        : "paused";
   const current = (session: Session): boolean =>
     session.abort.signal.aborted ? false : cell.session === session;
   const clear = (): void => {
@@ -134,6 +167,12 @@ export const player = (
     });
     listen("seeked", () => {
       position(session);
+      const state = cell.state;
+      when(current(session) && state.phase === "seeking", () => {
+        publish({
+          phase: state.phase === "seeking" ? state.resumeTo : "paused",
+        });
+      });
     });
     listen("ended", () => {
       when(current(session), () => {
@@ -202,7 +241,12 @@ export const player = (
               .play()
               .then(() => {
                 when(intent.signal.aborted ? false : current(session), () => {
-                  publish({ phase: "playing", error: null });
+                  /* Playing during a seek changes where the seek returns to, not the seek itself. */
+                  publish(
+                    cell.state.phase === "seeking"
+                      ? { resumeTo: "playing", error: null }
+                      : { phase: "playing", error: null },
+                  );
                 });
               })
               .catch((error: unknown) => {
@@ -242,9 +286,11 @@ export const player = (
           0,
           Math.min(cell.state.duration, seconds),
         );
+        /* The media reports seeked once the new position is decodable; until then the player is seeking. */
         publish({
           position: session.audio.currentTime,
-          phase: cell.state.phase === "ended" ? "paused" : cell.state.phase,
+          phase: "seeking",
+          resumeTo: resumeOf(cell.state),
         });
       });
     });

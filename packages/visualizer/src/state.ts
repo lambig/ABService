@@ -50,7 +50,13 @@ const table: Readonly<
   Record<PresentationState, Partial<Record<Kind, PresentationState>>>
 > = {
   idle: { select: "selected", fail: "error" },
-  selected: { select: "selected", play: "playing", fail: "error", clear: "idle" },
+  selected: {
+    select: "selected",
+    play: "playing",
+    stop: "selected",
+    fail: "error",
+    clear: "idle",
+  },
   playing: {
     select: "selected",
     pause: "paused",
@@ -77,7 +83,8 @@ const table: Readonly<
     fail: "error",
     clear: "idle",
   },
-  error: { select: "selected", clear: "idle" },
+  /* Stopping keeps the selection; from an error it returns to that selection at rest. */
+  error: { select: "selected", stop: "selected", clear: "idle" },
 };
 /* Selecting again, moving the position, stopping or failing starts from rest; pausing keeps the composition. */
 const resetting: ReadonlySet<Kind> = new Set<Kind>([
@@ -106,6 +113,97 @@ export const transition = (
     resetFrame: next === undefined ? false : resetting.has(event.kind),
   });
 };
+
+/**
+ * 再生の観測。player の状態（`abservice-player` の `PlayerSnapshot`）が構造的に満たす形だけを受け取る。
+ * visualizer は player に依存しない。シーク中（`seeking`）だけが戻り先 `resumeTo` を持つ。
+ */
+export type PlaybackObservation = Readonly<{
+  phase:
+    | "idle"
+    | "loading"
+    | "ready"
+    | "playing"
+    | "paused"
+    | "ended"
+    | "error"
+    | "seeking";
+  resumeTo?: "playing" | "paused";
+  playbackItemId: string | null;
+}>;
+
+type Settled = Exclude<PlaybackObservation["phase"], "seeking">;
+/* ready follows a select that already moved to selected; it adds no event of its own. */
+const settledEvents: Readonly<Record<Settled, readonly PresentationEvent[]>> = {
+  idle: [],
+  loading: [{ kind: "select" }],
+  ready: [],
+  playing: [{ kind: "play" }],
+  paused: [{ kind: "pause" }],
+  ended: [{ kind: "end" }],
+  error: [{ kind: "fail" }],
+};
+const settledOf = (
+  observation: PlaybackObservation,
+): readonly PresentationEvent[] =>
+  observation.phase === "seeking"
+    ? []
+    : observation.phase === "idle"
+      ? [
+          observation.playbackItemId === null
+            ? { kind: "clear" }
+            : { kind: "stop" },
+        ]
+      : settledEvents[observation.phase];
+
+/**
+ * 再生の観測の前後から、presentation state の出来事を作る純粋な関数。
+ * - 新しい読み込み（別の項目、または loading への移り）は select
+ * - 停止して選択が残れば stop、選択が無ければ clear
+ * - seeking に入れば seek、出れば出た先の再生の有無を持つ seeked
+ * - 変化の無い観測（位置の更新だけ等）からは出来事を作らない
+ */
+export const playbackEvents = (
+  previous: PlaybackObservation | undefined,
+  next: PlaybackObservation,
+): readonly PresentationEvent[] => {
+  const changed = [
+    previous?.phase !== next.phase,
+    previous?.playbackItemId !== next.playbackItemId,
+  ].some(Boolean);
+  const leftSeek = previous?.phase === "seeking" && next.phase !== "seeking";
+  return changed
+    ? next.phase === "seeking"
+      ? previous?.phase === "seeking"
+        ? []
+        : [{ kind: "seek" }]
+      : leftSeek
+        ? [
+            { kind: "seeked", playing: next.phase === "playing" },
+            ...(["playing", "paused"].includes(next.phase) ? [] : settledOf(next)),
+          ]
+        : settledOf(next)
+    : [];
+};
+
+/** 再生の観測の変化で presentation state を進める。途中の出来事のどれかが描画値を戻せば resetFrame。 */
+export const followPlayback = (
+  state: PresentationState,
+  previous: PlaybackObservation | undefined,
+  next: PlaybackObservation,
+): PresentationTransition =>
+  Object.freeze(
+    playbackEvents(previous, next).reduce<PresentationTransition>(
+      (acc, event) => {
+        const step = transition(acc.state, event);
+        return {
+          state: step.state,
+          resetFrame: [acc.resetFrame, step.resetFrame].some(Boolean),
+        };
+      },
+      { state, resetFrame: false },
+    ),
+  );
 
 /**
  * 作品の表示内容。検証済みの表示データ（#476の PresentationData）の作品をそのまま渡す。

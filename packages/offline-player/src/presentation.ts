@@ -4,14 +4,15 @@ import type { PlayerSnapshot } from "abservice-player";
 import {
   createProbe,
   due,
+  followPlayback,
   mapFeatures,
   parseBudget,
   probeRequested,
   restingFrame,
 } from "abservice-visualizer";
-import type { FrameProbe } from "abservice-visualizer";
+import type { FrameProbe, PresentationState } from "abservice-visualizer";
 import { createRenderer } from "abservice-visualizer/renderer";
-import { superviseRenderer } from "abservice-visualizer/session";
+import { planSession, superviseRenderer } from "abservice-visualizer/session";
 import type {
   RendererStatus,
   RendererSupervisor,
@@ -24,6 +25,12 @@ const messages = {
   degraded: "描画を利用できません。再生と操作は続けられます。",
   resting: "再生すると音に合わせて描画します",
 } as const;
+
+/* Drawing continues through a seek that began while playing; the frame is back at rest by then. */
+const drawing: ReadonlySet<PresentationState> = new Set<PresentationState>([
+  "playing",
+  "seeking",
+]);
 
 /* A session has settled once it can draw or has given up drawing. */
 const settled: ReadonlySet<RendererStatus> = new Set<RendererStatus>([
@@ -81,7 +88,8 @@ export const presentation = (
 ) => {
   const state: {
     supervisor: RendererSupervisor | null;
-    phase: PlayerSnapshot["phase"];
+    presentation: PresentationState;
+    observed: PlayerSnapshot | undefined;
     frame: typeof restingFrame;
     animation: number | null;
     degraded: boolean;
@@ -89,13 +97,15 @@ export const presentation = (
     interval: number | undefined;
   } = {
     supervisor: null,
-    phase: "idle",
+    presentation: "idle",
+    observed: undefined,
     frame: restingFrame,
     animation: null,
     degraded: false,
     drawnAt: undefined,
     interval: undefined,
   };
+  canvas.dataset["presentationState"] = state.presentation;
   const cancelFrame = (): void => {
     (state.animation === null
       ? () => undefined
@@ -152,9 +162,12 @@ export const presentation = (
       : thaw)();
     supervisor?.dispose();
   };
+  const reset = (): void => {
+    state.frame = restingFrame;
+  };
   const dispose = (): void => {
     release(false);
-    state.frame = restingFrame;
+    reset();
   };
   /* A frame that comes sooner than the target fps is skipped, not drawn; the loop keeps running. */
   const draw = (): void => {
@@ -177,7 +190,7 @@ export const presentation = (
       probe?.cycle(work.pendingMs + performance.now() - now);
       work.pendingMs = 0;
     };
-    (state.phase === "playing" && supervisor?.status() === "running"
+    (drawing.has(state.presentation) && supervisor?.status() === "running"
       ? () => {
           (due(now, state.drawnAt, budget)
             ? () => {
@@ -237,9 +250,15 @@ export const presentation = (
     state.supervisor = supervisor;
     status.textContent = messages.starting;
   };
+  /* The presentation state, through planSession, decides the GPU lifetime and whether the frame goes back to rest. */
   const sync = (snapshot: PlayerSnapshot): void => {
-    state.phase = snapshot.phase;
-    const playing = (): void => {
+    const step = followPlayback(state.presentation, state.observed, snapshot);
+    const plan = planSession(step, state.frame);
+    state.observed = snapshot;
+    state.presentation = step.state;
+    state.frame = plan.frame;
+    canvas.dataset["presentationState"] = step.state;
+    const drawn = (): void => {
       (state.supervisor === null
         ? state.degraded
           ? () => undefined
@@ -248,24 +267,22 @@ export const presentation = (
           ? draw
           : () => undefined)();
     };
-    const stopped = (): void => {
-      (snapshot.phase === "paused"
-        ? () => {
-            release(true);
-            status.textContent = state.degraded
-              ? messages.degraded
-              : messages.resting;
-          }
-        : () => {
-            dispose();
-            state.degraded = false;
-            status.textContent = messages.resting;
-          })();
+    const keep = (): void => {
+      (state.supervisor !== null && state.animation === null
+        ? draw
+        : () => undefined)();
     };
-    (snapshot.phase === "playing" ? playing : stopped)();
-  };
-  const reset = (): void => {
-    state.frame = restingFrame;
+    const still = (): void => {
+      release(true);
+      status.textContent = state.degraded ? messages.degraded : messages.resting;
+    };
+    /* Releasing leaves the frame to the plan; only resetFrame puts it back at rest. */
+    const released = (): void => {
+      release(false);
+      state.degraded = false;
+      status.textContent = messages.resting;
+    };
+    ({ draw: drawn, keep, still, release: released })[plan.session]();
   };
   const update = (features: AudioFeatures): void => {
     state.frame = mapFeatures(features, state.frame);

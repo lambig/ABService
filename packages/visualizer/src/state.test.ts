@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { restingFrame, transition } from "./index";
+import {
+  followPlayback,
+  playbackEvents,
+  restingFrame,
+  transition,
+} from "./index";
 import type {
+  PlaybackObservation,
   PresentationContent,
   PresentationEvent,
   PresentationInput,
@@ -56,6 +62,22 @@ describe("presentation state", () => {
     });
   });
 
+  it("returns to the kept selection at rest when stopped after a failure or before playing", () => {
+    (["error", "selected"] as const).forEach((from) => {
+      expect(transition(from, { kind: "stop" })).toEqual({
+        state: "selected",
+        resetFrame: true,
+      });
+    });
+    expect(
+      followPlayback(
+        "error",
+        { phase: "error", playbackItemId: "item-1" },
+        { phase: "idle", playbackItemId: "item-1" },
+      ),
+    ).toEqual({ state: "selected", resetFrame: true });
+  });
+
   it("keeps the controls reachable after a failure and recovers by selecting again", () => {
     expect(run([{ kind: "select" }, { kind: "play" }, { kind: "fail" }, { kind: "select" }])).toEqual({
       state: "selected",
@@ -96,6 +118,99 @@ describe("presentation state", () => {
     const stray: PresentationInput = { state: "idle", frame: restingFrame, content };
 
     expect([...inputs, missing, stray]).toHaveLength(6);
+  });
+
+  it("follows the player through a whole listening, including a seek while playing", () => {
+    const observations: readonly PlaybackObservation[] = [
+      { phase: "idle", playbackItemId: null },
+      { phase: "loading", playbackItemId: "item-1" },
+      { phase: "ready", playbackItemId: "item-1" },
+      { phase: "playing", playbackItemId: "item-1" },
+      { phase: "seeking", resumeTo: "playing", playbackItemId: "item-1" },
+      { phase: "seeking", resumeTo: "playing", playbackItemId: "item-1" },
+      { phase: "playing", playbackItemId: "item-1" },
+      { phase: "paused", playbackItemId: "item-1" },
+      { phase: "playing", playbackItemId: "item-1" },
+      { phase: "ended", playbackItemId: "item-1" },
+      { phase: "idle", playbackItemId: "item-1" },
+    ];
+    const walk = observations.reduce<{
+      state: PresentationState;
+      previous: PlaybackObservation | undefined;
+      trail: readonly [PresentationState, boolean][];
+    }>(
+      (acc, next) => {
+        const step = followPlayback(acc.state, acc.previous, next);
+        return {
+          state: step.state,
+          previous: next,
+          trail: [...acc.trail, [step.state, step.resetFrame]],
+        };
+      },
+      { state: "idle", previous: undefined, trail: [] },
+    );
+
+    expect(walk.trail).toEqual([
+      ["idle", false],
+      ["selected", true],
+      ["selected", false],
+      ["playing", false],
+      ["seeking", true],
+      ["seeking", false],
+      ["playing", false],
+      ["paused", false],
+      ["playing", false],
+      ["ended", false],
+      ["selected", true],
+    ]);
+  });
+
+  it("returns from a seek to paused when it began paused or after the end, and when paused during the seek", () => {
+    expect(
+      followPlayback(
+        "seeking",
+        { phase: "seeking", resumeTo: "paused", playbackItemId: "item-1" },
+        { phase: "paused", playbackItemId: "item-1" },
+      ),
+    ).toEqual({ state: "paused", resetFrame: false });
+    expect(
+      followPlayback(
+        "ended",
+        { phase: "ended", playbackItemId: "item-1" },
+        { phase: "seeking", resumeTo: "paused", playbackItemId: "item-1" },
+      ),
+    ).toEqual({ state: "seeking", resetFrame: true });
+  });
+
+  it("starts over on a new selection, even while loading, and fails and recovers with the player", () => {
+    expect(
+      playbackEvents(
+        { phase: "loading", playbackItemId: "item-1" },
+        { phase: "loading", playbackItemId: "item-2" },
+      ),
+    ).toEqual([{ kind: "select" }]);
+    expect(
+      followPlayback(
+        "playing",
+        { phase: "playing", playbackItemId: "item-1" },
+        { phase: "error", playbackItemId: "item-1" },
+      ),
+    ).toEqual({ state: "error", resetFrame: true });
+    expect(
+      followPlayback(
+        "error",
+        { phase: "error", playbackItemId: "item-1" },
+        { phase: "loading", playbackItemId: "item-1" },
+      ),
+    ).toEqual({ state: "selected", resetFrame: true });
+  });
+
+  it("makes no event from a change that only moves the position", () => {
+    const playing: PlaybackObservation = {
+      phase: "playing",
+      playbackItemId: "item-1",
+    };
+    expect(playbackEvents(playing, { ...playing })).toEqual([]);
   });
 
   it("clears back to idle from any selected state", () => {

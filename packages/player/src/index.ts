@@ -7,10 +7,15 @@ export type LocalAssetResolver = (
   signal: AbortSignal,
 ) => Promise<Blob>;
 
-/** UIが表示する再生状態。時刻・長さはmedia実体の秒数で、Manifestの推定値を使わない。 */
-export type PlayerSnapshot = Readonly<{
-  phase:
-    "idle" | "loading" | "ready" | "playing" | "paused" | "ended" | "error";
+/** シーク中でない再生状態。 */
+export type SettledPhase =
+  "idle" | "loading" | "ready" | "playing" | "paused" | "ended" | "error";
+
+/** シークが終わった後に戻る状態。再生中からのシークは再生へ、それ以外は一時停止へ戻る。 */
+export type SeekResume = "playing" | "paused";
+
+/** どの phase でも持つ項目。 */
+export type SnapshotFacts = Readonly<{
   playbackItemId: string | null;
   /** canonicalな曲ID。作品クロスフェードには存在しない。 */
   trackId: string | null;
@@ -18,6 +23,23 @@ export type PlayerSnapshot = Readonly<{
   duration: number;
   error: string | null;
 }>;
+
+/**
+ * UIが表示する再生状態。時刻・長さはmedia実体の秒数で、Manifestの推定値を使わない。
+ * phase で形が決まり、シーク中（`seeking`）だけがシーク後の戻り先 `resumeTo` を持つ。
+ */
+export type PlayerSnapshot = SnapshotFacts &
+  (
+    | Readonly<{ phase: SettledPhase }>
+    | Readonly<{ phase: "seeking"; resumeTo: SeekResume }>
+  );
+
+/**
+ * 表示と操作の可否に使う状態。シークは一瞬で終わるため、シーク中は戻り先の状態として扱い、表示をちらつかせない。
+ * シークそのものを扱う側（試聴画面の状態の写し）は `phase` を直接見る。
+ */
+export const settledPhase = (state: PlayerSnapshot): SettledPhase =>
+  state.phase === "seeking" ? state.resumeTo : state.phase;
 
 /** 停止は音源を解放し、選択曲を保持する。再取得はselectで行う。dispose後は操作を受け付けない。 */
 export type Player = Readonly<{
