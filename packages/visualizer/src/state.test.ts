@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { transition } from "./index";
-import type { PresentationEvent, PresentationState } from "./index";
+import { restingFrame, transition } from "./index";
+import type {
+  PresentationContent,
+  PresentationEvent,
+  PresentationInput,
+  PresentationState,
+} from "./index";
 
 const run = (
   events: readonly PresentationEvent[],
@@ -71,6 +76,26 @@ describe("presentation state", () => {
       state: "error",
       resetFrame: false,
     });
+  });
+
+  it("ties the content to the state in the renderer input", () => {
+    const content: PresentationContent = {
+      albumId: "album-1",
+      title: "作品",
+      tracks: [],
+    };
+    const inputs: readonly PresentationInput[] = [
+      { state: "idle", frame: restingFrame },
+      { state: "error", frame: restingFrame },
+      { state: "error", frame: restingFrame, content },
+      { state: "playing", frame: restingFrame, content },
+    ];
+    /* @ts-expect-error A listening state without the selected work cannot be built. */
+    const missing: PresentationInput = { state: "paused", frame: restingFrame };
+    /* @ts-expect-error Waiting for a selection carries no work. */
+    const stray: PresentationInput = { state: "idle", frame: restingFrame, content };
+
+    expect([...inputs, missing, stray]).toHaveLength(6);
   });
 
   it("clears back to idle from any selected state", () => {

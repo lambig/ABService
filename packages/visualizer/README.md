@@ -44,7 +44,8 @@ AudioFeaturesの帯域・onset意味論は `packages/audio-dsp` の実装のJSDo
 - 状態: `idle` / `selected` / `playing` / `paused` / `seeking` / `ended` / `error`。停止後・終了後の戻り先は `selected`。
 - `transition(state, event)` が次の状態と、描画値を静止値へ戻すか（`resetFrame`）を返す。選び直し・seek・停止・失敗・clearでは戻し、旧い作品・旧い再生位置の平滑化とimpulseを残さない。一時停止では戻さず、直前の構図を保つ。
 - その状態で起きえない出来事（例: `idle` での `play`、`seeking` 以外での `seeked`）では状態を変えない。順序の乱れた通知から状態を作らない。
-- rendererへの入力は `PresentationInput`（状態・`PresentationFrame`・作品の表示内容）だけ。rendererはAudioFeatures・Manifest・playerを参照しない。表示内容は検証済みの表示データ（`packages/listening-presentation`）から写し、値の無い項目は省く。
+- rendererへの入力は `PresentationInput`（状態・`PresentationFrame`・作品の表示内容）だけ。rendererはAudioFeatures・Manifest・playerを参照しない。表示内容は検証済みの表示データ（`packages/listening-presentation`）の作品 `ListeningAlbum` をそのまま渡し、どの事実をどう見せるかは renderer の側が決める。`listening-presentation` へは型だけで依存する。
+- `PresentationInput` は状態ごとに形を分ける。`idle` は表示内容を持たず、`error` は任意、それ以外は必ず持つ。成り立たない組み合わせは型の段階で作れない。
 - player の状態からこの出来事への写しは #476 C後半、rendererが表示内容を描くことは #479 B が受け持つ。
 
 ## ブラウザ検証

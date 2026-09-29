@@ -1,3 +1,4 @@
+import type { ListeningAlbum } from "abservice-listening-presentation";
 import type { PresentationFrame } from "./index";
 
 /**
@@ -107,21 +108,28 @@ export const transition = (
 };
 
 /**
- * 作品の表示内容。検証済みの表示データ（#476の PresentationData）から写す。
- * 値の無い項目は省き、placeholder を事実として渡さない。artwork は検証済みの実体。
+ * 作品の表示内容。検証済みの表示データ（#476の PresentationData）の作品をそのまま渡す。
+ * 作品の事実をすべて持ち、どれをどう見せるかは renderer の側が決める。
+ * 値の無い項目は省かれており、placeholder を事実として渡さない。
  */
-export type PresentationContent = Readonly<{
-  title: string;
-  artistDisplayName?: string;
-  artwork?: Blob;
-}>;
+export type PresentationContent = ListeningAlbum;
 
 /**
  * renderer へ渡す入力。renderer は音響特徴量・Manifest・player を参照せず、これだけで描く。
- * content が無いのは idle（作品を選んでいない）。
+ * 状態と表示内容の組み合わせは型で決まる。
+ * - idle: 作品を選んでいないので表示内容を持たない
+ * - error: 作品を選ぶ前にも失敗しうるので、表示内容は任意
+ * - それ以外: 作品を選んでいるので表示内容を必ず持つ
  */
-export type PresentationInput = Readonly<{
-  state: PresentationState;
-  frame: PresentationFrame;
-  content?: PresentationContent;
-}>;
+export type PresentationInput =
+  | Readonly<{ state: "idle"; frame: PresentationFrame }>
+  | Readonly<{
+      state: "error";
+      frame: PresentationFrame;
+      content?: PresentationContent;
+    }>
+  | Readonly<{
+      state: Exclude<PresentationState, "idle" | "error">;
+      frame: PresentationFrame;
+      content: PresentationContent;
+    }>;
