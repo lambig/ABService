@@ -8,6 +8,7 @@ import { unified } from 'unified';
 
 import { rehypeRestrictImageSource } from './asset-image.js';
 import { remarkDetailsDirective } from './details.js';
+import { rehypeUnwrapLinks } from './links.js';
 
 /**
  * 描画の設定。
@@ -15,10 +16,18 @@ import { remarkDetailsDirective } from './details.js';
  * 値の出所は利用側が持つ。パッケージが環境変数を読むと純粋関数でなくなり、ビルド時（公開サイト）と
  * ブラウザ（管理画面のプレビュー）で参照先が変わって「同じ関数」の保証が崩れる。
  */
-export type RenderOptions = {
-  /** アセットの配信ベースパス（例: `/assets`）。同一 origin の root-relative path を指定する（ルート `/` は不可）。画像の `src` をURL解決後もこの配下に限る */
-  readonly assetBasePath: string;
-};
+export type RenderOptions =
+  | {
+      /** アセットの配信ベースパス（例: `/assets`）。同一 origin の root-relative path を指定する（ルート `/` は不可）。画像の `src` をURL解決後もこの配下に限る */
+      readonly assetBasePath: string;
+    }
+  | {
+      /**
+       * 通信の無い端末（試聴端末）向け。画像はすべて除き、リンクは文字だけを残す。
+       * 画像は配布物に含まれず取得できない。リンクを開くと試聴の画面から離れ、戻る経路が無い。
+       */
+      readonly offline: true;
+    };
 
 /**
  * 許可するタグの一覧。
@@ -33,16 +42,20 @@ const sanitizeSchema = {
   tagNames: [...(defaultSchema.tagNames ?? []), 'details', 'summary'],
 };
 
-const renderer = (options: RenderOptions) =>
-  unified()
+const renderer = (options: RenderOptions) => {
+  const offline = 'offline' in options;
+  return unified()
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkDirective)
     .use(remarkDetailsDirective)
     .use(remarkRehype)
     .use(rehypeSanitize, sanitizeSchema)
-    .use(rehypeRestrictImageSource, options.assetBasePath)
+    .use(rehypeRestrictImageSource, offline ? undefined : options.assetBasePath)
+    /* A boolean option to .use() switches a plugin on or off in unified; register it only when offline instead. */
+    .use(offline ? [rehypeUnwrapLinks] : [])
     .use(rehypeStringify);
+};
 
 /**
  * 冒頭の説明と、次の見出しから始まる補足を描画する。

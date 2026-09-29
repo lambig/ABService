@@ -28,10 +28,19 @@ const artwork = {
   checksum: { algorithm: "sha256", value: sha256(artworkBytes) },
   required: true,
 };
+/* The description carries a link and an embedded image, which the offline view must not follow or fetch. */
+export const fixtureDescription =
+  "短い合成音による**検証用**の作品。\n\n![挿絵](/assets/inline.png)\n\n[頒布ページ](https://example.com/works/study-01) を参照。";
 const albums = study.albums.map((album) => ({
   ...album,
   artistDisplayName: "AB Study",
-  ...(album.albumId === "study-01" ? { artworkAssetId } : {}),
+  ...(album.albumId === "study-01"
+    ? {
+        artworkAssetId,
+        description: fixtureDescription,
+        descriptionFormat: "MARKDOWN",
+      }
+    : {}),
 }));
 /* packageVersion is the digest of the content, as the backend assigns it. */
 const versioned = <T extends object>(content: T) => ({

@@ -27,3 +27,17 @@
 #analysis-status:empty {
   display: none;
 }
+/* Provisional layout; the full-screen composition is #479's. */
+#album-info {
+  display: grid;
+  gap: 8px;
+  margin-block: 12px;
+}
+#artwork {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+}
+[hidden] {
+  display: none !important;
+}

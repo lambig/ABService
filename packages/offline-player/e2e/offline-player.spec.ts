@@ -8,10 +8,16 @@ import {
   drawnWithTypeface,
   loadTypefaces,
 } from "player-study-e2e/typeface";
-import { distributions, fixtureSignature, fixtureToken } from "../distribution";
+import {
+  artworkAssetId,
+  distributions,
+  fixtureSignature,
+  fixtureToken,
+} from "../distribution";
 import {
   distribute,
   entry,
+  openPreparation,
   prepareOnline,
   restart,
   saved,
@@ -124,7 +130,34 @@ test("配布元から準備し、全タブを閉じた後の通信なしの新�
   await expect(
     next.getByRole("button", { name: "Metadata-only song", exact: true }),
   ).toHaveCount(0);
+  const asked: string[] = [];
+  context.on("request", (request) => {
+    asked.push(request.url());
+  });
+  /* 準備済みの端末では、通常の試聴に token の入力を出さない */
+  await expect(next.locator("#preparation")).toBeHidden();
+  await expect(next.locator("#open-preparation")).toBeVisible();
   await play(next, "Album crossfade");
+  /* 作品情報は保存済みの package から出す。artwork は検証済みの実体を描き、説明の画像とリンクは取りに行かない */
+  await expect(next.locator("#album-title")).toHaveText("Northbound · Study 01");
+  await expect(next.locator("#artist")).toHaveText("AB Study");
+  await expect(next.locator("#description")).toContainText("検証用");
+  await expect(next.locator("#description")).toContainText("頒布ページ を参照。");
+  await expect(next.locator("#description a, #description img")).toHaveCount(0);
+  await expect
+    .poll(() =>
+      next
+        .locator("#artwork")
+        .evaluate((image: HTMLImageElement) => image.naturalWidth),
+    )
+    .toBe(1);
+  expect(
+    asked.filter((url) =>
+      ["example.com", "inline.png", artworkAssetId].some((part) =>
+        url.includes(part),
+      ),
+    ),
+  ).toEqual([]);
   await next.screenshot({
     path: "test-results/offline-player-playing.png",
     fullPage: true,
@@ -199,6 +232,7 @@ test("未完了の新版へは切り替えず、共有する実体を残した�
   await context.route(secondAudio, (route) =>
     route.fulfill({ status: 503, body: "unavailable" }),
   );
+  await openPreparation(current);
   await current.locator("#token").fill(fixtureToken);
   await current.locator("#prepare").click();
   await expect(current.locator("#preparation-detail")).toContainText(
@@ -284,6 +318,49 @@ test("取得中の token 期限切れで止め、再入力後は検証済みの�
     "/offline-player/audio/second.flac",
   ]);
   await expectNoSecrets(page, logged);
+});
+
+test("token を保存せず、読み込み直すと入力し直しになる", async ({ page }) => {
+  await page.goto(entry);
+  await prepareOnline(page);
+  const kept = await page.evaluate(() => ({
+    local: Object.keys(localStorage),
+    session: Object.keys(sessionStorage),
+    url: location.href,
+  }));
+  expect(kept.local).toEqual([]);
+  expect(kept.session).toEqual([]);
+  expect(kept.url).not.toContain(fixtureToken);
+  await page.reload();
+  await openPreparation(page);
+  await expect(page.locator("#token")).toHaveValue("");
+});
+
+test("準備済みの端末で再認証を求められたら、準備の画面に留まって入力し直せる", async ({
+  page,
+  context,
+}) => {
+  await page.goto(entry);
+  await prepareOnline(page);
+  const current = await restart(page, context);
+  await expect(current.locator("#preparation")).toBeHidden();
+  await context.setOffline(false);
+  await context.route("**/api/v1/listening/package", (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: "application/problem+json",
+      body: "{}",
+    }),
+  );
+  await openPreparation(current);
+  await current.locator("#token").fill(fixtureToken);
+  await current.locator("#prepare").click();
+  await expect(current.locator("#preparation-detail")).toContainText(
+    "トークンを入力し直してください",
+  );
+  await expect(current.locator("#preparation")).toBeVisible();
+  /* 再認証が要っても、準備済みの package で試聴を続けられる */
+  await play(current, "Album crossfade");
 });
 
 test("署名URLの期限切れはその音源の失敗として示し、再試行で取り直す", async ({
@@ -415,6 +492,7 @@ test("音源が揃っていてもshell欠落を準備完了としない", async 
         }),
     );
   });
+  await openPreparation(current);
   await current.locator("#inspect").click();
   await expect(current.locator("#readiness")).toHaveText(unready);
   await current.close();
@@ -447,6 +525,7 @@ test("書体の欠落を準備完了とせず、通信なしの起動で字形�
         }),
     );
   });
+  await openPreparation(current);
   await current.locator("#inspect").click();
   await expect(current.locator("#readiness")).toHaveText(unready);
   const next = await restart(current, context);

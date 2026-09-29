@@ -15,11 +15,23 @@ export const distribute = async (
   await request.post(`/__distribution?version=${version}`);
 };
 
+/** 準備済みの端末では準備の画面が閉じているため、明示的に開く。 */
+export const openPreparation = async (page: Page): Promise<void> => {
+  const opener = page.locator("#open-preparation");
+  /* Both start hidden; startup shows exactly one of them. */
+  await expect(
+    page.locator("#preparation:visible, #open-preparation:visible"),
+  ).toHaveCount(1);
+  await ((await opener.isVisible()) ? opener.click() : Promise.resolve());
+  await expect(page.locator("#preparation")).toBeVisible();
+};
+
 /** 試験の仕掛けから token を渡して保存する。token は入力欄だけに置く。 */
 export const prepareOnline = async (
   page: Page,
   expected: string = staged,
 ): Promise<void> => {
+  await openPreparation(page);
   await expect(page.locator("#prepare")).toBeEnabled();
   await page.locator("#token").fill(fixtureToken);
   await page.locator("#prepare").click();

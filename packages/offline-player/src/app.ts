@@ -1,6 +1,11 @@
 /* eslint-disable functional/immutable-data -- DOM描画とイベント登録をデモ境界に閉じ、プレイヤーのsnapshotを表示する。 */
 import { getPlaybackItems } from "abservice-installation";
 import type { InstallationManifest } from "abservice-installation";
+import {
+  artworkAssetIds,
+  toPresentationData,
+} from "abservice-listening-presentation";
+import type { PresentationData } from "abservice-listening-presentation";
 import { createAssetStore } from "abservice-offline-storage";
 import { createPlayer } from "abservice-player";
 import type { LocalAssetResolver, PlayerSnapshot } from "abservice-player";
@@ -100,13 +105,71 @@ const resolverFor =
       ? result.value
       : Promise.reject(new Error(storageMessage(result.error)));
   };
-const open = (contract: InstallationManifest): void => {
+/* Only verified artwork bytes are shown; one that fails verification is left out, and the view omits it. */
+const presentationOf = async (
+  contract: InstallationManifest,
+): Promise<PresentationData> => {
+  const opened = createAssetStore(contract);
+  const signal = new AbortController().signal;
+  const read = await Promise.all(
+    artworkAssetIds(contract).map(async (assetId) => {
+      const result =
+        opened.kind === "ok" ? await opened.value.read(assetId, signal) : opened;
+      return result.kind === "ok" ? [[assetId, result.value] as const] : [];
+    }),
+  );
+  return toPresentationData(contract, new Map(read.flat()));
+};
+const shown: { albumId: string | undefined; url: string | undefined } = {
+  albumId: undefined,
+  url: undefined,
+};
+const reveal = (node: HTMLElement, visible: boolean): void => {
+  node.hidden = visible ? false : true;
+};
+/* Each present fact gets its own region; an absent one hides its region instead of showing a placeholder. */
+const showAlbum = (
+  data: PresentationData,
+  albumId: string | undefined,
+): void => {
+  const album = data.albums.find((entry) => entry.albumId === albumId);
+  const artwork = element("#artwork", HTMLImageElement);
+  const artist = element("#artist", HTMLElement);
+  const description = element("#description", HTMLElement);
+  const replace = (): void => {
+    (shown.url === undefined
+      ? () => undefined
+      : () => {
+          URL.revokeObjectURL(shown.url as string);
+        })();
+    shown.albumId = albumId;
+    shown.url =
+      album?.artwork === undefined
+        ? undefined
+        : URL.createObjectURL(album.artwork);
+    reveal(element("#album-info", HTMLElement), album !== undefined);
+    artwork.src = shown.url ?? "";
+    reveal(artwork, shown.url !== undefined);
+    artist.textContent = album?.artistDisplayName ?? "";
+    reveal(artist, album?.artistDisplayName !== undefined);
+    /* Sanitised by the shared markup renderer, with images and links already removed. */
+    description.innerHTML = album?.descriptionHtml ?? "";
+    reveal(description, album?.descriptionHtml !== undefined);
+  };
+  (albumId === shown.albumId ? () => undefined : replace)();
+};
+const open = (contract: InstallationManifest, data: PresentationData): void => {
   const items = getPlaybackItems(contract);
   const controller = createPlayer(
     contract,
     resolverFor(contract),
     (state) => {
       render(contract, state);
+      showAlbum(
+        data,
+        items.find((item) => item.playbackItemId === state.playbackItemId)
+          ?.albumId,
+      );
       visual.sync(state);
       (state.phase === "error" ? preparation.invalidate : () => undefined)();
     },
@@ -168,10 +231,12 @@ const start = async (): Promise<void> => {
   window.addEventListener("pagehide", visual.dispose, { once: true });
   render(undefined, idle);
   const active = await preparation.mount();
-  (active === undefined
-    ? () => undefined
-    : () => {
-        open(active);
-      })();
+  const data =
+    active === undefined ? undefined : await presentationOf(active);
+  (active !== undefined && data !== undefined
+    ? () => {
+        open(active, data);
+      }
+    : () => undefined)();
 };
 void start();
