@@ -58,6 +58,8 @@ export const connectMediaAnalysis = (
   pause: () => void;
   seek: () => void;
   stats: () => AudioPlaybackStats | null;
+  /** 解析している AudioContext の sampleRate。再生を始める前は undefined。 */
+  sampleRate: () => number | undefined;
 }> => {
   const state: {
     context: AudioContext | null;
@@ -204,5 +206,6 @@ export const connectMediaAnalysis = (
     pause,
     seek: reset,
     stats: () => playbackStats(state.context),
+    sampleRate: () => state.context?.sampleRate,
   });
 };

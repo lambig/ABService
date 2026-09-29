@@ -12,6 +12,8 @@ import "player-study/style.css";
 import "./style.css";
 import { preparation, storageMessage } from "./preparation";
 import { connectMediaAnalysis } from "abservice-audio-worklet/media";
+import { probeRequested } from "abservice-visualizer";
+import { benchmarkAudio, createAudioProbe } from "./audio-probe";
 import { measured, presentation, probeReport } from "./presentation";
 
 /* Startup cost is measured from navigation start: script evaluated, library ready, first frame drawn. */
@@ -39,6 +41,23 @@ const visual = presentation(
   element("#visualizer-status", HTMLElement),
 );
 const analysisStatus = element("#analysis-status", HTMLElement);
+/* Audio-side observation follows the same hash as the frame probe. */
+const audioProbe = probeRequested(location.hash)
+  ? createAudioProbe()
+  : undefined;
+/* The device rate is known only once playback has created the AudioContext; before that the common rate is assumed. */
+const fallbackSampleRate = 48000;
+/*
+ * The benchmark and real playback are separate pieces of evidence: running both at once would let the worker and the
+ * decode load the Worklet and inflate its load and underruns. The benchmark waits for playback to stop, and playback
+ * waits for the benchmark.
+ */
+const benchmarkBlocked: readonly PlayerSnapshot["phase"][] = [
+  "loading",
+  "playing",
+];
+const benchmarkAllowed = (phase: PlayerSnapshot["phase"]): boolean =>
+  benchmarkBlocked.every((blocked) => blocked !== phase);
 const phases: Record<PlayerSnapshot["phase"], string> = {
   idle: "待機中",
   loading: "読み込み中",
@@ -64,7 +83,15 @@ const render = (
     data?.albums.find((album) => album.albumId === selection?.albumId)
       ?.title ?? "YOUR SELECTION";
   status.textContent = phases[state.phase];
-  play.disabled = ["idle", "loading", "error", "playing"].includes(state.phase);
+  const benchmarking = audioProbe?.benchmarking() === true;
+  play.disabled = [
+    benchmarking,
+    ["idle", "loading", "error", "playing"].includes(state.phase),
+  ].some(Boolean);
+  element("#probe-benchmark", HTMLButtonElement).disabled = [
+    benchmarking,
+    benchmarkBlocked.includes(state.phase),
+  ].some(Boolean);
   pause.disabled = state.phase !== "playing";
   stop.disabled = state.phase === "idle";
   retry.hidden =
@@ -178,14 +205,71 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
     }),
     (media, signal) => {
       analysisStatus.textContent = "";
-      return connectMediaAnalysis(media, signal, {
-        onFeatures: visual.update,
-        onReset: visual.reset,
+      /* Watching starts before connecting so that the last playback stats are copied before the connection is dropped. */
+      const attach = audioProbe?.watch(signal);
+      const connection = connectMediaAnalysis(media, signal, {
+        onFeatures:
+          audioProbe === undefined
+            ? visual.update
+            : (features) => {
+                audioProbe.features(features);
+                visual.update(features);
+              },
+        onReset:
+          audioProbe === undefined
+            ? visual.reset
+            : () => {
+                audioProbe.reset();
+                visual.reset();
+              },
         onError: () => {
           analysisStatus.textContent =
             "音響解析を利用できません。再生と操作は続けられます。";
         },
+        ...(audioProbe === undefined ? {} : { onLoad: audioProbe.load }),
       });
+      attach?.(connection);
+      return connection;
+    },
+  );
+  /* The benchmark decodes on the main thread, so it runs only when asked and never by itself. */
+  const runBenchmark = async (): Promise<void> => {
+    const probe = audioProbe;
+    const selected = controller.snapshot().playbackItemId;
+    const item =
+      items.find((entry) => entry.playbackItemId === selected) ?? items[0];
+    const measure = async (): Promise<void> => {
+      probe?.benchmark({ kind: "running" });
+      render(data, controller.snapshot());
+      report();
+      try {
+        const audio = await resolverFor(contract)(
+          (item as (typeof items)[number]).audioAssetId,
+          new AbortController().signal,
+        );
+        const outcome = await benchmarkAudio(
+          audio,
+          probe?.sampleRate() ?? fallbackSampleRate,
+        );
+        probe?.benchmark({ kind: "done", ...outcome });
+      } catch (error) {
+        probe?.benchmark({ kind: "failed", message: String(error) });
+      }
+      render(data, controller.snapshot());
+      report();
+    };
+    const ready = [
+      probe !== undefined,
+      probe?.benchmarking() === false,
+      item !== undefined,
+      benchmarkAllowed(controller.snapshot().phase),
+    ].every(Boolean);
+    await (ready ? measure() : Promise.resolve());
+  };
+  element("#probe-benchmark", HTMLButtonElement).addEventListener(
+    "click",
+    () => {
+      void runBenchmark();
     },
   );
   data.albums.forEach((album, index) => {
@@ -214,7 +298,9 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
     element("#library", HTMLElement).append(section);
   });
   play.addEventListener("click", () => {
-    void controller.play();
+    void (audioProbe?.benchmarking() === true
+      ? undefined
+      : controller.play());
   });
   pause.addEventListener("click", controller.pause);
   stop.addEventListener("click", controller.stop);
@@ -244,12 +330,17 @@ const start = async (): Promise<void> => {
   performance.mark("listening:ready");
 };
 /* The probe overlay is refreshed once a second, only when the hash asks for it. */
-const report = (): void => {
-  const text = probeReport();
+function report(): void {
+  const frames = probeReport();
+  const text =
+    frames === undefined
+      ? undefined
+      : [frames, ...(audioProbe?.report() ?? [])].join("\n");
   const overlay = element("#probe", HTMLElement);
   overlay.hidden = text === undefined;
   overlay.textContent = text ?? "";
-};
+  element("#probe-benchmark", HTMLButtonElement).hidden = text === undefined;
+}
 (probeReport() === undefined
   ? () => undefined
   : () => {
