@@ -297,6 +297,32 @@ test("一時停止でGPU資源を放し、再開で作り直して描画を続�
   expect((await observe(page)).errors).toEqual([]);
 });
 
+test("hashの負荷ノブで描画寸法とfpsを下げ、#probeでCPUとGPUを分けた観測と起動時の計測点を示す", async ({
+  page,
+}) => {
+  await prepare(page);
+  await expect(page.locator("#probe")).toBeHidden();
+  /* A hash-only change is a same-document navigation; reload so that the budget is read again. */
+  await page.goto("/offline-player/#probe&scale=0.5&fps=30");
+  await page.reload();
+  await selectAndPlay(page);
+  await expect(page.locator("#probe")).toBeVisible();
+  await expect(page.locator("#probe")).toContainText("budget dpr 2 scale 0.5");
+  await expect(page.locator("#probe")).toContainText(/cpu p50 [\d.]+/);
+  await expect(page.locator("#probe")).toContainText(/gpu \(submit→done\) p50 [\d.]+/);
+  await expect(page.locator("#probe")).toContainText(/interval p50 [\d.]+/);
+  await expect(page.locator("#probe")).toContainText("listening:script");
+  await expect(page.locator("#probe")).toContainText("listening:ready");
+  await expect(page.locator("#probe")).toContainText("listening:first-frame");
+  await expect(page.locator("#probe")).toContainText(/skipped [1-9]/);
+  const size = await page.locator("#visualizer").evaluate((canvas: HTMLCanvasElement) => ({
+    width: canvas.width,
+    expected: Math.floor(canvas.clientWidth * Math.min(devicePixelRatio, 2) * 0.5),
+  }));
+  expect(size.width).toBe(size.expected);
+  expect((await observe(page)).errors).toEqual([]);
+});
+
 test("WebGPU未対応でも音響解析と再生操作を維持する", async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "gpu", { value: undefined });

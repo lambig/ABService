@@ -1,7 +1,15 @@
 /* eslint-disable functional/immutable-data -- This adapter owns the current GPU session, animation callback and DOM status. */
 import type { AudioFeatures } from "abservice-audio-dsp";
 import type { PlayerSnapshot } from "abservice-player";
-import { mapFeatures, restingFrame } from "abservice-visualizer";
+import {
+  createProbe,
+  due,
+  mapFeatures,
+  parseBudget,
+  probeRequested,
+  restingFrame,
+} from "abservice-visualizer";
+import type { FrameProbe } from "abservice-visualizer";
 import { createRenderer } from "abservice-visualizer/renderer";
 import { superviseRenderer } from "abservice-visualizer/session";
 import type {
@@ -23,6 +31,35 @@ const settled: ReadonlySet<RendererStatus> = new Set<RendererStatus>([
   "degraded",
 ]);
 
+/* Budget and probe are read once from the hash: a query would keep the Service Worker from serving the page offline. */
+const budget = parseBudget(location.hash);
+const probe: FrameProbe | undefined = probeRequested(location.hash)
+  ? createProbe()
+  : undefined;
+
+/** 観測の要約と起動時の計測点。`#probe` のときだけ作る。 */
+export const probeReport = (): string | undefined => {
+  const summary = probe?.summary();
+  const marks = performance
+    .getEntriesByType("mark")
+    .filter((entry) => entry.name.startsWith("listening:"))
+    .map((entry) => `${entry.name} ${entry.startTime.toFixed(0)} ms`);
+  const format = (name: string, value?: { p50: number; p95: number; max: number }) =>
+    value === undefined
+      ? `${name} -`
+      : `${name} p50 ${value.p50.toFixed(2)} / p95 ${value.p95.toFixed(2)} / max ${value.max.toFixed(2)} ms`;
+  return summary === undefined
+    ? undefined
+    : [
+        ...marks,
+        `budget dpr ${String(budget.maxDevicePixelRatio)} scale ${String(budget.renderScale)} effects ${String(budget.effectDensity)} fps ${String(budget.targetFps)}`,
+        `frames ${String(summary.frames)} skipped ${String(summary.skipped)} pixels ${String(summary.pixels ?? 0)}`,
+        format("cpu", summary.cpu),
+        format("gpu (submit→done)", summary.gpu),
+        format("interval", summary.interval),
+      ].join("\n");
+};
+
 export const presentation = (
   canvas: HTMLCanvasElement,
   status: HTMLElement,
@@ -33,12 +70,16 @@ export const presentation = (
     frame: typeof restingFrame;
     animation: number | null;
     degraded: boolean;
+    drawnAt: number | undefined;
+    interval: number | undefined;
   } = {
     supervisor: null,
     phase: "idle",
     frame: restingFrame,
     animation: null,
     degraded: false,
+    drawnAt: undefined,
+    interval: undefined,
   };
   const cancelFrame = (): void => {
     (state.animation === null
@@ -82,6 +123,8 @@ export const presentation = (
   /* The GPU session lives only while playing; the frame and the degraded verdict outlive it across a pause. */
   const release = (keepStill: boolean): void => {
     cancelFrame();
+    state.drawnAt = undefined;
+    state.interval = undefined;
     const supervisor = state.supervisor;
     state.supervisor = null;
     /* A repeated pause snapshot has no session left and keeps the still it already has. */
@@ -98,12 +141,31 @@ export const presentation = (
     release(false);
     state.frame = restingFrame;
   };
+  /* A frame that comes sooner than the target fps is skipped, not drawn; the loop keeps running. */
   const draw = (): void => {
     state.animation = null;
     const supervisor = state.supervisor;
+    const now = performance.now();
+    const render = (running: RendererSupervisor): void => {
+      state.interval =
+        state.drawnAt === undefined ? undefined : now - state.drawnAt;
+      state.drawnAt = now;
+      running.render(state.frame);
+      (performance.getEntriesByName("listening:first-frame").length === 0
+        ? () => {
+            performance.mark("listening:first-frame");
+          }
+        : () => undefined)();
+    };
     (state.phase === "playing" && supervisor?.status() === "running"
       ? () => {
-          supervisor.render(state.frame);
+          (due(now, state.drawnAt, budget)
+            ? () => {
+                render(supervisor);
+              }
+            : () => {
+                probe?.skip();
+              })();
           state.animation = requestAnimationFrame(draw);
         }
       : () => undefined)();
@@ -115,7 +177,22 @@ export const presentation = (
       supervisor: undefined,
     };
     const supervisor = superviseRenderer({
-      create: (signal) => createRenderer(canvas, signal),
+      create: (signal) =>
+        createRenderer(canvas, signal, {
+          budget,
+          ...(probe === undefined
+            ? {}
+            : {
+                onSample: (sample) => {
+                  probe.record({
+                    ...sample,
+                    ...(state.interval === undefined
+                      ? {}
+                      : { intervalMs: state.interval }),
+                  });
+                },
+              }),
+        }),
       onStatus: (next) => {
         const current =
           own.supervisor !== undefined && state.supervisor === own.supervisor;

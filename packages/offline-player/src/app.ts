@@ -12,7 +12,10 @@ import "player-study/style.css";
 import "./style.css";
 import { preparation, storageMessage } from "./preparation";
 import { connectMediaAnalysis } from "abservice-audio-worklet/media";
-import { presentation } from "./presentation";
+import { presentation, probeReport } from "./presentation";
+
+/* Startup cost is measured from navigation start: script evaluated, library ready, first frame drawn. */
+performance.mark("listening:script");
 
 const element = <T extends HTMLElement>(
   selector: string,
@@ -237,5 +240,26 @@ const start = async (): Promise<void> => {
         open(active, data);
       }
     : () => undefined)();
+  performance.mark("listening:ready");
 };
+/* The probe overlay is refreshed once a second, only when the hash asks for it. */
+const report = (): void => {
+  const text = probeReport();
+  const overlay = element("#probe", HTMLElement);
+  overlay.hidden = text === undefined;
+  overlay.textContent = text ?? "";
+};
+(probeReport() === undefined
+  ? () => undefined
+  : () => {
+      report();
+      const timer = setInterval(report, 1000);
+      window.addEventListener(
+        "pagehide",
+        () => {
+          clearInterval(timer);
+        },
+        { once: true },
+      );
+    })();
 void start();
