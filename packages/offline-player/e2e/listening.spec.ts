@@ -662,7 +662,7 @@ test("音源の読み込みに失敗しても、別の作品を選び直せば�
     ).toBeGreaterThan(0);
     expect(await drawnWithTypeface(page, JAPANESE_SAMPLE)).toBe(true);
     await page.screenshot({
-      path: `test-results/listening-${orientation}.png`,
+      path: `test-results/listening-tablet-${orientation}.png`,
       fullPage: true,
     });
     await page.locator("#stop").click();
