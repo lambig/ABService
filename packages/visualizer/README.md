@@ -48,6 +48,21 @@ AudioFeaturesの帯域・onset意味論は `packages/audio-dsp` の実装のJSDo
 - `PresentationInput` は状態ごとに形を分ける。`idle` は表示内容を持たず、`error` は任意、それ以外は必ず持つ。成り立たない組み合わせは型の段階で作れない。
 - player の状態からこの出来事への写しは #476 C後半、rendererが表示内容を描くことは #479 B が受け持つ。
 
+## 描画セッションの監督と縮退（#291 A）
+
+`src/session.ts` の `superviseRenderer` は、1つの描画セッションのrendererの寿命を監督する。rendererを作る関数は呼び出し側が渡す（GPUなしで単体試験できる）。
+
+- device lostでは今のrendererを破棄し、作り直しを**1回だけ**試す。描画中の例外もlostと同じに扱う。
+- 作り直しが失敗するか、作り直したrendererもまたlostしたら `degraded` へ移り、無限に再試行しない。WebGPUが使えない・初期化に失敗した場合も `degraded`。
+- `degraded` で止めるのは描画だけ。再生・作品情報・操作は呼び出し側で保つ。
+- `dispose` の後は、遅れて完了したrendererも破棄し、lostも無視する。
+- 回転・fullscreen復帰は、rendererが毎フレームcanvas寸法を照合して追う（作り直さない）。
+
+`offline-player` は再生のたびにこの監督を作り、一時停止・停止・選曲・pagehideで破棄する。GPU資源を持つのは再生中だけ。
+
+- 一時停止では、GPU資源を放す直前に今の構図を静止画へ写してcanvasの背景に敷き、直前の構図を保つ（#479 paused）。描画値と縮退の判定は一時停止をまたいで残す。
+- 再開で新しい監督を作り、描き始めるか縮退した時点で静止画を外す。一度縮退した描画は、停止・選曲するまで作り直さない。
+
 ## ブラウザ検証
 
 ```sh
