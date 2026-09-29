@@ -7,6 +7,8 @@
 
 ## 境界の理由
 
+`PlayerSnapshot` は phase で形が決まる。シーク中は `phase: "seeking"` になり、その状態だけがシーク後の戻り先 `resumeTo`（再生中からのシークは `playing`、それ以外は `paused`）を持つ。media の `seeked` で戻り先へ移る。シーク中に再生すると戻り先が `playing` に変わり、一時停止するとシークを抜けて `paused` になる。表示と操作の可否には、シーク中を戻り先として扱う `settledPhase` を使う。
+
 再生・シーク・FLACデコードはブラウザのmedia実装へ委ねる。PCM全体を独自デコードしたり、
 AudioWorkletやWASMを再生操作の前提にしたりしない。音響解析・描画は別の接続対象として扱う。
 

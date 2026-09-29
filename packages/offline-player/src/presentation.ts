@@ -4,12 +4,13 @@ import type { PlayerSnapshot } from "abservice-player";
 import {
   createProbe,
   due,
+  followPlayback,
   mapFeatures,
   parseBudget,
   probeRequested,
   restingFrame,
 } from "abservice-visualizer";
-import type { FrameProbe } from "abservice-visualizer";
+import type { FrameProbe, PresentationState } from "abservice-visualizer";
 import { createRenderer } from "abservice-visualizer/renderer";
 import { superviseRenderer } from "abservice-visualizer/session";
 import type {
@@ -24,6 +25,12 @@ const messages = {
   degraded: "描画を利用できません。再生と操作は続けられます。",
   resting: "再生すると音に合わせて描画します",
 } as const;
+
+/* Drawing continues through a seek that began while playing; the frame is back at rest by then. */
+const drawing: ReadonlySet<PresentationState> = new Set<PresentationState>([
+  "playing",
+  "seeking",
+]);
 
 /* A session has settled once it can draw or has given up drawing. */
 const settled: ReadonlySet<RendererStatus> = new Set<RendererStatus>([
@@ -81,7 +88,8 @@ export const presentation = (
 ) => {
   const state: {
     supervisor: RendererSupervisor | null;
-    phase: PlayerSnapshot["phase"];
+    presentation: PresentationState;
+    observed: PlayerSnapshot | undefined;
     frame: typeof restingFrame;
     animation: number | null;
     degraded: boolean;
@@ -89,13 +97,15 @@ export const presentation = (
     interval: number | undefined;
   } = {
     supervisor: null,
-    phase: "idle",
+    presentation: "idle",
+    observed: undefined,
     frame: restingFrame,
     animation: null,
     degraded: false,
     drawnAt: undefined,
     interval: undefined,
   };
+  canvas.dataset["presentationState"] = state.presentation;
   const cancelFrame = (): void => {
     (state.animation === null
       ? () => undefined
@@ -152,9 +162,12 @@ export const presentation = (
       : thaw)();
     supervisor?.dispose();
   };
+  const reset = (): void => {
+    state.frame = restingFrame;
+  };
   const dispose = (): void => {
     release(false);
-    state.frame = restingFrame;
+    reset();
   };
   /* A frame that comes sooner than the target fps is skipped, not drawn; the loop keeps running. */
   const draw = (): void => {
@@ -177,7 +190,7 @@ export const presentation = (
       probe?.cycle(work.pendingMs + performance.now() - now);
       work.pendingMs = 0;
     };
-    (state.phase === "playing" && supervisor?.status() === "running"
+    (drawing.has(state.presentation) && supervisor?.status() === "running"
       ? () => {
           (due(now, state.drawnAt, budget)
             ? () => {
@@ -237,8 +250,13 @@ export const presentation = (
     state.supervisor = supervisor;
     status.textContent = messages.starting;
   };
+  /* The presentation state, not the player phase, decides the GPU lifetime; a seek while playing keeps drawing from rest. */
   const sync = (snapshot: PlayerSnapshot): void => {
-    state.phase = snapshot.phase;
+    const step = followPlayback(state.presentation, state.observed, snapshot);
+    state.observed = snapshot;
+    state.presentation = step.state;
+    canvas.dataset["presentationState"] = step.state;
+    (step.resetFrame ? reset : () => undefined)();
     const playing = (): void => {
       (state.supervisor === null
         ? state.degraded
@@ -248,8 +266,14 @@ export const presentation = (
           ? draw
           : () => undefined)();
     };
+    /* A seek that began paused has no session to draw with and keeps the still. */
+    const seeking = (): void => {
+      (state.supervisor !== null && state.animation === null
+        ? draw
+        : () => undefined)();
+    };
     const stopped = (): void => {
-      (snapshot.phase === "paused"
+      (step.state === "paused"
         ? () => {
             release(true);
             status.textContent = state.degraded
@@ -262,10 +286,11 @@ export const presentation = (
             status.textContent = messages.resting;
           })();
     };
-    (snapshot.phase === "playing" ? playing : stopped)();
-  };
-  const reset = (): void => {
-    state.frame = restingFrame;
+    (step.state === "playing"
+      ? playing
+      : step.state === "seeking"
+        ? seeking
+        : stopped)();
   };
   const update = (features: AudioFeatures): void => {
     state.frame = mapFeatures(features, state.frame);

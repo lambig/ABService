@@ -12,6 +12,7 @@ type Probe = {
   errors: string[];
   devices: GPUDevice[];
   released: number;
+  states: string[];
 };
 type Scope = typeof globalThis & { listeningProbe: Probe };
 test.beforeEach(async ({ context }) => {
@@ -24,8 +25,26 @@ test.beforeEach(async ({ context }) => {
       errors: [],
       devices: [],
       released: 0,
+      states: [],
     };
     (globalThis as Scope).listeningProbe = probe;
+    /* Every change of the presentation state is kept, including a seek that lasts only a moment. */
+    new MutationObserver((records) => {
+      records.forEach((record) => {
+        const value = (record.target as HTMLElement).dataset[
+          "presentationState"
+        ];
+        (value !== undefined && probe.states.at(-1) !== value
+          ? () => {
+              probe.states.push(value);
+            }
+          : () => undefined)();
+      });
+    }).observe(document, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-presentation-state"],
+    });
     /* eslint-disable-next-line @typescript-eslint/unbound-method -- Native method is invoked with its actual adapter receiver. */
     const requestDevice = GPUAdapter.prototype.requestDevice;
     GPUAdapter.prototype.requestDevice = async function (...args) {
@@ -428,6 +447,65 @@ test("#probeで音声側の通知・Workletの平均負荷・音切れを示し�
   /* The overlay is refreshed once a second; wait for a refresh after the connection is gone. */
   await page.waitForTimeout(1100);
   expect(await played()).toBeGreaterThanOrEqual(beforeStop);
+  expect((await observe(page)).errors).toEqual([]);
+});
+
+test("プレイヤーの状態から試聴画面の状態を進め、シークを挟んでも選択・再生・一時停止・停止の順に移る", async ({
+  page,
+}) => {
+  const states = () =>
+    page.evaluate(() => (globalThis as Scope).listeningProbe.states);
+  const canvas = page.locator("#visualizer");
+  await prepare(page);
+  await selectAndPlay(page);
+  await expect(canvas).toHaveAttribute("data-presentation-state", "playing");
+  /* A seek while playing goes through seeking and comes back to playing. */
+  await page.locator("#seek").fill("3");
+  await expect(canvas).toHaveAttribute("data-presentation-state", "playing");
+  await page.locator("#pause").click();
+  await expect(canvas).toHaveAttribute("data-presentation-state", "paused");
+  /* A seek while paused comes back to paused; the GPU stays released. */
+  const devices = await page.evaluate(
+    () => (globalThis as Scope).listeningProbe.devices.length,
+  );
+  await page.locator("#seek").fill("1");
+  await expect(canvas).toHaveAttribute("data-presentation-state", "paused");
+  expect(
+    await page.evaluate(
+      () => (globalThis as Scope).listeningProbe.devices.length,
+    ),
+  ).toBe(devices);
+  await page.locator("#play").click();
+  await expect(canvas).toHaveAttribute("data-presentation-state", "playing");
+  await page.locator("#stop").click();
+  await expect(canvas).toHaveAttribute("data-presentation-state", "selected");
+  expect(await states()).toEqual([
+    "idle",
+    "selected",
+    "playing",
+    "seeking",
+    "playing",
+    "paused",
+    "seeking",
+    "paused",
+    "playing",
+    "selected",
+  ]);
+  expect((await observe(page)).errors).toEqual([]);
+});
+
+test("最後まで再生すると終了へ移り、選び直すと前の作品の状態を残さずに選択へ戻る", async ({
+  page,
+}) => {
+  const canvas = page.locator("#visualizer");
+  await prepare(page);
+  await selectAndPlay(page, "Air study");
+  await page.locator("#seek").fill("4.8");
+  await expect(canvas).toHaveAttribute("data-presentation-state", "ended");
+  await expect(page.locator("#play-status")).toHaveText("再生終了");
+  await page.getByRole("button", { name: "Reel study", exact: true }).click();
+  await expect(page.locator("#play-status")).toHaveText("再生できます");
+  await expect(canvas).toHaveAttribute("data-presentation-state", "selected");
   expect((await observe(page)).errors).toEqual([]);
 });
 

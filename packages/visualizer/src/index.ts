@@ -1,7 +1,8 @@
 import type { AudioFeatures } from "abservice-audio-dsp";
 
-export { transition } from "./state";
+export { followPlayback, playbackEvents, transition } from "./state";
 export type {
+  PlaybackObservation,
   PresentationContent,
   PresentationEvent,
   PresentationInput,

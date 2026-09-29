@@ -46,7 +46,9 @@ AudioFeaturesの帯域・onset意味論は `packages/audio-dsp` の実装のJSDo
 - その状態で起きえない出来事（例: `idle` での `play`、`seeking` 以外での `seeked`）では状態を変えない。順序の乱れた通知から状態を作らない。
 - rendererへの入力は `PresentationInput`（状態・`PresentationFrame`・作品の表示内容）だけ。rendererはAudioFeatures・Manifest・playerを参照しない。表示内容は検証済みの表示データ（`packages/listening-presentation`）の作品 `ListeningAlbum` をそのまま渡し、どの事実をどう見せるかは renderer の側が決める。`listening-presentation` へは型だけで依存する。
 - `PresentationInput` は状態ごとに形を分ける。`idle` は表示内容を持たず、`error` は任意、それ以外は必ず持つ。成り立たない組み合わせは型の段階で作れない。
-- player の状態からこの出来事への写しは #476 C後半、rendererが表示内容を描くことは #479 B が受け持つ。
+- `followPlayback(state, previous, next)` は再生の観測（`PlaybackObservation`）の前後から出来事を作り（`playbackEvents`）、状態を進める。新しい読み込みは select、停止して選択が残れば stop・残らなければ clear、`seeking` に入れば seek、出れば出た先の再生の有無を持つ seeked。位置の更新だけの観測からは出来事を作らない。
+- visualizer は player に依存しない。`PlaybackObservation` は `abservice-player` の `PlayerSnapshot` が構造的に満たす形だけを受け取る（`listening-presentation` に置くと、その型に依存する visualizer との間で依存が循環するため）。
+- rendererが表示内容を描くことは #479 B が受け持つ。
 
 ## 描画セッションの監督と縮退（#291 A）
 

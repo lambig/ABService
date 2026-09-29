@@ -6,8 +6,12 @@ import {
 } from "abservice-listening-presentation";
 import type { PresentationData } from "abservice-listening-presentation";
 import { createAssetStore } from "abservice-offline-storage";
-import { createPlayer } from "abservice-player";
-import type { LocalAssetResolver, PlayerSnapshot } from "abservice-player";
+import { createPlayer, settledPhase } from "abservice-player";
+import type {
+  LocalAssetResolver,
+  PlayerSnapshot,
+  SettledPhase,
+} from "abservice-player";
 import "player-study/style.css";
 import "./style.css";
 import { preparation, storageMessage } from "./preparation";
@@ -52,13 +56,13 @@ const fallbackSampleRate = 48000;
  * decode load the Worklet and inflate its load and underruns. The benchmark waits for playback to stop, and playback
  * waits for the benchmark.
  */
-const benchmarkBlocked: readonly PlayerSnapshot["phase"][] = [
+const benchmarkBlocked: readonly SettledPhase[] = [
   "loading",
   "playing",
 ];
-const benchmarkAllowed = (phase: PlayerSnapshot["phase"]): boolean =>
+const benchmarkAllowed = (phase: SettledPhase): boolean =>
   benchmarkBlocked.every((blocked) => blocked !== phase);
-const phases: Record<PlayerSnapshot["phase"], string> = {
+const phases: Record<SettledPhase, string> = {
   idle: "待機中",
   loading: "読み込み中",
   ready: "再生できます",
@@ -82,22 +86,24 @@ const render = (
   element("#album-title", HTMLElement).textContent =
     data?.albums.find((album) => album.albumId === selection?.albumId)
       ?.title ?? "YOUR SELECTION";
-  status.textContent = phases[state.phase];
+  /* A seek is shown as where it returns to; the presentation state follows the seek itself. */
+  const phase = settledPhase(state);
+  status.textContent = phases[phase];
   const benchmarking = audioProbe?.benchmarking() === true;
   play.disabled = [
     benchmarking,
-    ["idle", "loading", "error", "playing"].includes(state.phase),
+    ["idle", "loading", "error", "playing"].includes(phase),
   ].some(Boolean);
   element("#probe-benchmark", HTMLButtonElement).disabled = [
     benchmarking,
-    benchmarkBlocked.includes(state.phase),
+    benchmarkBlocked.includes(phase),
   ].some(Boolean);
-  pause.disabled = state.phase !== "playing";
-  stop.disabled = state.phase === "idle";
+  pause.disabled = phase !== "playing";
+  stop.disabled = phase === "idle";
   retry.hidden =
     state.playbackItemId === null
       ? true
-      : ["idle", "error"].includes(state.phase)
+      : ["idle", "error"].includes(phase)
         ? false
         : true;
   seek.disabled = state.duration === 0;
@@ -262,7 +268,7 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
       probe !== undefined,
       probe?.benchmarking() === false,
       item !== undefined,
-      benchmarkAllowed(controller.snapshot().phase),
+      benchmarkAllowed(settledPhase(controller.snapshot())),
     ].every(Boolean);
     await (ready ? measure() : Promise.resolve());
   };
