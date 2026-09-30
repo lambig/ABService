@@ -23,12 +23,15 @@ class Transport(unittest.TestCase):
         def git(args, **kwargs):
             calls.append(args)
             return SimpleNamespace(returncode=0, stdout=b"# source from committed git object\n")
-        with patch.object(cohost.subprocess, "run", side_effect=git):
+        manifest = {"1": {"script": "V1__Fixture.sql", "description": "Fixture", "checksum": 1}}
+        with patch.object(cohost.subprocess, "run", side_effect=git), patch.object(cohost.runpy, "run_path") as module:
+            module.return_value = {"image_migrations": lambda image: manifest}
             params = cohost.parameters(Path("candidate"), "a" * 40, IMAGE)
         self.assertEqual(len(calls), 2)
         self.assertTrue(all(args[:4] == ["git", "-C", "candidate", "show"] for args in calls))
         payload = json.loads(base64.b64decode(params["commands"][0].split()[-1]))
         self.assertEqual(payload["source"], "a" * 40)
+        self.assertEqual(payload["migrations"], manifest)
         self.assertEqual(set(payload["files"]), {"deploy.py", "init-db.sh"})
         self.assertEqual(params["executionTimeout"], [str(cohost.EXECUTION_TIMEOUT)])
         self.assertIn("timeout --kill-after=10s 630s", params["commands"][0])
@@ -43,7 +46,8 @@ class Transport(unittest.TestCase):
             with self.assertRaises(ValueError):
                 cohost.parameters(Path("."), source, image)
         for result in (SimpleNamespace(returncode=1, stdout=b""), SimpleNamespace(returncode=0, stdout=b"a" * 100000)):
-            with patch.object(cohost.subprocess, "run", return_value=result), self.assertRaises(ValueError):
+            with patch.object(cohost.subprocess, "run", return_value=result), patch.object(cohost.runpy, "run_path") as module, self.assertRaises(ValueError):
+                module.return_value = {"image_migrations": lambda image: {"fixture": {}}}
                 cohost.parameters(Path("."), "a" * 40, IMAGE)
 
     def fake_aws(self, statuses):

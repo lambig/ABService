@@ -5,6 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import runpy
 import subprocess
 import sys
 import tempfile
@@ -41,8 +42,10 @@ def parameters(checkout, source, image):
             raise ValueError("Candidate lacks the cohost deployment files")
         files[name] = {"content": base64.b64encode(result.stdout).decode(),
                        "sha256": hashlib.sha256(result.stdout).hexdigest()}
-    payload = base64.b64encode(json.dumps({"source": source, "image": image, "files": files}).encode()).decode()
     installer = Path(__file__).resolve().parents[1] / "host/cohost/install_release.py"
+    migrations = runpy.run_path(str(installer))["image_migrations"](image)
+    payload = base64.b64encode(json.dumps({"source": source, "image": image, "files": files,
+                                         "migrations": migrations}).encode()).decode()
     code = base64.b64encode(installer.read_bytes()).decode()
     # Both substitutions are base64, never shell fragments supplied by an operator.
     # timeout terminates the remote process group before the SSM execution limit.

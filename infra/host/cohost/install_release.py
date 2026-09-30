@@ -12,12 +12,108 @@ import re
 import subprocess
 import sys
 import tempfile
+import uuid
+import zipfile
+import zlib
 
 FILES = ("deploy.py", "init-db.sh")
 
 
+def migration_manifest(jar):
+    """Read the shipped SQL, never a checkout or an image-supplied manifest."""
+    migrations = {}
+    with zipfile.ZipFile(jar) as archive:
+        for entry in archive.infolist():
+            if not entry.filename.startswith("db/migration/") or entry.is_dir():
+                continue
+            match = re.fullmatch(r"db/migration/V([1-9][0-9]*)__([^/]+)\.sql", entry.filename)
+            if not match or entry.file_size > 4 * 1024 * 1024:
+                raise ValueError("Unsupported migration layout")
+            version = match[1]
+            if version in migrations:
+                raise ValueError("Duplicate migration version")
+            # Flyway SQL checksum: UTF-8, optional leading BOM, CRC32 without
+            # CR/LF separators, interpreted as a signed Java int. Runtime tests
+            # compare this with history written by the real bundled Flyway.
+            sql = archive.read(entry).decode("utf-8-sig")
+            checksum = zlib.crc32(sql.replace("\r", "").replace("\n", "").encode("utf-8"))
+            if checksum >= 2 ** 31:
+                checksum -= 2 ** 32
+            migrations[version] = {"script": entry.filename.rsplit("/", 1)[1],
+                                   "description": match[2].replace("_", " ")[:200], "checksum": checksum}
+    if not migrations:
+        raise ValueError("Candidate has no supported migrations")
+    return migrations
+
+
+def check_history(migrations, history):
+    if not isinstance(history, list) or not history:
+        raise ValueError("No applied migration history")
+    applied = set()
+    for row in history:
+        version = row.get("version")
+        candidate = migrations.get(version)
+        if (not candidate or version in applied or row.get("success") is not True
+                or row.get("type") != "SQL"
+                # Quarkus records the classpath-relative name; standalone Flyway
+                # can record only the filename. No other path aliases are accepted.
+                or row.get("script") not in (candidate["script"], "db/migration/" + candidate["script"])
+                or any(row.get(key) != candidate[key] for key in ("description", "checksum"))):
+            raise ValueError("Candidate migrations do not match the applied database history")
+        applied.add(version)
+    # Default Flyway out-of-order=false would skip an unapplied older migration.
+    if any(int(version) < max(map(int, applied)) for version in migrations.keys() - applied):
+        raise ValueError("Candidate contains an unapplied older migration")
+
+
+def captured(args, execute=subprocess.run):
+    result = execute(args, capture_output=True, timeout=180)
+    if result.returncode:
+        raise RuntimeError("Migration preflight command failed; inspect host privately")
+    return result.stdout.decode()
+
+
+def image_migrations(image, execute=subprocess.run):
+    """Extract from the digest already pulled/verified by the authenticated runner."""
+    with tempfile.TemporaryDirectory(prefix="cohost-migration-") as directory:
+        jar = Path(directory) / "app.jar"
+        container = "cohost-migration-" + uuid.uuid4().hex
+        try:
+            # Never start the candidate, mount production storage or pass credentials.
+            captured(["docker", "create", "--name", container, "--network", "none", image], execute)
+            captured(["docker", "cp", container + ":/deployments/app.jar", str(jar)], execute)
+            return migration_manifest(jar)
+        finally:
+            captured(["docker", "rm", "-fv", container], execute)
+
+
+def preflight(migrations, state, execute=subprocess.run):
+    """Read-only history gate before replacing scripts/config or stopping the app.
+
+    This is deliberately stricter than Flyway ignore patterns. It is not a proof
+    of DDL/data compatibility or a substitute for isolated upgrade testing.
+    """
+    current = json.loads((state / "current.json").read_text())
+    name = current["name"]
+    database = current["compose"]["services"]["postgres"]["environment"]["POSTGRES_DB"]
+    if not re.fullmatch(r"[a-z][a-z0-9-]{0,39}", name) or not re.fullmatch(r"[a-z][a-z0-9_]{0,62}", database):
+        raise ValueError("Unsupported current database identity")
+    with tempfile.TemporaryDirectory(prefix="cohost-migration-") as directory:
+        directory = Path(directory)
+        compose = directory / "current.compose.json"
+        replace(compose, json.dumps(current["compose"]).encode())
+        query = ("BEGIN READ ONLY; SET LOCAL statement_timeout='10s'; "
+                 "SELECT json_agg(h ORDER BY installed_rank) FROM "
+                 "(SELECT installed_rank, version, description, type, script, checksum, success "
+                 "FROM public.flyway_schema_history) h; COMMIT;")
+        output = captured(["docker", "compose", "--env-file", "/dev/null", "-p", name, "-f", str(compose),
+                          "exec", "-T", "postgres", "psql", "-X", "-qAt", "-v", "ON_ERROR_STOP=1",
+                          "-U", "postgres", "-d", database, "-c", query], execute)
+        check_history(migrations, json.loads(output))
+
+
 def validate(payload):
-    if set(payload) != {"source", "image", "files"}:
+    if set(payload) != {"source", "image", "files", "migrations"}:
         raise ValueError("Invalid release fields")
     if not re.fullmatch(r"[a-f0-9]{40}", payload["source"]):
         raise ValueError("Invalid source")
@@ -25,6 +121,16 @@ def validate(payload):
         raise ValueError("Invalid image")
     if set(payload["files"]) != set(FILES):
         raise ValueError("Invalid file set")
+    migrations = payload["migrations"]
+    if not isinstance(migrations, dict) or not migrations:
+        raise ValueError("Missing image migration manifest")
+    for version, item in migrations.items():
+        if (not re.fullmatch(r"[1-9][0-9]*", version) or not isinstance(item, dict)
+                or set(item) != {"script", "description", "checksum"}
+                or not re.fullmatch(r"V" + version + r"__[^/]+\.sql", item["script"])
+                or item["description"] != item["script"].split("__", 1)[1][:-4].replace("_", " ")[:200]
+                or type(item["checksum"]) is not int or not -(2 ** 31) <= item["checksum"] < 2 ** 31):
+            raise ValueError("Invalid image migration manifest")
     decoded = {}
     for name in FILES:
         entry = payload["files"][name]
@@ -74,6 +180,7 @@ def install(payload, root=Path("/"), execute=subprocess.run):
     with lock.open("a") as stream:
         os.chmod(lock, 0o600)
         fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        preflight(payload["migrations"], state, execute)
         # Validate everything before changing either file. A failed install never
         # invokes the entrypoint; a retry writes the complete pair again.
         for name, data in decoded.items():
