@@ -100,7 +100,7 @@ test('every public build uses checked generation metadata; recovery builds both 
   assert.match(build, /RELEASE_SHA: \$\{\{ steps.source.outputs.code_sha \}\}/);
   assert.match(build, /node ..\/delivery\/infra\/release\/build-public.mjs/);
   assert.doesNotMatch(build, /npm run build:public/);
-  assert.match(build, /if \[ "\$ACTION" != rebuild-public \]; then npm run build:admin; fi/);
+  assert.match(build, /if \[ "\$ACTION" != rebuild-public \]; then\s+npm run build:admin\s+npm run build:offline-player\s+node ..\/delivery\/infra\/release\/listening-artifacts.mjs packages\/offline-player\/dist listening-release\s+fi/);
   assert.match(frontend, /node delivery\/infra\/release\/frontend.mjs status/);
 });
 

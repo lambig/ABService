@@ -1,4 +1,5 @@
 /* eslint-disable functional/immutable-data -- DOM描画とイベント登録をデモ境界に閉じ、プレイヤーのsnapshotを表示する。 */
+import "./runtime-policy";
 import type { InstallationManifest } from "abservice-installation";
 import {
   artworkAssetIds,

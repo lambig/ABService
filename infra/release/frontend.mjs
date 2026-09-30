@@ -5,6 +5,7 @@ import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { listeningFiles } from './listening-artifacts.mjs';
 import { readGenerationSync, validateGeneration } from './generation.mjs';
 
 // The archive is private. Only the two live buckets are CloudFront origins.
@@ -25,9 +26,11 @@ const validSite = (value) => {
   return url.origin;
 };
 export const validateManifest = (record) => {
-  assert.ok([1, 2].includes(record.version), 'Invalid release manifest version');
-  if (record.version === 2) validateGeneration(record.public.generation);
-  ['public', 'admin'].forEach((site) => {
+  assert.ok([1, 2, 3].includes(record.version), 'Invalid release manifest version');
+  if (record.version >= 2) validateGeneration(record.public.generation);
+  if (record.version === 3) assert.ok(record.listening === null || (record.listening && typeof record.listening === 'object'), 'Missing listening release state');
+  if (record.version < 3) assert.ok(!Object.hasOwn(record, 'listening'), 'Legacy manifest cannot carry listening');
+  ['public', 'admin', ...(record.listening ? ['listening'] : [])].forEach((site) => {
     const entry = record[site];
     sha(entry.codeSha); releaseId(entry.releaseId);
     assert.ok(Array.isArray(entry.files) && entry.files.length > 0);
@@ -38,6 +41,11 @@ export const validateManifest = (record) => {
       assert.match(file.sha256, /^[a-f0-9]{64}$/);
     });
     assert.ok(entry.files.some((file) => file.path === 'index.html'));
+    if (site === 'listening') {
+      assert.equal(entry.codeSha, record.admin.codeSha, 'Listening/admin code generations differ');
+      assert.ok(entry.files.some((file) => file.path === 'sw.js'));
+      assert.ok(entry.files.every((file) => /^(?:index\.html|sw\.js|releases\/[a-f0-9]{64}\/(?:index\.html|assets\/[a-zA-Z0-9_.\/-]+))$/.test(file.path)), 'Unexpected listening artifact');
+    }
   });
   return record;
 };
@@ -66,7 +74,7 @@ export const deploymentDecision = (previous, target, isAncestor = gitAncestor) =
 // /admin or /assets when refreshing only public content.
 export const invalidationPaths = (entries, site) => [...new Set(entries.flatMap((entry) => entry?.files ?? [])
   .flatMap(({ path }) => {
-    const key = `${site === 'admin' ? '/admin/' : '/'}${path}`;
+    const key = `${site === 'admin' ? '/admin/' : site === 'listening' ? '/offline-player/' : '/'}${path}`;
     const directory = path.endsWith('index.html') ? key.slice(0, -'index.html'.length) : null;
     return [key, ...(directory === null ? [] : [directory, ...(directory === '/' ? [] : [directory.slice(0, -1)])])];
   }))].sort();
@@ -139,13 +147,25 @@ export const createDelivery = (config, aws = execute, generation = () => readGen
   const archive = (site, root, id, codeSha) => {
     const files = filesUnder(root).map((path) => ({ path, sha256: digest(join(root, path)) }));
     assert.ok(files.some((file) => file.path === 'index.html'), `${site}: missing index.html`);
-    assert.ok(files.some((file) => file.path === '404.html'), `Missing ${site} 404.html`);
-    assert.ok(site !== 'public' || files.every((file) => !/^(admin|assets|api)(\/|$)/.test(file.path)), 'Public artifacts overlap another origin');
+    assert.ok(site === 'listening' || files.some((file) => file.path === '404.html'), `Missing ${site} 404.html`);
+    assert.ok(site !== 'public' || files.every((file) => !/^(admin|assets|api|offline-player)(\/|$)/.test(file.path)), 'Public artifacts overlap another origin');
+    if (site === 'listening') assert.deepEqual(files.map((file) => file.path), listeningFiles(root), 'Unexpected listening build files');
     const entry = { releaseId: id, codeSha, files };
     call('s3', 'sync', root, `s3://${config.releaseBucket}/releases/${id}/${site}/`, '--only-show-errors');
     return entry;
   };
   const transfer = (site, root) => {
+    if (site === 'listening') {
+      const destination = `s3://${config.adminBucket}/offline-player/`;
+      if (!root) {
+        call('s3', 'rm', destination, '--recursive', '--only-show-errors');
+        return;
+      }
+      // Keep immutable old shells for already-open documents; switch the worker last.
+      call('s3', 'sync', join(root, 'releases'), `${destination}releases/`, '--cache-control', 'public,max-age=31536000,immutable', '--only-show-errors');
+      for (const file of ['index.html', 'sw.js']) call('s3', 'cp', join(root, file), `${destination}${file}`, '--cache-control', 'no-cache', '--content-type', file === 'sw.js' ? 'text/javascript' : 'text/html', '--only-show-errors');
+      return;
+    }
     const destination = `s3://${site === 'public' ? config.publicBucket : config.adminBucket}/${site === 'admin' ? 'admin/' : ''}`;
     // Upload dependencies before HTML. The final sync removes withdrawn pages.
     call('s3', 'sync', root, destination, '--exclude', '*', '--include', '_astro/*', '--cache-control', 'public,max-age=31536000,immutable', '--only-show-errors');
@@ -162,7 +182,7 @@ export const createDelivery = (config, aws = execute, generation = () => readGen
     });
   };
   const complete = (previous, record, sites, roots, id) => {
-    assert.equal(record.version, 2, 'Legacy artifacts have no public data generation; rebuild current data');
+    assert.ok(record.version >= 2, 'Legacy artifacts have no public data generation; rebuild current data');
     const requireCurrentData = () => assert.equal(validateGeneration(generation()), record.public.generation,
       'Public data changed; rebuild current data (use recover when pending exists)');
     requireCurrentData();
@@ -171,17 +191,19 @@ export const createDelivery = (config, aws = execute, generation = () => readGen
     write('pending.json', { id, previous, target: record, sites });
     requireCurrentData();
     sites.forEach((site) => transfer(site, roots[site]));
-    invalidate(sites.flatMap((site) => invalidationPaths([previous?.[site], record[site]], site)), id);
+    invalidate(sites.flatMap((site) => site === 'listening'
+      ? ['/offline-player', '/offline-player/*']
+      : invalidationPaths([previous?.[site], record[site]], site)), id);
     requireCurrentData();
     write('current.json', record);
     call('s3api', 'delete-object', '--bucket', config.releaseBucket, '--key', 'pending.json');
     return record;
   };
-  const affectedPrevious = (previous, pending) => pending ? Object.fromEntries(['public', 'admin'].map((site) => [site, {
+  const affectedPrevious = (previous, pending) => pending ? Object.fromEntries(['public', 'admin', 'listening'].map((site) => [site, {
     files: [...(previous?.[site]?.files ?? []), ...(pending.previous?.[site]?.files ?? []),
-      ...validateManifest(pending.target)[site].files],
+      ...(validateManifest(pending.target)[site]?.files ?? [])],
   }])) : previous;
-  const publish = ({ action, codeSha, id, publicRoot, adminRoot, buildMetadata }) => {
+  const publish = ({ action, codeSha, id, publicRoot, adminRoot, listeningRoot, buildMetadata }) => {
     releaseId(id); sha(codeSha);
     if (action !== 'recover') clean();
     if (action === 'recover') assert.equal(recoveryTarget().public.codeSha, codeSha, 'Recovery must use incomplete target code');
@@ -190,10 +212,11 @@ export const createDelivery = (config, aws = execute, generation = () => readGen
     if (action === 'deploy') requireAccepted(codeSha);
     assert.ok(action !== 'rebuild-public' || previous?.public.codeSha === codeSha, 'Rebuild must use the currently deployed public SHA');
     assert.equal(read(`manifests/${id}.json`), null, 'Release ID already exists');
-    const sites = action === 'rebuild-public' ? ['public'] : ['public', 'admin'];
-    const roots = { public: resolve(publicRoot), admin: adminRoot ? resolve(adminRoot) : null };
-    // Validate both builds before writing either live origin.
-    sites.forEach((site) => ['index.html', '404.html'].forEach((file) =>
+    const sites = action === 'rebuild-public' ? ['public'] : ['public', 'admin', 'listening'];
+    const roots = { public: resolve(publicRoot), admin: adminRoot ? resolve(adminRoot) : null, listening: listeningRoot ? resolve(listeningRoot) : null };
+    // Validate all builds before writing any live origin.
+    if (roots.listening) assert.deepEqual(filesUnder(roots.listening), listeningFiles(roots.listening), 'Unexpected listening build files');
+    sites.filter((site) => site !== 'listening').forEach((site) => ['index.html', '404.html'].forEach((file) =>
       assert.ok(filesUnder(roots[site]).includes(file), `Missing ${site} ${file}`)));
     assert.equal(buildMetadata?.version, 1, 'Missing public build generation record');
     assert.equal(buildMetadata.codeSha, codeSha, 'Build code differs from selected code');
@@ -201,38 +224,40 @@ export const createDelivery = (config, aws = execute, generation = () => readGen
     assert.deepEqual(buildMetadata.files, filesUnder(roots.public).map((path) => ({ path, sha256: digest(join(roots.public, path)) })),
       'Public artifacts differ from generation-checked build');
     assert.equal(validateGeneration(generation()), buildMetadata.generation, 'Public data changed since SSG; rebuild current data');
-    const entries = Object.fromEntries(sites.map((site) => [site, archive(site, roots[site], id, codeSha)]));
+    const entries = Object.fromEntries(sites.map((site) => [site, roots[site] ? archive(site, roots[site], id, codeSha) : null]));
     assert.deepEqual(entries.public.files, buildMetadata.files, 'Public artifacts changed while archiving');
-    const record = validateManifest({ ...previous, ...entries,
-      public: { ...entries.public, generation: buildMetadata.generation }, version: 2, deliveredAt: new Date().toISOString() });
+    const record = validateManifest({ listening: previous?.listening ?? null, ...previous, ...entries,
+      public: { ...entries.public, generation: buildMetadata.generation }, version: 3, deliveredAt: new Date().toISOString() });
     write(`manifests/${id}.json`, record);
     return complete(affectedPrevious(previous, read('pending.json')), record, sites, roots, id);
   };
   const rollback = ({ targetId, id }) => {
     releaseId(targetId); releaseId(id);
     const record = validateManifest(read(`manifests/${targetId}.json`));
-    assert.equal(record.version, 2, 'Legacy artifacts have no public data generation; rebuild current data');
+    assert.ok(record.version >= 2, 'Legacy artifacts have no public data generation; rebuild current data');
     assert.equal(validateGeneration(generation()), record.public.generation, 'Archived public data is obsolete; rebuild current data');
     ['public', 'admin'].forEach((site) => assert.ok(record[site].files.some((file) => file.path === '404.html'),
       `Archived ${site} has no 404.html; deploy a build with static error pages`));
     const previous = current();
     const pending = read('pending.json');
-    const roots = Object.fromEntries(['public', 'admin'].map((site) => {
+    const roots = Object.fromEntries(['public', 'admin', 'listening'].map((site) => {
       const entry = record[site];
+      if (!entry) return [site, null];
       const root = join(directory, site);
       call('s3', 'sync', `s3://${config.releaseBucket}/releases/${entry.releaseId}/${site}/`, root, '--only-show-errors');
       assert.deepEqual(filesUnder(root), entry.files.map((file) => file.path).sort(), 'Archive files differ from manifest');
       entry.files.forEach((file) => assert.equal(digest(join(root, file.path)), file.sha256, `Archive checksum mismatch: ${site}/${file.path}`));
+      if (site === 'listening') assert.deepEqual(filesUnder(root), listeningFiles(root));
       return [site, root];
     }));
     // A failed target may have introduced cached paths absent from current.json.
     const invalidatedPrevious = affectedPrevious(previous, pending);
-    return complete(invalidatedPrevious, record, ['public', 'admin'], roots, id);
+    return complete(invalidatedPrevious, record, ['public', 'admin', 'listening'], roots, id);
   };
   const status = () => {
     const savedGeneration = validateGeneration(generation());
     const active = current();
-    const deliveredGeneration = active?.version === 2 ? active.public.generation : null;
+    const deliveredGeneration = active?.version >= 2 ? active.public.generation : null;
     const pending = read('pending.json') !== null;
     return { savedGeneration, deliveredGeneration, codeSha: active?.public.codeSha ?? null,
       pending, needsRebuild: pending || savedGeneration !== deliveredGeneration };
@@ -277,6 +302,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     },
     publish: () => delivery.publish({ action, codeSha: env.RELEASE_SHA, id: env.RELEASE_ID,
       publicRoot: 'source/frontend-public/dist', adminRoot: 'source/frontend-admin/dist',
+      listeningRoot: action === 'rebuild-public' ? undefined : 'source/listening-release',
       buildMetadata: JSON.parse(readFileSync('source/public-build.json', 'utf8')) }),
     rollback: () => delivery.rollback({ targetId: env.TARGET_RELEASE_ID, id: env.RELEASE_ID }),
     status: () => {

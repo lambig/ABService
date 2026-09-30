@@ -9,6 +9,16 @@ const select = (files, extra = {}) => browserSelection({ event: 'pull_request', 
 const only = (plan, ids) => assert.deepEqual(Object.entries(browserOutputs(plan)).filter(([, v]) => v).map(([k]) => k).sort(),
   ids.map((id) => `browser_${id.replaceAll('-', '_')}`).sort());
 
+test('listening delivery changes select the staged-shell browser acceptance on PR and main', () => {
+  for (const file of ['infra/release/listening-artifacts.mjs', 'infra/release/frontend.mjs',
+    'infra/release/check-listening-browser.mjs', 'infra/functions/listening-request.js.tftpl',
+    'infra/headers/listening-csp.txt', 'infra/cohost-edge/main.tf']) {
+    for (const extra of [{}, { event: 'push', ref: 'refs/heads/main' }]) {
+      assert.deepEqual(select([file], extra)['offline-player'], ['packages/offline-player/e2e/delivery.spec.ts']);
+    }
+  }
+});
+
 test('scenario-only PRs select exact files; scenario changes on main remain an exception', () => {
   for (const [id, suite] of Object.entries(browserSuites)) {
     const file = `${suite.location}/${suite.specs}/changed.spec.ts`;

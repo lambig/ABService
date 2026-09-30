@@ -39,8 +39,8 @@ run "disabled_preparation" {
     error_message = "Keep the existing default API response wait."
   }
   assert {
-    condition     = !aws_cloudfront_distribution.main.enabled && aws_cloudfront_distribution.main.price_class == "PriceClass_All" && length(aws_cloudfront_distribution.main.aliases) == 0 && length(aws_cloudfront_distribution.main.ordered_cache_behavior) == 3
-    error_message = "Preparation must keep global delivery disabled, without aliases, and retain all four routes."
+    condition     = !aws_cloudfront_distribution.main.enabled && aws_cloudfront_distribution.main.price_class == "PriceClass_All" && length(aws_cloudfront_distribution.main.aliases) == 0 && length(aws_cloudfront_distribution.main.ordered_cache_behavior) == 4
+    error_message = "Preparation must keep global delivery disabled, without aliases, and retain all five routes."
   }
   assert {
     condition     = alltrue([for b in concat(tolist(aws_cloudfront_distribution.main.default_cache_behavior), tolist(aws_cloudfront_distribution.main.ordered_cache_behavior)) : b.response_headers_policy_id == null && length(b.forwarded_values) == 0 && length(b.lambda_function_association) == 1 && length([for f in b.function_association : f if f.event_type == "viewer-response"]) == 1])
@@ -51,13 +51,38 @@ run "disabled_preparation" {
     error_message = "API must forward authentication and writes without caching."
   }
   assert {
-    condition     = toset([for o in aws_cloudfront_distribution.main.origin : o.origin_id]) == toset(["public", "admin", "assets", "api"]) && local.header_noindex.public && local.header_noindex.admin
+    condition     = toset([for o in aws_cloudfront_distribution.main.origin : o.origin_id]) == toset(["public", "admin", "assets", "api", "listening"]) && local.header_noindex.public && local.header_noindex.admin && local.header_noindex.listening
     error_message = "Release archives must never be served, and preview/admin HTML must stay noindex."
   }
   assert {
     condition     = alltrue([for f in aws_cloudfront_function.security_response : length(f.code) < 10000])
     error_message = "Generated CloudFront Functions must fit the code-size limit."
   }
+  assert {
+    condition     = strcontains(aws_cloudfront_function.listening_request.code, "var enabled = false;") && alltrue([for o in aws_cloudfront_distribution.main.origin : o.origin_path == "/offline-player" if o.origin_id == "listening"])
+    error_message = "Listening must start closed and use only its private prefix."
+  }
+}
+run "explicit_listening_enablement" {
+  command = plan
+  variables {
+    listening_enabled       = true
+    listening_audio_origins = ["https://audio.example.invalid"]
+  }
+  assert {
+    condition     = strcontains(aws_cloudfront_function.listening_request.code, "var enabled = true;") && strcontains(local.security_headers.policies.listening, "connect-src 'self' https://audio.example.invalid;") && !strcontains(local.security_headers.policies.public, "audio.example.invalid")
+    error_message = "Listening opt-in and download CSP must not widen the public policy."
+  }
+}
+run "reject_wildcard_audio_origin" {
+  command = plan
+  variables { listening_audio_origins = ["https://*.example.invalid"] }
+  expect_failures = [var.listening_audio_origins]
+}
+run "reject_csp_injection" {
+  command = plan
+  variables { listening_audio_origins = ["https://audio.example.invalid; script-src *"] }
+  expect_failures = [var.listening_audio_origins]
 }
 run "explicit_api_response_wait" {
   command = plan

@@ -2,7 +2,30 @@
 
 通常のコード配布はmain上の **Deploy** を `action=release` で起動し、候補検証 → frontend配布記録のpreflight → backend Deploy成功 → Deploy frontendの順に進む。入力・候補の更新・緊急修正は [リリース手順](../../docs/RELEASE_WORKFLOW.md) を参照。mainへの統合では自動配布しない。候補検証とpreflightのhelperは起動時のmain SHA、通常のfrontend配布helperとビルド対象はbackendが実際に配った候補full SHAに固定する。preflightはfrontendロールでpending不在とcurrentの読取り・形式を検査し、失敗するとbackendへ進まない。初回のcurrent不在は許すが、権限・通信・JSONエラーは初回扱いしない。
 
-内容の変更だけを配る場合は GitHub Actions の **Deploy frontend** を main から実行し、`action=rebuild-public` を選ぶ。公開中の public の SHA を記録から取得し、管理画面はビルド・配布しない。手動操作のhelperは起動時のmain SHAを使う。初回の配布記録が無い間は再ビルドできない。
+内容の変更だけを配る場合は GitHub Actions の **Deploy frontend** を main から実行し、`action=rebuild-public` を選ぶ。公開中の public の SHA を記録から取得し、管理画面・試聴アプリはビルド・配布しない。手動操作のhelperは起動時のmain SHAを使う。初回の配布記録が無い間は再ビルドできない。
+
+## 試聴アプリの配布
+
+通常配布とrecoverはpublic/adminに加え、候補SHAの `build:offline-player` を実行する。
+`listening-artifacts.mjs` はshell宣言と全ファイルのSHA-256、rootと世代付きindexの一致を照合し、
+`index.html`・`sw.js`・宣言された `releases/<revision>/` だけを専用stagingへコピーする。
+dist全体を配らない。`audio/` のpreview音源・未version化のassets・検証APIは対象外。
+
+新しいrelease manifest v3は `listening` にコードSHA・archive ID・ファイルのhashを持つ。
+private admin bucketの `/offline-player/` に、immutable shell → index → workerの順に配置する。
+公開中の旧ページを壊さないため旧shellは保持し、currentはinvalidationと公開データ世代照合後だけ進める。
+途中失敗は従来どおりpendingを残す。rebuild-publicはlisteningの記録と実体を保持する。
+
+rollbackはpublic/admin/listeningを同じ記録へ戻し、listeningのarchiveも集合・hash・shell宣言を照合する。
+v2の既存記録には試聴アプリが無いため、その記録へ戻すとliveの `/offline-player/` prefixを削除し、
+`/offline-player` と `/offline-player/*` を失効する。archiveは保持する。v1は公開データ世代が無いため引き続き復元不可。
+この移行後のv3を旧helperで扱わない。手動復旧はv3対応のmainから起動する。
+
+HTTPS経路と公開制御は [cohost-edge](../cohost-edge/README.md#offline-listening-route) を先に準備する。
+このルート追加はcohost-edge用で、legacy rootのCloudFrontへは自動導入しない。
+配布ロールにはadmin bucketの `/offline-player/*` にGet/Put/DeleteとbucketのList、従来のrelease archive・invalidation権限が必要。
+実環境でロールを別管理している場合も専用prefixに限定して更新する。
+実音源は端末認証したAPIから署名URLで取得し、このstatic originへ格納しない。
 
 ## 操作の排他と再実行
 
@@ -60,10 +83,10 @@ Actions Summaryの `savedGeneration` は照会時のDB保存済み世代、`deli
 
 切り戻しは同じworkflowで `action=rollback` と `release_id=<戻すrun番号>-<attempt>` を指定する。**現在の保存済み世代と一致する記録だけ**、コードを再ビルドせず保存済み成果物へ戻せる。旧形式・異なる世代・世代APIの失敗ではliveへ書き始めない。アーカイブのファイル集合とハッシュも検査する。失敗した配布で新たに生まれたURLも失効対象にする。
 
-- frontendの切り戻しは **public/admin両方**を指定記録へ戻す。内容だけを更新した記録でも、対応するadminの世代を保持している。
+- frontendの切り戻しは **public/admin/listening**を指定記録へ戻す。内容だけを更新した記録でも、対応するadmin/listeningの世代を保持している。
 - backend・DB・画像の復元は別操作。DB自体の過去への復元は撤回前の世代も戻すため、この照合だけでは防げない。[../README.md](../README.md#バックアップと復旧130) の順序（再ビルドの前に管理画面で確かめる）で扱う。
 - 初回配布が途中失敗した場合は、作成済みmanifestの成果物が正しければ、そのIDへのrollbackで配布を完了できる。初回配布には「前の正常配布」が無い。
-- pendingを手で消して次へ進まない。同世代の正常な成果物が無い場合（途中更新・撤回を含む）は `action=recover` でpendingの対象コードSHAと最新データからpublic/adminを再ビルドする。初回配布失敗でcurrentが無い場合も使える。世代照合・両画面の配布・invalidationが完了してからcurrentを更新してpendingを消す。再度失敗しても、以前の途中配布が作ったURLを失効対象から落とさない。pendingが無いとrecoverは拒否する。通常配布受理のコードSHAは変更しない。
+- pendingを手で消して次へ進まない。同世代の正常な成果物が無い場合（途中更新・撤回を含む）は `action=recover` でpendingの対象コードSHAと最新データからpublic/admin/listeningを再ビルドする。初回配布失敗でcurrentが無い場合も使える。世代照合・全成果物の配布・invalidationが完了してからcurrentを更新してpendingを消す。再度失敗しても、以前の途中配布が作ったURLを失効対象から落とさない。pendingが無いとrecoverは拒否する。通常配布受理のコードSHAは変更しない。
 - 保存期間によるアーカイブの自動削除は設定しない。実際に戻せる記録を決めてから運用側で整理する。
 
 ## 受け入れ確認
