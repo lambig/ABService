@@ -1,7 +1,7 @@
 # 開発状況
 
 > **このドキュメントの位置づけ**
-> 実装がどこまで通っているかの現状だけを持つ。**残タスクは持たない**。残作業と進捗は各 issue とリリース別 milestone、順序と依存は [ロードマップ #224](https://github.com/lambig/ABService/issues/224) が正。バージョン未定の横断バックログは「v1.0以降」、v1.0 の機能スコープの定義は #132。
+> 実装がどこまで通っているかの現状だけを持つ。**残タスクは持たない**。残作業と進捗は各 issue とリリース別 milestone、順序と依存は [ロードマップ #224](https://github.com/lambig/ABService/issues/224) が正。現在のv1.10は [#110](https://github.com/lambig/ABService/issues/110) が実装の依存関係と残工数、[#195](https://github.com/lambig/ABService/issues/195) がリリース範囲と受け入れを持つ。バージョン未定の横断バックログは「v1.0以降」。
 > 実装済みの構造・スキーマ・APIは実コードが正のため、ここでは再記述しない。設計判断は [DECISIONS.md](DECISIONS.md)、構成・境界は [ARCHITECTURE.md](ARCHITECTURE.md)、規約と強制ルールは [CODING_GUIDELINES.md](CODING_GUIDELINES.md)。
 
 ---
@@ -22,7 +22,9 @@ Article / Tune / Album の3集約で domain → application → REST → 統合�
 
 E2E（Playwright）は実スタックに対して公開サイト・管理画面の両方を通し、同じ実行からレビュー証跡を出す（#164）。証跡は `evidence` 孤立ブランチへ PR ごとに置く。E2E のシードと初期データのローダ（`packages/seed-loader`）は同じ管理APIクライアント（`packages/admin-api`）を通り、ローダは無いものだけを作って公開後の内容の正を DB に残す。
 
-試聴機能は公開・管理画面から独立した PoC として存在する。保存済みManifest・shell・音源によるオフライン再生と、AudioWorkletの特徴量によるVisualizerの駆動を接続している。合成音源とブラウザ検査による確認は、実音源・対象端末での可聴出力や長時間動作、本番の配布・準備の受け入れを意味しない。
+試聴機能は公開・管理画面から独立したアプリとして、認証付き配布のclient、パッケージの準備・更新・復旧、保存済みManifest・shell・音源によるオフライン起動と再生を接続している。作品の表示データから作品情報・曲目・再生項目を表示し、試聴画面の状態とAudioWorkletの特徴量でVisualizerを駆動する。非公開FLACの登録・認証付き配布はbackendにあり、日本語フォントはshellに同梱する。
+
+ブラウザ検査は合成素材による準備・オフライン再生・更新失敗からの復旧・状態遷移を確認する。現行の見た目は仮の表現であり、画面全体のインスタレーション体験の完成、実音源・対象Androidでの可聴出力や長時間動作、本番の配布・準備の受け入れを意味しない。操作と検証範囲は [試聴アプリの説明](../packages/offline-player/README.md) を参照する。
 
 経路・担い手・地域に紐づく頒布情報・入手経路の実体は実装を持たない（作品が持つのは基準額まで）。帰属が（作品 × 発表）であり、発表を第一級の概念にする設計とセットで作る（#201）。
 
@@ -34,4 +36,5 @@ E2E（Playwright）は実スタックに対して公開サイト・管理画面�
 - 構成・境界・経路: [ARCHITECTURE.md](ARCHITECTURE.md)。AWS構成とデプロイは `infra/README.md`
 - 規約と強制ルールの索引: [CODING_GUIDELINES.md](CODING_GUIDELINES.md)。テスト分離規約は `backend/TEST_GUIDE.md`
 - リリースの順序と依存関係: [ロードマップ #224](https://github.com/lambig/ABService/issues/224)
-- リリースに向けた整備タスク: milestone「リリース v1.0」。v1.0 の機能スコープの定義は #132
+- 現在のリリース: [v1.10 milestone](https://github.com/lambig/ABService/milestone/3)、[実装・依存関係 #110](https://github.com/lambig/ABService/issues/110)、[範囲・受け入れ #195](https://github.com/lambig/ABService/issues/195)
+- v1.0 の機能スコープ: [#132](https://github.com/lambig/ABService/issues/132)
