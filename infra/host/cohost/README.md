@@ -1,9 +1,10 @@
 # 単一ホストのアプリ＋PostgreSQL（opt-in）
 
 `deploy.py` は Linux 上で digest 固定の backend と PostgreSQL 15 を起動する。
-既存の EC2/RDS Terraform、`deploy.yml`、`docker-compose.prod.yml` は変更しない。
-この経路はまだ既存 Actions/SSM 配布へ接続していない。検証済みソースをホストへ配置し、
-管理者または SSM の明示コマンドとして実行する。コードとイメージは同じ検査済み SHA を使う。
+既存の EC2/RDS Terraform、`docker-compose.prod.yml`とは独立した経路。
+`deploy.yml`は`BACKEND_DEPLOY_TARGET=cohost-amd64`の明示指定で、検証済み候補の
+イメージとスクリプトを固定SSM入口へ渡す（[配布設定](../../release/README.md#cohostのbackend配布)）。
+未設定は従来のEC2/arm64経路を維持する。コードとイメージは同じ検査済み SHA を使う。
 本番配備、Free 配信、バックアップ完了を意味しない。
 
 ## ホストの準備

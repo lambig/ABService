@@ -237,14 +237,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.application == 'true' }}
     name: Container and prod configuration (image build / boot)
-    # 本番の EC2 は arm64（infra/compute.tf が arm64 の AMI を選ぶ）。deploy.yml が arm の
-    # ランナーで作る経路は CI では走らないため、本番の形の検査を同じ架構で行い、イメージが
-    # その架構で組み上がるところまでここで見る
     runs-on: ubuntu-24.04-arm
-
-    # E2E が起動するのは dev プロファイルの JAR であり、本番が動かす形とは別物。ここで見るのは
-    # 本番と同じ経路（Dockerfile.jvm のイメージを docker-compose.prod.yml で起動する）。
-    # 起動に必要な値は compose のファイルが渡すものだけなので、受け渡しの漏れは起動の失敗として出る。
     env:
       COMPOSE_FILE: docker-compose.yml:docker-compose.prod.yml:docker-compose.ci.yml
       BACKEND_IMAGE: abservice-backend:ci
@@ -258,135 +251,33 @@ jobs:
       ORIGIN_VERIFY_TOKEN: ci-origin-verify-token
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # 必須の一覧は宣言から自動で拾うため、宣言そのものを弱める変更は「必須が1つ減った」としか
-      # 見えず、後続の検査も素通りする。弱い値で本番が動くことを意味する設定はここで名指しして守る
-      - name: Check the required prod settings stay required
-        run: scripts/check-prod-settings-stay-required.sh
-
-      # 宣言があるだけでは値は本番へ届かない。Parameter Store から取って compose へ渡すまでの経路が
-      # 繋がっていることを、イメージを作る前に見る。運ぶ経路が無い形は、起動してみるまで表に出ない
-      - name: Check the prod configuration reaches the container
-        run: scripts/check-prod-config-wiring.sh
-
-      # デプロイのたびに SSM が実機へ配るファイル。リポジトリでもコンテナでも動かないため、
-      # 壊れていても他の検査には現れず、差し替えの最中の実機で初めて分かる
-      - name: Check the files the deploy sends to the host
-        run: scripts/check-deploy-payload.sh
-
-      # jar はランナー上の Gradle で組む（deploy.yml と同じ手順）。Dockerfile はそれを包むだけで、
-      # コンテナの中で Gradle を回さない（#431。コンテナ内では build cache が効かず、毎回冷えた状態になる）
-      - name: Set up JDK 25 (Corretto)
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/check-container
         with:
-          distribution: corretto
-          java-version: '25'
+          architecture: arm64
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+  container-check-amd64:
+    needs: changes
+    if: ${{ needs.changes.outputs.application == 'true' }}
+    name: Container and prod configuration (amd64 image build / boot)
+    runs-on: ubuntu-24.04
+    env:
+      COMPOSE_FILE: docker-compose.yml:docker-compose.prod.yml:docker-compose.ci.yml
+      BACKEND_IMAGE: abservice-backend:ci
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: abservice
+      DB_USERNAME: abservice
+      DB_PASSWORD: abservice
+      ADMIN_API_KEY: ci-admin-api-key
+      ASSETS_BUCKET: abservice-assets
+      ORIGIN_VERIFY_TOKEN: ci-origin-verify-token
 
-      - name: Ensure gradlew is executable
-        run: chmod +x backend/gradlew
-
-      - name: Build backend
-        run: backend/gradlew -p backend --no-daemon --console=plain quarkusBuild
-
-      # デプロイと同じ Dockerfile。壊れていることに気付けるのが deploy.yml の実行時では遅い
-      - name: Build the production image
-        run: docker build -f backend/src/main/docker/Dockerfile.jvm -t abservice-backend:ci backend
-
-      # 実機が動かせる架構であること。ランナーの種類が変わると、ECR へ入るのは実機で動かない
-      # イメージになるが、それが分かるのはデプロイの最中になる
-      - name: Verify the image architecture matches the host
-        run: |
-          ARCH="$(docker image inspect "$BACKEND_IMAGE" --format '{{.Architecture}}')"
-          if [ "$ARCH" != "arm64" ]; then
-            echo "The image is $ARCH, but the instance runs arm64 (infra/compute.tf uses the arm64 AMI)." >&2
-            exit 1
-          fi
-          echo "image architecture: $ARCH"
-
-      # prod の compose は DB の起動を待たない（本番の接続先は RDS で、同じ compose には居ない）。
-      # backend は起動時にマイグレーションを行うため、先に DB を用意しておく
-      - name: Start PostgreSQL
-        run: docker compose up -d --wait --wait-timeout 120 postgres
-
-      # prod は設定が無いときに弱い既定値へ倒れず起動を失敗させる（DECISIONS 34）。倒れる側へ戻ると、
-      # 本番が既定のバケットや開発用の API キーで動きうる。欠かす設定は1つずつで、
-      # まとめて欠かすと1つが既定値を持つ側へ戻っても残りの欠落で失敗し続け、戻ったことに気付けない
-      - name: Fail to start when any single required setting is missing
-        run: scripts/check-prod-required-settings.sh
-
-      - name: Start the production stack
-        run: docker compose up -d --wait --wait-timeout 240 backend
-
-      # readiness は DB 接続確認を含む。マイグレーションまで通っていることがここで分かる。
-      # 公開ポート経由はコンテナの外から来るため、配信が付ける値を添える（コンテナ自身の
-      # healthcheck は loopback から引くので添えない）
-      - name: Check readiness through the published port
-        run: |
-          curl -fsS -H "X-Origin-Verify: $ORIGIN_VERIFY_TOKEN" http://localhost:8080/q/health/ready
-
-      # deploy.sh が healthy の後に出す「稼働 image」の行を、配るファイルからそのまま取り出して
-      # 実コンテナに対して走らせる。構文と配線の検査では拾えない（inspect の項目の有無は動かして
-      # 初めて分かる）。手元でビルドしたイメージは RepoDigests を持たないため、image ID が出ることまでを見る
-      - name: Run the running-image line of deploy.sh against the real container
-        run: |
-          line="$(grep -E '^echo "running image: ' infra/host/deploy.sh)"
-          if [ "$(wc -l <<<"$line")" -ne 1 ]; then
-            echo "infra/host/deploy.sh must contain exactly one 'echo \"running image: ...\"' line." >&2
-            exit 1
-          fi
-          output="$(bash -euo pipefail -c "$line")"
-          echo "$output"
-          case "$output" in
-          "running image: sha256:"*) ;;
-          *)
-            echo "The running-image line did not report the image ID." >&2
-            exit 1
-            ;;
-          esac
-
-      # 自分の配信を経由しない要求は届かない。ここが素通りするなら、別の配信から WAF と
-      # 経路の振り分けを迂回してオリジンへ届く（#286）
-      - name: Reject requests that did not come through the distribution
-        run: |
-          if curl -fsS http://localhost:8080/q/health/ready; then
-            echo "The origin answered a request that carried no verification header." >&2
-            exit 1
-          fi
-          if curl -fsS -H "X-Origin-Verify: wrong-token" http://localhost:8080/q/health/ready; then
-            echo "The origin answered a request that carried a wrong verification header." >&2
-            exit 1
-          fi
-
-      # 起動を始めたことを成功にしていないこと。データベースを止めれば backend は起動に失敗し、
-      # --wait はそれを unhealthy として返す。ここが素通りするなら、本番でも壊れたデプロイが緑で
-      # 終わる（deploy.sh も同じ待ち方をする）。期限は、起動し続けるが healthy にならない場合の保険
-      - name: Fail when the stack does not become healthy
-        run: |
-          docker compose rm -sf backend
-          docker compose stop postgres
-          if docker compose up -d --wait --wait-timeout 120 backend; then
-            echo "The stack reported success while the database was down." >&2
-            exit 1
-          fi
-
-      - name: Show backend log
-        if: ${{ failure() }}
-        run: docker compose logs backend
-
-      - name: Stop the stack
-        if: ${{ always() }}
-        run: docker compose down -v
-
-      - name: Check opt-in colocated database deployment
-        run: |
-          python3 -m unittest discover -s infra/host/cohost -p 'test_*.py'
-          python3 infra/host/cohost/check_runtime.py --image abservice-backend:ci
-          python3 infra/host/cohost/check_origin.py
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/check-container
+        with:
+          architecture: amd64
 
   iac-check:
     needs: changes
@@ -806,7 +697,7 @@ jobs:
 
   ci-gate:
     name: CI gate
-    needs: [changes, backend-check, frontend-check, api-types-check, container-check, iac-check, e2e, listening-check, player-browser, storage-browser, shell-browser, offline-player-browser, audio-worklet-browser, visualizer-browser]
+    needs: [changes, backend-check, frontend-check, api-types-check, container-check, container-check-amd64, iac-check, e2e, listening-check, player-browser, storage-browser, shell-browser, offline-player-browser, audio-worklet-browser, visualizer-browser]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5

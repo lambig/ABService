@@ -27,6 +27,51 @@ HTTPS経路と公開制御は [cohost-edge](../cohost-edge/README.md#offline-lis
 実環境でロールを別管理している場合も専用prefixに限定して更新する。
 実音源は端末認証したAPIから署名URLで取得し、このstatic originへ格納しない。
 
+## cohostのbackend配布
+
+Deployの`BACKEND_DEPLOY_TARGET`は未設定または`ec2-arm64`で従来経路、
+`cohost-amd64`で単一hostの明示的な更新経路を選ぶ。未知の値は拒否する。
+後者には`COHOST_MANAGED_NODE_ID`（登録済みSSM managed node）、`ECR_REPOSITORY`、
+`AWS_DEPLOY_ROLE_ARN`と既存のfrontend配布変数が必要。実値は非公開運用側で管理する。
+CIはarm64/amd64の両方で同じproduction image build・起動・cohost runtime検査を実行し、
+候補の全件検査とCI gateは両ジョブを要求する。古いCI結果では新候補を配れない。
+
+cohostのAWSロールはmainのOIDCだけを信頼し、対象ECRへのbuild/push・digest照会・pullによるplatform検査、
+指定managed nodeとAWS-RunShellScriptへの`ssm:SendCommand`、
+`ssm:GetCommandInvocation`を許可する。legacy rootの権限チェックはcohostの実IAMを保証しない。
+音源bucket・DB・SSM秘密値の読取り権限をActionsへ追加しない。
+pullには対象ECR repositoryに限定した`ecr:GetDownloadUrlForLayer`も必要。
+legacy rootの配布ロールも同じ検査のためこの権限を持ち、別管理のロールは運用側で反映する。
+
+ホストはLinux/Python/Dockerに加えGNU `timeout`を用意し、固定入口
+`/opt/abservice/host_deploy.py update`を運用側で配置しておく。この入口は
+`/etc/abservice/cohost.json`と`release.json`を読み、専用の短期deploy資格情報でECRへloginし、
+`/opt/abservice/infra/host/cohost/deploy.py`を同じ`/var/lib/abservice/cohost`で実行する契約。
+SSM Agentの資格情報を使わず、秘密を含む子プロセス出力を抑止すること。
+bootstrap・DB初期化・資格情報・origin proxy設定はこのworkflowの対象外。
+
+controllerは起動時main SHAの`cohost.py`/`install_release.py`を使う。
+ホストへ渡す`deploy.py`と`init-db.sh`は候補SHAのGit objectから取得し、checksumを添付する。
+ホストでは`cohost-delivery.lock`を取得して検証・原子的なファイル置換・固定入口の実行まで排他にする。
+既存の設定・入口・DB初期化記録が欠ける場合は更新を拒否する。
+Actions外の手動配布も同じ外側ロックを取得するか、実行中の配布がないことを確認してから行う。
+内部の`deploy.lock`は既存どおりDB/アプリ更新を保護する。
+
+SSM転送60秒・実行660秒・poll780秒を上限とし、remote process groupは630秒＋強制終了猶予10秒で止める。
+Success/ResponseCode=0に加え、固定入口の結果としてcurrentとhealthy attemptのsource/image一致を要求する。
+失敗・判定不能ならfrontendへ進まない。判定不能時はSSM commandと保護されたhost状態を確認してから再試行する。
+SSM stdout/stderrやhost stateの生値をActionsへ出さない。
+
+rollbackは既存tagのimageを再buildせず、指定SHAのhost scriptsで同じ更新入口を使う。
+新規build・既存tagの再利用とも、SSM送信前に配布digestをECRからrunnerへpullし、
+Linuxと選択targetのarchitectureの一致を検査する。imageを実行する検査ではない。
+取得・inspect失敗やplatform不一致ならrelease/rollbackを停止し、別architectureへの自動再buildはしない。
+`sha-<commit>`はarchitecture非依存なので、targetだけを切り替えて既存tagを流用する運用は不可。
+architectureを移行する場合は別ECR repositoryを用意し、そこで新しい配布候補を検証する。
+rollbackも選択target用の保存済みimageが必要で、異なるarchitectureのimageへは戻せない。
+候補にcohost scriptsがない場合は拒否する。DB互換性の確認は引き続き運用者が行い、DB自動巻戻しは行わない。
+通常候補の検証・排他・前進履歴、backend成功後だけのfrontend配布は従来と共通。
+
 ## 操作の排他と再実行
 
 通常配布は `deploy-production` をpreflightからbackend/frontend完了まで保持する。手動frontend再ビルド・rollbackと手動backend rollbackも同じgroupで待つ。通常の再利用frontendは親がロックを保持しているため、run固有のgroupを使って親のロックを再取得しない。
