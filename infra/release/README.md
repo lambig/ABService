@@ -65,6 +65,9 @@ HTTPS経路と公開制御は [cohost-edge](../cohost-edge/README.md#offline-lis
 
 Deployの`BACKEND_DEPLOY_TARGET`は未設定または`ec2-arm64`で従来経路、
 `cohost-amd64`で単一hostの明示的な更新経路を選ぶ。未知の値は拒否する。
+未設定の互換動作は直接dispatchだけ。`source_repository`/`controller_sha`を渡す再利用呼出しでは
+`ec2-arm64`または`cohost-amd64`を明示必須とし、空値・未知値はpreflight/backend双方のAWS認証前に拒否する。
+設定欠落で別architectureのimageをimmutable tagへpushすることを防ぐ。
 後者には`COHOST_MANAGED_NODE_ID`（登録済みSSM managed node）、`ECR_REPOSITORY`、
 `AWS_DEPLOY_ROLE_ARN`と既存のfrontend配布変数が必要。実値は非公開運用側で管理する。
 CIはarm64/amd64の両方で同じproduction image build・起動・cohost runtime検査を実行し、

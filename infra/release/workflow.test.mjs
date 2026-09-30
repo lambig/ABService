@@ -133,9 +133,30 @@ test('controller refs and source names fail closed before checkout and AWS acces
       ['', 'a'.repeat(40), false], ['https://example.test/source', 'a'.repeat(40), false],
     ]) {
       const result = spawnSync(process.env.TEST_BASH || 'bash', ['--noprofile', '--norc', '-e', '-c', script], {
-        env: { ...process.env, SOURCE_REPOSITORY: repository, CONTROLLER_SHA: sha }, encoding: 'utf8',
+        env: { ...process.env, SOURCE_REPOSITORY: repository, CONTROLLER_SHA: sha, TARGET: 'ec2-arm64' }, encoding: 'utf8',
       });
       assert.equal(result.status === 0, pass, result.error?.message || `${repository} / ${sha}`);
+    }
+  }
+});
+
+test('reusable release and rollback reject missing target before AWS or ECR; direct legacy dispatch remains compatible', () => {
+  for (const name of ['preflight', 'deploy']) {
+    const block = job(deploy, name);
+    const validation = block.split('- name: Validate source and controller inputs before checkout')[1].split('\n      - ')[0];
+    assert.match(validation, /TARGET: \$\{\{ vars.BACKEND_DEPLOY_TARGET \}\}/);
+    assert.ok(block.indexOf(validation) < block.indexOf('aws-actions/configure-aws-credentials'));
+    if (name === 'deploy') assert.ok(block.indexOf(validation) < block.indexOf('aws-actions/amazon-ecr-login'));
+    const script = `${validation}\n`.match(/run: \|\n((?:          .*\n)+)/)[1].replace(/^          /gm, '');
+    for (const [reusable, target, pass] of [
+      [true, '', false], [true, 'unknown', false], [true, 'ec2-arm64', true],
+      [true, 'cohost-amd64', true], [false, '', true],
+    ]) {
+      const result = spawnSync(process.env.TEST_BASH || 'bash', ['--noprofile', '--norc', '-e', '-c', script], {
+        env: { ...process.env, SOURCE_REPOSITORY: reusable ? 'owner/source' : '',
+          CONTROLLER_SHA: reusable ? 'a'.repeat(40) : '', TARGET: target }, encoding: 'utf8',
+      });
+      assert.equal(result.status === 0, pass, result.error?.message || `${name}: reusable=${reusable}, target=${target}: ${result.stderr}`);
     }
   }
 });

@@ -82,10 +82,15 @@ jobs:
         env:
           SOURCE_REPOSITORY: ${{ inputs.source_repository }}
           CONTROLLER_SHA: ${{ inputs.controller_sha }}
+          TARGET: ${{ vars.BACKEND_DEPLOY_TARGET }}
         run: |
           if [ -n "$SOURCE_REPOSITORY$CONTROLLER_SHA" ]; then
             [[ "$SOURCE_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]
             [[ "$CONTROLLER_SHA" =~ ^[a-f0-9]{40}$ ]]
+            case "$TARGET" in
+              ec2-arm64|cohost-amd64) ;;
+              *) echo "Reusable deployment requires an explicit supported backend target" >&2; exit 1 ;;
+            esac
           fi
       - uses: actions/checkout@v4
         with:
@@ -141,10 +146,15 @@ jobs:
         env:
           SOURCE_REPOSITORY: ${{ inputs.source_repository }}
           CONTROLLER_SHA: ${{ inputs.controller_sha }}
+          TARGET: ${{ vars.BACKEND_DEPLOY_TARGET }}
         run: |
           if [ -n "$SOURCE_REPOSITORY$CONTROLLER_SHA" ]; then
             [[ "$SOURCE_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]
             [[ "$CONTROLLER_SHA" =~ ^[a-f0-9]{40}$ ]]
+            case "$TARGET" in
+              ec2-arm64|cohost-amd64) ;;
+              *) echo "Reusable deployment requires an explicit supported backend target" >&2; exit 1 ;;
+            esac
           fi
       # CIが検査したSHAをそのまま対象にする（デプロイ時点のmain先端ではない）。手動起動では指定された
       # commit を取る。動かすイメージも、それを配る手順（deploy.sh / compose）も、同じ commit から決まる。
