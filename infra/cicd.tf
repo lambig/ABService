@@ -53,7 +53,7 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
         Resource = "*"
       },
       # push が使うもの（レイヤの確認と転送、マニフェストの登録）と、ロールバック時に
-      # 対象タグの存在を確かめる DescribeImages。
+      # 対象タグの存在を確かめる DescribeImages と、配布前のdigest指定pullによるplatform検査。
       {
         Sid    = "EcrImages"
         Effect = "Allow"
@@ -64,6 +64,7 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           "ecr:CompleteLayerUpload",
           "ecr:PutImage",
           "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer",
           "ecr:DescribeImages"
         ]
         Resource = aws_ecr_repository.backend.arn

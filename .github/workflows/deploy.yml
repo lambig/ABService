@@ -283,6 +283,25 @@ jobs:
             echo "- digest: \`$DIGEST\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # 保存済みtagも新規buildも、SSMへ渡す同じdigestをECRから取得して検査する。
+      # tagの存在はarchitectureの証明ではない。rollbackでも省略せず、不一致は再buildせず拒否する。
+      - name: Verify the retained image platform before deployment
+        timeout-minutes: 5
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          DIGEST: ${{ steps.digest.outputs.digest }}
+          EXPECTED_ARCH: ${{ vars.BACKEND_DEPLOY_TARGET == 'cohost-amd64' && 'amd64' || 'arm64' }}
+        run: |
+          IMAGE="$REGISTRY/$REPOSITORY@$DIGEST"
+          docker pull --platform "linux/$EXPECTED_ARCH" "$IMAGE"
+          PLATFORM="$(docker image inspect "$IMAGE" --format '{{.Os}}/{{.Architecture}}')"
+          if [ "$PLATFORM" != "linux/$EXPECTED_ARCH" ]; then
+            echo "Retained image platform does not match the deployment target; release/rollback refused without rebuilding." >&2
+            exit 1
+          fi
+          echo "Verified retained image platform: $PLATFORM"
+
       # イメージだけでなく、それを動かす手順も検査済みのSHAのものへ揃える（DECISIONS 16）。
       # deploy.sh と docker-compose.prod.yml を毎回配ってから実行する。インスタンスを作るときに
       # 一度だけ動く user_data で配ると、git で直しても稼働中のホストは古いままになる。

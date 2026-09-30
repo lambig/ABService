@@ -36,10 +36,12 @@ Deployの`BACKEND_DEPLOY_TARGET`は未設定または`ec2-arm64`で従来経路�
 CIはarm64/amd64の両方で同じproduction image build・起動・cohost runtime検査を実行し、
 候補の全件検査とCI gateは両ジョブを要求する。古いCI結果では新候補を配れない。
 
-cohostのAWSロールはmainのOIDCだけを信頼し、対象ECRへのbuild/push・digest照会、
+cohostのAWSロールはmainのOIDCだけを信頼し、対象ECRへのbuild/push・digest照会・pullによるplatform検査、
 指定managed nodeとAWS-RunShellScriptへの`ssm:SendCommand`、
 `ssm:GetCommandInvocation`を許可する。legacy rootの権限チェックはcohostの実IAMを保証しない。
 音源bucket・DB・SSM秘密値の読取り権限をActionsへ追加しない。
+pullには対象ECR repositoryに限定した`ecr:GetDownloadUrlForLayer`も必要。
+legacy rootの配布ロールも同じ検査のためこの権限を持ち、別管理のロールは運用側で反映する。
 
 ホストはLinux/Python/Dockerに加えGNU `timeout`を用意し、固定入口
 `/opt/abservice/host_deploy.py update`を運用側で配置しておく。この入口は
@@ -61,6 +63,12 @@ Success/ResponseCode=0に加え、固定入口の結果としてcurrentとhealth
 SSM stdout/stderrやhost stateの生値をActionsへ出さない。
 
 rollbackは既存tagのimageを再buildせず、指定SHAのhost scriptsで同じ更新入口を使う。
+新規build・既存tagの再利用とも、SSM送信前に配布digestをECRからrunnerへpullし、
+Linuxと選択targetのarchitectureの一致を検査する。imageを実行する検査ではない。
+取得・inspect失敗やplatform不一致ならrelease/rollbackを停止し、別architectureへの自動再buildはしない。
+`sha-<commit>`はarchitecture非依存なので、targetだけを切り替えて既存tagを流用する運用は不可。
+architectureを移行する場合は別ECR repositoryを用意し、そこで新しい配布候補を検証する。
+rollbackも選択target用の保存済みimageが必要で、異なるarchitectureのimageへは戻せない。
 候補にcohost scriptsがない場合は拒否する。DB互換性の確認は引き続き運用者が行い、DB自動巻戻しは行わない。
 通常候補の検証・排他・前進履歴、backend成功後だけのfrontend配布は従来と共通。
 
