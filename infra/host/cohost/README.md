@@ -151,6 +151,7 @@ AWSは呼ばず、明示した無効なfixture値を使用する。初回起動�
 URLへのアクセスや出力は行わない。実AWSや実機性能の保証ではない。
 音源の既定無効・有効化と実予約・一時領域の書込み/専有・再起動後の照会・無効化も検査する。
 この配布試験はS3への実送信を行わず、実FLACの保存はアプリ結合試験、実IAM/CDNは運用受け入れで確認する。
-production imageに合成SQLを1本追加した版で実際にFlyway移行を行い、移行前のimageが
+production jar内のFlyway/JDBCへ合成SQLを1本渡して実際に移行を行い、移行前のimageが
 Quarkus起動時に未来のmigrationを拒否することも検証する。停止前検査が旧版を拒否し、
-稼働container・保存データ・適用履歴を維持すること、新版/前進候補のchecksum照合成功も確認する。
+稼働container・保存データ・適用履歴を維持すること、実Flywayのchecksum照合成功も確認する。
+試験helperのcompileにはアプリと同じJDK 25を使う（CIの既存JDK setupを利用）。
