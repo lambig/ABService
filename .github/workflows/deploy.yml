@@ -86,11 +86,9 @@ jobs:
   deploy:
     needs: preflight
     name: Build, push, and deploy backend
-    # 本番の EC2 は arm64（infra/compute.tf が arm64 の AMI を選ぶ）。amd64 のランナーで作ると、
-    # ECR へ入るのは実機が動かせないイメージになる。jar はランナー上の Gradle で組み、イメージは
-    # それを包むだけなので、架構が効くのはイメージの manifest だけ。実機と同じ架構で組み、押し込む前に
-    # 架構を確かめる（DECISIONS 16）
-    runs-on: ubuntu-24.04-arm
+    # 未設定は既存EC2/arm64。cohost/amd64は明示的なopt-inとし、未知の値はAWS認証前に拒否する。
+    runs-on: ${{ vars.BACKEND_DEPLOY_TARGET == 'cohost-amd64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
+    timeout-minutes: 40
     # terraform apply（#129のドメイン準備待ち）でリポジトリ変数が設定されるまでは何もしない。
     # rollbackだけは既存の復旧経路としてpreflightを通らない。
     if: >-
@@ -112,16 +110,31 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.commit_sha }}
+          persist-credentials: false
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Validate deployment target before AWS access
+        env:
+          TARGET: ${{ vars.BACKEND_DEPLOY_TARGET }}
+          NODE: ${{ vars.COHOST_MANAGED_NODE_ID }}
+        run: |
+          case "$TARGET" in
+            ''|ec2-arm64) ;;
+            cohost-amd64)
+              [[ "$NODE" =~ ^mi-[a-f0-9]{17}$ ]]
+              git cat-file -e HEAD:infra/host/cohost/deploy.py
+              git cat-file -e HEAD:infra/host/cohost/init-db.sh
+              ;;
+            *) echo "Unsupported backend deployment target" >&2; exit 1 ;;
+          esac
+
+      # Transport is controller code; the two host scripts are read from the candidate's Git objects.
+      - name: Checkout cohost delivery controller
+        if: vars.BACKEND_DEPLOY_TARGET == 'cohost-amd64'
+        uses: actions/checkout@v4
         with:
-          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ap-northeast-1
-
-      - name: Login to Amazon ECR
-        id: ecr-login
-        uses: aws-actions/amazon-ecr-login@v2
+          ref: ${{ github.sha }}
+          path: .release-controller
+          persist-credentials: false
 
       - name: Resolve image tag
         id: resolve
@@ -152,6 +165,16 @@ jobs:
             echo "Deploying commit $CI_HEAD_SHA verified by CI run $CI_RUN_ID"
           fi
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-1
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
       # 同じ commit のイメージを二度は作らない。ベースイメージやパッケージの取得を含むビルドは、同じ
       # commit でも同じ実体にならないため、作り直すとタグが別の digest へ移り、以前その commit で配った
       # 実体は untagged になって消える。ロールバックが戻すのは「その commit に最初に配った実体」であり、
@@ -164,12 +187,16 @@ jobs:
           REPOSITORY: ${{ vars.ECR_REPOSITORY }}
           TAG: ${{ steps.resolve.outputs.tag }}
         run: |
-          if aws ecr describe-images --repository-name "$REPOSITORY" --image-ids imageTag="$TAG" >/dev/null 2>&1; then
+          ERROR_FILE="$(mktemp)"
+          trap 'rm -f "$ERROR_FILE"' EXIT
+          if aws ecr describe-images --repository-name "$REPOSITORY" --image-ids imageTag="$TAG" >/dev/null 2>"$ERROR_FILE"; then
             echo "Reusing the image already built for $TAG; it is not rebuilt or pushed again."
             echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif ! grep -q '(ImageNotFoundException)' "$ERROR_FILE"; then
+            echo "Image lookup failed; absence was not established." >&2
+            exit 1
           elif [ "$ACTION" = "rollback" ]; then
-            echo "No image is tagged $TAG in $REPOSITORY." >&2
-            echo "Rollback can only target a commit whose image is still retained (the 10 most recent deploys)." >&2
+            echo "Rollback requires a retained image; it never rebuilds a missing tag." >&2
             exit 1
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -213,10 +240,11 @@ jobs:
           REGISTRY: ${{ steps.ecr-login.outputs.registry }}
           REPOSITORY: ${{ vars.ECR_REPOSITORY }}
           TAG: ${{ steps.resolve.outputs.tag }}
+          EXPECTED_ARCH: ${{ vars.BACKEND_DEPLOY_TARGET == 'cohost-amd64' && 'amd64' || 'arm64' }}
         run: |
           ARCH="$(docker image inspect "$REGISTRY/$REPOSITORY:$TAG" --format '{{.Architecture}}')"
-          if [ "$ARCH" != "arm64" ]; then
-            echo "The image is $ARCH, but the instance runs arm64 (infra/compute.tf uses the arm64 AMI)." >&2
+          if [ "$ARCH" != "$EXPECTED_ARCH" ]; then
+            echo "The image architecture does not match the selected deployment target." >&2
             exit 1
           fi
           echo "image architecture: $ARCH"
@@ -259,6 +287,7 @@ jobs:
       # deploy.sh と docker-compose.prod.yml を毎回配ってから実行する。インスタンスを作るときに
       # 一度だけ動く user_data で配ると、git で直しても稼働中のホストは古いままになる。
       - name: Deploy via SSM Run Command
+        if: vars.BACKEND_DEPLOY_TARGET != 'cohost-amd64'
         env:
           REGISTRY: ${{ steps.ecr-login.outputs.registry }}
           REPOSITORY: ${{ vars.ECR_REPOSITORY }}
@@ -332,6 +361,19 @@ jobs:
             echo "The deploy command ended as $STATUS." >&2
             exit 1
           fi
+
+      - name: Deploy cohost via fixed SSM entrypoint
+        if: vars.BACKEND_DEPLOY_TARGET == 'cohost-amd64'
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          DIGEST: ${{ steps.digest.outputs.digest }}
+          SOURCE: ${{ steps.resolve.outputs.commit_sha }}
+          NODE: ${{ vars.COHOST_MANAGED_NODE_ID }}
+        run: |
+          python3 .release-controller/infra/release/cohost.py \
+            --checkout "$GITHUB_WORKSPACE" --source "$SOURCE" \
+            --image "$REGISTRY/$REPOSITORY@$DIGEST" --node "$NODE"
 
   frontend:
     needs: deploy

@@ -295,21 +295,35 @@ test('access errors are not treated as first deploy; unsafe archive paths are re
 });
 
 // Feed decisions from real release-state transitions into the actual workflow guards.
-const normalJobs = (decision) => {
+const normalJobs = (decision, { action = 'release', preflight = 'success', backendResult = 'success',
+  preflightAttempt = '1', backendAttempt = '1' } = {}) => {
   const workflow = readFileSync(new URL('../../.github/workflows/deploy.yml', import.meta.url), 'utf8');
   const block = (name) => workflow.split(`\n  ${name}:\n`)[1].split(/\n  [\w-]+:\n/)[0];
   const context = { cancelled: () => false,
-    inputs: { action: 'release' },
+    inputs: { action },
     github: { ref: 'refs/heads/main', event_name: 'workflow_dispatch', repository: 'owner/repo', run_attempt: '1',
       event: { workflow_run: { conclusion: 'success', head_branch: 'main', event: 'push', head_repository: { full_name: 'owner/repo' } } } },
     vars: { AWS_DEPLOY_ROLE_ARN: 'backend-role' },
-    needs: { preflight: { result: 'success', outputs: { deploy: String(decision.deploy), attempt: '1' } },
-      deploy: { result: 'skipped', outputs: { attempt: '1' } } } };
+    needs: { preflight: { result: preflight, outputs: { deploy: String(decision.deploy), attempt: preflightAttempt } },
+      deploy: { result: 'skipped', outputs: { attempt: backendAttempt } } } };
   const evaluate = (expression) => runInNewContext(expression.replace(/^\$\{\{\s*|\s*\}\}$/g, ''), context);
   const backend = evaluate(block('deploy').match(/    if: >-\n((?:      .*(?:\n|$))+)/)[1].trim());
-  context.needs.deploy.result = backend ? 'success' : 'skipped';
+  context.needs.deploy.result = backend ? backendResult : 'skipped';
   return { backend, frontend: evaluate(block('frontend').match(/    if: (.+)/)[1]) };
 };
+
+test('backend failure, skipped validation and earlier attempts cannot release frontend; rollback stays backend-only', () => {
+  for (const preflight of ['failure', 'cancelled', 'skipped']) {
+    assert.deepEqual(normalJobs({ deploy: true }, { preflight }), { backend: false, frontend: false });
+  }
+  assert.deepEqual(normalJobs({ deploy: true }, { preflightAttempt: '0' }), { backend: false, frontend: false });
+  for (const backendResult of ['failure', 'cancelled', 'skipped']) {
+    assert.deepEqual(normalJobs({ deploy: true }, { backendResult }), { backend: true, frontend: false });
+  }
+  assert.deepEqual(normalJobs({ deploy: true }, { backendAttempt: '0' }), { backend: true, frontend: false });
+  assert.deepEqual(normalJobs({ deploy: true }, { action: 'rollback', preflight: 'skipped' }),
+    { backend: true, frontend: false });
+});
 
 test('normal C then frontend rollback A retains watermark C: late B skips both jobs, D advances', () => {
   const context = setup();
