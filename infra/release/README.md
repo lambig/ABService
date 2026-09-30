@@ -1,5 +1,39 @@
 # フロントエンドの配布と復旧
 
+## 公開コードと運用の境界
+
+このrepositoryはフォークして使える共通機構を保持する。特定サービスのAWS account/role、
+host/node、bucket/distribution、domain、音源・運用データはコード・例・issue・公開Actions設定へ置かない。
+実設定、配布の起動、Actionsログ・summary・artifact、受け入れ記録は非公開の運用repositoryで管理する。
+VariablesをSecretsへ移すだけでは、AWS/Dockerやbuildの出力から実設定が出る可能性はなくならない。
+
+非公開callerのmain上の`workflow_dispatch`から、このrepositoryの`deploy.yml`または
+`deploy-frontend.yml`を**レビュー済みfull SHA**で`uses`する。
+`source_repository`に公開ソースrepository、`controller_sha`に同じfull SHAを渡す。
+設定を変更できる自由入力として公開せず、callerのコードレビューで両方のpinを更新する。
+フォーク先では自分の公開ソースと非公開運用repositoryを指定し、元サービスへの接続を引き継がない。
+共通workflowの直接dispatchも残るが、その場合の実行記録はそのrepositoryの公開範囲に従う。
+
+- 通常配布は`action`、`commit_sha`、`release_branch`、`release_tag`、`ci_run_id`を渡す。
+  候補/タグ/CI/ancestorの照合はsource側。callerのcommitを配布候補と混同しない。
+- frontend単独操作は`normal_release: false`、`action`と必要な`release_id`を渡す。
+  通常配布のfrontend呼出しは共通workflow内で行う。全操作を同じ運用repositoryから起動し、
+  `deploy-production`の排他を共有する。caller側で同じロックを重ねて取得しない。
+- callerには`contents: read`、`actions: read`、`id-token: write`を許可する。
+  `vars`はcallerのrepository設定を参照する。長期AWSキーや追加PATは渡さない。
+- 別repositoryからの候補CI照会は公開APIを認証なしで読む。非公開ソースには対応しない。
+  rate limit・API失敗・不完全な証拠はAWS認証前に停止し、検査を省略して続けない。
+- AWS信頼は**運用caller**の実際のexact OIDC subject/audienceへ限定し、公開ソース側の
+  mainやforkを信頼しない。subjectは設定をreadbackして確定し、名前から推測しない。
+  切替には旧信頼の削除、実値照合、正規配布での実認証と非公開ログの確認が必要。
+
+GitHubの[caller contextと権限](https://docs.github.com/en/actions/reference/workflows-and-actions/reusing-workflow-configurations)、
+[caller側Variables](https://docs.github.com/en/actions/reference/workflows-and-actions/variables#configuration-variable-precedence)、
+[SHA固定の再利用](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows#calling-a-reusable-workflow)に従う。
+以下の「main起動時SHA」は、別repositoryから呼ぶ場合は明示した`controller_sha`を指す。
+
+## 通常配布と内容更新
+
 通常のコード配布はmain上の **Deploy** を `action=release` で起動し、候補検証 → frontend配布記録のpreflight → backend Deploy成功 → Deploy frontendの順に進む。入力・候補の更新・緊急修正は [リリース手順](../../docs/RELEASE_WORKFLOW.md) を参照。mainへの統合では自動配布しない。候補検証とpreflightのhelperは起動時のmain SHA、通常のfrontend配布helperとビルド対象はbackendが実際に配った候補full SHAに固定する。preflightはfrontendロールでpending不在とcurrentの読取り・形式を検査し、失敗するとbackendへ進まない。初回のcurrent不在は許すが、権限・通信・JSONエラーは初回扱いしない。
 
 内容の変更だけを配る場合は GitHub Actions の **Deploy frontend** を main から実行し、`action=rebuild-public` を選ぶ。公開中の public の SHA を記録から取得し、管理画面・試聴アプリはビルド・配布しない。手動操作のhelperは起動時のmain SHAを使う。初回の配布記録が無い間は再ビルドできない。

@@ -2,6 +2,28 @@ name: Deploy
 
 # mainへの統合は配布しない。main上の制御workflowから、検証済みrelease候補を明示的に配布する。
 on:
+  workflow_call:
+    inputs:
+      source_repository:
+        description: "Public source repository; the caller owns deployment settings and logs"
+        type: string
+        required: true
+      controller_sha:
+        description: "Reviewed full source SHA, pinned alongside the reusable workflow reference"
+        type: string
+        required: true
+      action:
+        type: string
+        required: true
+      commit_sha:
+        type: string
+        required: true
+      release_branch:
+        type: string
+      release_tag:
+        type: string
+      ci_run_id:
+        type: string
   workflow_dispatch:
     inputs:
       action:
@@ -56,9 +78,19 @@ jobs:
       FRONTEND_RELEASE_BUCKET: ${{ vars.FRONTEND_RELEASE_BUCKET }}
       CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
     steps:
+      - name: Validate source and controller inputs before checkout
+        env:
+          SOURCE_REPOSITORY: ${{ inputs.source_repository }}
+          CONTROLLER_SHA: ${{ inputs.controller_sha }}
+        run: |
+          if [ -n "$SOURCE_REPOSITORY$CONTROLLER_SHA" ]; then
+            [[ "$SOURCE_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]
+            [[ "$CONTROLLER_SHA" =~ ^[a-f0-9]{40}$ ]]
+          fi
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          repository: ${{ inputs.source_repository || github.repository }}
+          ref: ${{ inputs.controller_sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
@@ -67,6 +99,7 @@ jobs:
       - name: Verify candidate, tag and complete CI before AWS access
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          SOURCE_REPOSITORY: ${{ inputs.source_repository || github.repository }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
           RELEASE_BRANCH: ${{ inputs.release_branch }}
           RELEASE_TAG: ${{ inputs.release_tag }}
@@ -104,11 +137,21 @@ jobs:
       attempt: ${{ steps.resolve.outputs.attempt }}
 
     steps:
+      - name: Validate source and controller inputs before checkout
+        env:
+          SOURCE_REPOSITORY: ${{ inputs.source_repository }}
+          CONTROLLER_SHA: ${{ inputs.controller_sha }}
+        run: |
+          if [ -n "$SOURCE_REPOSITORY$CONTROLLER_SHA" ]; then
+            [[ "$SOURCE_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]
+            [[ "$CONTROLLER_SHA" =~ ^[a-f0-9]{40}$ ]]
+          fi
       # CIが検査したSHAをそのまま対象にする（デプロイ時点のmain先端ではない）。手動起動では指定された
       # commit を取る。動かすイメージも、それを配る手順（deploy.sh / compose）も、同じ commit から決まる。
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          repository: ${{ inputs.source_repository || github.repository }}
           ref: ${{ inputs.commit_sha }}
           persist-credentials: false
 
@@ -132,7 +175,8 @@ jobs:
         if: vars.BACKEND_DEPLOY_TARGET == 'cohost-amd64'
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          repository: ${{ inputs.source_repository || github.repository }}
+          ref: ${{ inputs.controller_sha || github.sha }}
           path: .release-controller
           persist-credentials: false
 
@@ -402,3 +446,5 @@ jobs:
     with:
       commit_sha: ${{ needs.deploy.outputs.commit_sha }}
       normal_release: true
+      source_repository: ${{ inputs.source_repository || github.repository }}
+      controller_sha: ${{ inputs.controller_sha || github.sha }}

@@ -1,6 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { requiredJobs, verifyCandidate } from './candidate.mjs';
+import { candidateApi, requiredJobs, verifyCandidate } from './candidate.mjs';
+
+test('separate operations caller reads public source CI without forwarding its token', () => {
+  const api = candidateApi({ GITHUB_REPOSITORY: 'owner/operations', SOURCE_REPOSITORY: 'owner/source',
+    GITHUB_TOKEN: 'deliberately-invalid-test-token' });
+  assert.equal(api.repository, 'owner/source');
+  assert.equal(Object.hasOwn(api.headers, 'Authorization'), false);
+  const same = candidateApi({ GITHUB_REPOSITORY: 'fork/source', GITHUB_TOKEN: 'test-only' });
+  assert.equal(same.repository, 'fork/source');
+  assert.equal(same.headers.Authorization, 'Bearer test-only');
+  assert.throws(() => candidateApi({ GITHUB_REPOSITORY: 'fork/source' }), /Missing GitHub token/);
+  assert.throws(() => candidateApi({ SOURCE_REPOSITORY: 'https://invalid.example/repo' }));
+});
 
 const commit = 'a'.repeat(40);
 const input = { repository: 'owner/repo', commit, branch: 'release/1.10', tag: 'v1.10.0', runId: '123' };

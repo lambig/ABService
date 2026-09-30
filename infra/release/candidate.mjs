@@ -68,17 +68,29 @@ export const verifyCandidate = async (input, read, isOnMain) => {
   return { version: 1, repository, codeSha: commit, branch, tag, ciRunId: runId, ciAttempt: run.run_attempt };
 };
 
+// A separate operations repository has no token scoped to the public source.
+// Read public evidence anonymously in that case; never fall back after an API error.
+export const candidateApi = (env) => {
+  const repository = env.SOURCE_REPOSITORY || env.GITHUB_REPOSITORY;
+  assert.match(repository ?? '', /^[\w.-]+\/[\w.-]+$/);
+  const headers = { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
+  if (repository === env.GITHUB_REPOSITORY) {
+    assert.ok(env.GITHUB_TOKEN, 'Missing GitHub token');
+    headers.Authorization = `Bearer ${env.GITHUB_TOKEN}`;
+  }
+  return { repository, headers };
+};
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   assert.equal(process.env.GITHUB_REF, 'refs/heads/main', 'Run Deploy from main');
   assert.equal(process.env.GITHUB_EVENT_NAME, 'workflow_dispatch');
-  const input = { repository: process.env.GITHUB_REPOSITORY, commit: process.env.COMMIT_SHA,
+  const api = candidateApi(process.env);
+  const input = { repository: api.repository, commit: process.env.COMMIT_SHA,
     branch: process.env.RELEASE_BRANCH, tag: process.env.RELEASE_TAG, runId: process.env.CI_RUN_ID };
   assert.match(input.repository ?? '', /^[\w.-]+\/[\w.-]+$/);
-  assert.ok(process.env.GITHUB_TOKEN, 'Missing GitHub token');
   const read = async (path) => {
     const response = await fetch(`https://api.github.com/repos/${input.repository}/${path}`, {
-      headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}`, Accept: 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28' }, redirect: 'error', signal: AbortSignal.timeout(15000),
+      headers: api.headers, redirect: 'error', signal: AbortSignal.timeout(15000),
     });
     assert.ok(response.ok, `GitHub validation failed (${response.status})`);
     return response.json();
