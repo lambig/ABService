@@ -70,18 +70,32 @@ locals {
     assets = data.aws_s3_bucket.assets.bucket_regional_domain_name
     api    = var.backend_domain
   }
-  security_headers = jsondecode(templatefile("${path.module}/../headers/security.json", {
+  base_security_headers = jsondecode(templatefile("${path.module}/../headers/security.json", {
     image_sources = "'self' data:"
     api_sources   = "'self'"
     upload_origin = "https://${data.aws_s3_bucket.assets.bucket_regional_domain_name}"
   }))
-  header_noindex = { public = !var.public_indexing_enabled, admin = true, api = true, assets = false }
+  security_headers = merge(local.base_security_headers, {
+    policies = merge(local.base_security_headers.policies, {
+      listening = trimspace(templatefile("${path.module}/../headers/listening-csp.txt", { audio_origins = join(" ", sort(tolist(var.listening_audio_origins))) }))
+    })
+  })
+  header_noindex = { public = !var.public_indexing_enabled, admin = true, api = true, assets = false, listening = true }
   edge_security_config = {
-    security = local.security_headers, noindex = local.header_noindex
-    origins  = { for kind, domain in local.origins : domain => kind }
+    security            = local.security_headers, noindex = local.header_noindex
+    origins             = { for kind, domain in local.origins : domain => kind }
+    listeningOriginPath = "/offline-player"
   }
   # A list preserves behavior precedence. Admin deliberately includes /admin.
-  ordered_behaviors = [{ kind = "admin", path = "/admin*" }, { kind = "assets", path = "/assets/*" }, { kind = "api", path = "/api/*" }]
+  ordered_behaviors = [{ kind = "admin", path = "/admin*" }, { kind = "listening", path = "/offline-player*" }, { kind = "assets", path = "/assets/*" }, { kind = "api", path = "/api/*" }]
+}
+resource "aws_cloudfront_function" "listening_request" {
+  name    = "${var.name}-listening-request"
+  runtime = "cloudfront-js-2.0"
+  publish = true
+  code = templatefile("${path.module}/../functions/listening-request.js.tftpl", {
+    enabled = jsonencode(var.listening_enabled)
+  })
 }
 resource "aws_cloudfront_function" "resolve_static_uri" {
   name    = "${var.name}-resolve-static-uri"
@@ -90,7 +104,7 @@ resource "aws_cloudfront_function" "resolve_static_uri" {
   code    = file("${path.module}/../functions/resolve-static-uri.js")
 }
 resource "aws_cloudfront_function" "security_response" {
-  for_each = toset(["public", "admin", "api", "assets"])
+  for_each = toset(["public", "admin", "api", "assets", "listening"])
   name     = "${var.name}-${each.key}-security-response"
   runtime  = "cloudfront-js-2.0"
   publish  = true
@@ -135,6 +149,12 @@ resource "aws_cloudfront_distribution" "main" {
       domain_name              = origin.value
       origin_access_control_id = aws_cloudfront_origin_access_control.s3.id
     }
+  }
+  origin {
+    origin_id                = "listening"
+    domain_name              = local.origins.admin
+    origin_path              = "/offline-player"
+    origin_access_control_id = aws_cloudfront_origin_access_control.s3.id
   }
   origin {
     origin_id   = "api"
@@ -184,10 +204,10 @@ resource "aws_cloudfront_distribution" "main" {
       cache_policy_id          = ordered_cache_behavior.value.kind == "assets" ? local.managed_cache_optimized : local.managed_cache_disabled
       origin_request_policy_id = ordered_cache_behavior.value.kind == "api" ? local.managed_origin_api : null
       dynamic "function_association" {
-        for_each = ordered_cache_behavior.value.kind == "admin" ? [true] : []
+        for_each = contains(["admin", "listening"], ordered_cache_behavior.value.kind) ? [true] : []
         content {
           event_type   = "viewer-request"
-          function_arn = aws_cloudfront_function.resolve_static_uri.arn
+          function_arn = ordered_cache_behavior.value.kind == "listening" ? aws_cloudfront_function.listening_request.arn : aws_cloudfront_function.resolve_static_uri.arn
         }
       }
       function_association {

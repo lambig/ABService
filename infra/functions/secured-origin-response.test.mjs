@@ -82,3 +82,22 @@ test('generated viewer functions update cached headers without changing response
     assert.equal(result.headers['x-robots-tag']?.value, noindex ? 'noindex, nofollow' : undefined);
   }
 });
+
+test('listening policy is selected by trusted origin path, including origin errors', async () => {
+  const listening = { ...config, listeningOriginPath: '/offline-player',
+    noindex: { ...config.noindex, listening: true },
+    security: { ...security, policies: { ...security.policies, listening: "default-src 'none'; worker-src 'self'" } } };
+  for (const status of ['200', '304', '403', '404', '503']) {
+    const event = makeEvent('admin', status);
+    event.Records[0].cf.request.origin.s3.path = '/offline-player';
+    event.Records[0].cf.request.uri = '/index.html';
+    const result = await secureOriginResponse(event, () => assert.fail('listening errors cannot render admin HTML'), listening);
+    assert.equal(result.status, status);
+    assert.equal(result.headers['content-security-policy'][0].value, listening.security.policies.listening);
+    assert.equal(result.headers['x-robots-tag'][0].value, 'noindex, nofollow');
+  }
+  const spoofed = makeEvent('admin', '200');
+  spoofed.Records[0].cf.request.uri = '/offline-player/index.html';
+  const result = await secureOriginResponse(spoofed, () => {}, listening);
+  assert.equal(result.headers['content-security-policy'][0].value, security.policies.admin);
+});

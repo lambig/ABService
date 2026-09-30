@@ -6,6 +6,8 @@ import test from 'node:test';
 import { runInNewContext } from 'node:vm';
 import { createDelivery, filesUnder, invalidationPaths, validateManifest } from './frontend.mjs';
 import { artifactFiles } from './build-public.mjs';
+import { createHash } from 'node:crypto';
+import { listeningFiles, stageListening } from './listening-artifacts.mjs';
 
 const codeSha = 'a'.repeat(40);
 const config = { publicBucket: 'public-site', adminBucket: 'admin-site', releaseBucket: 'release-records', distributionId: 'EXAMPLE123' };
@@ -56,8 +58,98 @@ const ancestor = (older, newer) => older < newer; // Mock the A -> B -> C -> D h
 const deploy = (context, id = '100-1', target = codeSha) => {
   assert.equal(context.delivery.acceptNormal(target, ancestor).deploy, true);
   return context.delivery.publish({ action: 'deploy', id, codeSha: target,
-    publicRoot: context.publicRoot, adminRoot: context.adminRoot, buildMetadata: context.buildMetadata(target) });
+    publicRoot: context.publicRoot, adminRoot: context.adminRoot, listeningRoot: context.listeningRoot, buildMetadata: context.buildMetadata(target) });
 };
+
+const addListening = (context, revision = 'a'.repeat(64)) => {
+  const root = join(context.root, `listening-${revision}`);
+  const shellPath = `releases/${revision}/index.html`;
+  const assetPath = `releases/${revision}/assets/app.js`;
+  const html = `<script src="/offline-player/${assetPath}"></script>`;
+  mkdirSync(join(root, `releases/${revision}/assets`), { recursive: true });
+  writeFileSync(join(root, shellPath), html);
+  writeFileSync(join(root, assetPath), `// ${revision}`);
+  writeFileSync(join(root, 'index.html'), html);
+  const entries = [shellPath, assetPath].map((path) => ({ path,
+    sha256: createHash('sha256').update(readFileSync(join(root, path))).digest('hex') }));
+  writeFileSync(join(root, 'sw.js'), `const SHELL = ${JSON.stringify({ revision, entries })};\n// worker`);
+  context.listeningRoot = root;
+  return root;
+};
+
+test('production staging includes only verified shell entries, without preview audio or stray files', () => {
+  const context = setup(); const source = addListening(context);
+  mkdirSync(join(source, 'audio')); writeFileSync(join(source, 'audio', 'private.flac'), 'not a production artifact');
+  mkdirSync(join(source, 'assets')); writeFileSync(join(source, 'assets', 'app.js'), 'unversioned duplicate');
+  const target = join(context.root, 'staged'); stageListening(source, target);
+  assert.deepEqual(filesUnder(target), listeningFiles(source));
+  assert.ok(filesUnder(target).every((path) => !path.startsWith('audio/') && !path.startsWith('assets/')));
+  assert.throws(() => stageListening(source, target), /empty/);
+  writeFileSync(join(source, 'index.html'), 'changed entry point');
+  assert.throws(() => listeningFiles(source));
+});
+
+test('listening checksum failure blocks all archive/live writes', () => {
+  const context = setup(); const root = addListening(context);
+  writeFileSync(join(root, `releases/${'a'.repeat(64)}/assets/app.js`), 'corrupt');
+  assert.throws(() => deploy(context), /checksum/);
+  assert.ok(!context.calls.some((args) => args[0] === 's3'));
+});
+
+test('listening releases are archived, immutable shells precede index and worker, and rebuild leaves them alone', () => {
+  const context = setup(); addListening(context); const first = deploy(context);
+  assert.equal(first.version, 3); assert.equal(first.listening.codeSha, codeSha);
+  const live = context.calls.filter((args) => args[3]?.startsWith('s3://admin-site/offline-player/'));
+  assert.deepEqual(live.map((args) => args[1]), ['sync', 'cp', 'cp']);
+  assert.match(live[0][3], /releases\/$/); assert.ok(!live[0].includes('--delete'));
+  assert.match(live[1][3], /index.html$/); assert.match(live[2][3], /sw.js$/);
+  assert.ok(live[2].includes('text/javascript')); assert.ok(live[2].includes('no-cache'));
+  context.calls.length = 0;
+  const rebuilt = context.delivery.publish({ action: 'rebuild-public', id: '101-1', codeSha,
+    publicRoot: context.publicRoot, buildMetadata: context.buildMetadata() });
+  assert.deepEqual(rebuilt.listening, first.listening);
+  assert.ok(!context.calls.some((args) => args.some((arg) => arg.includes('/offline-player/'))));
+  addListening(context, 'b'.repeat(64)); deploy(context, '102-1', 'b'.repeat(40));
+  assert.deepEqual(context.delivery.rollback({ targetId: '100-1', id: '103-1' }), first);
+});
+
+test('failed worker switch blocks normal work and recovery includes listening', () => {
+  const context = setup(); addListening(context); const first = deploy(context);
+  addListening(context, 'b'.repeat(64));
+  context.failWhen((args) => args[1] === 'cp' && args[3]?.endsWith('/sw.js'));
+  assert.throws(() => deploy(context, '101-1', 'b'.repeat(40)), /injected/);
+  assert.deepEqual(JSON.parse(context.objects.get('current.json')), first);
+  assert.ok(context.objects.has('pending.json'));
+  assert.throws(() => context.delivery.resolveCode('rebuild-public'), /incomplete/);
+  context.failWhen(() => false);
+  const recovered = context.delivery.publish({ action: 'recover', id: '102-1', codeSha: 'b'.repeat(40),
+    publicRoot: context.publicRoot, adminRoot: context.adminRoot, listeningRoot: context.listeningRoot,
+    buildMetadata: context.buildMetadata('b'.repeat(40)) });
+  assert.equal(recovered.listening.codeSha, 'b'.repeat(40));
+  assert.ok(!context.objects.has('pending.json'));
+});
+
+test('rollback to a v2 release removes only the listening prefix and invalidates it', () => {
+  const context = setup(); const legacy = { ...deploy(context), version: 2 }; delete legacy.listening;
+  context.objects.set('manifests/100-1.json', JSON.stringify(legacy));
+  addListening(context); deploy(context, '101-1', 'b'.repeat(40)); context.calls.length = 0;
+  const paths = []; const aws = (args) => {
+    if (args[1] === 'create-invalidation') paths.push(...JSON.parse(readFileSync(args[args.indexOf('--invalidation-batch') + 1].slice(7), 'utf8')).Paths.Items);
+    return context.aws(args);
+  };
+  createDelivery(config, aws, context.generation).rollback({ targetId: '100-1', id: '102-1' });
+  assert.deepEqual(context.calls.filter((args) => args[1] === 'rm').map((args) => args[2]), ['s3://admin-site/offline-player/']);
+  assert.ok(paths.includes('/offline-player') && paths.includes('/offline-player/*'));
+  assert.equal(JSON.parse(context.objects.get('current.json')).version, 2);
+});
+
+test('listening state cannot be silently ignored or belong to a different code generation', () => {
+  const context = setup(); addListening(context); const record = deploy(context);
+  for (const listening of [undefined, false, 0, '', { ...record.listening, codeSha: 'b'.repeat(40) }]) {
+    assert.throws(() => validateManifest({ ...record, listening }));
+  }
+  assert.throws(() => validateManifest({ ...record, version: 2 }));
+});
 
 test('candidate evidence survives separately from delivery state and is not overwritten', () => {
   const context = setup();
@@ -395,6 +487,7 @@ test('initial incomplete deployment can be rebuilt after data changes without an
 test('legacy manifests remain readable for migration but cannot be restored as generation-checked content', () => {
   const context = setup(); const current = deploy(context);
   const legacy = { ...current, version: 1, public: { ...current.public } }; delete legacy.public.generation;
+  delete legacy.listening;
   context.objects.set('current.json', JSON.stringify(legacy));
   context.objects.set('manifests/90-1.json', JSON.stringify(legacy));
   assert.equal(context.delivery.status().needsRebuild, true);
@@ -402,7 +495,7 @@ test('legacy manifests remain readable for migration but cannot be restored as g
   context.calls.length = 0;
   assert.throws(() => context.delivery.rollback({ targetId: '90-1', id: '101-1' }), /Legacy/);
   assert.equal(liveWrites(context).length, 0);
-  assert.equal(rebuild(context).version, 2);
+  assert.equal(rebuild(context).version, 3);
 });
 
 test('unavailable generation API fails closed before copy and after invalidation', () => {

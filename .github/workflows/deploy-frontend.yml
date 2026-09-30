@@ -100,7 +100,11 @@ jobs:
         run: |
           npm ci
           node ../delivery/infra/release/build-public.mjs
-          if [ "$ACTION" != rebuild-public ]; then npm run build:admin; fi
+          if [ "$ACTION" != rebuild-public ]; then
+            npm run build:admin
+            npm run build:offline-player
+            node ../delivery/infra/release/listening-artifacts.mjs packages/offline-player/dist listening-release
+          fi
       - name: Publish and wait for invalidation
         if: env.ACTION != 'rollback'
         env:

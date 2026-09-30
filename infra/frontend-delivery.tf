@@ -64,6 +64,7 @@ resource "aws_iam_role_policy" "frontend_deploy" {
         Resource = [
           "${aws_s3_bucket.frontend_public.arn}/*",
           "${aws_s3_bucket.frontend_admin.arn}/admin/*",
+          "${aws_s3_bucket.frontend_admin.arn}/offline-player/*",
           "${aws_s3_bucket.frontend_releases.arn}/*"
         ]
       },

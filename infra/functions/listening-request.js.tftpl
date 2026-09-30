@@ -1,0 +1,24 @@
+// This gate runs on every viewer request, including cached objects.
+var enabled = ${enabled};
+function handler(event) {
+  var request = event.request;
+  var uri = request.uri;
+  var relative = uri.slice('/offline-player'.length);
+  var valid = uri.indexOf('/offline-player') === 0 &&
+    /^(?:\/?|\/index\.html|\/sw\.js|\/releases\/[a-f0-9]{64}\/(?:index\.html|assets\/[a-zA-Z0-9_.\/-]+))$/.test(relative) &&
+    !relative.split('/').some(function (part) { return part === '.' || part === '..'; }) &&
+    relative.indexOf('//') === -1 && (relative === '/' || relative.slice(-1) !== '/');
+  if (!enabled || !valid) {
+    return { statusCode: 404, statusDescription: 'Not Found', headers: {
+      'cache-control': { value: 'no-store' },
+      'content-type': { value: 'text/plain; charset=utf-8' },
+      'content-security-policy': { value: "default-src 'none'; frame-ancestors 'none'" },
+      'strict-transport-security': { value: 'max-age=31536000' },
+      'x-content-type-options': { value: 'nosniff' },
+      'x-robots-tag': { value: 'noindex, nofollow' }
+    }, body: 'Not Found' };
+  }
+  // The configured S3 origin path supplies /offline-player exactly once.
+  request.uri = relative === '' || relative === '/' ? '/index.html' : relative;
+  return request;
+}
