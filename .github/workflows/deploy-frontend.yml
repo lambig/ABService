@@ -3,11 +3,23 @@ name: Deploy frontend
 on:
   workflow_call:
     inputs:
+      source_repository:
+        description: "Public source repository; the caller owns deployment settings and logs"
+        type: string
+        required: true
+      controller_sha:
+        description: "Reviewed full source SHA, pinned alongside the reusable workflow reference"
+        type: string
+        required: true
+      action:
+        type: string
+      release_id:
+        type: string
       normal_release:
         type: boolean
         default: false
       commit_sha:
-        required: true
+        default: ""
         type: string
   workflow_dispatch:
     inputs:
@@ -51,10 +63,20 @@ jobs:
       ACTION: ${{ inputs.normal_release == true && 'deploy' || inputs.action }}
       RELEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}
     steps:
+      - name: Validate source and controller inputs before checkout
+        env:
+          SOURCE_REPOSITORY: ${{ inputs.source_repository }}
+          CONTROLLER_SHA: ${{ inputs.controller_sha }}
+        run: |
+          if [ -n "$SOURCE_REPOSITORY$CONTROLLER_SHA" ]; then
+            [[ "$SOURCE_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]
+            [[ "$CONTROLLER_SHA" =~ ^[a-f0-9]{40}$ ]]
+          fi
       - uses: actions/checkout@v4
         with:
+          repository: ${{ inputs.source_repository || github.repository }}
           path: delivery
-          ref: ${{ inputs.normal_release == true && inputs.commit_sha || github.sha }}
+          ref: ${{ inputs.normal_release == true && inputs.commit_sha || inputs.controller_sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
@@ -79,6 +101,7 @@ jobs:
       - uses: actions/checkout@v4
         if: env.ACTION != 'rollback'
         with:
+          repository: ${{ inputs.source_repository || github.repository }}
           ref: ${{ steps.source.outputs.code_sha }}
           path: source
           persist-credentials: false
