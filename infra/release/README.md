@@ -89,7 +89,15 @@ bootstrap・DB初期化・資格情報・origin proxy設定はこのworkflowの�
 
 controllerは起動時main SHAの`cohost.py`/`install_release.py`を使う。
 ホストへ渡す`deploy.py`と`init-db.sh`は候補SHAのGit objectから取得し、checksumを添付する。
+認証済みrunnerが取得した配布digestの`/deployments/app.jar`からSQL migrationの一覧・checksumを抽出し、
+同じSSM payloadに含める。image内の別manifestやcheckout上のSQLで代用せず、抽出用containerは起動しない。
 ホストでは`cohost-delivery.lock`を取得して検証・原子的なファイル置換・固定入口の実行まで排他にする。
+ファイル置換と固定入口の呼出しより前に、既存ComposeのPostgreSQLからread-only transactionで
+`public.flyway_schema_history`を読み、適用済みversion・script・description・checksumの一致を要求する。
+候補にない未来のmigration、改変、失敗履歴、未適用の古いmigrationは、稼働backendを停止せず拒否する。
+一覧欠落・履歴取得失敗も拒否し、DB履歴のrepair/clean、ignore-future設定への変更は行わない。
+現在の整数version付きSQL migrationを対象とし、repeatable/baseline/独自配置など未対応の形式は拒否する。
+新しいmigrationのDDLやデータ、APIの互換性まで保証する検査ではないため、隔離DBでの移行検証も必要。
 既存の設定・入口・DB初期化記録が欠ける場合は更新を拒否する。
 Actions外の手動配布も同じ外側ロックを取得するか、実行中の配布がないことを確認してから行う。
 内部の`deploy.lock`は既存どおりDB/アプリ更新を保護する。

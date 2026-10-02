@@ -122,6 +122,12 @@ Parameter Storeの既存prefix配下に `private-audio/bucket` を用意する�
 復帰時は保存したsource/imageとDBスキーマの互換性を確認して、対応する検査済みスクリプトで再配布する。
 自動rollbackやDBの巻き戻し・削除は行わない。
 
+[SSM配布controller](../../release/README.md#cohostのbackend配布)経由では、候補imageのSQLと
+稼働DBのFlyway適用履歴を、ファイル置換・backend停止の前に照合する。古い候補の`deploy.py`にも
+controller側の検査を適用するため、DB移行後に適用済みSQLを含まないimageへ戻す操作は拒否する。
+この追加検査は直接`deploy.py`を呼ぶ手動操作には適用されない。手動復帰でも事前に互換性を検証する。
+履歴が一致しても新規DDLやデータ/API互換性までは保証しない。controller更新は運用側のpin更新後に有効となる。
+
 初回が途中で失敗した場合、volumeは残す。statusとDB初期化状態を確認し、`--initialize`なしで再試行する。
 初回にまだhealthyになっていなくても、同じstate・固有ID・DB設定でのみ再試行できる。
 volume作成前に失敗し、対象volumeが存在しない場合に限り、同じstateで`--initialize`を再実行できる。
@@ -145,3 +151,7 @@ AWSは呼ばず、明示した無効なfixture値を使用する。初回起動�
 URLへのアクセスや出力は行わない。実AWSや実機性能の保証ではない。
 音源の既定無効・有効化と実予約・一時領域の書込み/専有・再起動後の照会・無効化も検査する。
 この配布試験はS3への実送信を行わず、実FLACの保存はアプリ結合試験、実IAM/CDNは運用受け入れで確認する。
+production jar内のFlyway/JDBCへ合成SQLを1本渡して実際に移行を行い、移行前のimageが
+Quarkus起動時に未来のmigrationを拒否することも検証する。停止前検査が旧版を拒否し、
+稼働container・保存データ・適用履歴を維持すること、実Flywayのchecksum照合成功も確認する。
+試験helperのcompileにはアプリと同じJDK 25を使う（CIの既存JDK setupを利用）。
