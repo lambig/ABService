@@ -67,6 +67,12 @@ variable "listening_enabled" {
   default     = false
   nullable    = false
 }
+variable "private_audio_upload_enabled" {
+  description = "Opt in to the WAF body-size exception for the exact private FLAC PUT endpoint. Origin authorization, feature flag and 256MiB limit remain required."
+  type        = bool
+  default     = false
+  nullable    = false
+}
 variable "listening_audio_origins" {
   description = "Exact private audio HTTPS origins for browser downloads; no signed URLs or credentials."
   type        = set(string)
