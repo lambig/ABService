@@ -392,6 +392,10 @@ Reactiveセッション状態を引き継がない。単独実行だけでは起
    `--tls --private-audio`で管理音源contentのPUTだけに256MiB・入力buffering無効・応答待ち300秒を設定する。
    他のAPIは1MiB/60秒を維持する。CDN側は`backend_response_timeout`（既定30秒、明示で最大60秒）を別途検査し、
    最も短い待ち時間が経路の上限となる。実サイズで測定し、504/応答喪失後は状態照会・確定復旧を行う。
+   cohost-edgeのWAFは別に`private_audio_upload_enabled=true`の明示設定が必要。既定の
+   `SizeRestrictions_BODY`は大容量FLACをorigin到達前に拒否する。設定後も例外は正確な音源content PUTと
+   `audio/flac`だけで、他のmanaged rule・認可・本体上限は維持する。通常APIの容量拒否も再検査し、
+   一時受け入れ終了時にはこの設定をfalseへ戻す。詳細は`infra/cohost-edge/README.md`を参照。
 4. 予約→送信→状態照会→Album関連付けを実行し、送信前のファイルと登録応答の容量・SHA-256を照合する。
    関連付けの世代はGETで取得し、409では最新状態を読んでから判断する。元の作品情報・公開画像も確認する。
 5. 送信中断・保存応答喪失・停止/再開を検証する。PENDINGは期限内のみ再送、INSPECTED/ABANDONEDは

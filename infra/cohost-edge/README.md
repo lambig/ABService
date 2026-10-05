@@ -51,6 +51,27 @@ that saving failed: query the registration and use the confirmation/recovery
 contract rather than blindly uploading again. Keep the audio bucket out of CDN
 origins/OAC and validate anonymous rejection independently.
 
+Private FLAC uploads also need an explicit `private_audio_upload_enabled=true`
+WAF opt-in. The managed `SizeRestrictions_BODY` rule otherwise rejects valid
+large files before they reach the origin. The opt-in changes only that rule to
+Count and blocks its label again unless the request is an exact `PUT` to
+`/api/v1/admin/private-audio/registrations/{lowercase UUID}/content` with
+`Content-Type: audio/flac`. Other methods, paths and content types retain the
+managed size rejection. Both managed rule groups and every other rule still run;
+this is neither an early Allow nor an authentication exception. The origin must
+still enforce administrator authorization, the feature flag, streaming 256MiB
+limits and input deadlines. WAF inspects only its supported body prefix and
+cannot validate a whole FLAC or enforce this larger upload limit.
+
+Keep this opt-in false until the origin is ready, and restore it to false when
+temporarily disabling upload acceptance. It does not enable the listening PWA
+or grant access to stored audio. After applying, test a real FLAC through the
+CDN, the unchanged non-audio size rejection, unauthenticated rejection and the
+origin's over-limit rejection. Inspect the terminating WAF rule for any further
+403; do not broadly exempt binary content from the remaining protections.
+The label-and-exception pattern follows the
+[AWS WAF upload guidance](https://repost.aws/knowledge-center/waf-upload-blocked-files).
+
 The Free candidate uses `PriceClass_All`. Read back actual subscription admission;
 a valid CloudFront configuration alone does not prove eligibility for Free.
 Viewer-response functions cover normal/cache-hit responses; Lambda@Edge supplies
