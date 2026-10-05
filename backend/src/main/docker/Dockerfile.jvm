@@ -9,10 +9,32 @@
 # 手元で組むには: backend/gradlew -p backend quarkusBuild
 #                docker build -f backend/src/main/docker/Dockerfile.jvm -t abservice-backend:local backend
 
-FROM amazoncorretto:25-al2023-headless
+FROM amazoncorretto:25-al2023-headless AS flac-build
+
+# 1.3系の--analyzeは先頭frameのoffset/sizeを誤ることがある。
+# OS同梱版に依存せず、公式配布物の版とSHA-256を固定して同じABIで組み立てる。
+RUN dnf install -y gcc gcc-c++ make cmake tar xz curl-minimal && dnf clean all
+WORKDIR /build
+RUN curl --fail --show-error --location --proto '=https' --proto-redir '=https' \
+      https://downloads.xiph.org/releases/flac/flac-1.5.0.tar.xz -o flac.tar.xz \
+    && echo 'f2c1c76592a82ffff8413ba3c4a1299b6c7ab06c734dee03fd88630485c2b920  flac.tar.xz' | sha256sum --check --strict \
+    && tar -xJf flac.tar.xz \
+    && cmake -S flac-1.5.0 -B compiled -DCMAKE_BUILD_TYPE=Release \
+      -DBUILD_SHARED_LIBS=OFF -DBUILD_CXXLIBS=OFF -DBUILD_PROGRAMS=ON \
+      -DBUILD_EXAMPLES=OFF -DBUILD_TESTING=OFF -DBUILD_DOCS=OFF \
+      -DINSTALL_MANPAGES=OFF -DWITH_OGG=OFF -DCMAKE_INSTALL_PREFIX=/opt/flac \
+    && cmake --build compiled --parallel 2 \
+    && cmake --install compiled
+
+FROM amazoncorretto:25-al2023-headless AS flac-runtime
 
 # 非公開音源はlibFLACで全体を検査する。CLIは別プロセスとして実行し、PCMを保存しない。
-RUN dnf install -y flac && dnf clean all
+COPY --from=flac-build /opt/flac/bin/flac /usr/local/bin/flac
+COPY --from=flac-build /build/flac-1.5.0/COPYING.GPL /build/flac-1.5.0/COPYING.Xiph /usr/share/licenses/flac/
+RUN test "$(flac --version)" = 'flac 1.5.0'
+USER 1000:1000
+
+FROM flac-runtime
 
 # al2023-headlessにはshadow-utils（groupadd/useradd）が無いため、既存ユーザー名を作らず
 # 非rootの数値UID/GIDを直接指定する。
