@@ -41,3 +41,59 @@
 [hidden] {
   display: none !important;
 }
+
+/* Explicit measurement profile; controls and DOM text keep their native resolution. */
+html[data-scene-load="true"] #visualizer {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  z-index: -1;
+}
+html[data-scene-load="true"] body {
+  background: #07111b;
+  isolation: isolate;
+}
+html[data-scene-load="true"] header,
+html[data-scene-load="true"] .intro,
+html[data-scene-load="true"] footer {
+  display: none;
+}
+html[data-scene-load="true"] main {
+  margin: 0;
+  padding: 16px;
+  max-width: none;
+}
+html[data-scene-load="true"] .workspace {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  right: 16px;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(260px, 2fr);
+  gap: 16px;
+}
+html[data-scene-load="true"] #library,
+html[data-scene-load="true"] .player {
+  max-height: 30dvh;
+  overflow: auto;
+  background: #fffdf6f2;
+  padding: 16px;
+}
+html[data-scene-load="true"] #probe {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  max-width: calc(100vw - 32px);
+  max-height: 25dvh;
+  overflow: auto;
+  background: #fffdf6e8;
+  font-size: 10px;
+  pointer-events: none;
+}
+@media (orientation: portrait) {
+  html[data-scene-load="true"] .workspace {
+    grid-template-columns: minmax(120px, 1fr) minmax(180px, 2fr);
+    gap: 8px;
+  }
+}

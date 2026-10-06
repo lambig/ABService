@@ -68,6 +68,11 @@ export const parseBudget = (hash: string): RendererBudget =>
 export const probeRequested = (hash: string): boolean =>
   hash.replace(/^#/, "").split("&").includes("probe");
 
+/** 同じPWAで全画面の代表負荷を測る明示指定。完成表現の合格を意味しない。 */
+export const sceneLoadRequested = (hash: string): boolean =>
+  probeRequested(hash) &&
+  hash.replace(/^#/, "").split("&").includes("load=scene");
+
 /** canvas の表示寸法と DPR から、予算に従った描画寸法を求める。device の上限を超えない。 */
 export const drawSize = (
   clientWidth: number,
@@ -91,4 +96,6 @@ export const due = (
   last: number | undefined,
   budget: RendererBudget,
 ): boolean =>
-  last === undefined ? true : now - last >= (1000 / budget.targetFps) * tolerance;
+  last === undefined
+    ? true
+    : now - last >= (1000 / budget.targetFps) * tolerance;

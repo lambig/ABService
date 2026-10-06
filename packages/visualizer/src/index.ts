@@ -15,6 +15,7 @@ export {
   due,
   parseBudget,
   probeRequested,
+  sceneLoadRequested,
 } from "./budget";
 export type { RendererBudget } from "./budget";
 export { createProbe, distribution } from "./probe";
@@ -136,4 +137,3 @@ export const fakeFeatures = (seconds: number): AudioFeatures => {
     spectralCentroidHz: 800 + 9000 * wave(0.35),
   });
 };
-

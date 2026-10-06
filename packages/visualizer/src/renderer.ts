@@ -3,12 +3,15 @@ import { defaultBudget, drawSize } from "./budget";
 import type { RendererBudget } from "./budget";
 import type { PresentationFrame } from "./index";
 import type { FrameSample } from "./probe";
+import type { ListeningAlbum } from "abservice-listening-presentation";
 import shader from "./scene.wgsl?raw";
 
 /** 描画の予算と、フレームごとの観測の受け取り先。観測は指定したときだけ取る。 */
 export type RendererOptions = Readonly<{
   budget?: RendererBudget;
   onSample?: (sample: FrameSample) => void;
+  representative?: boolean;
+  content?: ListeningAlbum;
 }>;
 
 /** Rendererの音響に依存しない描画・破棄境界。 */
@@ -57,6 +60,51 @@ const atlas = (): HTMLCanvasElement => {
   return image;
 };
 
+/* The same texture path carries verified presentation bytes; no network or album lookup in the renderer. */
+const contentAtlas = async (
+  content: ListeningAlbum | undefined,
+  signal: AbortSignal,
+): Promise<HTMLCanvasElement> => {
+  const image = atlas();
+  const context =
+    image.getContext("2d") ?? unavailable("Artwork canvas unavailable");
+  const bitmap =
+    content?.artwork === undefined
+      ? undefined
+      : await createImageBitmap(content.artwork, {
+          resizeWidth: 512,
+          resizeHeight: 512,
+          resizeQuality: "high",
+        });
+  try {
+    signal.throwIfAborted();
+    /* Missing artwork retains the neutral generated surface, never the previous album. */
+    (bitmap === undefined
+      ? () => undefined
+      : () => {
+          context.fillStyle = "#07111b";
+          context.fillRect(0, 0, 512, 512);
+          context.drawImage(bitmap, 0, 0, 512, 512);
+        })();
+  } finally {
+    bitmap?.close();
+  }
+  const title = content?.title ?? "";
+  const artist = content?.artistDisplayName ?? "";
+  await Promise.all([
+    document.fonts.load('600 48px "Klee One"', title),
+    document.fonts.load('400 28px "Klee One"', artist),
+  ]);
+  signal.throwIfAborted();
+  context.clearRect(0, 512, 512, 512);
+  context.fillStyle = "#eef3f5";
+  context.font = '600 48px "Klee One", sans-serif';
+  context.fillText(title, 256, 760, 490);
+  context.font = '400 28px "Klee One", sans-serif';
+  context.fillText(artist, 256, 812, 490);
+  return image;
+};
+
 /** 一枚のatlasとuniform bufferを使うWebGPU候補。初期化失敗は呼び出し元へ返す。 */
 export const createRenderer = async (
   canvas: HTMLCanvasElement,
@@ -78,7 +126,12 @@ export const createRenderer = async (
     const pipeline = await device.createRenderPipelineAsync({
       layout: "auto",
       vertex: { module, entryPoint: "vertex" },
-      fragment: { module, entryPoint: "fragment", targets: [{ format }] },
+      fragment: {
+        module,
+        entryPoint: "fragment",
+        targets: [{ format }],
+        constants: { representative: options.representative === true ? 1 : 0 },
+      },
       primitive: { topology: "triangle-list" },
     });
     signal.throwIfAborted();
@@ -94,8 +147,13 @@ export const createRenderer = async (
         GPUTextureUsage.COPY_DST |
         GPUTextureUsage.RENDER_ATTACHMENT,
     });
+    const pixels =
+      options.representative === true
+        ? await contentAtlas(options.content, signal)
+        : atlas();
+    signal.throwIfAborted();
     device.queue.copyExternalImageToTexture(
-      { source: atlas() },
+      { source: pixels },
       { texture },
       [512, 1024],
     );
@@ -205,4 +263,3 @@ export const createRenderer = async (
     throw error;
   }
 };
-

@@ -34,6 +34,12 @@ http://127.0.0.1:4179/offline-player/ を開き、`fixtureToken` を入力して
 
 `probe` では音声側も重ねる（#290 の計測契約）。
 
+代表描画負荷は `/offline-player/#probe&load=scene` で有効にして読み込み直す。同じPWAとrendererでcanvasを画面全体へ広げ、検証済み表示データのartwork・作品名・名義をatlasへ渡す。背景にはartworkをもう一度sampleする面を足し、縦画面では上下、横画面では左右にartworkと文字を配置する。通常のstudy表示とはprobe内の `scene` 行で区別できる。作品切替ではatlasを作り直し、artwork欠落時は中立の生成面、文字欠落時は空表示に戻す。
+
+比較では同じ音源・再生位置・向き・viewportを固定し、`scale` と `fps` を一つずつ変える。`effects` は明るさの倍率で、演算量を減らすノブではない。cycle CPU、renderer CPU、GPU submitから完了通知まで、音声側の観測を別々に記録する。DOMの操作・作品情報は描画解像度を下げてもCSSの解像度を保つが、atlas内の文字とartworkは同じ低解像度になる。層別解像度、最終的な表現、実機での可読性・性能合格はこのモードの導入だけでは確定しない。
+
+`scene-load.spec.ts` はこのモードの素材接続、縦横の実canvas寸法、pause時の静止画、artworkのない別作品への切替を検査する。headlessの機能検査であり、実機性能の証跡には使わない。
+
 - sampleRate と render quantum の長さ、特徴量の通知の件数と間隔（AudioContext の時刻）
 - Worklet の平均負荷率（通知の区間ごとの値の分布）
 - `playbackStats` の音切れと遅延。停止・選び直しで接続を捨てる直前の値を残す
