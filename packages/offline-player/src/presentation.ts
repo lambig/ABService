@@ -1,6 +1,7 @@
 /* eslint-disable functional/immutable-data -- This adapter owns the current GPU session, animation callback and DOM status. */
 import type { AudioFeatures } from "abservice-audio-dsp";
 import type { PlayerSnapshot } from "abservice-player";
+import type { ListeningAlbum } from "abservice-listening-presentation";
 import {
   createProbe,
   due,
@@ -9,6 +10,7 @@ import {
   parseBudget,
   probeRequested,
   restingFrame,
+  sceneLoadRequested,
 } from "abservice-visualizer";
 import type { FrameProbe, PresentationState } from "abservice-visualizer";
 import { createRenderer } from "abservice-visualizer/renderer";
@@ -40,6 +42,8 @@ const settled: ReadonlySet<RendererStatus> = new Set<RendererStatus>([
 
 /* Budget and probe are read once from the hash: a query would keep the Service Worker from serving the page offline. */
 const budget = parseBudget(location.hash);
+const representative = sceneLoadRequested(location.hash);
+document.documentElement.dataset["sceneLoad"] = String(representative);
 const probe: FrameProbe | undefined = probeRequested(location.hash)
   ? createProbe()
   : undefined;
@@ -65,7 +69,10 @@ export const probeReport = (): string | undefined => {
     .getEntriesByType("mark")
     .filter((entry) => entry.name.startsWith("listening:"))
     .map((entry) => `${entry.name} ${entry.startTime.toFixed(0)} ms`);
-  const format = (name: string, value?: { p50: number; p95: number; max: number }) =>
+  const format = (
+    name: string,
+    value?: { p50: number; p95: number; max: number },
+  ) =>
     value === undefined
       ? `${name} -`
       : `${name} p50 ${value.p50.toFixed(2)} / p95 ${value.p95.toFixed(2)} / max ${value.max.toFixed(2)} ms`;
@@ -73,6 +80,7 @@ export const probeReport = (): string | undefined => {
     ? undefined
     : [
         ...marks,
+        `scene ${representative ? "representative-v1" : "study"}`,
         `budget dpr ${String(budget.maxDevicePixelRatio)} scale ${String(budget.renderScale)} effects ${String(budget.effectDensity)} fps ${String(budget.targetFps)}`,
         `frames ${String(summary.frames)} skipped ${String(summary.skipped)} pixels ${String(summary.pixels ?? 0)}`,
         format("cycle cpu", summary.cycleCpu),
@@ -95,6 +103,7 @@ export const presentation = (
     degraded: boolean;
     drawnAt: number | undefined;
     interval: number | undefined;
+    content: ListeningAlbum | undefined;
   } = {
     supervisor: null,
     presentation: "idle",
@@ -104,6 +113,7 @@ export const presentation = (
     degraded: false,
     drawnAt: undefined,
     interval: undefined,
+    content: undefined,
   };
   canvas.dataset["presentationState"] = state.presentation;
   const cancelFrame = (): void => {
@@ -215,6 +225,14 @@ export const presentation = (
       create: (signal) =>
         createRenderer(canvas, signal, {
           budget,
+          ...(representative
+            ? {
+                representative,
+                ...(state.content === undefined
+                  ? {}
+                  : { content: state.content }),
+              }
+            : {}),
           ...(probe === undefined
             ? {}
             : {
@@ -236,9 +254,7 @@ export const presentation = (
               status.textContent = messages[next];
               state.degraded = next === "degraded";
               /* The still is kept until the new session can draw over it or has given up. */
-              (settled.has(next)
-                ? thaw
-                : () => undefined)();
+              (settled.has(next) ? thaw : () => undefined)();
               (next === "running" && state.animation === null
                 ? draw
                 : () => undefined)();
@@ -251,7 +267,8 @@ export const presentation = (
     status.textContent = messages.starting;
   };
   /* The presentation state, through planSession, decides the GPU lifetime and whether the frame goes back to rest. */
-  const sync = (snapshot: PlayerSnapshot): void => {
+  const sync = (snapshot: PlayerSnapshot, content?: ListeningAlbum): void => {
+    state.content = content;
     const step = followPlayback(state.presentation, state.observed, snapshot);
     const plan = planSession(step, state.frame);
     state.observed = snapshot;
@@ -274,7 +291,9 @@ export const presentation = (
     };
     const still = (): void => {
       release(true);
-      status.textContent = state.degraded ? messages.degraded : messages.resting;
+      status.textContent = state.degraded
+        ? messages.degraded
+        : messages.resting;
     };
     /* Releasing leaves the frame to the plan; only resetFrame puts it back at rest. */
     const released = (): void => {
