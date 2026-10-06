@@ -1,5 +1,21 @@
 # 非公開FLACの受入検査（#474）
 
+## 配布イメージのFLAC互換性
+
+検査器は`flac --analyze`のframe位置と、実ファイルのheader・末尾位置を照合する。
+FLAC 1.3系には先頭frameのoffset/sizeを誤る既知問題があるため、CLIでのdecode成功だけでは
+この検査との互換性を保証できない。上流では[1.4.0で修正](https://github.com/xiph/flac/blob/1.5.0/CHANGELOG.md#flac-140-09-sep-2022)されている。
+
+JVM配布イメージはFLAC 1.5.0の公式sourceとSHA-256を固定し、同じOS/ABIのbuilderで組み立てる。
+実行イメージへはCLIとライセンスだけをコピーし、コンパイラ・ヘッダー・sourceを含めない。
+ハッシュの出典は[公式配布一覧](https://downloads.xiph.org/releases/flac/SHA256SUMS.txt)。
+非root実行、256MiB上限、入力/検査期限、CRC/MD5とframe境界の検査は維持する。
+
+CIではホストに入れたFLACでのJava統合試験に加え、`Dockerfile.jvm`の`flac-runtime` targetを組み、
+`python3 scripts/check-flac-image.py <image>`でmetadata paddingを持つ合成FLACを検査する。
+この試験はAWSや実作品を使わず、配布対象CLIの全frame位置・サンプル数・末尾位置を確認する。
+配布イメージの検査を、実原本の登録・実環境受け入れの完了とは扱わない。
+
 ## 現在の実装境界
 
 実装済みの境界は、非公開音源の検査器、専用の保存アダプタ、DBの登録状態と、それらを結ぶ確定・復旧処理。
