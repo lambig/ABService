@@ -57,10 +57,7 @@ const fallbackSampleRate = 48000;
  * decode load the Worklet and inflate its load and underruns. The benchmark waits for playback to stop, and playback
  * waits for the benchmark.
  */
-const benchmarkBlocked: readonly SettledPhase[] = [
-  "loading",
-  "playing",
-];
+const benchmarkBlocked: readonly SettledPhase[] = ["loading", "playing"];
 const benchmarkAllowed = (phase: SettledPhase): boolean =>
   benchmarkBlocked.every((blocked) => blocked !== phase);
 const phases: Record<SettledPhase, string> = {
@@ -85,8 +82,8 @@ const render = (
   element("#track-title", HTMLElement).textContent =
     selection?.title ?? "音源を選んでください";
   element("#album-title", HTMLElement).textContent =
-    data?.albums.find((album) => album.albumId === selection?.albumId)
-      ?.title ?? "YOUR SELECTION";
+    data?.albums.find((album) => album.albumId === selection?.albumId)?.title ??
+    "YOUR SELECTION";
   /* A seek is shown as where it returns to; the presentation state follows the seek itself. */
   const phase = settledPhase(state);
   status.textContent = phases[phase];
@@ -150,7 +147,9 @@ const presentationOf = async (
   const read = await Promise.all(
     artworkAssetIds(contract).map(async (assetId) => {
       const result =
-        opened.kind === "ok" ? await opened.value.read(assetId, signal) : opened;
+        opened.kind === "ok"
+          ? await opened.value.read(assetId, signal)
+          : opened;
       return result.kind === "ok" ? [[assetId, result.value] as const] : [];
     }),
   );
@@ -207,7 +206,15 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
         items.find((item) => item.playbackItemId === state.playbackItemId)
           ?.albumId,
       );
-      visual.sync(state);
+      visual.sync(
+        state,
+        data.albums.find(
+          (album) =>
+            album.albumId ===
+            items.find((item) => item.playbackItemId === state.playbackItemId)
+              ?.albumId,
+        ),
+      );
       (state.phase === "error" ? preparation.invalidate : () => undefined)();
     }),
     (media, signal) => {
@@ -305,9 +312,7 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
     element("#library", HTMLElement).append(section);
   });
   play.addEventListener("click", () => {
-    void (audioProbe?.benchmarking() === true
-      ? undefined
-      : controller.play());
+    void (audioProbe?.benchmarking() === true ? undefined : controller.play());
   });
   pause.addEventListener("click", controller.pause);
   stop.addEventListener("click", controller.stop);
@@ -327,8 +332,7 @@ const start = async (): Promise<void> => {
   window.addEventListener("pagehide", visual.dispose, { once: true });
   render(undefined, idle);
   const active = await preparation.mount();
-  const data =
-    active === undefined ? undefined : await presentationOf(active);
+  const data = active === undefined ? undefined : await presentationOf(active);
   (active !== undefined && data !== undefined
     ? () => {
         open(active, data);

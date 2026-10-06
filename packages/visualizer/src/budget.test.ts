@@ -7,9 +7,16 @@ import {
   due,
   parseBudget,
   probeRequested,
+  sceneLoadRequested,
 } from "./index";
 
 describe("renderer budget", () => {
+  it("requires an explicit probe and scene load profile", () => {
+    expect(sceneLoadRequested("#probe&load=scene&scale=0.5")).toBe(true);
+    ["", "#load=scene", "#probe", "#probe&load=unknown"].forEach((hash) => {
+      expect(sceneLoadRequested(hash)).toBe(false);
+    });
+  });
   it("keeps the current look by default", () => {
     expect(parseBudget("")).toEqual(defaultBudget);
     expect(drawSize(400, 300, 2, defaultBudget, 8192)).toEqual({
@@ -19,12 +26,14 @@ describe("renderer budget", () => {
   });
 
   it("reads tuning from the hash and clamps it to its range", () => {
-    expect(parseBudget("#probe&dpr=1.5&scale=0.5&effects=0.25&fps=30")).toEqual({
-      maxDevicePixelRatio: 1.5,
-      renderScale: 0.5,
-      effectDensity: 0.25,
-      targetFps: 30,
-    });
+    expect(parseBudget("#probe&dpr=1.5&scale=0.5&effects=0.25&fps=30")).toEqual(
+      {
+        maxDevicePixelRatio: 1.5,
+        renderScale: 0.5,
+        effectDensity: 0.25,
+        targetFps: 30,
+      },
+    );
     expect(parseBudget("#dpr=9&scale=0.01&effects=-1&fps=1000")).toEqual({
       maxDevicePixelRatio: 3,
       renderScale: 0.25,
@@ -38,13 +47,23 @@ describe("renderer budget", () => {
   });
 
   it("draws fewer pixels with a lower render scale or DPR cap, within the device limit", () => {
-    const budget = { ...defaultBudget, maxDevicePixelRatio: 1, renderScale: 0.5 };
-    expect(drawSize(1280, 800, 2, budget, 8192)).toEqual({ width: 640, height: 400 });
+    const budget = {
+      ...defaultBudget,
+      maxDevicePixelRatio: 1,
+      renderScale: 0.5,
+    };
+    expect(drawSize(1280, 800, 2, budget, 8192)).toEqual({
+      width: 640,
+      height: 400,
+    });
     expect(drawSize(10000, 10, 2, defaultBudget, 4096)).toEqual({
       width: 4096,
       height: 20,
     });
-    expect(drawSize(0, 0, 2, defaultBudget, 4096)).toEqual({ width: 1, height: 1 });
+    expect(drawSize(0, 0, 2, defaultBudget, 4096)).toEqual({
+      width: 1,
+      height: 1,
+    });
   });
 
   it("skips frames that come sooner than the target fps allows", () => {
