@@ -71,8 +71,15 @@ def validate(config, image, source):
         raise DeployError("auth_dir must contain the prepared AWS profile config")
     if "private_audio" in config:
         audio = config["private_audio"]
-        if not isinstance(audio, dict) or set(audio) != {"enabled", "temporary_dir"} or type(audio["enabled"]) is not bool:
+        required_audio = {"enabled", "temporary_dir"}
+        if (not isinstance(audio, dict) or not required_audio <= set(audio)
+                or set(audio) - required_audio - {"input_timeout_seconds"}
+                or type(audio["enabled"]) is not bool):
             raise DeployError("private_audio requires a boolean enabled and a temporary_dir")
+        if "input_timeout_seconds" in audio:
+            seconds = audio["input_timeout_seconds"]
+            if type(seconds) is not int or not 1 <= seconds <= 600:
+                raise DeployError("Private audio input_timeout_seconds must be an integer from 1 to 600")
         directory = Path(audio["temporary_dir"])
         if (not directory.is_absolute() or not directory.is_dir() or directory.resolve() != directory
                 or directory == Path(directory.anchor)
@@ -165,6 +172,9 @@ def compose_config(config, image, values):
             "ABSERVICE_PRIVATE_AUDIO_BUCKET": values["private-audio/bucket"],
             "ABSERVICE_PRIVATE_AUDIO_TEMPORARY_DIRECTORY": "/var/lib/abservice/private-audio",
         })
+        if "input_timeout_seconds" in config["private_audio"]:
+            backend_env["ABSERVICE_PRIVATE_AUDIO_INPUT_TIMEOUT"] = (
+                f'PT{config["private_audio"]["input_timeout_seconds"]}S')
         model["services"]["backend"]["volumes"].append({
             "type": "bind", "source": config["private_audio"]["temporary_dir"],
             "target": "/var/lib/abservice/private-audio", "read_only": False,

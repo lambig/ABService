@@ -185,7 +185,7 @@ PENDING/EXPIRED/CONFIRMEDの復旧、再PUT、ID再利用は許さない。
 | `bucket` | 有効時必須。公開画像バケットとは異なる専用バケット |
 | `temporary-directory` | 有効時必須。POSIXの専有ローカル領域 |
 | `temporary-bytes` | 512MiB。256MiB〜8GiB |
-| `input-timeout` | `PT2M`。1ms〜5分 |
+| `input-timeout` | `PT2M`。1ms〜10分。入力開始からの全体期限で、通信のたびには延長しない |
 | `retention` | `PT24H`。1時間〜7日 |
 | `maintenance-interval` | `PT15M`。1分〜24時間 |
 

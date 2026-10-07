@@ -109,6 +109,16 @@ Parameter Storeの既存prefix配下に `private-audio/bucket` を用意する�
 `ABSERVICE_PRIVATE_AUDIO_TEMPORARY_DIRECTORY`を渡し、入力期限・保持期限・総予算は
 [アプリの既定値](../../../docs/PRIVATE_AUDIO_INGESTION.md)を使う。
 
+低速の管理経路では、任意の `private_audio.input_timeout_seconds`（整数1〜600）で
+入力全体の期限を明示できる。省略時は従来どおり2分で、機能無効時は環境変数へ渡さない。
+有効時は `ABSERVICE_PRIVATE_AUDIO_INPUT_TIMEOUT=PT<秒>S` として配線する。
+入力期限の上限を10分へ拡張したbackendを先に採用し、旧backendへ戻す際はこの項目を
+削除するか旧版が許容する値へ戻す。ホスト設定だけ先に延長しても旧backendは起動できない。
+期限は無通信timeoutではなく、入力開始からの経過時間で打ち切る。上限容量を低速経路で
+扱う場合は、採用値での全量入力・期限超過時の回収・次入力の受付を別途受け入れる。
+管理クライアントの全体期限もサーバー期限と応答回収を覆う値にし、予約の15分の受付期限内で
+検査・確定まで終わる余裕を確保する。容量・同時受付数・一時領域予算は変えない。
+
 [originの音源用経路](ORIGIN.md)とCDNを別途準備し、有効化は実環境受け入れ後に行う。
 `enabled: false`への変更または項目の削除でAPIを404へ戻す。falseでも項目を残す場合は専用領域の
 パス・所有者・権限を検査する。停止でS3の音源・DBの登録・ホスト一時領域を削除しない。

@@ -48,6 +48,15 @@ class DeployTests(unittest.TestCase):
         backend = enabled["services"]["backend"]
         self.assertEqual(backend["environment"]["ABSERVICE_PRIVATE_AUDIO_ENABLED"], "true")
         self.assertEqual(backend["environment"]["ABSERVICE_PRIVATE_AUDIO_BUCKET"], values["private-audio/bucket"])
+        self.assertNotIn("ABSERVICE_PRIVATE_AUDIO_INPUT_TIMEOUT", backend["environment"])
+        self.config["private_audio"]["input_timeout_seconds"] = 600
+        extended = deploy.compose_config(self.config, IMAGE, values)
+        self.assertEqual(extended["services"]["backend"]["environment"]["ABSERVICE_PRIVATE_AUDIO_INPUT_TIMEOUT"], "PT600S")
+        self.assertEqual(extended["services"]["postgres"], disabled["services"]["postgres"])
+        self.config["private_audio"]["enabled"] = False
+        stopped = deploy.compose_config(self.config, IMAGE, VALUES)
+        self.assertNotIn("ABSERVICE_PRIVATE_AUDIO_INPUT_TIMEOUT", stopped["services"]["backend"]["environment"])
+        self.config["private_audio"]["enabled"] = True
         self.assertEqual(backend["volumes"][-1], {
             "type": "bind", "source": "/audio-fixture", "target": "/var/lib/abservice/private-audio",
             "read_only": False, "bind": {"create_host_path": False}})
@@ -84,6 +93,14 @@ class DeployTests(unittest.TestCase):
             return original_stat(path, *args, **kwargs)
         with patch.object(Path, "stat", fake_stat):
             deploy.validate(self.config, IMAGE, SOURCE)
+            for seconds in (1, 120, 600):
+                self.config["private_audio"]["input_timeout_seconds"] = seconds
+                deploy.validate(self.config, IMAGE, SOURCE)
+            for seconds in (0, -1, 601, True, False, 120.5, "120", None):
+                self.config["private_audio"]["input_timeout_seconds"] = seconds
+                with self.assertRaisesRegex(deploy.DeployError, "input_timeout_seconds"):
+                    deploy.validate(self.config, IMAGE, SOURCE)
+            del self.config["private_audio"]["input_timeout_seconds"]
             for bad in ("true", 1, None):
                 self.config["private_audio"]["enabled"] = bad
                 with self.assertRaises(deploy.DeployError):

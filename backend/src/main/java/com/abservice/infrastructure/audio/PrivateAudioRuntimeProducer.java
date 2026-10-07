@@ -164,7 +164,7 @@ public class PrivateAudioRuntimeProducer {
         requireRange(
                 config.inputTimeout().toMillis(),
                 1,
-                300000);
+                600000);
         requireRange(
                 config.retention().getSeconds(),
                 3600,
