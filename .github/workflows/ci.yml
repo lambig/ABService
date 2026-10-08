@@ -55,6 +55,7 @@ jobs:
     if: ${{ needs.changes.outputs.application == 'true' }}
     name: Backend full check (spotless / checkstyle / unit+ArchUnit / integration)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     # 統合テスト用 PostgreSQL（docker-compose と同じ postgres:15-alpine）。
     # データベース名はテスト専用のもの（#252）。ローカルは compose の init スクリプトが同じ名前で作る。
@@ -104,7 +105,11 @@ jobs:
         run: chmod +x backend/gradlew
 
       - name: Install FLAC for real audio validation tests
-        run: sudo apt-get update && sudo apt-get install -y flac
+        timeout-minutes: 5
+        run: |
+          apt_options=(-o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o DPkg::Lock::Timeout=60)
+          sudo apt-get "${apt_options[@]}" -o APT::Update::Error-Mode=any update
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get "${apt_options[@]}" install -y flac
 
       - name: 配布用FLAC実行環境の解析互換性を検査
         run: |

@@ -109,6 +109,27 @@ Parameter Storeの既存prefix配下に `private-audio/bucket` を用意する�
 `ABSERVICE_PRIVATE_AUDIO_TEMPORARY_DIRECTORY`を渡し、入力期限・保持期限・総予算は
 [アプリの既定値](../../../docs/PRIVATE_AUDIO_INGESTION.md)を使う。
 
+低速の管理経路では、`--config` の設定ファイルと同じディレクトリに任意の
+`private-audio-runtime.json` を置き、入力全体の期限を明示できる。内容は
+`{"input_timeout_seconds": 120}` の形式で、値は整数1〜600のみ。
+このファイルはoperatorが管理し、所有者・権限は `cohost.json` と同じにする。
+更新時は同じディレクトリで作った一時ファイルをrenameし、読み取り途中の内容を公開しない。
+ファイルが無ければ従来どおり2分で、機能無効時は環境変数へ渡さない。
+存在するファイルの不正なJSON・未知キー・範囲外の値は、機能無効時も配布開始前に拒否する。
+有効時は `ABSERVICE_PRIVATE_AUDIO_INPUT_TIMEOUT=PT<秒>S` として配線する。
+
+`cohost.json` の `private_audio` には `enabled` と `temporary_dir` だけを置く。
+旧deploy scriptは未知キーを拒否するため、そこへ期限を追加してはならない。
+標準の `action=rollback` と旧targetのfull SHAで戻す場合、runtimeファイルを残してよい。
+配布scriptもtarget版へ戻り、#538より前のscriptはruntimeファイルを読まず、期限overrideを
+含まないComposeを再生成するため、旧backendの既定2分へ戻る。設定の削除・値変更は不要。
+再び対応版を配布すると保存した値が適用される。scriptとimageは同じtargetの組で使い、
+新scriptから旧imageへ延長値を渡す手動配布は行わない。
+期限は無通信timeoutではなく、入力開始からの経過時間で打ち切る。上限容量を低速経路で
+扱う場合は、採用値での全量入力・期限超過時の回収・次入力の受付を別途受け入れる。
+管理クライアントの全体期限もサーバー期限と応答回収を覆う値にし、予約の15分の受付期限内で
+検査・確定まで終わる余裕を確保する。容量・同時受付数・一時領域予算は変えない。
+
 [originの音源用経路](ORIGIN.md)とCDNを別途準備し、有効化は実環境受け入れ後に行う。
 `enabled: false`への変更または項目の削除でAPIを404へ戻す。falseでも項目を残す場合は専用領域の
 パス・所有者・権限を検査する。停止でS3の音源・DBの登録・ホスト一時領域を削除しない。

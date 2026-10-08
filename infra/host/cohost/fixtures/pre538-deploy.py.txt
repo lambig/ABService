@@ -44,25 +44,6 @@ def read_json(path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def validate_input_timeout(seconds):
-    if type(seconds) is not int or not 1 <= seconds <= 600:
-        raise DeployError("Private audio input_timeout_seconds must be an integer from 1 to 600")
-
-
-def read_input_timeout(config_path):
-    # Separate from cohost.json: retained older deploy scripts reject new keys.
-    path = config_path.with_name("private-audio-runtime.json")
-    try:
-        runtime = read_json(path)
-    except FileNotFoundError:
-        return None
-    if not isinstance(runtime, dict) or set(runtime) != {"input_timeout_seconds"}:
-        raise DeployError("Private audio runtime requires only input_timeout_seconds")
-    seconds = runtime["input_timeout_seconds"]
-    validate_input_timeout(seconds)
-    return seconds
-
-
 def check_digest(value):
     if not isinstance(value, str) or not re.fullmatch(r"[a-zA-Z0-9._:/-]+@sha256:[0-9a-f]{64}", value):
         raise DeployError("Images must be full repository@sha256 references")
@@ -90,8 +71,7 @@ def validate(config, image, source):
         raise DeployError("auth_dir must contain the prepared AWS profile config")
     if "private_audio" in config:
         audio = config["private_audio"]
-        if (not isinstance(audio, dict) or set(audio) != {"enabled", "temporary_dir"}
-                or type(audio["enabled"]) is not bool):
+        if not isinstance(audio, dict) or set(audio) != {"enabled", "temporary_dir"} or type(audio["enabled"]) is not bool:
             raise DeployError("private_audio requires a boolean enabled and a temporary_dir")
         directory = Path(audio["temporary_dir"])
         if (not directory.is_absolute() or not directory.is_dir() or directory.resolve() != directory
@@ -133,7 +113,7 @@ def parameters(config):
     return values
 
 
-def compose_config(config, image, values, input_timeout_seconds=None):
+def compose_config(config, image, values):
     logging = {"driver": "local", "options": {"max-size": "10m", "max-file": "3"}}
     backend_env = {
         "DB_HOST": "postgres", "DB_PORT": "5432", "DB_NAME": values["db/name"],
@@ -185,9 +165,6 @@ def compose_config(config, image, values, input_timeout_seconds=None):
             "ABSERVICE_PRIVATE_AUDIO_BUCKET": values["private-audio/bucket"],
             "ABSERVICE_PRIVATE_AUDIO_TEMPORARY_DIRECTORY": "/var/lib/abservice/private-audio",
         })
-        if input_timeout_seconds is not None:
-            backend_env["ABSERVICE_PRIVATE_AUDIO_INPUT_TIMEOUT"] = (
-                f'PT{input_timeout_seconds}S')
         model["services"]["backend"]["volumes"].append({
             "type": "bind", "source": config["private_audio"]["temporary_dir"],
             "target": "/var/lib/abservice/private-audio", "read_only": False,
@@ -213,10 +190,8 @@ def compose(config, path, *args):
     return run("docker", "compose", "--env-file", "/dev/null", "-p", config["name"], "-f", str(path), *args)
 
 
-def deploy(config, image, source, state_dir, initialize=False, input_timeout_seconds=None):
+def deploy(config, image, source, state_dir, initialize=False):
     validate(config, image, source)
-    if input_timeout_seconds is not None:
-        validate_input_timeout(input_timeout_seconds)
     state_dir = Path(state_dir).resolve()
     if "private_audio" in config:
         directory = Path(config["private_audio"]["temporary_dir"])
@@ -231,14 +206,14 @@ def deploy(config, image, source, state_dir, initialize=False, input_timeout_sec
                    "time": datetime.datetime.now(datetime.timezone.utc).isoformat()}
         write_json(state_dir / "attempt.json", attempt)
         try:
-            apply_locked(config, image, source, state_dir, initialize, attempt, input_timeout_seconds)
+            apply_locked(config, image, source, state_dir, initialize, attempt)
         except (DeployError, OSError, ValueError, KeyError, TypeError):
             attempt["status"] = "failed"
             write_json(state_dir / "attempt.json", attempt)
             raise
 
 
-def apply_locked(config, image, source, state_dir, initialize, attempt, input_timeout_seconds=None):
+def apply_locked(config, image, source, state_dir, initialize, attempt):
     current_path = state_dir / "current.json"
     current = read_json(current_path) if current_path.exists() else None
     if current and initialize:
@@ -252,7 +227,7 @@ def apply_locked(config, image, source, state_dir, initialize, attempt, input_ti
             raise DeployError("Initialization belongs to another state directory or project")
     elif current or not initialize:
         raise DeployError("No initialization record; refusing to adopt an existing database")
-    model = compose_config(config, image, parameters(config), input_timeout_seconds)
+    model = compose_config(config, image, parameters(config))
     # Keep this mount path stable when the checked-out deployment version changes.
     init_file = state_dir / "init-db.sh"
     init_file.write_bytes(Path(__file__).with_name("init-db.sh").read_bytes())
@@ -326,9 +301,7 @@ def main():
     args = parser.parse_args()
     os.umask(0o077)
     try:
-        config_path = Path(args.config)
-        deploy(read_json(config_path), args.image, args.source, args.state_dir, args.initialize,
-               read_input_timeout(config_path))
+        deploy(read_json(Path(args.config)), args.image, args.source, args.state_dir, args.initialize)
     except (DeployError, OSError, ValueError, KeyError, TypeError):
         # Generic on purpose: a parser exception can contain secret parameter values.
         print("Deployment failed. Inspect the protected host state and service status; no automatic rollback was performed.", file=sys.stderr)
