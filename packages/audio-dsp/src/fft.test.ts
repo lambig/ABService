@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { squaredSpectrum } from "./fft";
+import { createSquaredSpectrum, squaredSpectrum } from "./fft";
 
 // ORACLE: A direct DFT avoids reproducing the FFT butterfly implementation in the expected result.
 const reference = (samples: readonly number[]): readonly number[] =>
@@ -18,6 +18,27 @@ const reference = (samples: readonly number[]): readonly number[] =>
   });
 
 describe("one-sided FFT power", () => {
+  it("reuses scratch across unrelated signals without changing retained output or input", () => {
+    const transform = createSquaredSpectrum(64);
+    const first = Object.freeze(
+      Array.from({ length: 64 }, (_, i) => Math.sin(i * 0.173)),
+    );
+    const output = transform(first);
+    const retained = [...output];
+    const samples = Object.freeze(
+      Array.from({ length: 64 }, (_, i) => Math.cos(i * 0.217)),
+    );
+    const second = transform(samples);
+    const expected = reference(samples);
+    second.forEach((value, i) => {
+      expect(value).toBeCloseTo(expected[i] as number, 8);
+    });
+    expect(transform(new Float64Array(64))).toEqual(
+      Array.from({ length: 33 }, () => 0),
+    );
+    expect(output).toEqual(retained);
+    expect(transform(first)).toEqual(output);
+  });
   it.each([64, 128, 256])(
     "matches a DFT for non-bin-aligned input of size %s",
     (size) => {

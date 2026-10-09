@@ -352,6 +352,28 @@ describe("spectral hop", () => {
     expect(frames(first.next.push(rest))[0]?.rms).toBe(0.5);
   });
 
+  it("keeps branching stream results independent of shared FFT scratch", () => {
+    const initial = createSpectralStream(config);
+    const loud = pcm([signal(96, 48000, 1500), signal(96, 48000, 6000)]);
+    const first = initial.push(loud);
+    const retained = structuredClone(frames(first));
+    const silent = pcm([new Float32Array(96)]);
+    expect(
+      frames(initial.push(silent)).every((value) => total(value) === 0),
+    ).toBe(true);
+    expect(frames(initial.push(loud))).toEqual(retained);
+    expect(frames(first)).toEqual(retained);
+    const tail = pcm(
+      [signal(64, 48000, 375), signal(64, 48000, 9000)],
+      48000,
+      96,
+    );
+    const continuation = frames(first.next.push(tail));
+    initial.push(silent);
+    expect(frames(first.next.push(tail))).toEqual(continuation);
+    expect(frames(first)).toEqual(retained);
+  });
+
   it.each([0, 64])(
     "discards partial windows on seek/gap to frame %i",
     (start) => {
