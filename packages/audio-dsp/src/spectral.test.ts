@@ -180,74 +180,93 @@ describe("spectral window", () => {
     expect(value.midEnergy).toBeCloseTo((0.125 * 5) / 6, 7);
   });
 
-  it("agrees with a direct DFT oracle on nonperiodic clipped PCM", () => {
-    const size = 64;
-    const config = {
-      ...defaultSpectralConfig,
-      fftSize: size,
-      hopSize: 16,
-      sampleRate: 8192,
-      lowMidHz: 1024,
-      midHighHz: 2048,
-    };
-    const samples = Float32Array.from(
-      { length: size },
-      (_, index) => Math.sin(index * 1.7) * 1.8 + index / 100,
-    );
-    const windowed = Array.from(
-      samples,
-      (value, index) =>
-        Math.max(-1, Math.min(1, value)) *
-        (0.5 - 0.5 * Math.cos((2 * Math.PI * index) / size)),
-    );
-    const bins = Array.from({ length: size / 2 + 1 }, (_, k) => {
-      const real = windowed.reduce(
-        (sum, value, n) => sum + value * Math.cos((2 * Math.PI * k * n) / size),
-        0,
-      );
-      const imaginary = windowed.reduce(
-        (sum, value, n) => sum - value * Math.sin((2 * Math.PI * k * n) / size),
-        0,
-      );
-      return {
-        hz: k * 128,
-        power:
-          ((real ** 2 + imaginary ** 2) *
-            (k === 0 ? 1 : k === size / 2 ? 1 : 2)) /
-          ((size ** 2 * 3) / 8),
+  it.each([1, 2])(
+    "agrees with a direct DFT oracle on %i-channel nonperiodic clipped PCM",
+    (channelCount) => {
+      const size = 64;
+      const config = {
+        ...defaultSpectralConfig,
+        fftSize: size,
+        hopSize: 16,
+        sampleRate: 8192,
+        lowMidHz: 1024,
+        midHighHz: 2048,
       };
-    });
-    const value = feature(
-      createSpectralDsp(config).analyze(pcm([samples], 8192)),
-    );
-    expect(value.lowEnergy).toBeCloseTo(
-      bins
-        .filter((bin) => bin.hz < 1024)
-        .reduce((sum, bin) => sum + bin.power, 0),
-      12,
-    );
-    expect(value.midEnergy).toBeCloseTo(
-      bins
-        .filter((bin) => bin.hz >= 1024 && bin.hz < 2048)
-        .reduce((sum, bin) => sum + bin.power, 0),
-      12,
-    );
-    expect(value.highEnergy).toBeCloseTo(
-      bins
-        .filter((bin) => bin.hz >= 2048)
-        .reduce((sum, bin) => sum + bin.power, 0),
-      12,
-    );
-    expect(value.spectralCentroidHz).toBeCloseTo(
-      bins.reduce((sum, bin) => sum + bin.hz * bin.power, 0) /
-        bins.reduce((sum, bin) => sum + bin.power, 0),
-      8,
-    );
-    expect(total(value)).toBeCloseTo(
-      windowed.reduce((sum, x) => sum + x ** 2, 0) / ((size * 3) / 8),
-      12,
-    );
-  });
+      const channels = Array.from({ length: channelCount }, (_, channel) =>
+        Float32Array.from(
+          { length: size },
+          (_, index) =>
+            Math.sin(index * (1.7 + channel)) * (1.8 - channel) + index / 100,
+        ),
+      );
+      const windowed = channels.map((samples) =>
+        Array.from(
+          samples,
+          (value, index) =>
+            Math.max(-1, Math.min(1, value)) *
+            (0.5 - 0.5 * Math.cos((2 * Math.PI * index) / size)),
+        ),
+      );
+      const bins = Array.from({ length: size / 2 + 1 }, (_, k) => {
+        const powers = windowed.map((samples) => {
+          const real = samples.reduce(
+            (sum, value, n) =>
+              sum + value * Math.cos((2 * Math.PI * k * n) / size),
+            0,
+          );
+          const imaginary = samples.reduce(
+            (sum, value, n) =>
+              sum - value * Math.sin((2 * Math.PI * k * n) / size),
+            0,
+          );
+          return real ** 2 + imaginary ** 2;
+        });
+        return {
+          hz: k * 128,
+          power:
+            ((powers.reduce((sum, power) => sum + power, 0) / channelCount) *
+              (k === 0 ? 1 : k === size / 2 ? 1 : 2)) /
+            ((size ** 2 * 3) / 8),
+        };
+      });
+      const value = feature(
+        createSpectralDsp(config).analyze(pcm(channels, 8192)),
+      );
+      expect(value.lowEnergy).toBeCloseTo(
+        bins
+          .filter((bin) => bin.hz < 1024)
+          .reduce((sum, bin) => sum + bin.power, 0),
+        12,
+      );
+      expect(value.midEnergy).toBeCloseTo(
+        bins
+          .filter((bin) => bin.hz >= 1024 && bin.hz < 2048)
+          .reduce((sum, bin) => sum + bin.power, 0),
+        12,
+      );
+      expect(value.highEnergy).toBeCloseTo(
+        bins
+          .filter((bin) => bin.hz >= 2048)
+          .reduce((sum, bin) => sum + bin.power, 0),
+        12,
+      );
+      expect(value.spectralCentroidHz).toBeCloseTo(
+        bins.reduce((sum, bin) => sum + bin.hz * bin.power, 0) /
+          bins.reduce((sum, bin) => sum + bin.power, 0),
+        8,
+      );
+      expect(total(value)).toBeCloseTo(
+        windowed.reduce(
+          (sum, samples) =>
+            sum + samples.reduce((power, x) => power + x ** 2, 0),
+          0,
+        ) /
+          channelCount /
+          ((size * 3) / 8),
+        12,
+      );
+    },
+  );
 
   it.each([0, 32, 63, 65, 16384, Infinity, NaN])(
     "rejects FFT size %s before allocating",

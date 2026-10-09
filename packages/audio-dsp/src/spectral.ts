@@ -50,6 +50,41 @@ const validTiming = (block: PcmBlock): boolean =>
   Number.isSafeInteger(frameOf(block)) &&
   Number.isSafeInteger(frameOf(block) + (block.channels[0]?.length ?? 0));
 
+/* eslint-disable functional/no-let -- Per-call scalar accumulators avoid allocating bin objects and filtered arrays on the audio thread; no input or shared state is mutated. */
+const summarizeSpectrum = (
+  spectra: readonly (readonly number[])[],
+  config: SpectralConfig,
+  scale: number,
+) => {
+  let total = 0;
+  let weighted = 0;
+  let low = 0;
+  let mid = 0;
+  let high = 0;
+  for (let index = 0; index <= config.fftSize / 2; index += 1) {
+    let sum = 0;
+    for (const spectrum of spectra) sum += spectrum[index] ?? 0;
+    const hz = (index * config.sampleRate) / config.fftSize;
+    const power =
+      (sum / spectra.length / scale) *
+      (index === 0 ? 1 : index === config.fftSize / 2 ? 1 : 2);
+    total += power;
+    weighted += hz * power;
+    // INVARIANT: The configured boundaries partition every non-negative bin, including Nyquist.
+    low += hz < config.lowMidHz ? power : 0;
+    mid += hz >= config.lowMidHz && hz < config.midHighHz ? power : 0;
+    high += hz >= config.midHighHz ? power : 0;
+  }
+  return {
+    lowEnergy: unit(low),
+    midEnergy: unit(mid),
+    highEnergy: unit(high),
+    spectralCentroidHz:
+      total === 0 ? 0 : Math.min(config.sampleRate / 2, weighted / total),
+  };
+};
+/* eslint-enable functional/no-let -- The remaining DSP preserves immutable stream state. */
+
 const windowDsp = (config: SpectralConfig): DspPort<SpectralFeatures> => {
   const weights = Array.from(
     { length: config.fftSize },
@@ -69,37 +104,12 @@ const windowDsp = (config: SpectralConfig): DspPort<SpectralFeatures> => {
           ),
         ),
       );
-      const bins = weights.slice(0, config.fftSize / 2 + 1).map((_, index) => ({
-        hz: (index * config.sampleRate) / config.fftSize,
-        power:
-          (spectra.reduce((sum, spectrum) => sum + (spectrum[index] ?? 0), 0) /
-            block.channels.length /
-            scale) *
-          (index === 0 ? 1 : index === config.fftSize / 2 ? 1 : 2),
-      }));
-      const total = bins.reduce((sum, bin) => sum + bin.power, 0);
-      const energy = (min: number, max: number): number =>
-        unit(
-          bins
-            .filter((bin) => bin.hz >= min && bin.hz < max)
-            .reduce((sum, bin) => sum + bin.power, 0),
-        );
       return Object.freeze({
         kind: "features" as const,
         features: Object.freeze({
           timeSeconds: (frameOf(block) + config.fftSize) / config.sampleRate,
           rms: level,
-          lowEnergy: energy(0, config.lowMidHz),
-          midEnergy: energy(config.lowMidHz, config.midHighHz),
-          highEnergy: energy(config.midHighHz, Infinity),
-          spectralCentroidHz:
-            total === 0
-              ? 0
-              : Math.min(
-                  config.sampleRate / 2,
-                  bins.reduce((sum, bin) => sum + bin.hz * bin.power, 0) /
-                    total,
-                ),
+          ...summarizeSpectrum(spectra, config, scale),
         }),
       });
     };
