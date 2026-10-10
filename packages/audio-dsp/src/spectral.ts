@@ -1,7 +1,7 @@
 import { rmsDsp } from "./index";
 import type { DspPort, PcmBlock, SpectralFeatures } from "./index";
 import { validBlock } from "./pcm";
-import { squaredSpectrum } from "./fft";
+import { createSquaredSpectrum } from "./fft";
 
 /** 1..384000 Hz、fftSizeは64..8192の2冪、hopは1..fftSize。窓はperiodic Hann固定。
  * 帯域は[0,lowMid)、[lowMid,midHigh)、[midHigh,Nyquist]。 */
@@ -85,6 +85,22 @@ const summarizeSpectrum = (
 };
 /* eslint-enable functional/no-let -- The remaining DSP preserves immutable stream state. */
 
+/* eslint-disable functional/no-let, functional/immutable-data -- Synchronous private scratch never escapes or retains borrowed PCM; each spectrum result is a fresh array. */
+const windowSpectrum = (weights: readonly number[]) => {
+  const weighted = new Float64Array(weights.length);
+  const spectrum = createSquaredSpectrum(weights.length);
+  return (channel: Float32Array): readonly number[] => {
+    for (let index = 0; index < weights.length; index += 1) {
+      // INVARIANT: analyze validates every channel before touching scratch.
+      weighted[index] =
+        (weights[index] as number) *
+        Math.max(-1, Math.min(1, channel[index] as number));
+    }
+    return spectrum(weighted);
+  };
+};
+/* eslint-enable functional/no-let, functional/immutable-data -- Public DSP values and stream state remain immutable. */
+
 const windowDsp = (config: SpectralConfig): DspPort<SpectralFeatures> => {
   const weights = Array.from(
     { length: config.fftSize },
@@ -92,18 +108,11 @@ const windowDsp = (config: SpectralConfig): DspPort<SpectralFeatures> => {
   );
   const scale =
     config.fftSize * weights.reduce((sum, value) => sum + value ** 2, 0);
+  const spectrum = windowSpectrum(weights);
   const analyze = (block: PcmBlock) => {
     const rms = rmsDsp.analyze(block);
     const extract = (level: number) => {
-      const spectra = block.channels.map((channel) =>
-        squaredSpectrum(
-          weights.map(
-            (weight, index) =>
-              // INVARIANT: analyzeが全チャンネルの窓長を検証してから呼ぶため、重みと同じ添字が存在する。
-              weight * Math.max(-1, Math.min(1, channel[index] as number)),
-          ),
-        ),
-      );
+      const spectra = block.channels.map(spectrum);
       return Object.freeze({
         kind: "features" as const,
         features: Object.freeze({
