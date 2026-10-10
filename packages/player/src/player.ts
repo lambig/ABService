@@ -149,17 +149,19 @@ export const player = (
       });
     };
     listen("loadedmetadata", () => {
-      when(current(session), () => {
-        (Number.isFinite(session.audio.duration) && session.audio.duration > 0
-          ? () => {
-              publish({ phase: "ready", duration: session.audio.duration });
-            }
-          : () => {
-              fail(
-                session,
-                "音源の長さを取得できません。曲を選び直してください。",
-              );
-            })();
+      void Promise.resolve(session.connection.ready).then(() => {
+        when(current(session), () => {
+          (Number.isFinite(session.audio.duration) && session.audio.duration > 0
+            ? () => {
+                publish({ phase: "ready", duration: session.audio.duration });
+              }
+            : () => {
+                fail(
+                  session,
+                  "音源の長さを取得できません。曲を選び直してください。",
+                );
+              })();
+        });
       });
     });
     listen("timeupdate", () => {

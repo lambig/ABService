@@ -34,8 +34,7 @@ const playbackStats = (
     context === null
       ? undefined
       : (Reflect.get(context, "playbackStats") as
-          | AudioPlaybackStats
-          | undefined);
+          AudioPlaybackStats | undefined);
   return stats === undefined
     ? null
     : Object.freeze({
@@ -54,13 +53,23 @@ export const connectMediaAnalysis = (
   signal: AbortSignal,
   options: MediaAnalysisOptions,
 ): Readonly<{
+  /** Settles when analysis is prepared, or direct-playback fallback is ready. */
+  ready: Promise<void>;
   play: () => void;
   pause: () => void;
   seek: () => void;
   stats: () => AudioPlaybackStats | null;
-  /** 解析している AudioContext の sampleRate。再生を始める前は undefined。 */
+  /** 解析している AudioContext の sampleRate。接続を作れない場合は undefined。 */
   sampleRate: () => number | undefined;
 }> => {
+  const preparation = { finish: (): void => {}, timer: 0 };
+  const ready = new Promise<void>((resolve) => {
+    preparation.finish = resolve;
+  });
+  const prepared = (): void => {
+    clearTimeout(preparation.timer);
+    preparation.finish();
+  };
   const state: {
     context: AudioContext | null;
     source: MediaElementAudioSourceNode | null;
@@ -85,6 +94,7 @@ export const connectMediaAnalysis = (
     const report = (): void => {
       state.failed = true;
       clearNode();
+      prepared();
       options.onReset();
       options.onError(
         error instanceof Error ? error : new Error(String(error)),
@@ -131,14 +141,23 @@ export const connectMediaAnalysis = (
       ? accept
       : () => undefined)();
   };
-  const initialize = (): AudioContext => {
+  const initialize = (): void => {
     const context = new AudioContext();
     state.context = context;
     const source = context.createMediaElementSource(media);
     state.source = source;
     source.connect(context.destination);
-    void context.audioWorklet
-      .addModule(processorUrl)
+    preparation.timer = window.setTimeout(() => {
+      fail(new Error("Audio analysis preparation timed out"));
+    }, 10000);
+    /* Load and exercise DSP while suspended, before media.play can advance the source. */
+    void context
+      .suspend()
+      .then(() =>
+        [signal.aborted, state.failed].some(Boolean)
+          ? undefined
+          : context.audioWorklet.addModule(processorUrl),
+      )
       .then(() => {
         const attach = (): void => {
           const node = new AudioWorkletNode(context, "abservice-features", {
@@ -150,26 +169,40 @@ export const connectMediaAnalysis = (
             processorOptions: { notificationHz: 30 },
           });
           state.node = node;
-          node.port.onmessage = receive;
+          node.port.onmessage = (event: MessageEvent<unknown>): void => {
+            const data = event.data as { kind?: unknown } | null;
+            ((
+              [signal.aborted, state.failed].some(Boolean)
+                ? false
+                : data?.kind === "ready"
+            )
+              ? () => {
+                  node.port.onmessage = receive;
+                  /* The analysis output is silence; only the direct branch is audible. */
+                  source.connect(node).connect(context.destination);
+                  prepared();
+                }
+              : () => {
+                  receive(event);
+                })();
+          };
           node.onprocessorerror = () => {
             fail(new Error("Audio analysis processor failed"));
           };
           node.port.postMessage({ epoch: state.epoch });
-          /* The analysis output is silence; the media source is audible through the direct branch only. */
-          source.connect(node).connect(context.destination);
         };
-        (signal.aborted ? () => undefined : attach)();
+        ([signal.aborted, state.failed].some(Boolean)
+          ? () => undefined
+          : attach)();
       })
       .catch(fail);
-    return context;
   };
   const play = (): void => {
     const start = (): void => {
       state.active = true;
       reset();
       try {
-        const context = state.context ?? initialize();
-        void context.resume().catch(fail);
+        void state.context?.resume().catch(fail);
       } catch (error) {
         fail(error);
       }
@@ -189,6 +222,7 @@ export const connectMediaAnalysis = (
   const dispose = (): void => {
     state.active = false;
     clearNode();
+    prepared();
     state.source?.disconnect();
     const context = state.context;
     state.context = null;
@@ -201,7 +235,13 @@ export const connectMediaAnalysis = (
   signal.addEventListener("abort", dispose, { once: true });
   media.addEventListener("seeking", reset, { signal });
   media.addEventListener("seeked", reset, { signal });
+  try {
+    (signal.aborted ? prepared : initialize)();
+  } catch (error) {
+    fail(error);
+  }
   return Object.freeze({
+    ready,
     play,
     pause,
     seek: reset,
