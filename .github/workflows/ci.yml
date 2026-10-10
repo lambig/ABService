@@ -172,6 +172,14 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - name: Install pinned audio Rust toolchain
+        run: rustup toolchain install 1.99.0 --profile minimal --target wasm32-unknown-unknown --component rustfmt
+      - name: Verify reproducible RustFFT SIMD asset
+        env:
+          CARGO_HOME: ${{ runner.temp }}/audio-cargo
+        run: |
+          cargo +1.99.0 fmt --manifest-path packages/audio-worklet/rust/Cargo.toml --check
+          npm run check:wasm:rebuild -w abservice-audio-worklet
       - name: Check listening workspaces and their dependencies
         run: node scripts/ci.mjs frontend listening
 

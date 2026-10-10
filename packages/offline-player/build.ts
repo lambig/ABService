@@ -6,6 +6,11 @@ import ts from "typescript";
 const hash = (input: string | Uint8Array): string =>
   createHash("sha256").update(input).digest("hex");
 const worker = await readFile("../offline-shell/worker/sw.ts", "utf8");
+/* Keep the notices with the cached binary in every published shell generation. */
+await cp(
+  "../audio-worklet/src/generated/audio-kernel-NOTICES.txt",
+  "dist/assets/audio-kernel-NOTICES.txt",
+);
 const assets = await readdir("dist/assets", {
   recursive: true,
   withFileTypes: true,

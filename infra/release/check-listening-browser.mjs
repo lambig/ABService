@@ -36,7 +36,7 @@ const server = createServer(async (request, response) => {
     const result = gate({ request: { uri, method: request.method } });
     if (result.statusCode) { response.writeHead(result.statusCode); response.end(); return; }
     const file = join(stage, result.uri);
-    const type = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2' }[extname(file)] ?? 'application/octet-stream';
+    const type = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2', '.wasm': 'application/wasm' }[extname(file)] ?? 'application/octet-stream';
     response.writeHead(200, { 'content-type': type, 'content-security-policy': csp,
       'cache-control': 'no-cache', 'x-content-type-options': 'nosniff', 'x-robots-tag': 'noindex, nofollow' });
     response.end(readFileSync(file));
@@ -76,6 +76,8 @@ try {
   await expect(page.locator('#play-status')).toHaveText('再生できます');
   await page.locator('#play').click(); await expect(page.locator('#play-status')).toHaveText('再生中');
   await expect.poll(() => page.locator('#seek').inputValue().then(Number)).toBeGreaterThan(0.3);
+  await expect(page.locator('#analysis-status')).toBeEmpty();
+  await expect(page.locator('#probe')).toContainText(/worklet load p50 [\d.]+%/);
   await page.locator('#pause').click(); await page.locator('#probe-benchmark').click();
   await expect(page.locator('#probe')).toContainText(/dsp bench [1-9]\d* quanta/);
   assert.ok(await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('16px "Klee One"', '試聴'); }));

@@ -21,6 +21,7 @@ type Probe = {
   /** 最後に Worklet から届いた通知の epoch。古い通知を差し込む試験の基準にする。 */
   epoch: number;
   media: HTMLAudioElement[];
+  kernels: number;
 };
 type Scope = typeof globalThis & { listeningProbe: Probe };
 test.beforeEach(async ({ context }) => {
@@ -36,6 +37,7 @@ test.beforeEach(async ({ context }) => {
       states: [],
       epoch: 0,
       media: [],
+      kernels: 0,
     };
     (globalThis as Scope).listeningProbe = probe;
     const NativeAudio = Audio;
@@ -83,6 +85,11 @@ test.beforeEach(async ({ context }) => {
     globalThis.AudioWorkletNode = class extends NativeNode {
       constructor(...args: ConstructorParameters<typeof NativeNode>) {
         super(...args);
+        probe.kernels +=
+          (args[2]?.processorOptions as { kernel?: unknown } | undefined)
+            ?.kernel instanceof WebAssembly.Module
+            ? 1
+            : 0;
         probe.nodes.push(this);
         this.port.addEventListener(
           "message",
@@ -140,6 +147,50 @@ const selectAndPlay = async (
   await expect(page.locator("#play-status")).toHaveText("再生中");
 };
 const prepare = prepareAndReload;
+
+["http", "invalid-wasm", "compile-denied"].forEach((fault) => {
+  test(`Rust kernel ${fault}: 音声再生を維持して解析障害を表示する`, async ({
+    page,
+  }) => {
+    await prepare(page);
+    await page.evaluate((failure) => {
+      const fetchOriginal = globalThis.fetch;
+      globalThis.fetch = (input, init) =>
+        (input instanceof Request ? input.url : String(input)).endsWith(".wasm")
+          ? Promise.resolve(
+              new Response(failure === "http" ? "missing" : "invalid wasm", {
+                status: failure === "http" ? 404 : 200,
+              }),
+            )
+          : fetchOriginal(input, init);
+      (failure === "compile-denied"
+        ? () => {
+            globalThis.fetch = fetchOriginal;
+            WebAssembly.compile = () =>
+              Promise.reject(
+                new WebAssembly.CompileError("test compilation denied"),
+              );
+          }
+        : () => undefined)();
+    }, fault);
+    await selectAndPlay(page);
+    await expect(page.locator("#analysis-status")).toContainText(
+      "音響解析を利用できません",
+    );
+    await expect
+      .poll(() => page.locator("#seek").inputValue().then(Number))
+      .toBeGreaterThan(0.3);
+    expect((await observe(page)).features).toHaveLength(0);
+    await page.locator("#stop").click();
+    await expect
+      .poll(async () =>
+        (await observe(page)).contexts.every((state) => state === "closed"),
+      )
+      .toBe(true);
+    expect((await observe(page)).errors).toEqual([]);
+  });
+});
+
 test.beforeEach(async ({ request }) => {
   await distribute(request, "v1");
 });
@@ -189,6 +240,9 @@ test("解析準備中は先頭を進めず、完了後の再生操作で開始�
   });
   await expect(page.locator("#play-status")).toHaveText("再生できます");
   await expect(page.locator("#analysis-status")).toBeEmpty();
+  expect(
+    await page.evaluate(() => (globalThis as Scope).listeningProbe.kernels),
+  ).toBe(1);
   expect((await observe(page)).features).toHaveLength(0);
   await page.locator("#play").click();
   await expect(page.locator("#play-status")).toHaveText("再生中");
