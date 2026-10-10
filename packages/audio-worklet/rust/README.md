@@ -38,8 +38,11 @@ an already installed toolchain; the build rejects a different compiler version.
 
 The generated binary, notices and source hashes are committed so frontend builds
 do not require Rust. `check:wasm` rejects stale source/asset/notice combinations.
-Listening CI rebuilds and compares the binary; numerical and processor tests use
-that exact asset. Generated paths are remapped to avoid host-specific paths.
+Listening CI uses a Windows host to rebuild and compare the committed binary;
+Linux runs frontend lint, types, tests and build against that exact asset.
+Generated paths are remapped to remove local directories. Diagnostic path
+separators still follow the build host, so byte reproduction uses Windows with
+the pinned compiler; cross-OS byte identity is not assumed.
 
 The offline shell includes the WASM and third-party notices in its versioned,
 hash-checked cache. The listening CSP permits `wasm-unsafe-eval` for compilation;

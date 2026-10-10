@@ -163,8 +163,12 @@ jobs:
   listening-check:
     needs: changes
     if: ${{ needs.changes.outputs.listening == 'true' }}
-    name: Listening frontend (lint / typecheck / unit / build)
-    runs-on: ubuntu-latest
+    name: Listening frontend (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -172,15 +176,19 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+        if: ${{ runner.os == 'Linux' }}
       - name: Install pinned audio Rust toolchain
+        if: ${{ runner.os == 'Windows' }}
         run: rustup toolchain install 1.99.0 --profile minimal --target wasm32-unknown-unknown --component rustfmt
       - name: Verify reproducible RustFFT SIMD asset
+        if: ${{ runner.os == 'Windows' }}
         env:
           CARGO_HOME: ${{ runner.temp }}/audio-cargo
         run: |
           cargo +1.99.0 fmt --manifest-path packages/audio-worklet/rust/Cargo.toml --check
-          npm run check:wasm:rebuild -w abservice-audio-worklet
+          node packages/audio-worklet/rust/build.mjs --check
       - name: Check listening workspaces and their dependencies
+        if: ${{ runner.os == 'Linux' }}
         run: node scripts/ci.mjs frontend listening
 
   api-types-check:

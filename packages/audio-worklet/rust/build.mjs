@@ -24,7 +24,7 @@ if (verify) {
   const record = JSON.parse(readFileSync(metadata, 'utf8'));
   assert.deepEqual(record.sources, sources, 'Rust sources changed: run build:wasm');
   assert.equal(sha(readFileSync(asset)), record.sha256, 'WASM asset checksum mismatch');
-  assert.equal(readFileSync(join(generated, 'audio-kernel-NOTICES.txt'), 'utf8'), notice, 'Kernel license notices differ');
+  assert.equal(readFileSync(join(generated, 'audio-kernel-NOTICES.txt'), 'utf8').replaceAll('\r\n', '\n'), notice, 'Kernel license notices differ');
   console.log('Rust source / WASM asset hashes match');
 } else {
   const rustc = process.env.RUSTC || 'rustc';
@@ -44,7 +44,7 @@ if (verify) {
   if (check) {
     assert.equal(sha(readFileSync(asset)), record.sha256, 'Rebuilt WASM differs from committed asset');
     assert.deepEqual(JSON.parse(readFileSync(metadata, 'utf8')), record, 'Rebuilt WASM metadata differs');
-    assert.equal(readFileSync(join(generated, 'audio-kernel-NOTICES.txt'), 'utf8'), notice);
+    assert.equal(readFileSync(join(generated, 'audio-kernel-NOTICES.txt'), 'utf8').replaceAll('\r\n', '\n'), notice);
     console.log('Locked Rust rebuild matches committed asset');
   } else {
     mkdirSync(generated, { recursive: true });
