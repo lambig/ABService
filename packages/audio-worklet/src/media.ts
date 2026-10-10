@@ -142,7 +142,9 @@ export const connectMediaAnalysis = (
       : () => undefined)();
   };
   const initialize = (): void => {
-    const context = new AudioContext();
+    /* Media playback allows buffering headroom for the Worklet output path.
+     * The browser chooses the actual latency; observe it through playbackStats. */
+    const context = new AudioContext({ latencyHint: "balanced" });
     state.context = context;
     const source = context.createMediaElementSource(media);
     state.source = source;
