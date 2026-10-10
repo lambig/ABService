@@ -86,10 +86,17 @@ test.beforeEach(async ({ context }) => {
         probe.nodes.push(this);
         this.port.addEventListener(
           "message",
-          (event: MessageEvent<{ epoch: number; features: AudioFeatures }>) => {
-            probe.features.push(event.data.features);
-            /* A message injected by a test carries an older epoch; the latest real one is kept. */
-            probe.epoch = Math.max(probe.epoch, event.data.epoch);
+          (
+            event: MessageEvent<{ epoch: number; features?: AudioFeatures }>,
+          ) => {
+            const features = event.data.features;
+            (features === undefined
+              ? () => undefined
+              : () => {
+                  probe.features.push(features);
+                  /* A message injected by a test carries an older epoch; the latest real one is kept. */
+                  probe.epoch = Math.max(probe.epoch, event.data.epoch);
+                })();
           },
         );
       }
@@ -135,6 +142,100 @@ const selectAndPlay = async (
 const prepare = prepareAndReload;
 test.beforeEach(async ({ request }) => {
   await distribute(request, "v1");
+});
+
+test("解析準備中は先頭を進めず、完了後の再生操作で開始する", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    /* eslint-disable-next-line @typescript-eslint/unbound-method -- Invoke the native method with its actual worklet receiver. */
+    const add = AudioWorklet.prototype.addModule;
+    AudioWorklet.prototype.addModule = function (...args) {
+      return new Promise<void>((resolve, reject) => {
+        (
+          globalThis as typeof globalThis & { releaseAnalysis: () => void }
+        ).releaseAnalysis = () => {
+          void add.apply(this, args).then(resolve, reject);
+        };
+      });
+    };
+  });
+  await prepare(page);
+  await page.getByRole("button", { name: "Reel study", exact: true }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (globalThis as Scope).listeningProbe.media[0]?.readyState ?? 0,
+      ),
+    )
+    .toBeGreaterThanOrEqual(1);
+  await expect(page.locator("#play")).toBeDisabled();
+  await page.waitForTimeout(250);
+  expect(
+    await page.evaluate(() => {
+      const probe = (globalThis as Scope).listeningProbe;
+      return {
+        time: probe.media[0]?.currentTime,
+        paused: probe.media[0]?.paused,
+        context: probe.contexts[0]?.state,
+        features: probe.features.length,
+      };
+    }),
+  ).toEqual({ time: 0, paused: true, context: "suspended", features: 0 });
+  await page.evaluate(() => {
+    (
+      globalThis as typeof globalThis & { releaseAnalysis: () => void }
+    ).releaseAnalysis();
+  });
+  await expect(page.locator("#play-status")).toHaveText("再生できます");
+  await expect(page.locator("#analysis-status")).toBeEmpty();
+  expect((await observe(page)).features).toHaveLength(0);
+  await page.locator("#play").click();
+  await expect(page.locator("#play-status")).toHaveText("再生中");
+  await expect
+    .poll(async () => (await observe(page)).features.length)
+    .toBeGreaterThan(2);
+  await page.locator("#stop").click();
+});
+
+test("解析準備の期限超過後も通常再生でき、遅延完了した解析を接続しない", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    AudioWorklet.prototype.addModule = () =>
+      new Promise<void>((resolve) => {
+        (
+          globalThis as typeof globalThis & { releaseAnalysis: () => void }
+        ).releaseAnalysis = resolve;
+      });
+  });
+  await prepare(page);
+  await page.clock.install();
+  await page.getByRole("button", { name: "Reel study", exact: true }).click();
+  await expect
+    .poll(async () => (await observe(page)).contexts)
+    .toEqual(["suspended"]);
+  await page.clock.fastForward(10001);
+  await expect(page.locator("#play-status")).toHaveText("再生できます");
+  await expect(page.locator("#analysis-status")).toContainText(
+    "音響解析を利用できません",
+  );
+  await page.evaluate(() => {
+    (
+      globalThis as typeof globalThis & { releaseAnalysis: () => void }
+    ).releaseAnalysis();
+  });
+  await page.locator("#play").click();
+  await expect(page.locator("#play-status")).toHaveText("再生中");
+  await expect
+    .poll(() => page.locator("#seek").inputValue().then(Number))
+    .toBeGreaterThan(0.1);
+  expect(
+    await page.evaluate(
+      () => (globalThis as Scope).listeningProbe.nodes.length,
+    ),
+  ).toBe(0);
+  await page.locator("#stop").click();
 });
 
 test("オフライン新ページで実FLACの特徴量がWebGPU描画を駆動する", async ({
@@ -284,7 +385,9 @@ test("device lostから1回だけ描画を作り直し、再び失えば縮退�
   /* No third renderer is attempted; audio analysis and playback carry on. */
   await page.waitForTimeout(300);
   expect(
-    await page.evaluate(() => (globalThis as Scope).listeningProbe.devices.length),
+    await page.evaluate(
+      () => (globalThis as Scope).listeningProbe.devices.length,
+    ),
   ).toBe(devicesBefore + 1);
   const featuresBefore = (await observe(page)).features.length;
   await expect
@@ -324,11 +427,16 @@ test("一時停止でGPU資源を放し、再開で作り直して描画を続�
   expect((await observe(page)).uniforms).toHaveLength(paused);
   await page.locator("#play").click();
   await expect(page.locator("#play-status")).toHaveText("再生中");
-  await expect.poll(async () => (await gpu()).devices).toBe(playing.devices + 1);
+  await expect
+    .poll(async () => (await gpu()).devices)
+    .toBe(playing.devices + 1);
   await expect(page.locator("#visualizer-status")).toHaveText(
     "音に合わせて描画します",
   );
-  await expect(page.locator("#visualizer")).toHaveCSS("background-image", "none");
+  await expect(page.locator("#visualizer")).toHaveCSS(
+    "background-image",
+    "none",
+  );
   await expect
     .poll(async () => (await observe(page)).uniforms.length)
     .toBeGreaterThan(paused);
@@ -348,16 +456,22 @@ test("hashの負荷ノブで描画寸法とfpsを下げ、#probeでCPUとGPUを�
   await expect(page.locator("#probe")).toContainText("budget dpr 2 scale 0.5");
   await expect(page.locator("#probe")).toContainText(/cycle cpu p50 [\d.]+/);
   await expect(page.locator("#probe")).toContainText(/renderer cpu p50 [\d.]+/);
-  await expect(page.locator("#probe")).toContainText(/gpu \(submit→done\) p50 [\d.]+/);
+  await expect(page.locator("#probe")).toContainText(
+    /gpu \(submit→done\) p50 [\d.]+/,
+  );
   await expect(page.locator("#probe")).toContainText(/interval p50 [\d.]+/);
   await expect(page.locator("#probe")).toContainText("listening:script");
   await expect(page.locator("#probe")).toContainText("listening:ready");
   await expect(page.locator("#probe")).toContainText("listening:first-frame");
   await expect(page.locator("#probe")).toContainText(/skipped [1-9]/);
-  const size = await page.locator("#visualizer").evaluate((canvas: HTMLCanvasElement) => ({
-    width: canvas.width,
-    expected: Math.floor(canvas.clientWidth * Math.min(devicePixelRatio, 2) * 0.5),
-  }));
+  const size = await page
+    .locator("#visualizer")
+    .evaluate((canvas: HTMLCanvasElement) => ({
+      width: canvas.width,
+      expected: Math.floor(
+        canvas.clientWidth * Math.min(devicePixelRatio, 2) * 0.5,
+      ),
+    }));
   expect(size.width).toBe(size.expected);
   expect((await observe(page)).errors).toEqual([]);
 });
@@ -408,9 +522,13 @@ test("#probeで音声側の通知・Workletの平均負荷・音切れを示し�
   const overlay = page.locator("#probe");
   await selectAndPlay(page);
   await expect(overlay).toContainText(/audio sampleRate \d+ quantum [\d.]+ ms/);
-  await expect(overlay).toContainText(/notifications [1-9]\d* interval p50 [\d.]+/);
+  await expect(overlay).toContainText(
+    /notifications [1-9]\d* interval p50 [\d.]+/,
+  );
   await expect(overlay).toContainText(/worklet load p50 [\d.]+%/);
-  await expect(overlay).toContainText(/underrun \d+ events [\d.]+ s \/ [\d.]+ s/);
+  await expect(overlay).toContainText(
+    /underrun \d+ events [\d.]+ s \/ [\d.]+ s/,
+  );
   /* The benchmark would load the Worklet it is compared with, so it cannot start while playing. */
   await expect(benchmark).toBeDisabled();
   await expect(overlay).toContainText("dsp bench -");
@@ -444,11 +562,15 @@ test("#probeで音声側の通知・Workletの平均負荷・音切れを示し�
   await expect(page.locator("#play-status")).toHaveText("再生中");
   await expect
     .poll(async () =>
-      Number(/notifications (\d+)/u.exec((await overlay.textContent()) ?? "")?.[1]),
+      Number(
+        /notifications (\d+)/u.exec((await overlay.textContent()) ?? "")?.[1],
+      ),
     )
     .toBeGreaterThan(notificationsBefore);
   await expect(overlay).toContainText(/worklet load p50 [\d.]+%/);
-  await expect(overlay).toContainText(/underrun \d+ events [\d.]+ s \/ [\d.]+ s/);
+  await expect(overlay).toContainText(
+    /underrun \d+ events [\d.]+ s \/ [\d.]+ s/,
+  );
   /* Stopping drops the connection; the last playback stats stay on screen instead of disappearing or going back. */
   const played = async (): Promise<number> =>
     Number(
@@ -578,12 +700,12 @@ test("素早く続けて選び直しても、最後に選んだ作品だけを�
   await expect(air).toHaveAttribute("aria-pressed", "true");
   await expect(reel).toHaveAttribute("aria-pressed", "false");
   await expect(canvas).toHaveAttribute("data-presentation-state", "selected");
-  /* The first playback's audio graph is closed; none of the skipped selections left one behind. */
+  /* Only the final selection retains a suspended, prepared graph. */
   await expect
     .poll(async () =>
-      (await observe(page)).contexts.every((state) => state === "closed"),
+      (await observe(page)).contexts.filter((state) => state !== "closed"),
     )
-    .toBe(true);
+    .toEqual(["suspended"]);
   await page.locator("#play").click();
   await expect(page.locator("#play-status")).toHaveText("再生中");
   await expect(canvas).toHaveAttribute("data-presentation-state", "playing");
@@ -815,9 +937,13 @@ test("無音になると特徴量は有限のまま静まり、前の立ち上�
   ).toBe(true);
   expect(
     settled.every((frame) =>
-      [frame.rms, frame.lowEnergy, frame.midEnergy, frame.highEnergy, frame.onset].every(
-        (value) => value < 0.01,
-      ),
+      [
+        frame.rms,
+        frame.lowEnergy,
+        frame.midEnergy,
+        frame.highEnergy,
+        frame.onset,
+      ].every((value) => value < 0.01),
     ),
   ).toBe(true);
   /* The drawing settles too: no impulse or effect is left, and the background is back near rest. */
@@ -874,7 +1000,11 @@ test("Worklet初期化中の停止で遅い完了を捨て、次の再生は開�
     };
   });
   await prepare(page);
-  await selectAndPlay(page);
+  await page.getByRole("button", { name: "Reel study", exact: true }).click();
+  await expect
+    .poll(async () => (await observe(page)).contexts)
+    .toEqual(["suspended"]);
+  await expect(page.locator("#play")).toBeDisabled();
   await page.locator("#stop").click();
   await page.evaluate(() => {
     (

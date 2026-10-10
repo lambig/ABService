@@ -54,6 +54,8 @@ export type Player = Readonly<{
 
 /** 再生操作と同じ寿命を持つ音声接続。実装は障害を自身で処理し、再生操作へ例外を返さない。 */
 export type PlaybackConnection = Readonly<{
+  /** Optional preparation gate. Settle after preparation or fallback; playback keeps the user gesture. */
+  ready?: Promise<void>;
   play: () => void;
   pause: () => void;
   seek: () => void;

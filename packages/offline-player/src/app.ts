@@ -50,7 +50,7 @@ const analysisStatus = element("#analysis-status", HTMLElement);
 const audioProbe = probeRequested(location.hash)
   ? createAudioProbe()
   : undefined;
-/* The device rate is known only once playback has created the AudioContext; before that the common rate is assumed. */
+/* The device rate is known once selection creates the AudioContext; before that the common rate is assumed. */
 const fallbackSampleRate = 48000;
 /*
  * The benchmark and real playback are separate pieces of evidence: running both at once would let the worker and the

@@ -1,16 +1,11 @@
 /* eslint-disable functional/immutable-data -- Worklet owns stream state and MessagePort; borrowed PCM stays on the rendering thread. */
-import {
-  createFeatureStream,
-  defaultSpectralConfig,
-} from "abservice-audio-dsp";
 import type { AudioFeatures } from "abservice-audio-dsp";
 import { intervalFrames } from "./accumulator";
+import { preparedStream } from "./prepared-stream";
 
 class FeaturesProcessor extends AudioWorkletProcessor {
-  private stream = createFeatureStream({
-    ...defaultSpectralConfig,
-    sampleRate,
-  });
+  private readonly empty = preparedStream(sampleRate);
+  private stream = this.empty;
   private epoch = 0;
   private phase = 0;
   private peak = 0;
@@ -30,10 +25,7 @@ class FeaturesProcessor extends AudioWorkletProcessor {
       const data = event.data as { epoch?: unknown } | null;
       const reset = (): void => {
         this.epoch = data?.epoch as number;
-        this.stream = createFeatureStream({
-          ...defaultSpectralConfig,
-          sampleRate,
-        });
+        this.stream = this.empty;
         this.phase = 0;
         this.peak = 0;
         this.latest = null;
@@ -44,6 +36,7 @@ class FeaturesProcessor extends AudioWorkletProcessor {
         ? reset
         : () => undefined)();
     };
+    this.port.postMessage({ kind: "ready" });
   }
 
   process(inputs: Float32Array[][]): boolean {
