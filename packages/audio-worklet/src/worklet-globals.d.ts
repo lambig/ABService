@@ -11,7 +11,7 @@ declare abstract class AudioWorkletProcessor {
 declare function registerProcessor(
   name: string,
   processor: new (options: {
-    processorOptions?: { notificationHz?: number };
+    processorOptions?: { notificationHz?: number; kernel?: WebAssembly.Module };
   }) => AudioWorkletProcessor,
 ): void;
 declare module "*?worker&url" {

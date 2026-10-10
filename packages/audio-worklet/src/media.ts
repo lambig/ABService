@@ -2,6 +2,7 @@
 import { audioFeatures } from "abservice-audio-dsp";
 import type { AudioFeatures } from "abservice-audio-dsp";
 import { meanLoad } from "./accumulator";
+import { loadAudioKernel } from "./kernel-module";
 import processorUrl from "./features-processor.ts?worker&url";
 
 /** 解析を失っても音声の直接出力は維持し、障害を表示側へ通知する。 */
@@ -63,6 +64,7 @@ export const connectMediaAnalysis = (
   sampleRate: () => number | undefined;
 }> => {
   const preparation = { finish: (): void => {}, timer: 0 };
+  const kernelLoad = new AbortController();
   const ready = new Promise<void>((resolve) => {
     preparation.finish = resolve;
   });
@@ -76,6 +78,7 @@ export const connectMediaAnalysis = (
     node: AudioWorkletNode | null;
     active: boolean;
     failed: boolean;
+    connected: boolean;
     epoch: number;
   } = {
     context: null,
@@ -83,9 +86,15 @@ export const connectMediaAnalysis = (
     node: null,
     active: false,
     failed: false,
+    connected: false,
     epoch: 0,
   };
   const clearNode = (): void => {
+    state.node?.port.postMessage({ kind: "dispose" });
+    (state.connected && state.node !== null
+      ? () => state.source?.disconnect(state.node as AudioWorkletNode)
+      : () => undefined)();
+    state.connected = false;
     state.node?.port.close();
     state.node?.disconnect();
     state.node = null;
@@ -93,6 +102,7 @@ export const connectMediaAnalysis = (
   const fail = (error: unknown): void => {
     const report = (): void => {
       state.failed = true;
+      kernelLoad.abort();
       clearNode();
       prepared();
       options.onReset();
@@ -100,7 +110,7 @@ export const connectMediaAnalysis = (
         error instanceof Error ? error : new Error(String(error)),
       );
     };
-    (signal.aborted ? () => undefined : report)();
+    ([signal.aborted, state.failed].some(Boolean) ? () => undefined : report)();
   };
   const reset = (): void => {
     state.epoch += 1;
@@ -158,9 +168,12 @@ export const connectMediaAnalysis = (
       .then(() =>
         [signal.aborted, state.failed].some(Boolean)
           ? undefined
-          : context.audioWorklet.addModule(processorUrl),
+          : Promise.all([
+              context.audioWorklet.addModule(processorUrl),
+              loadAudioKernel(kernelLoad.signal),
+            ]),
       )
-      .then(() => {
+      .then((modules) => {
         const attach = (): void => {
           const node = new AudioWorkletNode(context, "abservice-features", {
             numberOfInputs: 1,
@@ -168,7 +181,7 @@ export const connectMediaAnalysis = (
             outputChannelCount: [1],
             channelCountMode: "max",
             channelInterpretation: "discrete",
-            processorOptions: { notificationHz: 30 },
+            processorOptions: { notificationHz: 30, kernel: modules?.[1] },
           });
           state.node = node;
           node.port.onmessage = (event: MessageEvent<unknown>): void => {
@@ -182,6 +195,7 @@ export const connectMediaAnalysis = (
                   node.port.onmessage = receive;
                   /* The analysis output is silence; only the direct branch is audible. */
                   source.connect(node).connect(context.destination);
+                  state.connected = true;
                   prepared();
                 }
               : () => {
@@ -223,6 +237,7 @@ export const connectMediaAnalysis = (
   };
   const dispose = (): void => {
     state.active = false;
+    kernelLoad.abort();
     clearNode();
     prepared();
     state.source?.disconnect();
