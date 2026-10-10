@@ -1,4 +1,4 @@
-# Offline player integration PoC
+# Offline listening application
 
 配布元から試聴packageを準備し、保存済みのManifest・shell・音源を一つの試聴操作へ接続する。保存方式をプレイヤーへ漏らさない。準備は `packages/listening-preparation` の `prepare`、起動時の昇格・不要世代の削除は同じく `startup` を使い、取得は `packages/distribution-client` を通す。
 
@@ -15,7 +15,7 @@
 - readinessは実OPFS inventoryと、同じshell世代の全ファイル検証結果から判定する。判定はその時点の観測であり、以後の消去や破損を保証しない。選曲時にも音源を再検証し、失敗時は準備完了表示を取り下げる。
 - 失敗の表示と `console.warn` の診断には、段階・assetId・mediaType・分類だけを出し、tokenと署名URLは出さない。
 
-`/offline-player/` 専用scopeで先行shellのworkerを再利用する。音源はshellのallowlistに含めない。既存公開・管理画面への導入ではない。プレイヤーのUIは統合操作を試すデモとして独立させ、合成音fixture・基本スタイルは先行playerを参照する。本番の共通UI設計はこの段階では確定しない。
+`/offline-player/` 専用scopeで先行shellのworkerを再利用する。音源はshellのallowlistに含めない。公開・管理画面から独立した試聴アプリとして準備・作品情報・再生を接続し、合成音fixture・基本スタイルは先行playerを参照する。画面全体の表現と体験の到達基準は [#479](https://github.com/lambig/ABService/issues/479)、統合の受け入れは [#476](https://github.com/lambig/ABService/issues/476) が正。
 
 ## 検証用の配布元
 
@@ -62,7 +62,7 @@ http://127.0.0.1:4179/offline-player/ を開き、`fixtureToken` を入力して
 
 ブラウザプロセス/OS再起動、Android実機の可聴出力・音切れ・長時間メモリ・消去耐性、実backendと実S3からの取得（本番CORSを含む）の評価とは区別する。
 
-Vite previewと同梱合成音は検証専用。永続化許可、失われたshellの修復、本番UIの確定は本PoCの範囲に含めない。
+Vite previewと同梱合成音は検証専用。ブラウザ試験は永続化許可や失われたshellの修復、完成した表現・体験の受け入れを保証しない。実Androidの受け入れは [#478](https://github.com/lambig/ABService/issues/478)、本番配布の受け入れは [#480](https://github.com/lambig/ABService/issues/480) で管理する。
 
 ## shellのビルド
 
