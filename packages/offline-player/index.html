@@ -10,6 +10,7 @@
       <span class="brand"
         >AB<span id="space-display">LISTENING ROOM</span></span
       >
+      <h1 id="album-title">アルバムを選んでください</h1>
       <div class="management">
         <button
           id="management-unlock"
@@ -102,19 +103,6 @@
         <button id="inspect">保存状態を確認</button>
       </section>
       <div class="workspace">
-        <section id="album-browser" aria-label="作品を選ぶ">
-          <div class="gallery-heading">
-            <h2>作品を選ぶ</h2>
-            <div>
-              <button id="albums-previous" aria-label="前の作品を表示">‹</button
-              ><button id="albums-next" aria-label="次の作品を表示">›</button>
-            </div>
-          </div>
-          <p class="gallery-hint">
-            ジャケットを選択<span> · 左右にスワイプ</span>
-          </p>
-          <nav id="library" aria-label="アルバムと曲目"></nav>
-        </section>
         <section class="player" aria-label="プレイヤー">
           <canvas
             id="visualizer"
@@ -133,7 +121,6 @@
             aria-label="選択中の作品情報"
           >
             <div class="now">
-              <h2 id="album-title">アルバムを選んでください</h2>
               <p id="track-title">曲を選んでください</p>
               <p id="play-status" role="status" aria-live="polite">待機中</p>
             </div>
@@ -184,6 +171,19 @@
             <p id="error" role="alert"></p>
             <button id="retry" hidden>音源を読み直す</button>
           </div>
+        </section>
+        <section id="album-browser" aria-label="作品を選ぶ">
+          <div class="gallery-heading">
+            <h2>作品を選ぶ</h2>
+            <div>
+              <button id="albums-previous" aria-label="前の作品を表示">‹</button
+              ><button id="albums-next" aria-label="次の作品を表示">›</button>
+            </div>
+          </div>
+          <p class="gallery-hint">
+            ジャケットを選択<span> · 左右にスワイプ</span>
+          </p>
+          <nav id="library" aria-label="アルバムと曲目"></nav>
         </section>
       </div>
     </main>

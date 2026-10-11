@@ -71,17 +71,23 @@ html[data-composition="true"] #visualizer {
 }
 html[data-composition="true"] header {
   flex: none;
+  gap: 12px;
   padding: 4px 4vw;
   border-color: #d2e4df26;
 }
 html[data-composition="true"] .brand {
   min-width: 0;
-  font-size: 24px;
-  gap: 12px;
+  max-width: 20vw;
+  flex-direction: column;
+  align-items: flex-start;
+  font-size: 18px;
+  line-height: 1.2;
+  gap: 0;
 }
 html[data-composition="true"] #space-display {
   min-width: 0;
-  font-size: 12px;
+  max-width: 100%;
+  font-size: 10px;
   letter-spacing: 0.06em;
   white-space: nowrap;
   overflow: hidden;
@@ -114,6 +120,14 @@ html[data-composition="true"] .workspace {
   min-height: 0;
   grid-template-columns: minmax(180px, 22%) minmax(0, 1fr);
   gap: clamp(24px, 5vw, 88px);
+}
+html[data-composition="true"] #album-browser {
+  grid-column: 1;
+  grid-row: 1;
+}
+html[data-composition="true"] .player {
+  grid-column: 2;
+  grid-row: 1;
 }
 html[data-composition="true"] #library {
   min-height: 0;
@@ -378,14 +392,14 @@ html[data-composition="true"] .now {
   min-width: 0;
 }
 html[data-composition="true"] #album-title {
+  flex: 1;
+  min-width: 0;
   margin: 0;
-  font-size: clamp(22px, 3.4vw, 46px);
+  font-size: clamp(18px, 3.4vw, 36px);
   line-height: 1.25;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transform: translateY(var(--type-offset));
-  opacity: var(--type-opacity);
 }
 html[data-composition="true"] #track-title {
   margin: 4px 0;
@@ -497,9 +511,17 @@ html[data-composition="true"] main:has(#preparation:not([hidden])) .workspace {
   }
   html[data-composition="true"] .workspace {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
     gap: 12px;
     min-height: 0;
+  }
+  html[data-composition="true"] .player {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  html[data-composition="true"] #album-browser {
+    grid-column: 1;
+    grid-row: 2;
   }
   html[data-composition="true"] #library {
     flex-direction: row;
