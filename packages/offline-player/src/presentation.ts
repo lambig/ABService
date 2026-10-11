@@ -1,5 +1,6 @@
 /* eslint-disable functional/immutable-data -- This adapter owns the current GPU session, animation callback and DOM status. */
 import type { AudioFeatures } from "abservice-audio-dsp";
+import type { MusicalPlayback } from "./musical-playback";
 import type { PlayerSnapshot } from "abservice-player";
 import type { ListeningAlbum } from "abservice-listening-presentation";
 import {
@@ -326,5 +327,22 @@ export const presentation = (
     state.frame = mapFeatures(features, state.frame);
     reflectFrame();
   };
-  return Object.freeze({ sync, update: measured(update), reset, dispose });
+  /* The interpretation port is separate from spectral features. Effects consume these media-time values. */
+  const music = (value: MusicalPlayback): void => {
+    canvas.dataset["musicStatus"] = value.status;
+    canvas.dataset["musicItem"] = value.playbackItemId ?? "";
+    canvas.dataset["musicVersion"] = value.analysisVersion ?? "";
+    canvas.dataset["musicPosition"] = String(value.moment?.position ?? 0);
+    canvas.dataset["melodyMidi"] = String(value.moment?.melody?.midi ?? "");
+    canvas.dataset["harmonyRoot"] = String(value.moment?.harmony?.root ?? "");
+    canvas.dataset["harmonyQuality"] = value.moment?.harmony?.quality ?? "";
+    canvas.dispatchEvent(new CustomEvent("musical-moment", { detail: value }));
+  };
+  return Object.freeze({
+    sync,
+    update: measured(update),
+    music,
+    reset,
+    dispose,
+  });
 };

@@ -5,6 +5,7 @@ import type {
   ReadinessResult,
 } from "abservice-installation";
 import { buildPackageStore } from "./packages";
+export { buildAnalysisStore as createAnalysisStore } from './analysis';
 import { buildStore, collectUnreferenced } from "./store";
 
 /**
