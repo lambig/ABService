@@ -503,7 +503,7 @@ test("hashの負荷ノブで描画寸法とfpsを下げ、#probeでCPUとGPUを�
   await prepare(page);
   await expect(page.locator("#probe")).toBeHidden();
   /* A hash-only change is a same-document navigation; reload so that the budget is read again. */
-  await page.goto("/offline-player/#probe&scale=0.5&fps=30");
+  await page.goto("/offline-player/#probe&dpr=2&scale=0.5&fps=30");
   await page.reload();
   await selectAndPlay(page);
   await expect(page.locator("#probe")).toBeVisible();
