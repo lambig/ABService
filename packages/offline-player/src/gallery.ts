@@ -44,7 +44,11 @@ export const gallery = (
           })();
       const title = document.createElement("span");
       title.className = "album-name";
-      title.textContent = album.title;
+      title.title = album.title;
+      const titleText = document.createElement("span");
+      titleText.className = "album-name-text";
+      titleText.textContent = album.title;
+      title.append(titleText);
       button.append(cover, title);
       button.addEventListener("click", () => {
         select(primary.playbackItemId);
@@ -68,9 +72,23 @@ export const gallery = (
     });
   const previous = element("#albums-previous", HTMLButtonElement);
   const next = element("#albums-next", HTMLButtonElement);
-  const horizontal = () =>
-    matchMedia("(max-width: 700px), (orientation: portrait)").matches;
+  const layout = matchMedia("(max-width: 700px), (orientation: portrait)");
+  const horizontal = () => layout.matches;
+  const updateTitles = (): void => {
+    library.querySelectorAll<HTMLElement>(".album-name").forEach((title) => {
+      const text = title.firstElementChild as HTMLElement;
+      const distance = Math.max(0, text.scrollWidth - title.clientWidth);
+      title.dataset["overflow"] = String(distance > 1);
+      title.style.setProperty("--title-overflow", `${String(-distance)}px`);
+      title.style.setProperty(
+        "--title-duration",
+        `${String(Math.max(8, (distance / 24) * 2 + 4))}s`,
+      );
+    });
+  };
   const update = () => {
+    previous.textContent = horizontal() ? "‹" : "↑";
+    next.textContent = horizontal() ? "›" : "↓";
     const position = horizontal() ? library.scrollLeft : library.scrollTop;
     const end = horizontal()
       ? library.scrollWidth - library.clientWidth
@@ -96,12 +114,21 @@ export const gallery = (
     move(1);
   });
   library.addEventListener("scroll", update);
-  const observer = new ResizeObserver(update);
+  layout.addEventListener("change", update);
+  const observer = new ResizeObserver(() => {
+    update();
+    updateTitles();
+  });
   observer.observe(library);
+  library.querySelectorAll(".album-name").forEach((title) => {
+    observer.observe(title);
+  });
+  void document.fonts.ready.then(updateTitles);
   window.addEventListener(
     "pagehide",
     () => {
       observer.disconnect();
+      layout.removeEventListener("change", update);
       urls.forEach((url) => {
         URL.revokeObjectURL(url);
       });

@@ -190,6 +190,26 @@ html[data-composition="true"] #library .album-card {
   min-width: 0;
   max-width: 132px;
 }
+@media (min-width: 701px) and (orientation: landscape) {
+  html[data-composition="true"] .transport {
+    margin-right: calc(-1 * clamp(16px, 3vw, 36px));
+  }
+  html[data-composition="true"] #library {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    align-content: start;
+    gap: 12px;
+  }
+  html[data-composition="true"] #library .album-card {
+    max-width: none;
+  }
+}
+@media (min-width: 1000px) and (orientation: landscape) {
+  html[data-composition="true"] #library {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
 .album-choice {
   display: block;
   width: 100%;
@@ -225,6 +245,36 @@ html[data-composition="true"] #library .album-card {
   line-height: 1.4;
   margin-top: 6px;
   overflow-wrap: anywhere;
+}
+.album-name-text {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+}
+.album-name[data-overflow="true"] .album-name-text {
+  animation: album-title-pan var(--title-duration) linear infinite;
+}
+@keyframes album-title-pan {
+  0%,
+  15%,
+  100% {
+    transform: translateX(0);
+  }
+  45%,
+  60% {
+    transform: translateX(var(--title-overflow));
+  }
+  90% {
+    transform: translateX(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .album-name[data-overflow="true"] .album-name-text {
+    animation: none;
+    width: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 .track-choice {
   width: 100%;
