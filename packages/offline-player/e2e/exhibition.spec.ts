@@ -1,6 +1,6 @@
 /* eslint-disable functional/immutable-data -- Browser probes observe actual media playback and delay only preparation in cancellation tests. */
 import { expect, test } from "@playwright/test";
-import { distribute, prepareAndReload } from "./support";
+import { distribute, prepareAndReload, openManagement } from "./support";
 
 type Probe = {
   media: HTMLAudioElement[];
@@ -93,6 +93,7 @@ test("展示終了後は同じ作品を開始だけで再生し、波形をオ�
   await expect(page.locator("#waveform-status")).toBeEmpty();
   await page.locator("#play").click();
   await expect(page.locator("#play-status")).toHaveText("再生中");
+  await openManagement(page);
   await page.locator("#exhibition-menu summary").click();
   await page.locator("#stop").click();
   await expect(page.locator("#position")).toHaveText("0:00");
@@ -145,6 +146,7 @@ for (const next of ["stop", "select"] as const) {
       .toBe("function");
     await (next === "stop"
       ? (async () => {
+          await openManagement(page);
           await page.locator("#exhibition-menu summary").click();
           await page.locator("#stop").click();
         })()
@@ -192,6 +194,7 @@ test("縦画面で画像の横送りが見え、波形をキーボード操作�
     .poll(() => page.locator("#seek").inputValue().then(Number))
     .toBeGreaterThan(0);
   await page.screenshot({ path: testInfo.outputPath("portrait.png") });
+  await openManagement(page);
   await page.locator("#fullscreen").click();
   await expect
     .poll(() => page.evaluate(() => document.fullscreenElement !== null))

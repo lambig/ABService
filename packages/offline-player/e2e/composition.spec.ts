@@ -36,7 +36,7 @@ for (const viewport of [
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(viewport.width);
-    for (const selector of ["#play", "#seek", "#fullscreen"]) {
+    for (const selector of ["#play", "#seek", "#management-unlock"]) {
       const box = await page.locator(selector).boundingBox();
       expect(box?.height).toBeGreaterThanOrEqual(44);
       expect(box?.x).toBeGreaterThanOrEqual(0);
@@ -58,6 +58,12 @@ for (const viewport of [
     );
     await page.locator("#exhibition-menu").evaluate((node) => {
       node.setAttribute("open", "");
+      const panel = document.querySelector<HTMLElement>("#management-panel");
+      (panel === null
+        ? () => undefined
+        : () => {
+            panel.removeAttribute("hidden");
+          })();
     });
     await page.locator("#pause").click();
     await expect(page.locator("html")).toHaveAttribute(
@@ -66,6 +72,12 @@ for (const viewport of [
     );
     await page.locator("#exhibition-menu").evaluate((node) => {
       node.setAttribute("open", "");
+      const panel = document.querySelector<HTMLElement>("#management-panel");
+      (panel === null
+        ? () => undefined
+        : () => {
+            panel.removeAttribute("hidden");
+          })();
     });
     await page.locator("#stop").click();
     await expect(page.locator("html")).toHaveAttribute(
@@ -140,7 +152,7 @@ for (const viewport of [
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
       ).toBeLessThanOrEqual(viewport.width);
-      for (const selector of ["#play", "#seek", "#fullscreen"]) {
+      for (const selector of ["#play", "#seek", "#management-unlock"]) {
         const box = await page.locator(selector).boundingBox();
         expect(box?.height).toBeGreaterThanOrEqual(44);
         expect(box?.y).toBeGreaterThanOrEqual(0);
@@ -170,6 +182,12 @@ for (const viewport of [
     await expect(page.locator("#play-status")).toHaveText("再生中");
     await page.locator("#exhibition-menu").evaluate((node) => {
       node.setAttribute("open", "");
+      const panel = document.querySelector<HTMLElement>("#management-panel");
+      (panel === null
+        ? () => undefined
+        : () => {
+            panel.removeAttribute("hidden");
+          })();
     });
     await page.locator("#stop").click();
   });

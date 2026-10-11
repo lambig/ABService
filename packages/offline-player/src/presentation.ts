@@ -22,10 +22,10 @@ import type {
 
 const messages = {
   starting: "描画を準備しています",
-  running: "音に合わせて描画します",
+  running: "",
   recovering: "描画を準備し直しています",
   degraded: "描画を利用できません。再生と操作は続けられます。",
-  resting: "再生すると音に合わせて描画します",
+  resting: "",
 } as const;
 
 /* Drawing continues through a seek that began while playing; the frame is back at rest by then. */
@@ -267,6 +267,7 @@ export const presentation = (
           own.supervisor !== undefined && state.supervisor === own.supervisor;
         (current && next !== "disposed"
           ? () => {
+              status.dataset["rendererState"] = next;
               status.textContent = messages[next];
               state.degraded = next === "degraded";
               /* The still is kept until the new session can draw over it or has given up. */

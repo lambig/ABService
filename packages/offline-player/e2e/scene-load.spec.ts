@@ -60,8 +60,9 @@ test("代表負荷: 実PWAの表示素材・縦横・描画予算・pauseと再�
   await expect(page.locator("html")).toHaveAttribute("data-scene-load", "true");
   await page.getByRole("button", { name: "Reel study", exact: true }).click();
   await page.locator("#play").click();
-  await expect(page.locator("#visualizer-status")).toHaveText(
-    "音に合わせて描画します",
+  await expect(page.locator("#visualizer-status")).toHaveAttribute(
+    "data-renderer-state",
+    "running",
   );
   await expect(page.locator("#probe")).toContainText("scene representative-v1");
   const albumTitle = await page.locator("#album-title").textContent();
@@ -93,6 +94,12 @@ test("代表負荷: 実PWAの表示素材・縦横・描画予算・pauseと再�
   }
   await page.locator("#exhibition-menu").evaluate((node) => {
     node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
   });
   await page.locator("#pause").click();
   await expect(page.locator("#visualizer")).toHaveAttribute(
@@ -106,6 +113,12 @@ test("代表負荷: 実PWAの表示素材・縦横・描画予算・pauseと再�
     .not.toBe("");
   await page.locator("#exhibition-menu").evaluate((node) => {
     node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
   });
   await page.locator("#stop").click();
   await expect(page.locator("#visualizer")).toHaveAttribute(

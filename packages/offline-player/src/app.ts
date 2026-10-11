@@ -18,6 +18,7 @@ import "./style.css";
 import { gallery } from "./gallery";
 import { waveform } from "./waveform";
 import { fullscreen } from "./fullscreen";
+import { management } from "./management";
 import { when } from "./dom";
 import { preparation, storageMessage } from "./preparation";
 import { connectMediaAnalysis } from "abservice-audio-worklet/media";
@@ -39,6 +40,7 @@ const element = <T extends HTMLElement>(
         throw new Error(`Missing ${selector}`);
       })();
 };
+const admin = management();
 const play = element("#play", HTMLButtonElement);
 const pause = element("#pause", HTMLButtonElement);
 const stop = element("#stop", HTMLButtonElement);
@@ -87,7 +89,11 @@ const render = (
     selection?.title ?? "音源を選んでください";
   element("#album-title", HTMLElement).textContent =
     data?.albums.find((album) => album.albumId === selection?.albumId)?.title ??
-    "YOUR SELECTION";
+    "アルバムを選んでください";
+  element("#album-title", HTMLElement).title = element(
+    "#album-title",
+    HTMLElement,
+  ).textContent;
   /* A seek is shown as where it returns to; the presentation state follows the seek itself. */
   const phase = settledPhase(state);
   status.textContent =
@@ -322,8 +328,10 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
   });
   play.addEventListener("click", () => {
     when(audioProbe?.benchmarking() !== true, () => {
-      exhibition.active = true;
-      void controller.play();
+      admin.start(() => {
+        exhibition.active = true;
+        void controller.play();
+      });
     });
   });
   pause.addEventListener("click", controller.pause);

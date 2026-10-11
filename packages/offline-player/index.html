@@ -7,23 +7,59 @@
   </head>
   <body>
     <header>
-      <a
-        class="brand"
-        href="/offline-player/"
-        aria-label="Listening Room ホーム"
-        >AB<span>LISTENING ROOM</span></a
-      >
-      <div class="display-controls">
-        <button id="fullscreen" type="button">全画面</button>
-        <details id="exhibition-menu">
-          <summary>展示設定</summary>
-          <button id="stop" disabled>展示を終了</button
-          ><button id="pause" disabled>一時停止</button>
-          <button id="open-preparation" hidden>配布物を準備する</button>
-        </details>
+      <span class="brand">AB<span>LISTENING ROOM</span></span>
+      <div class="management">
+        <button
+          id="management-unlock"
+          aria-controls="management-panel"
+          aria-expanded="false"
+          title="2秒長押しで管理操作"
+        >
+          管理
+        </button>
+        <div id="management-panel" class="display-controls" hidden>
+          <button id="fullscreen" type="button">全画面</button>
+          <details id="exhibition-menu">
+            <summary>展示設定</summary>
+            <button id="stop" disabled>展示を終了</button
+            ><button id="pause" disabled>一時停止</button>
+            <button id="open-preparation" hidden>配布物を準備する</button>
+          </details>
+        </div>
       </div>
     </header>
     <p id="display-status" role="status"></p>
+    <dialog id="management-auth" aria-labelledby="management-auth-title">
+      <form id="management-auth-form">
+        <h2 id="management-auth-title">管理操作のロック解除</h2>
+        <p id="management-auth-help"></p>
+        <label for="management-pin">管理PIN（6桁以上の数字）</label>
+        <input
+          id="management-pin"
+          type="password"
+          inputmode="numeric"
+          pattern="[0-9]{6,}"
+          minlength="6"
+          maxlength="32"
+          autocomplete="off"
+          required
+        />
+        <label id="management-confirm-label" for="management-confirm"
+          >PINをもう一度入力</label
+        >
+        <input
+          id="management-confirm"
+          type="password"
+          inputmode="numeric"
+          autocomplete="off"
+        />
+        <p id="management-auth-error" role="alert"></p>
+        <div>
+          <button type="submit">確認</button
+          ><button id="management-auth-cancel" type="button">戻る</button>
+        </div>
+      </form>
+    </dialog>
     <main>
       <section class="intro">
         <p class="eyebrow">作品を選んで、音を聴く</p>
@@ -70,9 +106,7 @@
             id="visualizer"
             aria-label="音に反応するビジュアライザ"
           ></canvas>
-          <p id="visualizer-status" role="status">
-            再生すると音に合わせて描画します
-          </p>
+          <p id="visualizer-status" role="status"></p>
           <p id="analysis-status" role="status"></p>
           <button id="probe-benchmark" type="button" hidden>
             DSP ベンチマーク（再生を止めてから）
@@ -85,8 +119,8 @@
             aria-label="選択中の作品情報"
           >
             <div class="now">
-              <p id="album-title" class="eyebrow">YOUR SELECTION</p>
-              <h2 id="track-title">曲を選んでください</h2>
+              <h2 id="album-title">アルバムを選んでください</h2>
+              <p id="track-title">曲を選んでください</p>
               <p id="play-status" role="status" aria-live="polite">待機中</p>
             </div>
             <section id="album-info" aria-label="作品の情報" hidden>
@@ -96,7 +130,9 @@
             </section>
           </div>
           <div class="transport">
-            <label for="seek">聴きたい位置を選ぶ</label>
+            <label for="seek"
+              >聴きたい位置を選ぶ · 試聴後の停止は不要です</label
+            >
             <div id="waveform">
               <svg
                 viewBox="0 0 768 48"

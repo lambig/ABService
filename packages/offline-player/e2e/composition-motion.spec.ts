@@ -80,8 +80,9 @@ test("無音の背景は時刻で動かず、持続音と短い波は別の応�
   await page.getByRole("button", { name: "Reel study", exact: true }).click();
   await expect(page.locator("#play-status")).toHaveText("再生できます");
   await page.locator("#play").click();
-  await expect(page.locator("#visualizer-status")).toHaveText(
-    "音に合わせて描画します",
+  await expect(page.locator("#visualizer-status")).toHaveAttribute(
+    "data-renderer-state",
+    "running",
   );
   const frame = async (
     time: number,
@@ -113,6 +114,12 @@ test("無音の背景は時刻で動かず、持続音と短い波は別の応�
   ).toEqual([]);
   await page.locator("#exhibition-menu").evaluate((node) => {
     node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
   });
   await page.locator("#stop").click();
 });

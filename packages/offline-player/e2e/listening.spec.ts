@@ -185,6 +185,12 @@ const prepare = prepareAndReload;
     expect((await observe(page)).features).toHaveLength(0);
     await page.locator("#exhibition-menu").evaluate((node) => {
       node.setAttribute("open", "");
+      const panel = document.querySelector<HTMLElement>("#management-panel");
+      (panel === null
+        ? () => undefined
+        : () => {
+            panel.removeAttribute("hidden");
+          })();
     });
     await page.locator("#stop").click();
     await expect
@@ -256,6 +262,12 @@ test("解析準備中は先頭を進めず、完了後の再生操作で開始�
     .toBeGreaterThan(2);
   await page.locator("#exhibition-menu").evaluate((node) => {
     node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
   });
   await page.locator("#stop").click();
 });
@@ -299,6 +311,12 @@ test("解析準備の期限超過後も通常再生でき、遅延完了した�
   ).toBe(0);
   await page.locator("#exhibition-menu").evaluate((node) => {
     node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
   });
   await page.locator("#stop").click();
 });
@@ -334,6 +352,12 @@ test("オフライン新ページで実FLACの特徴量がWebGPU描画を駆動�
   });
   await next.locator("#exhibition-menu").evaluate((node) => {
     node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
   });
   await next.locator("#pause").click();
   await next.waitForTimeout(200);
@@ -357,6 +381,12 @@ test("オフライン新ページで実FLACの特徴量がWebGPU描画を駆動�
   ).toBe(true);
   await next.locator("#exhibition-menu").evaluate((node) => {
     node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
   });
   await next.locator("#stop").click();
   await expect
@@ -413,6 +443,12 @@ test("Worklet取得失敗でも音源の再生・シーク・停止は維持す�
   await expect(page.locator("#position")).toHaveText("0:03");
   await page.locator("#exhibition-menu").evaluate((node) => {
     node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
   });
   await page.locator("#stop").click();
   await expect
@@ -428,8 +464,9 @@ test("device lostから1回だけ描画を作り直し、再び失えば縮退�
 }) => {
   await prepare(page);
   await selectAndPlay(page);
-  await expect(page.locator("#visualizer-status")).toHaveText(
-    "音に合わせて描画します",
+  await expect(page.locator("#visualizer-status")).toHaveAttribute(
+    "data-renderer-state",
+    "running",
   );
   const loseCurrent = () =>
     page.evaluate(() => {
@@ -445,8 +482,9 @@ test("device lostから1回だけ描画を作り直し、再び失えば縮退�
       page.evaluate(() => (globalThis as Scope).listeningProbe.devices.length),
     )
     .toBe(devicesBefore + 1);
-  await expect(page.locator("#visualizer-status")).toHaveText(
-    "音に合わせて描画します",
+  await expect(page.locator("#visualizer-status")).toHaveAttribute(
+    "data-renderer-state",
+    "running",
   );
   const uniformsAfterRecovery = (await observe(page)).uniforms.length;
   await expect
@@ -470,6 +508,12 @@ test("device lostから1回だけ描画を作り直し、再び失えば縮退�
   await expect(page.locator("#play-status")).toHaveText("再生中");
   await page.locator("#exhibition-menu").evaluate((node) => {
     node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
   });
   await page.locator("#pause").click();
   await expect(page.locator("#play-status")).toHaveText("一時停止");
@@ -486,12 +530,19 @@ test("一時停止でGPU資源を放し、再開で作り直して描画を続�
     });
   await prepare(page);
   await selectAndPlay(page);
-  await expect(page.locator("#visualizer-status")).toHaveText(
-    "音に合わせて描画します",
+  await expect(page.locator("#visualizer-status")).toHaveAttribute(
+    "data-renderer-state",
+    "running",
   );
   const playing = await gpu();
   await page.locator("#exhibition-menu").evaluate((node) => {
     node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
   });
   await page.locator("#pause").click();
   await expect(page.locator("#play-status")).toHaveText("一時停止");
@@ -510,8 +561,9 @@ test("一時停止でGPU資源を放し、再開で作り直して描画を続�
   await expect
     .poll(async () => (await gpu()).devices)
     .toBe(playing.devices + 1);
-  await expect(page.locator("#visualizer-status")).toHaveText(
-    "音に合わせて描画します",
+  await expect(page.locator("#visualizer-status")).toHaveAttribute(
+    "data-renderer-state",
+    "running",
   );
   await expect(page.locator("#visualizer")).toHaveCSS(
     "background-image",
@@ -617,6 +669,12 @@ test("#probeで音声側の通知・Workletの平均負荷・音切れを示し�
   )?.[1];
   await page.locator("#exhibition-menu").evaluate((node) => {
     node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
   });
   await page.locator("#pause").click();
   await expect(page.locator("#play-status")).toHaveText("一時停止");
@@ -664,6 +722,12 @@ test("#probeで音声側の通知・Workletの平均負荷・音切れを示し�
   const beforeStop = await played();
   await page.locator("#exhibition-menu").evaluate((node) => {
     node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
   });
   await page.locator("#stop").click();
   await expect
@@ -691,6 +755,12 @@ test("プレイヤーの状態から試聴画面の状態を進め、シーク�
   await expect(canvas).toHaveAttribute("data-presentation-state", "playing");
   await page.locator("#exhibition-menu").evaluate((node) => {
     node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
   });
   await page.locator("#pause").click();
   await expect(canvas).toHaveAttribute("data-presentation-state", "paused");
@@ -709,6 +779,12 @@ test("プレイヤーの状態から試聴画面の状態を進め、シーク�
   await expect(canvas).toHaveAttribute("data-presentation-state", "playing");
   await page.locator("#exhibition-menu").evaluate((node) => {
     node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
   });
   await page.locator("#stop").click();
   await expect(canvas).toHaveAttribute("data-presentation-state", "selected");
@@ -774,6 +850,12 @@ test("音源の読み込みに失敗した後に停止すると、選択を残�
   await expect(canvas).toHaveAttribute("data-presentation-state", "error");
   await page.locator("#exhibition-menu").evaluate((node) => {
     node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
   });
   await page.locator("#stop").click();
   await expect(page.locator("#play-status")).toHaveText("停止中");
@@ -877,6 +959,12 @@ test("音源の読み込みに失敗しても、別の作品を選び直せば�
     await selectAndPlay(page);
     await page.locator("#exhibition-menu").evaluate((node) => {
       node.setAttribute("open", "");
+      const panel = document.querySelector<HTMLElement>("#management-panel");
+      (panel === null
+        ? () => undefined
+        : () => {
+            panel.removeAttribute("hidden");
+          })();
     });
     await page.locator("#pause").click();
     await expect(page.locator("#play-status")).toHaveText("一時停止");
@@ -885,8 +973,9 @@ test("音源の読み込みに失敗しても、別の作品を選び直せば�
     await page.locator("#play").click();
     await expect(page.locator("#play-status")).toHaveText("再生中");
     /* The evidence shows the drawing, not the moment before the first frame. */
-    await expect(page.locator("#visualizer-status")).toHaveText(
-      "音に合わせて描画します",
+    await expect(page.locator("#visualizer-status")).toHaveAttribute(
+      "data-renderer-state",
+      "running",
     );
     const drawn = (await observe(page)).uniforms.length;
     await expect
@@ -908,6 +997,12 @@ test("音源の読み込みに失敗しても、別の作品を選び直せば�
     });
     await page.locator("#exhibition-menu").evaluate((node) => {
       node.setAttribute("open", "");
+      const panel = document.querySelector<HTMLElement>("#management-panel");
+      (panel === null
+        ? () => undefined
+        : () => {
+            panel.removeAttribute("hidden");
+          })();
     });
     await page.locator("#stop").click();
     await expect(page.locator("#visualizer")).toHaveAttribute(
@@ -995,6 +1090,12 @@ test("一時停止・シーク・終了・選び直しの後に、前の区間�
   /* Pause: even a message of the current epoch is dropped, and does not come back on resume. */
   await page.locator("#exhibition-menu").evaluate((node) => {
     node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
   });
   await page.locator("#pause").click();
   await expect(page.locator("#play-status")).toHaveText("一時停止");
@@ -1089,6 +1190,12 @@ test("WebGPU未対応でも音響解析と再生操作を維持する", async ({
     .toBeGreaterThan(2);
   await page.locator("#exhibition-menu").evaluate((node) => {
     node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
   });
   await page.locator("#pause").click();
   await expect(page.locator("#play-status")).toHaveText("一時停止");
@@ -1129,6 +1236,12 @@ test("Worklet初期化中の停止で遅い完了を捨て、次の再生は開�
   await expect(page.locator("#play")).toBeDisabled();
   await page.locator("#exhibition-menu").evaluate((node) => {
     node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
   });
   await page.locator("#stop").click();
   await page.evaluate(() => {

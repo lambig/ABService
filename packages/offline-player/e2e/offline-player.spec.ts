@@ -142,7 +142,7 @@ test("配布元から準備し、全タブを閉じた後の通信なしの新�
   ).toHaveCount(0);
   /* 準備済みの端末では、通常の試聴に token の入力を出さない */
   await expect(next.locator("#preparation")).toBeHidden();
-  await expect(next.locator("#exhibition-menu summary")).toBeVisible();
+  await expect(next.locator("#management-unlock")).toBeVisible();
   await play(next, "Album crossfade");
   /* 作品情報は保存済みの package から出す。artwork は検証済みの実体を描き、説明の画像とリンクは取りに行かない */
   await expect(next.locator("#album-title")).toHaveText(
@@ -174,11 +174,23 @@ test("配布元から準備し、全タブを閉じた後の通信なしの新�
   });
   await next.locator("#exhibition-menu").evaluate((node) => {
     node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
   });
   await next.locator("#pause").click();
   await expect(next.locator("#play-status")).toHaveText("一時停止");
   await next.locator("#exhibition-menu").evaluate((node) => {
     node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
   });
   await next.locator("#stop").click();
   await next.locator("#play").click();
@@ -352,10 +364,12 @@ test("token を保存せず、読み込み直すと入力し直しになる", as
   await prepareOnline(page);
   const kept = await page.evaluate(() => ({
     local: Object.keys(localStorage),
+    localValues: Object.values(localStorage),
     session: Object.keys(sessionStorage),
     url: location.href,
   }));
-  expect(kept.local).toEqual([]);
+  expect(kept.local).toEqual(["exhibition-management-v1"]);
+  expect(kept.localValues.join("")).not.toContain(fixtureToken);
   expect(kept.session).toEqual([]);
   expect(kept.url).not.toContain(fixtureToken);
   await page.reload();
