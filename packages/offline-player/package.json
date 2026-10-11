@@ -5,6 +5,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "prebuild": "npm run check:wasm -w abservice-audio-worklet",
     "build": "vite build && node build.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

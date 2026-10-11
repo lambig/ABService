@@ -6,6 +6,8 @@ import ts from "typescript";
 const hash = (input: string | Uint8Array): string =>
   createHash("sha256").update(input).digest("hex");
 const worker = await readFile("../offline-shell/worker/sw.ts", "utf8");
+/* Vite stages runtime assets and notices together; generation reads only staged bytes. */
+await readFile("dist/assets/audio-kernel-NOTICES.txt");
 const assets = await readdir("dist/assets", {
   recursive: true,
   withFileTypes: true,

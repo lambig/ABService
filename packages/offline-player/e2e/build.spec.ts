@@ -17,6 +17,14 @@ const digest = (bytes: Uint8Array): string =>
   createHash("sha256").update(bytes).digest("hex");
 const sources: readonly Source[] = [
   {
+    path: "assets/audio-kernel-fixture.wasm",
+    content: Buffer.from([0, 97, 115, 109, 1, 0, 0, 0]),
+  },
+  {
+    path: "assets/audio-kernel-NOTICES.txt",
+    content: "Fixture kernel notices\n",
+  },
+  {
     path: "index.html",
     content:
       '<html lang="ja"><link rel="stylesheet" href="/offline-player/assets/app.css"><script src="/offline-player/assets/app.js"></script></html>',
@@ -40,7 +48,10 @@ const sources: readonly Source[] = [
 ];
 const build = async (
   inputs: readonly Source[],
-  check: (shell: Shell, read: (path: string) => Promise<Buffer>) => Promise<void> | void,
+  check: (
+    shell: Shell,
+    read: (path: string) => Promise<Buffer>,
+  ) => Promise<void> | void,
 ): Promise<void> => {
   const directory = await mkdtemp(join(tmpdir(), "offline-player-build-"));
   const cwd = join(directory, "offline-player");
@@ -87,9 +98,7 @@ test("shellのバイナリを保持し、参照とハッシュを配布世代に
     expect((await read(`${prefix}assets/app.js`)).toString("utf8")).toContain(
       shell.revision,
     );
-    expect(await read("index.html")).toEqual(
-      await read(`${prefix}index.html`),
-    );
+    expect(await read("index.html")).toEqual(await read(`${prefix}index.html`));
     expect((await read("index.html")).toString("utf8")).toContain(
       `/offline-player/${prefix}assets/app.css`,
     );
@@ -102,10 +111,45 @@ test("shellのバイナリを保持し、参照とハッシュを配布世代に
 
 test("作成順に依存せず同じバイト列から同じshell世代を作る", async () => {
   await build(sources, async (first) => {
-    await build([sources[3], sources[2], sources[1], sources[0]].filter((source): source is Source => source !== undefined), (second) => {
-      expect(second).toEqual(first);
+    await build(
+      sources.reduce<readonly Source[]>((items, item) => [item, ...items], []),
+      (second) => {
+        expect(second).toEqual(first);
+      },
+    );
+  });
+});
+
+for (const path of [
+  "assets/audio-kernel-fixture.wasm",
+  "assets/audio-kernel-NOTICES.txt",
+]) {
+  test(`${path}の内容を配布世代と保存hashへ反映する`, async () => {
+    const updated = sources.map((source) =>
+      source.path === path
+        ? { ...source, content: Buffer.from("changed fixture bytes") }
+        : source,
+    );
+    await build(sources, async (first) => {
+      await build(updated, async (second, read) => {
+        expect(second.revision).not.toBe(first.revision);
+        const entry = second.entries.find((file) => file.path.endsWith(path));
+        expect(entry).toBeDefined();
+        const bytes = await read(entry?.path ?? "missing");
+        expect(bytes).toEqual(Buffer.from("changed fixture bytes"));
+        expect(entry?.sha256).toBe(digest(bytes));
+      });
     });
   });
+}
+
+test("NOTICE未ステージングのshellを発行しない", async () => {
+  await expect(
+    build(
+      sources.filter((source) => source.path !== "assets/audio-kernel-NOTICES.txt"),
+      () => {},
+    ),
+  ).rejects.toThrow("audio-kernel-NOTICES.txt");
 });
 
 test("UTF-8では区別できないバイナリの違いでもshell世代が変わる", async () => {
