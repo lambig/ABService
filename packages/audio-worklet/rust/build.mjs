@@ -30,8 +30,14 @@ if (verify) {
   const rustc = process.env.RUSTC || 'rustc';
   const version = execFileSync(rustc, ['--version'], { cwd: root, encoding: 'utf8' }).trim();
   assert.match(version, /^rustc 1\.99\.0 /, 'Use the pinned Rust toolchain');
+  const details = execFileSync(rustc, ['-vV'], { cwd: root, encoding: 'utf8' });
+  const compilerHost = 'x86_64-pc-windows-gnu';
+  const compilerCommit = 'b940084d7eb6a299eb4bfeb8e34901bc051e7ac4';
+  assert.ok(details.includes(`host: ${compilerHost}`), 'Rebuild with the pinned Windows GNU compiler host');
+  assert.ok(details.includes(`commit-hash: ${compilerCommit}`), 'Use the pinned compiler commit');
   const cargo = process.env.CARGO || 'cargo';
   const cargoHome = process.env.CARGO_HOME;
+  assert.ok(cargoHome, 'Set CARGO_HOME explicitly for reproducible path remapping');
   // Remove host-specific source paths from panic sites in the binary.
   const flags = ['-C', 'target-feature=+simd128', '-C', 'link-arg=--initial-memory=2097152',
     '-C', 'link-arg=--max-memory=2097152', '--remap-path-prefix', `${root.replaceAll('\\', '/')}=/audio-kernel/`,
@@ -40,7 +46,7 @@ if (verify) {
     cwd: root, stdio: 'inherit', env: { ...process.env, CARGO_ENCODED_RUSTFLAGS: flags.join('\x1f') },
   });
   const bytes = readFileSync(join(root, 'target/wasm32-unknown-unknown/release/abservice_audio_kernel.wasm'));
-  const record = { compiler: version, target: 'wasm32-unknown-unknown', simd: true, memoryBytes: 2097152, sources, sha256: sha(bytes) };
+  const record = { compiler: version, compilerHost, compilerCommit, target: 'wasm32-unknown-unknown', simd: true, memoryBytes: 2097152, sources, sha256: sha(bytes) };
   if (check) {
     assert.equal(sha(readFileSync(asset)), record.sha256, 'Rebuilt WASM differs from committed asset');
     assert.deepEqual(JSON.parse(readFileSync(metadata, 'utf8')), record, 'Rebuilt WASM metadata differs');

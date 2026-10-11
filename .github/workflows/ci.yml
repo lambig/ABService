@@ -179,13 +179,14 @@ jobs:
         if: ${{ runner.os == 'Linux' }}
       - name: Install pinned audio Rust toolchain
         if: ${{ runner.os == 'Windows' }}
-        run: rustup toolchain install 1.99.0 --profile minimal --target wasm32-unknown-unknown --component rustfmt
+        run: rustup toolchain install 1.99.0-x86_64-pc-windows-gnu --profile minimal --target wasm32-unknown-unknown --component rustfmt
       - name: Verify reproducible RustFFT SIMD asset
         if: ${{ runner.os == 'Windows' }}
         env:
           CARGO_HOME: ${{ runner.temp }}/audio-cargo
+          RUSTUP_TOOLCHAIN: 1.99.0-x86_64-pc-windows-gnu
         run: |
-          cargo +1.99.0 fmt --manifest-path packages/audio-worklet/rust/Cargo.toml --check
+          cargo fmt --manifest-path packages/audio-worklet/rust/Cargo.toml --check
           node packages/audio-worklet/rust/build.mjs --check
       - name: Check listening workspaces and their dependencies
         if: ${{ runner.os == 'Linux' }}

@@ -30,21 +30,25 @@ and simultaneous drawing, separately from numerical/state regression.
 
 ## Build and distribution
 
-Install Rust 1.99.0 and target `wasm32-unknown-unknown` (see `rust-toolchain.toml`).
+Install `1.99.0-x86_64-pc-windows-gnu` and target `wasm32-unknown-unknown`
+(see `rust-toolchain.toml`), and set `CARGO_HOME` explicitly for path remapping.
 Run `npm run build:wasm -w abservice-audio-worklet` after source changes, then
 `npm run check:wasm:rebuild -w abservice-audio-worklet`. Cargo uses the checked-in
 lockfile, explicit SIMD, fixed memory and release LTO. `CARGO`/`RUSTC` may select
-an already installed toolchain; the build rejects a different compiler version.
+an already installed toolchain; the build checks the compiler version, commit and host.
 
 The generated binary, notices and source hashes are committed so frontend builds
 do not require Rust. `check:wasm` rejects stale source/asset/notice combinations.
-Listening CI uses a Windows host to rebuild and compare the committed binary;
+Listening CI uses the pinned Windows GNU compiler to rebuild and compare the binary;
 Linux runs frontend lint, types, tests and build against that exact asset.
 Generated paths are remapped to remove local directories. Diagnostic path
-separators still follow the build host, so byte reproduction uses Windows with
-the pinned compiler; cross-OS byte identity is not assumed.
+separators still follow the build host. Windows MSVC and GNU builds of the same
+compiler release also generate different bytes, so the full compiler host is part
+of the reproduction contract. Cross-host byte identity is not assumed.
 
-The offline shell includes the WASM and third-party notices in its versioned,
+Vite stages both the WASM and third-party notices into the offline player's
+assets directory. Shell generation consumes those staged bytes without reading
+the audio package's source tree, and includes them in its versioned,
 hash-checked cache. The listening CSP permits `wasm-unsafe-eval` for compilation;
 JavaScript `unsafe-eval` remains disabled. The loader uses ArrayBuffer compilation
 so an object store's generic binary MIME type does not prevent startup.
