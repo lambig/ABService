@@ -12,7 +12,7 @@
         href="/offline-player/"
         aria-label="Listening Room ホーム"
         >AB<span>LISTENING ROOM</span></a
-      ><span class="edition">OFFLINE STUDY / 01</span>
+      ><span class="edition">OFFLINE LISTENING</span>
     </header>
     <main>
       <section class="intro">
@@ -21,7 +21,12 @@
         <p>アルバムから曲を選び、再生してください。</p>
       </section>
       <button id="open-preparation" hidden>配布物を準備する</button>
-      <section id="preparation" class="preparation" aria-label="オフライン準備" hidden>
+      <section
+        id="preparation"
+        class="preparation"
+        aria-label="オフライン準備"
+        hidden
+      >
         <h2>持ち出す前に、保存する</h2>
         <p id="readiness" role="status" aria-live="polite">
           保存状態を確認しています
@@ -40,48 +45,58 @@
       <div class="workspace">
         <nav id="library" aria-label="アルバムと曲目"></nav>
         <section class="player" aria-label="プレイヤー">
-          <canvas id="visualizer" aria-label="音に反応するビジュアライザ"></canvas>
-          <p id="visualizer-status" role="status">再生すると音に合わせて描画します</p>
+          <canvas
+            id="visualizer"
+            aria-label="音に反応するビジュアライザ"
+          ></canvas>
+          <p id="visualizer-status" role="status">
+            再生すると音に合わせて描画します
+          </p>
           <p id="analysis-status" role="status"></p>
-          <button id="probe-benchmark" type="button" hidden>DSP ベンチマーク（再生を止めてから）</button>
+          <button id="probe-benchmark" type="button" hidden>
+            DSP ベンチマーク（再生を止めてから）
+          </button>
           <pre id="probe" hidden></pre>
-          <div class="now">
-            <p id="album-title" class="eyebrow">YOUR SELECTION</p>
-            <h2 id="track-title">曲を選んでください</h2>
-            <p id="play-status" role="status" aria-live="polite">待機中</p>
+          <div class="scene-content">
+            <div class="now">
+              <p id="album-title" class="eyebrow">YOUR SELECTION</p>
+              <h2 id="track-title">曲を選んでください</h2>
+              <p id="play-status" role="status" aria-live="polite">待機中</p>
+            </div>
+            <section id="album-info" aria-label="作品の情報" hidden>
+              <img id="artwork" alt="" hidden />
+              <p id="artist" hidden></p>
+              <div id="description" hidden></div>
+            </section>
           </div>
-          <section id="album-info" aria-label="作品の情報" hidden>
-            <img id="artwork" alt="" hidden />
-            <p id="artist" hidden></p>
-            <div id="description" hidden></div>
-          </section>
-          <label for="seek">再生位置</label
-          ><input
-            id="seek"
-            type="range"
-            min="0"
-            max="0"
-            step="0.1"
-            value="0"
-            disabled
-          />
-          <div class="time">
-            <output id="position">0:00</output
-            ><output id="duration">0:00</output>
+          <div class="transport">
+            <label for="seek">再生位置</label
+            ><input
+              id="seek"
+              type="range"
+              min="0"
+              max="0"
+              step="0.1"
+              value="0"
+              disabled
+            />
+            <div class="time">
+              <output id="position">0:00</output
+              ><output id="duration">0:00</output>
+            </div>
+            <div class="controls">
+              <button id="play" class="primary" disabled>再生</button
+              ><button id="pause" disabled>一時停止</button
+              ><button id="stop" disabled>停止</button>
+            </div>
+            <p id="error" role="alert"></p>
+            <button id="retry" hidden>音源を読み直す</button>
           </div>
-          <div class="controls">
-            <button id="play" class="primary" disabled>再生</button
-            ><button id="pause" disabled>一時停止</button
-            ><button id="stop" disabled>停止</button>
-          </div>
-          <p id="error" role="alert"></p>
-          <button id="retry" hidden>音源を読み直す</button>
         </section>
       </div>
     </main>
     <footer>
-      <span>AB / LISTENING ROOM</span
-      ><span>短い合成音を使った再生操作の検証用サンプルです。</span>
+      <span>AB / LISTENING ROOM</span><span>保存した作品を、この端末で。</span>
     </footer>
     <script type="module" src="/src/app.ts"></script>
   </body>

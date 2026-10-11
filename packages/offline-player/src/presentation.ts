@@ -41,9 +41,16 @@ const settled: ReadonlySet<RendererStatus> = new Set<RendererStatus>([
 ]);
 
 /* Budget and probe are read once from the hash: a query would keep the Service Worker from serving the page offline. */
-const budget = parseBudget(location.hash);
 const representative = sceneLoadRequested(location.hash);
+const composition = representative ? false : true;
+/* Background pixels may be reduced; the DOM artwork, type and controls stay at native resolution. */
+const budget = parseBudget(
+  representative
+    ? location.hash
+    : `#dpr=1&scale=0.75&fps=30&${location.hash.replace(/^#/, "")}`,
+);
 document.documentElement.dataset["sceneLoad"] = String(representative);
+document.documentElement.dataset["composition"] = String(composition);
 const probe: FrameProbe | undefined = probeRequested(location.hash)
   ? createProbe()
   : undefined;
@@ -80,7 +87,7 @@ export const probeReport = (): string | undefined => {
     ? undefined
     : [
         ...marks,
-        `scene ${representative ? "representative-v1" : "study"}`,
+        `scene ${representative ? "representative-v1" : "composition-v1"}`,
         `budget dpr ${String(budget.maxDevicePixelRatio)} scale ${String(budget.renderScale)} effects ${String(budget.effectDensity)} fps ${String(budget.targetFps)}`,
         `frames ${String(summary.frames)} skipped ${String(summary.skipped)} pixels ${String(summary.pixels ?? 0)}`,
         format("cycle cpu", summary.cycleCpu),
@@ -116,6 +123,19 @@ export const presentation = (
     content: undefined,
   };
   canvas.dataset["presentationState"] = state.presentation;
+  const reflectFrame = (): void => {
+    const style = document.documentElement.style;
+    style.setProperty("--artwork-scale", String(state.frame.artworkScale));
+    style.setProperty(
+      "--artwork-offset",
+      `${String(state.frame.artworkOffset * 100)}px`,
+    );
+    style.setProperty(
+      "--type-offset",
+      `${String(state.frame.textOffset * 100)}px`,
+    );
+    style.setProperty("--type-opacity", String(state.frame.textOpacity));
+  };
   const cancelFrame = (): void => {
     (state.animation === null
       ? () => undefined
@@ -174,6 +194,7 @@ export const presentation = (
   };
   const reset = (): void => {
     state.frame = restingFrame;
+    reflectFrame();
   };
   const dispose = (): void => {
     release(false);
@@ -225,14 +246,9 @@ export const presentation = (
       create: (signal) =>
         createRenderer(canvas, signal, {
           budget,
-          ...(representative
-            ? {
-                representative,
-                ...(state.content === undefined
-                  ? {}
-                  : { content: state.content }),
-              }
-            : {}),
+          representative,
+          composition,
+          ...(state.content === undefined ? {} : { content: state.content }),
           ...(probe === undefined
             ? {}
             : {
@@ -275,6 +291,8 @@ export const presentation = (
     state.presentation = step.state;
     state.frame = plan.frame;
     canvas.dataset["presentationState"] = step.state;
+    document.documentElement.dataset["presentationState"] = step.state;
+    reflectFrame();
     const drawn = (): void => {
       (state.supervisor === null
         ? state.degraded
@@ -305,6 +323,7 @@ export const presentation = (
   };
   const update = (features: AudioFeatures): void => {
     state.frame = mapFeatures(features, state.frame);
+    reflectFrame();
   };
   return Object.freeze({ sync, update: measured(update), reset, dispose });
 };

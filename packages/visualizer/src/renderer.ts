@@ -11,6 +11,8 @@ export type RendererOptions = Readonly<{
   budget?: RendererBudget;
   onSample?: (sample: FrameSample) => void;
   representative?: boolean;
+  /** Full viewport background; artwork and typography remain in the accessible DOM. */
+  composition?: boolean;
   content?: ListeningAlbum;
 }>;
 
@@ -130,7 +132,10 @@ export const createRenderer = async (
         module,
         entryPoint: "fragment",
         targets: [{ format }],
-        constants: { representative: options.representative === true ? 1 : 0 },
+        constants: {
+          representative: options.representative === true ? 1 : 0,
+          composition: options.composition === true ? 1 : 0,
+        },
       },
       primitive: { topology: "triangle-list" },
     });
@@ -147,10 +152,12 @@ export const createRenderer = async (
         GPUTextureUsage.COPY_DST |
         GPUTextureUsage.RENDER_ATTACHMENT,
     });
-    const pixels =
-      options.representative === true
-        ? await contentAtlas(options.content, signal)
-        : atlas();
+    const pixels = [
+      options.representative === true,
+      options.composition === true,
+    ].some(Boolean)
+      ? await contentAtlas(options.content, signal)
+      : atlas();
     signal.throwIfAborted();
     device.queue.copyExternalImageToTexture(
       { source: pixels },

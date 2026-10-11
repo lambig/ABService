@@ -7,6 +7,7 @@ struct Frame {
 @group(0) @binding(1) var image: texture_2d<f32>;
 @group(0) @binding(2) var imageSampler: sampler;
 override representative: bool = false;
+override composition: bool = false;
 struct Vertex { @builtin(position) position: vec4f, @location(0) uv: vec2f, }
 @vertex fn vertex(@builtin(vertex_index) index: u32) -> Vertex {
   let p = array<vec2f, 3>(vec2f(-1, -1), vec2f(3, -1), vec2f(-1, 3));
@@ -27,6 +28,24 @@ struct Vertex { @builtin(position) position: vec4f, @location(0) uv: vec2f, }
   let artSize = select(0.40, baseSize, representative) * frame.artwork.x + 0.012 * frame.artwork.w;
   let artPosition = select(vec2f(0, -0.13), artCenter, representative) + vec2f(frame.artwork.y, 0);
   let artUV = (p - artPosition) / (2 * artSize) + 0.5;
+  // A field extends beyond the cover. Continuous energy moves the ribbons;
+  // the short impulse widens a separate wave. Text never passes through this shader.
+  if (composition) {
+    let q = vec2f(in.uv.x * aspect, -in.uv.y);
+    let ambientUV = clamp(vec2f(in.uv.x, -in.uv.y) * 0.22 + 0.5, vec2f(0), vec2f(1));
+    let pigment = textureSample(image, imageSampler, ambientUV * vec2f(1, 0.5)).rgb;
+    let drift = sin(q.x * 1.8 + t * 0.11) * (0.12 + frame.artwork.z * 0.25);
+    let ribbon = exp(-abs(q.y - drift + 0.08) * (8.0 - frame.artwork.z * 4.0));
+    let contour = 0.5 + 0.5 * cos((q.y - drift) * 30.0 + q.x * frame.typography.w);
+    let radius = length(q - vec2f(aspect * 0.28, -0.08));
+    let impulseWave = exp(-abs(radius - 0.5 - frame.artwork.w * 0.55) * 28.0) * frame.artwork.w;
+    let edges = smoothstep(0.15, 1.35, abs(q.x));
+    color = vec3f(0.025, 0.04, 0.065) + pigment * (0.10 + ribbon * frame.artwork.z * 0.30);
+    color += vec3f(0.08, 0.22, 0.27) * ribbon * (0.2 + contour * 0.5);
+    color += vec3f(0.4, 0.67, 0.62) * impulseWave * 0.32;
+    color += vec3f(0.2, 0.4, 0.5) * edges * contour * frame.typography.z * 0.18;
+    return vec4f(color, 1);
+  }
   // One background surface, with a second atlas sample distributed beyond the artwork rectangle.
   if (representative) {
     let ambientUV = clamp(vec2f(in.uv.x, -in.uv.y) * 0.35 + 0.5 + vec2f(sin(t * 0.07) * 0.05, 0), vec2f(0), vec2f(1));
