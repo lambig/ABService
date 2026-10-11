@@ -149,10 +149,7 @@ test("曲音源のない収録曲を選択肢にせず、作品クロスフェ�
   await play(page);
   await page.getByRole("button", { name: "停止", exact: true }).click();
   await released(page);
-  await page
-    .getByRole("button", { name: "音源を読み直す", exact: true })
-    .click();
-  await expect(page.locator("#play-status")).toHaveText("再生できます");
+  await play(page);
   await expect(page.locator("#track-title")).toHaveText("Album crossfade");
   await select(page, "Reel study");
   await play(page);
@@ -187,10 +184,6 @@ test("Manifestの曲目からFLACを再生し、一時停止・シーク・再�
   await page.getByRole("button", { name: "停止", exact: true }).click();
   await expect(page.locator("#position")).toHaveText("0:00");
   await released(page);
-  await page
-    .getByRole("button", { name: "音源を読み直す", exact: true })
-    .click();
-  await expect(page.locator("#play-status")).toHaveText("再生できます");
   await play(page);
 });
 
@@ -268,7 +261,7 @@ test("読み込み中の停止で、遅延完了からURLや音声が復活し�
   gate.open?.();
   await response;
   await page.waitForTimeout(300);
-  await expect(page.locator("#play-status")).toHaveText("待機中");
+  await expect(page.locator("#play-status")).toHaveText("停止中");
   expect((await probe(page)).created).toHaveLength(0);
   await released(page);
 });
@@ -335,7 +328,7 @@ test("停止後の古いplay拒否やmediaイベントを無視する", async ({
     state.media[0]?.dispatchEvent(new Event("ended"));
     state.media[0]?.dispatchEvent(new Event("loadedmetadata"));
   });
-  await expect(page.locator("#play-status")).toHaveText("待機中");
+  await expect(page.locator("#play-status")).toHaveText("停止中");
   await expect(page.locator("#error")).toBeEmpty();
   await released(page);
 });
@@ -375,7 +368,7 @@ test("縦画面でも操作でき、ページ破棄で全資源を解放する",
   });
   await released(page);
   await page.getByRole("button", { name: "Reel study", exact: true }).click();
-  await expect(page.locator("#play-status")).toHaveText("待機中");
+  await expect(page.locator("#play-status")).toHaveText("停止中");
   expect((await probe(page)).created).toHaveLength(1);
 });
 
@@ -402,3 +395,48 @@ test("日本語の字形を同梱の書体で描き、書体を外から取り�
     fonts.every((url) => new URL(url).origin === new URL(page.url()).origin),
   ).toBe(true);
 });
+for (const playing of [true, false]) {
+  test(`終端のdemuxerシーク失敗を一度だけ復帰し、再生意図を保持する (${String(playing)})`, async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await select(page, "Reel study");
+    await (playing ? play(page) : Promise.resolve());
+    await page.evaluate(() => {
+      const audio = (globalThis as Scope).playerProbe.media.at(
+        -1,
+      ) as HTMLAudioElement;
+      const range = document.querySelector<HTMLInputElement>(
+        "#seek",
+      ) as HTMLInputElement;
+      range.value = String(audio.duration - 0.2);
+      range.dispatchEvent(new Event("input", { bubbles: true }));
+      Object.defineProperty(audio, "error", {
+        value: { code: 2, message: "FFmpegDemuxer: demuxer seek failed" },
+      });
+      audio.dispatchEvent(new Event("error"));
+    });
+    await expect.poll(async () => (await probe(page)).media.length).toBe(2);
+    await expect(page.locator("#play-status")).toHaveText(
+      playing ? "再生中" : "再生できます",
+    );
+    await expect(page.locator("#error")).toBeEmpty();
+    expect((await probe(page)).media[0]?.src).toBeNull();
+    await page.evaluate(() => {
+      const audio = (globalThis as Scope).playerProbe.media.at(
+        -1,
+      ) as HTMLAudioElement;
+      const range = document.querySelector<HTMLInputElement>(
+        "#seek",
+      ) as HTMLInputElement;
+      range.value = String(audio.duration - 0.2);
+      range.dispatchEvent(new Event("input", { bubbles: true }));
+      Object.defineProperty(audio, "error", {
+        value: { code: 2, message: "FFmpegDemuxer: demuxer seek failed" },
+      });
+      audio.dispatchEvent(new Event("error"));
+    });
+    await expect(page.locator("#error")).not.toBeEmpty();
+    expect((await probe(page)).media.length).toBe(2);
+  });
+}

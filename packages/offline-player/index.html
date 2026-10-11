@@ -7,20 +7,83 @@
   </head>
   <body>
     <header>
-      <a
-        class="brand"
-        href="/offline-player/"
-        aria-label="Listening Room ホーム"
-        >AB<span>LISTENING ROOM</span></a
-      ><span class="edition">OFFLINE LISTENING</span>
+      <span class="brand"
+        >AB<span id="space-display">LISTENING ROOM</span></span
+      >
+      <div class="header-titles">
+        <h1 id="album-title">アルバムを選んでください</h1>
+        <p id="track-title">曲を選んでください</p>
+      </div>
+      <div class="management">
+        <button
+          id="management-unlock"
+          aria-controls="management-panel"
+          aria-expanded="false"
+          title="2秒長押しで管理操作"
+        >
+          管理
+        </button>
+        <div id="management-panel" class="display-controls" hidden>
+          <form id="space-form">
+            <label for="space-name">スペース表示</label>
+            <input
+              id="space-name"
+              type="text"
+              maxlength="80"
+              placeholder="スペース番号・サークル名"
+              autocomplete="off"
+            />
+            <button type="submit">表示を保存</button>
+            <p id="space-error" role="alert"></p>
+          </form>
+          <button id="fullscreen" type="button">全画面</button>
+          <details id="exhibition-menu">
+            <summary>展示設定</summary>
+            <button id="stop" disabled>展示を終了</button
+            ><button id="pause" disabled>一時停止</button>
+            <button id="open-preparation" hidden>配布物を準備する</button>
+          </details>
+        </div>
+      </div>
     </header>
+    <p id="display-status" role="status"></p>
+    <dialog id="management-auth" aria-labelledby="management-auth-title">
+      <form id="management-auth-form">
+        <h2 id="management-auth-title">管理操作のロック解除</h2>
+        <p id="management-auth-help"></p>
+        <label for="management-pin">管理PIN（6桁以上の数字）</label>
+        <input
+          id="management-pin"
+          type="password"
+          inputmode="numeric"
+          pattern="[0-9]{6,}"
+          minlength="6"
+          maxlength="32"
+          autocomplete="off"
+          required
+        />
+        <label id="management-confirm-label" for="management-confirm"
+          >PINをもう一度入力</label
+        >
+        <input
+          id="management-confirm"
+          type="password"
+          inputmode="numeric"
+          autocomplete="off"
+        />
+        <p id="management-auth-error" role="alert"></p>
+        <div>
+          <button type="submit">確認</button
+          ><button id="management-auth-cancel" type="button">戻る</button>
+        </div>
+      </form>
+    </dialog>
     <main>
       <section class="intro">
         <p class="eyebrow">作品を選んで、音を聴く</p>
         <h1>A moment to listen.</h1>
         <p>アルバムから曲を選び、再生してください。</p>
       </section>
-      <button id="open-preparation" hidden>配布物を準備する</button>
       <section
         id="preparation"
         class="preparation"
@@ -43,15 +106,12 @@
         <button id="inspect">保存状態を確認</button>
       </section>
       <div class="workspace">
-        <nav id="library" aria-label="アルバムと曲目"></nav>
         <section class="player" aria-label="プレイヤー">
           <canvas
             id="visualizer"
             aria-label="音に反応するビジュアライザ"
           ></canvas>
-          <p id="visualizer-status" role="status">
-            再生すると音に合わせて描画します
-          </p>
+          <p id="visualizer-status" role="status"></p>
           <p id="analysis-status" role="status"></p>
           <button id="probe-benchmark" type="button" hidden>
             DSP ベンチマーク（再生を止めてから）
@@ -64,8 +124,6 @@
             aria-label="選択中の作品情報"
           >
             <div class="now">
-              <p id="album-title" class="eyebrow">YOUR SELECTION</p>
-              <h2 id="track-title">曲を選んでください</h2>
               <p id="play-status" role="status" aria-live="polite">待機中</p>
             </div>
             <section id="album-info" aria-label="作品の情報" hidden>
@@ -74,8 +132,23 @@
               <div id="description" hidden></div>
             </section>
           </div>
-          <div class="transport">
-            <label for="seek">再生位置</label
+        </section>
+        <section class="transport" aria-label="再生操作">
+          <div id="waveform">
+            <svg
+              viewBox="0 0 768 48"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <path class="waveform-path" /></svg
+            ><svg
+              class="waveform-played"
+              viewBox="0 0 768 48"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <path class="waveform-path" /></svg
+            ><span class="playhead" aria-hidden="true"></span
             ><input
               id="seek"
               type="range"
@@ -85,18 +158,35 @@
               value="0"
               disabled
             />
-            <div class="time">
-              <output id="position">0:00</output
-              ><output id="duration">0:00</output>
-            </div>
-            <div class="controls">
-              <button id="play" class="primary" disabled>再生</button
-              ><button id="pause" disabled>一時停止</button
-              ><button id="stop" disabled>停止</button>
-            </div>
-            <p id="error" role="alert"></p>
-            <button id="retry" hidden>音源を読み直す</button>
           </div>
+          <p id="waveform-status" role="status"></p>
+          <div class="time">
+            <output id="position">0:00</output>
+            <label for="seek"
+              ><span>ご試聴ありがとうございます、</span
+              ><span>聴きたい位置を選択できます</span>
+              <span>ご試聴後の停止は不要です</span></label
+            >
+            <output id="duration">0:00</output>
+          </div>
+          <div class="controls">
+            <button id="play" disabled>展示を開始</button>
+          </div>
+          <p id="error" role="alert"></p>
+          <button id="retry" hidden>音源を読み直す</button>
+        </section>
+        <section id="album-browser" aria-label="作品を選ぶ">
+          <div class="gallery-heading">
+            <h2>作品を選ぶ</h2>
+            <div>
+              <button id="albums-previous" aria-label="前の作品を表示">‹</button
+              ><button id="albums-next" aria-label="次の作品を表示">›</button>
+            </div>
+          </div>
+          <p class="gallery-hint">
+            ジャケットを選択<span> · 左右にスワイプ</span>
+          </p>
+          <nav id="library" aria-label="アルバムと曲目"></nav>
         </section>
       </div>
     </main>

@@ -73,10 +73,12 @@ export const player = (
     session: Session | null;
     state: PlayerSnapshot;
     disposed: boolean;
+    repeat: boolean;
   } = {
     session: null,
     state: idle,
     disposed: false,
+    repeat: false,
   };
   /* resumeTo belongs to seeking only; leaving seeking drops it instead of carrying it into another phase. */
   const publish = (patch: Patch): void => {
@@ -131,9 +133,41 @@ export const player = (
       });
     });
   };
-  const load = async (item: PlaybackItem): Promise<void> => {
+  const start = (session: Session): Promise<void> => {
+    session.intent.abort();
+    const intent = new AbortController();
+    session.intent = intent;
+    session.connection.play();
+    return session.audio
+      .play()
+      .then(() => {
+        when(intent.signal.aborted ? false : current(session), () => {
+          /* Playing during a seek changes where the seek returns to, not the seek itself. */
+          publish(
+            cell.state.phase === "seeking"
+              ? { resumeTo: "playing", error: null }
+              : { phase: "playing", error: null },
+          );
+        });
+      })
+      .catch((error: unknown) => {
+        when(intent.signal.aborted ? false : current(session), () => {
+          session.connection.pause();
+          publish({
+            phase: "paused",
+            error: `再生できません。再生ボタンで再試行してください。${message(error)}`,
+          });
+        });
+      });
+  };
+  const load = async (
+    item: PlaybackItem,
+    replay = false,
+    recoverSeekAt?: number,
+  ): Promise<void> => {
     clear();
     const audio = new Audio();
+    audio.loop = cell.repeat;
     const abort = new AbortController();
     const session: Session = {
       audio,
@@ -143,26 +177,49 @@ export const player = (
       connection: connect(audio, abort.signal),
     };
     cell.session = session;
+    const prepared = { finish: noop };
+    const ready = new Promise<void>((done) => {
+      prepared.finish = done;
+    });
+    abort.signal.addEventListener(
+      "abort",
+      () => {
+        prepared.finish();
+      },
+      { once: true },
+    );
+    /* Resume the new audio context during the play gesture; the source waits for preparation. */
+    when(replay, session.connection.play);
     const listen = (event: string, handler: () => void): void => {
       session.audio.addEventListener(event, handler, {
         signal: session.abort.signal,
       });
     };
     listen("loadedmetadata", () => {
-      void Promise.resolve(session.connection.ready).then(() => {
-        when(current(session), () => {
-          (Number.isFinite(session.audio.duration) && session.audio.duration > 0
-            ? () => {
-                publish({ phase: "ready", duration: session.audio.duration });
-              }
-            : () => {
-                fail(
-                  session,
-                  "音源の長さを取得できません。曲を選び直してください。",
-                );
-              })();
+      void Promise.resolve(session.connection.ready)
+        .then(() => {
+          when(current(session), () => {
+            (Number.isFinite(session.audio.duration) &&
+              session.audio.duration > 0
+              ? () => {
+                  publish({ phase: "ready", duration: session.audio.duration });
+                  when(recoverSeekAt !== undefined, () => {
+                    session.audio.currentTime = recoverSeekAt ?? 0;
+                    position(session);
+                  });
+                  prepared.finish();
+                }
+              : () => {
+                  fail(
+                    session,
+                    "音源の長さを取得できません。曲を選び直してください。",
+                  );
+                })();
+          });
+        })
+        .catch((error: unknown) => {
+          fail(session, message(error));
         });
-      });
     });
     listen("timeupdate", () => {
       position(session);
@@ -183,10 +240,32 @@ export const player = (
       });
     });
     listen("error", () => {
-      fail(
-        session,
-        "音源を読み込めません。形式・ファイルを確認して曲を選び直してください。",
-      );
+      const state = cell.state;
+      /* Chromium can fail to locate a FLAC frame in the last fraction of a second.
+       * Retry that seek once from just before the tail, preserving playback intent.
+       * Ordinary read/decode errors and a failed retry retain the normal error path.
+       */
+      const tailSeek =
+        current(session) &&
+        recoverSeekAt === undefined &&
+        state.phase === "seeking" &&
+        state.position >= state.duration - 1 &&
+        session.audio.error?.code === 2 &&
+        session.audio.error.message.includes("demuxer seek failed");
+      (tailSeek
+        ? () => {
+            void load(
+              item,
+              resumeOf(state) === "playing",
+              Math.max(0, state.position - 0.5),
+            );
+          }
+        : () => {
+            fail(
+              session,
+              "音源を読み込めません。形式・ファイルを確認して曲を選び直してください。",
+            );
+          })();
     });
     publish({
       ...idle,
@@ -210,9 +289,19 @@ export const player = (
           `音源の取得に失敗しました。曲を選び直してください。${message(error)}`,
         );
       });
+    await (replay
+      ? ready.then(() =>
+          current(session) && cell.state.phase === "ready"
+            ? start(session)
+            : undefined,
+        )
+      : Promise.resolve());
   };
   const items = getPlaybackItems(manifest);
-  const select = async (playbackItemId: string): Promise<void> => {
+  const select = async (
+    playbackItemId: string,
+    playWhenReady = false,
+  ): Promise<void> => {
     const item = items.find((entry) => entry.playbackItemId === playbackItemId);
     await (cell.disposed
       ? Promise.resolve()
@@ -226,41 +315,22 @@ export const player = (
             });
             return Promise.resolve();
           })()
-        : load(item));
+        : load(item, playWhenReady));
   };
   const play = async (): Promise<void> => {
     const session = cell.session;
-    await (session === null
+    const selected = items.find(
+      (item) => item.playbackItemId === cell.state.playbackItemId,
+    );
+    await (cell.disposed
       ? Promise.resolve()
-      : cell.state.phase === "loading"
-        ? Promise.resolve()
-        : (() => {
-            session.intent.abort();
-            const intent = new AbortController();
-            session.intent = intent;
-            session.connection.play();
-            return session.audio
-              .play()
-              .then(() => {
-                when(intent.signal.aborted ? false : current(session), () => {
-                  /* Playing during a seek changes where the seek returns to, not the seek itself. */
-                  publish(
-                    cell.state.phase === "seeking"
-                      ? { resumeTo: "playing", error: null }
-                      : { phase: "playing", error: null },
-                  );
-                });
-              })
-              .catch((error: unknown) => {
-                when(intent.signal.aborted ? false : current(session), () => {
-                  session.connection.pause();
-                  publish({
-                    phase: "paused",
-                    error: `再生できません。再生ボタンで再試行してください。${message(error)}`,
-                  });
-                });
-              });
-          })());
+      : session === null
+        ? cell.state.phase === "idle" && selected !== undefined
+          ? load(selected, true)
+          : Promise.resolve()
+        : cell.state.phase === "loading"
+          ? Promise.resolve()
+          : start(session));
   };
   const withSession = (action: (session: Session) => void): void => {
     const session = cell.session;
@@ -326,5 +396,11 @@ export const player = (
     seek,
     stop,
     dispose,
+    repeat: (enabled: boolean) => {
+      cell.repeat = enabled;
+      withSession((session) => {
+        session.audio.loop = enabled;
+      });
+    },
   });
 };

@@ -20,9 +20,23 @@ export const openPreparation = async (page: Page): Promise<void> => {
   const opener = page.locator("#open-preparation");
   /* Both start hidden; startup shows exactly one of them. */
   await expect(
-    page.locator("#preparation:visible, #open-preparation:visible"),
+    page.locator("#preparation:not([hidden]), #open-preparation:not([hidden])"),
   ).toHaveCount(1);
-  await ((await opener.isVisible()) ? opener.click() : Promise.resolve());
+  await ((await opener.getAttribute("hidden")) === null
+    ? (async () => {
+        await page.locator("#exhibition-menu").evaluate((node) => {
+          node.setAttribute("open", "");
+          const panel =
+            document.querySelector<HTMLElement>("#management-panel");
+          (panel === null
+            ? () => undefined
+            : () => {
+                panel.removeAttribute("hidden");
+              })();
+        });
+        await opener.click();
+      })()
+    : Promise.resolve());
   await expect(page.locator("#preparation")).toBeVisible();
 };
 
@@ -31,6 +45,38 @@ export const prepareOnline = async (
   page: Page,
   expected: string = staged,
 ): Promise<void> => {
+  await page.evaluate(async () => {
+    const key = "exhibition-management-v1";
+    const salt = new Uint8Array(16);
+    const material = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode("123456"),
+      "PBKDF2",
+      false,
+      ["deriveBits"],
+    );
+    const bits = await crypto.subtle.deriveBits(
+      { name: "PBKDF2", hash: "SHA-256", salt, iterations: 100000 },
+      material,
+      256,
+    );
+    const digest = Array.from(new Uint8Array(bits), (n) =>
+      n.toString(16).padStart(2, "0"),
+    ).join("");
+    (localStorage.getItem(key) === null
+      ? () => {
+          localStorage.setItem(
+            key,
+            JSON.stringify({
+              salt: Array.from(salt),
+              digest,
+              failures: 0,
+              retryAt: 0,
+            }),
+          );
+        }
+      : () => undefined)();
+  });
   await openPreparation(page);
   await expect(page.locator("#prepare")).toBeEnabled();
   await page.locator("#token").fill(fixtureToken);
@@ -74,3 +120,14 @@ export const storedAssets = (page: Page): Promise<number> =>
       (await iterator.next()).done === true ? seen : count(seen + 1);
     return count(0);
   });
+
+export const openManagement = async (page: Page): Promise<void> => {
+  await page.locator("#management-unlock").focus();
+  await page.keyboard.down(" ");
+  await page.waitForTimeout(2100);
+  await page.keyboard.up(" ");
+  await expect(page.locator("#management-auth")).toBeVisible();
+  await page.locator("#management-pin").fill("123456");
+  await page.locator("#management-auth button[type=submit]").click();
+  await expect(page.locator("#management-panel")).toBeVisible();
+};

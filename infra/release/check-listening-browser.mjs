@@ -74,10 +74,19 @@ try {
   await expect(page.locator('#readiness')).toHaveText('オフライン再生の準備ができました');
   await page.getByRole('button', { name: 'Reel study', exact: true }).click();
   await expect(page.locator('#play-status')).toHaveText('再生できます');
-  await page.locator('#play').click(); await expect(page.locator('#play-status')).toHaveText('再生中');
+  await page.locator('#play').click();
+  await page.locator('#management-pin').fill('123456'); // Synthetic test PIN, never a device/operator credential.
+  await page.locator('#management-confirm').fill('123456');
+  await page.locator('#management-auth button[type=submit]').click();
+  await expect(page.locator('#play-status')).toHaveText('再生中');
   await expect.poll(() => page.locator('#seek').inputValue().then(Number)).toBeGreaterThan(0.3);
   await expect(page.locator('#analysis-status')).toBeEmpty();
   await expect(page.locator('#probe')).toContainText(/worklet load p50 [\d.]+%/);
+  await page.locator('#management-unlock').focus();
+  await page.keyboard.down(' '); await page.waitForTimeout(2100); await page.keyboard.up(' ');
+  await page.locator('#management-pin').fill('123456');
+  await page.locator('#management-auth button[type=submit]').click();
+  await page.locator('#exhibition-menu summary').click();
   await page.locator('#pause').click(); await page.locator('#probe-benchmark').click();
   await expect(page.locator('#probe')).toContainText(/dsp bench [1-9]\d* quanta/);
   assert.ok(await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('16px "Klee One"', '試聴'); }));

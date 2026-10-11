@@ -41,15 +41,16 @@ export type PlayerSnapshot = SnapshotFacts &
 export const settledPhase = (state: PlayerSnapshot): SettledPhase =>
   state.phase === "seeking" ? state.resumeTo : state.phase;
 
-/** 停止は音源を解放し、選択曲を保持する。再取得はselectで行う。dispose後は操作を受け付けない。 */
+/** 停止は音源を解放し、選択曲を保持する。停止後のplayは同じ音源を内部で準備し、先頭から再生する。dispose後は操作を受け付けない。 */
 export type Player = Readonly<{
   snapshot: () => PlayerSnapshot;
-  select: (playbackItemId: string) => Promise<void>;
+  select: (playbackItemId: string, playWhenReady?: boolean) => Promise<void>;
   play: () => Promise<void>;
   pause: () => void;
   seek: (seconds: number) => void;
   stop: () => void;
   dispose: () => void;
+  repeat: (enabled: boolean) => void;
 }>;
 
 /** 再生操作と同じ寿命を持つ音声接続。実装は障害を自身で処理し、再生操作へ例外を返さない。 */
@@ -68,7 +69,7 @@ export type ConnectPlayback = (
 ) => PlaybackConnection;
 
 /**
- * 検証済みManifestとresolverを結ぶブラウザプレイヤー。自動再生・自動次曲送りはしない。
+ * 検証済みManifestとresolverを結ぶブラウザプレイヤー。選択時の再生と繰り返しは呼び出し元の明示指定で有効にする。
  * resolverとmedia要素の生存期間を選曲単位に閉じ、旧完了・旧イベントは通知しない。
  * onChangeは同期的な表示更新用。音響解析・永続保存・readinessの保証はこの境界の責務外。
  */

@@ -36,7 +36,7 @@ for (const viewport of [
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(viewport.width);
-    for (const selector of ["#play", "#pause", "#stop"]) {
+    for (const selector of ["#play", "#seek", "#management-unlock"]) {
       const box = await page.locator(selector).boundingBox();
       expect(box?.height).toBeGreaterThanOrEqual(44);
       expect(box?.x).toBeGreaterThanOrEqual(0);
@@ -56,11 +56,29 @@ for (const viewport of [
     await expect(page.locator("#visualizer-status")).toContainText(
       "再生と操作は続けられます",
     );
+    await page.locator("#exhibition-menu").evaluate((node) => {
+      node.setAttribute("open", "");
+      const panel = document.querySelector<HTMLElement>("#management-panel");
+      (panel === null
+        ? () => undefined
+        : () => {
+            panel.removeAttribute("hidden");
+          })();
+    });
     await page.locator("#pause").click();
     await expect(page.locator("html")).toHaveAttribute(
       "data-presentation-state",
       "paused",
     );
+    await page.locator("#exhibition-menu").evaluate((node) => {
+      node.setAttribute("open", "");
+      const panel = document.querySelector<HTMLElement>("#management-panel");
+      (panel === null
+        ? () => undefined
+        : () => {
+            panel.removeAttribute("hidden");
+          })();
+    });
     await page.locator("#stop").click();
     await expect(page.locator("html")).toHaveAttribute(
       "data-presentation-state",
@@ -134,7 +152,7 @@ for (const viewport of [
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
       ).toBeLessThanOrEqual(viewport.width);
-      for (const selector of ["#play", "#pause", "#stop"]) {
+      for (const selector of ["#play", "#seek", "#management-unlock"]) {
         const box = await page.locator(selector).boundingBox();
         expect(box?.height).toBeGreaterThanOrEqual(44);
         expect(box?.y).toBeGreaterThanOrEqual(0);
@@ -159,9 +177,20 @@ for (const viewport of [
     await expect(page.locator("#track-title")).toHaveText("Return");
     await expect(page.locator("#artwork")).toBeHidden();
     await expect.poll(() => region.evaluate((node) => node.scrollTop)).toBe(0);
+    await expect(page.locator("#play")).toBeVisible();
+    await expect(page.locator("#play")).toBeEnabled();
     await controls();
     await page.locator("#play").click();
     await expect(page.locator("#play-status")).toHaveText("再生中");
+    await page.locator("#exhibition-menu").evaluate((node) => {
+      node.setAttribute("open", "");
+      const panel = document.querySelector<HTMLElement>("#management-panel");
+      (panel === null
+        ? () => undefined
+        : () => {
+            panel.removeAttribute("hidden");
+          })();
+    });
     await page.locator("#stop").click();
   });
 }
