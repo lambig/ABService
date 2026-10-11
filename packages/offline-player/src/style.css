@@ -391,19 +391,23 @@ html[data-composition="true"] .now {
   margin: 0;
   min-width: 0;
 }
-html[data-composition="true"] #album-title {
+html[data-composition="true"] .header-titles {
   flex: 1;
   min-width: 0;
+  text-align: right;
+}
+html[data-composition="true"] #album-title {
   margin: 0;
-  font-size: clamp(18px, 3.4vw, 36px);
-  line-height: 1.25;
+  font-size: clamp(18px, 3.4vw, 32px);
+  line-height: 1.15;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 html[data-composition="true"] #track-title {
-  margin: 4px 0;
-  font-size: 13px;
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.25;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
