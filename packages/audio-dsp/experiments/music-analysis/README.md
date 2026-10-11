@@ -69,3 +69,37 @@ fill one complete input window, call analyze with its ending sample index, and
 copy the output before the next call. Sequence allocation accepts up to 1500
 frames, invalid input is rejected, and output includes internal salience data.
 No stable public ABI or Worklet scheduling contract is promised by this experiment.
+
+## Synchronized diagnostic viewer
+
+```
+node diagnostic-data.mjs
+node diagnostic-server.mjs
+node --test diagnostic.test.mjs
+```
+
+Open the loopback URL printed by the server. The page compares all three existing
+Rust outputs with synthetic ground truth while playing the identical PCM as a
+float WAV. Playback starts by user action at 20% media volume. The native audio
+clock drives labels and the pitch timeline, including pause, seek and restart.
+Changing analysis or timing mode keeps the same playback position. Uncovered
+start/end frames appear as gaps instead of retaining stale detections.
+
+The target-time view assumes advance analysis. The availability-time view shifts
+results by the half-window and optional lookahead input delay. This is a timing
+simulation, not a browser/Android benchmark. Confidence and playback-system output
+latency are not calibrated. Synthetic truth is shown at the current playback time,
+so delayed or mistaken estimates are visible. This closes diagnostic plumbing;
+the mixed-music accuracy failures above still require a different estimator.
+
+For independently provided mono PCM, `writeCase` and `writeViewer` can generate
+the same viewer with `truth=null`. It labels accuracy as unassessed. Keep real
+audio and generated data in a private output directory. Inputs are bounded to
+16 seconds per segment; full-track processing belongs to product integration.
+The server binds to loopback and serves only listed viewer/case files behind a
+random URL token. It does not open a browser automatically.
+
+Browser tests use Playwright; `DIAGNOSTIC_CHROMIUM` can select an existing Chromium
+executable. They verify the media clock during playback/pause/seek/loop, stale
+selection responses, availability delay and portrait/landscape overflow. They do
+not assess musical accuracy or physical-device output delay.
