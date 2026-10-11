@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { createHash } from "node:crypto";
+import { distributions } from "../distribution";
 import { distribute, prepareAndReload } from "./support";
 
 for (const viewport of [
@@ -75,5 +77,91 @@ for (const viewport of [
       path: testInfo.outputPath("without-artwork.png"),
       fullPage: true,
     });
+  });
+}
+
+for (const viewport of [
+  { width: 1280, height: 800 },
+  { width: 390, height: 844 },
+  { width: 844, height: 390 },
+]) {
+  test(`長い日本語の作品情報を最後まで読め、操作部を押し出さない (${String(viewport.width)})`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.addInitScript(() => {
+      /* eslint-disable-next-line functional/immutable-data -- Layout is independent of GPU availability. */
+      Object.defineProperty(navigator, "gpu", { value: undefined });
+    });
+    const title = "雨の日の街と、遠い記憶をつなぐ音の風景".repeat(4);
+    const artist = "とても長い日本語の名義と共同制作の記録".repeat(3);
+    const content = {
+      ...distributions.v1,
+      albums: distributions.v1.albums.map((album, index) =>
+        index === 0
+          ? {
+              ...album,
+              title,
+              artistDisplayName: artist,
+              description:
+                "朝の光と夜の静けさをたどる作品です。".repeat(60) +
+                "末尾のことば",
+              descriptionFormat: "PLAIN_TEXT",
+            }
+          : album,
+      ),
+      playbackItems: distributions.v1.playbackItems.map((item, index) =>
+        index === 0 ? { ...item, title } : item,
+      ),
+    };
+    await page.route("**/api/v1/listening/package", (route) =>
+      route.fulfill({
+        json: {
+          ...content,
+          packageVersion: createHash("sha256")
+            .update(JSON.stringify(content))
+            .digest("hex"),
+        },
+      }),
+    );
+    await prepareAndReload(page);
+    await page.getByRole("button", { name: title, exact: true }).click();
+    await expect(page.locator("#play-status")).toHaveText("再生できます");
+    await expect(page.locator("#track-title")).toHaveText(title);
+    await expect(page.locator("#artist")).toHaveText(artist);
+    const region = page.getByRole("region", { name: "選択中の作品情報" });
+    const controls = async (): Promise<void> => {
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(viewport.width);
+      for (const selector of ["#play", "#pause", "#stop"]) {
+        const box = await page.locator(selector).boundingBox();
+        expect(box?.height).toBeGreaterThanOrEqual(44);
+        expect(box?.y).toBeGreaterThanOrEqual(0);
+        expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(
+          viewport.height,
+        );
+      }
+    };
+    await controls();
+    await region.focus();
+    await page.keyboard.press("Control+End");
+    await expect
+      .poll(() =>
+        region.evaluate(
+          (node) => node.scrollTop + node.clientHeight >= node.scrollHeight - 2,
+        ),
+      )
+      .toBe(true);
+    await expect(page.locator("#description")).toContainText("末尾のことば");
+    await controls();
+    await page.getByRole("button", { name: "Return", exact: true }).click();
+    await expect(page.locator("#track-title")).toHaveText("Return");
+    await expect(page.locator("#artwork")).toBeHidden();
+    await expect.poll(() => region.evaluate((node) => node.scrollTop)).toBe(0);
+    await controls();
+    await page.locator("#play").click();
+    await expect(page.locator("#play-status")).toHaveText("再生中");
+    await page.locator("#stop").click();
   });
 }

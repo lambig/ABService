@@ -172,6 +172,7 @@ const showAlbum = (
   const artist = element("#artist", HTMLElement);
   const description = element("#description", HTMLElement);
   const replace = (): void => {
+    element(".scene-content", HTMLElement).scrollTop = 0;
     (shown.url === undefined
       ? () => undefined
       : () => {

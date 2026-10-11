@@ -34,7 +34,9 @@ struct Vertex { @builtin(position) position: vec4f, @location(0) uv: vec2f, }
     let q = vec2f(in.uv.x * aspect, -in.uv.y);
     let ambientUV = clamp(vec2f(in.uv.x, -in.uv.y) * 0.22 + 0.5, vec2f(0), vec2f(1));
     let pigment = textureSample(image, imageSampler, ambientUV * vec2f(1, 0.5)).rgb;
-    let drift = sin(q.x * 1.8 + t * 0.11) * (0.12 + frame.artwork.z * 0.25);
+    // Resting intensity is a visible still, not a clock-driven response to silence.
+    let activity = clamp((frame.artwork.z - 0.15) / 0.4, 0.0, 1.0);
+    let drift = sin(q.x * 1.8 + t * 0.11) * activity * 0.37;
     let ribbon = exp(-abs(q.y - drift + 0.08) * (8.0 - frame.artwork.z * 4.0));
     let contour = 0.5 + 0.5 * cos((q.y - drift) * 30.0 + q.x * frame.typography.w);
     let radius = length(q - vec2f(aspect * 0.28, -0.08));

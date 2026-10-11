@@ -53,6 +53,9 @@ html[data-composition="true"] {
   --type-opacity: 1;
 }
 html[data-composition="true"] body {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
   min-height: 100dvh;
   isolation: isolate;
   background: radial-gradient(ellipse at 70% 40%, #173637, #09141e 75%);
@@ -67,6 +70,7 @@ html[data-composition="true"] #visualizer {
   background-color: transparent;
 }
 html[data-composition="true"] header {
+  flex: none;
   padding: 18px 4vw;
   border-color: #d2e4df26;
 }
@@ -78,6 +82,13 @@ html[data-composition="true"] .now p:last-child {
   color: #b8cdc9;
 }
 html[data-composition="true"] main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  margin: 0;
+  gap: 12px;
   max-width: none;
   padding: 28px 4vw;
 }
@@ -86,11 +97,14 @@ html[data-composition="true"] footer {
   display: none;
 }
 html[data-composition="true"] .workspace {
+  flex: 1;
+  min-height: 0;
   grid-template-columns: minmax(180px, 22%) minmax(0, 1fr);
   gap: clamp(24px, 5vw, 88px);
-  min-height: calc(100dvh - 190px);
 }
 html[data-composition="true"] #library {
+  min-height: 0;
+  overflow-wrap: anywhere;
   max-height: calc(100dvh - 160px);
   overflow: auto;
   padding-right: 12px;
@@ -105,18 +119,22 @@ html[data-composition="true"] .player {
   flex-direction: column;
   justify-content: center;
   min-width: 0;
+  min-height: 0;
   padding: 0;
   background: none;
   border: 0;
   box-shadow: none;
 }
 html[data-composition="true"] .scene-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   grid-template-rows: auto auto 1fr;
-  align-content: center;
+  align-content: start;
   column-gap: clamp(20px, 4vw, 56px);
-  margin-block: auto;
+  margin-block: 0;
   padding-block: 32px;
   min-width: 0;
 }
@@ -173,6 +191,7 @@ html[data-composition="true"]
   grid-column: 1;
 }
 html[data-composition="true"] .transport {
+  flex: none;
   padding: 16px 20px;
   background: #09141ee8;
   border: 1px solid #bddbd233;
@@ -206,6 +225,25 @@ html[data-composition="true"] #probe {
 html[data-composition="true"] :is(button, input, a):focus-visible {
   outline-color: #ead4a4;
 }
+/* Long metadata scrolls as one region; playback controls keep their own space. */
+html[data-composition="true"] #open-preparation {
+  flex: none;
+  align-self: start;
+}
+html[data-composition="true"] #description {
+  max-height: none;
+  overflow: visible;
+}
+html[data-composition="true"] #visualizer-status {
+  flex: none;
+  margin-block: 0 8px;
+}
+html[data-composition="true"] body:has(#preparation:not([hidden])) {
+  height: auto;
+}
+html[data-composition="true"] main:has(#preparation:not([hidden])) .workspace {
+  min-height: 400px;
+}
 @media (max-width: 700px), (orientation: portrait) {
   html[data-composition="true"] .brand span,
   html[data-composition="true"] .edition {
@@ -217,6 +255,7 @@ html[data-composition="true"] :is(button, input, a):focus-visible {
   }
   html[data-composition="true"] .workspace {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(44px, 16dvh) minmax(0, 1fr);
     gap: 20px;
     min-height: 0;
   }
@@ -235,11 +274,29 @@ html[data-composition="true"] :is(button, input, a):focus-visible {
   html[data-composition="true"] #artwork {
     max-height: 27dvh;
   }
-  html[data-composition="true"] #description {
-    max-height: 8dvh;
-  }
   html[data-composition="true"] .transport {
     padding: 12px;
+  }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  html[data-composition="true"] header {
+    padding-block: 4px;
+  }
+  html[data-composition="true"] main {
+    padding-block: 8px;
+    gap: 8px;
+  }
+  html[data-composition="true"] .scene-content {
+    padding-block: 8px;
+  }
+  html[data-composition="true"] .transport {
+    padding: 8px 12px;
+  }
+  html[data-composition="true"] .controls {
+    margin-top: 8px;
+  }
+  html[data-composition="true"] input[type="range"] {
+    margin-block: 4px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
