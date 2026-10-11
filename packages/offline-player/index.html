@@ -132,47 +132,47 @@
               <div id="description" hidden></div>
             </section>
           </div>
-          <div class="transport">
-            <div id="waveform">
-              <svg
-                viewBox="0 0 768 48"
-                preserveAspectRatio="none"
-                aria-hidden="true"
-              >
-                <path class="waveform-path" /></svg
-              ><svg
-                class="waveform-played"
-                viewBox="0 0 768 48"
-                preserveAspectRatio="none"
-                aria-hidden="true"
-              >
-                <path class="waveform-path" /></svg
-              ><span class="playhead" aria-hidden="true"></span
-              ><input
-                id="seek"
-                type="range"
-                min="0"
-                max="0"
-                step="0.1"
-                value="0"
-                disabled
-              />
-            </div>
-            <p id="waveform-status" role="status"></p>
-            <div class="time">
-              <output id="position">0:00</output>
-              <label for="seek"
-                ><span>聴きたい位置を選ぶ</span
-                ><span>試聴後の停止は不要です</span></label
-              >
-              <output id="duration">0:00</output>
-            </div>
-            <div class="controls">
-              <button id="play" disabled>展示を開始</button>
-            </div>
-            <p id="error" role="alert"></p>
-            <button id="retry" hidden>音源を読み直す</button>
+        </section>
+        <section class="transport" aria-label="再生操作">
+          <div id="waveform">
+            <svg
+              viewBox="0 0 768 48"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <path class="waveform-path" /></svg
+            ><svg
+              class="waveform-played"
+              viewBox="0 0 768 48"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <path class="waveform-path" /></svg
+            ><span class="playhead" aria-hidden="true"></span
+            ><input
+              id="seek"
+              type="range"
+              min="0"
+              max="0"
+              step="0.1"
+              value="0"
+              disabled
+            />
           </div>
+          <p id="waveform-status" role="status"></p>
+          <div class="time">
+            <output id="position">0:00</output>
+            <label for="seek"
+              ><span>聴きたい位置を選ぶ</span
+              ><span>試聴後の停止は不要です</span></label
+            >
+            <output id="duration">0:00</output>
+          </div>
+          <div class="controls">
+            <button id="play" disabled>展示を開始</button>
+          </div>
+          <p id="error" role="alert"></p>
+          <button id="retry" hidden>音源を読み直す</button>
         </section>
         <section id="album-browser" aria-label="作品を選ぶ">
           <div class="gallery-heading">
