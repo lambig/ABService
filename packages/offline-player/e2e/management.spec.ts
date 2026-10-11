@@ -31,6 +31,29 @@ test("短押しで管理は開かず、PIN照合後の操作で再びロック�
   await expect(page.locator("#management-panel")).toBeHidden();
   await openManagement(page);
   await expect(page.locator(".brand")).not.toHaveAttribute("href");
+  const display = "試験スペース <img src=x onerror=alert(1)>";
+  await page.getByLabel("スペース表示", { exact: true }).fill(display);
+  await page.getByRole("button", { name: "表示を保存" }).click();
+  await expect(page.locator("#management-panel")).toBeHidden();
+  await page.reload();
+  await expect(page.locator("#space-display")).toHaveText(display);
+  await expect(page.locator("#space-display img")).toHaveCount(0);
+  await page.locator("#space-form").evaluate((form) => {
+    const input = document.querySelector<HTMLInputElement>("#space-name");
+    (input === null
+      ? () => undefined
+      : () => {
+          input.value = "locked edit";
+        })();
+    form.dispatchEvent(
+      new Event("submit", { bubbles: true, cancelable: true }),
+    );
+  });
+  await expect(page.locator("#space-display")).toHaveText(display);
+  await openManagement(page);
+  await page.getByLabel("スペース表示", { exact: true }).fill("");
+  await page.getByRole("button", { name: "表示を保存" }).click();
+  await expect(page.locator("#space-display")).toHaveText("LISTENING ROOM");
 });
 
 test("初回はPINの設定完了まで展示を開始せず、保存失敗時もロックを保つ", async ({

@@ -96,6 +96,7 @@ const render = (
   ).textContent;
   /* A seek is shown as where it returns to; the presentation state follows the seek itself. */
   const phase = settledPhase(state);
+  status.hidden = phase === "playing";
   status.textContent =
     phase === "idle" && state.playbackItemId !== null
       ? "停止中"

@@ -82,6 +82,41 @@ export const management = () => {
     button.textContent = "管理";
     element("#exhibition-menu", HTMLDetailsElement).open = false;
   };
+  const spaceKey = "exhibition-space-v1";
+  const space = element("#space-name", HTMLInputElement);
+  const spaceError = element("#space-error", HTMLElement);
+  const showSpace = (value: string): void => {
+    const display = element("#space-display", HTMLElement);
+    display.textContent = value === "" ? "LISTENING ROOM" : value;
+    display.title = value;
+  };
+  try {
+    space.value = (localStorage.getItem(spaceKey) ?? "").slice(0, 80);
+    showSpace(space.value);
+  } catch {
+    spaceError.textContent = "スペース表示の保存状態を確認できません。";
+  }
+  element("#space-form", HTMLFormElement).addEventListener(
+    "submit",
+    (event) => {
+      event.preventDefault();
+      (panel.hidden
+        ? () => undefined
+        : () => {
+            try {
+              const value = space.value.trim().slice(0, 80);
+              localStorage.setItem(spaceKey, value);
+              space.value = value;
+              showSpace(value);
+              spaceError.textContent = "";
+              close();
+            } catch {
+              spaceError.textContent =
+                "保存できませんでした。もう一度お試しください。";
+            }
+          })();
+    },
+  );
   const clear = (): void => {
     state.request.abort();
     state.request = new AbortController();
@@ -206,7 +241,14 @@ export const management = () => {
   });
   button.addEventListener("keyup", cancelHold);
   panel.addEventListener("click", (event) => {
-    (event.target instanceof HTMLButtonElement ? close : () => undefined)();
+    (event.target instanceof HTMLButtonElement &&
+      event.target.closest("#space-form") === null
+      ? close
+      : () => undefined)();
+  });
+  panel.addEventListener("input", () => {
+    clearTimeout(state.close);
+    state.close = window.setTimeout(close, 20000);
   });
   element("#management-auth-cancel", HTMLButtonElement).addEventListener(
     "click",

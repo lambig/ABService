@@ -177,6 +177,8 @@ for (const viewport of [
     await expect(page.locator("#track-title")).toHaveText("Return");
     await expect(page.locator("#artwork")).toBeHidden();
     await expect.poll(() => region.evaluate((node) => node.scrollTop)).toBe(0);
+    await expect(page.locator("#play")).toBeVisible();
+    await expect(page.locator("#play")).toBeEnabled();
     await controls();
     await page.locator("#play").click();
     await expect(page.locator("#play-status")).toHaveText("再生中");

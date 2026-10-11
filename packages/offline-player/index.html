@@ -7,7 +7,9 @@
   </head>
   <body>
     <header>
-      <span class="brand">AB<span>LISTENING ROOM</span></span>
+      <span class="brand"
+        >AB<span id="space-display">LISTENING ROOM</span></span
+      >
       <div class="management">
         <button
           id="management-unlock"
@@ -18,6 +20,18 @@
           管理
         </button>
         <div id="management-panel" class="display-controls" hidden>
+          <form id="space-form">
+            <label for="space-name">スペース表示</label>
+            <input
+              id="space-name"
+              type="text"
+              maxlength="80"
+              placeholder="スペース番号・サークル名"
+              autocomplete="off"
+            />
+            <button type="submit">表示を保存</button>
+            <p id="space-error" role="alert"></p>
+          </form>
           <button id="fullscreen" type="button">全画面</button>
           <details id="exhibition-menu">
             <summary>展示設定</summary>
@@ -130,9 +144,6 @@
             </section>
           </div>
           <div class="transport">
-            <label for="seek"
-              >聴きたい位置を選ぶ · 試聴後の停止は不要です</label
-            >
             <div id="waveform">
               <svg
                 viewBox="0 0 768 48"
@@ -160,8 +171,12 @@
             </div>
             <p id="waveform-status" role="status"></p>
             <div class="time">
-              <output id="position">0:00</output
-              ><output id="duration">0:00</output>
+              <output id="position">0:00</output>
+              <label for="seek"
+                ><span>聴きたい位置を選ぶ</span
+                ><span>試聴後の停止は不要です</span></label
+              >
+              <output id="duration">0:00</output>
             </div>
             <div class="controls">
               <button id="play" disabled>展示を開始</button>
