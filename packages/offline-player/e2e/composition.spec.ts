@@ -36,7 +36,7 @@ for (const viewport of [
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(viewport.width);
-    for (const selector of ["#play", "#pause", "#stop"]) {
+    for (const selector of ["#play", "#seek", "#fullscreen"]) {
       const box = await page.locator(selector).boundingBox();
       expect(box?.height).toBeGreaterThanOrEqual(44);
       expect(box?.x).toBeGreaterThanOrEqual(0);
@@ -56,11 +56,17 @@ for (const viewport of [
     await expect(page.locator("#visualizer-status")).toContainText(
       "再生と操作は続けられます",
     );
+    await page.locator("#exhibition-menu").evaluate((node) => {
+      node.setAttribute("open", "");
+    });
     await page.locator("#pause").click();
     await expect(page.locator("html")).toHaveAttribute(
       "data-presentation-state",
       "paused",
     );
+    await page.locator("#exhibition-menu").evaluate((node) => {
+      node.setAttribute("open", "");
+    });
     await page.locator("#stop").click();
     await expect(page.locator("html")).toHaveAttribute(
       "data-presentation-state",
@@ -134,7 +140,7 @@ for (const viewport of [
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
       ).toBeLessThanOrEqual(viewport.width);
-      for (const selector of ["#play", "#pause", "#stop"]) {
+      for (const selector of ["#play", "#seek", "#fullscreen"]) {
         const box = await page.locator(selector).boundingBox();
         expect(box?.height).toBeGreaterThanOrEqual(44);
         expect(box?.y).toBeGreaterThanOrEqual(0);
@@ -162,6 +168,9 @@ for (const viewport of [
     await controls();
     await page.locator("#play").click();
     await expect(page.locator("#play-status")).toHaveText("再生中");
+    await page.locator("#exhibition-menu").evaluate((node) => {
+      node.setAttribute("open", "");
+    });
     await page.locator("#stop").click();
   });
 }

@@ -20,9 +20,16 @@ export const openPreparation = async (page: Page): Promise<void> => {
   const opener = page.locator("#open-preparation");
   /* Both start hidden; startup shows exactly one of them. */
   await expect(
-    page.locator("#preparation:visible, #open-preparation:visible"),
+    page.locator("#preparation:not([hidden]), #open-preparation:not([hidden])"),
   ).toHaveCount(1);
-  await ((await opener.isVisible()) ? opener.click() : Promise.resolve());
+  await ((await opener.getAttribute("hidden")) === null
+    ? (async () => {
+        await page.locator("#exhibition-menu").evaluate((node) => {
+          node.setAttribute("open", "");
+        });
+        await opener.click();
+      })()
+    : Promise.resolve());
   await expect(page.locator("#preparation")).toBeVisible();
 };
 

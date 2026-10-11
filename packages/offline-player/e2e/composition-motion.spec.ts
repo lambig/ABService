@@ -111,5 +111,8 @@ test("無音の背景は時刻で動かず、持続音と短い波は別の応�
   expect(
     await page.evaluate(() => (globalThis as Scope).motionProbe.errors),
   ).toEqual([]);
+  await page.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+  });
   await page.locator("#stop").click();
 });

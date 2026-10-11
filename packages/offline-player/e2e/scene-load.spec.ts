@@ -91,6 +91,9 @@ test("代表負荷: 実PWAの表示素材・縦横・描画予算・pauseと再�
       path: testInfo.outputPath(`scene-${String(viewport.width)}.png`),
     });
   }
+  await page.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+  });
   await page.locator("#pause").click();
   await expect(page.locator("#visualizer")).toHaveAttribute(
     "data-presentation-state",
@@ -101,6 +104,9 @@ test("代表負荷: 実PWAの表示素材・縦横・描画予算・pauseと再�
       page.locator("#visualizer").evaluate((c) => c.style.backgroundImage),
     )
     .not.toBe("");
+  await page.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+  });
   await page.locator("#stop").click();
   await expect(page.locator("#visualizer")).toHaveAttribute(
     "data-presentation-state",

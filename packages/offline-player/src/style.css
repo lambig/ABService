@@ -114,6 +114,204 @@ html[data-composition="true"] #library {
 html[data-composition="true"] #library section {
   border-color: #d2e4df26;
 }
+/* Selection has its own visible navigation; the moving scene keeps the remaining space. */
+#album-browser {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+.gallery-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.gallery-heading h2 {
+  font-size: 15px;
+  margin: 0;
+}
+.gallery-heading button {
+  padding: 0;
+  min-width: 44px;
+  font-size: 24px;
+}
+.gallery-hint {
+  margin: 2px 0 10px;
+  font-size: 11px;
+  color: #b8cdc9;
+}
+.gallery-hint span {
+  display: none;
+}
+html[data-composition="true"] #library {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+html[data-composition="true"] #library .album-card {
+  flex: none;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.album-choice {
+  display: block;
+  width: 100%;
+  padding: 6px;
+  text-align: left;
+}
+.album-cover {
+  display: flex;
+  aspect-ratio: 1;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #23413e;
+}
+.album-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.cover-placeholder {
+  color: #9abaae;
+  font-size: 48px;
+  background: linear-gradient(135deg, #19373d, #315449);
+}
+.album-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.4;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+.track-choice {
+  width: 100%;
+  text-align: left;
+  margin-top: 3px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+html[data-composition="true"] .album-choice[aria-pressed="true"],
+html[data-composition="true"] .track-choice[aria-pressed="true"] {
+  border-color: #e9d49e;
+  background: #274d48;
+}
+.display-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.display-controls button,
+.display-controls summary {
+  font-size: 12px;
+  padding: 8px 12px;
+  min-height: 44px;
+}
+#exhibition-menu {
+  position: relative;
+}
+#exhibition-menu summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+#exhibition-menu[open] #stop {
+  position: absolute;
+  z-index: 5;
+  right: 0;
+  top: 100%;
+  white-space: nowrap;
+  background: #172d32;
+}
+#exhibition-menu[open] #pause {
+  position: absolute;
+  z-index: 5;
+  right: 0;
+  top: calc(100% + 44px);
+  white-space: nowrap;
+  background: #172d32;
+}
+#exhibition-menu[open] #open-preparation {
+  position: absolute;
+  z-index: 5;
+  right: 0;
+  top: calc(100% + 88px);
+  white-space: nowrap;
+  background: #172d32;
+}
+#display-status {
+  margin: 0;
+  font-size: 12px;
+}
+#display-status:empty {
+  display: none;
+}
+#waveform {
+  position: relative;
+  height: 52px;
+  margin-top: 6px;
+  background: #bbcbbb12;
+  border-radius: 4px;
+  --progress: 0%;
+}
+#waveform svg {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  inset: 0;
+  fill: none;
+  stroke: #648680;
+  stroke-width: 2;
+}
+#waveform .waveform-played {
+  stroke: #ebd8a4;
+  clip-path: inset(0 calc(100% - var(--progress)) 0 0);
+}
+#waveform .playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: clamp(0px, var(--progress), calc(100% - 2px));
+  width: 2px;
+  background: #fff2ca;
+}
+#waveform #seek {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+#waveform:focus-within {
+  outline: 2px solid #ead4a4;
+  outline-offset: 3px;
+}
+#waveform-status {
+  font-size: 11px;
+  margin: 4px 0;
+}
+#waveform-status:empty {
+  display: none;
+}
+html[data-composition="true"] .controls {
+  margin-top: 6px;
+}
+html[data-composition="true"] .transport {
+  padding: 8px 12px;
+}
+html[data-composition="true"] .controls:has(#play[hidden]) {
+  display: none;
+}
 html[data-composition="true"] .player {
   display: flex;
   flex-direction: column;
@@ -192,7 +390,7 @@ html[data-composition="true"]
 }
 html[data-composition="true"] .transport {
   flex: none;
-  padding: 16px 20px;
+  padding: 8px 12px;
   background: #09141ee8;
   border: 1px solid #bddbd233;
   border-radius: 8px;
@@ -255,14 +453,26 @@ html[data-composition="true"] main:has(#preparation:not([hidden])) .workspace {
   }
   html[data-composition="true"] .workspace {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(44px, 16dvh) minmax(0, 1fr);
-    gap: 20px;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 12px;
     min-height: 0;
   }
   html[data-composition="true"] #library {
-    max-height: 16dvh;
+    flex-direction: row;
+    max-height: 27dvh;
+    padding: 0 0 8px;
+    gap: 12px;
     border-right: 0;
     border-bottom: 1px solid #d2e4df26;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+  }
+  html[data-composition="true"] #library .album-card {
+    width: clamp(112px, 52vw, 196px);
+    scroll-snap-align: start;
+  }
+  .gallery-hint span {
+    display: inline;
   }
   html[data-composition="true"] #library section {
     padding: 8px 0;

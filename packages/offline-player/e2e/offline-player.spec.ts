@@ -27,8 +27,10 @@ import {
 
 const play = async (page: Page, title = "Reel study"): Promise<void> => {
   await page.getByRole("button", { name: title, exact: true }).click();
-  await expect(page.locator("#play-status")).toHaveText("再生できます");
-  await page.locator("#play").click();
+  await expect(page.locator("#play-status")).toHaveText(/再生できます|再生中/);
+  await ((await page.locator("#play").isVisible())
+    ? page.locator("#play").click()
+    : Promise.resolve());
   await expect(page.locator("#play-status")).toHaveText("再生中");
   await expect
     .poll(() => page.locator("#seek").inputValue().then(Number))
@@ -140,13 +142,17 @@ test("配布元から準備し、全タブを閉じた後の通信なしの新�
   ).toHaveCount(0);
   /* 準備済みの端末では、通常の試聴に token の入力を出さない */
   await expect(next.locator("#preparation")).toBeHidden();
-  await expect(next.locator("#open-preparation")).toBeVisible();
+  await expect(next.locator("#exhibition-menu summary")).toBeVisible();
   await play(next, "Album crossfade");
   /* 作品情報は保存済みの package から出す。artwork は検証済みの実体を描き、説明の画像とリンクは取りに行かない */
-  await expect(next.locator("#album-title")).toHaveText("Northbound · Study 01");
+  await expect(next.locator("#album-title")).toHaveText(
+    "Northbound · Study 01",
+  );
   await expect(next.locator("#artist")).toHaveText("AB Study");
   await expect(next.locator("#description")).toContainText("検証用");
-  await expect(next.locator("#description")).toContainText("頒布ページ を参照。");
+  await expect(next.locator("#description")).toContainText(
+    "頒布ページ を参照。",
+  );
   await expect(next.locator("#description a, #description img")).toHaveCount(0);
   await expect
     .poll(() =>
@@ -166,11 +172,17 @@ test("配布元から準備し、全タブを閉じた後の通信なしの新�
     path: "test-results/offline-player-playing.png",
     fullPage: true,
   });
+  await next.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+  });
   await next.locator("#pause").click();
   await expect(next.locator("#play-status")).toHaveText("一時停止");
+  await next.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+  });
   await next.locator("#stop").click();
-  await next.locator("#retry").click();
-  await expect(next.locator("#play-status")).toHaveText("再生できます");
+  await next.locator("#play").click();
+  await expect(next.locator("#play-status")).toHaveText("再生中");
   await next.setViewportSize({ width: 420, height: 860 });
   await play(next, "Air study");
   await next.screenshot({

@@ -1,11 +1,7 @@
 /* eslint-disable functional/immutable-data -- DOM描画とイベント登録をデモ境界に閉じ、プレイヤーのsnapshotを表示する。 */
 import { getPlaybackItems, parseManifest } from "abservice-installation";
 import { createPlayer, settledPhase } from "./index";
-import type {
-  LocalAssetResolver,
-  PlayerSnapshot,
-  SettledPhase,
-} from "./index";
+import type { LocalAssetResolver, PlayerSnapshot, SettledPhase } from "./index";
 import { legacyManifest, manifest as currentManifest } from "./fixture";
 import "./style.css";
 
@@ -54,16 +50,19 @@ const render = (state: PlayerSnapshot): void => {
     manifest.albums.find((album) => album.albumId === selection?.albumId)
       ?.title ?? "YOUR SELECTION";
   const phase = settledPhase(state);
-  status.textContent = phases[phase];
-  play.disabled = ["idle", "loading", "error", "playing"].includes(phase);
+  status.textContent =
+    phase === "idle" && state.playbackItemId !== null
+      ? "停止中"
+      : phases[phase];
+  play.disabled = [
+    ["loading", "error", "playing"].includes(phase),
+    state.playbackItemId === null,
+  ].some(Boolean);
   pause.disabled = phase !== "playing";
   stop.disabled = phase === "idle";
-  retry.hidden =
-    state.playbackItemId === null
-      ? true
-      : ["idle", "error"].includes(phase)
-        ? false
-        : true;
+  retry.hidden = [state.playbackItemId === null, phase !== "error"].some(
+    Boolean,
+  );
   seek.disabled = state.duration === 0;
   seek.max = String(state.duration);
   seek.value = String(state.position);

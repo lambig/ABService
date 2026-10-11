@@ -142,8 +142,10 @@ const selectAndPlay = async (
   title = "Reel study",
 ): Promise<void> => {
   await page.getByRole("button", { name: title, exact: true }).click();
-  await expect(page.locator("#play-status")).toHaveText("再生できます");
-  await page.locator("#play").click();
+  await expect(page.locator("#play-status")).toHaveText(/再生できます|再生中/u);
+  await ((await page.locator("#play").isVisible())
+    ? page.locator("#play").click()
+    : Promise.resolve());
   await expect(page.locator("#play-status")).toHaveText("再生中");
 };
 const prepare = prepareAndReload;
@@ -181,6 +183,9 @@ const prepare = prepareAndReload;
       .poll(() => page.locator("#seek").inputValue().then(Number))
       .toBeGreaterThan(0.3);
     expect((await observe(page)).features).toHaveLength(0);
+    await page.locator("#exhibition-menu").evaluate((node) => {
+      node.setAttribute("open", "");
+    });
     await page.locator("#stop").click();
     await expect
       .poll(async () =>
@@ -249,6 +254,9 @@ test("解析準備中は先頭を進めず、完了後の再生操作で開始�
   await expect
     .poll(async () => (await observe(page)).features.length)
     .toBeGreaterThan(2);
+  await page.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+  });
   await page.locator("#stop").click();
 });
 
@@ -289,6 +297,9 @@ test("解析準備の期限超過後も通常再生でき、遅延完了した�
       () => (globalThis as Scope).listeningProbe.nodes.length,
     ),
   ).toBe(0);
+  await page.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+  });
   await page.locator("#stop").click();
 });
 
@@ -321,6 +332,9 @@ test("オフライン新ページで実FLACの特徴量がWebGPU描画を駆動�
     path: "test-results/listening-playing.png",
     fullPage: true,
   });
+  await next.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+  });
   await next.locator("#pause").click();
   await next.waitForTimeout(200);
   const paused = await observe(next);
@@ -341,6 +355,9 @@ test("オフライン新ページで実FLACの特徴量がWebGPU描画を駆動�
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+  await next.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+  });
   await next.locator("#stop").click();
   await expect
     .poll(async () =>
@@ -394,6 +411,9 @@ test("Worklet取得失敗でも音源の再生・シーク・停止は維持す�
     .toBeGreaterThan(0.5);
   await page.locator("#seek").fill("3");
   await expect(page.locator("#position")).toHaveText("0:03");
+  await page.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+  });
   await page.locator("#stop").click();
   await expect
     .poll(async () =>
@@ -448,6 +468,9 @@ test("device lostから1回だけ描画を作り直し、再び失えば縮退�
     .poll(async () => (await observe(page)).features.length)
     .toBeGreaterThan(featuresBefore);
   await expect(page.locator("#play-status")).toHaveText("再生中");
+  await page.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+  });
   await page.locator("#pause").click();
   await expect(page.locator("#play-status")).toHaveText("一時停止");
   expect((await observe(page)).errors).toEqual([]);
@@ -467,6 +490,9 @@ test("一時停止でGPU資源を放し、再開で作り直して描画を続�
     "音に合わせて描画します",
   );
   const playing = await gpu();
+  await page.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+  });
   await page.locator("#pause").click();
   await expect(page.locator("#play-status")).toHaveText("一時停止");
   /* The last composition stays on screen as a still once the GPU is gone. */
@@ -589,6 +615,9 @@ test("#probeで音声側の通知・Workletの平均負荷・音切れを示し�
   const quantum = /audio sampleRate \d+ quantum ([\d.]+) ms/u.exec(
     (await overlay.textContent()) ?? "",
   )?.[1];
+  await page.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+  });
   await page.locator("#pause").click();
   await expect(page.locator("#play-status")).toHaveText("一時停止");
   await expect(benchmark).toBeEnabled();
@@ -633,6 +662,9 @@ test("#probeで音声側の通知・Workletの平均負荷・音切れを示し�
       )?.[1] ?? Number.NaN,
     );
   const beforeStop = await played();
+  await page.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+  });
   await page.locator("#stop").click();
   await expect
     .poll(async () =>
@@ -657,6 +689,9 @@ test("プレイヤーの状態から試聴画面の状態を進め、シーク�
   /* A seek while playing goes through seeking and comes back to playing. */
   await page.locator("#seek").fill("3");
   await expect(canvas).toHaveAttribute("data-presentation-state", "playing");
+  await page.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+  });
   await page.locator("#pause").click();
   await expect(canvas).toHaveAttribute("data-presentation-state", "paused");
   /* A seek while paused comes back to paused; the GPU stays released. */
@@ -672,6 +707,9 @@ test("プレイヤーの状態から試聴画面の状態を進め、シーク�
   ).toBe(devices);
   await page.locator("#play").click();
   await expect(canvas).toHaveAttribute("data-presentation-state", "playing");
+  await page.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+  });
   await page.locator("#stop").click();
   await expect(canvas).toHaveAttribute("data-presentation-state", "selected");
   expect(await states()).toEqual([
@@ -695,12 +733,20 @@ test("最後まで再生すると終了へ移り、選び直すと前の作品�
   const canvas = page.locator("#visualizer");
   await prepare(page);
   await selectAndPlay(page, "Air study");
+  await page.evaluate(() => {
+    const media = (globalThis as Scope).listeningProbe.media.at(-1);
+    (media === undefined
+      ? () => undefined
+      : () => {
+          media.loop = false;
+        })();
+  });
   await page.locator("#seek").fill("4.8");
   await expect(canvas).toHaveAttribute("data-presentation-state", "ended");
   await expect(page.locator("#play-status")).toHaveText("再生終了");
   await page.getByRole("button", { name: "Reel study", exact: true }).click();
-  await expect(page.locator("#play-status")).toHaveText("再生できます");
-  await expect(canvas).toHaveAttribute("data-presentation-state", "selected");
+  await expect(page.locator("#play-status")).toHaveText("再生中");
+  await expect(canvas).toHaveAttribute("data-presentation-state", "playing");
   expect((await observe(page)).errors).toEqual([]);
 });
 
@@ -726,8 +772,11 @@ test("音源の読み込みに失敗した後に停止すると、選択を残�
     "読み込みに失敗しました",
   );
   await expect(canvas).toHaveAttribute("data-presentation-state", "error");
+  await page.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+  });
   await page.locator("#stop").click();
-  await expect(page.locator("#play-status")).toHaveText("待機中");
+  await expect(page.locator("#play-status")).toHaveText("停止中");
   await expect(canvas).toHaveAttribute("data-presentation-state", "selected");
   await expect(
     page.getByRole("button", { name: "Reel study", exact: true }),
@@ -749,18 +798,17 @@ test("素早く続けて選び直しても、最後に選んだ作品だけを�
   await air.click();
   await reel.click();
   await air.click();
-  await expect(page.locator("#play-status")).toHaveText("再生できます");
+  await expect(page.locator("#play-status")).toHaveText("再生中");
   await expect(page.locator("#track-title")).toHaveText("Air study");
   await expect(air).toHaveAttribute("aria-pressed", "true");
   await expect(reel).toHaveAttribute("aria-pressed", "false");
-  await expect(canvas).toHaveAttribute("data-presentation-state", "selected");
-  /* Only the final selection retains a suspended, prepared graph. */
+  await expect(canvas).toHaveAttribute("data-presentation-state", "playing");
+  /* Only the final selection retains a running graph. */
   await expect
     .poll(async () =>
       (await observe(page)).contexts.filter((state) => state !== "closed"),
     )
-    .toEqual(["suspended"]);
-  await page.locator("#play").click();
+    .toEqual(["running"]);
   await expect(page.locator("#play-status")).toHaveText("再生中");
   await expect(canvas).toHaveAttribute("data-presentation-state", "playing");
   await expect
@@ -827,6 +875,9 @@ test("音源の読み込みに失敗しても、別の作品を選び直せば�
     await page.setViewportSize(size);
     await prepare(page);
     await selectAndPlay(page);
+    await page.locator("#exhibition-menu").evaluate((node) => {
+      node.setAttribute("open", "");
+    });
     await page.locator("#pause").click();
     await expect(page.locator("#play-status")).toHaveText("一時停止");
     await page.locator("#seek").fill("2");
@@ -854,6 +905,9 @@ test("音源の読み込みに失敗しても、別の作品を選び直せば�
     await page.screenshot({
       path: `test-results/listening-tablet-${orientation}.png`,
       fullPage: true,
+    });
+    await page.locator("#exhibition-menu").evaluate((node) => {
+      node.setAttribute("open", "");
     });
     await page.locator("#stop").click();
     await expect(page.locator("#visualizer")).toHaveAttribute(
@@ -939,6 +993,9 @@ test("一時停止・シーク・終了・選び直しの後に、前の区間�
   await expect.poll(() => epochOf(page)).toBeGreaterThan(beforeSeek);
   await neverDrawn(page, 2_000_000, -1);
   /* Pause: even a message of the current epoch is dropped, and does not come back on resume. */
+  await page.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+  });
   await page.locator("#pause").click();
   await expect(page.locator("#play-status")).toHaveText("一時停止");
   await neverDrawn(page, 3_000_000, 0);
@@ -949,6 +1006,14 @@ test("一時停止・シーク・終了・選び直しの後に、前の区間�
   await neverDrawn(page, 3_000_000, -1);
   expect(await drawnAt(page, 3_000_000)).toBe(false);
   /* End: after the last frame of the track, a late message is dropped and a replay starts clean. */
+  await page.evaluate(() => {
+    const media = (globalThis as Scope).listeningProbe.media.at(-1);
+    (media === undefined
+      ? () => undefined
+      : () => {
+          media.loop = false;
+        })();
+  });
   await page.locator("#seek").fill("7.8");
   await expect(page.locator("#play-status")).toHaveText("再生終了");
   await neverDrawn(page, 4_000_000, 0);
@@ -1022,6 +1087,9 @@ test("WebGPU未対応でも音響解析と再生操作を維持する", async ({
   await expect
     .poll(async () => (await observe(page)).features.length)
     .toBeGreaterThan(2);
+  await page.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+  });
   await page.locator("#pause").click();
   await expect(page.locator("#play-status")).toHaveText("一時停止");
   expect((await observe(page)).errors).toEqual([]);
@@ -1059,6 +1127,9 @@ test("Worklet初期化中の停止で遅い完了を捨て、次の再生は開�
     .poll(async () => (await observe(page)).contexts)
     .toEqual(["suspended"]);
   await expect(page.locator("#play")).toBeDisabled();
+  await page.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+  });
   await page.locator("#stop").click();
   await page.evaluate(() => {
     (

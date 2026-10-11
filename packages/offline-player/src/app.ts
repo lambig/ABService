@@ -15,6 +15,10 @@ import type {
 } from "abservice-player";
 import "player-study/style.css";
 import "./style.css";
+import { gallery } from "./gallery";
+import { waveform } from "./waveform";
+import { fullscreen } from "./fullscreen";
+import { when } from "./dom";
 import { preparation, storageMessage } from "./preparation";
 import { connectMediaAnalysis } from "abservice-audio-worklet/media";
 import { probeRequested } from "abservice-visualizer";
@@ -86,27 +90,38 @@ const render = (
     "YOUR SELECTION";
   /* A seek is shown as where it returns to; the presentation state follows the seek itself. */
   const phase = settledPhase(state);
-  status.textContent = phases[phase];
+  status.textContent =
+    phase === "idle" && state.playbackItemId !== null
+      ? "停止中"
+      : phases[phase];
   const benchmarking = audioProbe?.benchmarking() === true;
   play.disabled = [
     benchmarking,
-    ["idle", "loading", "error", "playing"].includes(phase),
+    ["loading", "error", "playing"].includes(phase),
+    state.playbackItemId === null,
   ].some(Boolean);
   element("#probe-benchmark", HTMLButtonElement).disabled = [
     benchmarking,
     benchmarkBlocked.includes(phase),
   ].some(Boolean);
+  play.hidden = ["playing", "loading"].includes(phase);
+  play.textContent = state.error === null ? "展示を開始" : "再生を再開";
   pause.disabled = phase !== "playing";
   stop.disabled = phase === "idle";
-  retry.hidden =
-    state.playbackItemId === null
-      ? true
-      : ["idle", "error"].includes(phase)
-        ? false
-        : true;
+  retry.hidden = [state.playbackItemId === null, phase !== "error"].some(
+    Boolean,
+  );
   seek.disabled = state.duration === 0;
   seek.max = String(state.duration);
   seek.value = String(state.position);
+  element("#waveform", HTMLElement).style.setProperty(
+    "--progress",
+    `${String(state.duration > 0 ? (state.position / state.duration) * 100 : 0)}%`,
+  );
+  seek.setAttribute(
+    "aria-valuetext",
+    `${time(state.position)} / ${time(state.duration)}`,
+  );
   element("#position", HTMLElement).textContent = time(state.position);
   element("#duration", HTMLElement).textContent = time(state.duration);
   element("#error", HTMLElement).textContent = state.error ?? "";
@@ -196,6 +211,19 @@ const showAlbum = (
 };
 const open = (contract: InstallationManifest, data: PresentationData): void => {
   const items = data.playbackItems;
+  const exhibition = { active: false };
+  const waves = waveform(resolverFor(contract));
+  const showWaveform = (id: string) => {
+    const item = items.find((item) => item.playbackItemId === id);
+    const asset = contract.assets.find(
+      (asset) => asset.assetId === item?.audioAssetId,
+    );
+    (item !== undefined && asset !== undefined
+      ? () => {
+          waves.select(item.audioAssetId, asset.checksum.value);
+        }
+      : () => undefined)();
+  };
   const controller = createPlayer(
     contract,
     resolverFor(contract),
@@ -287,41 +315,28 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
       void runBenchmark();
     },
   );
-  data.albums.forEach((album, index) => {
-    const section = document.createElement("section");
-    const heading = document.createElement("h2");
-    heading.textContent = album.title;
-    const subtitle = document.createElement("p");
-    subtitle.className = "album-meta";
-    subtitle.textContent = `ALBUM ${String(index + 1).padStart(2, "0")} · ${String(album.tracks.length)} TRACKS`;
-    const list = document.createElement("ol");
-    items
-      .filter((item) => item.albumId === album.albumId)
-      .forEach((item) => {
-        const row = document.createElement("li");
-        const button = document.createElement("button");
-        button.textContent = item.title;
-        button.dataset["playbackItemId"] = item.playbackItemId;
-        button.setAttribute("aria-pressed", "false");
-        button.addEventListener("click", () => {
-          void controller.select(item.playbackItemId);
-        });
-        row.append(button);
-        list.append(row);
-      });
-    section.append(subtitle, heading, list);
-    element("#library", HTMLElement).append(section);
+  controller.repeat(true);
+  gallery(data, (id) => {
+    showWaveform(id);
+    void controller.select(id, exhibition.active);
   });
   play.addEventListener("click", () => {
-    void (audioProbe?.benchmarking() === true ? undefined : controller.play());
+    when(audioProbe?.benchmarking() !== true, () => {
+      exhibition.active = true;
+      void controller.play();
+    });
   });
   pause.addEventListener("click", controller.pause);
-  stop.addEventListener("click", controller.stop);
+  stop.addEventListener("click", () => {
+    exhibition.active = false;
+    controller.stop();
+    element("#exhibition-menu", HTMLDetailsElement).open = false;
+  });
   retry.addEventListener("click", () => {
     const playbackItemId = controller.snapshot().playbackItemId;
     void (playbackItemId === null
       ? undefined
-      : controller.select(playbackItemId));
+      : controller.select(playbackItemId, exhibition.active));
   });
   seek.addEventListener("input", () => {
     controller.seek(Number(seek.value));
@@ -330,6 +345,13 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
   render(data, controller.snapshot());
 };
 const start = async (): Promise<void> => {
+  fullscreen();
+  element("#open-preparation", HTMLButtonElement).addEventListener(
+    "click",
+    () => {
+      element("#exhibition-menu", HTMLDetailsElement).open = false;
+    },
+  );
   window.addEventListener("pagehide", visual.dispose, { once: true });
   render(undefined, idle);
   const active = await preparation.mount();

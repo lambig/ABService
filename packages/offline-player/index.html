@@ -12,15 +12,24 @@
         href="/offline-player/"
         aria-label="Listening Room ホーム"
         >AB<span>LISTENING ROOM</span></a
-      ><span class="edition">OFFLINE LISTENING</span>
+      >
+      <div class="display-controls">
+        <button id="fullscreen" type="button">全画面</button>
+        <details id="exhibition-menu">
+          <summary>展示設定</summary>
+          <button id="stop" disabled>展示を終了</button
+          ><button id="pause" disabled>一時停止</button>
+          <button id="open-preparation" hidden>配布物を準備する</button>
+        </details>
+      </div>
     </header>
+    <p id="display-status" role="status"></p>
     <main>
       <section class="intro">
         <p class="eyebrow">作品を選んで、音を聴く</p>
         <h1>A moment to listen.</h1>
         <p>アルバムから曲を選び、再生してください。</p>
       </section>
-      <button id="open-preparation" hidden>配布物を準備する</button>
       <section
         id="preparation"
         class="preparation"
@@ -43,7 +52,19 @@
         <button id="inspect">保存状態を確認</button>
       </section>
       <div class="workspace">
-        <nav id="library" aria-label="アルバムと曲目"></nav>
+        <section id="album-browser" aria-label="作品を選ぶ">
+          <div class="gallery-heading">
+            <h2>作品を選ぶ</h2>
+            <div>
+              <button id="albums-previous" aria-label="前の作品を表示">‹</button
+              ><button id="albums-next" aria-label="次の作品を表示">›</button>
+            </div>
+          </div>
+          <p class="gallery-hint">
+            ジャケットを選択<span> · 左右にスワイプ</span>
+          </p>
+          <nav id="library" aria-label="アルバムと曲目"></nav>
+        </section>
         <section class="player" aria-label="プレイヤー">
           <canvas
             id="visualizer"
@@ -75,24 +96,39 @@
             </section>
           </div>
           <div class="transport">
-            <label for="seek">再生位置</label
-            ><input
-              id="seek"
-              type="range"
-              min="0"
-              max="0"
-              step="0.1"
-              value="0"
-              disabled
-            />
+            <label for="seek">聴きたい位置を選ぶ</label>
+            <div id="waveform">
+              <svg
+                viewBox="0 0 768 48"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                <path class="waveform-path" /></svg
+              ><svg
+                class="waveform-played"
+                viewBox="0 0 768 48"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                <path class="waveform-path" /></svg
+              ><span class="playhead" aria-hidden="true"></span
+              ><input
+                id="seek"
+                type="range"
+                min="0"
+                max="0"
+                step="0.1"
+                value="0"
+                disabled
+              />
+            </div>
+            <p id="waveform-status" role="status"></p>
             <div class="time">
               <output id="position">0:00</output
               ><output id="duration">0:00</output>
             </div>
             <div class="controls">
-              <button id="play" class="primary" disabled>再生</button
-              ><button id="pause" disabled>一時停止</button
-              ><button id="stop" disabled>停止</button>
+              <button id="play" disabled>展示を開始</button>
             </div>
             <p id="error" role="alert"></p>
             <button id="retry" hidden>音源を読み直す</button>
