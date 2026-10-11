@@ -109,7 +109,7 @@ html[data-composition="true"] main {
   margin: 0;
   gap: 12px;
   max-width: none;
-  padding: 8px 4vw;
+  padding: 8px 2vw;
 }
 html[data-composition="true"] .intro,
 html[data-composition="true"] footer {
@@ -118,9 +118,9 @@ html[data-composition="true"] footer {
 html[data-composition="true"] .workspace {
   flex: 1;
   min-height: 0;
-  grid-template-columns: minmax(240px, 28%) minmax(0, 1fr);
+  grid-template-columns: minmax(240px, 40%) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) auto;
-  gap: 12px clamp(16px, 3vw, 36px);
+  gap: 12px 16px;
 }
 html[data-composition="true"] #album-browser {
   grid-column: 1;
@@ -192,7 +192,7 @@ html[data-composition="true"] #library .album-card {
 }
 @media (min-width: 701px) and (orientation: landscape) {
   html[data-composition="true"] .transport {
-    margin-right: calc(-1 * clamp(16px, 3vw, 36px));
+    margin-right: -16px;
   }
   html[data-composition="true"] #library {
     display: grid;
@@ -613,6 +613,12 @@ html[data-composition="true"] main:has(#preparation:not([hidden])) .workspace {
   }
   html[data-composition="true"] .transport {
     padding: 12px;
+  }
+  .transport .time label {
+    column-gap: 0;
+  }
+  .transport .time label span:last-child {
+    margin-left: 0.75em;
   }
 }
 @media (max-height: 500px) and (orientation: landscape) {
