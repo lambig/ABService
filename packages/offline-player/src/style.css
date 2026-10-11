@@ -659,10 +659,13 @@ html[data-scene-load="true"] body {
   background: #07111b;
   isolation: isolate;
 }
-html[data-scene-load="true"] header,
 html[data-scene-load="true"] .intro,
 html[data-scene-load="true"] footer {
   display: none;
+}
+html[data-scene-load="true"] header {
+  position: relative;
+  z-index: 2;
 }
 html[data-scene-load="true"] main {
   margin: 0;

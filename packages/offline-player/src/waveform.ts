@@ -5,6 +5,39 @@ import { element, when } from "./dom";
 type Envelope = Readonly<{ duration: number; peaks: readonly number[] }>;
 const bins = 256;
 const sampleRate = 8000;
+const maxBytes = 64 * 1024 * 1024;
+const maxDuration = 600;
+const maxSourcePcmBytes = 256 * 1024 * 1024;
+/* RFC 9639 section 8.2: native FLAC starts with the 34-byte STREAMINFO.
+ * Read only 42 bytes before allocating the encoded buffer or invoking decode.
+ * Unknown lengths/formats degrade to the ordinary seek control. This is an
+ * overview budget for validated assets, not a hostile-file decoder sandbox. */
+const headerAllowed = (bytes: ArrayBuffer): boolean => {
+  const view = new DataView(bytes);
+  const info = view.getBigUint64(18);
+  const rate = Number(info >> 44n);
+  const channels = Number((info >> 41n) & 7n) + 1;
+  const samples = Number(info & 0xfffffffffn);
+  return (
+    view.getUint32(0) === 0x664c6143 &&
+    (view.getUint8(4) & 0x7f) === 0 &&
+    (view.getUint32(4) & 0xffffff) === 34 &&
+    rate > 0 &&
+    channels <= 2 &&
+    samples > 0 &&
+    samples / rate <= maxDuration &&
+    samples * channels * 4 <= maxSourcePcmBytes
+  );
+};
+export const waveformInputAllowed = async (blob: Blob): Promise<boolean> =>
+  blob.size >= 42 && blob.size <= maxBytes
+    ? blob
+        .slice(0, 42)
+        .arrayBuffer()
+        .then((bytes) =>
+          bytes.byteLength === 42 ? headerAllowed(bytes) : false,
+        )
+    : false;
 const valid = (value: unknown): value is Envelope => {
   const data = value as Partial<Envelope> | null;
   return (
@@ -20,11 +53,24 @@ const valid = (value: unknown): value is Envelope => {
     )
   );
 };
+const requireBudget = (allowed: boolean): void => {
+  (allowed
+    ? () => undefined
+    : () => {
+        throw new Error("Overview budget");
+      })();
+};
 /* One native decode at a time. The low-rate overview is for navigation, never fed into audio playback. */
-const envelope = async (blob: Blob): Promise<Envelope> => {
+const envelope = async (blob: Blob, signal: AbortSignal): Promise<Envelope> => {
+  requireBudget(await waveformInputAllowed(blob));
+  signal.throwIfAborted();
+  const encoded = await blob.arrayBuffer();
+  signal.throwIfAborted();
   const audio = await new OfflineAudioContext(1, 1, sampleRate).decodeAudioData(
-    await blob.arrayBuffer(),
+    encoded,
   );
+  signal.throwIfAborted();
+  requireBudget(audio.duration <= maxDuration && audio.numberOfChannels <= 2);
   const peaks = Array.from({ length: bins }, () => 0);
   Array.from({ length: audio.numberOfChannels }, (_, channel) =>
     audio.getChannelData(channel),
@@ -77,13 +123,16 @@ export const waveform = (resolve: LocalAssetResolver) => {
         const stored: unknown = await directory
           .getFileHandle(name)
           .then((file) => file.getFile())
-          .then((file) => file.text())
+          .then((file) => (file.size <= 16384 ? file.text() : "null"))
           .then((text) => JSON.parse(text) as unknown)
           .catch(() => undefined);
         request.signal.throwIfAborted();
         const data = valid(stored)
           ? stored
-          : await envelope(await resolve(assetId, request.signal));
+          : await envelope(
+              await resolve(assetId, request.signal),
+              request.signal,
+            );
         request.signal.throwIfAborted();
         cache.set(checksum, data);
         await (valid(stored)
@@ -101,8 +150,7 @@ export const waveform = (resolve: LocalAssetResolver) => {
         status.textContent = "";
       } catch {
         when(request.signal.aborted ? false : true, () => {
-          status.textContent =
-            "波形を表示できません。再生位置はこのまま選べます。";
+          status.textContent = "再生位置はこのまま選べます。";
         });
       }
     };
