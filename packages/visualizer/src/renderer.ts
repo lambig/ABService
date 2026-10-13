@@ -141,7 +141,7 @@ export const createRenderer = async (
     });
     signal.throwIfAborted();
     const buffer = device.createBuffer({
-      size: 48,
+      size: 64,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     const texture = device.createTexture({
@@ -221,6 +221,10 @@ export const createRenderer = async (
             frame.textOpacity,
             frame.effectIntensity * budget.effectDensity,
             frame.textureScale,
+            frame.music?.pitch ?? 0,
+            frame.music?.voiced ?? 0,
+            frame.music?.harmonyPhase ?? 0,
+            frame.music?.harmonyActive ?? 0,
           ]),
         );
         const encoder = device.createCommandEncoder();

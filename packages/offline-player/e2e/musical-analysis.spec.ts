@@ -26,13 +26,11 @@ const upload = async (page: Page, value: unknown): Promise<void> => {
   await page.locator("#exhibition-menu").evaluate((node) => {
     node.setAttribute("open", "");
   });
-  await page
-    .locator("#musical-analysis-file")
-    .setInputFiles({
-      name: "synthetic-analysis.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify(value)),
-    });
+  await page.locator("#musical-analysis-file").setInputFiles({
+    name: "synthetic-analysis.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(value)),
+  });
 };
 const seek = async (page: Page, seconds: number): Promise<void> => {
   await page.locator("#seek").evaluate((node: HTMLInputElement, value) => {
@@ -65,19 +63,38 @@ test("解析を音源照合して保存し、offline再起動・seek・pause・�
   const canvas = next.locator("#visualizer");
   await expect(canvas).toHaveAttribute("data-music-status", "ready");
   await expect(canvas).toHaveAttribute("data-melody-midi", "72");
+  const expression = () =>
+    next.locator("html").evaluate((node) => ({
+      melody: node.style.getPropertyValue("--melody-lift"),
+      harmony: node.style.getPropertyValue("--harmony-hue"),
+      active: node.style.getPropertyValue("--harmony-presence"),
+    }));
+  const first = await expression();
+  expect(first.melody).not.toBe("0px");
+  expect(first.active).toBe("1");
   await seek(next, 1.5);
   await expect(canvas).toHaveAttribute("data-melody-midi", "");
   await expect(canvas).toHaveAttribute("data-harmony-quality", "sus4");
+  expect(await expression()).toEqual({ ...first, melody: "0px" });
   await seek(next, 2.5);
   await expect(canvas).toHaveAttribute("data-melody-midi", "79");
+  const second = await expression();
+  expect(second.melody).not.toBe(first.melody);
+  expect(second.harmony).not.toBe(first.harmony);
   await next.locator("#play").click();
   await next.locator("#pause").click();
+  expect(await expression()).toEqual(second);
   const paused = await canvas.getAttribute("data-music-position");
   await expect
     .poll(() => canvas.getAttribute("data-music-position"))
     .toBe(paused);
   await next.getByRole("button", { name: "Air study", exact: true }).click();
   await expect(canvas).toHaveAttribute("data-music-status", "missing");
+  expect(await expression()).toEqual({
+    melody: "0px",
+    harmony: "0deg",
+    active: "0",
+  });
   await expect(canvas).toHaveAttribute("data-melody-midi", "");
   await next.getByRole("button", { name: "Reel study", exact: true }).click();
   await expect(canvas).toHaveAttribute("data-music-status", "ready");

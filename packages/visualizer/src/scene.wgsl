@@ -2,6 +2,7 @@ struct Frame {
   viewport: vec4f, // width, height, time, scene scale
   artwork: vec4f, // scale, offset, background intensity, impulse
   typography: vec4f, // offset, opacity, effect intensity, texture scale
+  music: vec4f, // melodic height, voiced, harmonic phase, harmony active
 }
 @group(0) @binding(0) var<uniform> frame: Frame;
 @group(0) @binding(1) var image: texture_2d<f32>;
@@ -46,6 +47,17 @@ struct Vertex { @builtin(position) position: vec4f, @location(0) uv: vec2f, }
     color += vec3f(0.08, 0.22, 0.27) * ribbon * (0.2 + contour * 0.5);
     color += vec3f(0.4, 0.67, 0.62) * impulseWave * 0.32;
     color += vec3f(0.2, 0.4, 0.5) * edges * contour * frame.typography.z * 0.18;
+    // The chord determines the field's center and pigment. Melody has its own
+    // vertical trace, independent of loudness, so held notes remain visible.
+    let angle = frame.music.z * 6.2831853;
+    let harmonicCenter = vec2f(cos(angle) * aspect * 0.38, sin(angle) * 0.32);
+    let harmonicField = exp(-length(q - harmonicCenter) * 1.8) * frame.music.w;
+    let chordPigment = 0.5 + 0.5 * cos(angle + vec3f(0.1, 2.2, 4.3));
+    color += mix(pigment, chordPigment, 0.32) * harmonicField * 0.24;
+    let melodicHeight = -frame.music.x * 0.55;
+    let melodicLine = exp(-abs(q.y - melodicHeight - sin(q.x * 1.6 + t * 0.18) * 0.035) * 40.0);
+    let melodicEnvelope = exp(-q.x * q.x / max(aspect * aspect, 0.1));
+    color += mix(vec3f(0.52, 0.84, 0.83), chordPigment, 0.2) * melodicLine * melodicEnvelope * frame.music.y * 0.38;
     return vec4f(color, 1);
   }
   // One background surface, with a second atlas sample distributed beyond the artwork rectangle.

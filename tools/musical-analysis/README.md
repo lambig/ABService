@@ -1,6 +1,6 @@
 # 主旋律・和音の製品接続
 
-`prepare.py` は固定した Deep Salience 主旋律モデルと Chordino 和音解析を一つのコマンドで実行し、PWAが読めるJSONを生成する。再生は既存のRust/WASM音声基盤を使い、モデル推論はPCの準備工程で行う。
+`prepare.py` は固定した Deep Salience 主旋律モデルと Chordino 和音解析を一つのコマンドで実行し、PWAが読めるJSONを生成する比較・接続用のツール。採用済み解析の端末移植を照合する基準にも使う。製品の目標は端末の取込み時に解析を完結することで、このPC実行経路はその完成を示すものではない。
 
 ```sh
 python prepare.py --audio input.flac --config engines.json --output analysis.json
@@ -24,7 +24,7 @@ python prepare.py --audio input.flac --config engines.json --output analysis.jso
 
 再生では`HTMLMediaElement.currentTime`を使い、左右の閉開区間`[start,end)`を二分探索する。シーク・ループ・作品切替はその時刻の結果を直接参照する。空白区間は未検出であり、前の音高や和音を延長しない。停止・エラー・アンロードでは入力を空にする。pauseでは停止時刻の値を保持する。
 
-演出との境界は`MusicalPlayback`と`musical-moment`イベント。主旋律の連続MIDI音高・salience、和音の根音・種別・ベース音、各区間の開始／終了を渡す。既存の周波数特徴量とは別の入力であり、完成演出の見た目は後続の制作工程で決める。リズム分類は含まない。
+演出との境界は`MusicalPlayback`と`musical-moment`イベント。主旋律の連続MIDI音高・salience、和音の根音・種別・ベース音、各区間の開始／終了を渡す。既存の周波数特徴量とは別の入力であり、旋律の高さを背景の軌跡・画像の移動・文字の光へ、和音の根音と種別を背景の色と位置・操作枠の色へ接続する。休符では旋律の寄与だけを消し、和音の空白では和音の寄与を消す。これは演出候補の接続であり、完成演出の実機確認・本人採用は残る。リズム分類は含まない。
 
 端末の読込上限は16 MiB、両系列の合計20万区間、音源長4時間。上限超過は明示的に拒否する。上限は精度や任意の長尺の動作を保証する値ではない。
 
