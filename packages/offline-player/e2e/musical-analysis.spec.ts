@@ -83,11 +83,16 @@ test("解析を音源照合して保存し、offline再起動・seek・pause・�
   expect(second.harmony).not.toBe(first.harmony);
   await next.locator("#play").click();
   await next.locator("#pause").click();
+  await expect(next.locator("#play-status")).toHaveText("一時停止");
+  /* Playback may cross the note's end before the pause click; compare at a fixed paused time. */
+  await seek(next, 2.5);
+  await expect(canvas).toHaveAttribute("data-melody-midi", "79");
   expect(await expression()).toEqual(second);
   const paused = await canvas.getAttribute("data-music-position");
-  await expect
-    .poll(() => canvas.getAttribute("data-music-position"))
-    .toBe(paused);
+  /* Observe an interval of inactivity instead of accepting an immediately equal poll. */
+  await next.waitForTimeout(300);
+  expect(await canvas.getAttribute("data-music-position")).toBe(paused);
+  expect(await expression()).toEqual(second);
   await next.getByRole("button", { name: "Air study", exact: true }).click();
   await expect(canvas).toHaveAttribute("data-music-status", "missing");
   expect(await expression()).toEqual({
