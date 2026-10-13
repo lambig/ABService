@@ -1,5 +1,11 @@
 # Musical analysis feasibility experiment
 
+Historical comparison only. The product direction now uses the accepted Deep
+Salience melody and Chordino harmony analysis, with device-side import-time
+execution being implemented. See `tools/musical-analysis` for the reference
+generation and saved-result connection. The findings and next-comparison notes
+below describe this earlier experiment, not an open product-quality decision.
+
 Isolated Rust + RustFFT SIMD experiment for chord root/quality and predominant
 melody notes. It is not imported by the player or shipped in its assets.
 JavaScript generates fixtures and measures results; both analysis stages run in
