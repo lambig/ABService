@@ -22,6 +22,7 @@ HOP = 256
 CORE_FRAMES = 1292  # ~15 s core; aligned to the analysis time grid.
 CONTEXT_FRAMES = 173  # ~2 s on each side of a core.
 LIMIT = 16 * 1024 * 1024
+DEPENDENCIES = ('weights', 'host', 'plugin', 'dictionary', 'transform')
 QUALITIES = {'': 'major', 'm': 'minor', '7': '7', 'maj7': 'maj7', 'm7': 'm7',
              'dim': 'dim', 'sus4': 'sus4', '5': '5', 'aug': 'aug', 'sus2': 'sus2',
              'm7b5': 'm7b5', '6': '6', 'm6': 'm6'}
@@ -145,7 +146,7 @@ def generate(source, config):
     duration = info.frames / info.samplerate
     if not 0 < duration <= 14400 or info.channels not in (1, 2):
         raise ValueError('Unsupported duration or channel count')
-    paths = {key: Path(config[key]).resolve(strict=True) for key in ['weights', 'host', 'plugin', 'dictionary', 'transform']}
+    paths = {key: Path(config[key]).resolve(strict=True) for key in DEPENDENCIES}
     fingerprints = {key: digest(path) for key, path in paths.items()}
     if fingerprints != config['sha256']:
         raise ValueError('Engine, model, dictionary or transform changed; verify configuration before generation')
@@ -186,16 +187,23 @@ def write_atomic(value, output):
             name.unlink(missing_ok=True)
 
 
-if __name__ == '__main__':
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--audio', required=True, type=Path)
     parser.add_argument('--config', required=True, type=Path)
     parser.add_argument('--output', required=True, type=Path)
-    args = parser.parse_args()
-    if args.output.resolve() in [args.audio.resolve(), args.config.resolve()]:
+    args = parser.parse_args(argv)
+    config = json.loads(args.config.read_text(encoding='utf-8'))
+    output = args.output.resolve()
+    inputs = [args.audio, args.config, *(Path(config[key]) for key in DEPENDENCIES)]
+    if any(output == path.resolve() or (output.exists() and output.samefile(path)) for path in inputs):
         parser.error('Output must not replace an input')
     os.environ.setdefault('TF_CPP_MIN_LOG_LEVEL', '2')
     os.environ.setdefault('TF_ENABLE_ONEDNN_OPTS', '0')
-    analysis = generate(args.audio.resolve(strict=True), json.loads(args.config.read_text(encoding='utf-8')))
-    write_atomic(analysis, args.output.resolve())
+    analysis = generate(args.audio.resolve(strict=True), config)
+    write_atomic(analysis, output)
     print('Analysis saved:', len(analysis['melody']), 'melody intervals,', len(analysis['harmony']), 'harmony intervals')
+
+
+if __name__ == '__main__':
+    main()
