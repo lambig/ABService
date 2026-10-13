@@ -6,6 +6,7 @@ type Probe = {
   time: number;
   energy: number;
   impulse: number;
+  music: number[];
   pixels: number[];
   draws: number;
   errors: string[];
@@ -21,6 +22,7 @@ test("無音の背景は時刻で動かず、持続音と短い波は別の応�
       time: 3,
       energy: 0,
       impulse: 0,
+      music: [0, 0, 0, 0],
       pixels: [],
       draws: 0,
       errors: [],
@@ -34,7 +36,7 @@ test("無音の背景は時刻で動かず、持続音と短い波は別の応�
     const write = GPUQueue.prototype.writeBuffer;
     GPUQueue.prototype.writeBuffer = function (buffer, offset, data, ...rest) {
       const values =
-        data instanceof Float32Array && data.length === 12
+        data instanceof Float32Array && data.length === 16
           ? new Float32Array([
               data[0] ?? 0,
               data[1] ?? 0,
@@ -48,6 +50,7 @@ test("無音の背景は時刻で動かず、持続音と短い波は別の応�
               0.65,
               0,
               1,
+              ...probe.music,
             ])
           : data;
       write.call(this, buffer, offset, values, ...rest);
@@ -88,6 +91,7 @@ test("無音の背景は時刻で動かず、持続音と短い波は別の応�
     time: number,
     energy: number,
     impulse: number,
+    music: number[] = [0, 0, 0, 0],
   ): Promise<number[]> => {
     const before = await page.evaluate(
       (values) => {
@@ -95,7 +99,7 @@ test("無音の背景は時刻で動かず、持続音と短い波は別の応�
         Object.assign(p, values);
         return p.draws;
       },
-      { time, energy, impulse },
+      { time, energy, impulse, music },
     );
     await expect
       .poll(() => page.evaluate(() => (globalThis as Scope).motionProbe.draws))
@@ -109,6 +113,13 @@ test("無音の背景は時刻で動かず、持続音と短い波は別の応�
   expect(sustained).not.toEqual(silent);
   expect(await frame(10, 0.7, 0)).not.toEqual(sustained);
   expect(await frame(3, 0.7, 1)).not.toEqual(sustained);
+  const melody = await frame(3, 0, 0, [-0.5, 1, 0, 0]);
+  expect(melody).not.toEqual(silent);
+  expect(await frame(3, 0, 0, [0.5, 1, 0, 0])).not.toEqual(melody);
+  const harmony = await frame(3, 0, 0, [0, 0, 0, 1]);
+  expect(harmony).not.toEqual(silent);
+  expect(await frame(3, 0, 0, [0, 0, 0.5, 1])).not.toEqual(harmony);
+  expect(await frame(3, 0, 0)).toEqual(silent);
   expect(
     await page.evaluate(() => (globalThis as Scope).motionProbe.errors),
   ).toEqual([]);

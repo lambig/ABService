@@ -25,6 +25,8 @@ import { connectMediaAnalysis } from "abservice-audio-worklet/media";
 import { probeRequested } from "abservice-visualizer";
 import { benchmarkAudio, createAudioProbe } from "./audio-probe";
 import { measured, presentation, probeReport } from "./presentation";
+import { musicalPlayback } from "./musical-playback";
+import { analysisImport } from "./analysis-import";
 
 /* Startup cost is measured from navigation start: script evaluated, library ready, first frame drawn. */
 performance.mark("listening:script");
@@ -217,6 +219,9 @@ const showAlbum = (
   (albumId === shown.albumId ? () => undefined : replace)();
 };
 const open = (contract: InstallationManifest, data: PresentationData): void => {
+  const music = musicalPlayback(contract, visual.music);
+  analysisImport(contract, music.refresh);
+  window.addEventListener("pagehide", music.dispose, { once: true });
   const items = data.playbackItems;
   const exhibition = { active: false };
   const waves = waveform(resolverFor(contract));
@@ -236,6 +241,7 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
     resolverFor(contract),
     /* The DOM updates for a player change count towards the next frame's cycle when probing. */
     measured((state: PlayerSnapshot) => {
+      music.sync(state);
       render(data, state);
       showAlbum(
         data,
@@ -254,6 +260,7 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
       (state.phase === "error" ? preparation.invalidate : () => undefined)();
     }),
     (media, signal) => {
+      music.attach(media, signal);
       analysisStatus.textContent = "";
       /* Watching starts before connecting so that the last playback stats are copied before the connection is dropped. */
       const attach = audioProbe?.watch(signal);

@@ -1,5 +1,6 @@
 /* eslint-disable functional/immutable-data -- This adapter owns the current GPU session, animation callback and DOM status. */
 import type { AudioFeatures } from "abservice-audio-dsp";
+import type { MusicalPlayback } from "./musical-playback";
 import type { PlayerSnapshot } from "abservice-player";
 import type { ListeningAlbum } from "abservice-listening-presentation";
 import {
@@ -7,9 +8,11 @@ import {
   due,
   followPlayback,
   mapFeatures,
+  mapMusicalExpression,
   parseBudget,
   probeRequested,
   restingFrame,
+  restingMusic,
   sceneLoadRequested,
 } from "abservice-visualizer";
 import type { FrameProbe, PresentationState } from "abservice-visualizer";
@@ -106,6 +109,7 @@ export const presentation = (
     presentation: PresentationState;
     observed: PlayerSnapshot | undefined;
     frame: typeof restingFrame;
+    music: typeof restingMusic;
     animation: number | null;
     degraded: boolean;
     drawnAt: number | undefined;
@@ -116,6 +120,7 @@ export const presentation = (
     presentation: "idle",
     observed: undefined,
     frame: restingFrame,
+    music: restingMusic,
     animation: null,
     degraded: false,
     drawnAt: undefined,
@@ -123,6 +128,10 @@ export const presentation = (
     content: undefined,
   };
   canvas.dataset["presentationState"] = state.presentation;
+  const displayFrame = (): typeof restingFrame => ({
+    ...state.frame,
+    music: state.music,
+  });
   const reflectFrame = (): void => {
     const style = document.documentElement.style;
     style.setProperty("--artwork-scale", String(state.frame.artworkScale));
@@ -135,6 +144,16 @@ export const presentation = (
       `${String(state.frame.textOffset * 100)}px`,
     );
     style.setProperty("--type-opacity", String(state.frame.textOpacity));
+    style.setProperty(
+      "--melody-lift",
+      `${String(-state.music.pitch * state.music.voiced * 6)}px`,
+    );
+    style.setProperty("--melody-presence", String(state.music.voiced));
+    style.setProperty(
+      "--harmony-hue",
+      `${String(state.music.harmonyPhase * 360)}deg`,
+    );
+    style.setProperty("--harmony-presence", String(state.music.harmonyActive));
   };
   const cancelFrame = (): void => {
     (state.animation === null
@@ -160,7 +179,7 @@ export const presentation = (
     thaw();
     const token = still.token;
     /* The canvas can be copied only within the task that rendered it, so the current frame is drawn once more here. */
-    supervisor.render(state.frame);
+    supervisor.render(displayFrame());
     const copy = document.createElement("canvas");
     copy.width = canvas.width;
     copy.height = canvas.height;
@@ -198,6 +217,7 @@ export const presentation = (
   };
   const dispose = (): void => {
     release(false);
+    state.music = restingMusic;
     reset();
   };
   /* A frame that comes sooner than the target fps is skipped, not drawn; the loop keeps running. */
@@ -209,7 +229,7 @@ export const presentation = (
       state.interval =
         state.drawnAt === undefined ? undefined : now - state.drawnAt;
       state.drawnAt = now;
-      running.render(state.frame);
+      running.render(displayFrame());
       (performance.getEntriesByName("listening:first-frame").length === 0
         ? () => {
             performance.mark("listening:first-frame");
@@ -326,5 +346,26 @@ export const presentation = (
     state.frame = mapFeatures(features, state.frame);
     reflectFrame();
   };
-  return Object.freeze({ sync, update: measured(update), reset, dispose });
+  /* The interpretation port is separate from spectral features. Effects consume these media-time values. */
+  const music = (value: MusicalPlayback): void => {
+    state.music = mapMusicalExpression(
+      value.status === "ready" ? value.moment : null,
+    );
+    reflectFrame();
+    canvas.dataset["musicStatus"] = value.status;
+    canvas.dataset["musicItem"] = value.playbackItemId ?? "";
+    canvas.dataset["musicVersion"] = value.analysisVersion ?? "";
+    canvas.dataset["musicPosition"] = String(value.moment?.position ?? 0);
+    canvas.dataset["melodyMidi"] = String(value.moment?.melody?.midi ?? "");
+    canvas.dataset["harmonyRoot"] = String(value.moment?.harmony?.root ?? "");
+    canvas.dataset["harmonyQuality"] = value.moment?.harmony?.quality ?? "";
+    canvas.dispatchEvent(new CustomEvent("musical-moment", { detail: value }));
+  };
+  return Object.freeze({
+    sync,
+    update: measured(update),
+    music,
+    reset,
+    dispose,
+  });
 };

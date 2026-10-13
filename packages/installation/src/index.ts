@@ -1,4 +1,6 @@
 import { z } from 'zod';
+export { analysisByteLimit, parseMusicalAnalysis, musicalMoment } from './musical-analysis';
+export type { MusicalAnalysis, MusicalMoment } from './musical-analysis';
 import {
   bytes,
   checksum,
