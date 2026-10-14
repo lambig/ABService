@@ -37,6 +37,7 @@ export default tseslint.config(
           "self",
           "AbortController",
           "TextDecoder",
+          "btoa",
         ].map((name) => [name, "readonly"]),
       ),
     },

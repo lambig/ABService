@@ -2,6 +2,7 @@
 import {blobSource, openFlac, harmonyInput, melodyInput} from './input.mjs';
 import {analyzeStream} from './stream-loader.mjs';
 import {createOpfsStore} from './path-store.mjs';
+import {compactTimeline} from './compact.mjs';
 
 const pause = () => new Promise(resolve => setTimeout(resolve, 0));
 const qualities = {'':'major',m:'minor','7':'7',maj7:'maj7',m7:'m7',dim:'dim',sus4:'sus4','5':'5',aug:'aug',sus2:'sus2',m7b5:'m7b5','6':'6',m6:'m6'};
@@ -34,7 +35,7 @@ export async function analyze(blob, modules, {signal, progress, engines, analysi
   const harmony = harmonyRows(result.events, duration);
   const hcqt = (await WebAssembly.instantiate(modules.hcqt)).instance.exports;
   const cnn = (await WebAssembly.instantiate(modules.melody)).instance.exports;
-  const melody = [];
+  const timeline = compactTimeline(duration);
   let active = -1;
   try {
     for await (const window of melodyInput(modules.flac, modules.soxr, source, {signal})) {
@@ -64,8 +65,7 @@ export async function analyze(blob, modules, {signal, progress, engines, analysi
           const midi = 69+12*Math.log2(32.7/440)+bin/5;
           const threshold = active >= 0 && Math.abs(midi-active) <= .5 ? .2 : .35;
           active = salience >= threshold ? midi : -1;
-          if (active >= 0) melody.push({start:frame*256/22050,end:Math.min(duration,(frame+1)*256/22050),midi,salience});
-          if (melody.length + harmony.length > 200000) throw Error('Analysis event limit');
+          timeline.push(frame,active >= 0 ? bin : -1,salience);
         }
         cnn.dispose();
         progress({phase:'melody',completed:end,total:Math.ceil(duration*22050/256)});
@@ -73,6 +73,6 @@ export async function analyze(blob, modules, {signal, progress, engines, analysi
       hcqt.dispose();
     }
     signal.throwIfAborted();
-    return {schemaVersion:1,durationSeconds:duration,engines,analysisVersion,melody,harmony};
+    return {schemaVersion:2,durationSeconds:duration,engines,analysisVersion,...timeline.finish(harmony)};
   } finally {hcqt.dispose();cnn.dispose();}
 }
