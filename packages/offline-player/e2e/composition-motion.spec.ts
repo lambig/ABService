@@ -63,6 +63,9 @@ test("旋律のドットは右端に留まり、過去の旋律とモチーフ�
   await page.getByRole("button", { name: "Reel study", exact: true }).click();
   await expect(page.locator("#play-status")).toHaveText("再生できます");
   const duration = Number(await page.locator("#seek").getAttribute("max"));
+  await page.locator("#management-panel").evaluate((node) => {
+    node.removeAttribute("hidden");
+  });
   await page.locator("#musical-analysis-file").setInputFiles({
     name: "synthetic-analysis.json",
     mimeType: "application/json",
@@ -114,7 +117,9 @@ test("旋律のドットは右端に留まり、過去の旋律とモチーフ�
   const next = await read();
   expect(next.dotX).toBeCloseTo(0.8, 5);
   expect(first.dotX).toBeCloseTo(next.dotX ?? 0, 5);
-  expect(next.dotY).toBeCloseTo(-0.04 + ((76 - 69) / 24) * 0.6, 4);
+  await expect
+    .poll(async () => (await read()).dotY)
+    .toBeCloseTo(-0.04 + ((76 - 69) / 24) * 0.6, 4);
   const colorCount = await page.evaluate(
     () => new Set((globalThis as Scope).motionProbe.pixels).size,
   );

@@ -372,7 +372,9 @@ export const presentation = (
             state.trail,
             JSON.stringify([value.playbackItemId, value.analysisVersion]),
             value.moment.position,
-            state.music.voiced > 0 ? state.music.pitch : null,
+            value.moment.melody === null
+              ? null
+              : (value.moment.melody.midi - 69) / 24,
           )
         : emptyTrail;
     reflectFrame();

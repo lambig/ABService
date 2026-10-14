@@ -3,6 +3,8 @@ import { inkChannels } from "./ink";
 import { emptyTrail, trailPosition, trailSegments } from "./trail";
 import type { TrailPosition } from "./trail";
 
+import { ornamentSegments } from "./ornaments";
+
 const tau = Math.PI * 2;
 const random = (seed: number): number => {
   const value = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
@@ -64,28 +66,26 @@ export const flowVertices = (
     y: p.y * height,
   });
   const line = trailSegments(trail).flatMap(([a, b]) =>
-    stroke(pixel(a), pixel(b), 0.8),
+    stroke(pixel(a), pixel(b), 0.95),
   );
   const head = trail.head;
   const center = head === null ? null : pixel(trailPosition(head, head.time));
   const dot =
     center === null
       ? []
-      : head?.pitch === null
-        ? []
-        : Array.from({ length: 16 }, (_, i) => [
-            ...vertex(center.x, center.y, 1),
-            ...vertex(
-              center.x + Math.cos((i / 16) * tau) * 3,
-              center.y + Math.sin((i / 16) * tau) * 3,
-              1,
-            ),
-            ...vertex(
-              center.x + Math.cos(((i + 1) / 16) * tau) * 3,
-              center.y + Math.sin(((i + 1) / 16) * tau) * 3,
-              1,
-            ),
-          ]).flat();
+      : Array.from({ length: 16 }, (_, i) => [
+          ...vertex(center.x, center.y, 1),
+          ...vertex(
+            center.x + Math.cos((i / 16) * tau) * 3,
+            center.y + Math.sin((i / 16) * tau) * 3,
+            1,
+          ),
+          ...vertex(
+            center.x + Math.cos(((i + 1) / 16) * tau) * 3,
+            center.y + Math.sin(((i + 1) / 16) * tau) * 3,
+            1,
+          ),
+        ]).flat();
   const ornaments =
     head === null
       ? []
@@ -100,30 +100,9 @@ export const flowVertices = (
               (x * Math.sin(ornament.angle) + y * Math.cos(ornament.angle)) *
                 ornament.radius,
           });
-          /* Three lobes of a trefoil knot, or three curled spiral arms of a triskele. */
-          const knot = (t: number): TrailPosition =>
-            transform(
-              ((2 + Math.cos(3 * t)) * Math.cos(2 * t)) / 3,
-              ((2 + Math.cos(3 * t)) * Math.sin(2 * t)) / 3,
-            );
-          const spiral = (arm: number, u: number): TrailPosition => {
-            const angle = (arm * tau) / 3;
-            const x = 0.42 + (1 - u) * 0.58 * Math.cos(u * tau * 1.3 + Math.PI);
-            const y = (1 - u) * 0.58 * Math.sin(u * tau * 1.3 + Math.PI);
-            return transform(
-              x * Math.cos(angle) - y * Math.sin(angle),
-              x * Math.sin(angle) + y * Math.cos(angle),
-            );
-          };
-          return ornament.kind === 0
-            ? Array.from({ length: 96 }, (_, i) =>
-                stroke(knot((i / 96) * tau), knot(((i + 1) / 96) * tau), 0.32),
-              ).flat()
-            : Array.from({ length: 3 }, (_, arm) =>
-                Array.from({ length: 40 }, (_, i) =>
-                  stroke(spiral(arm, i / 40), spiral(arm, (i + 1) / 40), 0.32),
-                ),
-              ).flat(2);
+          return ornamentSegments(ornament.kind).flatMap(([a, b]) =>
+            stroke(transform(a.x, a.y), transform(b.x, b.y), 0.6),
+          );
         });
   return new Float32Array([...line, ...dot, ...ornaments]);
 };

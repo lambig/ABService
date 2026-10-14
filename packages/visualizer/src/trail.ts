@@ -1,14 +1,28 @@
-/** Media-clock history: null pitch records a real unvoiced gap. */
-export type MelodyPoint = Readonly<{ time: number; pitch: number | null }>;
+/** Presentation height is retained through silence; raw analysis remains separate. */
+export type MelodyPoint = Readonly<{ time: number; pitch: number }>;
 export type MelodyTrail = Readonly<{
   source: string;
   head: MelodyPoint | null;
   samples: readonly MelodyPoint[];
+  rawPitch: number | null;
 }>;
 
 export const trailSeconds = 12;
 export const trailHeadX = 0.9;
-export const emptyTrail: MelodyTrail = { source: "", head: null, samples: [] };
+export const emptyTrail: MelodyTrail = {
+  source: "",
+  head: null,
+  samples: [],
+  rawPitch: null,
+};
+
+/** Fold only octave-like large jumps; ordinary intervals keep their direction and size. */
+export const melodicStep = (semitones: number): number => {
+  const nearby = ((((semitones + 6) % 12) + 12) % 12) - 6;
+  return Math.abs(semitones) >= 10 && Math.abs(nearby) <= 2
+    ? nearby
+    : semitones;
+};
 
 /** Bound storage independently of frame rate; duplicate paused observations do not grow it. */
 export const advanceTrail = (
@@ -17,30 +31,27 @@ export const advanceTrail = (
   time: number,
   pitch: number | null,
 ): MelodyTrail => {
-  const point = {
-    time,
-    pitch:
-      pitch !== null && Number.isFinite(pitch)
-        ? Math.max(-1, Math.min(1, pitch))
-        : null,
-  };
   const base = [
     previous.source !== source,
     time < (previous.head?.time ?? time),
   ].some(Boolean)
     ? emptyTrail
     : previous;
+  const raw = pitch !== null && Number.isFinite(pitch) ? pitch : null;
+  const height =
+    raw === null
+      ? (base.head?.pitch ?? 0)
+      : base.rawPitch === null
+        ? raw
+        : (base.head?.pitch ?? raw) +
+          melodicStep((raw - base.rawPitch) * 24) / 24;
+  const point = { time, pitch: Math.max(-1, Math.min(1, height)) };
   const last = base.samples.at(-1);
-  const append =
-    last === undefined
-      ? true
-      : [
-          time - last.time >= 1 / 30,
-          (last.pitch === null) !== (point.pitch === null),
-        ].some(Boolean);
+  const append = last === undefined ? true : time - last.time >= 1 / 30;
   return Number.isFinite(time) && time >= 0
     ? {
         source,
+        rawPitch: raw ?? base.rawPitch,
         head: point,
         samples: (append ? [...base.samples, point] : base.samples)
           .filter((sample) => time - sample.time <= trailSeconds)
@@ -56,10 +67,10 @@ export const trailPosition = (
   now: number,
 ): TrailPosition => ({
   x: trailHeadX - (now - point.time) / trailSeconds,
-  y: 0.52 - (point.pitch ?? 0) * 0.3,
+  y: 0.52 - point.pitch * 0.3,
 });
 
-/** Missing observations break the stroke rather than inventing a glide through silence. */
+/** Silence carries the last height; seeks clear the history at the playback boundary. */
 export const trailSegments = (
   trail: MelodyTrail,
 ): readonly (readonly [TrailPosition, TrailPosition])[] => {
@@ -68,8 +79,6 @@ export const trailSegments = (
   return points.flatMap((point, index) => {
     const before = points[index - 1];
     return before !== undefined &&
-      before.pitch !== null &&
-      point.pitch !== null &&
       point.time > before.time &&
       point.time - before.time <= 0.25
       ? [

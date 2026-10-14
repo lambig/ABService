@@ -182,12 +182,12 @@ export const createRenderer = async (
             primitive: { topology: "triangle-list" },
           })
         : null;
-    /* 400 history segments + five 120-segment ornaments + a 16-triangle dot. */
+    /* 400 history segments + five 168-segment ornaments + a 16-triangle dot. */
     const flowBuffer =
       flowPipeline === null
         ? null
         : device.createBuffer({
-            size: 160000,
+            size: 200000,
             usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
           });
     signal.throwIfAborted();

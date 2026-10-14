@@ -112,7 +112,8 @@ test.beforeEach(async ({ context }) => {
     const write = GPUQueue.prototype.writeBuffer;
     GPUQueue.prototype.writeBuffer = function (...args) {
       const data = args[2];
-      (data instanceof Float32Array
+      (data instanceof Float32Array &&
+        (args[0].usage & GPUBufferUsage.UNIFORM) !== 0
         ? () => {
             probe.uniforms.push(Array.from(data));
           }
@@ -341,7 +342,7 @@ test("オフライン新ページで実FLACの特徴量がWebGPU描画を駆動�
   await expect
     .poll(async () =>
       (await observe(next)).uniforms.some(
-        (uniform) => (uniform[3] ?? 0) > 1 && (uniform[9] ?? 0) > 0.65,
+        (uniform) => (uniform[6] ?? 0) > 0.15 && (uniform[9] ?? 0) > 0.65,
       ),
     )
     .toBe(true);
