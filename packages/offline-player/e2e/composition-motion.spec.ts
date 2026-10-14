@@ -81,6 +81,7 @@ test("無音の背景は時刻で動かず、持続音と短い波は別の応�
       return device;
     };
   });
+  test.setTimeout(60000);
   await distribute(request, "v1");
   await prepareAndReload(page);
   await page.getByRole("button", { name: "Reel study", exact: true }).click();

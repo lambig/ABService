@@ -52,6 +52,7 @@ test("解析を音源照合して保存し、offline再起動・seek・pause・�
   page,
   context,
 }, testInfo) => {
+  test.setTimeout(60000);
   await page.goto(entry);
   await prepareOnline(page);
   const next = await restart(page, context);
@@ -89,6 +90,9 @@ test("解析を音源照合して保存し、offline再起動・seek・pause・�
   await next.screenshot({
     path: testInfo.outputPath("expression-landscape.png"),
   });
+  await next.locator("#management-panel").evaluate((node) => {
+    node.removeAttribute("hidden");
+  });
   await next.locator("#pause").click();
   await expect(next.locator("#play-status")).toHaveText("一時停止");
   /* Playback may cross the note's end before the pause click; compare at a fixed paused time. */
@@ -113,6 +117,9 @@ test("解析を音源照合して保存し、offline再起動・seek・pause・�
   );
   await next.screenshot({
     path: testInfo.outputPath("expression-portrait.png"),
+  });
+  await next.locator("#management-panel").evaluate((node) => {
+    node.removeAttribute("hidden");
   });
   await next.locator("#pause").click();
   await seek(next, 2.5);

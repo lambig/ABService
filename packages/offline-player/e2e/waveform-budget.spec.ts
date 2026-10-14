@@ -151,12 +151,12 @@ for (const viewport of [
     await expect(page.locator("#management-unlock")).toBeInViewport();
     await expect(page.locator("#pause")).toBeHidden();
     await openManagement(page);
-    await page.locator("#exhibition-menu summary").click();
+    await page.locator("#exhibition-menu > summary").click();
     await page.locator("#pause").click();
     await expect(page.locator("#play-status")).toHaveText("一時停止");
     await expect(page.locator("#management-panel")).toBeHidden();
     await openManagement(page);
-    await page.locator("#exhibition-menu summary").click();
+    await page.locator("#exhibition-menu > summary").click();
     await page.locator("#stop").click();
     await expect(page.locator("#play-status")).toHaveText("停止中");
   });
