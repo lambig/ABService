@@ -84,6 +84,7 @@ const time = (seconds: number): string =>
 const render = (
   data: PresentationData | undefined,
   state: PlayerSnapshot,
+  analyzing = false,
 ): void => {
   const selection = data?.playbackItems.find(
     (entry) => entry.playbackItemId === state.playbackItemId,
@@ -106,13 +107,21 @@ const render = (
       : phases[phase];
   const benchmarking = audioProbe?.benchmarking() === true;
   play.disabled = [
+    analyzing,
     benchmarking,
     ["loading", "error", "playing"].includes(phase),
     state.playbackItemId === null,
   ].some(Boolean);
   element("#probe-benchmark", HTMLButtonElement).disabled = [
+    analyzing,
     benchmarking,
     benchmarkBlocked.includes(phase),
+  ].some(Boolean);
+  element("#device-analysis-start", HTMLButtonElement).disabled = [
+    analyzing,
+    benchmarking,
+    benchmarkBlocked.includes(phase),
+    (data?.playbackItems.length ?? 0) === 0,
   ].some(Boolean);
   play.hidden = ["playing", "loading"].includes(phase);
   play.textContent = state.error === null ? "展示を開始" : "再生を再開";
@@ -121,7 +130,8 @@ const render = (
   retry.hidden = [state.playbackItemId === null, phase !== "error"].some(
     Boolean,
   );
-  seek.disabled = state.duration === 0;
+  retry.disabled = [analyzing, benchmarking].some(Boolean);
+  seek.disabled = [analyzing, state.duration === 0].some(Boolean);
   seek.max = String(state.duration);
   seek.value = String(state.position);
   element("#waveform", HTMLElement).style.setProperty(
@@ -138,6 +148,7 @@ const render = (
   document
     .querySelectorAll<HTMLButtonElement>("[data-playback-item-id]")
     .forEach((button) => {
+      button.disabled = [analyzing, benchmarking].some(Boolean);
       button.setAttribute(
         "aria-pressed",
         String(button.dataset["playbackItemId"] === state.playbackItemId),
@@ -222,10 +233,12 @@ const showAlbum = (
 const open = (contract: InstallationManifest, data: PresentationData): void => {
   const music = musicalPlayback(contract, visual.music);
   analysisImport(contract, music.refresh);
-  deviceAnalysis(contract, music.refresh);
   window.addEventListener("pagehide", music.dispose, { once: true });
   const items = data.playbackItems;
   const exhibition = { active: false };
+  const activity = { analyzing: false };
+  const playbackAllowed = (): boolean =>
+    (activity.analyzing ? false : true) && audioProbe?.benchmarking() !== true;
   const waves = waveform(resolverFor(contract));
   const showWaveform = (id: string) => {
     const item = items.find((item) => item.playbackItemId === id);
@@ -244,7 +257,7 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
     /* The DOM updates for a player change count towards the next frame's cycle when probing. */
     measured((state: PlayerSnapshot) => {
       music.sync(state);
-      render(data, state);
+      render(data, state, activity.analyzing);
       showAlbum(
         data,
         items.find((item) => item.playbackItemId === state.playbackItemId)
@@ -291,6 +304,15 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
       return connection;
     },
   );
+  deviceAnalysis(contract, music.refresh, {
+    canStart: () =>
+      playbackAllowed() &&
+      benchmarkAllowed(settledPhase(controller.snapshot())),
+    busy: (value) => {
+      activity.analyzing = value;
+      render(data, controller.snapshot(), activity.analyzing);
+    },
+  });
   /* The benchmark decodes on the main thread, so it runs only when asked and never by itself. */
   const runBenchmark = async (): Promise<void> => {
     const probe = audioProbe;
@@ -318,6 +340,7 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
       report();
     };
     const ready = [
+      activity.analyzing ? false : true,
       probe !== undefined,
       probe?.benchmarking() === false,
       item !== undefined,
@@ -333,14 +356,18 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
   );
   controller.repeat(true);
   gallery(data, (id) => {
-    showWaveform(id);
-    void controller.select(id, exhibition.active);
+    when(playbackAllowed(), () => {
+      showWaveform(id);
+      void controller.select(id, exhibition.active);
+    });
   });
   play.addEventListener("click", () => {
-    when(audioProbe?.benchmarking() !== true, () => {
+    when(playbackAllowed(), () => {
       admin.start(() => {
-        exhibition.active = true;
-        void controller.play();
+        when(playbackAllowed(), () => {
+          exhibition.active = true;
+          void controller.play();
+        });
       });
     });
   });
@@ -351,13 +378,17 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
     element("#exhibition-menu", HTMLDetailsElement).open = false;
   });
   retry.addEventListener("click", () => {
-    const playbackItemId = controller.snapshot().playbackItemId;
-    void (playbackItemId === null
-      ? undefined
-      : controller.select(playbackItemId, exhibition.active));
+    when(playbackAllowed(), () => {
+      const playbackItemId = controller.snapshot().playbackItemId;
+      void (playbackItemId === null
+        ? undefined
+        : controller.select(playbackItemId, exhibition.active));
+    });
   });
   seek.addEventListener("input", () => {
-    controller.seek(Number(seek.value));
+    when(activity.analyzing ? false : true, () => {
+      controller.seek(Number(seek.value));
+    });
   });
   window.addEventListener("pagehide", controller.dispose, { once: true });
   render(data, controller.snapshot());

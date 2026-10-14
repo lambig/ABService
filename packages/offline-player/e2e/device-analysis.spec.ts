@@ -71,11 +71,25 @@ test("解析途中の取消は保存せず、一時ファイルを清掃して�
   await prepareOnline(page);
   await page.reload();
   await expect(page.locator("#device-analysis-start")).toBeEnabled();
+  await page.getByRole("button", { name: "Reel study", exact: true }).click();
+  await expect(page.locator("#play-status")).toHaveText("再生できます");
   await manage(page);
   await page.locator("#device-analysis-start").click();
   await expect(page.locator("#device-analysis-status")).toContainText(
     /和音|主旋律/,
   );
+  await expect(page.locator("#play")).toBeDisabled();
+  await expect(page.locator("#retry")).toBeDisabled();
+  await expect(page.locator("#seek")).toBeDisabled();
+  const other = page.getByRole("button", { name: "Air study", exact: true });
+  await expect(other).toBeDisabled();
+  /* Exercise event guards as well as disabled UI while the real Worker runs. */
+  await page.locator("#play").dispatchEvent("click");
+  await page.locator("#retry").dispatchEvent("click");
+  await other.dispatchEvent("click");
+  await expect(page.locator("#play-status")).toHaveText("再生できます");
+  await expect(page.locator("#track-title")).toHaveText("Reel study");
+  await expect(page.locator("#device-analysis-cancel")).toBeVisible();
   await page.locator("#device-analysis-cancel").click();
   await expect(page.locator("#device-analysis-status")).toHaveText(
     "解析を取り消しました。",
@@ -97,4 +111,65 @@ test("解析途中の取消は保存せず、一時ファイルを清掃して�
     "解析を取り消しました。",
   );
   expect(await scratchFiles(page)).toEqual([]);
+  await expect(page.locator("#play")).toBeEnabled();
+  await page.locator("#play").click();
+  await expect(page.locator("#play-status")).toHaveText("再生中");
+});
+
+test("読み込み中・再生中は端末解析を始めず、一時停止後に開始できる", async ({
+  page,
+  request,
+}) => {
+  await distribute(request, "v1");
+  await page.goto(entry);
+  await prepareOnline(page);
+  await page.reload();
+  await expect(page.locator("#device-analysis-start")).toBeEnabled();
+  /* Hold local asset reads to observe loading without a timing-dependent race. */
+  await page.evaluate(() => {
+    /* eslint-disable-next-line @typescript-eslint/unbound-method -- Restore the exact prototype method; calls below explicitly supply its receiver. */
+    const original = FileSystemFileHandle.prototype.getFile;
+    const gate = new Promise<void>((resolve) => {
+      window.addEventListener(
+        "release-asset-read",
+        () => {
+          FileSystemFileHandle.prototype.getFile = original;
+          resolve();
+        },
+        { once: true },
+      );
+    });
+    FileSystemFileHandle.prototype.getFile = async function () {
+      await gate;
+      return original.call(this);
+    };
+  });
+  await page.getByRole("button", { name: "Reel study", exact: true }).click();
+  await expect(page.locator("#play-status")).toHaveText("読み込み中");
+  await manage(page);
+  const rejected = async (): Promise<void> => {
+    await expect(page.locator("#device-analysis-start")).toBeDisabled();
+    await page.locator("#device-analysis-start").dispatchEvent("click");
+    await expect(page.locator("#device-analysis-status")).toHaveText(
+      "再生・読み込み・計測を終えてから解析してください。",
+    );
+    await expect(page.locator("#device-analysis-cancel")).toBeHidden();
+    expect(await scratchFiles(page)).toEqual([]);
+  };
+  await rejected();
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("release-asset-read")),
+  );
+  await expect(page.locator("#play-status")).toHaveText("再生できます");
+  await page.locator("#play").click();
+  await expect(page.locator("#play-status")).toHaveText("再生中");
+  await rejected();
+  await page.locator("#pause").click();
+  await expect(page.locator("#play-status")).toHaveText("一時停止");
+  await manage(page);
+  await page.locator("#device-analysis-start").click();
+  await expect(page.locator("#device-analysis-cancel")).toBeVisible();
+  await page.locator("#device-analysis-cancel").click();
+  await expect(page.locator("#device-analysis-start")).toBeEnabled();
+  await expect(page.locator("#play")).toBeEnabled();
 });

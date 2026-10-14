@@ -13,6 +13,30 @@ event count to 200,000 and encoded JSON to 16 MiB; an input within the duration
 limit can still exceed these result limits. Processing time depends on the
 device and input. The management screen displays each phase and supports cancel.
 
+Playback/loading and device analysis are mutually exclusive within the player.
+Pause or stop playback before starting analysis. While analysis is queued,
+running, saving or cleaning up, play, selection, retry and seeking are blocked.
+DSP benchmarks use the same exclusion. Cancellation releases the controls only
+after cleanup has completed.
+
+### Long-input acceptance still required (#290)
+
+The current per-voiced-frame melody representation reaches 200,000 events after
+about 38 minutes 42 seconds of voiced audio (less when harmony events are added).
+Thus the four-hour input limit is not yet a demonstrated four-hour music
+analysis/save capability. Silence-only coverage does not close this condition.
+
+The existing long-input acceptance work owns this defect and its release
+decision. Its implementation owner must choose a bounded result representation
+(for example, merging compatible contiguous pitch/voicing intervals), preserving
+pitch, voicing gaps, salience semantics and media-time alignment. It must check
+four-hour voiced fixtures with sustained notes, rapid note changes, silence and
+window boundaries, plus representative music, against the accepted frame output.
+Record combined event count, encoded bytes, alignment and successful save/reload
+under the existing 200,000-event and 16 MiB limits. Do not drop late events or
+treat exceeding the limit as successful acceptance. If a representation/contract
+change is required, assess that change before declaring long-input support.
+
 ## Distribution
 
 The combined PWA containing Chordino is distributed under GPL-3.0-or-later.

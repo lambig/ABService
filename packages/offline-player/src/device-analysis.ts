@@ -90,6 +90,10 @@ const fail = (message: string): never => {
 export const deviceAnalysis = (
   manifest: InstallationManifest,
   refresh: () => Promise<void>,
+  activity: Readonly<{
+    canStart: () => boolean;
+    busy: (value: boolean) => void;
+  }>,
 ): void => {
   const select = element("#device-analysis-track", HTMLSelectElement);
   const start = element("#device-analysis-start", HTMLButtonElement);
@@ -132,8 +136,12 @@ export const deviceAnalysis = (
     { once: true },
   );
   start.addEventListener("click", () => {
+    when(activity.canStart() ? false : true, () => {
+      status.textContent = "再生・読み込み・計測を終えてから解析してください。";
+    });
     when(
       [
+        activity.canStart(),
         panel.hidden ? false : true,
         state.job === null,
         state.disposed ? false : true,
@@ -149,6 +157,7 @@ export const deviceAnalysis = (
           : () => {
               const job = new AbortController();
               state.job = job;
+              activity.busy(true);
               panel.dataset["analysisBusy"] = "true";
               start.disabled = true;
               select.disabled = true;
@@ -226,6 +235,7 @@ export const deviceAnalysis = (
                   select.disabled = false;
                   json.disabled = false;
                   cancel.hidden = true;
+                  activity.busy(false);
                 }
               };
               void run();
