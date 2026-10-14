@@ -121,6 +121,7 @@ test("解析を音源照合して保存し、offline再起動・seek・pause・�
   await next.locator("#management-panel").evaluate((node) => {
     node.removeAttribute("hidden");
   });
+  await next.locator("#exhibition-menu > summary").click();
   await next.locator("#pause").click();
   await seek(next, 2.5);
   const paused = await canvas.getAttribute("data-music-position");
