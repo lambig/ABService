@@ -14,9 +14,17 @@ export const emptyTrail: MelodyTrail = {
   samples: [],
 };
 
-/** C through B occupy twelve fixed heights, regardless of octave or prior notes. */
-export const noteHeight = (midi: number): number =>
-  ((((Math.round(midi) % 12) + 12) % 12) / 11) * 2 - 1;
+/** Fixed C4–B5 range. Only out-of-range notes move by octaves into the nearest band. */
+export const noteHeight = (midi: number): number => {
+  const note = Math.round(midi);
+  const folded =
+    note < 60
+      ? note + Math.ceil((60 - note) / 12) * 12
+      : note > 83
+        ? note - Math.ceil((note - 83) / 12) * 12
+        : note;
+  return ((folded - 60) / 23) * 2 - 1;
+};
 
 /** Bound storage independently of frame rate; duplicate paused observations do not grow it. */
 export const advanceTrail = (

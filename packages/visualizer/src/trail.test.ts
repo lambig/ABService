@@ -70,31 +70,27 @@ it("moves ornaments left while rotating at stable random heights, including a bi
   expect(flowOrnaments(7.1)).toEqual(before);
 });
 
-it("uses twelve absolute note-name heights independently of octave and history", () => {
+it("uses a fixed C4–B5 range with equal semitone spacing independent of history", () => {
   expect(noteHeight(60)).toBe(-1);
-  expect(noteHeight(71)).toBe(1);
-  for (const midi of Array.from({ length: 12 }, (_, i) => 60 + i)) {
-    expect(noteHeight(midi + 12)).toBe(noteHeight(midi));
-    expect(noteHeight(midi - 24)).toBe(noteHeight(midi));
-  }
-  for (const midi of Array.from({ length: 11 }, (_, i) => 60 + i))
-    expect(noteHeight(midi + 1) - noteHeight(midi)).toBeCloseTo(2 / 11);
+  expect(noteHeight(83)).toBe(1);
+  for (const midi of Array.from({ length: 23 }, (_, i) => 60 + i))
+    expect(noteHeight(midi + 1) - noteHeight(midi)).toBeCloseTo(2 / 23);
   const first = advanceTrail(emptyTrail, "a", 0, 60);
   const octave = advanceTrail(first, "a", 0.1, 72);
-  expect(octave.head?.pitch).toBe(first.head?.pitch);
+  expect((octave.head?.pitch ?? 0) - (first.head?.pitch ?? 0)).toBeCloseTo(24 / 23);
   const silent = advanceTrail(octave, "a", 0.2, null);
   expect(silent.head?.pitch).toBe(octave.head?.pitch);
   const next = advanceTrail(silent, "a", 0.3, 74);
-  expect(next.head?.pitch).toBe(noteHeight(62));
+  expect(next.head?.pitch).toBe(noteHeight(74));
   expect(
     advanceTrail(advanceTrail(next, "a", 0.4, 59), "a", 0.5, 74).head?.pitch,
   ).toBe(next.head?.pitch);
   expect(advanceTrail(emptyTrail, "a", 0, null).head?.pitch).toBe(0);
 });
 
-it("keeps octave-unison rolls level and continues from that height when the melody moves", () => {
-  const notes = [60, 72, 60, 72, 60, 72, 74, 62, 74, 64];
-  const expected = [60, 60, 60, 60, 60, 60, 62, 62, 62, 64];
+it("folds only notes outside the shared range into its nearest octave", () => {
+  const notes = [0, 48, 59, 60, 71, 72, 83, 84, 96, 127];
+  const expected = [60, 60, 71, 60, 71, 72, 83, 72, 72, 79];
   notes.reduce((state, midi, i) => {
     const next = advanceTrail(state, "roll", i / 10, midi);
     expect(next.head?.pitch).toBe(noteHeight(expected[i] ?? 0));
