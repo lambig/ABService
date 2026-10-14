@@ -44,13 +44,10 @@
 
 /* Full viewport composition. Only the background is rasterised by WebGPU. */
 html[data-composition="true"] {
-  color-scheme: dark;
-  color: #e8eee9;
-  background: #09141e;
-  --artwork-scale: 1;
-  --artwork-offset: 0px;
-  --type-offset: 0px;
-  --type-opacity: 1;
+  color-scheme: light;
+  color: #302b26;
+  background: #f9f5eb;
+  --scene-ink: #51352b;
 }
 html[data-composition="true"] body {
   display: flex;
@@ -58,7 +55,7 @@ html[data-composition="true"] body {
   height: 100dvh;
   min-height: 100dvh;
   isolation: isolate;
-  background: radial-gradient(ellipse at 70% 40%, #173637, #09141e 75%);
+  background: #f9f5eb;
 }
 html[data-composition="true"] #visualizer {
   position: fixed;
@@ -73,7 +70,7 @@ html[data-composition="true"] header {
   flex: none;
   gap: 12px;
   padding: 4px 4vw;
-  border-color: #d2e4df26;
+  border-color: #b7a893;
 }
 html[data-composition="true"] .brand {
   min-width: 0;
@@ -98,7 +95,7 @@ html[data-composition="true"] .album-meta,
 html[data-composition="true"] label,
 html[data-composition="true"] .time,
 html[data-composition="true"] .now p:last-child {
-  color: #b8cdc9;
+  color: #61574c;
 }
 html[data-composition="true"] main {
   display: flex;
@@ -141,11 +138,11 @@ html[data-composition="true"] #library {
   max-height: calc(100dvh - 160px);
   overflow: auto;
   padding-right: 12px;
-  border-right: 1px solid #d2e4df26;
+  border-right: 1px solid #b7a893;
   scrollbar-width: thin;
 }
 html[data-composition="true"] #library section {
-  border-color: #d2e4df26;
+  border-color: #b7a893;
 }
 /* Selection has its own visible navigation; the moving scene keeps the remaining space. */
 #album-browser {
@@ -172,7 +169,7 @@ html[data-composition="true"] #library section {
 .gallery-hint {
   margin: 2px 0 10px;
   font-size: 11px;
-  color: #b8cdc9;
+  color: #61574c;
 }
 .gallery-hint span {
   display: none;
@@ -224,7 +221,7 @@ html[data-composition="true"] #library .album-card {
   width: 100%;
   overflow: hidden;
   border-radius: 3px;
-  background: #23413e;
+  background: #eee5d6;
 }
 .album-cover img {
   width: 100%;
@@ -232,9 +229,9 @@ html[data-composition="true"] #library .album-card {
   object-fit: contain;
 }
 .cover-placeholder {
-  color: #9abaae;
+  color: #776752;
   font-size: 48px;
-  background: linear-gradient(135deg, #19373d, #315449);
+  background: #eee5d6;
 }
 .album-name {
   display: block;
@@ -285,8 +282,8 @@ html[data-composition="true"] #library .album-card {
 }
 html[data-composition="true"] .album-choice[aria-pressed="true"],
 html[data-composition="true"] .track-choice[aria-pressed="true"] {
-  border-color: #e9d49e;
-  background: #274d48;
+  border-color: var(--scene-ink, #51352b);
+  background: #e9dfce;
 }
 .display-controls {
   display: flex;
@@ -313,7 +310,7 @@ html[data-composition="true"] .track-choice[aria-pressed="true"] {
   right: 0;
   top: 100%;
   white-space: nowrap;
-  background: #172d32;
+  background: #fffaf0;
 }
 #exhibition-menu[open] #pause {
   position: absolute;
@@ -321,7 +318,7 @@ html[data-composition="true"] .track-choice[aria-pressed="true"] {
   right: 0;
   top: calc(100% + 44px);
   white-space: nowrap;
-  background: #172d32;
+  background: #fffaf0;
 }
 #exhibition-menu[open] #open-preparation {
   position: absolute;
@@ -329,7 +326,7 @@ html[data-composition="true"] .track-choice[aria-pressed="true"] {
   right: 0;
   top: calc(100% + 88px);
   white-space: nowrap;
-  background: #172d32;
+  background: #fffaf0;
 }
 #display-status {
   margin: 0;
@@ -342,7 +339,7 @@ html[data-composition="true"] .track-choice[aria-pressed="true"] {
   position: relative;
   height: 52px;
   margin-top: 0;
-  background: #bbcbbb12;
+  background: #e4d9c866;
   border-radius: 4px;
   --progress: 0%;
 }
@@ -352,11 +349,11 @@ html[data-composition="true"] .track-choice[aria-pressed="true"] {
   height: 100%;
   inset: 0;
   fill: none;
-  stroke: #648680;
+  stroke: #958575;
   stroke-width: 2;
 }
 #waveform .waveform-played {
-  stroke: #ebd8a4;
+  stroke: var(--scene-ink, #51352b);
   clip-path: inset(0 calc(100% - var(--progress)) 0 0);
 }
 #waveform .playhead {
@@ -365,7 +362,7 @@ html[data-composition="true"] .track-choice[aria-pressed="true"] {
   bottom: 0;
   left: clamp(0px, var(--progress), calc(100% - 2px));
   width: 2px;
-  background: #fff2ca;
+  background: var(--scene-ink, #51352b);
 }
 #waveform #seek {
   position: absolute;
@@ -377,7 +374,7 @@ html[data-composition="true"] .track-choice[aria-pressed="true"] {
   cursor: pointer;
 }
 #waveform:focus-within {
-  outline: 2px solid #ead4a4;
+  outline: 2px solid #713d29;
   outline-offset: 3px;
 }
 #waveform-status {
@@ -436,7 +433,7 @@ html[data-composition="true"] .scene-content {
   flex: 1;
   min-height: 0;
   min-width: 0;
-  /* Audio-driven artwork transforms must not flash a horizontal scrollbar. */
+  /* Long metadata stays inside the fixed presentation region. */
   overflow-x: hidden;
   overflow-y: auto;
   display: grid;
@@ -470,7 +467,7 @@ html[data-composition="true"] #track-title {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: #b9cbc8;
+  color: #61574c;
 }
 html[data-composition="true"] #play-status {
   margin: 0;
@@ -487,9 +484,7 @@ html[data-composition="true"] #artwork {
   max-height: none;
   object-fit: contain;
   align-self: center;
-  transform: translate(var(--artwork-offset), var(--melody-lift, 0px))
-    scale(var(--artwork-scale));
-  filter: drop-shadow(0 18px 32px #0006);
+  transform: none;
 }
 html[data-composition="true"] #artist,
 html[data-composition="true"] #description {
@@ -499,13 +494,13 @@ html[data-composition="true"] #description {
 }
 html[data-composition="true"] #artist {
   grid-row: 3;
-  color: #c4dad1;
+  color: #61574c;
   font-size: 12px;
 }
 html[data-composition="true"] #description {
   grid-row: 4;
   font-size: 12px;
-  color: #b9cbc8;
+  color: #61574c;
 }
 html[data-composition="true"] .scene-content:has(#artwork[hidden]) {
   grid-template-rows: auto auto 1fr;
@@ -513,40 +508,33 @@ html[data-composition="true"] .scene-content:has(#artwork[hidden]) {
 html[data-composition="true"] .transport {
   flex: none;
   padding: 8px 12px;
-  background: #09141ee8;
-  border: 1px solid #bddbd233;
-  border-top-color: hsl(
-    var(--harmony-hue, 170deg) 48% 66% /
-      calc(0.15 + var(--harmony-presence, 0) * 0.35)
-  );
+  background: #f9f5ebe8;
+  border: 1px solid #b7a893;
+  border-color: var(--scene-ink, #51352b);
   border-radius: 8px;
 }
 html[data-composition="true"] #album-title {
-  text-shadow: 0 var(--melody-lift, 0px) 18px
-    hsl(
-      var(--harmony-hue, 170deg) 48% 75% /
-        calc(var(--melody-presence, 0) * 0.35)
-    );
+  color: var(--scene-ink, #51352b);
 }
 html[data-composition="true"] button {
-  color: #e8eee9;
-  border-color: #c1d7cd66;
+  color: #302b26;
+  border-color: #a69785;
 }
 html[data-composition="true"] button:hover:enabled,
 html[data-composition="true"] li button[aria-pressed="true"] {
-  color: #f3faf6;
-  background: #274d48;
-  border-color: #8db7a8;
+  color: #302b26;
+  background: #e9dfce;
+  border-color: var(--scene-ink, #51352b);
 }
 html[data-composition="true"] .primary {
-  background: #315b4d;
+  background: #e1cfb6;
 }
 html[data-composition="true"] .preparation {
-  background: #142832;
-  border-color: #bddbd255;
+  background: #fffaf0;
+  border-color: #b7a893;
 }
 html[data-composition="true"] #error {
-  color: #ffc6b8;
+  color: #9a281b;
 }
 html[data-composition="true"] #probe {
   max-height: 20dvh;
@@ -554,7 +542,7 @@ html[data-composition="true"] #probe {
   font-size: 10px;
 }
 html[data-composition="true"] :is(button, input, a):focus-visible {
-  outline-color: #ead4a4;
+  outline-color: #713d29;
 }
 /* Long metadata scrolls as one region; playback controls keep their own space. */
 html[data-composition="true"] #open-preparation {
@@ -605,7 +593,7 @@ html[data-composition="true"] main:has(#preparation:not([hidden])) .workspace {
     padding: 0 0 8px;
     gap: 12px;
     border-right: 0;
-    border-bottom: 1px solid #d2e4df26;
+    border-bottom: 1px solid #b7a893;
     overflow-x: auto;
     scroll-snap-type: x proximity;
   }
@@ -730,7 +718,7 @@ html[data-scene-load="true"] #probe {
   user-select: none;
 }
 #management-unlock[data-holding="true"] {
-  background: #315b4d;
+  background: #e1cfb6;
 }
 #management-panel {
   position: absolute;
@@ -741,8 +729,8 @@ html[data-scene-load="true"] #probe {
   max-height: calc(100dvh - 64px);
   overflow-y: auto;
   padding: 12px;
-  background: #142832;
-  border: 1px solid #bddbd255;
+  background: #fffaf0;
+  border: 1px solid #b7a893;
   border-radius: 8px;
   flex-direction: column;
   align-items: stretch;
@@ -771,9 +759,9 @@ html[data-scene-load="true"] #probe {
   display: none;
 }
 #management-auth {
-  color: #e8eee9;
-  background: #142832;
-  border: 1px solid #bddbd255;
+  color: #302b26;
+  background: #fffaf0;
+  border: 1px solid #b7a893;
   border-radius: 8px;
   max-width: min(420px, 90vw);
 }
@@ -791,5 +779,24 @@ html[data-scene-load="true"] #probe {
   margin: 4px 0 12px;
 }
 #management-auth-error {
-  color: #ffc6b8;
+  color: #9a281b;
+}
+
+/* Native UI shares the scene ink; all boxes and artwork keep their geometry. */
+html[data-composition="true"] header,
+html[data-composition="true"] .gallery-heading,
+html[data-composition="true"] .gallery-hint,
+html[data-composition="true"] .album-name,
+html[data-composition="true"] #artist,
+html[data-composition="true"] #description {
+  background: #f9f5eb;
+}
+html[data-composition="true"] .gallery-heading h2,
+html[data-composition="true"] .album-choice[aria-pressed="true"] .album-name,
+html[data-composition="true"] #track-title {
+  color: var(--scene-ink, #51352b);
+}
+html[data-composition="true"] header,
+html[data-composition="true"] #library {
+  border-color: var(--scene-ink, #51352b);
 }

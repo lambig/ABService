@@ -13,7 +13,7 @@ type Probe = {
 };
 type Scope = typeof globalThis & { motionProbe: Probe };
 
-test("無音の背景は時刻で動かず、持続音と短い波は別の応答を持つ", async ({
+test("無音では静止し、細線の流れと立上がりの濃淡・両解析は独立して応答する", async ({
   page,
   request,
 }) => {

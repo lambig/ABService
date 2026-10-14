@@ -15,7 +15,7 @@ describe("feature mapping", () => {
   it("keeps silence at the resting presentation", () => {
     expect(mapFeatures(silence)).toEqual({ ...restingFrame, timeSeconds: 1 });
   });
-  it("maps each band only to its intended visual controls", () => {
+  it("keeps artwork and text positions fixed while mapping the background", () => {
     const normal = mapFeatures(silence);
     const low = mapFeatures({ ...silence, lowEnergy: 1 });
     expect({
@@ -23,19 +23,26 @@ describe("feature mapping", () => {
       artworkScale: normal.artworkScale,
       artworkOffset: normal.artworkOffset,
     }).toEqual(normal);
-    expect(
-      mapFeatures({ ...silence, lowEnergy: 1 }).artworkScale,
-    ).toBeGreaterThan(1);
+    expect(low.artworkScale).toBe(1);
+    expect(low.artworkOffset).toBe(0);
+    expect(mapFeatures({ ...silence, midEnergy: 1 }).textOffset).toBe(0);
     expect(
       mapFeatures({ ...silence, midEnergy: 1 }).textOpacity,
     ).toBeGreaterThan(normal.textOpacity);
     expect(
       mapFeatures({ ...silence, highEnergy: 1 }).effectIntensity,
     ).toBeGreaterThan(0);
-    expect(mapFeatures({ ...silence, rms: 1 }).sceneScale).toBeGreaterThan(1);
+    expect(mapFeatures({ ...silence, rms: 1 }).sceneScale).toBe(1);
     expect(
       mapFeatures({ ...silence, spectralCentroidHz: 12000 }).textureScale,
     ).toBeGreaterThan(1);
+  });
+  it("reflects attacks in the first new frame and smooths only the release", () => {
+    const attack = mapFeatures({ ...silence, timeSeconds: 1 / 30, rms: 1 });
+    expect(attack.backgroundIntensity).toBeCloseTo(0.55);
+    const release = mapFeatures({ ...silence, timeSeconds: 2 / 30 }, attack);
+    expect(release.backgroundIntensity).toBeGreaterThan(0.15);
+    expect(release.backgroundIntensity).toBeLessThan(attack.backgroundIntensity);
   });
   it.each([Number.NaN, Infinity, -Infinity])(
     "keeps invalid numeric input finite (%s)",

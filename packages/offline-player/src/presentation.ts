@@ -14,6 +14,7 @@ import {
   restingFrame,
   restingMusic,
   sceneLoadRequested,
+  sceneInk,
 } from "abservice-visualizer";
 import type { FrameProbe, PresentationState } from "abservice-visualizer";
 import { createRenderer } from "abservice-visualizer/renderer";
@@ -90,7 +91,7 @@ export const probeReport = (): string | undefined => {
     ? undefined
     : [
         ...marks,
-        `scene ${representative ? "representative-v1" : "composition-v1"}`,
+        `scene ${representative ? "representative-v1" : "flowing-knot-v1"}`,
         `budget dpr ${String(budget.maxDevicePixelRatio)} scale ${String(budget.renderScale)} effects ${String(budget.effectDensity)} fps ${String(budget.targetFps)}`,
         `frames ${String(summary.frames)} skipped ${String(summary.skipped)} pixels ${String(summary.pixels ?? 0)}`,
         format("cycle cpu", summary.cycleCpu),
@@ -134,20 +135,8 @@ export const presentation = (
   });
   const reflectFrame = (): void => {
     const style = document.documentElement.style;
-    style.setProperty("--artwork-scale", String(state.frame.artworkScale));
-    style.setProperty(
-      "--artwork-offset",
-      `${String(state.frame.artworkOffset * 100)}px`,
-    );
-    style.setProperty(
-      "--type-offset",
-      `${String(state.frame.textOffset * 100)}px`,
-    );
-    style.setProperty("--type-opacity", String(state.frame.textOpacity));
-    style.setProperty(
-      "--melody-lift",
-      `${String(-state.music.pitch * state.music.voiced * 6)}px`,
-    );
+    style.setProperty("--scene-ink", sceneInk(displayFrame()));
+    style.setProperty("--melody-pitch", String(state.music.pitch));
     style.setProperty("--melody-presence", String(state.music.voiced));
     style.setProperty(
       "--harmony-hue",
