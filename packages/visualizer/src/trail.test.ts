@@ -10,6 +10,23 @@ import {
 import { flowOrnaments, flowVertices } from "./flow-geometry";
 import { restingFrame } from "./index";
 
+it("anchors the quill nib at the current note and keeps its feather above the trail", () => {
+  const trail = advanceTrail(emptyTrail, "a", 2, 72);
+  const vertices = flowVertices({ ...restingFrame, trail }, 390, 844);
+  const opaque = Array.from({ length: vertices.length / 6 }, (_, i) =>
+    Array.from(vertices.slice(i * 6, i * 6 + 6)),
+  ).filter((v) => v[5] === 1);
+  const tip = trailPosition({ time: 2, pitch: noteHeight(72) }, 2);
+  expect(opaque[0]?.[0]).toBeCloseTo(tip.x * 2 - 1);
+  expect(opaque[0]?.[1]).toBeCloseTo(1 - tip.y * 2);
+  expect(opaque.every((v) => (v[0] ?? 0) >= tip.x * 2 - 1 - 0.00001)).toBe(
+    true,
+  );
+  expect(
+    Math.max(...opaque.map((v) => v[1] ?? 0)) - (opaque[0]?.[1] ?? 0),
+  ).toBeGreaterThan(60 / 844);
+});
+
 it("keeps the melody dot at the right and sends the previous pitches left", () => {
   const first = advanceTrail(emptyTrail, "a", 0, 60);
   const second = advanceTrail(first, "a", 0.1, 64);
@@ -77,7 +94,9 @@ it("uses a fixed C4–B5 range with equal semitone spacing independent of histor
     expect(noteHeight(midi + 1) - noteHeight(midi)).toBeCloseTo(2 / 23);
   const first = advanceTrail(emptyTrail, "a", 0, 60);
   const octave = advanceTrail(first, "a", 0.1, 72);
-  expect((octave.head?.pitch ?? 0) - (first.head?.pitch ?? 0)).toBeCloseTo(24 / 23);
+  expect((octave.head?.pitch ?? 0) - (first.head?.pitch ?? 0)).toBeCloseTo(
+    24 / 23,
+  );
   const silent = advanceTrail(octave, "a", 0.2, null);
   expect(silent.head?.pitch).toBe(octave.head?.pitch);
   const next = advanceTrail(silent, "a", 0.3, 74);

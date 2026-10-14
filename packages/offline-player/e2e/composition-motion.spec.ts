@@ -8,16 +8,25 @@ type Probe = {
   errors: string[];
   draws: number;
   pixels: number[];
+  multisamples: number;
+  retiredAttachments: number;
 };
 type Scope = typeof globalThis & { motionProbe: Probe };
 
-test("旋律のドットは右端に留まり、過去の旋律とモチーフが左へ流れる", async ({
+test("羽ペンの筆先は右端に留まり、軌跡をアンチエイリアス付きで描く", async ({
   page,
   request,
 }) => {
   test.setTimeout(60000);
   await page.addInitScript(() => {
-    const probe: Probe = { vertices: [], errors: [], draws: 0, pixels: [] };
+    const probe: Probe = {
+      vertices: [],
+      errors: [],
+      draws: 0,
+      pixels: [],
+      multisamples: 0,
+      retiredAttachments: 0,
+    };
     (globalThis as Scope).motionProbe = probe;
     const copy = document.createElement("canvas");
     copy.width = 390;
@@ -52,6 +61,21 @@ test("旋律のドットは右端に留まり、過去の旋律とモチーフ�
     const create = GPUAdapter.prototype.requestDevice;
     GPUAdapter.prototype.requestDevice = async function (...args) {
       const device = await create.apply(this, args);
+      const makeTexture = device.createTexture.bind(device);
+      device.createTexture = (descriptor) => {
+        const texture = makeTexture(descriptor);
+        (descriptor.sampleCount === 4
+          ? () => {
+              probe.multisamples += 1;
+              const destroy = texture.destroy.bind(texture);
+              texture.destroy = () => {
+                probe.retiredAttachments += 1;
+                destroy();
+              };
+            }
+          : () => undefined)();
+        return texture;
+      };
       device.addEventListener("uncapturederror", (event) =>
         probe.errors.push(event.error.message),
       );
@@ -124,6 +148,21 @@ test("旋律のドットは右端に留まり、過去の旋律とモチーフ�
     () => new Set((globalThis as Scope).motionProbe.pixels).size,
   );
   expect(colorCount).toBeGreaterThan(8);
+  const attachments = await page.evaluate(
+    () => (globalThis as Scope).motionProbe.multisamples,
+  );
+  expect(attachments).toBeGreaterThan(0);
+  await page.setViewportSize({ width: 1000, height: 800 });
+  await expect
+    .poll(() =>
+      page.evaluate(() => (globalThis as Scope).motionProbe.multisamples),
+    )
+    .toBeGreaterThan(attachments);
+  expect(
+    await page.evaluate(
+      () => (globalThis as Scope).motionProbe.retiredAttachments,
+    ),
+  ).toBeGreaterThan(0);
   await page.locator("#management-panel").evaluate((node) => {
     node.removeAttribute("hidden");
   });

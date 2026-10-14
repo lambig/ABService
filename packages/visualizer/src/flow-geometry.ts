@@ -72,22 +72,44 @@ export const flowVertices = (
   );
   const head = trail.head;
   const center = head === null ? null : pixel(trailPosition(head, head.time));
-  const dot =
+  /* The nib touches the current melody position. The feather sits above/right,
+   * leaving the existing trail visible; dimensions stay fixed in CSS pixels. */
+  const quill =
     center === null
       ? []
-      : Array.from({ length: 16 }, (_, i) => [
-          ...vertex(center.x, center.y, 1),
-          ...vertex(
-            center.x + Math.cos((i / 16) * tau) * 3,
-            center.y + Math.sin((i / 16) * tau) * 3,
-            1,
-          ),
-          ...vertex(
-            center.x + Math.cos(((i + 1) / 16) * tau) * 3,
-            center.y + Math.sin(((i + 1) / 16) * tau) * 3,
-            1,
-          ),
-        ]).flat();
+      : (() => {
+          const at = (x: number, y: number): TrailPosition => ({
+            x: center.x + x,
+            y: center.y + y,
+          });
+          const outline = [
+            at(4, -8),
+            at(3, -15),
+            at(6, -23),
+            at(13, -29),
+            at(23, -34),
+            at(22, -24),
+            at(18, -16),
+            at(12, -11),
+            at(4, -8),
+          ];
+          const ribs = [
+            [at(5, -16), at(9, -15), at(16, -15)],
+            [at(8, -23), at(13, -21), at(20, -22)],
+            [at(14, -28), at(17, -27), at(22, -28)],
+          ];
+          return [
+            ...vertex(center.x, center.y, 1),
+            ...vertex(center.x + 1, center.y - 6, 1),
+            ...vertex(center.x + 5, center.y - 4, 1),
+            ...stroke(at(2, -4), at(23, -34), 1),
+            ...[outline, ...ribs].flatMap((points) =>
+              points
+                .slice(1)
+                .flatMap((point, i) => stroke(points[i] ?? point, point, 1)),
+            ),
+          ];
+        })();
   const ornaments =
     head === null
       ? []
@@ -106,5 +128,5 @@ export const flowVertices = (
             stroke(transform(a.x, a.y), transform(b.x, b.y), 0.6),
           );
         });
-  return new Float32Array([...line, ...dot, ...ornaments]);
+  return new Float32Array([...line, ...quill, ...ornaments]);
 };
