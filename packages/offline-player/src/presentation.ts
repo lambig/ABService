@@ -47,11 +47,11 @@ const settled: ReadonlySet<RendererStatus> = new Set<RendererStatus>([
 /* Budget and probe are read once from the hash: a query would keep the Service Worker from serving the page offline. */
 const representative = sceneLoadRequested(location.hash);
 const composition = representative ? false : true;
-/* Background pixels may be reduced; the DOM artwork, type and controls stay at native resolution. */
+/* Hairline geometry needs native pixels (bounded at DPR 2); DOM content stays at native resolution. */
 const budget = parseBudget(
   representative
     ? location.hash
-    : `#dpr=1&scale=0.75&fps=30&${location.hash.replace(/^#/, "")}`,
+    : `#dpr=2&scale=1&fps=30&${location.hash.replace(/^#/, "")}`,
 );
 document.documentElement.dataset["sceneLoad"] = String(representative);
 document.documentElement.dataset["composition"] = String(composition);
