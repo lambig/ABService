@@ -2,6 +2,7 @@
 // Kernels are generated from the pinned PC reference; PCM processing runs here.
 use rustfft::{num_complex::Complex32,FftPlanner};
 use std::collections::HashMap;
+use std::cell::RefCell;
 struct Reader { bytes: &'static [u8], pos:usize }
 impl Reader {
  fn u(&mut self)->usize {let x=u32::from_le_bytes(self.bytes[self.pos..self.pos+4].try_into().unwrap()) as usize; self.pos+=4;x}
@@ -56,13 +57,20 @@ fn hcqt(pcm:&[f32])->Vec<f32>{
  out
 }
 struct State { input:Vec<f32>,output:Vec<f32> }
-static mut STATE:*mut State=std::ptr::null_mut();
+thread_local! { static STATE: RefCell<Option<State>> = const { RefCell::new(None) }; }
 #[no_mangle]
-pub unsafe extern "C" fn initialize(samples:usize)->usize{
+pub extern "C" fn initialize(samples:usize)->usize{
  if samples==0||samples>22050*60{return 0;}
- dispose();STATE=Box::into_raw(Box::new(State{input:vec![0.;samples],output:vec![]}));(*STATE).input.as_mut_ptr() as usize
+ let mut state=State{input:vec![0.;samples],output:vec![]};
+ let pointer=state.input.as_mut_ptr() as usize;
+ STATE.with(|slot| *slot.borrow_mut()=Some(state));
+ pointer
 }
 #[no_mangle]
-pub unsafe extern "C" fn infer()->usize{if STATE.is_null(){return 0;}let s=&mut *STATE;s.output=hcqt(&s.input);s.output.as_ptr() as usize}
+pub extern "C" fn infer()->usize{STATE.with(|slot| {
+ let mut value=slot.borrow_mut();
+ let Some(state)=value.as_mut() else {return 0;};
+ state.output=hcqt(&state.input);state.output.as_ptr() as usize
+})}
 #[no_mangle]
-pub unsafe extern "C" fn dispose(){if !STATE.is_null(){drop(Box::from_raw(STATE));STATE=std::ptr::null_mut();}}
+pub extern "C" fn dispose(){STATE.with(|slot| *slot.borrow_mut()=None);}

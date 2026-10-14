@@ -1,23 +1,23 @@
-// Limited fixed-model feasibility adapter, not the product inference API.
+// Fixed-model CNN tile adapter used by the product analysis Worker.
 // Architecture/weights: Deep Salience, Copyright 2017 Rachel Bittner (MIT).
 use std::arch::wasm32::*;
+use std::cell::RefCell;
 const HEIGHT: usize = 360;
 struct State { frames: usize, input: Vec<f32>, output: Vec<f32>, weights: Vec<f32> }
-static mut STATE: *mut State = std::ptr::null_mut();
+thread_local! { static STATE: RefCell<Option<State>> = const { RefCell::new(None) }; }
 
 #[no_mangle]
-pub unsafe extern "C" fn initialize(frames: usize) -> usize {
+pub extern "C" fn initialize(frames: usize) -> usize {
     if frames == 0 || frames > 128 { return 0; }
-    dispose();
     let weights = include_bytes!("../weights.f32").chunks_exact(4)
         .map(|b| f32::from_le_bytes(b.try_into().unwrap())).collect();
-    STATE = Box::into_raw(Box::new(State {frames,input:vec![0.;HEIGHT*frames*6],output:vec![],weights}));
-    (*STATE).input.as_mut_ptr() as usize
+    let mut state=State {frames,input:vec![0.;HEIGHT*frames*6],output:vec![],weights};
+    let pointer=state.input.as_mut_ptr() as usize;
+    STATE.with(|slot| *slot.borrow_mut()=Some(state));
+    pointer
 }
 #[no_mangle]
-pub unsafe extern "C" fn dispose() {
-    if !STATE.is_null() { drop(Box::from_raw(STATE)); STATE=std::ptr::null_mut(); }
-}
+pub extern "C" fn dispose() { STATE.with(|slot| *slot.borrow_mut()=None); }
 fn normalize(x: &mut [f32], channels: usize, w: &[f32], pos: &mut usize) {
     let p=*pos; *pos+=channels*4;
     for pixel in x.chunks_exact_mut(channels) {
@@ -60,9 +60,10 @@ fn conv(input: &[f32], frames: usize, ic: usize, oc: usize, kh: usize, kw: usize
     out
 }
 #[no_mangle]
-pub unsafe extern "C" fn infer() -> usize {
-    if STATE.is_null() {return 0;}
-    let s=&mut *STATE; let mut p=0; let mut x=s.input.clone();
+pub extern "C" fn infer() -> usize { STATE.with(|slot| {
+    let mut value=slot.borrow_mut();
+    let Some(s)=value.as_mut() else {return 0;};
+    let mut p=0; let mut x=s.input.clone();
     normalize(&mut x,6,&s.weights,&mut p);
     let mut ic=6;
     for (oc,kh,kw) in [(128,5,5),(64,5,5),(64,3,3),(64,3,3),(8,70,3)] {
@@ -72,4 +73,4 @@ pub unsafe extern "C" fn infer() -> usize {
     s.output=conv(&x,s.frames,8,1,1,1,&s.weights,&mut p,true);
     assert_eq!(p,s.weights.len());
     s.output.as_ptr() as usize
-}
+})}

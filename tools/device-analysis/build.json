@@ -19,7 +19,7 @@
     "hcqt/generate-kernels.py": "437540f1bc1c20406024a388ab38668246d36a8f42b0a97551cc1fc9ca0132b6",
     "hcqt/kernels.bin": "3e9231f52f47b592839b490f7c169fa67d51ebf725b258143abcf661c81a12d5",
     "hcqt/librosa-LICENSE.md": "1746ca32b53fa31941c38b63a986e4126ab998e81a2f73a566000847a588e2a3",
-    "hcqt/src/lib.rs": "084c1cf3ec457949319ae92af246a26a5a62426d4f14e4c913d83ff967aa696b",
+    "hcqt/src/lib.rs": "eb98455ba2c5fe89436b62de2fd55be6bc088912ea959c9dc2f9a010e092221f",
     "input/LICENSE": "5dbec6e6cc02bcbdad2b556e8286d9891a900fdce7cd1ad155e1910a4f1bc063",
     "input/SOURCE.md": "169e2a36c5a533b8f6731716dc26d337b5651697332ae962324546b4a3766600",
     "input/build.mjs": "b3522c26fc5ea7c08adbb2b3e88963999b4e9e8dd3ccca747d509e151e6059b1",
@@ -29,7 +29,7 @@
     "melody/Cargo.lock": "14325762218f63fda4936caf66be021f90c0990e0680740dc822dbd43333c413",
     "melody/Cargo.toml": "b6197c42207e7c8c9d0af475a8ef9fabd6b0a6b7b1f63e3892c4a6cef04828a5",
     "melody/DeepSalience-LICENSE.txt": "59983805feba1e8a2f4a58253021a6b66bd156ad36f44fc5efcb8f669744b359",
-    "melody/src/lib.rs": "381f3c1bfa563e2f8d5129d5ed5b4b00ade641f07e66521dc27b8ae283d55b9e",
+    "melody/src/lib.rs": "beede06ff5b974b36b74feec66e97feb1740df063642a3c3b821280b93d3395c",
     "melody/weights.f32": "11356330d842916938e233ead5e7cf6a101d90dbd7a884cfb5f60321377b5b27",
     "rust-notices/LICENSE-APACHE": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
     "rust-notices/LICENSE-MIT": "b71bd43a069ca0641a9ecfe585ca7b3c53b5cc1608f8b68321168698e28b5ea1",
@@ -41,7 +41,7 @@
     "flac.wasm": "82ffda7086cb136b2ee3da90511f515d14950dd7e53bbff2daa514689a318bb4",
     "soxr.wasm": "8f6d2b20bbe5e30a033eff5cd2723ebbd97d81f611d538d5cf4e0dee292f67d7",
     "stream-harmony.wasm": "e898594bdb8693fb575074eb912b49cdd2ab9362ff622b82ab4d837d1b01abce",
-    "hcqt.wasm": "c63c746f6ba254553f088145ab1a7a4928488b1b8efa4b0f0bdb588772794aa6",
-    "melody.wasm": "414218a96e7ed55e4479903d89890a78e78632546130d8cbe06555b0902bad75"
+    "hcqt.wasm": "cbd51fd2a640cf6dc2f5e26bd5080be9021e94ba015f68a14f9b9b219e253f77",
+    "melody.wasm": "321b474bd416a3ebbb831e009701b690358fda9994d3d2c6b44f9091adec4bff"
   }
 }
