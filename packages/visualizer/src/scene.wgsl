@@ -11,6 +11,12 @@ struct Frame {
 override representative: bool = false;
 override composition: bool = false;
 struct Vertex { @builtin(position) position: vec4f, @location(0) uv: vec2f, }
+// Fixed surface grain: independent of media time, pitch and chord changes.
+fn paperNoise(cell: vec2f) -> f32 {
+  let p = fract(cell * vec2f(0.1031, 0.11369));
+  let d = dot(p, p.yx + vec2f(19.19));
+  return fract((p.x + p.y + d) * (p.x + d));
+}
 @vertex fn vertex(@builtin(vertex_index) index: u32) -> Vertex {
   let p = array<vec2f, 3>(vec2f(-1, -1), vec2f(3, -1), vec2f(-1, 3));
   var out: Vertex;
@@ -31,7 +37,13 @@ struct Vertex { @builtin(position) position: vec4f, @location(0) uv: vec2f, }
   let artPosition = select(vec2f(0, -0.13), artCenter, representative) + vec2f(frame.artwork.y, 0);
   let artUV = (p - artPosition) / (2 * artSize) + 0.5;
   // Melody history and drifting ornaments are drawn as thin geometry over paper.
-  if (composition) { return vec4f(0.9765, 0.9608, 0.9216, 1); }
+  if (composition) {
+    let cell = floor(in.position.xy);
+    let fine = paperNoise(cell) - 0.5;
+    let fiber = paperNoise(floor(cell / vec2f(2, 5))) - 0.5;
+    let paper = vec3f(248, 242, 228) / 255;
+    return vec4f(paper + vec3f(fine * 0.006 + fiber * 0.002), 1);
+  }
   // One background surface, with a second atlas sample distributed beyond the artwork rectangle.
   if (representative) {
     let ambientUV = clamp(vec2f(in.uv.x, -in.uv.y) * 0.35 + 0.5 + vec2f(sin(t * 0.07) * 0.05, 0), vec2f(0), vec2f(1));
