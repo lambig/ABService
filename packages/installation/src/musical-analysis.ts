@@ -1,4 +1,10 @@
 import { z } from "zod";
+import { compactMoment, parseCompactAnalysis } from "./compact-analysis";
+import type {
+  CompactAnalysis,
+  MelodyInterval,
+  HarmonyInterval,
+} from "./compact-analysis";
 
 /** Bound parsing cost on the listening device; durations and gaps remain explicit. */
 export const analysisByteLimit = 16 * 1024 * 1024;
@@ -69,12 +75,12 @@ const schema = z
   .readonly();
 
 /** PC-produced analysis of the exact encoded audio bytes; missing intervals mean unknown. */
-export type MusicalAnalysis = z.infer<typeof schema>;
+export type MusicalAnalysis = z.infer<typeof schema> | CompactAnalysis;
 /** Point-in-time interpretation. Salience is a model output, not a calibrated probability. */
 export type MusicalMoment = Readonly<{
   position: number;
-  melody: MusicalAnalysis["melody"][number] | null;
-  harmony: MusicalAnalysis["harmony"][number] | null;
+  melody: MelodyInterval | null;
+  harmony: HarmonyInterval | null;
 }>;
 
 /** Validates a complete immutable result without extending notes through unknown intervals. */
@@ -82,7 +88,7 @@ export const parseMusicalAnalysis = (
   input: unknown,
 ): MusicalAnalysis | undefined => {
   const result = schema.safeParse(input);
-  return result.success ? result.data : undefined;
+  return result.success ? result.data : parseCompactAnalysis(input);
 };
 
 /* Binary search starts afresh at the current media clock, so seek and loop need no cursor repair. */
@@ -113,6 +119,14 @@ export const musicalMoment = (
 ): MusicalMoment =>
   Object.freeze({
     position,
-    melody: Number.isFinite(position) ? at(analysis.melody, position) : null,
-    harmony: Number.isFinite(position) ? at(analysis.harmony, position) : null,
+    ...(analysis.schemaVersion === 2
+      ? compactMoment(analysis, position)
+      : {
+          melody: Number.isFinite(position)
+            ? at(analysis.melody, position)
+            : null,
+          harmony: Number.isFinite(position)
+            ? at(analysis.harmony, position)
+            : null,
+        }),
   });

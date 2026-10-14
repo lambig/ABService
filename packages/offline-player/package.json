@@ -4,6 +4,9 @@
   "description": "Offline listening integration PoC",
   "type": "module",
   "private": true,
+  "exports": {
+    "./analysis/compact": "./analysis/compact.mjs"
+  },
   "scripts": {
     "prebuild": "npm run check:wasm -w abservice-audio-worklet && node ../../tools/device-analysis/build.mjs --verify",
     "build": "vite build && node build.ts",

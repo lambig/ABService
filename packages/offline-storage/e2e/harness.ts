@@ -1,6 +1,7 @@
 import {
   collectAssets,
   createAssetStore,
+  createAnalysisStore,
   createPackageStore,
 } from "../src/index";
 import type { AssetStore } from "../src/index";
@@ -9,6 +10,8 @@ import type {
   InstallationManifestV3,
 } from "abservice-installation";
 import toneUrl from "./fixtures/tone.flac?url";
+import { musicalMoment } from "abservice-installation";
+import { compactTimeline } from "abservice-offline-player/analysis/compact";
 import distributed from "abservice-installation/fixtures/manifest-v3.example.json?raw";
 
 const first = await fetch(toneUrl).then((response) => response.blob());
@@ -122,6 +125,9 @@ const harness = {
   manifest,
   open,
   createAssetStore,
+  createAnalysisStore,
+  musicalMoment,
+  compactTimeline,
   createPackageStore,
   collectAssets,
   storedAssets,

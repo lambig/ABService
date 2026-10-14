@@ -8,9 +8,8 @@ only after both analyses and audio identity checks succeed. Cancellation and
 errors preserve the preceding saved result.
 
 Input limits are 8–96 kHz, mono/stereo, 16/24 bit FLAC, positive known duration
-up to four hours. The shared result contract additionally limits the combined
-event count to 200,000 and encoded JSON to 16 MiB; an input within the duration
-limit can still exceed these result limits. Processing time depends on the
+up to four hours. New results use the compact schema 2 below, bounded by four
+hours of melody, 200,000 harmony intervals and 16 MiB of JSON. Processing time depends on the
 device and input. The management screen displays each phase and supports cancel.
 
 Playback/loading and device analysis are mutually exclusive within the player.
@@ -19,23 +18,42 @@ running, saving or cleaning up, play, selection, retry and seeking are blocked.
 DSP benchmarks use the same exclusion. Cancellation releases the controls only
 after cleanup has completed.
 
+### Compact result contract (schema 2)
+
+Metadata (`audioSha256`, `durationSeconds`, `analysisVersion`, `engines`) retains
+its meaning. `melody` and `harmony` are standard base64 strings of little-endian
+records, with no header. Schema 1 arrays remain readable with their original
+combined 200,000-event limit; newly generated results use schema 2. Older apps
+reject schema 2 rather than partially interpreting it. The OPFS namespace,
+checksum, atomic replacement and audio-identity checks are unchanged.
+
+- Melody: exactly `ceil(durationSeconds * 22050 / 256)` six-byte records.
+  A uint16 bin (0–359) is followed by the original float32 salience (0–1).
+  Unknown frames use bin 65535 and salience zero. Frame `i` spans
+  `[i * 256 / 22050, min(durationSeconds, (i + 1) * 256 / 22050))`.
+  MIDI pitch is `69 + 12 * log2(32.7 / 440) + bin / 5`, as in the accepted
+  pipeline. No voiced frames are merged, sampled away or averaged.
+- Harmony: at most 200,000 ordered, nonoverlapping 19-byte records.
+  Float64 start/end seconds are followed by uint8 root, quality and bass.
+  Root/bass range is 0–11; bass 255 means null. Quality indices are, in order,
+  `major, minor, 7, maj7, m7, dim, sus4, 5, aug, sus2, m7b5, 6, m6`.
+  Gaps remain unknown and interval ends are exclusive.
+
+At four hours, melody contains 1,240,313 frames. Together with 200,000 harmony
+intervals, the serialized fixture is 14,989,571 bytes, below 16 MiB. The reader
+validates all records once, caches their binary views and reads only the current
+melody frame plus a binary search of harmony; it does not expand a million
+objects at playback time. Invalid encodings, values, lengths and intervals are
+rejected before replacing a saved result.
+
 ### Long-input acceptance still required (#290)
 
-The current per-voiced-frame melody representation reaches 200,000 events after
-about 38 minutes 42 seconds of voiced audio (less when harmony events are added).
-Thus the four-hour input limit is not yet a demonstrated four-hour music
-analysis/save capability. Silence-only coverage does not close this condition.
-
-The existing long-input acceptance work owns this defect and its release
-decision. Its implementation owner must choose a bounded result representation
-(for example, merging compatible contiguous pitch/voicing intervals), preserving
-pitch, voicing gaps, salience semantics and media-time alignment. It must check
-four-hour voiced fixtures with sustained notes, rapid note changes, silence and
-window boundaries, plus representative music, against the accepted frame output.
-Record combined event count, encoded bytes, alignment and successful save/reload
-under the existing 200,000-event and 16 MiB limits. Do not drop late events or
-treat exceeding the limit as successful acceptance. If a representation/contract
-change is required, assess that change before declaring long-input support.
+The output-capacity defect from #549 is addressed by this contract. Synthetic
+four-hour output checks establish value preservation, boundaries and OPFS
+save/reload. They do not execute four hours of audio through the DSP engines.
+Full long-input analysis resource limits and target Android processing time,
+cancellation and playback remain the long-input acceptance work. This does not
+reopen the accepted melody/harmony quality decision or block composition review.
 
 ## Distribution
 
