@@ -10,6 +10,7 @@ export type MusicalExpression = Readonly<{
   pitch: number;
   voiced: number;
   harmonyPhase: number;
+  harmonyRoot: number;
   harmonyActive: number;
   third: number;
   fifth: number;
@@ -22,6 +23,7 @@ export const restingMusic: MusicalExpression = Object.freeze({
   pitch: 0,
   voiced: 0,
   harmonyPhase: 0,
+  harmonyRoot: 0,
   harmonyActive: 0,
   third: 0,
   fifth: 0,
@@ -66,6 +68,7 @@ export const mapMusicalExpression = (
     pitch: voiced ? Math.max(-1, Math.min(1, (midi - 69) / 24)) : 0,
     voiced: voiced ? 1 : 0,
     harmonyPhase: harmony ? ((root * 7) % 12) / 12 + shade : 0,
+    harmonyRoot: harmony ? root : 0,
     harmonyActive: harmony ? 1 : 0,
     third: harmony ? (intervals?.[0] ?? 4) / 12 : 0,
     fifth: harmony ? (intervals?.[1] ?? 7) / 12 : 0,

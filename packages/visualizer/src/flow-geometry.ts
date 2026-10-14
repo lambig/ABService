@@ -12,14 +12,16 @@ const random = (seed: number): number => {
 };
 
 /** Reproducible random heights; births and rotation use media time, so pause also freezes ornaments. */
-export const flowOrnaments = (time: number) =>
+export const flowOrnaments = (time: number, offsets: readonly number[] = []) =>
   Array.from({ length: 5 }, (_, index) => {
     const id = Math.floor(time / 3.6) - index;
     const age = time - id * 3.6;
+    const shifted = 0.06 + random(id) * 0.68 + (offsets[index] ?? 0);
+    const folded = ((shifted % 1.6) + 1.6) % 1.6;
     return {
       id,
       x: 1.12 - age * 0.075,
-      y: 0.16 + random(id) * 0.68,
+      y: 0.1 + (folded <= 0.8 ? folded : 1.6 - folded),
       angle: age * 0.32 + random(id + 80) * tau,
       radius: 22 + random(id + 160) * 12,
       kind: Math.abs(id) % 2,
@@ -89,7 +91,7 @@ export const flowVertices = (
   const ornaments =
     head === null
       ? []
-      : flowOrnaments(head.time).flatMap((ornament) => {
+      : flowOrnaments(head.time, frame.flow?.offsets).flatMap((ornament) => {
           const transform = (x: number, y: number): TrailPosition => ({
             x:
               ornament.x * width +

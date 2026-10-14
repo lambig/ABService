@@ -8,12 +8,16 @@ import type {
 import { createAnalysisStore } from "abservice-offline-storage";
 import type { PlayerSnapshot } from "abservice-player";
 import { when } from "./dom";
+import { prepareFlow } from "./flow-plan";
+import { flowMoment } from "abservice-visualizer";
+import type { FlowMoment, FlowPlan } from "abservice-visualizer";
 
 export type MusicalPlayback = Readonly<{
   status: "missing" | "loading" | "ready" | "invalid" | "inactive";
   playbackItemId: string | null;
   analysisVersion: string | null;
   moment: MusicalMoment | null;
+  flow?: FlowMoment;
 }>;
 
 export const musicalPlayback = (
@@ -25,6 +29,7 @@ export const musicalPlayback = (
     item: string | null;
     request: AbortController;
     data: MusicalAnalysis | undefined;
+    plan: FlowPlan | null;
     status: MusicalPlayback["status"];
     media: HTMLMediaElement | null;
     frame: number | null;
@@ -33,6 +38,7 @@ export const musicalPlayback = (
     item: null,
     request: new AbortController(),
     data: undefined,
+    plan: null,
     status: "missing",
     media: null,
     frame: null,
@@ -55,6 +61,9 @@ export const musicalPlayback = (
         status,
         playbackItemId: cell.item,
         analysisVersion: data?.analysisVersion ?? null,
+        ...(active && status === "ready" && cell.plan !== null
+          ? { flow: flowMoment(cell.plan, media.currentTime) }
+          : {}),
         moment:
           active && (mismatch ? false : true) && data !== undefined
             ? musicalMoment(data, media.currentTime)
@@ -85,6 +94,7 @@ export const musicalPlayback = (
     const request = new AbortController();
     cell.request = request;
     cell.data = undefined;
+    cell.plan = null;
     cell.status = "loading";
     publish();
     const item = getPlaybackItems(manifest).find(
@@ -99,8 +109,15 @@ export const musicalPlayback = (
         : asset.checksum.algorithm === "sha256"
           ? await store.read(asset.checksum.value, request.signal)
           : { kind: "ok" as const, value: undefined };
+    const plan =
+      result.kind === "ok" &&
+      result.value !== undefined &&
+      (request.signal.aborted ? false : true)
+        ? await prepareFlow(result.value, request.signal)
+        : null;
     when(request.signal.aborted ? false : true, () => {
       cell.data = result.kind === "ok" ? result.value : undefined;
+      cell.plan = plan;
       cell.status =
         result.kind === "error"
           ? "invalid"
@@ -156,6 +173,7 @@ export const musicalPlayback = (
       cancel();
       cell.media = null;
       cell.data = undefined;
+      cell.plan = null;
       publish();
     },
   });

@@ -18,7 +18,11 @@ import {
   sceneLoadRequested,
   sceneInk,
 } from "abservice-visualizer";
-import type { FrameProbe, PresentationState } from "abservice-visualizer";
+import type {
+  FrameProbe,
+  PresentationState,
+  FlowMoment,
+} from "abservice-visualizer";
 import { createRenderer } from "abservice-visualizer/renderer";
 import { planSession, superviseRenderer } from "abservice-visualizer/session";
 import type {
@@ -114,6 +118,7 @@ export const presentation = (
     frame: typeof restingFrame;
     music: typeof restingMusic;
     trail: typeof emptyTrail;
+    flow: FlowMoment;
     animation: number | null;
     degraded: boolean;
     drawnAt: number | undefined;
@@ -126,6 +131,7 @@ export const presentation = (
     frame: restingFrame,
     music: restingMusic,
     trail: emptyTrail,
+    flow: { low: 60, offsets: [] },
     animation: null,
     degraded: false,
     drawnAt: undefined,
@@ -137,6 +143,7 @@ export const presentation = (
     ...state.frame,
     music: state.music,
     trail: state.trail,
+    flow: state.flow,
   });
   const reflectFrame = (): void => {
     const style = document.documentElement.style;
@@ -363,6 +370,7 @@ export const presentation = (
       : () => undefined)();
   };
   const music = (value: MusicalPlayback): void => {
+    state.flow = value.flow ?? { low: 60, offsets: [] };
     state.music = mapMusicalExpression(
       value.status === "ready" ? value.moment : null,
     );
@@ -373,6 +381,7 @@ export const presentation = (
             JSON.stringify([value.playbackItemId, value.analysisVersion]),
             value.moment.position,
             value.moment.melody?.midi ?? null,
+            state.flow.low,
           )
         : emptyTrail;
     reflectFrame();
@@ -381,6 +390,7 @@ export const presentation = (
     canvas.dataset["musicVersion"] = value.analysisVersion ?? "";
     canvas.dataset["musicPosition"] = String(value.moment?.position ?? 0);
     canvas.dataset["melodyMidi"] = String(value.moment?.melody?.midi ?? "");
+    canvas.dataset["melodyRangeLow"] = String(state.flow.low);
     canvas.dataset["harmonyRoot"] = String(value.moment?.harmony?.root ?? "");
     canvas.dataset["harmonyQuality"] = value.moment?.harmony?.quality ?? "";
     canvas.dispatchEvent(new CustomEvent("musical-moment", { detail: value }));

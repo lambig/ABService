@@ -1,6 +1,9 @@
 import type { AudioFeatures } from "abservice-audio-dsp";
 import type { MusicalExpression } from "./music";
 import type { MelodyTrail } from "./trail";
+import type { FlowMoment } from "./flow-plan";
+export { chordVelocity, planFlow, flowMoment, sceneStep } from "./flow-plan";
+export type { FlowPlan, FlowMoment } from "./flow-plan";
 export { advanceTrail, emptyTrail } from "./trail";
 export { mapMusicalExpression, restingMusic } from "./music";
 export type { MusicalExpression, MusicalExpressionInput } from "./music";
@@ -36,6 +39,7 @@ export type {
 export type PresentationFrame = Readonly<{
   music?: MusicalExpression;
   trail?: MelodyTrail;
+  flow?: FlowMoment;
   timeSeconds: number;
   sceneScale: number;
   backgroundIntensity: number;
