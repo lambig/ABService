@@ -3,6 +3,7 @@ struct Frame {
   artwork: vec4f, // scale, offset, background intensity, impulse
   typography: vec4f, // offset, opacity, effect intensity, texture scale
   music: vec4f, // melodic height, voiced, harmonic phase, harmony active
+  voicing: vec4f, // third, fifth, extension in octaves; actual media position
 }
 @group(0) @binding(0) var<uniform> frame: Frame;
 @group(0) @binding(1) var image: texture_2d<f32>;
@@ -51,13 +52,35 @@ struct Vertex { @builtin(position) position: vec4f, @location(0) uv: vec2f, }
     // vertical trace, independent of loudness, so held notes remain visible.
     let angle = frame.music.z * 6.2831853;
     let harmonicCenter = vec2f(cos(angle) * aspect * 0.38, sin(angle) * 0.32);
-    let harmonicField = exp(-length(q - harmonicCenter) * 1.8) * frame.music.w;
     let chordPigment = 0.5 + 0.5 * cos(angle + vec3f(0.1, 2.2, 4.3));
-    color += mix(pigment, chordPigment, 0.32) * harmonicField * 0.24;
+    // Three translucent petals retain a chord's interval spacing, including
+    // suspended, diminished and augmented voicings. No clock invents chord changes.
+    let intervals = array<f32, 3>(0.0, frame.voicing.x, frame.voicing.y);
+    for (var i = 0u; i < 3u; i++) {
+      let direction = angle + intervals[i] * 6.2831853;
+      let axis = vec2f(cos(direction), sin(direction));
+      let local = q - harmonicCenter;
+      let along = dot(local, axis);
+      let across = dot(local, vec2f(-axis.y, axis.x));
+      let ellipse = sqrt(pow((along - 0.22) / 0.85, 2.0) + pow(across / 0.32, 2.0));
+      let veil = exp(-ellipse * ellipse * 1.6);
+      let edge = exp(-abs(ellipse - 1.0) * 24.0);
+      let tint = mix(pigment, 0.5 + 0.5*cos(direction + vec3f(0.1,2.2,4.3)), 0.4);
+      color += tint * (veil * 0.18 + edge * 0.10) * frame.music.w;
+    }
+    let extensionRing = exp(-abs(length(q-harmonicCenter) - 0.46 - frame.voicing.z*0.25)*30.0);
+    color += chordPigment * extensionRing * frame.music.w * select(0.0,0.10,frame.voicing.z > 0.0);
+    // Melody follows a continuous media-time path; pitch controls elevation and
+    // curvature. Its light disappears in unvoiced gaps, without inventing notes.
     let melodicHeight = -frame.music.x * 0.55;
-    let melodicLine = exp(-abs(q.y - melodicHeight - sin(q.x * 1.6 + t * 0.18) * 0.035) * 40.0);
-    let melodicEnvelope = exp(-q.x * q.x / max(aspect * aspect, 0.1));
-    color += mix(vec3f(0.52, 0.84, 0.83), chordPigment, 0.2) * melodicLine * melodicEnvelope * frame.music.y * 0.38;
+    let curve = sin(q.x * 1.8 + frame.voicing.w * 0.24) * (0.06 + abs(frame.music.x)*0.08);
+    let distance = abs(q.y - melodicHeight - curve);
+    let line = exp(-distance * 85.0) + exp(-distance * 15.0)*0.25;
+    let traveler = sin(frame.voicing.w * 0.24) * aspect * 0.8;
+    let focus = exp(-pow((q.x-traveler)/0.28,2.0));
+    let envelope = exp(-q.x*q.x/max(aspect*aspect,0.1));
+    let melodyTint = mix(vec3f(0.64,0.92,0.90),chordPigment,0.15*frame.music.w);
+    color += melodyTint * line * envelope * (0.23+focus*0.40) * frame.music.y;
     return vec4f(color, 1);
   }
   // One background surface, with a second atlas sample distributed beyond the artwork rectangle.

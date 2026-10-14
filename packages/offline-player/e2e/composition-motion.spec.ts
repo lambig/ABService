@@ -36,7 +36,7 @@ test("無音の背景は時刻で動かず、持続音と短い波は別の応�
     const write = GPUQueue.prototype.writeBuffer;
     GPUQueue.prototype.writeBuffer = function (buffer, offset, data, ...rest) {
       const values =
-        data instanceof Float32Array && data.length === 16
+        data instanceof Float32Array && data.length === 20
           ? new Float32Array([
               data[0] ?? 0,
               data[1] ?? 0,
@@ -51,6 +51,9 @@ test("無音の背景は時刻で動かず、持続音と短い波は別の応�
               0,
               1,
               ...probe.music,
+              ...(probe.music.length === 4
+                ? [4 / 12, 7 / 12, 0, probe.time]
+                : []),
             ])
           : data;
       write.call(this, buffer, offset, values, ...rest);
@@ -119,6 +122,12 @@ test("無音の背景は時刻で動かず、持続音と短い波は別の応�
   const harmony = await frame(3, 0, 0, [0, 0, 0, 1]);
   expect(harmony).not.toEqual(silent);
   expect(await frame(3, 0, 0, [0, 0, 0.5, 1])).not.toEqual(harmony);
+  expect(await frame(3, 0, 0, [0, 0, 0, 1, 3 / 12, 7 / 12, 0, 3])).not.toEqual(
+    harmony,
+  );
+  expect(await frame(3, 0, 0, [0, 0, 0, 1, 4 / 12, 8 / 12, 0, 3])).not.toEqual(
+    harmony,
+  );
   expect(await frame(3, 0, 0)).toEqual(silent);
   expect(
     await page.evaluate(() => (globalThis as Scope).motionProbe.errors),

@@ -205,11 +205,16 @@ export const management = () => {
     };
     void (state.busy ? Promise.resolve() : verify());
   });
+  const scheduleClose = (): void => {
+    state.close = window.setTimeout(() => {
+      (panel.dataset["analysisBusy"] === "true" ? scheduleClose : close)();
+    }, 20000);
+  };
   const unlock = (): void => {
     panel.hidden = false;
     button.setAttribute("aria-expanded", "true");
     button.textContent = "管理を閉じる";
-    state.close = window.setTimeout(close, 20000);
+    scheduleClose();
   };
   const hold = (): void => {
     cancelHold();
@@ -242,13 +247,13 @@ export const management = () => {
   button.addEventListener("keyup", cancelHold);
   panel.addEventListener("click", (event) => {
     (event.target instanceof HTMLButtonElement &&
-      event.target.closest("#space-form") === null
+      event.target.closest("#space-form, #device-analysis-controls") === null
       ? close
       : () => undefined)();
   });
   panel.addEventListener("input", () => {
     clearTimeout(state.close);
-    state.close = window.setTimeout(close, 20000);
+    scheduleClose();
   });
   element("#management-auth-cancel", HTMLButtonElement).addEventListener(
     "click",

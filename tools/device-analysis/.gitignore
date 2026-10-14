@@ -1,0 +1,17 @@
+input/upstream/
+input/cache/
+input/local-cache/
+input/*.wasm
+input/build.json
+harmony/upstream/
+harmony/runtime-source/
+harmony/stream-build/
+harmony/generated/
+harmony/stream-core.cpp
+harmony/stream-build.json
+harmony/*.wasm
+hcqt/target/
+melody/target/
+vendor/
+.cargo/
+!upstream.zip

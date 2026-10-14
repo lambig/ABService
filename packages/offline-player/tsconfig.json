@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": [
-      "ES2022",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
@@ -15,18 +11,10 @@
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,
-    "types": [
-      "vite/client",
-      "node",
-      "@webgpu/types"
-    ],
+    "types": ["vite/client", "node", "@webgpu/types"],
     "paths": {
-      "player-study/*": [
-        "../player/src/*"
-      ],
-      "player-study-e2e/*": [
-        "../player/e2e/*"
-      ]
+      "player-study/*": ["../player/src/*"],
+      "player-study-e2e/*": ["../player/e2e/*"]
     }
   },
   "include": [
@@ -35,9 +23,8 @@
     "playwright.config.ts",
     "build.ts",
     "distribution.ts",
-    "vite.config.ts"
+    "vite.config.ts",
+    "source-package.ts"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }

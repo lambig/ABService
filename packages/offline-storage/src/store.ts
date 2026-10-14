@@ -85,7 +85,7 @@ const inventory = async (
   signal: AbortSignal,
 ): Promise<StoredInventory> => {
   const root = await directory();
-  /* Hash one asset at a time: Web Crypto takes a complete buffer; parallel hashes multiply peak memory. */
+  /* Hash one asset at a time using bounded chunks and cancellation checkpoints. */
   const observations = await manifest.assets.reduce<
     Promise<readonly Observation[]>
   >(async (previous, asset) => {

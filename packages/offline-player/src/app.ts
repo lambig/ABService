@@ -27,6 +27,7 @@ import { benchmarkAudio, createAudioProbe } from "./audio-probe";
 import { measured, presentation, probeReport } from "./presentation";
 import { musicalPlayback } from "./musical-playback";
 import { analysisImport } from "./analysis-import";
+import { deviceAnalysis } from "./device-analysis";
 
 /* Startup cost is measured from navigation start: script evaluated, library ready, first frame drawn. */
 performance.mark("listening:script");
@@ -221,6 +222,7 @@ const showAlbum = (
 const open = (contract: InstallationManifest, data: PresentationData): void => {
   const music = musicalPlayback(contract, visual.music);
   analysisImport(contract, music.refresh);
+  deviceAnalysis(contract, music.refresh);
   window.addEventListener("pagehide", music.dispose, { once: true });
   const items = data.playbackItems;
   const exhibition = { active: false };

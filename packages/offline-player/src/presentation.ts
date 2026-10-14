@@ -164,7 +164,11 @@ export const presentation = (
     state.animation = null;
   };
   /* A paused scene stays visible as a still behind the released canvas; the token drops a still that arrives after resuming. */
-  const still: { token: number; url: string | null } = { token: 0, url: null };
+  const still: { token: number; url: string | null; music: string } = {
+    token: 0,
+    url: null,
+    music: "",
+  };
   const thaw = (): void => {
     still.token += 1;
     (still.url === null
@@ -180,6 +184,7 @@ export const presentation = (
     const token = still.token;
     /* The canvas can be copied only within the task that rendered it, so the current frame is drawn once more here. */
     supervisor.render(displayFrame());
+    still.music = JSON.stringify(state.music);
     const copy = document.createElement("canvas");
     copy.width = canvas.width;
     copy.height = canvas.height;
@@ -293,7 +298,11 @@ export const presentation = (
               /* The still is kept until the new session can draw over it or has given up. */
               (settled.has(next) ? thaw : () => undefined)();
               (next === "running" && state.animation === null
-                ? draw
+                ? state.presentation === "paused"
+                  ? () => {
+                      release(true);
+                    }
+                  : draw
                 : () => undefined)();
             }
           : () => undefined)();
@@ -333,6 +342,7 @@ export const presentation = (
       status.textContent = state.degraded
         ? messages.degraded
         : messages.resting;
+      refreshStill();
     };
     /* Releasing leaves the frame to the plan; only resetFrame puts it back at rest. */
     const released = (): void => {
@@ -347,6 +357,15 @@ export const presentation = (
     reflectFrame();
   };
   /* The interpretation port is separate from spectral features. Effects consume these media-time values. */
+  const refreshStill = (): void => {
+    /* A paused seek gets one new still, then releases its GPU session again. */
+    (state.presentation === "paused" &&
+      state.supervisor === null &&
+      (state.degraded ? false : true) &&
+      still.music !== JSON.stringify(state.music)
+      ? start
+      : () => undefined)();
+  };
   const music = (value: MusicalPlayback): void => {
     state.music = mapMusicalExpression(
       value.status === "ready" ? value.moment : null,
@@ -360,6 +379,7 @@ export const presentation = (
     canvas.dataset["harmonyRoot"] = String(value.moment?.harmony?.root ?? "");
     canvas.dataset["harmonyQuality"] = value.moment?.harmony?.quality ?? "";
     canvas.dispatchEvent(new CustomEvent("musical-moment", { detail: value }));
+    refreshStill();
   };
   return Object.freeze({
     sync,

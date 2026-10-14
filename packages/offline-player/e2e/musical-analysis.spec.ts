@@ -51,7 +51,7 @@ test.beforeEach(async ({ request }) => {
 test("解析を音源照合して保存し、offline再起動・seek・pause・作品切替・loopに追従する", async ({
   page,
   context,
-}) => {
+}, testInfo) => {
   await page.goto(entry);
   await prepareOnline(page);
   const next = await restart(page, context);
@@ -82,12 +82,40 @@ test("解析を音源照合して保存し、offline再起動・seek・pause・�
   expect(second.melody).not.toBe(first.melody);
   expect(second.harmony).not.toBe(first.harmony);
   await next.locator("#play").click();
+  await expect(next.locator("#visualizer-status")).toHaveAttribute(
+    "data-renderer-state",
+    "running",
+  );
+  await next.screenshot({
+    path: testInfo.outputPath("expression-landscape.png"),
+  });
   await next.locator("#pause").click();
   await expect(next.locator("#play-status")).toHaveText("一時停止");
   /* Playback may cross the note's end before the pause click; compare at a fixed paused time. */
   await seek(next, 2.5);
   await expect(canvas).toHaveAttribute("data-melody-midi", "79");
   expect(await expression()).toEqual(second);
+  await expect(canvas).toHaveCSS("background-image", /^url\(/);
+  const pausedImage = await canvas.evaluate(
+    (node) => node.style.backgroundImage,
+  );
+  await seek(next, 0.5);
+  await expect
+    .poll(() => canvas.evaluate((node) => node.style.backgroundImage))
+    .not.toBe(pausedImage);
+  await expect(canvas).toHaveCSS("background-image", /^url\(/);
+  await seek(next, 2.5);
+  await next.setViewportSize({ width: 430, height: 900 });
+  await next.locator("#play").click();
+  await expect(next.locator("#visualizer-status")).toHaveAttribute(
+    "data-renderer-state",
+    "running",
+  );
+  await next.screenshot({
+    path: testInfo.outputPath("expression-portrait.png"),
+  });
+  await next.locator("#pause").click();
+  await seek(next, 2.5);
   const paused = await canvas.getAttribute("data-music-position");
   /* Observe an interval of inactivity instead of accepting an immediately equal poll. */
   await next.waitForTimeout(300);
