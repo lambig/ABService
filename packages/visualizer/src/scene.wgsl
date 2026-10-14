@@ -30,49 +30,8 @@ struct Vertex { @builtin(position) position: vec4f, @location(0) uv: vec2f, }
   let artSize = select(0.40, baseSize, representative) * frame.artwork.x + 0.012 * frame.artwork.w;
   let artPosition = select(vec2f(0, -0.13), artCenter, representative) + vec2f(frame.artwork.y, 0);
   let artUV = (p - artPosition) / (2 * artSize) + 0.5;
-  // Three closed, interlaced curves. Pigment travels along the curves rather
-  // than moving the artwork or drawing amplitude bars, beams or glowing waves.
-  if (composition) {
-    let q = vec2f(in.uv.x * aspect, -in.uv.y);
-    let paper = vec3f(0.9765, 0.9608, 0.9216);
-    let activity = clamp((frame.artwork.z - 0.15) / 0.4, 0.0, 1.0);
-    let flowing = activity > 0.002 || frame.music.y > 0.0 || frame.music.w > 0.0;
-    let flow = select(0.0, t * 0.35, flowing);
-    let pitch = frame.music.x * frame.music.y;
-    let harmony = frame.music.z * frame.music.w;
-    let warmth = clamp(0.2 + harmony * 0.35 +
-      (frame.music.x + 1.0) * frame.music.y * 0.15 + frame.artwork.w * 0.15, 0.0, 1.0);
-    let ink = mix(vec3f(48, 43, 38), vec3f(116, 53, 36), warmth) / 255.0;
-    // Pixel-sized antialiasing only: no Gaussian/exponential glow around a line.
-    let pixel = 2.0 / frame.viewport.y;
-    let width = pixel * 0.65;
-    var distances: array<f32, 3>;
-    var pigments: array<f32, 3>;
-    let intervals = array<f32, 3>(0.0, frame.voicing.x, frame.voicing.y);
-    for (var i = 0u; i < 3u; i++) {
-      let angle = f32(i) * 2.0943951 - 1.5707963 + harmony * 0.22;
-      let axis = vec2f(cos(angle), sin(angle));
-      let local = q - vec2f(aspect * 0.10, 0.05);
-      let v = vec2f(dot(local, axis), dot(local, vec2f(-axis.y, axis.x))) - vec2f(0.32, 0);
-      let radii = vec2f(0.91 + harmony * 0.12,
-        0.43 + pitch * 0.045 + intervals[i] * frame.music.w * 0.10 + frame.voicing.z * frame.music.w * 0.025);
-      let normalized = v / radii;
-      let radius = max(length(normalized), 0.0001);
-      // First-order signed distance to an ellipse, accurate at the drawn edge.
-      distances[i] = abs(radius - 1.0) / max(length(v / (radii * radii)) / radius, 0.0001);
-      let along = atan2(normalized.y, normalized.x);
-      let current = 0.5 + 0.5 * cos(along - flow - f32(i) * 2.0943951 + pitch * 0.6);
-      pigments[i] = 0.25 + 0.30 * current + activity * 0.12 + frame.artwork.w * 0.25;
-    }
-    var coverage = 0.0;
-    for (var i = 0u; i < 3u; i++) {
-      let line = 1.0 - smoothstep(width - pixel * 0.5, width + pixel * 0.5, distances[i]);
-      // Cyclic over/under ordering cuts a narrow gap only in the underpassing line.
-      let under = smoothstep(pixel * 2.5, pixel * 3.5, distances[(i + 1u) % 3u]);
-      coverage = max(coverage, line * under * pigments[i]);
-    }
-    return vec4f(mix(paper, ink, coverage), 1);
-  }
+  // Melody history and drifting ornaments are drawn as thin geometry over paper.
+  if (composition) { return vec4f(0.9765, 0.9608, 0.9216, 1); }
   // One background surface, with a second atlas sample distributed beyond the artwork rectangle.
   if (representative) {
     let ambientUV = clamp(vec2f(in.uv.x, -in.uv.y) * 0.35 + 0.5 + vec2f(sin(t * 0.07) * 0.05, 0), vec2f(0), vec2f(1));

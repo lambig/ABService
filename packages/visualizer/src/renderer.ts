@@ -5,6 +5,8 @@ import type { PresentationFrame } from "./index";
 import type { FrameSample } from "./probe";
 import type { ListeningAlbum } from "abservice-listening-presentation";
 import shader from "./scene.wgsl?raw";
+import flowShader from "./flow.wgsl?raw";
+import { flowVertices } from "./flow-geometry";
 
 /** 描画の予算と、フレームごとの観測の受け取り先。観測は指定したときだけ取る。 */
 export type RendererOptions = Readonly<{
@@ -140,6 +142,55 @@ export const createRenderer = async (
       primitive: { topology: "triangle-list" },
     });
     signal.throwIfAborted();
+    const flowModule = device.createShaderModule({ code: flowShader });
+    const flowPipeline =
+      options.composition === true
+        ? await device.createRenderPipelineAsync({
+            layout: "auto",
+            vertex: {
+              module: flowModule,
+              entryPoint: "vertex",
+              buffers: [
+                {
+                  arrayStride: 24,
+                  attributes: [
+                    { shaderLocation: 0, offset: 0, format: "float32x2" },
+                    { shaderLocation: 1, offset: 8, format: "float32x4" },
+                  ],
+                },
+              ],
+            },
+            fragment: {
+              module: flowModule,
+              entryPoint: "fragment",
+              targets: [
+                {
+                  format,
+                  blend: {
+                    color: {
+                      srcFactor: "src-alpha",
+                      dstFactor: "one-minus-src-alpha",
+                    },
+                    alpha: {
+                      srcFactor: "one",
+                      dstFactor: "one-minus-src-alpha",
+                    },
+                  },
+                },
+              ],
+            },
+            primitive: { topology: "triangle-list" },
+          })
+        : null;
+    /* 400 history segments + five 120-segment ornaments + a 16-triangle dot. */
+    const flowBuffer =
+      flowPipeline === null
+        ? null
+        : device.createBuffer({
+            size: 160000,
+            usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+          });
+    signal.throwIfAborted();
     const buffer = device.createBuffer({
       size: 80,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -245,6 +296,19 @@ export const createRenderer = async (
         pass.setPipeline(pipeline);
         pass.setBindGroup(0, group);
         pass.draw(3);
+        (flowPipeline !== null && flowBuffer !== null
+          ? () => {
+              const vertices = flowVertices(
+                frame,
+                Math.max(1, canvas.clientWidth),
+                Math.max(1, canvas.clientHeight),
+              );
+              device.queue.writeBuffer(flowBuffer, 0, vertices);
+              pass.setPipeline(flowPipeline);
+              pass.setVertexBuffer(0, flowBuffer);
+              pass.draw(vertices.length / 6);
+            }
+          : () => undefined)();
         pass.end();
         device.queue.submit([encoder.finish()]);
         const submitted = performance.now();
@@ -268,6 +332,7 @@ export const createRenderer = async (
       },
       dispose: (): void => {
         buffer.destroy();
+        flowBuffer?.destroy();
         texture.destroy();
         context.unconfigure();
         device.destroy();

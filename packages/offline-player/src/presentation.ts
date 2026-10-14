@@ -5,6 +5,8 @@ import type { PlayerSnapshot } from "abservice-player";
 import type { ListeningAlbum } from "abservice-listening-presentation";
 import {
   createProbe,
+  advanceTrail,
+  emptyTrail,
   due,
   followPlayback,
   mapFeatures,
@@ -91,7 +93,7 @@ export const probeReport = (): string | undefined => {
     ? undefined
     : [
         ...marks,
-        `scene ${representative ? "representative-v1" : "flowing-knot-v1"}`,
+        `scene ${representative ? "representative-v1" : "melody-trail-v1"}`,
         `budget dpr ${String(budget.maxDevicePixelRatio)} scale ${String(budget.renderScale)} effects ${String(budget.effectDensity)} fps ${String(budget.targetFps)}`,
         `frames ${String(summary.frames)} skipped ${String(summary.skipped)} pixels ${String(summary.pixels ?? 0)}`,
         format("cycle cpu", summary.cycleCpu),
@@ -111,6 +113,7 @@ export const presentation = (
     observed: PlayerSnapshot | undefined;
     frame: typeof restingFrame;
     music: typeof restingMusic;
+    trail: typeof emptyTrail;
     animation: number | null;
     degraded: boolean;
     drawnAt: number | undefined;
@@ -122,6 +125,7 @@ export const presentation = (
     observed: undefined,
     frame: restingFrame,
     music: restingMusic,
+    trail: emptyTrail,
     animation: null,
     degraded: false,
     drawnAt: undefined,
@@ -132,6 +136,7 @@ export const presentation = (
   const displayFrame = (): typeof restingFrame => ({
     ...state.frame,
     music: state.music,
+    trail: state.trail,
   });
   const reflectFrame = (): void => {
     const style = document.documentElement.style;
@@ -212,6 +217,7 @@ export const presentation = (
   const dispose = (): void => {
     release(false);
     state.music = restingMusic;
+    state.trail = emptyTrail;
     reset();
   };
   /* A frame that comes sooner than the target fps is skipped, not drawn; the loop keeps running. */
@@ -309,6 +315,7 @@ export const presentation = (
     state.observed = snapshot;
     state.presentation = step.state;
     state.frame = plan.frame;
+    state.trail = step.resetFrame ? emptyTrail : state.trail;
     canvas.dataset["presentationState"] = step.state;
     document.documentElement.dataset["presentationState"] = step.state;
     reflectFrame();
@@ -359,6 +366,15 @@ export const presentation = (
     state.music = mapMusicalExpression(
       value.status === "ready" ? value.moment : null,
     );
+    state.trail =
+      value.status === "ready" && value.moment !== null
+        ? advanceTrail(
+            state.trail,
+            JSON.stringify([value.playbackItemId, value.analysisVersion]),
+            value.moment.position,
+            state.music.voiced > 0 ? state.music.pitch : null,
+          )
+        : emptyTrail;
     reflectFrame();
     canvas.dataset["musicStatus"] = value.status;
     canvas.dataset["musicItem"] = value.playbackItemId ?? "";

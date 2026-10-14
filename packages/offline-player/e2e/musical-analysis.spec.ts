@@ -80,7 +80,7 @@ test("解析を音源照合して保存し、offline再起動・seek・pause・�
   await expect(canvas).toHaveAttribute("data-melody-midi", "");
   await expect(canvas).toHaveAttribute("data-harmony-quality", "sus4");
   expect(await expression()).toEqual({ ...first, melody: "0" });
-  await expect(next.locator("#album-title")).not.toHaveCSS("color", firstInk);
+  await expect(next.locator("#album-title")).toHaveCSS("color", firstInk);
   await seek(next, 2.5);
   await expect(canvas).toHaveAttribute("data-melody-midi", "79");
   const second = await expression();

@@ -17,9 +17,9 @@ it("keeps every ink readable on ivory, including simultaneous musical extremes",
   }
 });
 
-it("lets melody, harmony and attacks affect UI ink independently", () => {
+it("follows harmony without flickering on melody or attacks", () => {
   const neutral = sceneInk(restingFrame);
-  expect(sceneInk({ ...restingFrame, impulse: 1 })).not.toBe(neutral);
-  expect(sceneInk({ ...restingFrame, music: { ...restingMusic, pitch: 1, voiced: 1 } })).not.toBe(neutral);
+  expect(sceneInk({ ...restingFrame, impulse: 1 })).toBe(neutral);
+  expect(sceneInk({ ...restingFrame, music: { ...restingMusic, pitch: 1, voiced: 1 } })).toBe(neutral);
   expect(sceneInk({ ...restingFrame, music: { ...restingMusic, harmonyPhase: 0.5, harmonyActive: 1 } })).not.toBe(neutral);
 });

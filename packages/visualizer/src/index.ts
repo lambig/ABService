@@ -1,5 +1,7 @@
 import type { AudioFeatures } from "abservice-audio-dsp";
 import type { MusicalExpression } from "./music";
+import type { MelodyTrail } from "./trail";
+export { advanceTrail, emptyTrail } from "./trail";
 export { mapMusicalExpression, restingMusic } from "./music";
 export type { MusicalExpression, MusicalExpressionInput } from "./music";
 export { sceneInk } from "./ink";
@@ -33,6 +35,7 @@ export type {
 /** 描画だけの値域を持つsnapshot。Rendererは音響特徴量を参照しない。 */
 export type PresentationFrame = Readonly<{
   music?: MusicalExpression;
+  trail?: MelodyTrail;
   timeSeconds: number;
   sceneScale: number;
   backgroundIntensity: number;
