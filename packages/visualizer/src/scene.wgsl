@@ -41,8 +41,8 @@ fn paperNoise(cell: vec2f) -> f32 {
     let cell = floor(in.position.xy);
     let fine = paperNoise(cell) - 0.5;
     let fiber = paperNoise(floor(cell / vec2f(2, 5))) - 0.5;
-    let paper = vec3f(248, 242, 228) / 255;
-    return vec4f(paper + vec3f(fine * 0.006 + fiber * 0.002), 1);
+    let paper = vec3f(246, 237, 216) / 255;
+    return vec4f(paper + vec3f(fine * 0.012 + fiber * 0.004), 1);
   }
   // One background surface, with a second atlas sample distributed beyond the artwork rectangle.
   if (representative) {

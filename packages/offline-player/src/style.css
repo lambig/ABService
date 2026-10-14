@@ -46,7 +46,7 @@
 html[data-composition="true"] {
   color-scheme: light;
   color: #302b26;
-  background: #f8f2e4;
+  background: #f6edd8;
   --scene-ink: #51352b;
 }
 html[data-composition="true"] body {
@@ -55,7 +55,7 @@ html[data-composition="true"] body {
   height: 100dvh;
   min-height: 100dvh;
   isolation: isolate;
-  background: #f8f2e4;
+  background: #f6edd8;
 }
 html[data-composition="true"] #visualizer {
   position: fixed;
@@ -520,7 +520,7 @@ html[data-composition="true"]
 html[data-composition="true"] .transport {
   flex: none;
   padding: 8px 12px;
-  background: #f8f2e4e8;
+  background: #f6edd8e8;
   border: 1px solid #b7a893;
   border-color: var(--scene-ink, #51352b);
   border-radius: 8px;
@@ -794,7 +794,7 @@ html[data-scene-load="true"] #probe {
 /* Native UI shares the scene ink; all boxes and artwork keep their geometry. */
 html[data-composition="true"] header,
 html[data-composition="true"] .album-name {
-  background: #f8f2e4;
+  background: #f6edd8;
 }
 html[data-composition="true"] .gallery-heading h2,
 html[data-composition="true"] .album-choice[aria-pressed="true"] .album-name,
