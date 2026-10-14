@@ -86,7 +86,7 @@ try {
   await page.keyboard.down(' '); await page.waitForTimeout(2100); await page.keyboard.up(' ');
   await page.locator('#management-pin').fill('123456');
   await page.locator('#management-auth button[type=submit]').click();
-  await page.locator('#exhibition-menu summary').click();
+  await page.locator('#exhibition-menu > summary').click();
   await page.locator('#pause').click(); await page.locator('#probe-benchmark').click();
   await expect(page.locator('#probe')).toContainText(/dsp bench [1-9]\d* quanta/);
   assert.ok(await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('16px "Klee One"', '試聴'); }));

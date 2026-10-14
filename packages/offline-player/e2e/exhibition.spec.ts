@@ -94,7 +94,7 @@ test("展示終了後は同じ作品を開始だけで再生し、波形をオ�
   await page.locator("#play").click();
   await expect(page.locator("#play-status")).toHaveText("再生中");
   await openManagement(page);
-  await page.locator("#exhibition-menu summary").click();
+  await page.locator("#exhibition-menu > summary").click();
   await page.locator("#stop").click();
   await expect(page.locator("#position")).toHaveText("0:00");
   await expect(page.locator("#retry")).toBeHidden();
@@ -147,7 +147,7 @@ for (const next of ["stop", "select"] as const) {
     await (next === "stop"
       ? (async () => {
           await openManagement(page);
-          await page.locator("#exhibition-menu summary").click();
+          await page.locator("#exhibition-menu > summary").click();
           await page.locator("#stop").click();
         })()
       : (async () => {

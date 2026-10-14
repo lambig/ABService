@@ -1,0 +1,6 @@
+Rust standard library 1.99.0 (b940084d7).
+Copyrights in the Rust Standard Library are retained by their contributors.
+The Rust Standard Library is dual-licensed under Apache 2.0 and MIT terms.
+The MIT option is used for this distribution. Compiler runtime license texts,
+including the LLVM exception, are supplied alongside this notice.
+Full upstream authorship and notices: https://github.com/rust-lang/rust/tree/b940084d7

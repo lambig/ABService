@@ -1,5 +1,6 @@
 import { publicApiJsdoc, typescriptWorkspace } from "abservice-eslint-config";
 import tseslint from "typescript-eslint";
+import js from "@eslint/js";
 
 /**
  * ルールの正は `packages/eslint-config`。ここが持つのは、このパッケージ固有の緩和だけ。
@@ -16,7 +17,30 @@ export default tseslint.config(
     ],
   },
 
-  ...typescriptWorkspace({ tsconfigRootDir: import.meta.dirname }),
+  ...typescriptWorkspace({ tsconfigRootDir: import.meta.dirname }).map(
+    (config) => ({ ...config, files: ["**/*.ts"] }),
+  ),
+  {
+    files: ["analysis/*.mjs"],
+    ...js.configs.recommended,
+    languageOptions: {
+      globals: Object.fromEntries(
+        [
+          "URL",
+          "FileReaderSync",
+          "WebAssembly",
+          "DOMException",
+          "setTimeout",
+          "navigator",
+          "crypto",
+          "fetch",
+          "self",
+          "AbortController",
+          "TextDecoder",
+        ].map((name) => [name, "readonly"]),
+      ),
+    },
+  },
 
   publicApiJsdoc({ files: ["src/index.ts"] }),
 );

@@ -93,7 +93,7 @@ test("代表負荷: 実PWAの表示素材・縦横・描画予算・pauseと再�
     });
   }
   await openManagement(page);
-  await page.locator("#exhibition-menu summary").click();
+  await page.locator("#exhibition-menu > summary").click();
   await page.locator("#pause").click();
   await expect(page.locator("#visualizer")).toHaveAttribute(
     "data-presentation-state",
@@ -105,7 +105,7 @@ test("代表負荷: 実PWAの表示素材・縦横・描画予算・pauseと再�
     )
     .not.toBe("");
   await openManagement(page);
-  await page.locator("#exhibition-menu summary").click();
+  await page.locator("#exhibition-menu > summary").click();
   await page.locator("#stop").click();
   await expect(page.locator("#visualizer")).toHaveAttribute(
     "data-presentation-state",

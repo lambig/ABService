@@ -1,0 +1,280 @@
+{
+  "files": [
+    {
+      "path": "upstream/chordino/chordextract.cpp",
+      "sha256": "6c98c8da74b1d79667481f58ebe5181a741fa45320880ddb57024cd518c0ee86"
+    },
+    {
+      "path": "upstream/chordino/Chordino.cpp",
+      "sha256": "92b212e8dbe0c044273ad797dc96da9389d56d30ca1db84ef8a8dec898797005"
+    },
+    {
+      "path": "upstream/chordino/Chordino.h",
+      "sha256": "f9c83579bb32f5f7e27277380dbb8d3ad5c577edefc76dd3df42577d48c22681"
+    },
+    {
+      "path": "upstream/chordino/chromamethods.cpp",
+      "sha256": "a697d312f3da5ce199a0f93f5637b4f713e44c0e37a505089830f1e556e483fa"
+    },
+    {
+      "path": "upstream/chordino/chromamethods.h",
+      "sha256": "30ac888fec953fbe0c895ac9177ee22269423f0fb4bb1474eb33fc7e45d89498"
+    },
+    {
+      "path": "upstream/chordino/CITATION",
+      "sha256": "0914fce97c1eb347dd64dc5e082d30d5cce8981a45964c30a8a13c23f3734ed0"
+    },
+    {
+      "path": "upstream/chordino/COPYING",
+      "sha256": "67f82e045cf7acfef853ea0f426575a8359161a0a325e19f02b529a87c4b6c34"
+    },
+    {
+      "path": "upstream/chordino/Makefile.inc",
+      "sha256": "a9ec5c2cee314ca437bdaa3650c544202218e8009987a088ce1fd1fe2ace9467"
+    },
+    {
+      "path": "upstream/chordino/nnls.c",
+      "sha256": "15d687e019bf0f09baf3d2643905b0c01d2cc6cfb72799a4e97a95fb3ae2b9f8"
+    },
+    {
+      "path": "upstream/chordino/nnls.f",
+      "sha256": "fa2e18a979cba7db4dc6b33e29c7d77a8a1c5a628955d9bd4eeb6d73d3459817"
+    },
+    {
+      "path": "upstream/chordino/nnls.h",
+      "sha256": "3ec29d6aae6ba0adf0bf9c82ec6284b3b6846f56298097458d0d19342808cae5"
+    },
+    {
+      "path": "upstream/chordino/NNLSBase.cpp",
+      "sha256": "b8e4d169fed528d24db0de7239be3e61292e1b81f25979baec3e7c2e05a7e962"
+    },
+    {
+      "path": "upstream/chordino/NNLSBase.h",
+      "sha256": "3785d521d8258bceb7b88334eb27b54d5ec6631f880da4f297011e9595c0bc9d"
+    },
+    {
+      "path": "upstream/chordino/NNLSChroma.cpp",
+      "sha256": "873a7f6c19f80b2d65d294f9cdc5effa168ae7aa2670abe5ea602ca65adaa4c8"
+    },
+    {
+      "path": "upstream/chordino/NNLSChroma.h",
+      "sha256": "7e2d29fff36952a0e6b8b97c7d6ae17caeaf86e3dd20e425cda36434eb171622"
+    },
+    {
+      "path": "upstream/chordino/plugins.cpp",
+      "sha256": "6df88f930503d0f87d9ff29e66818b17a2eb4d39de7e9507d4566c0a8ed280d8"
+    },
+    {
+      "path": "upstream/chordino/README",
+      "sha256": "d0b25c9ec533a2159e865b43ee1dccac7141fce93efdffea58e043cac39c2ade"
+    },
+    {
+      "path": "upstream/chordino/Tuning.cpp",
+      "sha256": "32622a16eac5e2267c28dab202e16fabc814badfc38140116d3cda6955942d48"
+    },
+    {
+      "path": "upstream/chordino/Tuning.h",
+      "sha256": "ce63a12031bd4df6d2bf5d2f906f67eb68e039267699dc55eee1e8d51d9a0e8a"
+    },
+    {
+      "path": "upstream/chordino/viterbi.cpp",
+      "sha256": "2ef53e9f8325dcf59bce9fe46bf4948d1803125d6786f0a37a80790660932ccd"
+    },
+    {
+      "path": "upstream/chordino/viterbi.h",
+      "sha256": "ef810f529154217a308c0575594b7459a9ed542346ec4de37b55d56808178674"
+    },
+    {
+      "path": "upstream/vamp/CHANGELOG",
+      "sha256": "18f30204af85425afefee267d777cef7d5eef957cdf7c71bc62740dcbc39b12f"
+    },
+    {
+      "path": "upstream/vamp/COPYING",
+      "sha256": "91572fd197f7333fc1f94b02e66cbaf6e804451d0f59ba85488fb22777b2a52a"
+    },
+    {
+      "path": "upstream/vamp/README",
+      "sha256": "810a34040e7178d6a747a9cacea5245d0b3737c855d5406290b6703dd7879da5"
+    },
+    {
+      "path": "upstream/vamp/README.compat",
+      "sha256": "6089c34e0709bb4794493dc5aeb5a310853d43a4dbd17a6614ee28fb47193da5"
+    },
+    {
+      "path": "upstream/vamp/vamp/vamp.h",
+      "sha256": "cbaab431257b18ed4edd56863c866ac054261f3af8e355358f2ca31979c69d03"
+    },
+    {
+      "path": "upstream/vamp/vamp-hostsdk/host-c.h",
+      "sha256": "c5f19b44ba2c1a37e8a9d023c2f3a7e3f12807680504586960d9ea628fb606dd"
+    },
+    {
+      "path": "upstream/vamp/vamp-hostsdk/hostguard.h",
+      "sha256": "fce065bf119d9a5ea6b312d8c2e79e4d2c990e25729784db7c116b9a4c66f177"
+    },
+    {
+      "path": "upstream/vamp/vamp-hostsdk/Plugin.h",
+      "sha256": "4f47408f644a57be471c27f5142e66d7fe64a7e130a93cfcba2360cad9cd24a1"
+    },
+    {
+      "path": "upstream/vamp/vamp-hostsdk/PluginBase.h",
+      "sha256": "1e1974e9b294e2b9d1a481ba4d34b938a479bb03f1cd70e7b54d15b9fe5fbaa1"
+    },
+    {
+      "path": "upstream/vamp/vamp-hostsdk/PluginBufferingAdapter.h",
+      "sha256": "e7ea3e2e061e0a63c4740f550076dbda16e16770e8aabf0cfd8983a388943f60"
+    },
+    {
+      "path": "upstream/vamp/vamp-hostsdk/PluginChannelAdapter.h",
+      "sha256": "eeb6a2a18e8b9a76938089d0ba5391dbca484e0dcecf9747cd80a857f1347e58"
+    },
+    {
+      "path": "upstream/vamp/vamp-hostsdk/PluginHostAdapter.h",
+      "sha256": "e8df4eac0db1fa0189b6c574b800a34a383a5b2c1fc300907a0b440677be44f5"
+    },
+    {
+      "path": "upstream/vamp/vamp-hostsdk/PluginInputDomainAdapter.h",
+      "sha256": "aa3c1588162f021b72ca89bf2b863226313a7ed5621ce535201fa54d00caf535"
+    },
+    {
+      "path": "upstream/vamp/vamp-hostsdk/PluginLoader.h",
+      "sha256": "92517d82c370b189e3f7db990dc5c76bb7f21aec85057ba06b0076058e9d9a46"
+    },
+    {
+      "path": "upstream/vamp/vamp-hostsdk/PluginSummarisingAdapter.h",
+      "sha256": "22e0b723535f20ba82f35c93f76cfbcd0e5b14e5f23f6fbdfbc9ac20959e063c"
+    },
+    {
+      "path": "upstream/vamp/vamp-hostsdk/PluginWrapper.h",
+      "sha256": "bd7c5eb1b84d64464133b63ea3fdb4ead1b7a648767c57a19b601449c382f6e2"
+    },
+    {
+      "path": "upstream/vamp/vamp-hostsdk/RealTime.h",
+      "sha256": "f396e48c060ca3e0fad6f93e9912df2452ac09a0fb6d07ec9cd170f408e414d6"
+    },
+    {
+      "path": "upstream/vamp/vamp-hostsdk/vamp-hostsdk.h",
+      "sha256": "b64aa3ab9ed0b259da726bac8456497dc44b4ced19e02fedb6b29e093ac09b38"
+    },
+    {
+      "path": "upstream/vamp/vamp-sdk/FFT.h",
+      "sha256": "94a80e8af1760345172c1f0fca890f8e7c3d520d6cf816067b3fbe592e53d4af"
+    },
+    {
+      "path": "upstream/vamp/vamp-sdk/plugguard.h",
+      "sha256": "ad2e7065b3545f00c842fd5177b183bb2b2a476b3a82d828e4f0db24ac9a0333"
+    },
+    {
+      "path": "upstream/vamp/vamp-sdk/Plugin.h",
+      "sha256": "315628a9a6fc30a97256af4aa7dd258223661c3c1973d8531fe8d835e8776a7a"
+    },
+    {
+      "path": "upstream/vamp/vamp-sdk/PluginAdapter.h",
+      "sha256": "1fa436f037e7e450d9b7af607a6c8d6cc20e674ee6cd559d347621d8e1a02c7a"
+    },
+    {
+      "path": "upstream/vamp/vamp-sdk/PluginBase.h",
+      "sha256": "67890612511ca0c00b977a0e7e0c38d53ad060c5e5c14537a572baa3f07bb5db"
+    },
+    {
+      "path": "upstream/vamp/vamp-sdk/RealTime.h",
+      "sha256": "c6fedb2ccc4a9991458013b2e9fed65059dd2a074f11b5582602236706c41ad9"
+    },
+    {
+      "path": "upstream/vamp/vamp-sdk/vamp-sdk.h",
+      "sha256": "badbcc53c0f66602baacf0bcb2e355a1e95fb12176fe4f62e2ba8552dc6c342f"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-hostsdk/acsymbols.c",
+      "sha256": "62740541938641f02d1d8848c07898791bc3cbca40b6aa03b421c403fe3d758a"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-hostsdk/Files.cpp",
+      "sha256": "d9e36dddca255b50e1ac36ddb156b33031b56fd89d2c9b6be716527c7fbf3161"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-hostsdk/Files.h",
+      "sha256": "20bd462f5c761152e524452c2f3b269826656a8f23a6ef45fe4cda6869497f4d"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-hostsdk/host-c.cpp",
+      "sha256": "a26df64b6b42bceb8f2bf7c76eda1be3570e2e65e51349e88dfc77f249ad49cb"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-hostsdk/PluginBufferingAdapter.cpp",
+      "sha256": "50d34f417335e0a3544e613f3f2380db3eb0e6d7def1fefcd7636721c5734eb4"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-hostsdk/PluginChannelAdapter.cpp",
+      "sha256": "5eb7ced97874925a27fe65772c07960a35f2e945767e5047f2fc5c04faa24cc2"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-hostsdk/PluginHostAdapter.cpp",
+      "sha256": "0a921406496fbd0021077cb7bca1f997e1b10e60e23dabeccff8496f090e71eb"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-hostsdk/PluginInputDomainAdapter.cpp",
+      "sha256": "c775e21f19fca94d7cc595e678a2b57d76f6aec18559f7dd9c1b91a6b19570c0"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-hostsdk/PluginLoader.cpp",
+      "sha256": "831836129a159f0143a2b43012b322d7e4479e4843f0ef2094b01bc6e20a59ba"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-hostsdk/PluginSummarisingAdapter.cpp",
+      "sha256": "d112bdd2446d79aab1a20d86326e46b6a951eb21feca7e74c329ee71dc34ea03"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-hostsdk/PluginWrapper.cpp",
+      "sha256": "d5a7511883d0544c3ef541795eb398a80d3bec041849385874711bc7ceaa9712"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-hostsdk/RealTime.cpp",
+      "sha256": "cd8c187983ed871a47df538408f5518fa4324497b729582225b236683bba7bfe"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-hostsdk/Window.h",
+      "sha256": "b09fce78951f484bee0e80603bcb8a6ee8b1d0f24540393434fcee1fd1ce126c"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-sdk/acsymbols.c",
+      "sha256": "f989cf80e6545359ff9ddc8cc6fde2254a4aad9ced54c5ec40fd41ba41fb5503"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-sdk/FFT.cpp",
+      "sha256": "55f5e5f8cbb7589a5650eb225e3d2a1a130cdca7c237b54fe46f07e723652871"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-sdk/FFTimpl.cpp",
+      "sha256": "34dfb8420ac078610db854887b8dd4462b62875cf7e429d308d80c07a096f47d"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-sdk/PluginAdapter.cpp",
+      "sha256": "59c330b02e2cf71b1197bbee0111ed78f30b0356b3a46aaca9ea6078f37f41e1"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-sdk/RealTime.cpp",
+      "sha256": "adceccb755c5299f6e9248fb758e43857b9e385f27a8b31a2284487c8ed8ca63"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-sdk/ext/vamp_kiss_fft.c",
+      "sha256": "8bda9fb02760d38e234e87ca4f19eefa592bdfad5c1528de6cdd1f83d0df221b"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-sdk/ext/vamp_kiss_fft.h",
+      "sha256": "4a73ee11e9a804cb6c5f7b857fcd91afd5f38e06dc5be12bcaab5ce2106c22b3"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-sdk/ext/vamp_kiss_fftr.c",
+      "sha256": "499486d754d97df07f28096ff8ef476eec63252e9a0d016e29a64dfd29026464"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-sdk/ext/vamp_kiss_fftr.h",
+      "sha256": "407ee40862ca3f6ed59c86beffb245fd982b136692cabd357b6b1cf93efe03bf"
+    },
+    {
+      "path": "upstream/vamp/src/vamp-sdk/ext/vamp_kiss_fft_guts.h",
+      "sha256": "fc598239f9cbb316906a48e66eabf95a99f14b9f659e429eebd60c72c347c518"
+    }
+  ]
+}

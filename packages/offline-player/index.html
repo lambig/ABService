@@ -42,6 +42,40 @@
             <button id="stop" disabled>展示を終了</button
             ><button id="pause" disabled>一時停止</button>
             <button id="open-preparation" hidden>配布物を準備する</button>
+            <div id="device-analysis-controls">
+              <label for="device-analysis-track"
+                >この端末で主旋律・和音を解析</label
+              >
+              <select
+                id="device-analysis-track"
+                aria-describedby="device-analysis-help"
+              ></select>
+              <p id="device-analysis-help">
+                保存済みのFLAC音源を解析します。完了後はオフライン再生の演出に使えます。
+                再生を一時停止してから開始してください。解析中は再生・選曲を使えません。
+              </p>
+              <button id="device-analysis-start" type="button" disabled>
+                解析して保存
+              </button>
+              <button id="device-analysis-cancel" type="button" hidden>
+                解析を取り消す
+              </button>
+              <p id="device-analysis-status" role="status"></p>
+              <details>
+                <summary>ライセンスとソース</summary>
+                <p>
+                  解析機能を含む配布物はGPL
+                  v3以降の条件で提供します。元のMIT等の表示を保持し、追加の保証は提供しません。
+                </p>
+                <a href="/offline-player/assets/analysis-NOTICES.txt"
+                  >著作権・ライセンス表示</a
+                >
+                <a href="/offline-player/assets/COPYING-GPL-3.0.txt">GPL本文</a>
+                <a href="/offline-player/assets/abservice-source.tgz" download
+                  >この配布版の対応ソース</a
+                >
+              </details>
+            </div>
             <label for="musical-analysis-file">主旋律・和音の解析を追加</label>
             <input
               id="musical-analysis-file"

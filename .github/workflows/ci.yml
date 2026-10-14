@@ -631,7 +631,7 @@ jobs:
     if: ${{ needs.changes.outputs.browser_offline_player == 'true' }}
     name: Offline player integration (Chromium / SW / OPFS / FLAC)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
