@@ -54,7 +54,7 @@ fn paperDensity(point: vec2f) -> f32 {
     let fiber = paperDensity(cell / vec2f(18, 2.5));
     let crossFiber = paperDensity((cell + vec2f(47, 91)) / vec2f(3, 13));
     let pulp = paperDensity(cell / vec2f(90, 70));
-    let paper = vec3f(246, 237, 216) / 255;
+    let paper = vec3f(243, 230, 201) / 255;
     let texture = fine * 0.012 + fiber * 0.014 + crossFiber * 0.006 + pulp * 0.012;
     return vec4f(paper + vec3f(texture), 1);
   }
