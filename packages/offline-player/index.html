@@ -12,6 +12,7 @@
       >
       <div class="header-titles">
         <h1 id="album-title">アルバムを選んでください</h1>
+        <p id="artist" hidden></p>
         <p id="track-title">曲を選んでください</p>
       </div>
       <div class="management">
@@ -169,8 +170,9 @@
               <p id="play-status" role="status" aria-live="polite">待機中</p>
             </div>
             <section id="album-info" aria-label="作品の情報" hidden>
-              <img id="artwork" alt="" hidden />
-              <p id="artist" hidden></p>
+              <div class="artwork-stage">
+                <img id="artwork" alt="" hidden />
+              </div>
               <div id="description" hidden></div>
             </section>
           </div>

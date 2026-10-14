@@ -438,7 +438,7 @@ html[data-composition="true"] .scene-content {
   overflow-y: auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(140px, 1fr) auto auto;
+  grid-template-rows: auto minmax(120px, 1fr) auto;
   gap: 6px;
   text-align: center;
   padding: 8px 0;
@@ -460,7 +460,8 @@ html[data-composition="true"] #album-title {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-html[data-composition="true"] #track-title {
+html[data-composition="true"] #track-title,
+html[data-composition="true"] #artist {
   margin: 2px 0 0;
   font-size: 12px;
   line-height: 1.25;
@@ -476,34 +477,45 @@ html[data-composition="true"] #play-status {
 html[data-composition="true"] #album-info {
   display: contents;
 }
-html[data-composition="true"] #artwork {
+/* Reserve the available stage before sizing the image, so a portrait's
+   intrinsic height cannot enlarge the grid or push playback controls away. */
+html[data-composition="true"] .artwork-stage {
   grid-row: 2;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+.artwork-stage:has(#artwork[hidden]) {
+  display: none;
+}
+html[data-composition="true"] #artwork {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  min-height: 140px;
-  max-height: none;
+  min-height: 0;
+  max-height: 100%;
   object-fit: contain;
-  align-self: center;
   transform: none;
 }
-html[data-composition="true"] #artist,
 html[data-composition="true"] #description {
   margin: 0;
   overflow-wrap: anywhere;
   line-height: 1.5;
 }
-html[data-composition="true"] #artist {
-  grid-row: 3;
-  color: #61574c;
-  font-size: 12px;
-}
 html[data-composition="true"] #description {
-  grid-row: 4;
+  grid-row: 3;
   font-size: 12px;
   color: #61574c;
 }
 html[data-composition="true"] .scene-content:has(#artwork[hidden]) {
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto auto;
+  align-content: center;
+}
+html[data-composition="true"]
+  .scene-content:has(#artwork[hidden])
+  #description {
+  grid-row: 2;
 }
 html[data-composition="true"] .transport {
   flex: none;
@@ -610,9 +622,6 @@ html[data-composition="true"] main:has(#preparation:not([hidden])) .workspace {
   html[data-composition="true"] .scene-content {
     padding-block: 12px 24px;
     column-gap: 20px;
-  }
-  html[data-composition="true"] #artwork {
-    max-height: 65dvh;
   }
   html[data-composition="true"] .transport {
     padding: 12px;
