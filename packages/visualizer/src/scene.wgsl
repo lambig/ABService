@@ -17,6 +17,17 @@ fn paperNoise(cell: vec2f) -> f32 {
   let d = dot(p, p.yx + vec2f(19.19));
   return fract((p.x + p.y + d) * (p.x + d));
 }
+// Interpolated density avoids visible tile edges in the larger paper fibers.
+fn paperDensity(point: vec2f) -> f32 {
+  let cell = floor(point);
+  let f = fract(point);
+  let blend = f * f * (vec2f(3) - 2 * f);
+  return mix(
+    mix(paperNoise(cell), paperNoise(cell + vec2f(1, 0)), blend.x),
+    mix(paperNoise(cell + vec2f(0, 1)), paperNoise(cell + vec2f(1, 1)), blend.x),
+    blend.y
+  ) - 0.5;
+}
 @vertex fn vertex(@builtin(vertex_index) index: u32) -> Vertex {
   let p = array<vec2f, 3>(vec2f(-1, -1), vec2f(3, -1), vec2f(-1, 3));
   var out: Vertex;
@@ -40,9 +51,12 @@ fn paperNoise(cell: vec2f) -> f32 {
   if (composition) {
     let cell = floor(in.position.xy);
     let fine = paperNoise(cell) - 0.5;
-    let fiber = paperNoise(floor(cell / vec2f(2, 5))) - 0.5;
+    let fiber = paperDensity(cell / vec2f(18, 2.5));
+    let crossFiber = paperDensity((cell + vec2f(47, 91)) / vec2f(3, 13));
+    let pulp = paperDensity(cell / vec2f(90, 70));
     let paper = vec3f(246, 237, 216) / 255;
-    return vec4f(paper + vec3f(fine * 0.012 + fiber * 0.004), 1);
+    let texture = fine * 0.012 + fiber * 0.014 + crossFiber * 0.006 + pulp * 0.012;
+    return vec4f(paper + vec3f(texture), 1);
   }
   // One background surface, with a second atlas sample distributed beyond the artwork rectangle.
   if (representative) {
