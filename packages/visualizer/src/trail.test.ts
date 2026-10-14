@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import {
   advanceTrail,
-  melodicStep,
+  noteHeight,
   emptyTrail,
   trailHeadX,
   trailPosition,
@@ -11,9 +11,9 @@ import { flowOrnaments, flowVertices } from "./flow-geometry";
 import { restingFrame } from "./index";
 
 it("keeps the melody dot at the right and sends the previous pitches left", () => {
-  const first = advanceTrail(emptyTrail, "a", 0, -0.2);
-  const second = advanceTrail(first, "a", 0.1, 0.1);
-  const third = advanceTrail(second, "a", 0.2, 0);
+  const first = advanceTrail(emptyTrail, "a", 0, 60);
+  const second = advanceTrail(first, "a", 0.1, 64);
+  const third = advanceTrail(second, "a", 0.2, 62);
   const old = trailSegments(second)[0];
   const moved = trailSegments(third)[0];
   expect(old?.[1].x).toBe(trailHeadX);
@@ -24,13 +24,13 @@ it("keeps the melody dot at the right and sends the previous pitches left", () =
 });
 
 it("holds height through unvoiced intervals, but clears on seeks or source changes", () => {
-  const samples = [0, 0.1, null, null, 0.5, 0.6];
+  const samples = [60, 62, null, null, 64, 65];
   const trail = samples.reduce(
     (state, pitch, i) => advanceTrail(state, "a", i / 10, pitch),
     emptyTrail,
   );
   expect(trailSegments(trail)).toHaveLength(5);
-  const stalled = advanceTrail(trail, "a", 1, 0.7);
+  const stalled = advanceTrail(trail, "a", 1, 67);
   expect(trailSegments(stalled)).toHaveLength(5);
   expect(trailSegments(advanceTrail(trail, "a", 0.2, 0))).toEqual([]);
   expect(trailSegments(advanceTrail(trail, "b", 0.6, 0))).toEqual([]);
@@ -39,16 +39,15 @@ it("holds height through unvoiced intervals, but clears on seeks or source chang
 
 it("holds on pause and bounds both dense history and uploaded geometry", () => {
   const trail = Array.from({ length: 10000 }, (_, i) => i / 120).reduce(
-    (state, time) => advanceTrail(state, "a", time, Math.sin(time)),
+    (state, time) =>
+      advanceTrail(state, "a", time, 69 + Math.round(Math.sin(time) * 12)),
     emptyTrail,
   );
   expect(trail.samples.length).toBeLessThanOrEqual(400);
   expect(
     (trail.head?.time ?? 0) - (trail.samples[0]?.time ?? 0),
   ).toBeLessThanOrEqual(12);
-  expect(
-    advanceTrail(trail, "a", trail.head?.time ?? 0, trail.head?.pitch ?? null),
-  ).toEqual(trail);
+  expect(advanceTrail(trail, "a", trail.head?.time ?? 0, null)).toEqual(trail);
   const vertices = flowVertices({ ...restingFrame, trail }, 390, 844);
   expect(vertices.every(Number.isFinite)).toBe(true);
   expect(vertices.byteLength).toBeLessThanOrEqual(200000);
@@ -71,19 +70,25 @@ it("moves ornaments left while rotating at stable random heights, including a bi
   expect(flowOrnaments(7.1)).toEqual(before);
 });
 
-it("folds octave-like leaps while retaining ordinary melodic intervals", () => {
-  for (const jump of [12, -12, 24, -24]) expect(melodicStep(jump)).toBe(0);
-  expect(melodicStep(14)).toBe(2);
-  expect(melodicStep(-14)).toBe(-2);
-  for (const jump of [-7, -5, 3, 7, 9, 16])
-    expect(melodicStep(jump)).toBe(jump);
-  const first = advanceTrail(emptyTrail, "a", 0, (60 - 69) / 24);
-  const octave = advanceTrail(first, "a", 0.1, (72 - 69) / 24);
+it("uses twelve absolute note-name heights independently of octave and history", () => {
+  expect(noteHeight(60)).toBe(-1);
+  expect(noteHeight(71)).toBe(1);
+  for (const midi of Array.from({ length: 12 }, (_, i) => 60 + i)) {
+    expect(noteHeight(midi + 12)).toBe(noteHeight(midi));
+    expect(noteHeight(midi - 24)).toBe(noteHeight(midi));
+  }
+  for (const midi of Array.from({ length: 11 }, (_, i) => 60 + i))
+    expect(noteHeight(midi + 1) - noteHeight(midi)).toBeCloseTo(2 / 11);
+  const first = advanceTrail(emptyTrail, "a", 0, 60);
+  const octave = advanceTrail(first, "a", 0.1, 72);
   expect(octave.head?.pitch).toBe(first.head?.pitch);
   const silent = advanceTrail(octave, "a", 0.2, null);
   expect(silent.head?.pitch).toBe(octave.head?.pitch);
-  const next = advanceTrail(silent, "a", 0.3, (74 - 69) / 24);
-  expect(next.head?.pitch).toBeCloseTo((62 - 69) / 24);
+  const next = advanceTrail(silent, "a", 0.3, 74);
+  expect(next.head?.pitch).toBe(noteHeight(62));
+  expect(
+    advanceTrail(advanceTrail(next, "a", 0.4, 59), "a", 0.5, 74).head?.pitch,
+  ).toBe(next.head?.pitch);
   expect(advanceTrail(emptyTrail, "a", 0, null).head?.pitch).toBe(0);
 });
 
@@ -91,8 +96,8 @@ it("keeps octave-unison rolls level and continues from that height when the melo
   const notes = [60, 72, 60, 72, 60, 72, 74, 62, 74, 64];
   const expected = [60, 60, 60, 60, 60, 60, 62, 62, 62, 64];
   notes.reduce((state, midi, i) => {
-    const next = advanceTrail(state, "roll", i / 10, (midi - 69) / 24);
-    expect(next.head?.pitch).toBeCloseTo(((expected[i] ?? 0) - 69) / 24);
+    const next = advanceTrail(state, "roll", i / 10, midi);
+    expect(next.head?.pitch).toBe(noteHeight(expected[i] ?? 0));
     return next;
   }, emptyTrail);
 });

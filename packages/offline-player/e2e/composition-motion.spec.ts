@@ -119,7 +119,7 @@ test("旋律のドットは右端に留まり、過去の旋律とモチーフ�
   expect(first.dotX).toBeCloseTo(next.dotX ?? 0, 5);
   await expect
     .poll(async () => (await read()).dotY)
-    .toBeCloseTo(-0.04 + ((76 - 69) / 24) * 0.6, 4);
+    .toBeCloseTo(-0.04 + ((4 / 11) * 2 - 1) * 0.6, 4);
   const colorCount = await page.evaluate(
     () => new Set((globalThis as Scope).motionProbe.pixels).size,
   );

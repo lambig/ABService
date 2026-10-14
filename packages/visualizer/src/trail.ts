@@ -4,7 +4,6 @@ export type MelodyTrail = Readonly<{
   source: string;
   head: MelodyPoint | null;
   samples: readonly MelodyPoint[];
-  rawPitch: number | null;
 }>;
 
 export const trailSeconds = 12;
@@ -13,23 +12,18 @@ export const emptyTrail: MelodyTrail = {
   source: "",
   head: null,
   samples: [],
-  rawPitch: null,
 };
 
-/** Fold only octave-like large jumps; ordinary intervals keep their direction and size. */
-export const melodicStep = (semitones: number): number => {
-  const nearby = ((((semitones + 6) % 12) + 12) % 12) - 6;
-  return Math.abs(semitones) >= 10 && Math.abs(nearby) <= 2
-    ? nearby
-    : semitones;
-};
+/** C through B occupy twelve fixed heights, regardless of octave or prior notes. */
+export const noteHeight = (midi: number): number =>
+  ((((Math.round(midi) % 12) + 12) % 12) / 11) * 2 - 1;
 
 /** Bound storage independently of frame rate; duplicate paused observations do not grow it. */
 export const advanceTrail = (
   previous: MelodyTrail,
   source: string,
   time: number,
-  pitch: number | null,
+  midi: number | null,
 ): MelodyTrail => {
   const base = [
     previous.source !== source,
@@ -37,21 +31,16 @@ export const advanceTrail = (
   ].some(Boolean)
     ? emptyTrail
     : previous;
-  const raw = pitch !== null && Number.isFinite(pitch) ? pitch : null;
   const height =
-    raw === null
-      ? (base.head?.pitch ?? 0)
-      : base.rawPitch === null
-        ? raw
-        : (base.head?.pitch ?? raw) +
-          melodicStep((raw - base.rawPitch) * 24) / 24;
-  const point = { time, pitch: Math.max(-1, Math.min(1, height)) };
+    midi !== null && Number.isFinite(midi)
+      ? noteHeight(midi)
+      : (base.head?.pitch ?? 0);
+  const point = { time, pitch: height };
   const last = base.samples.at(-1);
   const append = last === undefined ? true : time - last.time >= 1 / 30;
   return Number.isFinite(time) && time >= 0
     ? {
         source,
-        rawPitch: raw ?? base.rawPitch,
         head: point,
         samples: (append ? [...base.samples, point] : base.samples)
           .filter((sample) => time - sample.time <= trailSeconds)
