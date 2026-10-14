@@ -784,11 +784,7 @@ html[data-scene-load="true"] #probe {
 
 /* Native UI shares the scene ink; all boxes and artwork keep their geometry. */
 html[data-composition="true"] header,
-html[data-composition="true"] .gallery-heading,
-html[data-composition="true"] .gallery-hint,
-html[data-composition="true"] .album-name,
-html[data-composition="true"] #artist,
-html[data-composition="true"] #description {
+html[data-composition="true"] .album-name {
   background: #f9f5eb;
 }
 html[data-composition="true"] .gallery-heading h2,
