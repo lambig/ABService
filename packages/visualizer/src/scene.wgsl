@@ -55,7 +55,7 @@ fn paperDensity(point: vec2f) -> f32 {
     let crossFiber = paperDensity((cell + vec2f(47, 91)) / vec2f(3, 13));
     let pulp = paperDensity(cell / vec2f(90, 70));
     let paper = vec3f(243, 230, 201) / 255;
-    let texture = fine * 0.012 + fiber * 0.014 + crossFiber * 0.006 + pulp * 0.012;
+    let texture = fine * 0.012 + fiber * 0.017 + crossFiber * 0.007 + pulp * 0.014;
     return vec4f(paper + vec3f(texture), 1);
   }
   // One background surface, with a second atlas sample distributed beyond the artwork rectangle.
