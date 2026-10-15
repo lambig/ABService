@@ -65,7 +65,7 @@ export const trailPosition = (
   now: number,
 ): TrailPosition => ({
   x: trailHeadX - (now - point.time) / trailSeconds,
-  y: 0.52 - point.pitch * 0.3,
+  y: 0.44 - point.pitch * 0.3,
 });
 
 /** Silence carries the last height; seeks clear the history at the playback boundary. */
