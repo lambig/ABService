@@ -104,17 +104,66 @@ test("演出時刻が出力遅延に追従し、一時停止では選択位置�
     probe.latency = 0.02;
   });
   await expect.poll(lag).toBeLessThan(0.1);
-  await page
-    .locator("#pause")
-    .evaluate((node: HTMLButtonElement) => {
-      node.click();
+  const showSettings = async () => {
+    await page.locator("#management-panel").evaluate((node) => {
+      node.removeAttribute("hidden");
     });
+    await page.locator("#exhibition-menu").evaluate((node) => {
+      node.setAttribute("open", "");
+    });
+  };
+  await showSettings();
+  await page.locator("#synchronization-output").selectOption("headphones");
+  await page.locator("#synchronization-delay").fill("200");
+  await page.locator("#synchronization-form button").click();
+  await expect.poll(lag).toBeGreaterThan(0.2);
+  await expect.poll(lag).toBeLessThan(0.3);
+  await page.locator("#pause").evaluate((node: HTMLButtonElement) => {
+    node.click();
+  });
   await expect(page.locator("#play-status")).toHaveText("一時停止");
   await seek(page, 2.5);
   await expect(page.locator("#visualizer")).toHaveAttribute(
     "data-music-position",
     "2.5",
   );
+  await page.reload();
+  await select(page);
+  await showSettings();
+  await expect(page.locator("#synchronization-output")).toHaveValue(
+    "headphones",
+  );
+  await expect(page.locator("#synchronization-delay")).toHaveValue("200");
+  await page.locator("#play").click();
+  await expect.poll(lag).toBeGreaterThan(0.38);
+  await expect.poll(lag).toBeLessThan(0.48);
+  await showSettings();
+  await page.locator("#synchronization-output").selectOption("speaker");
+  await expect(page.locator("#synchronization-delay")).toHaveValue("0");
+  await page.locator("#synchronization-form button").click();
+  await expect.poll(lag).toBeLessThan(0.28);
+  await page.reload();
+  await showSettings();
+  await expect(page.locator("#synchronization-output")).toHaveValue("speaker");
+  await page.locator("#synchronization-output").selectOption("headphones");
+  await expect(page.locator("#synchronization-delay")).toHaveValue("200");
+  await page.evaluate(() => {
+    Storage.prototype.setItem = () => {
+      throw new Error("storage unavailable");
+    };
+  });
+  await page.locator("#synchronization-form button").click();
+  await expect(page.locator("#synchronization-status")).toContainText(
+    "適用中の同期設定は変更していません",
+  );
+  expect(
+    await page.evaluate(
+      () =>
+        JSON.parse(
+          localStorage.getItem("exhibition-synchronization-v1") ?? "null",
+        ) as unknown,
+    ),
+  ).toEqual({ selected: "speaker", speaker: 0, headphones: 200 });
 });
 
 test("解析を音源照合して保存し、offline再起動・seek・pause・作品切替・loopに追従する", async ({

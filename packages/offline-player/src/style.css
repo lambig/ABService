@@ -757,6 +757,20 @@ html[data-scene-load="true"] #probe {
 #space-error:empty {
   display: none;
 }
+#synchronization-form {
+  display: grid;
+  gap: 8px;
+  margin-block: 8px 16px;
+}
+#synchronization-form :is(input, select) {
+  width: 100%;
+  min-height: 44px;
+}
+#synchronization-form p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
 #management-panel #exhibition-menu[open] :is(#stop, #pause, #open-preparation) {
   position: static;
   display: block;

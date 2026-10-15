@@ -1,5 +1,6 @@
 /* eslint-disable functional/immutable-data -- This boundary owns local PIN verification, temporary controls, and DOM timers. */
 import { element } from "./dom";
+import { synchronization } from "./synchronization";
 const key = "exhibition-management-v1";
 type Lock = Readonly<{
   salt: number[];
@@ -57,6 +58,7 @@ const hash = async (pin: string, salt: number[]): Promise<string> => {
 export const management = () => {
   const button = element("#management-unlock", HTMLButtonElement);
   const panel = element("#management-panel", HTMLElement);
+  const presentationDelay = synchronization(panel);
   const dialog = element("#management-auth", HTMLDialogElement);
   const form = element("#management-auth-form", HTMLFormElement);
   const pin = element("#management-pin", HTMLInputElement);
@@ -247,7 +249,9 @@ export const management = () => {
   button.addEventListener("keyup", cancelHold);
   panel.addEventListener("click", (event) => {
     (event.target instanceof HTMLButtonElement &&
-      event.target.closest("#space-form, #device-analysis-controls") === null
+      event.target.closest(
+        "#space-form, #device-analysis-controls, #synchronization-form",
+      ) === null
       ? close
       : () => undefined)();
   });
@@ -275,6 +279,7 @@ export const management = () => {
     { once: true },
   );
   return {
+    presentationDelay,
     start: (action: () => void): void => {
       try {
         (read() === undefined

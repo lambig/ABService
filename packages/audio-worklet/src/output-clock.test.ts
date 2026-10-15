@@ -61,3 +61,26 @@ it("scales the delay by playback rate and ignores unavailable or invalid estimat
   output.outputLatency = 1;
   expect(clock.time()).toBe(10);
 });
+
+it("applies live signed calibration within bounds without changing paused positions", () => {
+  const { media, output } = fixture();
+  const adjustment = { value: 0.02 };
+  const clock = createOutputClock(
+    media,
+    () => output,
+    () => adjustment.value,
+  );
+  expect(clock.time()).toBeCloseTo(9.95);
+  adjustment.value = -0.02;
+  expect(clock.time()).toBeCloseTo(9.99);
+  adjustment.value = -1;
+  expect(clock.time()).toBe(10);
+  media.currentTime = 11;
+  adjustment.value = 1;
+  expect(clock.time()).toBeCloseTo(10.72);
+  adjustment.value = Number.NaN;
+  expect(clock.time()).toBeCloseTo(10.97);
+  media.paused = true;
+  adjustment.value = 0.2;
+  expect(clock.time()).toBe(11);
+});

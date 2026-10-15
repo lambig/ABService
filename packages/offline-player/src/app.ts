@@ -280,6 +280,7 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
       /* Watching starts before connecting so that the last playback stats are copied before the connection is dropped. */
       const attach = audioProbe?.watch(signal);
       const connection = connectMediaAnalysis(media, signal, {
+        presentationDelay: admin.presentationDelay,
         onFeatures:
           audioProbe === undefined
             ? visual.update

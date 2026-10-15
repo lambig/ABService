@@ -13,6 +13,8 @@ export type MediaAnalysisOptions = Readonly<{
   onError: (error: Error) => void;
   /** 通知の区間の Worklet の平均負荷率（`meanLoad`）。性能の計測でだけ使う。 */
   onLoad?: (load: number) => void;
+  /** Additional visual delay in seconds; positive values make the scene later. */
+  presentationDelay?: () => number;
 }>;
 
 /**
@@ -92,7 +94,11 @@ export const connectMediaAnalysis = (
     connected: false,
     epoch: 0,
   };
-  const outputClock = createOutputClock(media, () => state.context);
+  const outputClock = createOutputClock(
+    media,
+    () => state.context,
+    options.presentationDelay,
+  );
   const clearNode = (): void => {
     state.node?.port.postMessage({ kind: "dispose" });
     (state.connected && state.node !== null

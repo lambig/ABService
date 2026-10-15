@@ -18,6 +18,7 @@ const seconds = (value: number | undefined): number =>
 export const createOutputClock = (
   media: MediaClock,
   context: () => OutputClock | null,
+  adjustment: () => number = () => 0,
 ) => {
   const previous: { media: number | null; presentation: number } = {
     media: null,
@@ -32,8 +33,15 @@ export const createOutputClock = (
     const running = [media.paused, media.seeking, media.ended].some(Boolean)
       ? false
       : output?.state === "running";
+    const requested = adjustment();
+    const extra = Number.isFinite(requested)
+      ? Math.max(-0.25, Math.min(0.25, requested))
+      : 0;
     const delay = running
-      ? seconds(output?.baseLatency) + seconds(output?.outputLatency)
+      ? Math.max(
+          0,
+          seconds(output?.baseLatency) + seconds(output?.outputLatency) + extra,
+        )
       : 0;
     const corrected = Math.max(
       0,
