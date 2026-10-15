@@ -1,6 +1,27 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { candidateApi, requiredJobs, verifyCandidate } from './candidate.mjs';
+import { candidateApi, requiredJobNames, requiredJobs, verifyCandidate } from './candidate.mjs';
+
+test('the listening release contract requires both real OS job names', () => {
+  assert.deepEqual(requiredJobs.filter((name) => name.startsWith('Listening frontend')), [
+    'Listening frontend (ubuntu-latest)', 'Listening frontend (windows-latest)',
+  ]);
+  assert.ok(requiredJobs.every((name) => !name.includes('${{')));
+});
+
+test('unsupported matrix shapes and unnamed jobs fail closed', () => {
+  const workflow = 'name: CI\njobs:\n  check:\n    name: Check (${{ matrix.os }})\n    strategy:\n      fail-fast: false\n      matrix:\n        os: [ubuntu-latest, windows-latest]\n    runs-on: ${{ matrix.os }}\n';
+  assert.deepEqual(requiredJobNames(workflow), ['Check (ubuntu-latest)', 'Check (windows-latest)']);
+  assert.deepEqual(requiredJobNames(workflow.replaceAll('\n', '\r\n')), ['Check (ubuntu-latest)', 'Check (windows-latest)']);
+  for (const invalid of [
+    workflow.replace('        os:', '        arch:'),
+    workflow.replace('windows-latest]', 'ubuntu-latest]'),
+    workflow.replace('    runs-on:', '        include: []\n    runs-on:'),
+    workflow.replace('    runs-on:', '        arch: [x64, arm64]\n    runs-on:'),
+    workflow.replace('Check (${{ matrix.os }})', 'Check'),
+    workflow.replace('    name: Check (${{ matrix.os }})\n', ''),
+  ]) assert.throws(() => requiredJobNames(invalid));
+});
 
 test('separate operations caller reads public source CI without forwarding its token', () => {
   const api = candidateApi({ GITHUB_REPOSITORY: 'owner/operations', SOURCE_REPOSITORY: 'owner/source',
@@ -31,6 +52,21 @@ const verify = (responses = fixture(), patch = {}, onMain = true) => verifyCandi
   assert.ok(Object.hasOwn(responses, path), `Unexpected API path: ${path}`);
   return responses[path];
 }, () => onMain);
+
+test('neither a missing nor unsuccessful OS leg can pass release validation', async () => {
+  for (const name of ['Listening frontend (ubuntu-latest)', 'Listening frontend (windows-latest)']) {
+    for (const outcome of ['missing', 'duplicate', 'skipped', 'failure', 'cancelled']) {
+      const responses = fixture();
+      const page = responses['actions/runs/123/attempts/2/jobs?per_page=100&page=1'];
+      const job = page.jobs.find((item) => item.name === name);
+      if (outcome === 'missing') page.jobs = page.jobs.filter((item) => item !== job);
+      else if (outcome === 'duplicate') page.jobs.push({ ...job });
+      else job.conclusion = outcome;
+      page.total_count = page.jobs.length;
+      await assert.rejects(verify(responses));
+    }
+  }
+});
 
 test('successful stack acceptance cannot hide omitted Playwright in a release', async () => {
   const responses = fixture();
