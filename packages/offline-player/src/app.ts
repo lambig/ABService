@@ -276,11 +276,11 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
       (state.phase === "error" ? preparation.invalidate : () => undefined)();
     }),
     (media, signal) => {
-      music.attach(media, signal);
       analysisStatus.textContent = "";
       /* Watching starts before connecting so that the last playback stats are copied before the connection is dropped. */
       const attach = audioProbe?.watch(signal);
       const connection = connectMediaAnalysis(media, signal, {
+        presentationDelay: admin.presentationDelay,
         onFeatures:
           audioProbe === undefined
             ? visual.update
@@ -301,6 +301,7 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
         },
         ...(audioProbe === undefined ? {} : { onLoad: audioProbe.load }),
       });
+      music.attach(media, signal, connection.presentationTime);
       attach?.(connection);
       return connection;
     },

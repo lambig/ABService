@@ -3,6 +3,7 @@ import { audioFeatures } from "abservice-audio-dsp";
 import type { AudioFeatures } from "abservice-audio-dsp";
 import { meanLoad } from "./accumulator";
 import { loadAudioKernel } from "./kernel-module";
+import { createOutputClock } from "./output-clock";
 import processorUrl from "./features-processor.ts?worker&url";
 
 /** 解析を失っても音声の直接出力は維持し、障害を表示側へ通知する。 */
@@ -12,6 +13,8 @@ export type MediaAnalysisOptions = Readonly<{
   onError: (error: Error) => void;
   /** 通知の区間の Worklet の平均負荷率（`meanLoad`）。性能の計測でだけ使う。 */
   onLoad?: (load: number) => void;
+  /** Additional visual delay in seconds; positive values make the scene later. */
+  presentationDelay?: () => number;
 }>;
 
 /**
@@ -60,6 +63,8 @@ export const connectMediaAnalysis = (
   pause: () => void;
   seek: () => void;
   stats: () => AudioPlaybackStats | null;
+  /** Media position estimated to be audible at the current output device. */
+  presentationTime: () => number;
   /** 解析している AudioContext の sampleRate。接続を作れない場合は undefined。 */
   sampleRate: () => number | undefined;
 }> => {
@@ -89,6 +94,11 @@ export const connectMediaAnalysis = (
     connected: false,
     epoch: 0,
   };
+  const outputClock = createOutputClock(
+    media,
+    () => state.context,
+    options.presentationDelay,
+  );
   const clearNode = (): void => {
     state.node?.port.postMessage({ kind: "dispose" });
     (state.connected && state.node !== null
@@ -113,6 +123,7 @@ export const connectMediaAnalysis = (
     ([signal.aborted, state.failed].some(Boolean) ? () => undefined : report)();
   };
   const reset = (): void => {
+    outputClock.reset();
     state.epoch += 1;
     state.node?.port.postMessage({ epoch: state.epoch });
     options.onReset();
@@ -263,6 +274,7 @@ export const connectMediaAnalysis = (
     pause,
     seek: reset,
     stats: () => playbackStats(state.context),
+    presentationTime: outputClock.time,
     sampleRate: () => state.context?.sampleRate,
   });
 };

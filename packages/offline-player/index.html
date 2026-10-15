@@ -40,6 +40,29 @@
           <button id="fullscreen" type="button">全画面</button>
           <details id="exhibition-menu">
             <summary>展示設定</summary>
+            <form id="synchronization-form">
+              <label for="synchronization-output">音声出力の同期設定</label>
+              <select id="synchronization-output">
+                <option value="speaker">本体スピーカー用</option>
+                <option value="headphones">ヘッドホン用</option>
+              </select>
+              <label for="synchronization-delay">映像の微調整（ms）</label>
+              <input
+                id="synchronization-delay"
+                type="number"
+                min="-250"
+                max="250"
+                step="10"
+                value="0"
+                required
+                aria-describedby="synchronization-help"
+              />
+              <p id="synchronization-help">
+                自動補正に加える調整です。音が遅いときは＋、映像が遅いときは−にします。出力を変更したら使用する設定を選んで適用してください。音声の接続先は変更しません。
+              </p>
+              <button type="submit">同期設定を保存して適用</button>
+              <p id="synchronization-status" role="status"></p>
+            </form>
             <button id="stop" disabled>展示を終了</button
             ><button id="pause" disabled>一時停止</button>
             <button id="open-preparation" hidden>配布物を準備する</button>
