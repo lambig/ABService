@@ -1,10 +1,68 @@
 /* eslint-disable functional/immutable-data -- Fault injection exercises the browser authentication boundary. */
 import { expect, test } from "@playwright/test";
-import { distribute, prepareAndReload, openManagement } from "./support";
+import {
+  distribute,
+  prepareAndReload,
+  openManagement,
+  enterManagementPin,
+} from "./support";
 
 test.beforeEach(async ({ page, request }) => {
   await distribute(request, "v1");
   await prepareAndReload(page);
+});
+
+test("数字キーはPINを入力欄やDOMへ出さず、桁数制限と取消しを維持する", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 780 });
+  await page.locator("#management-unlock").focus();
+  await page.keyboard.down(" ");
+  await page.waitForTimeout(2100);
+  await page.keyboard.up(" ");
+  const dialog = page.locator("#management-auth");
+  await dialog.screenshot({ path: testInfo.outputPath("pin-keypad.png") });
+  await expect(
+    dialog.locator("input, textarea, [contenteditable=true]"),
+  ).toHaveCount(0);
+  for (const digit of "12345")
+    await dialog.locator(`[data-digit="${digit}"]`).click();
+  await dialog.getByRole("button", { name: "確認", exact: true }).click();
+  await expect(page.locator("#management-auth-error")).toContainText("6〜32桁");
+  await enterManagementPin(page, "123456");
+  await dialog.getByRole("button", { name: "1桁戻す", exact: true }).click();
+  await expect(page.locator("#management-pin")).toHaveAttribute(
+    "aria-label",
+    "管理PIN、5桁入力済み",
+  );
+  await dialog.locator('[data-digit="6"]').click();
+  await expect(dialog).not.toContainText("123456");
+  expect(await dialog.innerHTML()).not.toContain("123456");
+  await dialog.getByRole("button", { name: "確認", exact: true }).click();
+  await expect(page.locator("#management-panel")).toBeVisible();
+  await page.reload();
+  await page.locator("#management-unlock").focus();
+  await page.keyboard.down(" ");
+  await page.waitForTimeout(2100);
+  await page.keyboard.up(" ");
+  await enterManagementPin(page, "7".repeat(40));
+  await expect(page.locator("#management-pin")).toHaveAttribute(
+    "aria-label",
+    "管理PIN、32桁入力済み",
+  );
+  await dialog.getByRole("button", { name: "消去", exact: true }).click();
+  await expect(page.locator("#management-pin")).toHaveAttribute(
+    "aria-label",
+    "管理PIN、0桁入力済み",
+  );
+  await enterManagementPin(page, "123456");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(page.locator("#management-pin")).toHaveAttribute(
+    "aria-label",
+    "管理PIN、0桁入力済み",
+  );
+  await expect(page.locator("#management-panel")).toBeHidden();
 });
 
 test("短押しで管理は開かず、PIN照合後の操作で再びロックする", async ({
@@ -20,7 +78,7 @@ test("短押しで管理は開かず、PIN照合後の操作で再びロック�
   await page.keyboard.down(" ");
   await page.waitForTimeout(2100);
   await page.keyboard.up(" ");
-  await page.locator("#management-pin").fill("000000");
+  await enterManagementPin(page, "000000", "pin");
   await page.locator("#management-auth button[type=submit]").click();
   await expect(page.locator("#management-auth-error")).toHaveText(
     "PINが違います。",
@@ -70,8 +128,8 @@ test("初回はPINの設定完了まで展示を開始せず、保存失敗時�
   await expect(page.locator("#management-auth-title")).toHaveText(
     "展示の管理PINを設定",
   );
-  await page.locator("#management-pin").fill("654321");
-  await page.locator("#management-confirm").fill("654322");
+  await enterManagementPin(page, "654321", "pin");
+  await enterManagementPin(page, "654322", "confirm");
   await page.locator("#management-auth button[type=submit]").click();
   await expect(page.locator("#management-auth-error")).toHaveText(
     "PINが一致しません。",
@@ -90,8 +148,8 @@ test("初回はPINの設定完了まで展示を開始せず、保存失敗時�
           })();
     };
   });
-  await page.locator("#management-pin").fill("654321");
-  await page.locator("#management-confirm").fill("654321");
+  await enterManagementPin(page, "654321", "pin");
+  await enterManagementPin(page, "654321", "confirm");
   await page.locator("#management-auth button[type=submit]").click();
   await expect(page.locator("#management-auth-error")).toHaveText(
     "Storage unavailable",
@@ -103,8 +161,8 @@ test("初回はPINの設定完了まで展示を開始せず、保存失敗時�
     .click();
   await expect(page.locator("#play")).toBeEnabled();
   await page.locator("#play").click();
-  await page.locator("#management-pin").fill("654321");
-  await page.locator("#management-confirm").fill("654321");
+  await enterManagementPin(page, "654321", "pin");
+  await enterManagementPin(page, "654321", "confirm");
   await page.locator("#management-auth button[type=submit]").click();
   await expect(page.locator("#play-status")).toHaveText("再生中");
   await expect(page.locator("#management-panel")).toBeHidden();
@@ -124,7 +182,7 @@ test("照合中に戻った場合は遅れて解錠せず、失敗回数制限�
   await page.keyboard.down(" ");
   await page.waitForTimeout(2100);
   await page.keyboard.up(" ");
-  await page.locator("#management-pin").fill("123456");
+  await enterManagementPin(page, "123456", "pin");
   await page.locator("#management-auth button[type=submit]").click();
   await page.locator("#management-auth-cancel").click();
   await page.waitForTimeout(1000);
@@ -142,7 +200,7 @@ test("照合中に戻った場合は遅れて解錠せず、失敗回数制限�
   await page.keyboard.down(" ");
   await page.waitForTimeout(2100);
   await page.keyboard.up(" ");
-  await page.locator("#management-pin").fill("000000");
+  await enterManagementPin(page, "000000", "pin");
   await page.locator("#management-auth button[type=submit]").click();
   await expect(page.locator("#management-auth-error")).toHaveText(
     "PINが違います。",
@@ -152,7 +210,7 @@ test("照合中に戻った場合は遅れて解錠せず、失敗回数制限�
   await page.keyboard.down(" ");
   await page.waitForTimeout(2100);
   await page.keyboard.up(" ");
-  await page.locator("#management-pin").fill("123456");
+  await enterManagementPin(page, "123456", "pin");
   await page.locator("#management-auth button[type=submit]").click();
   await expect(page.locator("#management-auth-error")).toContainText(
     "試行回数が多い",

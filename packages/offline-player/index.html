@@ -114,29 +114,30 @@
     </header>
     <p id="display-status" role="status"></p>
     <dialog id="management-auth" aria-labelledby="management-auth-title">
-      <form id="management-auth-form">
+      <form id="management-auth-form" autocomplete="off">
         <h2 id="management-auth-title">管理操作のロック解除</h2>
         <p id="management-auth-help"></p>
-        <label for="management-pin">管理PIN（6桁以上の数字）</label>
-        <input
-          id="management-pin"
-          type="password"
-          inputmode="numeric"
-          pattern="[0-9]{6,}"
-          minlength="6"
-          maxlength="32"
-          autocomplete="off"
-          required
-        />
-        <label id="management-confirm-label" for="management-confirm"
-          >PINをもう一度入力</label
-        >
-        <input
+        <p>数字キーで6〜32桁を入力してください。</p>
+        <button id="management-pin" type="button" aria-pressed="true"></button>
+        <button
           id="management-confirm"
-          type="password"
-          inputmode="numeric"
-          autocomplete="off"
-        />
+          type="button"
+          aria-pressed="false"
+        ></button>
+        <div id="management-keypad" role="group" aria-label="管理PINの数字キー">
+          <button type="button" data-digit="1">1</button>
+          <button type="button" data-digit="2">2</button>
+          <button type="button" data-digit="3">3</button>
+          <button type="button" data-digit="4">4</button>
+          <button type="button" data-digit="5">5</button>
+          <button type="button" data-digit="6">6</button>
+          <button type="button" data-digit="7">7</button>
+          <button type="button" data-digit="8">8</button>
+          <button type="button" data-digit="9">9</button>
+          <button type="button" data-edit="clear">消去</button>
+          <button type="button" data-digit="0">0</button>
+          <button type="button" data-edit="backspace">1桁戻す</button>
+        </div>
         <p id="management-auth-error" role="alert"></p>
         <div>
           <button type="submit">確認</button

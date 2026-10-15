@@ -791,15 +791,23 @@ html[data-scene-load="true"] #probe {
 #management-auth::backdrop {
   background: #000a;
 }
-#management-auth label {
-  display: block;
-  margin-top: 12px;
-}
-#management-auth input {
+#management-auth :is(#management-pin, #management-confirm):not([hidden]) {
   display: block;
   width: 100%;
   min-height: 44px;
   margin: 4px 0 12px;
+  overflow-wrap: anywhere;
+}
+#management-auth button[aria-pressed="true"] {
+  outline: 2px solid #62513c;
+}
+#management-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+#management-keypad button {
+  min-height: 44px;
 }
 #management-auth-error {
   color: #9a281b;
