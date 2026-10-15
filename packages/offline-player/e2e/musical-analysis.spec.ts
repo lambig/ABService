@@ -48,6 +48,75 @@ test.beforeEach(async ({ request }) => {
   await distribute(request, "v1");
 });
 
+test("演出時刻が出力遅延に追従し、一時停止では選択位置を示す", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const probe = { latency: 0.2, media: null as HTMLMediaElement | null };
+    Object.assign(globalThis, { outputClockProbe: probe });
+    Object.defineProperty(AudioContext.prototype, "baseLatency", {
+      get: () => 0.01,
+    });
+    Object.defineProperty(AudioContext.prototype, "outputLatency", {
+      get: () => probe.latency,
+    });
+    /* eslint-disable-next-line @typescript-eslint/unbound-method -- The wrapper calls the original method with its actual AudioContext receiver. */
+    const create = AudioContext.prototype.createMediaElementSource;
+    AudioContext.prototype.createMediaElementSource = function (media) {
+      probe.media = media;
+      return create.call(this, media);
+    };
+  });
+  await page.goto(entry);
+  await prepareOnline(page);
+  await page.reload();
+  const duration = await select(page);
+  await upload(page, sample(duration));
+  await expect(page.locator("#visualizer")).toHaveAttribute(
+    "data-music-status",
+    "ready",
+  );
+  await page.locator("#play").click();
+  const lag = () =>
+    page.evaluate(() => {
+      const probe = (
+        globalThis as typeof globalThis & {
+          outputClockProbe: { latency: number; media: HTMLMediaElement | null };
+        }
+      ).outputClockProbe;
+      return (
+        (probe.media?.currentTime ?? 0) -
+        Number(
+          document.querySelector<HTMLElement>("#visualizer")?.dataset[
+            "musicPosition"
+          ],
+        )
+      );
+    });
+  await expect.poll(lag).toBeGreaterThan(0.18);
+  await expect.poll(lag).toBeLessThan(0.28);
+  await page.evaluate(() => {
+    const probe = (
+      globalThis as typeof globalThis & {
+        outputClockProbe: { latency: number };
+      }
+    ).outputClockProbe;
+    probe.latency = 0.02;
+  });
+  await expect.poll(lag).toBeLessThan(0.1);
+  await page
+    .locator("#pause")
+    .evaluate((node: HTMLButtonElement) => {
+      node.click();
+    });
+  await expect(page.locator("#play-status")).toHaveText("一時停止");
+  await seek(page, 2.5);
+  await expect(page.locator("#visualizer")).toHaveAttribute(
+    "data-music-position",
+    "2.5",
+  );
+});
+
 test("解析を音源照合して保存し、offline再起動・seek・pause・作品切替・loopに追従する", async ({
   page,
   context,
@@ -72,7 +141,9 @@ test("解析を音源照合して保存し、offline再起動・seek・pause・�
     }));
   const first = await expression();
   expect(first.melody).not.toBe("0");
-  const firstInk = await next.locator("#album-title").evaluate((node) => getComputedStyle(node).color);
+  const firstInk = await next
+    .locator("#album-title")
+    .evaluate((node) => getComputedStyle(node).color);
   await expect(next.locator("#artwork")).toHaveCSS("transform", "none");
   await expect(next.locator("#album-title")).toHaveCSS("text-shadow", "none");
   expect(first.active).toBe("1");

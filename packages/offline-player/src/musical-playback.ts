@@ -34,6 +34,7 @@ export const musicalPlayback = (
     media: HTMLMediaElement | null;
     frame: number | null;
     phase: PlayerSnapshot["phase"];
+    time: (() => number) | null;
   } = {
     item: null,
     request: new AbortController(),
@@ -43,6 +44,7 @@ export const musicalPlayback = (
     media: null,
     frame: null,
     phase: "idle",
+    time: null,
   };
   const publish = (): void => {
     const media = cell.media;
@@ -56,17 +58,18 @@ export const musicalPlayback = (
       media !== null &&
       ["ready", "playing", "paused", "seeking"].includes(cell.phase);
     const status = mismatch ? "invalid" : active ? cell.status : "inactive";
+    const position = cell.time?.() ?? media?.currentTime ?? 0;
     changed(
       Object.freeze({
         status,
         playbackItemId: cell.item,
         analysisVersion: data?.analysisVersion ?? null,
         ...(active && status === "ready" && cell.plan !== null
-          ? { flow: flowMoment(cell.plan, media.currentTime) }
+          ? { flow: flowMoment(cell.plan, position) }
           : {}),
         moment:
           active && (mismatch ? false : true) && data !== undefined
-            ? musicalMoment(data, media.currentTime)
+            ? musicalMoment(data, position)
             : null,
       }),
     );
@@ -137,9 +140,14 @@ export const musicalPlayback = (
           }
         : publish)();
     },
-    attach: (media: HTMLMediaElement, signal: AbortSignal): void => {
+    attach: (
+      media: HTMLMediaElement,
+      signal: AbortSignal,
+      time: () => number,
+    ): void => {
       cancel();
       cell.media = media;
+      cell.time = time;
       const update = (): void => {
         cancel();
         tick();
@@ -161,6 +169,7 @@ export const musicalPlayback = (
           when(cell.media === media, () => {
             cancel();
             cell.media = null;
+            cell.time = null;
             publish();
           });
         },
@@ -172,6 +181,7 @@ export const musicalPlayback = (
       cell.request.abort();
       cancel();
       cell.media = null;
+      cell.time = null;
       cell.data = undefined;
       cell.plan = null;
       publish();
