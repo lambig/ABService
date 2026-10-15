@@ -73,8 +73,10 @@ it("applies live signed calibration within bounds without changing paused positi
   expect(clock.time()).toBeCloseTo(9.95);
   adjustment.value = -0.02;
   expect(clock.time()).toBeCloseTo(9.99);
+  adjustment.value = -0.25;
+  expect(clock.time()).toBeCloseTo(10.22);
   adjustment.value = -1;
-  expect(clock.time()).toBe(10);
+  expect(clock.time()).toBeCloseTo(10.22);
   media.currentTime = 11;
   adjustment.value = 1;
   expect(clock.time()).toBeCloseTo(10.72);

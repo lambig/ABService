@@ -38,10 +38,7 @@ export const createOutputClock = (
       ? Math.max(-0.25, Math.min(0.25, requested))
       : 0;
     const delay = running
-      ? Math.max(
-          0,
-          seconds(output?.baseLatency) + seconds(output?.outputLatency) + extra,
-        )
+      ? seconds(output?.baseLatency) + seconds(output?.outputLatency) + extra
       : 0;
     const corrected = Math.max(
       0,
