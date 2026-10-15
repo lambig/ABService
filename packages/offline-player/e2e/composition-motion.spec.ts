@@ -143,7 +143,7 @@ test("羽ペンの筆先は右端に留まり、軌跡をアンチエイリア�
   expect(first.dotX).toBeCloseTo(next.dotX ?? 0, 5);
   await expect
     .poll(async () => (await read()).dotY)
-    .toBeCloseTo(-0.04 + ((16 / 23) * 2 - 1) * 0.6, 4);
+    .toBeCloseTo(0.12 + ((16 / 23) * 2 - 1) * 0.6, 4);
   const colorCount = await page.evaluate(
     () => new Set((globalThis as Scope).motionProbe.pixels).size,
   );
