@@ -61,8 +61,8 @@ export const management = () => {
   const presentationDelay = synchronization(panel);
   const dialog = element("#management-auth", HTMLDialogElement);
   const form = element("#management-auth-form", HTMLFormElement);
-  const pin = element("#management-pin", HTMLInputElement);
-  const confirm = element("#management-confirm", HTMLInputElement);
+  const pin = element("#management-pin", HTMLButtonElement);
+  const confirm = element("#management-confirm", HTMLButtonElement);
   const error = element("#management-auth-error", HTMLElement);
   const state = {
     hold: 0,
@@ -71,7 +71,88 @@ export const management = () => {
     setup: false,
     busy: false,
     request: new AbortController(),
+    values: { pin: "", confirm: "" },
+    active: "pin" as "pin" | "confirm",
   };
+  /* PASSWORD-MANAGER: Password fields ignore autocomplete=off in some browsers. Digits stay in
+     memory while the controls expose only masks and character counts. */
+  const showPin = (): void => {
+    for (const [id, control, label] of [
+      ["pin", pin, "管理PIN"],
+      ["confirm", confirm, "PINをもう一度入力"],
+    ] as const) {
+      const length = state.values[id].length;
+      control.textContent = `${label}: ${length === 0 ? "未入力" : "●".repeat(length)}`;
+      control.setAttribute(
+        "aria-label",
+        `${label}、${String(length)}桁入力済み`,
+      );
+      control.setAttribute("aria-pressed", String(state.active === id));
+    }
+  };
+  const editPin = (key: string): void => {
+    const value = state.values[state.active];
+    const editable = state.busy ? false : dialog.open;
+    state.values[state.active] = editable
+      ? /^[0-9]$/.test(key)
+        ? (value + key).slice(0, 32)
+        : key === "Backspace"
+          ? value.slice(0, -1)
+          : key === "Delete"
+            ? ""
+            : value
+      : value;
+    showPin();
+  };
+  for (const [id, control] of [
+    ["pin", pin],
+    ["confirm", confirm],
+  ] as const) {
+    control.addEventListener("click", () => {
+      state.active = id;
+      showPin();
+    });
+    control.addEventListener("focus", () => {
+      state.active = id;
+      showPin();
+    });
+  }
+  element("#management-keypad", HTMLElement).addEventListener(
+    "click",
+    (event) => {
+      const target = event.target;
+      (target instanceof HTMLButtonElement
+        ? () => {
+            editPin(
+              target.dataset["digit"] ??
+                (target.dataset["edit"] === "clear" ? "Delete" : "Backspace"),
+            );
+          }
+        : () => undefined)();
+    },
+  );
+  form.addEventListener("keydown", (event) => {
+    const modified = [event.ctrlKey, event.altKey, event.metaKey].some(Boolean);
+    (modified
+      ? () => undefined
+      : /^[0-9]$/.test(event.key)
+        ? () => {
+            event.preventDefault();
+            editPin(event.key);
+          }
+        : ["Backspace", "Delete"].includes(event.key)
+          ? () => {
+              event.preventDefault();
+              editPin(event.key);
+            }
+          : event.key === "Enter" &&
+              [pin, confirm].some((control) => event.target === control)
+            ? () => {
+                event.preventDefault();
+                form.requestSubmit();
+              }
+            : () => undefined)();
+  });
   const cancelHold = (): void => {
     clearTimeout(state.hold);
     button.dataset["holding"] = "false";
@@ -122,8 +203,10 @@ export const management = () => {
   const clear = (): void => {
     state.request.abort();
     state.request = new AbortController();
-    pin.value = "";
-    confirm.value = "";
+    state.values.pin = "";
+    state.values.confirm = "";
+    state.active = "pin";
+    showPin();
     state.action = () => {};
   };
   const authenticate = (action: () => void): void => {
@@ -140,8 +223,6 @@ export const management = () => {
         ? "試聴中の管理操作を保護します。端末のロック解除とは別のPINです。"
         : "管理PINを入力してください。";
       confirm.hidden = state.setup ? false : true;
-      confirm.required = state.setup;
-      element("#management-confirm-label", HTMLElement).hidden = confirm.hidden;
       dialog.showModal();
       pin.focus();
     } catch {
@@ -156,18 +237,23 @@ export const management = () => {
       state.busy = true;
       error.textContent = "";
       try {
+        await (/^[0-9]{6,32}$/.test(state.values.pin)
+          ? Promise.resolve()
+          : Promise.reject(
+              new Error("PINは6〜32桁の数字で入力してください。"),
+            ));
         const lock = read();
         await (lock !== undefined && lock.retryAt > Date.now()
           ? Promise.reject(
               new Error("試行回数が多いため、30秒ほど待ってください。"),
             )
           : Promise.resolve());
-        await (state.setup && pin.value !== confirm.value
+        await (state.setup && state.values.pin !== state.values.confirm
           ? Promise.reject(new Error("PINが一致しません。"))
           : Promise.resolve());
         const salt =
           lock?.salt ?? Array.from(crypto.getRandomValues(new Uint8Array(16)));
-        const digest = await hash(pin.value, salt);
+        const digest = await hash(state.values.pin, salt);
         request.signal.throwIfAborted();
         const valid = lock === undefined ? true : lock.digest === digest;
         const failures = (lock?.failures ?? 0) + 1;
@@ -198,8 +284,10 @@ export const management = () => {
                 caught instanceof Error
                   ? caught.message
                   : "管理ロックを確認できません。";
-              pin.value = "";
-              confirm.value = "";
+              state.values.pin = "";
+              state.values.confirm = "";
+              state.active = "pin";
+              showPin();
             })();
       } finally {
         state.busy = false;

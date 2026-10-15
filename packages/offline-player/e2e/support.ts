@@ -127,7 +127,17 @@ export const openManagement = async (page: Page): Promise<void> => {
   await page.waitForTimeout(2100);
   await page.keyboard.up(" ");
   await expect(page.locator("#management-auth")).toBeVisible();
-  await page.locator("#management-pin").fill("123456");
+  await enterManagementPin(page, "123456", "pin");
   await page.locator("#management-auth button[type=submit]").click();
   await expect(page.locator("#management-panel")).toBeVisible();
+};
+
+export const enterManagementPin = async (
+  page: Page,
+  digits: string,
+  field: "pin" | "confirm" = "pin",
+): Promise<void> => {
+  await page.locator(`#management-${field}`).click();
+  await page.keyboard.press("Delete");
+  await page.keyboard.type(digits);
 };
