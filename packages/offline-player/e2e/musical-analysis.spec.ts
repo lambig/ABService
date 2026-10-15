@@ -66,17 +66,21 @@ test("解析を音源照合して保存し、offline再起動・seek・pause・�
   await expect(canvas).toHaveAttribute("data-melody-midi", "72");
   const expression = () =>
     next.locator("html").evaluate((node) => ({
-      melody: node.style.getPropertyValue("--melody-lift"),
+      melody: node.style.getPropertyValue("--melody-pitch"),
       harmony: node.style.getPropertyValue("--harmony-hue"),
       active: node.style.getPropertyValue("--harmony-presence"),
     }));
   const first = await expression();
-  expect(first.melody).not.toBe("0px");
+  expect(first.melody).not.toBe("0");
+  const firstInk = await next.locator("#album-title").evaluate((node) => getComputedStyle(node).color);
+  await expect(next.locator("#artwork")).toHaveCSS("transform", "none");
+  await expect(next.locator("#album-title")).toHaveCSS("text-shadow", "none");
   expect(first.active).toBe("1");
   await seek(next, 1.5);
   await expect(canvas).toHaveAttribute("data-melody-midi", "");
   await expect(canvas).toHaveAttribute("data-harmony-quality", "sus4");
-  expect(await expression()).toEqual({ ...first, melody: "0px" });
+  expect(await expression()).toEqual({ ...first, melody: "0" });
+  await expect(next.locator("#album-title")).toHaveCSS("color", firstInk);
   await seek(next, 2.5);
   await expect(canvas).toHaveAttribute("data-melody-midi", "79");
   const second = await expression();
@@ -132,7 +136,7 @@ test("解析を音源照合して保存し、offline再起動・seek・pause・�
   await next.getByRole("button", { name: "Air study", exact: true }).click();
   await expect(canvas).toHaveAttribute("data-music-status", "missing");
   expect(await expression()).toEqual({
-    melody: "0px",
+    melody: "0",
     harmony: "0deg",
     active: "0",
   });

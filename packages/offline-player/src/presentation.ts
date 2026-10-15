@@ -5,6 +5,8 @@ import type { PlayerSnapshot } from "abservice-player";
 import type { ListeningAlbum } from "abservice-listening-presentation";
 import {
   createProbe,
+  advanceTrail,
+  emptyTrail,
   due,
   followPlayback,
   mapFeatures,
@@ -14,8 +16,13 @@ import {
   restingFrame,
   restingMusic,
   sceneLoadRequested,
+  sceneInk,
 } from "abservice-visualizer";
-import type { FrameProbe, PresentationState } from "abservice-visualizer";
+import type {
+  FrameProbe,
+  PresentationState,
+  FlowMoment,
+} from "abservice-visualizer";
 import { createRenderer } from "abservice-visualizer/renderer";
 import { planSession, superviseRenderer } from "abservice-visualizer/session";
 import type {
@@ -46,11 +53,11 @@ const settled: ReadonlySet<RendererStatus> = new Set<RendererStatus>([
 /* Budget and probe are read once from the hash: a query would keep the Service Worker from serving the page offline. */
 const representative = sceneLoadRequested(location.hash);
 const composition = representative ? false : true;
-/* Background pixels may be reduced; the DOM artwork, type and controls stay at native resolution. */
+/* Hairline geometry needs native pixels (bounded at DPR 2); DOM content stays at native resolution. */
 const budget = parseBudget(
   representative
     ? location.hash
-    : `#dpr=1&scale=0.75&fps=30&${location.hash.replace(/^#/, "")}`,
+    : `#dpr=2&scale=1&fps=30&${location.hash.replace(/^#/, "")}`,
 );
 document.documentElement.dataset["sceneLoad"] = String(representative);
 document.documentElement.dataset["composition"] = String(composition);
@@ -90,7 +97,7 @@ export const probeReport = (): string | undefined => {
     ? undefined
     : [
         ...marks,
-        `scene ${representative ? "representative-v1" : "composition-v1"}`,
+        `scene ${representative ? "representative-v1" : "melody-trail-v1"}`,
         `budget dpr ${String(budget.maxDevicePixelRatio)} scale ${String(budget.renderScale)} effects ${String(budget.effectDensity)} fps ${String(budget.targetFps)}`,
         `frames ${String(summary.frames)} skipped ${String(summary.skipped)} pixels ${String(summary.pixels ?? 0)}`,
         format("cycle cpu", summary.cycleCpu),
@@ -110,6 +117,8 @@ export const presentation = (
     observed: PlayerSnapshot | undefined;
     frame: typeof restingFrame;
     music: typeof restingMusic;
+    trail: typeof emptyTrail;
+    flow: FlowMoment;
     animation: number | null;
     degraded: boolean;
     drawnAt: number | undefined;
@@ -121,6 +130,8 @@ export const presentation = (
     observed: undefined,
     frame: restingFrame,
     music: restingMusic,
+    trail: emptyTrail,
+    flow: { low: 60, offsets: [] },
     animation: null,
     degraded: false,
     drawnAt: undefined,
@@ -131,23 +142,13 @@ export const presentation = (
   const displayFrame = (): typeof restingFrame => ({
     ...state.frame,
     music: state.music,
+    trail: state.trail,
+    flow: state.flow,
   });
   const reflectFrame = (): void => {
     const style = document.documentElement.style;
-    style.setProperty("--artwork-scale", String(state.frame.artworkScale));
-    style.setProperty(
-      "--artwork-offset",
-      `${String(state.frame.artworkOffset * 100)}px`,
-    );
-    style.setProperty(
-      "--type-offset",
-      `${String(state.frame.textOffset * 100)}px`,
-    );
-    style.setProperty("--type-opacity", String(state.frame.textOpacity));
-    style.setProperty(
-      "--melody-lift",
-      `${String(-state.music.pitch * state.music.voiced * 6)}px`,
-    );
+    style.setProperty("--scene-ink", sceneInk(displayFrame()));
+    style.setProperty("--melody-pitch", String(state.music.pitch));
     style.setProperty("--melody-presence", String(state.music.voiced));
     style.setProperty(
       "--harmony-hue",
@@ -223,6 +224,7 @@ export const presentation = (
   const dispose = (): void => {
     release(false);
     state.music = restingMusic;
+    state.trail = emptyTrail;
     reset();
   };
   /* A frame that comes sooner than the target fps is skipped, not drawn; the loop keeps running. */
@@ -320,6 +322,7 @@ export const presentation = (
     state.observed = snapshot;
     state.presentation = step.state;
     state.frame = plan.frame;
+    state.trail = step.resetFrame ? emptyTrail : state.trail;
     canvas.dataset["presentationState"] = step.state;
     document.documentElement.dataset["presentationState"] = step.state;
     reflectFrame();
@@ -367,15 +370,27 @@ export const presentation = (
       : () => undefined)();
   };
   const music = (value: MusicalPlayback): void => {
+    state.flow = value.flow ?? { low: 60, offsets: [] };
     state.music = mapMusicalExpression(
       value.status === "ready" ? value.moment : null,
     );
+    state.trail =
+      value.status === "ready" && value.moment !== null
+        ? advanceTrail(
+            state.trail,
+            JSON.stringify([value.playbackItemId, value.analysisVersion]),
+            value.moment.position,
+            value.moment.melody?.midi ?? null,
+            state.flow.low,
+          )
+        : emptyTrail;
     reflectFrame();
     canvas.dataset["musicStatus"] = value.status;
     canvas.dataset["musicItem"] = value.playbackItemId ?? "";
     canvas.dataset["musicVersion"] = value.analysisVersion ?? "";
     canvas.dataset["musicPosition"] = String(value.moment?.position ?? 0);
     canvas.dataset["melodyMidi"] = String(value.moment?.melody?.midi ?? "");
+    canvas.dataset["melodyRangeLow"] = String(state.flow.low);
     canvas.dataset["harmonyRoot"] = String(value.moment?.harmony?.root ?? "");
     canvas.dataset["harmonyQuality"] = value.moment?.harmony?.quality ?? "";
     canvas.dispatchEvent(new CustomEvent("musical-moment", { detail: value }));

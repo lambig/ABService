@@ -1,7 +1,13 @@
 import type { AudioFeatures } from "abservice-audio-dsp";
 import type { MusicalExpression } from "./music";
+import type { MelodyTrail } from "./trail";
+import type { FlowMoment } from "./flow-plan";
+export { chordVelocity, planFlow, flowMoment, sceneStep } from "./flow-plan";
+export type { FlowPlan, FlowMoment } from "./flow-plan";
+export { advanceTrail, emptyTrail } from "./trail";
 export { mapMusicalExpression, restingMusic } from "./music";
 export type { MusicalExpression, MusicalExpressionInput } from "./music";
+export { sceneInk } from "./ink";
 
 export { followPlayback, playbackEvents, transition } from "./state";
 export type {
@@ -32,6 +38,8 @@ export type {
 /** 描画だけの値域を持つsnapshot。Rendererは音響特徴量を参照しない。 */
 export type PresentationFrame = Readonly<{
   music?: MusicalExpression;
+  trail?: MelodyTrail;
+  flow?: FlowMoment;
   timeSeconds: number;
   sceneScale: number;
   backgroundIntensity: number;
@@ -94,22 +102,24 @@ export const mapFeatures = (
   const base = reset ? restingFrame : previous;
   const dt = reset ? 0 : timeSeconds - previous.timeSeconds;
   const alpha = 1 - Math.exp(-dt / positive(options.smoothingSeconds, 0.12));
+  /* Rising energy is available in this frame; only release is smoothed.
+   * Duplicate timestamps and seeks still obey the existing reset contract. */
   const smooth = (before: number, target: number): number =>
-    before + (target - before) * alpha;
+    before + (target - before) * (dt > 0 && target > before ? 1 : alpha);
   const impulse = Math.max(
     clamp(input.onset),
     base.impulse * Math.exp(-dt / positive(options.impulseDecaySeconds, 0.16)),
   );
   return Object.freeze({
     timeSeconds,
-    sceneScale: smooth(base.sceneScale, 1 + 0.035 * clamp(input.rms)),
+    sceneScale: 1,
     backgroundIntensity: smooth(
       base.backgroundIntensity,
       0.15 + 0.4 * clamp(input.rms),
     ),
-    artworkScale: smooth(base.artworkScale, 1 + 0.08 * clamp(input.lowEnergy)),
-    artworkOffset: smooth(base.artworkOffset, 0.025 * clamp(input.lowEnergy)),
-    textOffset: smooth(base.textOffset, 0.025 * clamp(input.midEnergy)),
+    artworkScale: 1,
+    artworkOffset: 0,
+    textOffset: 0,
     textOpacity: smooth(base.textOpacity, 0.65 + 0.35 * clamp(input.midEnergy)),
     effectIntensity: smooth(
       base.effectIntensity,

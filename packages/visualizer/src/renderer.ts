@@ -5,6 +5,8 @@ import type { PresentationFrame } from "./index";
 import type { FrameSample } from "./probe";
 import type { ListeningAlbum } from "abservice-listening-presentation";
 import shader from "./scene.wgsl?raw";
+import flowShader from "./flow.wgsl?raw";
+import { flowVertices } from "./flow-geometry";
 
 /** 描画の予算と、フレームごとの観測の受け取り先。観測は指定したときだけ取る。 */
 export type RendererOptions = Readonly<{
@@ -124,6 +126,8 @@ export const createRenderer = async (
     const context =
       canvas.getContext("webgpu") ?? unavailable("WebGPU canvas unavailable");
     const format = gpu.getPreferredCanvasFormat();
+    const sampleCount = options.composition === true ? 4 : 1;
+    const multisample: { texture: GPUTexture | null } = { texture: null };
     const module = device.createShaderModule({ code: shader });
     const pipeline = await device.createRenderPipelineAsync({
       layout: "auto",
@@ -138,7 +142,58 @@ export const createRenderer = async (
         },
       },
       primitive: { topology: "triangle-list" },
+      multisample: { count: sampleCount },
     });
+    signal.throwIfAborted();
+    const flowModule = device.createShaderModule({ code: flowShader });
+    const flowPipeline =
+      options.composition === true
+        ? await device.createRenderPipelineAsync({
+            layout: "auto",
+            vertex: {
+              module: flowModule,
+              entryPoint: "vertex",
+              buffers: [
+                {
+                  arrayStride: 24,
+                  attributes: [
+                    { shaderLocation: 0, offset: 0, format: "float32x2" },
+                    { shaderLocation: 1, offset: 8, format: "float32x4" },
+                  ],
+                },
+              ],
+            },
+            fragment: {
+              module: flowModule,
+              entryPoint: "fragment",
+              targets: [
+                {
+                  format,
+                  blend: {
+                    color: {
+                      srcFactor: "src-alpha",
+                      dstFactor: "one-minus-src-alpha",
+                    },
+                    alpha: {
+                      srcFactor: "one",
+                      dstFactor: "one-minus-src-alpha",
+                    },
+                  },
+                },
+              ],
+            },
+            primitive: { topology: "triangle-list" },
+            multisample: { count: sampleCount },
+          })
+        : null;
+    /* 400 history segments + five 168-segment ornaments + a small line-drawn quill. */
+    const flowBuffer =
+      flowPipeline === null
+        ? null
+        : device.createBuffer({
+            size: 200000,
+            usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+          });
     signal.throwIfAborted();
     const buffer = device.createBuffer({
       size: 80,
@@ -205,6 +260,23 @@ export const createRenderer = async (
                 canvas.height = height;
               };
         resizeHeight();
+        /* Coverage sampling softens pixel stair steps, without filtering melody positions.
+         * Reuse the attachment until the budgeted drawing size changes. */
+        (sampleCount > 1 &&
+          [
+            multisample.texture?.width !== width,
+            multisample.texture?.height !== height,
+          ].some(Boolean)
+          ? () => {
+              multisample.texture?.destroy();
+              multisample.texture = device.createTexture({
+                size: [width, height],
+                format,
+                sampleCount,
+                usage: GPUTextureUsage.RENDER_ATTACHMENT,
+              });
+            }
+          : () => undefined)();
         device.queue.writeBuffer(
           buffer,
           0,
@@ -232,12 +304,16 @@ export const createRenderer = async (
           ]),
         );
         const encoder = device.createCommandEncoder();
+        const output = context.getCurrentTexture().createView();
         const pass = encoder.beginRenderPass({
           colorAttachments: [
             {
-              view: context.getCurrentTexture().createView(),
+              view: multisample.texture?.createView() ?? output,
+              ...(multisample.texture === null
+                ? {}
+                : { resolveTarget: output }),
               loadOp: "clear",
-              storeOp: "store",
+              storeOp: multisample.texture === null ? "store" : "discard",
               clearValue: [0, 0, 0, 1],
             },
           ],
@@ -245,6 +321,19 @@ export const createRenderer = async (
         pass.setPipeline(pipeline);
         pass.setBindGroup(0, group);
         pass.draw(3);
+        (flowPipeline !== null && flowBuffer !== null
+          ? () => {
+              const vertices = flowVertices(
+                frame,
+                Math.max(1, canvas.clientWidth),
+                Math.max(1, canvas.clientHeight),
+              );
+              device.queue.writeBuffer(flowBuffer, 0, vertices);
+              pass.setPipeline(flowPipeline);
+              pass.setVertexBuffer(0, flowBuffer);
+              pass.draw(vertices.length / 6);
+            }
+          : () => undefined)();
         pass.end();
         device.queue.submit([encoder.finish()]);
         const submitted = performance.now();
@@ -268,7 +357,9 @@ export const createRenderer = async (
       },
       dispose: (): void => {
         buffer.destroy();
+        flowBuffer?.destroy();
         texture.destroy();
+        multisample.texture?.destroy();
         context.unconfigure();
         device.destroy();
       },

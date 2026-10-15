@@ -11,6 +11,23 @@ struct Frame {
 override representative: bool = false;
 override composition: bool = false;
 struct Vertex { @builtin(position) position: vec4f, @location(0) uv: vec2f, }
+// Fixed surface grain: independent of media time, pitch and chord changes.
+fn paperNoise(cell: vec2f) -> f32 {
+  let p = fract(cell * vec2f(0.1031, 0.11369));
+  let d = dot(p, p.yx + vec2f(19.19));
+  return fract((p.x + p.y + d) * (p.x + d));
+}
+// Interpolated density avoids visible tile edges in the larger paper fibers.
+fn paperDensity(point: vec2f) -> f32 {
+  let cell = floor(point);
+  let f = fract(point);
+  let blend = f * f * (vec2f(3) - 2 * f);
+  return mix(
+    mix(paperNoise(cell), paperNoise(cell + vec2f(1, 0)), blend.x),
+    mix(paperNoise(cell + vec2f(0, 1)), paperNoise(cell + vec2f(1, 1)), blend.x),
+    blend.y
+  ) - 0.5;
+}
 @vertex fn vertex(@builtin(vertex_index) index: u32) -> Vertex {
   let p = array<vec2f, 3>(vec2f(-1, -1), vec2f(3, -1), vec2f(-1, 3));
   var out: Vertex;
@@ -30,58 +47,16 @@ struct Vertex { @builtin(position) position: vec4f, @location(0) uv: vec2f, }
   let artSize = select(0.40, baseSize, representative) * frame.artwork.x + 0.012 * frame.artwork.w;
   let artPosition = select(vec2f(0, -0.13), artCenter, representative) + vec2f(frame.artwork.y, 0);
   let artUV = (p - artPosition) / (2 * artSize) + 0.5;
-  // A field extends beyond the cover. Continuous energy moves the ribbons;
-  // the short impulse widens a separate wave. Text never passes through this shader.
+  // Melody history and drifting ornaments are drawn as thin geometry over paper.
   if (composition) {
-    let q = vec2f(in.uv.x * aspect, -in.uv.y);
-    let ambientUV = clamp(vec2f(in.uv.x, -in.uv.y) * 0.22 + 0.5, vec2f(0), vec2f(1));
-    let pigment = textureSample(image, imageSampler, ambientUV * vec2f(1, 0.5)).rgb;
-    // Resting intensity is a visible still, not a clock-driven response to silence.
-    let activity = clamp((frame.artwork.z - 0.15) / 0.4, 0.0, 1.0);
-    let drift = sin(q.x * 1.8 + t * 0.11) * activity * 0.37;
-    let ribbon = exp(-abs(q.y - drift + 0.08) * (8.0 - frame.artwork.z * 4.0));
-    let contour = 0.5 + 0.5 * cos((q.y - drift) * 30.0 + q.x * frame.typography.w);
-    let radius = length(q - vec2f(aspect * 0.28, -0.08));
-    let impulseWave = exp(-abs(radius - 0.5 - frame.artwork.w * 0.55) * 28.0) * frame.artwork.w;
-    let edges = smoothstep(0.15, 1.35, abs(q.x));
-    color = vec3f(0.025, 0.04, 0.065) + pigment * (0.10 + ribbon * frame.artwork.z * 0.30);
-    color += vec3f(0.08, 0.22, 0.27) * ribbon * (0.2 + contour * 0.5);
-    color += vec3f(0.4, 0.67, 0.62) * impulseWave * 0.32;
-    color += vec3f(0.2, 0.4, 0.5) * edges * contour * frame.typography.z * 0.18;
-    // The chord determines the field's center and pigment. Melody has its own
-    // vertical trace, independent of loudness, so held notes remain visible.
-    let angle = frame.music.z * 6.2831853;
-    let harmonicCenter = vec2f(cos(angle) * aspect * 0.38, sin(angle) * 0.32);
-    let chordPigment = 0.5 + 0.5 * cos(angle + vec3f(0.1, 2.2, 4.3));
-    // Three translucent petals retain a chord's interval spacing, including
-    // suspended, diminished and augmented voicings. No clock invents chord changes.
-    let intervals = array<f32, 3>(0.0, frame.voicing.x, frame.voicing.y);
-    for (var i = 0u; i < 3u; i++) {
-      let direction = angle + intervals[i] * 6.2831853;
-      let axis = vec2f(cos(direction), sin(direction));
-      let local = q - harmonicCenter;
-      let along = dot(local, axis);
-      let across = dot(local, vec2f(-axis.y, axis.x));
-      let ellipse = sqrt(pow((along - 0.22) / 0.85, 2.0) + pow(across / 0.32, 2.0));
-      let veil = exp(-ellipse * ellipse * 1.6);
-      let edge = exp(-abs(ellipse - 1.0) * 24.0);
-      let tint = mix(pigment, 0.5 + 0.5*cos(direction + vec3f(0.1,2.2,4.3)), 0.4);
-      color += tint * (veil * 0.18 + edge * 0.10) * frame.music.w;
-    }
-    let extensionRing = exp(-abs(length(q-harmonicCenter) - 0.46 - frame.voicing.z*0.25)*30.0);
-    color += chordPigment * extensionRing * frame.music.w * select(0.0,0.10,frame.voicing.z > 0.0);
-    // Melody follows a continuous media-time path; pitch controls elevation and
-    // curvature. Its light disappears in unvoiced gaps, without inventing notes.
-    let melodicHeight = -frame.music.x * 0.55;
-    let curve = sin(q.x * 1.8 + frame.voicing.w * 0.24) * (0.06 + abs(frame.music.x)*0.08);
-    let distance = abs(q.y - melodicHeight - curve);
-    let line = exp(-distance * 85.0) + exp(-distance * 15.0)*0.25;
-    let traveler = sin(frame.voicing.w * 0.24) * aspect * 0.8;
-    let focus = exp(-pow((q.x-traveler)/0.28,2.0));
-    let envelope = exp(-q.x*q.x/max(aspect*aspect,0.1));
-    let melodyTint = mix(vec3f(0.64,0.92,0.90),chordPigment,0.15*frame.music.w);
-    color += melodyTint * line * envelope * (0.23+focus*0.40) * frame.music.y;
-    return vec4f(color, 1);
+    let cell = floor(in.position.xy);
+    let fine = paperNoise(cell) - 0.5;
+    let fiber = paperDensity(cell / vec2f(18, 2.5));
+    let crossFiber = paperDensity((cell + vec2f(47, 91)) / vec2f(3, 13));
+    let pulp = paperDensity(cell / vec2f(90, 70));
+    let paper = vec3f(243, 230, 201) / 255;
+    let texture = fine * 0.012 + fiber * 0.017 + crossFiber * 0.007 + pulp * 0.014;
+    return vec4f(paper + vec3f(texture), 1);
   }
   // One background surface, with a second atlas sample distributed beyond the artwork rectangle.
   if (representative) {

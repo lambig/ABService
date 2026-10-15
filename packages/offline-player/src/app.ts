@@ -223,6 +223,7 @@ const showAlbum = (
     artwork.src = shown.url ?? "";
     reveal(artwork, shown.url !== undefined);
     artist.textContent = album?.artistDisplayName ?? "";
+    artist.title = artist.textContent;
     reveal(artist, album?.artistDisplayName !== undefined);
     /* Sanitised by the shared markup renderer, with images and links already removed. */
     description.innerHTML = album?.descriptionHtml ?? "";
