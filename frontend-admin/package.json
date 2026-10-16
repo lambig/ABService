@@ -22,7 +22,7 @@
     "abservice-external-audio": "*",
     "abservice-markup": "*",
     "abservice-public-presentation": "*",
-    "astro": "^7.0.0",
+    "astro": "^7.4.0",
     "bits-ui": "^2.19.0",
     "clsx": "^2.1.1",
     "svelte": "^5.0.0",
@@ -50,7 +50,7 @@
     "shadcn-svelte": "^1.0.0",
     "typescript": "^5.0.0",
     "typescript-eslint": "^8.0.0",
-    "vitest": "^3.2.4"
+    "vitest": "^5.0.5"
   },
   "engines": {
     "node": "24.20.0",
