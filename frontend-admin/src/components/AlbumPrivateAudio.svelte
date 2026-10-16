@@ -190,6 +190,10 @@
     });
   };
   const reset = (): void => {
+    requireState(
+      [busy, resetBlocked].some(Boolean) ? false : true,
+      '登録状態を確認してから別のFLACを登録してください。',
+    );
     sessionStorage.removeItem(storageKey());
     pending = null;
     observed = null;
@@ -199,6 +203,10 @@
   const equal = $derived(observed !== null && pending !== null && matches(observed, pending));
   const canAssociate = $derived(equal && observed?.state === 'CONFIRMED' && current !== null);
   const canRecover = $derived(equal && ['INSPECTED', 'ABANDONED'].includes(observed?.state ?? ''));
+  const canReset = $derived(
+    [observed?.state === 'EXPIRED', equal && observed?.state === 'CONFIRMED'].some(Boolean),
+  );
+  const resetBlocked = $derived(canReset ? false : true);
 </script>
 
 <SessionControls onLogout={logout} />
@@ -267,8 +275,15 @@
               : '現在の試聴用FLACをこの音源に変更'}
           </Button>
         {/if}
-        <Button variant="outline" disabled={busy} onclick={reset}>別のFLACを登録する</Button>
+        <Button variant="outline" disabled={[busy, resetBlocked].some(Boolean)} onclick={reset}
+          >別のFLACを登録する</Button
+        >
       </div>
+      {#if resetBlocked}
+        <p class="text-sm">
+          登録の復旧に必要な記録を保持しています。状態を再確認し、原本の確定・一致または期限切れを確認してから別のFLACを登録してください。
+        </p>
+      {/if}
     {/if}
     {#if busy}
       <p role="status">処理中です。</p>

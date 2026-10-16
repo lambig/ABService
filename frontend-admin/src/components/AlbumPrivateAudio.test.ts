@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -69,6 +69,47 @@ beforeEach(() => {
   api.fingerprint.mockResolvedValue({ byteLength: 16, sha256: HASH });
 });
 describe('管理画面での非公開FLAC登録', () => {
+  it.each(['PENDING', 'INSPECTED', 'ABANDONED'])(
+    '%sのリセット操作後も記録を保持し、再読込で再照会できる',
+    async (state) => {
+      api.registration.mockResolvedValue(ok(row(state)));
+      await open();
+      const reset = screen.getByRole('button', { name: '別のFLACを登録する' });
+      expect(reset).toHaveProperty('disabled', true);
+      await userEvent.click(reset);
+      expect(
+        JSON.parse(sessionStorage.getItem(`abservice.admin.audio.${ALBUM}`) ?? 'null'),
+      ).toEqual(expected);
+      cleanup();
+      render(AlbumPrivateAudio);
+      await screen.findByText(state);
+      expect(api.registration).toHaveBeenCalledTimes(2);
+      expect(api.registration).toHaveBeenLastCalledWith(expect.anything(), AUDIO);
+      expect(api.uploadAudio).not.toHaveBeenCalled();
+    },
+  );
+  it.each(['CONFIRMED', 'EXPIRED'])('%s確認後は明示操作で新規登録へ進める', async (state) => {
+    api.registration.mockResolvedValue(ok(row(state)));
+    await open();
+    await userEvent.click(screen.getByRole('button', { name: '別のFLACを登録する' }));
+    expect(sessionStorage.getItem(`abservice.admin.audio.${ALBUM}`)).toBeNull();
+    expect(screen.getByLabelText('作成済みFLAC')).toBeTruthy();
+  });
+  it('照会失敗でも復旧記録を保持する', async () => {
+    api.registration.mockResolvedValue({
+      kind: 'failed',
+      reason: 'network',
+      message: 'fixture loss',
+    });
+    await open();
+    expect(screen.getByRole('button', { name: '別のFLACを登録する' })).toHaveProperty(
+      'disabled',
+      true,
+    );
+    expect(JSON.parse(sessionStorage.getItem(`abservice.admin.audio.${ALBUM}`) ?? 'null')).toEqual(
+      expected,
+    );
+  });
   it('再読込は照会だけを行い、一致した確定済み原本を明示操作で関連付ける', async () => {
     await open();
     expect(api.uploadAudio).not.toHaveBeenCalled();
@@ -92,6 +133,10 @@ describe('管理画面での非公開FLAC登録', () => {
     api.registration.mockResolvedValue(ok(row('CONFIRMED', 'b'.repeat(64))));
     await open();
     expect(screen.queryByRole('button', { name: 'この作品の試聴用FLACに設定' })).toBeNull();
+    expect(screen.getByRole('button', { name: '別のFLACを登録する' })).toHaveProperty(
+      'disabled',
+      true,
+    );
   });
   it('送信応答を失ってもGETで原本を照合し、自動再送・自動関連付けを行わない', async () => {
     await open(false);
