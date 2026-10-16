@@ -68,7 +68,8 @@ export async function startAudioBridge({ siteOrigin, apiPort, originToken, port 
     if (length !== undefined && (!/^\d+$/.test(length) || Number(length) > limit)) {
       reply(response, 413, '送信上限を超えています。'); return;
     }
-    const headers = kind === 'static' ? { 'Accept-Encoding': 'identity' } : {
+    // Identify the adapter to the static site's normal edge policy without forwarding browser identity.
+    const headers = kind === 'static' ? { 'Accept-Encoding': 'identity', 'User-Agent': 'ABService-Admin-Audio-Bridge/1.0' } : {
       'X-Origin-Verify': originToken,
       ...(request.headers.authorization ? { Authorization: request.headers.authorization } : {}),
       ...(request.headers['content-type'] ? { 'Content-Type': request.headers['content-type'] } : {}),

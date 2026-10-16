@@ -113,14 +113,15 @@ test('static pages use the fixed HTTPS site without forwarding any credentials',
   t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
   const origin = await fixture(t, () => assert.fail('static must not reach the API'));
   const response = await send(origin, '/admin/albums/audio/?albumId=fixture', {
-    headers: { Authorization: 'Bearer never-send-to-static', Cookie: 'never-send-to-static' },
+    headers: { Authorization: 'Bearer never-send-to-static', Cookie: 'never-send-to-static', 'User-Agent': 'never-forward-client-identity' },
   });
   assert.equal(response.status, 200);
   assert.equal(response.body, '<h1>fixture admin</h1>');
   assert.equal(response.headers['content-security-policy'], "default-src 'self'");
   assert.equal(response.headers['set-cookie'], undefined);
   assert.deepEqual(calls, [{ protocol: 'https:', hostname: 'example.test', port: 443,
-    path: '/admin/albums/audio/?albumId=fixture', method: 'GET', headers: { 'Accept-Encoding': 'identity' } }]);
+    path: '/admin/albums/audio/?albumId=fixture', method: 'GET',
+    headers: { 'Accept-Encoding': 'identity', 'User-Agent': 'ABService-Admin-Audio-Bridge/1.0' } }]);
 });
 
 test('bounds chunked request bodies even without Content-Length', async (t) => {
