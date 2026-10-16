@@ -96,8 +96,8 @@ test('local capability endpoint contains no secrets and never contacts upstream'
 
 test('static pages use the fixed HTTPS site without forwarding any credentials', async (t) => {
   const calls = [];
-  t.mock.method(https, 'request', (url, options, receive) => {
-    calls.push({ url: url.href, options });
+  t.mock.method(https, 'request', (options, receive) => {
+    calls.push(options);
     const outgoing = new PassThrough();
     outgoing.resume();
     outgoing.on('finish', () => {
@@ -119,8 +119,8 @@ test('static pages use the fixed HTTPS site without forwarding any credentials',
   assert.equal(response.body, '<h1>fixture admin</h1>');
   assert.equal(response.headers['content-security-policy'], "default-src 'self'");
   assert.equal(response.headers['set-cookie'], undefined);
-  assert.deepEqual(calls, [{ url: 'https://example.test/admin/albums/audio/?albumId=fixture',
-    options: { method: 'GET', headers: { 'Accept-Encoding': 'identity' } } }]);
+  assert.deepEqual(calls, [{ protocol: 'https:', hostname: 'example.test', port: 443,
+    path: '/admin/albums/audio/?albumId=fixture', method: 'GET', headers: { 'Accept-Encoding': 'identity' } }]);
 });
 
 test('bounds chunked request bodies even without Content-Length', async (t) => {

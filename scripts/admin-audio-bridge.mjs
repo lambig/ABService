@@ -74,8 +74,13 @@ export async function startAudioBridge({ siteOrigin, apiPort, originToken, port 
       ...(request.headers['content-type'] ? { 'Content-Type': request.headers['content-type'] } : {}),
       ...(length ? { 'Content-Length': length } : {}),
     };
-    const target = kind === 'static' ? new URL(url.pathname + url.search, site) : new URL(`http://127.0.0.1:${apiPort}${url.pathname}${url.search}`);
-    const upstream = (kind === 'static' ? httpsRequest : httpRequest)(target, { method: request.method, headers }, (incoming) => {
+    // The request path must never participate in selecting an upstream authority.
+    const destination = kind === 'static'
+      ? { protocol: 'https:', hostname: site.hostname, port: site.port || 443 }
+      : { protocol: 'http:', hostname: '127.0.0.1', port: apiPort };
+    const upstream = (kind === 'static' ? httpsRequest : httpRequest)({
+      ...destination, path: url.pathname + url.search, method: request.method, headers,
+    }, (incoming) => {
       if (response.writableEnded || response.destroyed) { incoming.destroy(); return; }
       // Redirects could disclose a management token or escape the fixed remote site.
       if (incoming.statusCode >= 300 && incoming.statusCode < 400) {
