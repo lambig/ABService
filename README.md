@@ -25,6 +25,8 @@ WebService/Site implementation for my own use
 
 ## 本番デプロイと復旧
 
+管理画面からの試聴用FLAC登録は [登録・関連付け・復旧マニュアル](docs/ADMIN_AUDIO_REGISTRATION.md) を参照してください。
+
 ABService 側の構築・配布・ロールバック機構の技術的な操作と契約は [infra/README.md](infra/README.md) を正とします。設定項目と実行コマンドはそこを入口に参照してください。
 
 実環境での作業順序・停止条件・切替判断・証跡は、非公開の運用リポジトリ（ABAffairs）を正とします。実環境の設定値・投入する本文や画像もそこで管理します。公開リポジトリには実ドメインやアカウント固有値を置かず、秘密値は Git に保存しません。

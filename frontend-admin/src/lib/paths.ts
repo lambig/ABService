@@ -29,6 +29,10 @@ export const NEW_ALBUM_PATH = `${BASE}/albums/new`;
 export const editAlbumPath = (albumId: string): string =>
   `${BASE}/albums/edit?albumId=${encodeURIComponent(albumId)}`;
 
+/** 作成済みFLACの登録と作品への関連付け。 */
+export const albumAudioPath = (albumId: string): string =>
+  `${BASE}/albums/audio/?albumId=${encodeURIComponent(albumId)}`;
+
 /** 編集画面が受け取った対象。指定が無ければ null */
 export const albumIdIn = (search: string): string | null =>
   new URLSearchParams(search).get('albumId');

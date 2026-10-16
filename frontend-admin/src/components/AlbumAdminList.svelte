@@ -31,7 +31,7 @@
   } from '$lib/api/client';
   import { applySessionResult, storedSession, type AdminSession } from '$lib/credentials';
   import { formatCalendarDate } from '$lib/format';
-  import { NEW_ALBUM_PATH, editAlbumPath, editArticlePath } from '$lib/paths';
+  import { NEW_ALBUM_PATH, editAlbumPath, editArticlePath, albumAudioPath } from '$lib/paths';
 
   /**
    * 事前確認を要する操作。
@@ -761,12 +761,18 @@
                   操作であるため、位置が動かないことを優先する。
                 -->
                 <div class="grid grid-cols-[5rem_8rem_auto] items-center gap-2">
-                  <a
-                    class="text-sm underline underline-offset-4"
-                    href={editAlbumPath(album.albumId)}
-                  >
-                    編集する
-                  </a>
+                  <div class="flex flex-col gap-2">
+                    <a
+                      class="text-sm underline underline-offset-4"
+                      href={editAlbumPath(album.albumId)}
+                    >
+                      編集する
+                    </a>
+                    <a
+                      class="text-sm underline underline-offset-4"
+                      href={albumAudioPath(album.albumId)}>試聴用FLAC</a
+                    >
+                  </div>
                   {#if album.publishedAt === null}
                     <Button size="sm" variant="outline" onclick={() => void publish(album)}>
                       公開する
