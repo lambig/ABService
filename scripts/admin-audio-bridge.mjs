@@ -56,7 +56,9 @@ export async function startAudioBridge({ siteOrigin, apiPort, originToken, port 
     }
     if (request.method === 'GET' && url.pathname === '/__audio-connection') {
       response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-      response.end(JSON.stringify({ kind: 'ssm-audio', maxBytes: MAX_AUDIO, deadlineMs })); return;
+      response.end(JSON.stringify({ kind: 'ssm-audio', maxBytes: MAX_AUDIO, deadlineMs,
+        preparationUrl: new URL('/admin/listening/', site).href,
+        listeningUrl: new URL('/offline-player/', site).href })); return;
     }
     const kind = route(request.method, url.pathname);
     if (kind === null) { reply(response, 404, 'この接続は試聴用FLACの登録専用です。'); return; }

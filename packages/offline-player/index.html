@@ -162,15 +162,40 @@
           保存状態を確認しています
         </p>
         <p id="preparation-detail"></p>
-        <label for="token">端末のトークン</label>
+        <p>
+          PCの管理画面で接続を許可し、この試聴機へ保存します。管理キーは入力しません。
+        </p>
+        <label for="pair-label">この試聴機の名前</label>
         <input
-          id="token"
-          type="password"
+          id="pair-label"
+          value="試聴機"
+          maxlength="100"
           autocomplete="off"
-          spellcheck="false"
         />
+        <button id="pair-start">管理画面と接続</button>
+        <p id="pair-code" aria-label="接続コード"></p>
+        <p id="pair-status" role="status" aria-live="polite"></p>
+        <details>
+          <summary>既存の端末トークンを使う</summary>
+          <label for="token">端末のトークン（管理キーではありません）</label>
+          <input
+            id="token"
+            type="password"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </details>
         <button id="prepare">アプリと音源を保存</button>
         <button id="inspect">保存状態を確認</button>
+        <p>
+          新版の保存後は、全ての試聴タブを閉じて開き直すと切り替わります。保存済み音源の通常再生には接続操作は不要です。新しい準備セッションでは再接続してください。
+        </p>
+        <p>
+          音源の保存と解析の保存は別です。開き直した後、管理メニューの「この端末で主旋律・和音を解析」で必要な作品を選び、「解析して保存」を実行してください。
+        </p>
+        <p>
+          初回の展示開始時に、この試聴機の展示操作を保護する管理PINを設定します。PCの管理キーとは別です。
+        </p>
       </section>
       <div class="workspace">
         <section class="player" aria-label="プレイヤー">

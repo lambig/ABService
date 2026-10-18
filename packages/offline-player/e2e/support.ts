@@ -79,6 +79,7 @@ export const prepareOnline = async (
   });
   await openPreparation(page);
   await expect(page.locator("#prepare")).toBeEnabled();
+  await page.locator("details").filter({ has: page.locator("#token") }).evaluate((node) => { node.setAttribute("open", ""); });
   await page.locator("#token").fill(fixtureToken);
   await page.locator("#prepare").click();
   await expect(page.locator("#readiness")).toHaveText(expected);

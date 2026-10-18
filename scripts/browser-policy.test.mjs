@@ -47,6 +47,14 @@ test('deleted/renamed scenarios run the remaining suite and cannot silently matc
     { exists: (file) => !file.endsWith('old.spec.ts') });
   only(plan, ['player']); assert.equal(plan.player, 'all');
 });
+
+test('admin UI changes also run the cross-device preparation browser check', () => {
+  const plan = select(['frontend-admin/src/components/ListeningPreparation.svelte'], {
+    workspaces: [...workspaces, { name: 'admin', location: 'frontend-admin' }],
+  });
+  only(plan, ['e2e', 'offline-player']);
+  assert.equal(plan['offline-player'], 'all');
+});
 test('release and manual runs are always full; unknown scope and toolchain changes fail closed', () => {
   for (const context of [{ event: 'push', ref: 'refs/heads/release/1.10' }, { event: 'workflow_dispatch' }, { event: 'unknown' }]) {
     assert.ok(Object.values(select(['README.md'], context)).every((v) => v === 'all'));

@@ -15,6 +15,11 @@ export const ARTICLE_PREVIEW_PATH = `${BASE}/preview/article/`;
 /** 作品の一覧（管理画面の入口） */
 export const ALBUM_LIST_PATH = `${BASE}/`;
 
+/** 試聴端末への接続許可と音源準備の入口。 */
+export const LISTENING_PATH = `${BASE}/listening/`;
+export const listeningPreparationPath = (albumId: string): string =>
+  `${LISTENING_PATH}?albumId=${encodeURIComponent(albumId)}`;
+
 /** 作品の新規作成 */
 export const NEW_ALBUM_PATH = `${BASE}/albums/new`;
 

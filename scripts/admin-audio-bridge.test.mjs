@@ -91,7 +91,7 @@ test('local capability endpoint contains no secrets and never contacts upstream'
   const origin = await fixture(t, () => assert.fail('unexpected upstream request'));
   const result = await send(origin, '/__audio-connection');
   assert.equal(result.status, 200);
-  assert.deepEqual(JSON.parse(result.body), { kind: 'ssm-audio', maxBytes: 268435456, deadlineMs: 600000 });
+  assert.deepEqual(JSON.parse(result.body), { kind: 'ssm-audio', maxBytes: 268435456, deadlineMs: 600000, preparationUrl: 'https://example.test/admin/listening/', listeningUrl: 'https://example.test/offline-player/' });
 });
 
 test('static pages use the fixed HTTPS site without forwarding any credentials', async (t) => {

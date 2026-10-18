@@ -16,6 +16,7 @@
 
 | ドキュメント | 役割 |
 |---|---|
+| [LISTENING_PREPARATION.md](LISTENING_PREPARATION.md) | 管理画面から別の試聴機を接続し、保存・切替・解析・再生へ進む一般操作 |
 | [STATUS_AND_ROADMAP.md](STATUS_AND_ROADMAP.md) | 実装がどこまで通っているかの現状。残タスクは持たない。残作業と進捗は各 issue とリリース別 milestone、順序と依存は [ロードマップ #224](https://github.com/lambig/ABService/issues/224) が正。バージョン未定の横断バックログは「v1.0以降」 |
 | [DECISIONS.md](DECISIONS.md) | 設計判断の記録。なぜその構造にしたか（実装から導けない部分だけ） |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | システム構成・認証方式・アセット経路など、コード単体からは見えない全体像 |

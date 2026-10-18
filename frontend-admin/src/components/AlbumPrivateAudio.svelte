@@ -10,7 +10,7 @@
     storedSession,
     type AdminSession,
   } from '$lib/credentials';
-  import { ALBUM_LIST_PATH, albumIdIn } from '$lib/paths';
+  import { ALBUM_LIST_PATH, albumIdIn, listeningPreparationPath } from '$lib/paths';
   import {
     connectionReady,
     confirmAudio,
@@ -214,6 +214,10 @@
   <h1 class="text-2xl font-bold">試聴用FLACの登録</h1>
   <a class="text-sm underline" href={ALBUM_LIST_PATH}>作品一覧へ戻る</a>
   {#if message !== null}<p role="status" class="text-sm">{message}</p>{/if}
+  {#if current?.audioId !== null && current?.audioId !== undefined}
+    <a class="underline" href={listeningPreparationPath(albumId)}>試聴機を準備する</a>
+    <p>作品への関連付けと、試聴機への保存は別の操作です。次の画面で配布条件を確認してください。</p>
+  {/if}
   {#if albumId === ''}
     <p role="alert">作品一覧から対象の作品を選んでください。</p>
   {:else if session === null}
