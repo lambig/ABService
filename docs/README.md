@@ -24,4 +24,4 @@
 
 ## 開発環境・コマンド
 
-セットアップ手順・ビルド／テストコマンドは [../README.md](../README.md)、開発ルール（実装承認プロセス・コミット規約・PR要件）は [../CONTRIBUTION.md](../CONTRIBUTION.md)、ローカルインフラ（PostgreSQL・MinIO）は [../docker/README.md](../docker/README.md)、AWS構成とデプロイは [../infra/README.md](../infra/README.md) が正。
+セットアップ手順・ビルド／テストコマンドは [../README.md](../README.md)、開発ルール（要求・方式の照合、判断境界、レビュー記録、コミット規約・PR要件）は [../CONTRIBUTION.md](../CONTRIBUTION.md)、ローカルインフラ（PostgreSQL・MinIO）は [../docker/README.md](../docker/README.md)、AWS構成とデプロイは [../infra/README.md](../infra/README.md) が正。
