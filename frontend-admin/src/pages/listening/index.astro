@@ -1,0 +1,8 @@
+---
+import ListeningPreparation from '$components/ListeningPreparation.svelte';
+import AdminLayout from '$layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="試聴機を準備する">
+  <ListeningPreparation client:only="svelte" />
+</AdminLayout>

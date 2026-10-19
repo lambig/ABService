@@ -272,6 +272,7 @@ test("未完了の新版へは切り替えず、共有する実体を残した�
     route.fulfill({ status: 503, body: "unavailable" }),
   );
   await openPreparation(current);
+  await current.locator("details").filter({ has: current.locator("#token") }).evaluate((node) => { node.setAttribute("open", ""); });
   await current.locator("#token").fill(fixtureToken);
   await current.locator("#prepare").click();
   await expect(current.locator("#preparation-detail")).toContainText(
@@ -340,6 +341,7 @@ test("取得中の token 期限切れで止め、再入力後は検証済みの�
     }),
   );
   await page.goto(entry);
+  await page.locator("details").filter({ has: page.locator("#token") }).evaluate((node) => { node.setAttribute("open", ""); });
   await page.locator("#token").fill(fixtureToken);
   await page.locator("#prepare").click();
   await expect(page.locator("#preparation-detail")).toContainText(
@@ -394,6 +396,7 @@ test("準備済みの端末で再認証を求められたら、準備の画面�
     }),
   );
   await openPreparation(current);
+  await current.locator("details").filter({ has: current.locator("#token") }).evaluate((node) => { node.setAttribute("open", ""); });
   await current.locator("#token").fill(fixtureToken);
   await current.locator("#prepare").click();
   await expect(current.locator("#preparation-detail")).toContainText(
@@ -413,6 +416,7 @@ test("署名URLの期限切れはその音源の失敗として示し、再試�
     route.fulfill({ status: 403, body: "expired" }),
   );
   await page.goto(entry);
+  await page.locator("details").filter({ has: page.locator("#token") }).evaluate((node) => { node.setAttribute("open", ""); });
   await page.locator("#token").fill(fixtureToken);
   await page.locator("#prepare").click();
   await expect(page.locator("#preparation-detail")).toContainText(
@@ -432,6 +436,7 @@ test("取得途中でページを閉じても、次の準備は保存済みの�
     await hold;
   });
   await page.goto(entry);
+  await page.locator("details").filter({ has: page.locator("#token") }).evaluate((node) => { node.setAttribute("open", ""); });
   await page.locator("#token").fill(fixtureToken);
   await page.locator("#prepare").click();
   await expect.poll(() => storedAssets(page)).toBe(1);
@@ -455,6 +460,7 @@ test("容量が足りなければ取得を始めず、必要量と空きを示�
   });
   const fetched = downloads(context);
   await page.goto(entry);
+  await page.locator("details").filter({ has: page.locator("#token") }).evaluate((node) => { node.setAttribute("open", ""); });
   await page.locator("#token").fill(fixtureToken);
   await page.locator("#prepare").click();
   await expect(page.locator("#preparation-detail")).toContainText(
@@ -483,6 +489,7 @@ test("このアプリの版で動かない配布物は保存せず、アプリ�
   );
   const fetched = downloads(context);
   await page.goto(entry);
+  await page.locator("details").filter({ has: page.locator("#token") }).evaluate((node) => { node.setAttribute("open", ""); });
   await page.locator("#token").fill(fixtureToken);
   await page.locator("#prepare").click();
   await expect(page.locator("#preparation-detail")).toContainText(
@@ -501,6 +508,7 @@ test("形の正しくない token では配布元へ問い合わせない", asyn
       });
   });
   await page.goto(entry);
+  await page.locator("details").filter({ has: page.locator("#token") }).evaluate((node) => { node.setAttribute("open", ""); });
   await page.locator("#token").fill("not-a-token");
   await page.locator("#prepare").click();
   await expect(page.locator("#preparation-detail")).toHaveText(

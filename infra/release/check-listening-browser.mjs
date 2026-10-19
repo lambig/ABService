@@ -69,6 +69,7 @@ try {
   };
   observe(page);
   await page.goto(`${origin}/offline-player/#probe`);
+  await page.getByText('既存の端末トークンを使う', { exact: true }).click();
   await page.locator('#token').fill(`abs_device_${'e'.repeat(64)}`); // Deliberately invalid production token; preview fixture only.
   await page.locator('#prepare').click();
   await expect(page.locator('#readiness')).toHaveText('新しい配布物の準備ができました');

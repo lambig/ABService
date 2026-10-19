@@ -612,6 +612,188 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/listening-authorizations/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ResolveListeningAuthorizationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ListeningAuthorizationResponse"];
+                    };
+                };
+                /** @description 入力の検証に失敗した */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 認証されていない */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 権限が足りない */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 対象が存在しない */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 回数制限。Retry-After の秒数後に再試行する */
+                429: {
+                    headers: {
+                        "Retry-After": number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ListeningAuthorizationResponse"];
+                    };
+                };
+                /** @description 想定外の失敗 */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/listening-authorizations/{requestId}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decide */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    requestId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["DecideListeningAuthorizationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ListeningAuthorizationResponse"];
+                    };
+                };
+                /** @description 入力の検証に失敗した */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 認証されていない */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 権限が足りない */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 対象が存在しない */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 想定外の失敗 */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/listening-devices": {
         parameters: {
             query?: never;
@@ -2937,6 +3119,160 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/listening/authorizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["StartListeningAuthorizationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ListeningAuthorizationResponse"];
+                    };
+                };
+                /** @description 入力の検証に失敗した */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 対象が存在しない */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 回数制限。Retry-After の秒数後に再試行する */
+                429: {
+                    headers: {
+                        "Retry-After": number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ListeningAuthorizationResponse"];
+                    };
+                };
+                /** @description 想定外の失敗 */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/listening/authorizations/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Poll */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PollListeningAuthorizationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ListeningAuthorizationResponse"];
+                    };
+                };
+                /** @description 入力の検証に失敗した */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 対象が存在しない */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 回数制限。Retry-After の秒数後に再試行する */
+                429: {
+                    headers: {
+                        "Retry-After": number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ListeningAuthorizationResponse"];
+                    };
+                };
+                /** @description 想定外の失敗 */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/listening/package": {
         parameters: {
             query?: never;
@@ -3900,6 +4236,11 @@ export interface components {
             title: string;
             tuneKind: string;
         };
+        DecideListeningAuthorizationRequest: {
+            approve?: boolean;
+            /** Format: int32 */
+            validDays?: number;
+        };
         DeleteAlbumResponse: {
             affectedArticles: components["schemas"]["DeletionAffectedArticle"][];
         };
@@ -3987,6 +4328,18 @@ export interface components {
             url: string;
             expiresAt: components["schemas"]["Instant"];
         };
+        ListeningAuthorizationResponse: {
+            state: string;
+            requestId: components["schemas"]["UUID"] | null;
+            label: string | null;
+            expiresAt: components["schemas"]["Instant"] | null;
+            deviceId: components["schemas"]["UUID"] | null;
+            /** Format: int32 */
+            retryAfterSeconds: number;
+            code: string | null;
+            proof: string | null;
+            token: string | null;
+        };
         ListeningChecksumResponse: {
             algorithm: string;
             value: string;
@@ -4026,6 +4379,10 @@ export interface components {
             /** Format: int32 */
             trackNo: number;
             title: string;
+        };
+        PollListeningAuthorizationRequest: {
+            requestId?: string;
+            proof?: string;
         };
         PreconditionAffectedArticle: {
             articleId: string;
@@ -4214,6 +4571,9 @@ export interface components {
             articleType: string;
             title: string;
         };
+        ResolveListeningAuthorizationRequest: {
+            code?: string;
+        };
         SetAlbumCrossfadeRequest: {
             audioId?: string;
             /** Format: int32 */
@@ -4239,6 +4599,9 @@ export interface components {
             key: string;
             content: string;
             contentFormat: string;
+        };
+        StartListeningAuthorizationRequest: {
+            label?: string;
         };
         TrackRequest: {
             trackId?: string;

@@ -20,6 +20,8 @@
   "include": [
     "src/**/*",
     "e2e/**/*",
+    "flow/**/*.ts",
+    "playwright.pairing.config.ts",
     "playwright.config.ts",
     "build.ts",
     "distribution.ts",
