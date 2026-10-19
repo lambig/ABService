@@ -9,7 +9,7 @@
     "Cargo.toml": "1bda3160d6432a13eb670b5286f626e144676d11228f0ee0a0176e26fcc21b90",
     "Cargo.lock": "e8a290e8f7ca7e49de12c241fe1898ba49492a4a480d61a400efbfab3b9fac0e",
     "rust-toolchain.toml": "311457fd10b918b6cd8e15a91d96a0fa2e93f6cc54814726692d23901e997cc5",
-    "src/lib.rs": "bbedc5e49247e00379e75f6972f4fcec4c8a626b214850824400714dfa56e251",
+    "src/lib.rs": "2006c939f56b91ad53442a66d903dfac410de3d14f4d75268db7b589edbda8c2",
     "build.mjs": "7614541621c2cf44636ab8b70e8cf7100fef5239ea53f6c010cc7218dd7b8e02",
     "licenses/autocfg-1.5.1/LICENSE-APACHE": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
     "licenses/autocfg-1.5.1/LICENSE-MIT": "27995d58ad5c1145c1a8cd86244ce844886958a35eb2b78c6b772748669999ac",
@@ -32,5 +32,5 @@
     "licenses/transpose-0.2.3/LICENSE-APACHE": "0462c81f010f32369f10b49571b1463f8ba936e52457a418abcc4ecbabdeaf79",
     "licenses/transpose-0.2.3/LICENSE-MIT": "275370a97013f37a61ae0d29bb8d65d2d69cb8eb5788f1cca678b2a6ef348c9d"
   },
-  "sha256": "b4dec4b11eff69608d70743fea83ea0ea6c24a2e14d0b78caf19504a650c6c6e"
+  "sha256": "f043dd5df7b55ed18da5152395883aa8d53c7012cc6a5cf39637d866f8de8876"
 }
