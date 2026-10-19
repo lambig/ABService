@@ -10,15 +10,15 @@
     storedSession,
     type AdminSession,
   } from '$lib/credentials';
-  import { listAlbums, getAlbum, type ApiResult, type AdminAlbum } from '$lib/api/client';
-  import { crossfade, registration } from '$lib/api/private-audio';
+  import type { ApiResult, AdminAlbum } from '$lib/api/client';
   import {
     resolveAuthorization,
     decideAuthorization,
-    listeningDevices,
+    listeningPreparation,
     revokeDevice,
     type Authorization,
     type Device,
+    type PreparationAlbum,
   } from '$lib/api/listening-devices';
   import { listeningEntry, type ListeningEntry } from '$lib/listening-entry';
   import { albumIdIn, editAlbumPath, albumAudioPath } from '$lib/paths';
@@ -90,42 +90,27 @@
         owner === session && owner !== null ? (isCurrentSession(owner) ? session : null) : session;
     }
   };
-  const available = async (
-    owner: AdminSession,
-    album: AvailableAlbum['album'],
-  ): Promise<AvailableAlbum> => {
-    const association = accept(owner, await crossfade(owner, album.albumId));
-    const audio =
-      association.audioId === null
-        ? null
-        : accept(owner, await registration(owner, association.audioId));
+  const available = (album: PreparationAlbum): AvailableAlbum => {
     return {
       album,
       reason:
         album.publishedAt === null
-          ? audio?.state === 'CONFIRMED'
+          ? album.audioConfirmed
             ? '下書き：作品を公開すると配布対象になります。'
             : '下書き・音源未設定：作品を公開し、確定済みFLACを関連付けてください。'
-          : audio?.state === 'CONFIRMED'
+          : album.audioConfirmed
             ? '配布対象：確定済みFLACが関連付けられています。'
             : '配布対象外：確定済みFLACを関連付けてください。',
     };
   };
   const refresh = async (owner: AdminSession): Promise<void> => {
-    const rows = accept(owner, await listeningDevices(owner));
-    const listed = accept(owner, await listAlbums(owner, page));
-    // REQUEST-BURST: 全作品を並行取得すると配信経路の同時実行制限へ達するため、直列に取得する。
-    const availability = await listed.items.reduce(
-      async (previous, album) => [...(await previous), await available(owner, album)],
-      Promise.resolve<AvailableAlbum[]>([]),
+    const listed = accept(
+      owner,
+      await listeningPreparation(owner, page, albumIdIn(window.location.search)),
     );
-    const id = albumIdIn(window.location.search);
-    const selected =
-      id === null ? null : await available(owner, accept(owner, await getAlbum(owner, id)));
-    accept(owner, { kind: 'ok', value: null });
-    devices = rows.devices;
-    albums = availability;
-    focused = selected;
+    devices = listed.devices;
+    albums = listed.items.map(available);
+    focused = listed.focused === null ? null : available(listed.focused);
     totalPages = listed.totalPages;
   };
   const unlock = (owner: AdminSession): void => {

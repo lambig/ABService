@@ -1027,6 +1027,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/listening-preparation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preparation */
+        get: {
+            parameters: {
+                query?: {
+                    albumId?: string;
+                    page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ListeningPreparationResponse"];
+                    };
+                };
+                /** @description 入力の検証に失敗した */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 認証されていない */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 権限が足りない */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 対象が存在しない */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 想定外の失敗 */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+                /** @description 受付超過または期限切れ。Retry-Afterの秒数後に再試行できる */
+                503: {
+                    headers: {
+                        "Retry-After": number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/private-audio/registrations": {
         parameters: {
             query?: never;
@@ -4374,6 +4468,15 @@ export interface components {
             /** Format: double */
             durationSeconds: number;
         };
+        ListeningPreparationResponse: {
+            items: components["schemas"]["PreparationAlbumResponse"][];
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            totalPages: number;
+            focused: components["schemas"]["PreparationAlbumResponse"] | null;
+            devices: components["schemas"]["ListeningDeviceResponse"][];
+        };
         ListeningTrackResponse: {
             trackId: string;
             /** Format: int32 */
@@ -4389,6 +4492,12 @@ export interface components {
             title: string;
             losesAlbumReference: boolean;
             becomesUnpublished: boolean;
+        };
+        PreparationAlbumResponse: {
+            albumId: string;
+            title: string;
+            publishedAt: components["schemas"]["Instant"] | null;
+            audioConfirmed: boolean;
         };
         ProblemDetail: {
             type?: string;

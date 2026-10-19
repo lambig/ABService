@@ -29,6 +29,7 @@ dependencies {
     // ヘルスチェック（MicroProfile Health。/q/health/{live,ready}）。DB接続確認は datasource 拡張が
     // readiness へ自動登録するため、アプリ側の HealthCheck 実装は持たない
     implementation 'io.quarkus:quarkus-smallrye-health'
+    implementation 'io.quarkus:quarkus-smallrye-fault-tolerance'
 
     // メトリクス（Prometheus 形式で /q/metrics に公開。収集・監視の設定は #168）
     implementation 'io.quarkus:quarkus-micrometer-registry-prometheus'
