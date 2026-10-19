@@ -5,6 +5,16 @@ import type { components } from './schema';
 
 export type Authorization = components['schemas']['ListeningAuthorizationResponse'];
 export type Device = components['schemas']['ListeningDeviceResponse'];
+export type PreparationAlbum = components['schemas']['PreparationAlbumResponse'];
+export const listeningPreparation = (
+  session: AdminSession,
+  page: number,
+  albumId: string | null,
+): Promise<ApiResult<components['schemas']['ListeningPreparationResponse']>> =>
+  call(
+    session,
+    `listening-preparation?page=${String(page)}${albumId === null ? '' : `&albumId=${encodeURIComponent(albumId)}`}`,
+  );
 
 const call = <T>(session: AdminSession, path: string, body?: unknown): Promise<ApiResult<T>> =>
   isCurrentSession(session) && Date.parse(session.expiresAt) > Date.now()

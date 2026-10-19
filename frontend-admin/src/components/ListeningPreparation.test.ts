@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const api = vi.hoisted(() => ({
   listeningEntry: vi.fn(),
@@ -8,7 +8,7 @@ const api = vi.hoisted(() => ({
   getAlbum: vi.fn(),
   crossfade: vi.fn(),
   registration: vi.fn(),
-  listeningDevices: vi.fn(),
+  listeningPreparation: vi.fn(),
   resolveAuthorization: vi.fn(),
   decideAuthorization: vi.fn(),
   revokeDevice: vi.fn(),
@@ -36,6 +36,20 @@ const pending = {
   proof: null,
   token: null,
 };
+const preparation = () => ({
+  items: [
+    {
+      albumId: 'album-fixture',
+      title: '未公開の試験作品',
+      publishedAt: null,
+      audioConfirmed: false,
+    },
+  ],
+  focused: null,
+  page: 0,
+  totalPages: 1,
+  devices: [],
+});
 beforeEach(() => {
   vi.resetAllMocks();
   window.history.replaceState({}, '', '/');
@@ -52,18 +66,110 @@ beforeEach(() => {
     preparationUrl: 'https://example.test/admin/listening/',
     listeningUrl: 'https://example.test/offline-player/',
   });
-  api.listAlbums.mockResolvedValue(
-    ok({
-      items: [{ albumId: 'album-fixture', title: '未公開の試験作品', publishedAt: null }],
-      totalPages: 1,
-    }),
-  );
-  api.crossfade.mockResolvedValue(ok({ audioId: null }));
-  api.listeningDevices.mockResolvedValue(ok({ devices: [] }));
+  api.listeningPreparation.mockResolvedValue(ok(preparation()));
   api.resolveAuthorization.mockResolvedValue(ok(pending));
   api.decideAuthorization.mockResolvedValue(ok({ ...pending, state: 'APPROVED' }));
 });
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 describe('PCから別の試聴機を準備する', () => {
+  it('50作品の準備状態を一要求で取得し、順序と配布判定を保つ', async () => {
+    const items = Array.from({ length: 50 }, (_, index) => ({
+      albumId: `album-${String(index)}`,
+      title: `試験作品 ${String(index)}`,
+      publishedAt: '2026-01-01T00:00:00Z',
+      audioConfirmed: true,
+    }));
+    api.listeningPreparation.mockResolvedValue(ok({ ...preparation(), items }));
+    render(ListeningPreparation);
+    await screen.findByText('試験作品 49');
+    expect(api.listeningPreparation).toHaveBeenCalledExactlyOnceWith(expect.anything(), 0, null);
+    expect(screen.getAllByText(/^試験作品 /).map((row) => row.textContent)).toEqual(
+      items.map((album) => album.title),
+    );
+    expect(screen.getAllByText(/配布対象：確定済みFLACが関連付けられています。/)).toHaveLength(50);
+    expect(api.listAlbums).not.toHaveBeenCalled();
+    expect(api.getAlbum).not.toHaveBeenCalled();
+    expect(api.crossfade).not.toHaveBeenCalled();
+    expect(api.registration).not.toHaveBeenCalled();
+  });
+  it('実HTTPの503でページと一覧を保持し、再操作で同じページを取得する', async () => {
+    const actual = await vi.importActual<typeof import('$lib/api/listening-devices')>(
+      '$lib/api/listening-devices',
+    );
+    api.listeningPreparation.mockImplementation(actual.listeningPreparation);
+    const first = { ...preparation(), totalPages: 2 };
+    const next = {
+      ...first,
+      page: 1,
+      items: [{ ...first.items[0], albumId: 'next', title: '次の作品' }],
+    };
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json(first))
+      .mockResolvedValueOnce(
+        Response.json(
+          { type: 'urn:abservice:error:PREPARATION_BUSY', status: 503, detail: 'Busy' },
+          { status: 503, headers: { 'Retry-After': '1' } },
+        ),
+      )
+      .mockResolvedValueOnce(Response.json(next));
+    vi.stubGlobal('fetch', fetcher);
+    render(ListeningPreparation);
+    await screen.findByText('未公開の試験作品');
+    await userEvent.click(screen.getByRole('button', { name: '次のページ' }));
+    await screen.findByText(
+      '現在、準備状態を取得できません。少し待って同じ操作をやり直してください。',
+    );
+    expect(screen.getByText('未公開の試験作品')).toBeDefined();
+    expect(screen.getByRole('button', { name: '前のページ' })).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: '次のページ' })).toHaveProperty('disabled', false);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    await userEvent.click(screen.getByRole('button', { name: '次のページ' }));
+    await screen.findByText('次の作品');
+    expect(screen.queryByText('未公開の試験作品')).toBeNull();
+    expect(screen.getByRole('button', { name: '前のページ' })).toHaveProperty('disabled', false);
+    expect(screen.getByRole('button', { name: '次のページ' })).toHaveProperty('disabled', true);
+    expect(
+      fetcher.mock.calls.map(([url]) =>
+        new URL(url instanceof Request ? url.url : url, window.location.origin).searchParams.get(
+          'page',
+        ),
+      ),
+    ).toEqual(['0', '1', '1']);
+  });
+  it('ページ外の指定作品とページ移動を同じ一括APIで取得する', async () => {
+    window.history.replaceState({}, '', '/?albumId=selected-album');
+    api.listeningPreparation.mockResolvedValue(
+      ok({
+        ...preparation(),
+        totalPages: 2,
+        focused: {
+          albumId: 'selected-album',
+          title: '指定作品',
+          publishedAt: null,
+          audioConfirmed: true,
+        },
+      }),
+    );
+    render(ListeningPreparation);
+    await screen.findByText(/登録した作品：指定作品/);
+    expect(api.listeningPreparation).toHaveBeenCalledExactlyOnceWith(
+      expect.anything(),
+      0,
+      'selected-album',
+    );
+    await userEvent.click(screen.getByRole('button', { name: '次のページ' }));
+    await waitFor(() => {
+      expect(api.listeningPreparation).toHaveBeenLastCalledWith(
+        expect.anything(),
+        1,
+        'selected-album',
+      );
+    });
+    expect(api.getAlbum).not.toHaveBeenCalled();
+  });
   it('配布対象外の理由を示し、明示照合・許可後も端末保存済みとは表示しない', async () => {
     render(ListeningPreparation);
     await screen.findByText('未公開の試験作品');
@@ -102,7 +208,7 @@ describe('PCから別の試聴機を準備する', () => {
     render(ListeningPreparation);
     const link = await screen.findByRole('link', { name: '正式な管理画面で試聴機を準備する' });
     expect(link).toHaveProperty('href', 'https://example.test/admin/listening/');
-    expect(api.listeningDevices).not.toHaveBeenCalled();
+    expect(api.listeningPreparation).not.toHaveBeenCalled();
     expect(screen.queryByLabelText('接続コード')).toBeNull();
   });
   it('照合後にコードを変更すると旧端末を許可できず、新しいコードの再照合が必要になる', async () => {
@@ -140,8 +246,9 @@ describe('PCから別の試聴機を準備する', () => {
     api.resolveAuthorization.mockResolvedValue(
       ok({ ...pending, state: 'CONSUMED', deviceId: pending.requestId }),
     );
-    api.listeningDevices.mockResolvedValue(
+    api.listeningPreparation.mockResolvedValue(
       ok({
+        ...preparation(),
         devices: [
           {
             deviceId: pending.requestId,

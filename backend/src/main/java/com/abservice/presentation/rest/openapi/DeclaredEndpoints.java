@@ -22,6 +22,7 @@ import com.abservice.presentation.rest.audio.ListeningDeviceCommandResource;
 import com.abservice.presentation.rest.audio.ListeningAuthorizationCommandResource;
 import com.abservice.presentation.rest.audio.ListeningAuthorizationResource;
 import com.abservice.presentation.rest.audio.ListeningDeviceAdminQueryResource;
+import com.abservice.presentation.rest.audio.ListeningPreparationAdminQueryResource;
 import com.abservice.presentation.rest.audio.ListeningPackageListenerQueryResource;
 import com.abservice.presentation.rest.publication.PublicDataGenerationQueryResource;
 import com.abservice.presentation.rest.site.SiteContentCommandResource;
@@ -82,6 +83,7 @@ public final class DeclaredEndpoints {
             ListeningAuthorizationCommandResource.class,
             ListeningAuthorizationResource.class,
             ListeningDeviceAdminQueryResource.class,
+            ListeningPreparationAdminQueryResource.class,
             ListeningPackageListenerQueryResource.class,
             PublicDataGenerationQueryResource.class,
             SiteContentCommandResource.class,

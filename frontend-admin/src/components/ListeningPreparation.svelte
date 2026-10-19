@@ -10,15 +10,15 @@
     storedSession,
     type AdminSession,
   } from '$lib/credentials';
-  import { listAlbums, getAlbum, type ApiResult, type AdminAlbum } from '$lib/api/client';
-  import { crossfade, registration } from '$lib/api/private-audio';
+  import type { ApiResult, AdminAlbum } from '$lib/api/client';
   import {
     resolveAuthorization,
     decideAuthorization,
-    listeningDevices,
+    listeningPreparation,
     revokeDevice,
     type Authorization,
     type Device,
+    type PreparationAlbum,
   } from '$lib/api/listening-devices';
   import { listeningEntry, type ListeningEntry } from '$lib/listening-entry';
   import { albumIdIn, editAlbumPath, albumAudioPath } from '$lib/paths';
@@ -67,7 +67,9 @@
           accepted?.kind === 'failed'
             ? accepted.status === 429
               ? '照合回数の上限です。5分後に新しい接続コードでやり直してください。'
-              : accepted.message
+              : accepted.status === 503
+                ? '現在、準備状態を取得できません。少し待って同じ操作をやり直してください。'
+                : accepted.message
             : '管理画面で再認証してください。',
         );
   };
@@ -90,39 +92,29 @@
         owner === session && owner !== null ? (isCurrentSession(owner) ? session : null) : session;
     }
   };
-  const available = async (
-    owner: AdminSession,
-    album: AvailableAlbum['album'],
-  ): Promise<AvailableAlbum> => {
-    const association = accept(owner, await crossfade(owner, album.albumId));
-    const audio =
-      association.audioId === null
-        ? null
-        : accept(owner, await registration(owner, association.audioId));
+  const available = (album: PreparationAlbum): AvailableAlbum => {
     return {
       album,
       reason:
         album.publishedAt === null
-          ? audio?.state === 'CONFIRMED'
+          ? album.audioConfirmed
             ? '下書き：作品を公開すると配布対象になります。'
             : '下書き・音源未設定：作品を公開し、確定済みFLACを関連付けてください。'
-          : audio?.state === 'CONFIRMED'
+          : album.audioConfirmed
             ? '配布対象：確定済みFLACが関連付けられています。'
             : '配布対象外：確定済みFLACを関連付けてください。',
     };
   };
-  const refresh = async (owner: AdminSession): Promise<void> => {
-    const rows = accept(owner, await listeningDevices(owner));
-    const listed = accept(owner, await listAlbums(owner, page));
-    const availability = await Promise.all(listed.items.map((album) => available(owner, album)));
-    const id = albumIdIn(window.location.search);
-    const selected =
-      id === null ? null : await available(owner, accept(owner, await getAlbum(owner, id)));
-    accept(owner, { kind: 'ok', value: null });
-    devices = rows.devices;
-    albums = availability;
-    focused = selected;
+  const refresh = async (owner: AdminSession, requestedPage = page): Promise<void> => {
+    const listed = accept(
+      owner,
+      await listeningPreparation(owner, requestedPage, albumIdIn(window.location.search)),
+    );
+    devices = listed.devices;
+    albums = listed.items.map(available);
+    focused = listed.focused === null ? null : available(listed.focused);
     totalPages = listed.totalPages;
+    page = listed.page;
   };
   const unlock = (owner: AdminSession): void => {
     session = owner;
@@ -202,8 +194,7 @@
     });
   };
   const move = (next: number): void => {
-    page = next;
-    void run(refresh);
+    void run((owner) => refresh(owner, next));
   };
   const copy = (): void => {
     void navigator.clipboard

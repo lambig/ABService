@@ -36,6 +36,7 @@ class PrivateAudioDisabledRestIntegrationTest {
         authorized().contentType(ContentType.JSON).body(Map.of("label", "端末")).post("/api/v1/admin/listening-devices")
                 .then().statusCode(404);
         authorized().get("/api/v1/admin/listening-devices").then().statusCode(404);
+        authorized().get("/api/v1/admin/listening-preparation").then().statusCode(404);
         authorized().delete("/api/v1/admin/listening-devices/" + id).then().statusCode(404);
     }
 }
