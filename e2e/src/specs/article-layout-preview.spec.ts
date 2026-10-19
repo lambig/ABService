@@ -30,13 +30,17 @@ test.describe('公開レイアウトのプレビュー', () => {
     await deleteScratchArticles();
   });
 
-  test('外部の書体CSSが届かなくてもプレビューを表示して入力を反映する', async ({ page }) => {
+  test('外部の書体CSSを待たずに表示・編集でき、届いたCSSも反映する', async ({ page }) => {
     const fonts = 'https://fonts.googleapis.com/**';
     const pending = new EventEmitter();
     const released = once(pending, 'release');
     await page.route(fonts, async (route) => {
       await released;
-      await route.abort();
+      await route.fulfill({
+        contentType: 'text/css',
+        /* font-familyの宣言一致だけでなく、後着CSSがiframeの表示へ適用されたことを測る。 */
+        body: 'article h1 { letter-spacing: 7px !important; color: rgb(12, 34, 56) !important; }',
+      });
     });
     try {
       const requested = page.waitForRequest(fonts);
@@ -47,6 +51,15 @@ test.describe('公開レイアウトのプレビュー', () => {
       await expect(
         preview(page).getByRole('heading', { name: '書体の応答待ちでも編集できる', exact: true }),
       ).toBeVisible();
+      const heading = preview(page).locator('article h1');
+      await expect(heading).not.toHaveCSS('letter-spacing', '7px');
+      await expect(heading).not.toHaveCSS('color', 'rgb(12, 34, 56)');
+      pending.emit('release');
+      await expect(heading).toHaveCSS('letter-spacing', '7px');
+      await expect(heading).toHaveCSS('color', 'rgb(12, 34, 56)');
+      await page.getByLabel('タイトル', { exact: true }).fill('書体CSSの到着後も編集できる');
+      await expect(heading).toHaveText('書体CSSの到着後も編集できる');
+      await expect(heading).toHaveCSS('letter-spacing', '7px');
     } finally {
       pending.emit('release');
       await page.unrouteAll({ behavior: 'wait' });
