@@ -649,6 +649,10 @@ jobs:
         env:
           BROWSER_PLAN: ${{ needs.changes.outputs.browser_plan }}
         run: node scripts/browser-ci.mjs offline-player
+      - name: Check PC to listening-device preparation flow
+        env:
+          ASTRO_TELEMETRY_DISABLED: '1'
+        run: npm run test:pairing:browser -w abservice-offline-player
       - name: Upload browser evidence
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4

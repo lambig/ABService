@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test:browser": "playwright test",
+    "test:pairing:browser": "playwright test --config playwright.pairing.config.ts",
     "preview": "vite preview --host 127.0.0.1 --port 4179 --strictPort"
   },
   "devDependencies": {

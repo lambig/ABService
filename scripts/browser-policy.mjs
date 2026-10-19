@@ -60,6 +60,8 @@ export const browserSelection = ({ event, ref, files, workspaces, exists = () =>
       if (!main) {
         all(affected);
         if (application) all(['e2e']);
+        // The preparation scenario builds the admin UI and opens its URL in a separate player context.
+        if (owner.location === 'frontend-admin') all(['offline-player']);
       }
       continue;
     }
