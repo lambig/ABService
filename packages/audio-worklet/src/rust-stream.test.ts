@@ -165,4 +165,37 @@ describe("production RustFFT SIMD asset", () => {
     expect(memory.byteLength).toBe(2097152);
     expect(() => api.memory.grow(1)).toThrow();
   });
+
+  it("rejects calls without a live engine and permits reinitialization after disposal", () => {
+    const api = new WebAssembly.Instance(module).exports as {
+      streamInitialize: (rate: number) => void;
+      transferPointer: () => number;
+      featuresPointer: () => number;
+      push: (frame: number, channels: number) => number;
+      reset: () => void;
+      dispose: () => void;
+    };
+    const expectEmpty = (): void => {
+      expect(api.transferPointer()).toBe(0);
+      expect(api.featuresPointer()).toBe(0);
+      expect(api.push(0, 1)).toBe(-1);
+      expect(() => {
+        api.reset();
+      }).not.toThrow();
+      expect(() => {
+        api.dispose();
+      }).not.toThrow();
+    };
+    expectEmpty();
+    Array.from({ length: 3 }).forEach(() => {
+      api.streamInitialize(48000);
+      expect(api.transferPointer()).toBeGreaterThan(0);
+      expect(api.featuresPointer()).toBeGreaterThan(0);
+      expect(api.push(0, 1)).toBe(0);
+      api.streamInitialize(44100);
+      expect(api.push(0, 1)).toBe(0);
+      api.dispose();
+      expectEmpty();
+    });
+  });
 });

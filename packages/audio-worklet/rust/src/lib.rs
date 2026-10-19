@@ -2,6 +2,7 @@
 //! Owns PCM history and FFT scratch. No allocation occurs in push/reset.
 //! Fixed 2048/512 analysis, 128-frame input, one or two discrete channels.
 use rustfft::{num_complex::Complex, Fft, FftPlannerWasmSimd};
+use std::cell::RefCell;
 use std::f64::consts::PI;
 use std::sync::Arc;
 
@@ -163,48 +164,40 @@ impl Engine {
 
 // One single-threaded WASM instance per node; host calls are non-reentrant.
 // Host writes transfer memory only between synchronous calls.
-static mut ENGINE: *mut Engine = std::ptr::null_mut();
-fn engine() -> &'static mut Engine {
-    unsafe {
-        assert!(!ENGINE.is_null());
-        &mut *ENGINE
-    }
+thread_local! {
+    static ENGINE: RefCell<Option<Box<Engine>>> = const { RefCell::new(None) };
+}
+fn with_engine<T>(operation: impl FnOnce(&mut Engine) -> T) -> Option<T> {
+    ENGINE.with(|slot| slot.borrow_mut().as_deref_mut().map(operation))
 }
 #[no_mangle]
 pub extern "C" fn streamInitialize(rate: f64) {
     assert!(rate.is_finite() && rate >= 8000.0 && rate <= 384000.0);
-    unsafe {
-        if !ENGINE.is_null() {
-            drop(Box::from_raw(ENGINE));
-            ENGINE = std::ptr::null_mut();
-        }
-        ENGINE = Box::into_raw(Box::new(Engine::new(rate)));
-    }
+    ENGINE.with(|slot| {
+        let mut engine = slot.borrow_mut();
+        *engine = None;
+        *engine = Some(Box::new(Engine::new(rate)));
+    });
 }
 #[no_mangle]
 pub extern "C" fn transferPointer() -> *mut f32 {
-    engine().transfer.as_mut_ptr()
+    with_engine(|engine| engine.transfer.as_mut_ptr()).unwrap_or(std::ptr::null_mut())
 }
 #[no_mangle]
 pub extern "C" fn featuresPointer() -> *const f64 {
-    engine().feature.as_ptr()
+    with_engine(|engine| engine.feature.as_ptr()).unwrap_or(std::ptr::null())
 }
 #[no_mangle]
 pub extern "C" fn reset() {
-    engine().reset();
+    with_engine(Engine::reset);
 }
 #[no_mangle]
 pub extern "C" fn push(frame: f64, channels: u32) -> i32 {
-    engine().push(frame, channels as usize)
+    with_engine(|engine| engine.push(frame, channels as usize)).unwrap_or(-1)
 }
 #[no_mangle]
 pub extern "C" fn dispose() {
-    unsafe {
-        if !ENGINE.is_null() {
-            drop(Box::from_raw(ENGINE));
-            ENGINE = std::ptr::null_mut();
-        }
-    }
+    ENGINE.with(|slot| *slot.borrow_mut() = None);
 }
 
 #[no_mangle]
