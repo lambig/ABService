@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const api = vi.hoisted(() => ({
   listeningEntry: vi.fn(),
@@ -70,6 +70,9 @@ beforeEach(() => {
   api.resolveAuthorization.mockResolvedValue(ok(pending));
   api.decideAuthorization.mockResolvedValue(ok({ ...pending, state: 'APPROVED' }));
 });
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 describe('PCから別の試聴機を準備する', () => {
   it('50作品の準備状態を一要求で取得し、順序と配布判定を保つ', async () => {
     const items = Array.from({ length: 50 }, (_, index) => ({
@@ -91,20 +94,50 @@ describe('PCから別の試聴機を準備する', () => {
     expect(api.crossfade).not.toHaveBeenCalled();
     expect(api.registration).not.toHaveBeenCalled();
   });
-  it('受付超過は失敗として表示し、一括要求を再操作できる', async () => {
-    api.listeningPreparation.mockResolvedValueOnce({
-      kind: 'failed',
-      status: 503,
-      message: '少し待って一覧を更新してください。',
-    });
+  it('実HTTPの503でページと一覧を保持し、再操作で同じページを取得する', async () => {
+    const actual = await vi.importActual<typeof import('$lib/api/listening-devices')>(
+      '$lib/api/listening-devices',
+    );
+    api.listeningPreparation.mockImplementation(actual.listeningPreparation);
+    const first = { ...preparation(), totalPages: 2 };
+    const next = {
+      ...first,
+      page: 1,
+      items: [{ ...first.items[0], albumId: 'next', title: '次の作品' }],
+    };
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json(first))
+      .mockResolvedValueOnce(
+        Response.json(
+          { type: 'urn:abservice:error:PREPARATION_BUSY', status: 503, detail: 'Busy' },
+          { status: 503, headers: { 'Retry-After': '1' } },
+        ),
+      )
+      .mockResolvedValueOnce(Response.json(next));
+    vi.stubGlobal('fetch', fetcher);
     render(ListeningPreparation);
-    await screen.findByText('少し待って一覧を更新してください。');
-    expect(screen.queryByText('未公開の試験作品')).toBeNull();
-    expect(screen.getByRole('button', { name: '一覧を更新' })).toHaveProperty('disabled', false);
-    expect(api.listeningPreparation).toHaveBeenCalledTimes(1);
-    await userEvent.click(screen.getByRole('button', { name: '一覧を更新' }));
     await screen.findByText('未公開の試験作品');
-    expect(api.listeningPreparation).toHaveBeenCalledTimes(2);
+    await userEvent.click(screen.getByRole('button', { name: '次のページ' }));
+    await screen.findByText(
+      '現在、準備状態を取得できません。少し待って同じ操作をやり直してください。',
+    );
+    expect(screen.getByText('未公開の試験作品')).toBeDefined();
+    expect(screen.getByRole('button', { name: '前のページ' })).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: '次のページ' })).toHaveProperty('disabled', false);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    await userEvent.click(screen.getByRole('button', { name: '次のページ' }));
+    await screen.findByText('次の作品');
+    expect(screen.queryByText('未公開の試験作品')).toBeNull();
+    expect(screen.getByRole('button', { name: '前のページ' })).toHaveProperty('disabled', false);
+    expect(screen.getByRole('button', { name: '次のページ' })).toHaveProperty('disabled', true);
+    expect(
+      fetcher.mock.calls.map(([url]) =>
+        new URL(url instanceof Request ? url.url : url, window.location.origin).searchParams.get(
+          'page',
+        ),
+      ),
+    ).toEqual(['0', '1', '1']);
   });
   it('ページ外の指定作品とページ移動を同じ一括APIで取得する', async () => {
     window.history.replaceState({}, '', '/?albumId=selected-album');

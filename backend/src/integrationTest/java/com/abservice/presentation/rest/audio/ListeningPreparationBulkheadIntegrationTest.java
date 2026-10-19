@@ -4,6 +4,7 @@ import static com.abservice.presentation.rest.AdminAuth.authorized;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.abservice.application.query.audio.GetListeningPreparationService;
+import com.abservice.test.CleanDatabase;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;
@@ -24,9 +25,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /** 実REST/CDIの受付制御を通す。待機するユースケースだけをテスト用に差し替える。 */
 @QuarkusTest
+@ExtendWith(CleanDatabase.class)
 @TestProfile(ListeningPreparationBulkheadIntegrationTest.Limits.class)
 class ListeningPreparationBulkheadIntegrationTest {
     private static final String PATH = "/api/v1/admin/listening-preparation";
@@ -94,6 +97,8 @@ class ListeningPreparationBulkheadIntegrationTest {
     @Test
     @DisplayName("待ち行列を含む期限で応答を終え、処理終了後に再受付する")
     void timesOutIncludingQueueWaitAndAcceptsRequestsAfterWorkEnds() throws Exception {
+        // HTTP/CDIの初回初期化を、受付処理そのものの期限計測から分離する。
+        authorized().get(PATH).then().statusCode(200);
         controlled.hold();
         try (var executor = Executors.newFixedThreadPool(2)) {
             final var first = CompletableFuture.supplyAsync(() -> authorized().get(PATH), executor);

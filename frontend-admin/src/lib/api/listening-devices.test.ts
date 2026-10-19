@@ -2,7 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { listeningPreparation } from './listening-devices';
 
 vi.mock('$lib/credentials', () => ({ isCurrentSession: () => true }));
-const session = { token: 'synthetic-session', expiresAt: '2099-01-01T00:00:00Z' };
+const session = {
+  token: 'synthetic-session',
+  expiresAt: '2099-01-01T00:00:00Z',
+  generation: Symbol(),
+};
 afterEach(() => {
   vi.unstubAllGlobals();
 });

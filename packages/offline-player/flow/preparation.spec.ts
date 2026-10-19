@@ -39,47 +39,34 @@ test("管理画面の入口から別端末を許可し、別端末だけへ保�
           token: "abs_session_synthetic",
           expiresAt: new Date(Date.now() + 1800000).toISOString(),
         }
-      : path.endsWith("/listening-devices")
-        ? { devices: [] }
-        : path.endsWith("/albums")
-          ? {
-              items: [
-                {
-                  albumId: "study-01",
-                  title: "試験作品",
-                  publishedAt: "2026-01-01T00:00:00Z",
-                },
-              ],
-              totalPages: 1,
-            }
-          : path.endsWith("/crossfade")
-            ? {
+      : path.endsWith("/listening-preparation")
+        ? {
+            items: [
+              {
                 albumId: "study-01",
-                kind: "album-crossfade",
-                audioId: id,
-                revision: 1,
-              }
-            : path.includes("/registrations/")
-              ? {
-                  audioId: id,
-                  state: "CONFIRMED",
-                  createdAt: "2026-01-01T00:00:00Z",
-                  expiresAt: "2099-01-01T00:00:00Z",
-                  metadata: { byteLength: 16, sha256: "a".repeat(64) },
-                }
-              : path.endsWith("/resolve")
-                ? (expect(route.request().postDataJSON()).toEqual({
-                    code: "ABCD-2345",
-                  }),
-                  pending)
-                : path.endsWith("/decision")
-                  ? (expect(route.request().postDataJSON()).toEqual({
-                      approve: true,
-                      validDays: 30,
-                    }),
-                    (observed.approved = true),
-                    { ...pending, state: "APPROVED" })
-                  : undefined;
+                title: "試験作品",
+                publishedAt: "2026-01-01T00:00:00Z",
+                audioConfirmed: true,
+              },
+            ],
+            page: 0,
+            totalPages: 1,
+            focused: null,
+            devices: [],
+          }
+        : path.endsWith("/resolve")
+          ? (expect(route.request().postDataJSON()).toEqual({
+              code: "ABCD-2345",
+            }),
+            pending)
+          : path.endsWith("/decision")
+            ? (expect(route.request().postDataJSON()).toEqual({
+                approve: true,
+                validDays: 30,
+              }),
+              (observed.approved = true),
+              { ...pending, state: "APPROVED" })
+            : undefined;
     expect(json).toBeDefined();
     await route.fulfill({ json });
   });

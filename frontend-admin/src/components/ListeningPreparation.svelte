@@ -67,7 +67,9 @@
           accepted?.kind === 'failed'
             ? accepted.status === 429
               ? '照合回数の上限です。5分後に新しい接続コードでやり直してください。'
-              : accepted.message
+              : accepted.status === 503
+                ? '現在、準備状態を取得できません。少し待って同じ操作をやり直してください。'
+                : accepted.message
             : '管理画面で再認証してください。',
         );
   };
@@ -103,15 +105,16 @@
             : '配布対象外：確定済みFLACを関連付けてください。',
     };
   };
-  const refresh = async (owner: AdminSession): Promise<void> => {
+  const refresh = async (owner: AdminSession, requestedPage = page): Promise<void> => {
     const listed = accept(
       owner,
-      await listeningPreparation(owner, page, albumIdIn(window.location.search)),
+      await listeningPreparation(owner, requestedPage, albumIdIn(window.location.search)),
     );
     devices = listed.devices;
     albums = listed.items.map(available);
     focused = listed.focused === null ? null : available(listed.focused);
     totalPages = listed.totalPages;
+    page = listed.page;
   };
   const unlock = (owner: AdminSession): void => {
     session = owner;
@@ -191,8 +194,7 @@
     });
   };
   const move = (next: number): void => {
-    page = next;
-    void run(refresh);
+    void run((owner) => refresh(owner, next));
   };
   const copy = (): void => {
     void navigator.clipboard
