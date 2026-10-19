@@ -64,6 +64,59 @@ beforeEach(() => {
   api.decideAuthorization.mockResolvedValue(ok({ ...pending, state: 'APPROVED' }));
 });
 describe('PCから別の試聴機を準備する', () => {
+  it('多数の作品と登録状態を同時要求せず、全作品の順序と配布判定を保つ', async () => {
+    const items = Array.from({ length: 50 }, (_, index) => ({
+      albumId: `album-${String(index)}`,
+      title: `試験作品 ${String(index)}`,
+      publishedAt: '2026-01-01T00:00:00Z',
+    }));
+    api.listAlbums.mockResolvedValue(ok({ items, totalPages: 1 }));
+    const started = vi.fn();
+    const finished = vi.fn();
+    const concurrency = vi.fn();
+    const receive = async <T>(value: T) => {
+      started();
+      const active = started.mock.calls.length - finished.mock.calls.length;
+      concurrency(active);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      finished();
+      return active > 1 ? { kind: 'failed', status: 503, message: '同時要求の上限' } : ok(value);
+    };
+    api.crossfade.mockImplementation((_, id: string) => receive({ audioId: `audio-${id}` }));
+    api.registration.mockImplementation(() => receive({ state: 'CONFIRMED' }));
+    render(ListeningPreparation);
+    await screen.findByText('試験作品 49');
+    expect(concurrency.mock.calls.every(([active]) => active === 1)).toBe(true);
+    expect(screen.getAllByText(/^試験作品 /).map((row) => row.textContent)).toEqual(
+      items.map((album) => album.title),
+    );
+    expect(screen.getAllByText(/配布対象：確定済みFLACが関連付けられています。/)).toHaveLength(50);
+    expect(api.crossfade).toHaveBeenCalledTimes(50);
+    expect(api.registration).toHaveBeenCalledTimes(50);
+  });
+  it('取得失敗後は残りの作品を要求せず、失敗を表示して再操作を可能にする', async () => {
+    api.listAlbums.mockResolvedValue(
+      ok({
+        items: [0, 1, 2].map((index) => ({
+          albumId: `album-${String(index)}`,
+          title: `試験作品 ${String(index)}`,
+          publishedAt: null,
+        })),
+        totalPages: 1,
+      }),
+    );
+    api.crossfade
+      .mockResolvedValueOnce(ok({ audioId: null }))
+      .mockResolvedValueOnce({ kind: 'failed', status: 503, message: '取得の失敗' });
+    render(ListeningPreparation);
+    await screen.findByText('取得の失敗');
+    expect(api.crossfade).toHaveBeenCalledTimes(2);
+    expect(api.registration).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '一覧を更新' })).toHaveProperty('disabled', false);
+    await userEvent.click(screen.getByRole('button', { name: '一覧を更新' }));
+    await screen.findByText('試験作品 2');
+    expect(api.crossfade).toHaveBeenCalledTimes(5);
+  });
   it('配布対象外の理由を示し、明示照合・許可後も端末保存済みとは表示しない', async () => {
     render(ListeningPreparation);
     await screen.findByText('未公開の試験作品');

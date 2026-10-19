@@ -114,7 +114,11 @@
   const refresh = async (owner: AdminSession): Promise<void> => {
     const rows = accept(owner, await listeningDevices(owner));
     const listed = accept(owner, await listAlbums(owner, page));
-    const availability = await Promise.all(listed.items.map((album) => available(owner, album)));
+    // REQUEST-BURST: 全作品を並行取得すると配信経路の同時実行制限へ達するため、直列に取得する。
+    const availability = await listed.items.reduce(
+      async (previous, album) => [...(await previous), await available(owner, album)],
+      Promise.resolve<AvailableAlbum[]>([]),
+    );
     const id = albumIdIn(window.location.search);
     const selected =
       id === null ? null : await available(owner, accept(owner, await getAlbum(owner, id)));
