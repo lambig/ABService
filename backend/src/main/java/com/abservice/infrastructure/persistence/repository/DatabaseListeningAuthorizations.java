@@ -20,6 +20,9 @@ public class DatabaseListeningAuthorizations implements ListeningAuthorizationSt
             DELETE FROM listening_authorization
             WHERE created_at < clock_timestamp() - interval '24 hours'
             """;
+    private static final String LOCK_START_BUDGET = """
+            SELECT singleton FROM listening_authorization_budget WHERE singleton = 2 FOR UPDATE
+            """;
     private static final String INSERT_WITHIN_BUDGET = """
             INSERT INTO listening_authorization(request_id, label, code_digest, proof_digest)
             SELECT :id, :label, :code, :proof
@@ -68,11 +71,8 @@ public class DatabaseListeningAuthorizations implements ListeningAuthorizationSt
             String codeDigest,
             String proofDigest) {
         return committed(
-                session -> session.createNativeQuery("LOCK TABLE listening_authorization IN EXCLUSIVE MODE")
-                        .executeUpdate()
-                        .chain(
-                                () -> session.createNativeQuery(DELETE_OLD_REQUESTS)
-                                        .executeUpdate())
+                session -> session.createNativeQuery(LOCK_START_BUDGET, Integer.class)
+                        .getSingleResult()
                         .chain(
                                 () -> session
                                         .createNativeQuery(INSERT_WITHIN_BUDGET)
@@ -83,9 +83,8 @@ public class DatabaseListeningAuthorizations implements ListeningAuthorizationSt
                                         .executeUpdate())
                         .chain(
                                 count -> count == 1
-                                        ? find(
-                                                session,
-                                                id)
+                                        ? session.createNativeQuery(DELETE_OLD_REQUESTS).executeUpdate()
+                                                .chain(() -> find(session, id))
                                         : Uni.createFrom()
                                                 .item(
                                                         ListeningAuthorization.status(

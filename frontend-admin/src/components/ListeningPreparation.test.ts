@@ -105,6 +105,37 @@ describe('PCから別の試聴機を準備する', () => {
     expect(api.listeningDevices).not.toHaveBeenCalled();
     expect(screen.queryByLabelText('接続コード')).toBeNull();
   });
+  it('照合後にコードを変更すると旧端末を許可できず、新しいコードの再照合が必要になる', async () => {
+    render(ListeningPreparation);
+    await screen.findByText('未公開の試験作品');
+    const input = screen.getByLabelText('接続コード');
+    await waitFor(() => {
+      expect(input).toHaveProperty('disabled', false);
+    });
+    await userEvent.type(input, 'ABCD-2345');
+    expect(input).toHaveProperty('value', 'ABCD-2345');
+    await userEvent.click(screen.getByRole('button', { name: 'コードを照合' }));
+    expect((await screen.findByText(/照合済みコード/)).textContent).toContain('ABCD-2345');
+    await userEvent.clear(input);
+    await userEvent.type(input, 'EFGH-6789');
+    expect(screen.queryByRole('button', { name: 'この試聴機を許可' })).toBeNull();
+    expect(screen.queryByText(/照合済みコード/)).toBeNull();
+    expect(api.decideAuthorization).not.toHaveBeenCalled();
+    const nextId = '0192f8a0-0000-7000-8000-000000000002';
+    api.resolveAuthorization.mockResolvedValue(ok({ ...pending, requestId: nextId }));
+    await userEvent.click(screen.getByRole('button', { name: 'コードを照合' }));
+    expect((await screen.findByText(/照合済みコード/)).textContent).toContain('EFGH-6789');
+    expect(api.resolveAuthorization).toHaveBeenLastCalledWith(expect.anything(), 'EFGH-6789');
+    await userEvent.click(screen.getByRole('button', { name: 'この試聴機を許可' }));
+    await waitFor(() => {
+      expect(api.decideAuthorization).toHaveBeenCalledExactlyOnceWith(
+        expect.anything(),
+        nextId,
+        true,
+        30,
+      );
+    });
+  });
   it('受取応答を失った端末の認証IDを示し、同じIDの失効へ進める', async () => {
     api.resolveAuthorization.mockResolvedValue(
       ok({ ...pending, state: 'CONSUMED', deviceId: pending.requestId }),

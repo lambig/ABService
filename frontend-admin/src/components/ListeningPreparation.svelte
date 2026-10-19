@@ -35,6 +35,7 @@
   let code = $state('');
   let days = $state(30);
   let request = $state<Authorization | null>(null);
+  let resolvedCode = $state('');
   let devices = $state<readonly Device[]>([]);
   let albums = $state<readonly AvailableAlbum[]>([]);
   let focused = $state<AvailableAlbum | null>(null);
@@ -161,8 +162,12 @@
   });
   const resolve = (): void => {
     request = null;
+    const enteredCode = code;
     void run(async (owner) => {
-      request = accept(owner, await resolveAuthorization(owner, code));
+      const result = accept(owner, await resolveAuthorization(owner, enteredCode));
+      (code === enteredCode ? () => undefined : () => fail('コードを再照合してください。'))();
+      resolvedCode = enteredCode;
+      request = result;
       message =
         request.state === 'PENDING'
           ? '試聴機の画面とコード・端末名を照合してから許可してください。'
@@ -172,7 +177,7 @@
     });
   };
   const decide = (approve: boolean): void => {
-    const id = request?.requestId;
+    const id = code === resolvedCode ? request?.requestId : undefined;
     void run(async (owner) => {
       request = accept(
         owner,
@@ -288,6 +293,12 @@
           >接続コード <input
             class="border p-2"
             bind:value={code}
+            disabled={busy}
+            oninput={() => {
+              request = null;
+              resolvedCode = '';
+              message = '変更したコードを照合してください。';
+            }}
             maxlength="32"
             autocomplete="off"
             spellcheck="false"
@@ -295,6 +306,7 @@
         >
         <Button disabled={busy} onclick={resolve}>コードを照合</Button>
         {#if request?.state === 'PENDING'}
+          <p>照合済みコード：{resolvedCode}</p>
           <p>端末名：{request.label} ／ 接続期限：{request.expiresAt}</p>
           <p>自分が操作している試聴機のコードと一致することを確認してください。</p>
           <label class="block"

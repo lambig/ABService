@@ -13,10 +13,12 @@ import io.restassured.http.ContentType;
 import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
 import java.sql.DriverManager;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.eclipse.microprofile.config.ConfigProvider;
@@ -35,7 +37,7 @@ class ListeningAuthorizationRestIntegrationTest {
 
     @BeforeEach
     void resetBudget() throws SQLException {
-        sql("INSERT INTO listening_authorization_budget(singleton) VALUES (1) ON CONFLICT DO NOTHING");
+        sql("INSERT INTO listening_authorization_budget(singleton) VALUES (1), (2) ON CONFLICT DO NOTHING");
     }
 
     @Test
@@ -161,6 +163,77 @@ class ListeningAuthorizationRestIntegrationTest {
                 .header("Retry-After", "5").body("token", nullValue());
     }
 
+    @Test
+    @DisplayName("上限後の匿名開始は既存要求の行ロックを待たず拒否される")
+    void rejectedStartDoesNotLockAuthorizationRows() throws Exception {
+        final var existing = start();
+        IntStream.range(0, 29).forEach(index -> start());
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            try (var connection = connection(); var statement = connection.createStatement()) {
+                connection.setAutoCommit(false);
+                statement.execute(
+                        "SELECT request_id FROM listening_authorization WHERE request_id = '"
+                                + existing.<String>path("requestId") + "' FOR UPDATE");
+                final var rejected = executor.submit(
+                        () -> given().contentType(ContentType.JSON)
+                                .body(Map.of("label", "over budget")).post(START).statusCode());
+                try {
+                    assertThat(rejected.get(5, TimeUnit.SECONDS)).isEqualTo(429);
+                } finally {
+                    connection.rollback();
+                }
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("匿名開始の予算ロックで待機中も既存要求の許可と受取は進む")
+    void startBudgetDoesNotBlockExistingApprovalOrRedemption() throws Exception {
+        final var existing = start();
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            try (var connection = connection(); var statement = connection.createStatement()) {
+                connection.setAutoCommit(false);
+                statement
+                        .execute("SELECT singleton FROM listening_authorization_budget WHERE singleton = 2 FOR UPDATE");
+                final var waiting = executor.submit(ListeningAuthorizationRestIntegrationTest::start);
+                final var issued = executor.submit(() -> {
+                    approve(existing);
+                    return given().contentType(ContentType.JSON).body(proof(existing)).post(START + "/token")
+                            .then().statusCode(200).extract().<String>path("state");
+                });
+                try {
+                    assertThat(issued.get(5, TimeUnit.SECONDS)).isEqualTo("ISSUED");
+                    assertThat(waiting.isDone()).isFalse();
+                } finally {
+                    connection.rollback();
+                }
+                assertThat(waiting.get(5, TimeUnit.SECONDS).<String>path("state")).isEqualTo("PENDING");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("同時の匿名開始も5分内30件の上限を超えない")
+    void serializesStartAdmissionAtBudgetBoundary() {
+        IntStream.range(0, 28).forEach(index -> start());
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            final var jobs = Stream.generate(
+                    () -> CompletableFuture.supplyAsync(
+                            () -> given().contentType(ContentType.JSON).body(Map.of("label", "concurrent fixture"))
+                                    .post(START).statusCode(),
+                            executor).orTimeout(10, TimeUnit.SECONDS))
+                    .limit(6).toList();
+            assertThat(jobs.stream().map(CompletableFuture::join).toList())
+                    .containsExactlyInAnyOrder(
+                            200,
+                            200,
+                            429,
+                            429,
+                            429,
+                            429);
+        }
+    }
+
     private static ExtractableResponse<Response> start() {
         return given().contentType(ContentType.JSON).body(Map.of("label", "synthetic device"))
                 .post(START).then().statusCode(200).body("state", equalTo("PENDING")).extract();
@@ -195,13 +268,17 @@ class ListeningAuthorizationRestIntegrationTest {
     }
 
     private static void sql(String statement) throws SQLException {
-        final var config = ConfigProvider.getConfig();
-        try (var connection = DriverManager.getConnection(
-                config.getValue("quarkus.datasource.jdbc.url", String.class),
-                config.getValue("quarkus.datasource.username", String.class),
-                config.getValue("quarkus.datasource.password", String.class));
+        try (var connection = connection();
                 var query = connection.createStatement()) {
             query.execute(statement);
         }
+    }
+
+    private static Connection connection() throws SQLException {
+        final var config = ConfigProvider.getConfig();
+        return DriverManager.getConnection(
+                config.getValue("quarkus.datasource.jdbc.url", String.class),
+                config.getValue("quarkus.datasource.username", String.class),
+                config.getValue("quarkus.datasource.password", String.class));
     }
 }
