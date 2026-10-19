@@ -163,14 +163,23 @@
   });
   const loaded = (event: Event): void => {
     const document = (event.currentTarget as HTMLIFrameElement).contentDocument;
+    const container = document?.getElementById('article-preview');
     frameDocument = document;
     view =
-      document?.getElementById('article-preview') == null
+      container == null
         ? {
             kind: 'failed',
             message: 'プレビューの画面を読み込めませんでした。もう一度お試しください。',
           }
         : view;
+    /* 外部CSSが遅れても初期描画を止めないよう、フレームのload後に書体を取得する。 */
+    const fonts = document?.createElement('link');
+    fonts?.setAttribute('rel', 'stylesheet');
+    fonts?.setAttribute(
+      'href',
+      'https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&display=swap',
+    );
+    void (container != null && fonts != null ? document?.head.appendChild(fonts) : undefined);
     const stopNavigation = (event: Event): void => {
       const element = event.target as Element | null;
       [element]

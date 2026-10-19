@@ -30,6 +30,29 @@ test.describe('公開レイアウトのプレビュー', () => {
     await deleteScratchArticles();
   });
 
+  test('外部の書体CSSが届かなくてもプレビューを表示して入力を反映する', async ({ page }) => {
+    const fonts = 'https://fonts.googleapis.com/**';
+    const pending = new EventEmitter();
+    const released = once(pending, 'release');
+    await page.route(fonts, async (route) => {
+      await released;
+      await route.abort();
+    });
+    try {
+      const requested = page.waitForRequest(fonts);
+      await openEditor(page);
+      await requested;
+      await openPreview(page);
+      await page.getByLabel('タイトル', { exact: true }).fill('書体の応答待ちでも編集できる');
+      await expect(
+        preview(page).getByRole('heading', { name: '書体の応答待ちでも編集できる', exact: true }),
+      ).toBeVisible();
+    } finally {
+      pending.emit('release');
+      await page.unrouteAll({ behavior: 'wait' });
+    }
+  });
+
   test('右側に常時表示し、入力に追従する。入力中は再取得・書き込みを送らない', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1100 });
     await openEditor(page);
