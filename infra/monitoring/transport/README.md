@@ -67,6 +67,24 @@ sudo python3 infra/monitoring/transport/test_transport.py
 起動やtransportの検査自体は再試行・skipせず、失敗時の診断と後片付けを維持する。
 この取得制御はローカル/CIのテスト用で、運用Composeの起動方針は変えない。
 
+CIではPublic ECRの転送量制限が再試行後も続くため、公開imageだけをGitHub Actionsのキャッシュへ保存する。
+ローカルでもLinux/amd64では `--image-cache <directory>` で同じ経路を検証できる。
+rootで書き込むため、指定先と親ディレクトリには他の利用者が内容やパスを差し替えられない専用の場所を使う。
+既存ディレクトリの権限は維持する。CIからの読み取りに必要な0755は新規作成時だけ設定し、パス内のシンボリックリンクは拒否する。
+復元後は `image-cache-lock.json` のconfig digest（Docker image ID）とOS/architectureを照合する。
+Docker archiveでは元のRepoDigestsが保持されない場合があるため、試験用Compose overrideは検証したcontent IDを使う。
+キャッシュがない初回・失効後は通常のpullが必要で、Public ECRのthrottlingを再試行しても解消できない場合だけ、
+[AWS公式Docker Hub image](https://hub.docker.com/r/amazon/cloudwatch-agent) の同一linux/amd64 manifestへ切り替える。
+補助取得にも既存の再試行上限を適用し、取得後は同じconfig IDを照合する。認証拒否・image不在・timeoutでは切り替えない。
+両方の取得先が利用できない場合、復元失敗、ID不一致は成功扱いにしない。
+キャッシュにはコンテナ・ログ・資格情報・設定ディレクトリを含めず、試験の成功結果も再利用しない。
+
+imageを更新するときは、固定したindexを `docker buildx imagetools inspect --raw <image@digest>` で確認し、
+linux/amd64のmanifestとそのconfig digestをlockへ同時に反映する。各manifestのSHA-256が参照digestと一致し、
+公式Docker Hubでも同じmanifest digestを取得できることを確認する。
+lock変更でキャッシュkeyが変わる。キャッシュを修復する場合は該当keyを削除して再実行する。
+通常のローカル実行は元のdigestを使うため、他architectureの試験にこのamd64用キャッシュを指定しない。
+
 実行コンテナは外部へ接続できないinternal networkに限定し、ホスト上の模擬Logs APIへ送る。資格情報・証明書・ARNは明示的に無効なfixtureで、AWSリソースを作らない。確認対象は次の通り。
 
 - systemdのJSONファイル出力・所有者/権限、read-only mount、稼働中のrename rotation
