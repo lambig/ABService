@@ -24,7 +24,7 @@
     "eslint-plugin-functional": "^10.0.0",
     "typescript": "^5.0.0",
     "typescript-eslint": "^8.0.0",
-    "vite": "8.2.2",
+    "vite": "8.2.4",
     "abservice-offline-player": "*"
   },
   "engines": {
