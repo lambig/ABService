@@ -30,6 +30,7 @@ class ImageCacheTests(unittest.TestCase):
             return json.dumps([self.inspected])
         if args[1:3] == ('image', 'save'):
             Path(args[4]).write_bytes(b'fixture archive')
+            Path(args[4]).chmod(0o600)  # Docker save creates a root-only archive.
         return ''
 
     def acquire(self):
@@ -39,6 +40,8 @@ class ImageCacheTests(unittest.TestCase):
         self.assertEqual(self.acquire(), self.image_id)
         self.pull.assert_called_once_with(self.image)
         self.assertEqual(self.archive.read_bytes(), b'fixture archive')
+        self.assertEqual(self.archive.stat().st_mode & 0o777, 0o644)
+        self.assertEqual(self.archive.parent.stat().st_mode & 0o777, 0o755)
         self.run.assert_any_call('docker', 'image', 'inspect', self.image)
         self.assertFalse(self.archive.with_suffix('.partial').exists())
 

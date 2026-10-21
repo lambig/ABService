@@ -27,6 +27,9 @@ def cached_image(image, directory, run, pull):
         raise ValueError('The image cache requires a Linux/amd64 Docker daemon')
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
+    # The root-only integration test writes here; actions/cache runs as runner.
+    # This dedicated directory contains only a public image, never runtime data.
+    directory.chmod(0o755)
     archive = directory / (image_id.removeprefix('sha256:') + '.tar')
     hit = archive.is_file()
     if hit:
@@ -52,6 +55,7 @@ def cached_image(image, directory, run, pull):
         temporary = archive.with_suffix('.partial')
         try:
             run('docker', 'image', 'save', '--output', str(temporary), image_id, timeout=120)
+            temporary.chmod(0o644)
             temporary.replace(archive)
         finally:
             temporary.unlink(missing_ok=True)
