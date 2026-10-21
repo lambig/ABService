@@ -69,6 +69,8 @@ sudo python3 infra/monitoring/transport/test_transport.py
 
 CIではPublic ECRの転送量制限が再試行後も続くため、公開imageだけをGitHub Actionsのキャッシュへ保存する。
 ローカルでもLinux/amd64では `--image-cache <directory>` で同じ経路を検証できる。
+rootで書き込むため、指定先と親ディレクトリには他の利用者が内容やパスを差し替えられない専用の場所を使う。
+既存ディレクトリの権限は維持する。CIからの読み取りに必要な0755は新規作成時だけ設定し、パス内のシンボリックリンクは拒否する。
 復元後は `image-cache-lock.json` のconfig digest（Docker image ID）とOS/architectureを照合する。
 Docker archiveでは元のRepoDigestsが保持されない場合があるため、試験用Compose overrideは検証したcontent IDを使う。
 キャッシュがない初回・失効後は通常のpullが必要で、Public ECRのthrottlingを再試行しても解消できない場合だけ、

@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
+import tempfile
 
 
 LOCK = Path(__file__).with_name('image-cache-lock.json')
@@ -25,12 +26,22 @@ def cached_image(image, directory, run, pull):
     if run('docker', 'info', '--format', '{{.OSType}}/{{.Architecture}}') not in (
             'linux/x86_64', 'linux/amd64'):
         raise ValueError('The image cache requires a Linux/amd64 Docker daemon')
-    directory = Path(directory)
-    directory.mkdir(parents=True, exist_ok=True)
-    # The root-only integration test writes here; actions/cache runs as runner.
-    # This dedicated directory contains only a public image, never runtime data.
-    directory.chmod(0o755)
+    directory = Path(directory).absolute()
+    # Use a trusted parent: another process must not replace path components.
+    if any(path.is_symlink() for path in (directory, *directory.parents)):
+        raise ValueError('Image cache directory must not contain symlinks')
+    try:
+        directory.mkdir(parents=True)
+    except FileExistsError:
+        if not directory.is_dir():
+            raise ValueError('Image cache path must be a directory')
+    else:
+        # Only a newly created directory is made readable by actions/cache.
+        # Existing directories may hold private files; preserve their mode.
+        directory.chmod(0o755)
     archive = directory / (image_id.removeprefix('sha256:') + '.tar')
+    if archive.is_symlink():
+        raise ValueError('Image cache archive must not be a symlink')
     hit = archive.is_file()
     if hit:
         run('docker', 'image', 'load', '--input', str(archive), timeout=120)
@@ -52,7 +63,9 @@ def cached_image(image, directory, run, pull):
         raise ValueError('Cached/pulled image does not match the pinned config and platform')
     if not hit:
         # Save only the image, before any test containers or credentials are used.
-        temporary = archive.with_suffix('.partial')
+        # Reserve a fresh file instead of following a pre-existing .partial link.
+        with tempfile.NamedTemporaryFile(dir=directory, suffix='.partial', delete=False) as output:
+            temporary = Path(output.name)
         try:
             run('docker', 'image', 'save', '--output', str(temporary), image_id, timeout=120)
             temporary.chmod(0o644)

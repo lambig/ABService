@@ -1,6 +1,7 @@
 """Image cache contract without a daemon, network or elevated privileges."""
 
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -41,9 +42,59 @@ class ImageCacheTests(unittest.TestCase):
         self.pull.assert_called_once_with(self.image)
         self.assertEqual(self.archive.read_bytes(), b'fixture archive')
         self.assertEqual(self.archive.stat().st_mode & 0o777, 0o644)
-        self.assertEqual(self.archive.parent.stat().st_mode & 0o777, 0o755)
+        self.assertEqual(self.archive.parent.stat().st_mode & 0o777, 0o700)
         self.run.assert_any_call('docker', 'image', 'inspect', self.image)
         self.assertFalse(self.archive.with_suffix('.partial').exists())
+
+    def test_new_directory_is_readable_even_with_restrictive_umask(self):
+        directory = Path(self.directory.name) / 'new-cache'
+        previous_umask = os.umask(0o077)
+        try:
+            self.assertEqual(image_cache.cached_image(
+                self.image, directory, self.run, self.pull), self.image_id)
+        finally:
+            os.umask(previous_umask)
+        self.assertEqual(directory.stat().st_mode & 0o777, 0o755)
+        self.assertEqual((directory / self.archive.name).stat().st_mode & 0o777, 0o644)
+
+    def test_directory_symlinks_are_rejected_without_changing_the_target(self):
+        target = Path(self.directory.name) / 'private'
+        target.mkdir(mode=0o700)
+        marker = target / 'private.txt'
+        marker.write_bytes(b'private fixture')
+        link = Path(self.directory.name) / 'linked'
+        link.symlink_to(target, target_is_directory=True)
+        dangling = Path(self.directory.name) / 'dangling'
+        dangling.symlink_to(target / 'missing', target_is_directory=True)
+        for directory in (link, link / 'child', dangling):
+            with self.subTest(directory=directory), self.assertRaisesRegex(ValueError, 'symlink'):
+                image_cache.cached_image(self.image, directory, self.run, self.pull)
+        self.assertEqual(target.stat().st_mode & 0o777, 0o700)
+        self.assertEqual(marker.read_bytes(), b'private fixture')
+        self.assertEqual(list(target.iterdir()), [marker])
+        self.pull.assert_not_called()
+        self.assertFalse(any(call.args[1] == 'image' for call in self.run.call_args_list))
+
+    def test_archive_symlink_is_rejected_without_loading_or_changing_target(self):
+        target = Path(self.directory.name) / 'private.txt'
+        target.write_bytes(b'private fixture')
+        target.chmod(0o600)
+        self.archive.symlink_to(target)
+        with self.assertRaisesRegex(ValueError, 'symlink'):
+            self.acquire()
+        self.assertEqual(target.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(target.read_bytes(), b'private fixture')
+        self.pull.assert_not_called()
+        self.assertFalse(any(call.args[1] == 'image' for call in self.run.call_args_list))
+
+    def test_save_does_not_follow_a_preexisting_partial_symlink(self):
+        target = Path(self.directory.name) / 'private.txt'
+        target.write_bytes(b'private fixture')
+        target.chmod(0o600)
+        self.archive.with_suffix('.partial').symlink_to(target)
+        self.assertEqual(self.acquire(), self.image_id)
+        self.assertEqual(target.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(target.read_bytes(), b'private fixture')
 
     def test_hit_loads_verified_content_without_registry_access(self):
         self.archive.write_bytes(b'fixture archive')
