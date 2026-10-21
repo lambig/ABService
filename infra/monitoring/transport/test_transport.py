@@ -20,7 +20,7 @@ import tempfile
 import threading
 import time
 
-from image_cache import cached_image
+from image_cache import cached_image, registry_throttled
 
 
 SOURCE = Path(__file__).resolve().parent
@@ -44,12 +44,6 @@ def run(*args, timeout=300, **kwargs):
         print_output('stdout', error.stdout)
         print_output('stderr', error.stderr)
         raise
-
-
-def registry_throttled(stderr):
-    # Registries report every throttle as the TOOMANYREQUESTS error code; the text after it varies
-    # (Public ECR: "Rate exceeded" per request, "Data limit exceeded" per transferred volume).
-    return 'toomanyrequests:' in stderr.lower()
 
 
 def pull_image(image):

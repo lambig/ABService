@@ -71,11 +71,15 @@ CIではPublic ECRの転送量制限が再試行後も続くため、公開image
 ローカルでもLinux/amd64では `--image-cache <directory>` で同じ経路を検証できる。
 復元後は `image-cache-lock.json` のconfig digest（Docker image ID）とOS/architectureを照合する。
 Docker archiveでは元のRepoDigestsが保持されない場合があるため、試験用Compose overrideは検証したcontent IDを使う。
-キャッシュがない初回・失効後は通常のpullが必要で、取得制限は引き続き失敗になり得る。復元失敗・ID不一致も成功扱いにしない。
+キャッシュがない初回・失効後は通常のpullが必要で、Public ECRのthrottlingを再試行しても解消できない場合だけ、
+[AWS公式Docker Hub image](https://hub.docker.com/r/amazon/cloudwatch-agent) の同一linux/amd64 manifestへ切り替える。
+補助取得にも既存の再試行上限を適用し、取得後は同じconfig IDを照合する。認証拒否・image不在・timeoutでは切り替えない。
+両方の取得先が利用できない場合、復元失敗、ID不一致は成功扱いにしない。
 キャッシュにはコンテナ・ログ・資格情報・設定ディレクトリを含めず、試験の成功結果も再利用しない。
 
 imageを更新するときは、固定したindexを `docker buildx imagetools inspect --raw <image@digest>` で確認し、
-linux/amd64のmanifestとそのconfig digestをlockへ同時に反映する。各manifestのSHA-256が参照digestと一致することを確認する。
+linux/amd64のmanifestとそのconfig digestをlockへ同時に反映する。各manifestのSHA-256が参照digestと一致し、
+公式Docker Hubでも同じmanifest digestを取得できることを確認する。
 lock変更でキャッシュkeyが変わる。キャッシュを修復する場合は該当keyを削除して再実行する。
 通常のローカル実行は元のdigestを使うため、他architectureの試験にこのamd64用キャッシュを指定しない。
 

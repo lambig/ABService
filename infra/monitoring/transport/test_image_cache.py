@@ -98,6 +98,43 @@ class ImageCacheTests(unittest.TestCase):
         self.assertIs(raised.exception, error)
         self.assertFalse(self.archive.exists())
 
+    def test_only_exhausted_throttling_uses_the_identical_official_manifest(self):
+        for stderr in ('toomanyrequests: Data limit exceeded', b'TOOMANYREQUESTS: Rate exceeded'):
+            with self.subTest(stderr=stderr):
+                self.archive.unlink(missing_ok=True)
+                self.pull.reset_mock()
+                self.pull.side_effect = [subprocess.CalledProcessError(1, ['docker'], stderr=stderr), None]
+                self.assertEqual(self.acquire(), self.image_id)
+                fallback = 'docker.io/amazon/cloudwatch-agent@' + self.lock['manifest']
+                self.assertEqual([call.args for call in self.pull.call_args_list], [(self.image,), (fallback,)])
+                self.run.assert_any_call('docker', 'image', 'inspect', fallback)
+
+    def test_auth_missing_image_timeout_and_daemon_failure_never_use_fallback(self):
+        for error in (subprocess.CalledProcessError(1, ['docker'], stderr='unauthorized'),
+                      subprocess.CalledProcessError(1, ['docker'], stderr='manifest unknown'),
+                      subprocess.TimeoutExpired(['docker'], 90), OSError('missing daemon')):
+            with self.subTest(error=error):
+                self.pull.reset_mock()
+                self.pull.side_effect = error
+                with self.assertRaises(type(error)):
+                    self.acquire()
+                self.pull.assert_called_once_with(self.image)
+                self.assertFalse(self.archive.exists())
+
+    def test_fallback_failure_or_wrong_content_remains_fatal(self):
+        throttle = subprocess.CalledProcessError(1, ['docker'], stderr='toomanyrequests: Rate exceeded')
+        final = subprocess.CalledProcessError(1, ['docker'], stderr='manifest unknown')
+        self.pull.side_effect = [throttle, final]
+        with self.assertRaises(subprocess.CalledProcessError) as raised:
+            self.acquire()
+        self.assertIs(raised.exception, final)
+        self.assertFalse(self.archive.exists())
+        self.pull.side_effect = [throttle, None]
+        self.inspected['Id'] = 'sha256:' + '0' * 64
+        with self.assertRaises(ValueError):
+            self.acquire()
+        self.assertFalse(self.archive.exists())
+
     def test_interrupted_save_does_not_leave_a_restorable_archive(self):
         def failing(*args, **kwargs):
             result = self.command(*args, **kwargs)
