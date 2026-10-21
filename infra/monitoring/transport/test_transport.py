@@ -4,6 +4,7 @@ Uses invalid credentials and an internal Docker network with a local fake Logs A
 No AWS resources are created. Run this file directly, not through unittest discovery.
 """
 
+import argparse
 import collections
 import datetime as dt
 import grp
@@ -18,6 +19,8 @@ import subprocess
 import tempfile
 import threading
 import time
+
+from image_cache import cached_image
 
 
 SOURCE = Path(__file__).resolve().parent
@@ -65,10 +68,21 @@ def pull_image(image):
             print(f'Registry throttled the image pull; retrying attempt {attempt + 1}/4', flush=True)
 
 
-def start_transport(compose, env):
+def start_transport(compose, env, cache_directory=None):
     images = set(run(*compose, 'config', '--images', env=env).splitlines())
     if not images or any('@sha256:' not in image for image in images):
         raise ValueError('Transport test images must be pinned by digest')
+    if cache_directory is not None:
+        resolved = {image: cached_image(image, cache_directory, run, pull_image)
+                    for image in sorted(images)}
+        config = json.loads(run(*compose, 'config', '--format', 'json', env=env))
+        with tempfile.TemporaryDirectory(prefix='ab-transport-image-') as directory:
+            override = Path(directory) / 'images.json'
+            override.write_text(json.dumps({'services': {
+                name: {'image': resolved[service['image']]}
+                for name, service in config['services'].items()}}))
+            run(*compose, '-f', str(override), 'up', '-d', '--pull', 'never', env=env)
+        return
     for image in sorted(images):
         pull_image(image)
     # Both services use the same image. Pull once, then keep startup failures distinct.
@@ -124,6 +138,10 @@ class Receiver(http.server.BaseHTTPRequestHandler):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--image-cache', type=Path,
+                        help='Optional Linux/amd64 image archive directory (no runtime data)')
+    args = parser.parse_args()
     if os.geteuid() != 0:
         raise SystemExit('Run explicitly with sudo on a disposable systemd/Docker host')
     account = pwd.getpwnam('nobody')
@@ -310,7 +328,7 @@ def main():
         os.chown(archive, account.pw_uid, account.pw_gid)
         os.utime(archive, (time.time() + 10, time.time() + 10))
 
-        start_transport(compose, env)
+        start_transport(compose, env, args.image_cache)
         wait(lambda: received([first]), 'initial event was not delivered')
         verify_timestamps([first])
         assert not received([archive_only]), 'archive entered normal collection'

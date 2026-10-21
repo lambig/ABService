@@ -351,10 +351,16 @@ jobs:
           PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s infra/monitoring/credentials -p 'test_*.py' -v
           sudo python3 infra/monitoring/credentials/test_systemd.py
 
+      - name: Cache the pinned monitoring test image
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/monitoring-image-cache
+          key: monitoring-image-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('infra/monitoring/transport/image-cache-lock.json') }}
+
       - name: Verify monitoring log transport on an isolated Docker network
         run: |
-          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s infra/monitoring/transport -p 'test_diagnostics.py' -v
-          sudo python3 infra/monitoring/transport/test_transport.py
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s infra/monitoring/transport -p 'test_*.py' -v
+          sudo python3 infra/monitoring/transport/test_transport.py --image-cache "$RUNNER_TEMP/monitoring-image-cache"
 
       - name: Check formatting
         run: terraform fmt -check -recursive infra
