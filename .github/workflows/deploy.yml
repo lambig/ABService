@@ -265,6 +265,11 @@ jobs:
           distribution: corretto
           java-version: '25'
 
+      - name: Block compromised intermediate certificates
+        if: steps.existing.outputs.exists == 'false'
+        shell: bash
+        run: sh backend/security/update-java-blocklist.sh "$JAVA_HOME"
+
       - name: Set up Gradle
         if: steps.existing.outputs.exists == 'false'
         uses: gradle/actions/setup-gradle@v4
