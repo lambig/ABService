@@ -44,6 +44,8 @@ jobs:
           node-version-file: .nvmrc
       - name: Verify CI selection and aggregation
         run: node --test scripts/ci-policy.test.mjs scripts/browser-*.test.mjs scripts/admin-audio-bridge.test.mjs
+      - name: Verify Java denylist preservation
+        run: sh backend/security/update-java-blocklist.test.sh
       - name: Verify local commit identity boundary
         run: bash scripts/git-identity.test.sh
       - name: Select affected tracks
@@ -97,6 +99,10 @@ jobs:
         with:
           distribution: corretto
           java-version: '25'
+
+      - name: Block compromised intermediate certificates
+        shell: bash
+        run: sh backend/security/update-java-blocklist.sh "$JAVA_HOME"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -210,6 +216,10 @@ jobs:
         with:
           distribution: corretto
           java-version: '25'
+
+      - name: Block compromised intermediate certificates
+        shell: bash
+        run: sh backend/security/update-java-blocklist.sh "$JAVA_HOME"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -442,6 +452,10 @@ jobs:
         with:
           distribution: corretto
           java-version: '25'
+
+      - name: Block compromised intermediate certificates
+        shell: bash
+        run: sh backend/security/update-java-blocklist.sh "$JAVA_HOME"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4

@@ -80,7 +80,7 @@ add newly created source files to that inventory when rebuilding outside Git.
 
 ## Rebuild
 
-Prerequisites: Node.js 24.20.0 / npm 11.19.0, Python 3.9 or later (zip extraction),
+Prerequisites: Node.js 24.22.1 / npm 11.19.1, Python 3.9 or later (zip extraction),
 Zig 0.15.2 and Rust 1.99.0 with the wasm32-unknown-unknown target. The recorded
 Rust compiler is commit b940084d7eb6a299eb4bfeb8e34901bc051e7ac4, Windows GNU host.
 Set `ZIG_EXE`, `RUSTC`, `CARGO` to their executable paths and `CARGO_HOME` to the

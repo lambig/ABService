@@ -9,7 +9,15 @@
 # 手元で組むには: backend/gradlew -p backend quarkusBuild
 #                docker build -f backend/src/main/docker/Dockerfile.jvm -t abservice-backend:local backend
 
-FROM amazoncorretto:25-al2023-headless AS flac-build
+FROM amazoncorretto:25-al2023-headless@sha256:29f70764d3ffc8c8afb1b721891a9041df8117ce3f570a26e67a077d2e13612c AS trusted-java
+COPY security/ /opt/abservice-security/
+RUN cp /opt/abservice-security/*-root.pem /etc/pki/ca-trust/source/blocklist/ \
+    && update-ca-trust extract \
+    && trust list --filter=blocklist | grep -F 'emSign ECC Root CA - G3' \
+    && trust list --filter=blocklist | grep -F 'AAA Certificate Services' \
+    && sh /opt/abservice-security/update-java-blocklist.sh "$JAVA_HOME"
+
+FROM trusted-java AS flac-build
 
 # 1.3系の--analyzeは先頭frameのoffset/sizeを誤ることがある。
 # OS同梱版に依存せず、公式配布物の版とSHA-256を固定して同じABIで組み立てる。
@@ -26,7 +34,7 @@ RUN curl --fail --show-error --location --proto '=https' --proto-redir '=https' 
     && cmake --build compiled --parallel 2 \
     && cmake --install compiled
 
-FROM amazoncorretto:25-al2023-headless AS flac-runtime
+FROM trusted-java AS flac-runtime
 
 # 非公開音源はlibFLACで全体を検査する。CLIは別プロセスとして実行し、PCMを保存しない。
 COPY --from=flac-build /opt/flac/bin/flac /usr/local/bin/flac

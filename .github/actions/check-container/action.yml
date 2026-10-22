@@ -33,6 +33,10 @@ runs:
         distribution: corretto
         java-version: '25'
 
+    - name: Block compromised intermediate certificates
+      shell: bash
+      run: sh backend/security/update-java-blocklist.sh "$JAVA_HOME"
+
     - name: Set up Gradle
       uses: gradle/actions/setup-gradle@v4
 

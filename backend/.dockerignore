@@ -1,3 +1,5 @@
-# Dockerfile.jvm が取り込むのは組み上がった uber-jar だけ。ソースも Gradle の作業ファイルも文脈へ入れない
+# Dockerfile.jvmにはuber-jarとTLS拒否設定だけを渡す。
 *
 !build/*-runner.jar
+!security/
+!security/**
