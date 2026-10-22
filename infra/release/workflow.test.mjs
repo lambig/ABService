@@ -122,6 +122,20 @@ test('private caller checks out source code, not its own operations commit', () 
   assert.equal(evaluate(guard(job(deploy, 'preflight')), c), false);
 });
 
+test('older selected source cannot downgrade recovery Node or backend Java denylist', () => {
+  const nodeFiles = [...frontend.matchAll(/node-version-file: (.+)/g)].map(match => match[1]);
+  assert.deepEqual(nodeFiles, ['delivery/.nvmrc', 'delivery/.nvmrc']);
+  const backend = job(deploy, 'deploy');
+  const controller = backend.split('- name: Checkout deployment controller\n')[1].split('\n      - ')[0];
+  assert.doesNotMatch(controller, /\n        if:/);
+  assert.match(controller, /ref: \$\{\{ inputs.controller_sha \|\| github.sha \}\}/);
+  const block = backend.split('- name: Block compromised intermediate certificates\n')[1].split('\n      - ')[0];
+  assert.match(block, /if: steps.existing.outputs.exists == 'false'/);
+  assert.match(block, /run: sh \.release-controller\/backend\/security\/update-java-blocklist.sh "\$JAVA_HOME"/);
+  assert.ok(backend.indexOf(block) < backend.indexOf('- name: Set up Gradle'));
+  assert.match(backend, /ref: \$\{\{ inputs.commit_sha \}\}/);
+});
+
 test('controller refs and source names fail closed before checkout and AWS access', () => {
   const blocks = [...(deploy + frontend).matchAll(/- name: Validate source and controller inputs before checkout\n[\s\S]*?run: \|\n((?:          .*\n)+)/g)];
   assert.equal(blocks.length, 3);

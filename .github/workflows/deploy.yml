@@ -181,8 +181,7 @@ jobs:
           esac
 
       # Transport is controller code; the two host scripts are read from the candidate's Git objects.
-      - name: Checkout cohost delivery controller
-        if: vars.BACKEND_DEPLOY_TARGET == 'cohost-amd64'
+      - name: Checkout deployment controller
         uses: actions/checkout@v4
         with:
           repository: ${{ inputs.source_repository || github.repository }}
@@ -268,7 +267,7 @@ jobs:
       - name: Block compromised intermediate certificates
         if: steps.existing.outputs.exists == 'false'
         shell: bash
-        run: sh backend/security/update-java-blocklist.sh "$JAVA_HOME"
+        run: sh .release-controller/backend/security/update-java-blocklist.sh "$JAVA_HOME"
 
       - name: Set up Gradle
         if: steps.existing.outputs.exists == 'false'

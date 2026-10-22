@@ -108,7 +108,7 @@ jobs:
       - uses: actions/setup-node@v4
         if: env.ACTION != 'rollback'
         with:
-          node-version-file: source/.nvmrc
+          node-version-file: delivery/.nvmrc
           cache: npm
           cache-dependency-path: source/package-lock.json
       - name: Build the selected code with current public data
