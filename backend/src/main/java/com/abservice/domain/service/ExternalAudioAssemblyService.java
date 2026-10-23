@@ -1,7 +1,7 @@
 package com.abservice.domain.service;
 
 import com.abservice.domain.model.aggregate.album.ExternalAudio;
-import com.abservice.domain.model.vo.common.ExternalAudioUrl;
+import com.abservice.domain.model.vo.album.ExternalAudioUrl;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import jakarta.enterprise.context.ApplicationScoped;

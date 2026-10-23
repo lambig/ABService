@@ -1,4 +1,6 @@
-package com.abservice.domain.model.vo.common;
+package com.abservice.domain.model.vo.album;
+
+import com.abservice.domain.model.vo.common.BusinessDate;
 
 import com.abservice.domain.model.vo.event.EventName;
 import com.abservice.lib.Result;

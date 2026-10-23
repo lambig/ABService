@@ -11,7 +11,7 @@ import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.album.TrackTuneTitle;
-import com.abservice.domain.model.vo.common.ArtistCredit;
+import com.abservice.domain.model.vo.album.ArtistCredit;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.Url;
 

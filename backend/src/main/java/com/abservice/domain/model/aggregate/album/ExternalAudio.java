@@ -6,7 +6,7 @@ import com.abservice.domain.model.DomainFactory;
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.entity.DomainEntity;
 import com.abservice.domain.model.policy.Policy;
-import com.abservice.domain.model.vo.common.ExternalAudioUrl;
+import com.abservice.domain.model.vo.album.ExternalAudioUrl;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import java.util.Objects;

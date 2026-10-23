@@ -7,7 +7,6 @@ import java.time.LocalDate;
 import java.util.List;
 
 import com.abservice.domain.model.vo.common.BusinessDate;
-import com.abservice.domain.model.vo.common.EventDateAndSpace;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
