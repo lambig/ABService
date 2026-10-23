@@ -7,6 +7,7 @@ import static java.util.function.Predicate.not;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -66,6 +67,35 @@ class CollectionContractsTest {
                         .parallel()
                         .collect(Optionals.optionally(Collectors.joining("/"))))
                 .contains("first/second/first");
+    }
+
+    @Test
+    @DisplayName("後段コレクタの終了結果がnullならOptionalへの集約は拒否する")
+    @SuppressWarnings("PMD.ForbiddenUnusedLambdaParameter") // null終了結果を拒否する契約を検証するため、集約値によらずnullを返す。
+    void optionalCollectorRejectsNullDownstreamResult() {
+        final var downstream = Collectors.collectingAndThen(Collectors.joining(), value -> (String) null);
+        assertThatThrownBy(() -> Stream.of("one").collect(Optionals.optionally(downstream)))
+                .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("Iterableの写像結果がnullでも要素として順序を保って残す")
+    void iterableMappingPreservesNullResults() {
+        final var mappedValues = Map.of(
+                "first",
+                "FIRST",
+                "last",
+                "LAST");
+        assertThat(
+                Iterables.<String, String>toList(mappedValues::get).apply(
+                        List.of(
+                                "first",
+                                "missing",
+                                "last")))
+                .containsExactly(
+                        "FIRST",
+                        null,
+                        "LAST");
     }
 
     @Test
