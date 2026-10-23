@@ -26,7 +26,7 @@ import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.album.TrackName;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.album.TrackTuneTitle;
-import com.abservice.domain.model.vo.common.ArtistCredit;
+import com.abservice.domain.model.vo.album.ArtistCredit;
 import com.abservice.domain.model.vo.common.Credit;
 import com.abservice.domain.model.vo.common.Url;
 import com.abservice.lib.ErrorResult;

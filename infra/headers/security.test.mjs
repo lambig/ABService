@@ -36,7 +36,7 @@ test('admin upload/API destinations do not widen public or non-document policies
 });
 
 test('every accepted audio source maps to an embed origin allowed on both page kinds', () => {
-  const java = readFileSync(new URL('../../backend/src/main/java/com/abservice/domain/model/vo/common/ExternalAudioUrl.java', import.meta.url), 'utf8');
+  const java = readFileSync(new URL('../../backend/src/main/java/com/abservice/domain/model/vo/album/ExternalAudioUrl.java', import.meta.url), 'utf8');
   const declaration = java.match(/ALLOWED_HOSTS = Set\.of\(([\s\S]*?)\);/u)?.[1];
   assert.ok(declaration, 'Could not inspect accepted audio hosts');
   const hosts = [...declaration.matchAll(/"([^"]+)"/gu)].map((match) => match[1]);

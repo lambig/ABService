@@ -1,4 +1,6 @@
-package com.abservice.domain.model.vo.common;
+package com.abservice.domain.model.vo.event;
+
+import com.abservice.domain.model.vo.common.BusinessDate;
 
 import static io.github.lambig.funcifextension.predicate.By.having;
 import static io.github.lambig.funcifextension.predicate.Predicates.and;

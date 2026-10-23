@@ -7,8 +7,8 @@ import static io.github.lambig.funcifextension.predicate.Predicates.and;
 import static io.github.lambig.funcifextension.predicate.Predicates.or;
 
 import com.abservice.domain.model.vo.common.BusinessDate;
-import com.abservice.domain.model.vo.common.EventDateAndSpace;
-import com.abservice.domain.model.vo.common.EventReleasedAt;
+import com.abservice.domain.model.vo.event.EventDateAndSpace;
+import com.abservice.domain.model.vo.album.EventReleasedAt;
 import com.abservice.domain.model.vo.event.ConfirmedEvent;
 import com.abservice.domain.model.vo.event.EventToParticipate;
 import com.abservice.domain.model.vo.event.TentativeEvent;

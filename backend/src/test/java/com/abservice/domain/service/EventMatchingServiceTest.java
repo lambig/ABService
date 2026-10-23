@@ -6,8 +6,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 import com.abservice.domain.model.vo.common.BusinessDate;
-import com.abservice.domain.model.vo.common.EventDateAndSpace;
-import com.abservice.domain.model.vo.common.EventReleasedAt;
+import com.abservice.domain.model.vo.event.EventDateAndSpace;
+import com.abservice.domain.model.vo.album.EventReleasedAt;
 import com.abservice.domain.model.vo.event.AppliedEvent;
 import com.abservice.domain.model.vo.event.ApplyingEvent;
 import com.abservice.domain.model.vo.event.ConfirmedEvent;
