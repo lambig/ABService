@@ -43,6 +43,17 @@ export const {
   upsertSiteContent,
 } = api;
 
+/** 発表日だけを揃える。他の項目と子のIDを保ち、同じ日なら世代を進めない。 */
+export const ensureAlbumReleaseDate = async (
+  albumId: string,
+  releaseDate: string,
+): Promise<void> => {
+  const detail = await api.getAdminAlbumDetail(albumId);
+  return detail.releaseDate === releaseDate
+    ? undefined
+    : api.updateAlbum(albumId, { ...toUpdateAlbumRequest(detail), releaseDate });
+};
+
 /**
  * 別のタブが保存した状態を作る（タイトルだけを変えて全項目置換する）。
  *

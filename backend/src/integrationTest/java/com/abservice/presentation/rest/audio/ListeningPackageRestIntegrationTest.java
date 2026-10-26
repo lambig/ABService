@@ -158,8 +158,8 @@ class ListeningPackageRestIntegrationTest {
     }
 
     @Test
-    @DisplayName("作品は公開サイトの一覧と同じ順（カタログナンバーの降順、未付与は末尾）で並ぶ")
-    void ordersAlbumsLikePublicCatalog() throws Exception {
+    @DisplayName("試聴端末の作品はカタログナンバーの降順、未付与は末尾で並ぶ")
+    void ordersAlbumsByCatalogNumberDescendingNullsLast() throws Exception {
         final String token = device();
         final String unnumbered = albumWithTracks("番号なし");
         final String older = albumWithCatalogNumber("旧作", "AB-001");
