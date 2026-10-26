@@ -65,13 +65,15 @@ const listAll = async <T>(
 };
 
 /*
- * 作品の並びはカタログナンバーの降順で固定する（#197）。並び替えの UI は置かないため、
- * 取得側でキーを決める。降順はバックエンドのキーごとの既定に一致する。
+ * 公開作品の並びは発表日（releaseDate）の降順で固定する（#532）。並び替えの UI は置かないため、
+ * 公開画面の取得側でキーと向きを指定する。同日の作品は API のドメインID降順で安定させる。
  */
 const fetchAlbumPage = (page: number): Promise<Schemas['PublicAlbumListResponse']> =>
-  fetchPublic(`/api/v1/albums?page=${String(page)}&size=${String(PAGE_SIZE)}&sort=catalogNumber`);
+  fetchPublic(
+    `/api/v1/albums?page=${String(page)}&size=${String(PAGE_SIZE)}&sort=releaseDate&direction=desc`,
+  );
 
-/** 公開中のアルバムを全件取得する（カタログナンバーの降順）。 */
+/** 公開中のアルバムを全件取得する（発表日の降順）。 */
 export const listAlbums = (): Promise<readonly PublicAlbum[]> => listAll(fetchAlbumPage);
 
 /** 公開中のアルバム詳細を取得する。 */

@@ -2,6 +2,7 @@ import { coverImageAsset } from './cover-image.ts';
 import {
   deleteArticle,
   ensureAlbumCoverImage,
+  ensureAlbumReleaseDate,
   findAlbumByCatalogNumber,
   findArticleByTitle,
   publishAlbum,
@@ -23,7 +24,7 @@ import type { AlbumSeed, ArticleSeed } from './admin-api.ts';
  *
  * <p>
  * 投入は冪等にする。ローカルでは同じ DB へ繰り返し実行するため、毎回足すと同じものが並んで証跡が
- * 読みにくくなる。作品はカタログナンバーで存在を見て無いときだけ作り、公開状態だけを毎回揃える
+ * 読みにくくなる。作品はカタログナンバーで存在を見て無いときだけ作り、公開状態と発表日を毎回揃える
  * （削除が塞がっている。#251）。showcaseのカバー画像は旧シードに無いため、既存作品にも不足を補う。
  * 記事は削除できるため、あれば消してから作り直し、内容まで揃える。
  * </p>
@@ -196,7 +197,8 @@ export const quiet = {
   isdn: '2784000001004',
   title: 'E2E 音源なしアルバム',
   artistDisplayName: 'E2E 音源なしアーティスト',
-  releaseDate: '2026-08-16',
+  /** 番号は showcase より大きいが発表日は古くし、公開一覧の並び順の取り違えを検出する（#532）。 */
+  releaseDate: '2026-08-13',
   trackTitle: 'E2E 音源なしトラック',
   /** Markdown として解釈されないことを見るため、記法の見た目を含める */
   description: 'プレーンテキストの概要説明。**強調** は記法にならない。',
@@ -527,7 +529,7 @@ type SeedState = 'PUBLISHED' | 'DRAFT';
  * </p>
  *
  * <p>
- * 内容（タイトル・イベント・曲目など）は揃えない。フィクスチャの値を変えたときは作り直しが要るが、
+ * 発表日は ensureAlbum で揃える。その他の内容（タイトル・イベント・曲目など）を変えるには作り直しが要るが、
  * トラックを持つ作品の削除が塞がっている（#251）。解消後に、記事と同じ作り直しへ移す。
  * </p>
  */
@@ -556,7 +558,9 @@ const ensureAlbum = async (
     ? seedDraftAlbum(seed).then((albumId) =>
         state === 'PUBLISHED' ? publishAlbum(albumId) : undefined,
       )
-    : alignAlbumPublishState(existing.publishedAt, existing.albumId, state);
+    : ensureAlbumReleaseDate(existing.albumId, seed.releaseDate).then(() =>
+        alignAlbumPublishState(existing.publishedAt, existing.albumId, state),
+      );
 };
 
 /**

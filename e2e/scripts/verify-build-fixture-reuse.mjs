@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import {
+  ensureAlbumReleaseDate,
   findAlbumByCatalogNumber,
   findArticleByTitle,
   publishArticle,
@@ -9,6 +10,7 @@ import {
 } from '../src/support/admin-api.ts';
 import {
   pagination,
+  quiet,
   retiredPaginationArticleTitles,
   seedForBuild,
   showcase,
@@ -26,6 +28,7 @@ const get = async (path) => {
 
 // Compare all unrelated fields, including child IDs, order, event and publication.
 const withoutCoverRevision = ({ revision, coverImageKey, coverImageUrl, ...rest }) => rest;
+const withoutReleaseDateRevision = ({ revision, releaseDate, ...rest }) => rest;
 
 /** Runs before SSG against the same live backend/DB/MinIO, without restarting or clearing it. */
 export const verifyBuildFixtureReuse = async () => {
@@ -35,6 +38,19 @@ export const verifyBuildFixtureReuse = async () => {
   const before = await get(path);
   assert.ok(before.tracks.length > 0 && before.externalAudios.length > 0);
   assert.ok(before.coverImageKey);
+
+  const quietAlbum = await findAlbumByCatalogNumber(quiet.catalogNumber);
+  assert.ok(quietAlbum);
+  const quietPath = `/api/v1/admin/albums/${quietAlbum.albumId}`;
+  const quietBefore = await get(quietPath);
+  // Reproduce the old date that made catalog order and release-date order identical.
+  await ensureAlbumReleaseDate(quietAlbum.albumId, '2026-08-16');
+  const quietLegacy = await get(quietPath);
+  assert.equal(quietLegacy.releaseDate, '2026-08-16');
+  assert.deepEqual(
+    withoutReleaseDateRevision(quietLegacy),
+    withoutReleaseDateRevision(quietBefore),
+  );
 
   // Reproduce the pre-PR database: showcase exists with no cover, plus the retired fillers.
   await setAlbumCoverImage(album.albumId, null);
@@ -47,6 +63,12 @@ export const verifyBuildFixtureReuse = async () => {
 
   await seedForBuild();
   const repaired = await get(path);
+  const quietRepaired = await get(quietPath);
+  assert.equal(quietRepaired.releaseDate, quiet.releaseDate);
+  assert.deepEqual(
+    withoutReleaseDateRevision(quietRepaired),
+    withoutReleaseDateRevision(quietBefore),
+  );
   assert.ok(repaired.coverImageKey);
   assert.deepEqual(withoutCoverRevision(repaired), withoutCoverRevision(before));
   const image = await fetch(`${stack.assetOrigin}${stack.assetBasePath}/${repaired.coverImageKey}`);
@@ -63,8 +85,9 @@ export const verifyBuildFixtureReuse = async () => {
   // A further run must reuse the asset and leave the album revision/children unchanged.
   await seedForBuild();
   assert.deepEqual(await get(path), repaired);
+  assert.deepEqual(await get(quietPath), quietRepaired);
   assert.equal((await get('/api/v1/articles?size=100')).totalElements, pagination.perPage + 1);
   console.log(
-    'Build fixture reuse: legacy cover repaired, album fields preserved, retired article removed, second run unchanged',
+    'Build fixture reuse: legacy cover/date repaired, other album fields preserved, retired article removed, second run unchanged',
   );
 };
