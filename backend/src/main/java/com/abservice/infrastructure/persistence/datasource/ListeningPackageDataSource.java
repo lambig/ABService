@@ -21,8 +21,7 @@ public class ListeningPackageDataSource {
 
     /**
      * 公開済みで、CONFIRMED のクロスフェードが関連付いた作品だけを対象にする。下書きは含めない。
-     * 試聴端末の作品はカタログナンバーの降順（未付与は末尾、同値はドメインIDの降順）に並べる。
-     * 公開サイトの発表日順とは独立した表示規則とする（#532）。
+     * 試聴端末の作品はカタログナンバーの降順（未付与は末尾、同値はドメインIDの降順）に並べる。 公開サイトの発表日順とは独立した表示規則とする（#532）。
      */
     private static final String DISTRIBUTABLE_ALBUMS = """
             FROM AlbumTableRecord a
