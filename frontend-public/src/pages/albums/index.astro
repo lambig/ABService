@@ -6,7 +6,7 @@ import BaseLayout from '$layouts/BaseLayout.astro';
 
 /*
  * 公開中のアルバムはビルド時に取得して焼き込む（DECISIONS 24 / #125）。並び順は listAlbums が決める。
- * 日付を軸にした導線と絞り込みは #210。
+ * 作品一覧は発表日の降順。体系別の絞り込みは #532 の後続課題。
  */
 const albums = await listAlbums();
 ---
