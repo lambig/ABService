@@ -23,6 +23,16 @@ const mainSelection = (files, workspaces = fixtures) => selectCI({
   event: 'push', ref: 'refs/heads/main', files, workspaces,
 });
 
+test('admin component test changes still run frontend tests without browser suites', () => {
+  const workspaces = [...fixtures, workspace('admin', 'frontend-admin')];
+  const selected = selectCI({ event: 'pull_request', ref: 'refs/pull/1/merge',
+    files: ['frontend-admin/src/components/AlbumForm.test.ts'], workspaces });
+  assert.equal(selected.application, true);
+  assert.ok(browserKeys.every((key) => selected[key] === false));
+  assert.ok(frontendTasks(workspaces, 'application').some((task) =>
+    task.workspace === 'admin' && task.script === 'test'));
+});
+
 test('main scopes ordinary player and application changes without repeating browser regressions', () => {
   for (const [file, application, listening, infrastructure] of [
     ['packages/player/src/player.ts', false, true, false],

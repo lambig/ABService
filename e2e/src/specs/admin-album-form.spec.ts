@@ -1,5 +1,3 @@
-import { setTimeout as delay } from 'node:timers/promises';
-
 import type { Locator, Page } from '@playwright/test';
 import { revokeBrowserSession } from '../support/admin-sessions.ts';
 
@@ -22,14 +20,9 @@ import {
 } from '../support/scratch-albums.ts';
 
 /**
- * 管理画面の作品の新規作成・編集（#288 / #122）のジャーニー。
- *
- * <p>
- * 見ているのは、実APIが返した 400 の位置（`field`）が各入力欄へ割り当てられることである。応答を
- * 差し替えず、実際に不正な入力を送って返ってきたものを描く（#164 の「APIのモックはしない」）。
- * </p>
- *
- * 文言は画面の実装が持つため、シナリオ側に置く。
+ * 通常の作成・保存・再読込と、画像確定・競合・再認証の実接続を守る。
+ * 保存中・通信失敗・入力エラーの表示は AlbumForm.test.ts、入力変換は album-form.test.ts が担当。
+ * 配置は実ブラウザでしか測れないため、修正して保存する代表経路で確認する（#575）。
  */
 
 /** 鍵の入力欄と、鍵を送る操作 */
@@ -45,10 +38,6 @@ const TITLE_LABEL = 'タイトル';
 const RELEASE_DATE_LABEL = 'リリース日';
 const ARTIST_LABEL = 'アーティスト表示名';
 const CATALOG_NUMBER_LABEL = 'カタログナンバー';
-const ISDN_LABEL = 'ISDN';
-const EVENT_DATE_LABEL = '開催日';
-const EVENT_NAME_LABEL = 'イベント名';
-const EVENT_PLACE_LABEL = '会場';
 const BASE_PRICE_LABEL = '基準額';
 const CURRENCY_LABEL = '通貨コード（未指定は円）';
 const ORIGINAL_WORK_NOTE_LABEL = '原作の出典（例:「○○」より各曲）';
@@ -67,12 +56,6 @@ const CREATE_LABEL = '作成する';
 
 /** 未公開であることを示すラベル */
 const DRAFT_LABEL = '下書き';
-
-/** 更新の経路。到達できない状態・応答が遅い状態を作るために塞ぐ */
-const UPDATE_API = `${stack.backendBaseUrl}/api/v1/albums/*`;
-
-/** 保存の応答を遅らせる時間。保存中の状態を観測する余地を作る */
-const SLOW_SAVE_MS = 2_000;
 
 /** 入力を抱えたまま鍵待ちへ戻ったことを伝える文言 */
 const PENDING_NOTICE = '入力した内容は保持しています';
@@ -148,6 +131,8 @@ const expectAlignedRow = async (page: Page, left: string, right: string): Promis
   const leftBox = await page.getByLabel(left).boundingBox();
   const rightBox = await page.getByLabel(right).boundingBox();
 
+  expect(leftBox).not.toBeNull();
+  expect(rightBox).not.toBeNull();
   expect(leftBox?.y).toBe(rightBox?.y);
 };
 
@@ -375,88 +360,6 @@ test.describe('管理画面の作品の編集', () => {
     await captureFocused(page, coverSection(page), '39i-admin-edit-cover-cleared');
   });
 
-  test('額の欄だけを空にした保存は、額が必須として断られる', async ({ page }) => {
-    const title = await seedScratchAlbum('額だけ空');
-
-    await openAdmin(page);
-    await openEdit(page, title);
-
-    await page.getByLabel(BASE_PRICE_LABEL).fill('');
-    await page.getByRole('button', { name: SAVE_LABEL }).click();
-
-    /* 通貨が残る限り頒布のまとまりは送られる。捨てずにエラーとして返す（黙って消さない） */
-    await expect(fieldOf(page, 'basePrice.amount').getByRole('alert')).toBeVisible();
-    await expect(page.getByLabel(CURRENCY_LABEL)).toHaveValue('JPY');
-  });
-
-  test('額が負なら、その欄にエラーが出る', async ({ page }) => {
-    const title = await seedScratchAlbum('負の額');
-
-    await openAdmin(page);
-    await openEdit(page, title);
-
-    await page.getByLabel(BASE_PRICE_LABEL).fill('-1');
-    await page.getByRole('button', { name: SAVE_LABEL }).click();
-
-    await expect(fieldOf(page, 'basePrice.amount').getByRole('alert')).toBeVisible();
-    await expect(fieldOf(page, 'title').getByRole('alert')).toHaveCount(0);
-
-    /* 誤りが出ても、額と通貨と解除の操作は同じ行の上端で揃ったまま */
-    await expectAlignedRow(page, BASE_PRICE_LABEL, CURRENCY_LABEL);
-
-    const amountBox = await page.getByLabel(BASE_PRICE_LABEL).boundingBox();
-    const clearBox = await page.getByRole('button', { name: CLEAR_BASE_PRICE_LABEL }).boundingBox();
-
-    expect(amountBox?.y).toBe(clearBox?.y);
-  });
-
-  test('検証エラーは、応答が返した位置のとおりに各欄へ出る', async ({ page }) => {
-    const title = await seedScratchAlbum('検証エラー');
-
-    await openAdmin(page);
-    await openEdit(page, title);
-
-    /*
-     * 4か所を同時に不正にする。必須（title / releaseDate）、形式（isdn）、入れ子（event.name。
-     * 会場だけを入れるとイベント名が要る）で、位置の種類が違うものを混ぜる。
-     */
-    await page.getByLabel(TITLE_LABEL).fill('   ');
-    await page.getByLabel(RELEASE_DATE_LABEL).fill('');
-    await page.getByLabel(ISDN_LABEL).fill('not-an-isdn');
-    await page.getByLabel(EVENT_PLACE_LABEL).fill('E2E 会場');
-    await page.getByLabel(EVENT_NAME_LABEL).fill('');
-
-    await clickWithEvidence(
-      page,
-      page.getByRole('button', { name: SAVE_LABEL }),
-      '24-admin-edit-invalid-submit',
-    );
-
-    /* 位置ごとに、その欄のまとまりの中へ出ていること */
-    await expect(fieldOf(page, 'title').getByRole('alert')).toBeVisible();
-    await expect(fieldOf(page, 'releaseDate').getByRole('alert')).toBeVisible();
-    await expect(fieldOf(page, 'isdn').getByRole('alert')).toBeVisible();
-    await expect(fieldOf(page, 'event.name').getByRole('alert')).toBeVisible();
-
-    /* 不正でない欄へは出さない（位置を捨てて全体へ寄せていないこと） */
-    await expect(fieldOf(page, 'artistDisplayName').getByRole('alert')).toHaveCount(0);
-    await expect(fieldOf(page, 'catalogNumber').getByRole('alert')).toHaveCount(0);
-
-    await expect(page.getByLabel(TITLE_LABEL)).toHaveAttribute('aria-invalid', 'true');
-    await expect(page.getByLabel(ARTIST_LABEL)).toHaveAttribute('aria-invalid', 'false');
-
-    /*
-     * ROW-ALIGNS-AT-TOP: 理由は欄の下に出るため、誤りのある欄だけが高くなる。同じ行の欄が上端で
-     * 揃っていないと、誤りが1つ出るたびに並びが崩れて読めなくなる。
-     */
-    await expectAlignedRow(page, CATALOG_NUMBER_LABEL, TITLE_LABEL);
-    await expectAlignedRow(page, RELEASE_DATE_LABEL, ISDN_LABEL);
-    await expectAlignedRow(page, EVENT_DATE_LABEL, EVENT_NAME_LABEL);
-
-    /* 見どころは「どの欄に出て、どの欄に出ていないか」。欄をまたぐため丸ごと撮る（#369） */
-    await captureWhole(page, '25-admin-edit-field-errors');
-  });
-
   test('直して保存すると、一覧に反映される', async ({ page }) => {
     const title = await seedScratchAlbum('保存');
     const renamed = `${title} 改題`;
@@ -465,11 +368,23 @@ test.describe('管理画面の作品の編集', () => {
     await openEdit(page, title);
 
     await page.getByLabel(TITLE_LABEL).fill('   ');
+    await page.getByLabel(BASE_PRICE_LABEL).fill('-1');
     await page.getByRole('button', { name: SAVE_LABEL }).click();
     await expect(fieldOf(page, 'title').getByRole('alert')).toBeVisible();
+    await expect(fieldOf(page, 'basePrice.amount').getByRole('alert')).toBeVisible();
+
+    /* 通常の入力行と解除ボタンを持つ行の配置を、実400応答の経路に集約する。 */
+    await expectAlignedRow(page, CATALOG_NUMBER_LABEL, TITLE_LABEL);
+    await expectAlignedRow(page, BASE_PRICE_LABEL, CURRENCY_LABEL);
+    const amountBox = await page.getByLabel(BASE_PRICE_LABEL).boundingBox();
+    const clearBox = await page.getByRole('button', { name: CLEAR_BASE_PRICE_LABEL }).boundingBox();
+    expect(amountBox).not.toBeNull();
+    expect(clearBox).not.toBeNull();
+    expect(amountBox?.y).toBe(clearBox?.y);
 
     /* 同じ画面のまま直して送り直せること（入力をやり直させない） */
     await page.getByLabel(TITLE_LABEL).fill(renamed);
+    await page.getByLabel(BASE_PRICE_LABEL).fill(String(SCRATCH_BASE_PRICE));
     await clickWithEvidence(
       page,
       page.getByRole('button', { name: SAVE_LABEL }),
@@ -479,54 +394,8 @@ test.describe('管理画面の作品の編集', () => {
     await expect(page.getByRole('table')).toBeVisible();
     await expect(rowOf(page, renamed)).toBeVisible();
     await captureFocused(page, rowOf(page, renamed), '27-admin-edit-saved');
-  });
-
-  test('保存に到達できないときは、入力を保ったまま理由を出す', async ({ page }) => {
-    const title = await seedScratchAlbum('保存失敗');
-    const renamed = `${title} 未保存`;
-
-    await openAdmin(page);
-    await openEdit(page, title);
-    await page.getByLabel(TITLE_LABEL).fill(renamed);
-
-    /* 応答を差し替えるのではなくネットワークの側で塞ぐ */
-    await page.route(UPDATE_API, (route) => route.abort());
-    await page.getByRole('button', { name: SAVE_LABEL }).click();
-
-    await expect(page.getByRole('alert')).toBeVisible();
-    await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(renamed);
-
-    /* 理由の提示と、保たれた入力の両方が見どころ（#369） */
-    await captureWhole(page, '28-admin-edit-unreachable');
-
-    /* 検証エラーではないため、欄には出さない */
-    await expect(fieldOf(page, 'title').getByRole('alert')).toHaveCount(0);
-    await page.unroute(UPDATE_API);
-  });
-
-  test('保存中は入力も塞ぐ（送信後の変更が黙って消えない）', async ({ page }) => {
-    const title = await seedScratchAlbum('保存中');
-
-    await openAdmin(page);
-    await openEdit(page, title);
-    await page.getByLabel(TITLE_LABEL).fill(`${title} 保存中`);
-
-    /* 応答を遅らせて、保存中の状態を観測できるようにする（要求そのものは通す） */
-    await page.route(UPDATE_API, async (route) => {
-      await delay(SLOW_SAVE_MS);
-      await route.continue();
-    });
-    await page.getByRole('button', { name: SAVE_LABEL }).click();
-
-    await expect(page.getByLabel(TITLE_LABEL)).toBeDisabled();
-    await expect(page.getByLabel(EVENT_PLACE_LABEL)).toBeDisabled();
-
-    /* 塞がっていることは欄の全体で見る（#369） */
-    await captureWhole(page, '32-admin-edit-saving');
-
-    /* 応答が返れば保存は成立し、一覧へ戻る */
-    await expect(page.getByRole('table')).toBeVisible();
-    await page.unroute(UPDATE_API);
+    await openEdit(page, renamed);
+    await expect(page.getByLabel(BASE_PRICE_LABEL)).toHaveValue(String(SCRATCH_BASE_PRICE));
   });
 
   test('編集中に別の操作が保存していたら、入力を保ったまま競合を伝える', async ({ page }) => {
@@ -576,15 +445,6 @@ test.describe('管理画面の作品の編集', () => {
     await page.getByRole('button', { name: SAVE_LABEL }).click();
     await expect(page.getByRole('table')).toBeVisible();
     await expect(rowOf(page, renamed)).toBeVisible();
-  });
-
-  test('対象を指定せずに編集を開くと、対象が無いと言う', async ({ page }) => {
-    await page.goto(`${stack.adminBaseUrl}/albums/edit`);
-    await page.getByLabel(API_KEY_LABEL).fill(stack.adminApiKey);
-    await page.getByRole('button', { name: OPEN_LABEL }).click();
-
-    await expect(page.getByRole('alert')).toContainText('編集する作品が指定されていません');
-    await expect(page.getByLabel(TITLE_LABEL)).toHaveCount(0);
   });
 });
 
@@ -681,16 +541,5 @@ test.describe('管理画面の作品の追加', () => {
     await expect(page.getByRole('table')).toBeVisible();
     await openEdit(page, title);
     await expect(page.getByLabel(ARTIST_LABEL)).toHaveValue(commonArtist.trim());
-  });
-
-  test('必須を入れずに作成すると、その欄だけにエラーが出る', async ({ page }) => {
-    await openAdmin(page);
-    await page.getByRole('link', { name: NEW_LABEL }).click();
-
-    await page.getByRole('button', { name: CREATE_LABEL }).click();
-
-    await expect(fieldOf(page, 'title').getByRole('alert')).toBeVisible();
-    await expect(fieldOf(page, 'releaseDate').getByRole('alert')).toBeVisible();
-    await expect(fieldOf(page, 'artistDisplayName').getByRole('alert')).toHaveCount(0);
   });
 });
