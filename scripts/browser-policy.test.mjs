@@ -55,6 +55,27 @@ test('admin UI changes also run the cross-device preparation browser check', () 
   only(plan, ['e2e', 'offline-player']);
   assert.equal(plan['offline-player'], 'all');
 });
+
+test('admin Vitest-only changes omit browsers while mixed production changes retain them', () => {
+  const adminWorkspaces = [...workspaces, { name: 'admin', location: 'frontend-admin' }];
+  const tests = ['frontend-admin/src/components/AlbumForm.test.ts',
+    'frontend-admin/src/lib/api/http.test.ts', 'frontend-admin/vitest.config.ts',
+    'frontend-admin/vitest.setup.ts'];
+  for (const extra of [{}, { event: 'push', ref: 'refs/heads/main' }, { exists: () => false }]) {
+    only(select(tests, { workspaces: adminWorkspaces, ...extra }), []);
+  }
+  for (const file of ['frontend-admin/src/components/AlbumForm.svelte',
+    'frontend-admin/src/lib/api/client.ts', 'frontend-admin/src/styles/global.css',
+    'frontend-admin/astro.config.mjs', 'frontend-admin/src/pages/unknown.test.ts']) {
+    only(select([...tests, file], { workspaces: adminWorkspaces }), ['e2e', 'offline-player']);
+  }
+  const combined = select([...tests, 'e2e/src/specs/admin-album-form.spec.ts'], { workspaces: adminWorkspaces });
+  only(combined, ['e2e']);
+  assert.deepEqual(combined.e2e, ['e2e/src/specs/admin-album-form.spec.ts']);
+  for (const context of [{ event: 'push', ref: 'refs/heads/release/1.101.2' }, { event: 'workflow_dispatch' }]) {
+    assert.ok(Object.values(select(tests, { workspaces: adminWorkspaces, ...context })).every((v) => v === 'all'));
+  }
+});
 test('release and manual runs are always full; unknown scope and toolchain changes fail closed', () => {
   for (const context of [{ event: 'push', ref: 'refs/heads/release/1.10' }, { event: 'workflow_dispatch' }, { event: 'unknown' }]) {
     assert.ok(Object.values(select(['README.md'], context)).every((v) => v === 'all'));

@@ -433,6 +433,40 @@ class UpdateAlbumServiceTest {
     }
 
     @Test
+    @DisplayName("会場がありイベント名が未入力ならevent.nameの位置に必須エラーを返す")
+    void missingEventNameWithPlaceCarriesNestedField() {
+        final var result = SERVICE.validateAndApply(
+                existingAlbum(),
+                new UpdateAlbumInput(
+                        null,
+                        REVISION_UNUSED,
+                        "新タイトル",
+                        "2026-01-01",
+                        "新アーティスト",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        new EventInput(
+                                "",
+                                null,
+                                "試験会場",
+                                null,
+                                null,
+                                null),
+                        null,
+                        null, null, null));
+
+        assertThat(result).isInstanceOf(Result.Failure.class);
+        assertThat(result.errors()).singleElement().satisfies(error -> {
+            assertThat(error.field()).isEqualTo("event.name");
+            assertThat(error.code()).isEqualTo("EVENT_NAME_REQUIRED");
+        });
+    }
+
+    @Test
     @DisplayName("ISDN・初出イベント情報を指定すると成功し置換される")
     void validIsdnAndEventSucceeds() {
         final var updated = SERVICE.validateAndApply(
