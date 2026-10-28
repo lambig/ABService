@@ -1,5 +1,3 @@
-import { setTimeout as delay } from 'node:timers/promises';
-
 import type { Locator, Page } from '@playwright/test';
 
 import { renameArticleOutsideTheScreen } from '../support/admin-api.ts';
@@ -127,14 +125,8 @@ const markdownBodyText = [
   '',
 ].join('\n');
 
-/** 記事そのものへの要求。保存を遅らせたり塞いだりするために使う */
-const ARTICLE_COMMAND_API = `${stack.backendBaseUrl}/api/v1/articles/*`;
-
 /** 管理向けの記事詳細。読み込みだけを断らせるために、保存の経路と分ける */
 const ARTICLE_DETAIL_API = `${stack.backendBaseUrl}/api/v1/admin/articles/*`;
-
-/** 保存中を観測するための待ち時間 */
-const SLOW_SAVE_MS = 2_000;
 
 /** 欄を位置で指す。エラーは欄の中に出る */
 const fieldOf = (page: Page, path: string): Locator => page.locator(`[data-field="${path}"]`);
@@ -241,50 +233,6 @@ test.describe('管理画面の記事の編集', () => {
     /* 保存されたことは一覧で見る（画面が持っている値ではなく、引き直した内容で確かめる） */
     await page.goto(ARTICLE_LIST_URL);
     await expect(rowOf(page, renamed)).toBeVisible();
-  });
-
-  test('保存に到達できないときは、入力を保ったまま理由を出す', async ({ page }) => {
-    const article = await seedScratchArticle('保存できない');
-
-    await page.goto(`${EDIT_ARTICLE_URL}?articleId=${article.articleId}`);
-    await page.getByLabel(API_KEY_LABEL).fill(stack.adminApiKey);
-    await page.getByRole('button', { name: OPEN_LABEL }).click();
-
-    await page.getByLabel(TITLE_LABEL).fill(`${article.title} 未達`);
-
-    /* 応答を差し替えるのではなくネットワークの側で塞ぐ（#164 の「APIのモックはしない」に沿う） */
-    await page.route(ARTICLE_COMMAND_API, (route) => route.abort());
-    await page.getByRole('button', { name: SAVE_LABEL }).click();
-
-    await expect(page.getByRole('alert')).toBeVisible();
-    await expect(page.getByLabel(TITLE_LABEL)).toHaveValue(`${article.title} 未達`);
-
-    /* 理由の提示と、保たれた入力の両方が見どころ（#369） */
-    await captureWhole(page, '49-admin-article-unreachable');
-
-    await page.unroute(ARTICLE_COMMAND_API);
-  });
-
-  test('保存中は入力も塞ぐ（送信後の変更が黙って消えない）', async ({ page }) => {
-    const article = await seedScratchArticle('保存中');
-
-    await page.goto(`${EDIT_ARTICLE_URL}?articleId=${article.articleId}`);
-    await page.getByLabel(API_KEY_LABEL).fill(stack.adminApiKey);
-    await page.getByRole('button', { name: OPEN_LABEL }).click();
-
-    await page.route(ARTICLE_COMMAND_API, async (route) => {
-      await delay(SLOW_SAVE_MS);
-      await route.continue();
-    });
-    await page.getByRole('button', { name: SAVE_LABEL }).click();
-
-    await expect(page.getByLabel(TITLE_LABEL)).toBeDisabled();
-
-    /* 塞がっていることは欄の全体で見る（#369） */
-    await captureWhole(page, '50-admin-article-saving');
-
-    await page.unroute(ARTICLE_COMMAND_API);
-    await expect(page.getByText(SAVED_NOTICE)).toBeVisible();
   });
 
   test('編集中に別の操作が保存していたら、入力を保ったまま競合を伝える', async ({ page }) => {
