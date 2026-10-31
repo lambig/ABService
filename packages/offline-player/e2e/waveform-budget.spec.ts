@@ -101,7 +101,7 @@ for (const cache of ["missing", "saved", "invalid", "oversized"] as const) {
           /再生できます|再生中/u,
         );
         await expect(page.locator("#waveform-status")).toHaveText(
-          cache === "saved" ? "" : "再生位置はこのまま選べます。",
+          cache === "saved" ? "" : "再生位置をタップで選べます",
         );
         await (cache === "saved"
           ? expect(page.locator(".waveform-path").first()).not.toHaveAttribute(
