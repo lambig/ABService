@@ -240,7 +240,7 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
   const activity = { analyzing: false };
   const playbackAllowed = (): boolean =>
     (activity.analyzing ? false : true) && audioProbe?.benchmarking() !== true;
-  const waves = waveform(resolverFor(contract));
+  const waves = waveform();
   const showWaveform = (id: string) => {
     const item = items.find((item) => item.playbackItemId === id);
     const asset = contract.assets.find(
@@ -248,7 +248,7 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
     );
     (item !== undefined && asset !== undefined
       ? () => {
-          waves.select(item.audioAssetId, asset.checksum.value);
+          waves.select(asset.checksum.value);
         }
       : () => undefined)();
   };
