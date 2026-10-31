@@ -17,7 +17,7 @@ import {
   reject,
   requireValue,
 } from "./common";
-import { buildStore } from "./store";
+import { inspectAsset } from "./store";
 import type { StorageResult } from "./index";
 
 const namespace = "abservice-musical-analysis-v1";
@@ -127,24 +127,16 @@ export const buildAnalysisStore = (input: InstallationManifest) => {
       );
       /* Saved content was checked on import. Attaching its analysis needs
        * presence and length, not another full read of the unchanged audio. */
-      const assets = buildStore(contract);
-      const source =
-        assets.kind === "ok" ? await assets.value.inspect(signal) : assets;
+      const asset =
+        contract.assets.find((asset) => asset.assetId === item?.audioAssetId) ??
+        reject("unknown-asset");
+      const source = await inspectAsset(asset, signal);
       requireValue(
         source.kind === "ok",
         source.kind === "error" ? source.error : "missing",
       );
-      const observed =
-        source.kind === "ok"
-          ? source.value.inventory.find(
-              (asset) => asset.assetId === item?.audioAssetId,
-            )
-          : undefined;
-      requireValue(observed !== undefined, "missing");
       requireValue(
-        observed?.byteLength ===
-          contract.assets.find((asset) => asset.assetId === item?.audioAssetId)
-            ?.byteLength,
+        source.kind === "ok" && source.value.byteLength === asset.byteLength,
         "corrupt",
       );
       const body = JSON.stringify(analysis);

@@ -1,4 +1,4 @@
-/* eslint-disable functional/immutable-data -- A temporary Blob hook rejects audio body reads and is restored after each scenario. */
+/* eslint-disable functional/immutable-data -- Temporary browser hooks are restored after each scenario. */
 import { test, expect } from "@playwright/test";
 
 test("analysis follows unchanged audio across package versions without reading audio bodies", async ({
@@ -41,6 +41,8 @@ test("analysis follows unchanged audio across package versions without reading a
     );
     /* eslint-disable-next-line @typescript-eslint/unbound-method -- Called on the original Blob receiver and restored below. */
     const slice = Blob.prototype.slice;
+    /* eslint-disable-next-line @typescript-eslint/unbound-method -- Only restored, never invoked without its receiver. */
+    const estimate = navigator.storage.estimate;
     const unexpectedRead = (): never => {
       throw Error("Unexpected audio read");
     };
@@ -51,6 +53,21 @@ test("analysis follows unchanged audio across package versions without reading a
     };
     try {
       const saved = await old.save(blob, signal);
+      navigator.storage.estimate = () => Promise.resolve({});
+      const isolated = await h
+        .createAnalysisStore({
+          ...original,
+          assets: [
+            ...original.assets,
+            {
+              ...asset,
+              assetId: "unrelated-artwork",
+              mediaType: "image/png",
+              checksum: { algorithm: "opaque", value: "unrelated" },
+            },
+          ],
+        })
+        .save(blob, signal);
       const updated = h.createAnalysisStore({
         ...original,
         packageVersion: "artwork-updated",
@@ -66,14 +83,16 @@ test("analysis follows unchanged audio across package versions without reading a
       await writer.write(new Uint8Array(asset.byteLength - 1));
       await writer.close();
       const truncated = await updated.save(blob, signal);
-      return { missing, saved, reused, foreign, truncated };
+      return { missing, saved, isolated, reused, foreign, truncated };
     } finally {
       Blob.prototype.slice = slice;
+      navigator.storage.estimate = estimate;
     }
   });
   expect(result).toMatchObject({
     missing: { kind: "error", error: "missing" },
     saved: { kind: "ok" },
+    isolated: { kind: "ok" },
     reused: { kind: "ok", value: { analysisVersion: "a".repeat(64) } },
     foreign: { kind: "error", error: "unknown-asset" },
     truncated: { kind: "error", error: "corrupt" },
