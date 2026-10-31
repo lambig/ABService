@@ -5,6 +5,7 @@ import type {
 } from "abservice-installation";
 import {
   checkAbort,
+  Failure,
   commit,
   hash,
   locked,
@@ -16,7 +17,10 @@ import {
 import type { AssetStore, StorageResult, StoredInventory } from "./index";
 
 type Asset = InstallationManifest["assets"][number];
-type Observation = LocalEnvironment["inventory"][number];
+type Observation = Extract<
+  LocalEnvironment["inventory"][number],
+  { checksum: unknown }
+>;
 const namespace = "abservice-assets-v1";
 const supported = (asset: Asset): Asset => {
   requireValue(asset.checksum.algorithm === "sha256", "unsupported-checksum");
@@ -85,16 +89,24 @@ const inventory = async (
   signal: AbortSignal,
 ): Promise<StoredInventory> => {
   const root = await directory();
-  /* Hash one asset at a time using bounded chunks and cancellation checkpoints. */
+  /* The content-addressed file was verified on save. Preparing another package
+   * only checks presence and length; it must not read unchanged asset bodies. */
   const observations = await manifest.assets.reduce<
-    Promise<readonly Observation[]>
+    Promise<StoredInventory["inventory"]>
   >(async (previous, asset) => {
     const entries = await previous;
     checkAbort(signal);
     const file = await storedFile(root, asset, signal);
     return file === undefined
       ? entries
-      : [...entries, await observe(asset, file, signal)];
+      : [
+          ...entries,
+          {
+            assetId: asset.assetId,
+            byteLength: file.size,
+            contentIdentity: asset.checksum,
+          },
+        ];
   }, Promise.resolve([]));
   const free = await availableBytes();
   checkAbort(signal);
@@ -126,10 +138,19 @@ const store = (manifest: InstallationManifest): AssetStore => {
     read: (assetId, signal) =>
       locked(namespace, signal, async () => {
         const asset = assetFor(assetId);
+        const root = await directory();
+        const name = await filename(asset, signal);
         const file =
-          (await storedFile(await directory(), asset, signal)) ??
-          reject("missing");
-        await verify(asset, file, signal);
+          (await storedFile(root, asset, signal)) ?? reject("missing");
+        await verify(asset, file, signal).catch(async (error: unknown) => {
+          /* Only positively detected corruption is evicted, under the same asset lock.
+           * The next normal preparation then fetches this content again. Cancellation
+           * and unavailable storage must not evict valid bytes. */
+          await (error instanceof Failure && error.code === "corrupt"
+            ? root.removeEntry(name)
+            : Promise.resolve());
+          throw error;
+        });
         return file.slice(0, file.size, asset.mediaType);
       }),
     inspect: (signal) =>
