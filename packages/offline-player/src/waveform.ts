@@ -41,7 +41,7 @@ export const waveform = () => {
     const request = new AbortController();
     state.request = request;
     show(undefined);
-    status.textContent = "再生位置はこのまま選べます。";
+    status.textContent = "再生位置をタップで選べます";
     const cached = cache.get(checksum);
     /* Selection only reads the small saved overview, never an audio asset or its lock. */
     const load = async () => {
@@ -65,10 +65,10 @@ export const waveform = () => {
         });
         show(data);
         status.textContent =
-          data === undefined ? "再生位置はこのまま選べます。" : "";
+          data === undefined ? "再生位置をタップで選べます" : "";
       } catch {
         when(request.signal.aborted ? false : true, () => {
-          status.textContent = "再生位置はこのまま選べます。";
+          status.textContent = "再生位置をタップで選べます";
         });
       }
     };
