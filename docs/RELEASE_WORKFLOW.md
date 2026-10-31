@@ -9,7 +9,7 @@ mainは唯一の継続的な統合先。機能が提供可能になるまでマ�
 3. 候補を検証する。修正はまずmainに統合し、releaseをmainへfast-forwardする。releaseだけにmerge commitを作る場合も、そのcommit自体がmainへ統合済みでなければ配布できない。cherry-pickやforce-pushで候補の履歴を分岐させない。
 4. SHAが変わるたびにrelease候補の全件CIと受け入れをやり直す。通常はreleaseへのpushで起動し、移行前のタグにpushトリガーがない場合は下記の手順で候補ブランチのCIを手動起動する。CIの再実行は **Re-run all jobs** を使う。部分的な再実行で必要なジョブが欠けたattemptは配布の根拠にできない。
 5. 受け入れ済みのfull SHAに `v1.10.0` のような新しいタグを付けてpushする。タグは `v<major>.<minor>.<patch>`、候補は対応する `release/<major>.<minor>` または `release/<major>.<minor>.<patch>` に限る。既存タグは動かさない。タグ固定後に修正が必要になったら新しい版の候補として検証する。
-6. Actionsの **Deploy** を **main** から実行する。`action=release`、`commit_sha=<候補full SHA>`、`release_branch=<候補ブランチ>`、`release_tag=<固定タグ>`、`ci_run_id=<そのブランチのpushまたは手動実行で全件成功したCI run ID>` を指定する。
+6. 本番での実行前に、準備完了の報告とは別に、利用者へ対象の版と実施範囲を示してリリース開始を宣言する。同時に、実施予定の主な変更・利用者への影響と必要な操作・既知の制約を短いリリースノートとして提示し、詳細は既存のPRやリリース記録を参照する。その後、Actionsの **Deploy** を **main** から実行する。`action=release`、`commit_sha=<候補full SHA>`、`release_branch=<候補ブランチ>`、`release_tag=<固定タグ>`、`ci_run_id=<そのブランチのpushまたは手動実行で全件成功したCI run ID>` を指定する。
 7. backendとfrontend両方の成功、実環境の受け入れ、配布記録を確認してから候補ブランチを削除する。タグ・ECRイメージ・非公開releaseバケットの記録は残し、実際のSHA・タグ・CI/Deployのrun/attempt・受け入れ結果をABAffairsへ記録する。
 
 タグ作成やCI成功は配布成功を意味しない。実配布はmain上の制御workflowが明示的に行う。AWS認証前に、同じリポジトリのCI workflow・pushまたはworkflow_dispatchイベント・ブランチ・full SHA・最新attemptの全ジョブ成功・タグの解決先・mainへの統合を照合する。照合不能、失敗、skip、候補の移動・削除では停止する。以後の処理は検証したSHAに固定され、待機中にmainが進んでも配布対象を差し替えない。
