@@ -84,6 +84,21 @@ const storedFile = async (
   const name = await filename(supported(asset), signal);
   return optional(root.getFileHandle(name).then((handle) => handle.getFile()));
 };
+/** Observe one content-addressed asset without reading its body or estimating quota. */
+export const inspectAsset = (
+  asset: Asset,
+  signal: AbortSignal,
+): Promise<StorageResult<StoredInventory["inventory"][number]>> =>
+  locked(namespace, signal, async () => {
+    const file =
+      (await storedFile(await directory(), asset, signal)) ?? reject("missing");
+    checkAbort(signal);
+    return {
+      assetId: asset.assetId,
+      byteLength: file.size,
+      contentIdentity: asset.checksum,
+    };
+  });
 const inventory = async (
   manifest: InstallationManifest,
   signal: AbortSignal,
