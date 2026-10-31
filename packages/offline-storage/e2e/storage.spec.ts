@@ -603,9 +603,16 @@ test("cancellation after close begins does not report rollback of a committed as
       const controller = new AbortController();
       /* eslint-disable-next-line @typescript-eslint/unbound-method -- The native close is called with its stream receiver and restored afterward. */
       const nativeClose = FileSystemWritableFileStream.prototype.close;
+      const state = { closes: 0 };
       FileSystemWritableFileStream.prototype.close = async function () {
         await nativeClose.call(this);
-        controller.abort();
+        state.closes += 1;
+        /* The first close records pending verification; the second commits the asset. */
+        (state.closes === 2
+          ? () => {
+              controller.abort();
+            }
+          : () => undefined)();
       };
       const saved = await store
         .save("../音源/one", h.first, controller.signal)
@@ -620,5 +627,115 @@ test("cancellation after close begins does not report rollback of a committed as
   ).toMatchObject({
     saved: { kind: "ok" },
     readiness: { value: { packageComplete: true } },
+  });
+});
+
+for (const legacy of [false, true]) {
+  test(`unchanged ${legacy ? "legacy" : "recorded"} assets never scan on read or after reload`, async ({
+    page,
+  }) => {
+    await page.evaluate(async (old) => {
+      const h = window.storageHarness;
+      await (
+        await h.open()
+      ).save("../音源/one", h.first, new AbortController().signal);
+      await (old
+        ? (await navigator.storage.getDirectory()).removeEntry(
+            "abservice-asset-verifications-v1",
+            { recursive: true },
+          )
+        : Promise.resolve());
+    }, legacy);
+    for (const restart of [false, true]) {
+      await (restart ? page.reload() : Promise.resolve());
+      await page.waitForFunction(
+        () => typeof window.storageHarness !== "undefined",
+      );
+      const observed = await page.evaluate(async () => {
+        const h = window.storageHarness;
+        const store = await h.open();
+        const parts = new WeakSet<Blob>();
+        const counter = { reads: 0 };
+        /* eslint-disable-next-line @typescript-eslint/unbound-method -- Native receiver preserved and restored below. */
+        const slice = Blob.prototype.slice;
+        /* eslint-disable-next-line @typescript-eslint/unbound-method -- Native receiver preserved and restored below. */
+        const arrayBuffer = Blob.prototype.arrayBuffer;
+        Blob.prototype.slice = function (...args) {
+          const part = slice.apply(this, args);
+          ([this instanceof File, parts.has(this)].some(Boolean)
+            ? () => {
+                parts.add(part);
+              }
+            : () => undefined)();
+          return part;
+        };
+        Blob.prototype.arrayBuffer = function () {
+          counter.reads += Number(
+            [this instanceof File, parts.has(this)].some(Boolean),
+          );
+          return arrayBuffer.call(this);
+        };
+        try {
+          const signal = new AbortController().signal;
+          const first = await store.read("../音源/one", signal);
+          const second = await (await h.open()).read("../音源/one", signal);
+          return {
+            first: first.kind,
+            second: second.kind,
+            reads: counter.reads,
+          };
+        } finally {
+          Blob.prototype.slice = slice;
+          Blob.prototype.arrayBuffer = arrayBuffer;
+        }
+      });
+      expect(observed).toEqual({ first: "ok", second: "ok", reads: 0 });
+    }
+  });
+}
+
+test("pending or malformed verification cannot bypass checksum validation", async ({
+  page,
+}) => {
+  const result = await page.evaluate(async () => {
+    const h = window.storageHarness;
+    const signal = new AbortController().signal;
+    const store = await h.open();
+    await store.save("../音源/one", h.first, signal);
+    const root = await navigator.storage.getDirectory();
+    const folder = await root.getDirectoryHandle(
+      "abservice-asset-verifications-v1",
+    );
+    const iterator = (
+      folder as FileSystemDirectoryHandle & {
+        values: () => AsyncIterableIterator<FileSystemFileHandle>;
+      }
+    ).values();
+    const receipt = (await iterator.next()).value as FileSystemFileHandle;
+    const invalidate = async (text: string) => {
+      const writer = await receipt.createWritable();
+      await writer.write(text);
+      await writer.close();
+    };
+    await invalidate("null");
+    const recover = await store.read("../音源/one", signal);
+    const repaired = await (await receipt.getFile()).text();
+    await invalidate("invalid");
+    const asset = await (
+      await root.getDirectoryHandle("abservice-assets-v1")
+    ).getFileHandle(receipt.name);
+    const writer = await asset.createWritable();
+    await writer.write(new Uint8Array(h.first.size));
+    await writer.close();
+    return {
+      recover: recover.kind,
+      repaired: JSON.parse(repaired) as unknown,
+      rejected: await store.read("../音源/one", signal),
+    };
+  });
+  expect(result).toMatchObject({
+    recover: "ok",
+    repaired: { version: 1 },
+    rejected: { kind: "error", error: "corrupt" },
   });
 });

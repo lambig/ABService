@@ -58,11 +58,10 @@ test("画像選択から展示開始し、終端で同じ作品を繰り返し�
   await expect(cover.locator("img")).toBeVisible();
   await cover.click();
   await expect(page.locator("#play-status")).toHaveText("再生できます");
-  await expect(page.locator("#waveform-status")).toBeEmpty();
-  await expect(page.locator(".waveform-path").first()).not.toHaveAttribute(
-    "d",
-    "",
+  await expect(page.locator("#waveform-status")).toHaveText(
+    "再生位置はこのまま選べます。",
   );
+  await expect(page.locator(".waveform-path").first()).toHaveAttribute("d", "");
   await page.locator("#play").click();
   await expect(page.locator("#play-status")).toHaveText("再生中");
   await expect(page.locator("#play")).toBeHidden();
@@ -83,14 +82,16 @@ test("画像選択から展示開始し、終端で同じ作品を繰り返し�
   await expect(page.locator("#error")).toBeEmpty();
 });
 
-test("展示終了後は同じ作品を開始だけで再生し、波形をオフライン再起動でも再利用する", async ({
+test("展示終了後は同じ作品を開始だけで再生し、波形なしでもオフライン再起動できる", async ({
   page,
   context,
 }) => {
   await page
     .getByRole("button", { name: "Album crossfade", exact: true })
     .click();
-  await expect(page.locator("#waveform-status")).toBeEmpty();
+  await expect(page.locator("#waveform-status")).toHaveText(
+    "再生位置はこのまま選べます。",
+  );
   await page.locator("#play").click();
   await expect(page.locator("#play-status")).toHaveText("再生中");
   await openManagement(page);
@@ -114,14 +115,13 @@ test("展示終了後は同じ作品を開始だけで再生し、波形をオ�
   await page
     .getByRole("button", { name: "Album crossfade", exact: true })
     .click();
-  await expect(page.locator("#waveform-status")).toBeEmpty();
+  await expect(page.locator("#waveform-status")).toHaveText(
+    "再生位置はこのまま選べます。",
+  );
   expect(
     await page.evaluate(() => (globalThis as Scope).exhibitionProbe.decode),
   ).toBe(0);
-  await expect(page.locator(".waveform-path").first()).not.toHaveAttribute(
-    "d",
-    "",
-  );
+  await expect(page.locator(".waveform-path").first()).toHaveAttribute("d", "");
 });
 
 for (const next of ["stop", "select"] as const) {
@@ -187,7 +187,10 @@ test("縦画面で画像の横送りが見え、波形をキーボード操作�
   await page
     .getByRole("button", { name: "Album crossfade", exact: true })
     .click();
-  await expect(page.locator("#waveform-status")).toBeEmpty();
+  await expect(page.locator("#waveform-status")).toHaveText(
+    "再生位置はこのまま選べます。",
+  );
+  await expect(page.locator("#seek")).toBeEnabled();
   await page.locator("#seek").focus();
   await page.keyboard.press("ArrowRight");
   await expect
