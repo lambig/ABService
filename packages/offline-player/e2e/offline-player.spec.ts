@@ -314,7 +314,7 @@ test("未完了の新版へは切り替えず、共有する実体を残した�
       fault === "missing" ? "未保存" : "破損",
     );
     await expect(next.locator("#play")).toBeDisabled();
-    await expect(next.locator("#readiness")).toHaveText(unready);
+    await expect(next.locator("#readiness")).toHaveText("保存状態を確認してください");
     await context.setOffline(false);
     const fetched = downloads(context);
     /* active と同じ版なので切り替えず、その場で修復する */
