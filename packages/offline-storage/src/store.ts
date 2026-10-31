@@ -85,7 +85,8 @@ const inventory = async (
   signal: AbortSignal,
 ): Promise<StoredInventory> => {
   const root = await directory();
-  /* Hash one asset at a time using bounded chunks and cancellation checkpoints. */
+  /* The content-addressed file was verified on save. Preparing another package
+   * only checks presence and length; it must not read unchanged asset bodies. */
   const observations = await manifest.assets.reduce<
     Promise<readonly Observation[]>
   >(async (previous, asset) => {
@@ -94,7 +95,14 @@ const inventory = async (
     const file = await storedFile(root, asset, signal);
     return file === undefined
       ? entries
-      : [...entries, await observe(asset, file, signal)];
+      : [
+          ...entries,
+          {
+            assetId: asset.assetId,
+            byteLength: file.size,
+            checksum: asset.checksum,
+          },
+        ];
   }, Promise.resolve([]));
   const free = await availableBytes();
   checkAbort(signal);

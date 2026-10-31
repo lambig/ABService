@@ -169,7 +169,93 @@ test("missing, wrong size and wrong checksum never become complete", async ({
   });
 });
 
-test("stored corruption is observed from disk, rejected on read, and repairable", async ({
+test("adding an image after reload does not read stored audio bodies", async ({
+  page,
+}) => {
+  await page.evaluate(async () => {
+    const h = window.storageHarness;
+    return (await h.open()).save(
+      "../音源/one",
+      h.first,
+      new AbortController().signal,
+    );
+  });
+  await page.reload();
+  await page.waitForFunction(
+    () => typeof window.storageHarness !== "undefined",
+  );
+  const result = await page.evaluate(async () => {
+    const h = window.storageHarness;
+    const original = await h.manifest();
+    const image = new Blob(["synthetic artwork"], { type: "image/png" });
+    const imageAsset = {
+      assetId: "cover.png",
+      mediaType: "image/png",
+      byteLength: image.size,
+      checksum: { algorithm: "sha256", value: await h.digest(image) },
+      required: true,
+    };
+    const opened = h.createAssetStore({
+      ...original,
+      packageVersion: "with-artwork",
+      presentationAssetIds: [imageAsset.assetId],
+      assets: [...original.assets, imageAsset],
+    });
+    const store =
+      opened.kind === "ok"
+        ? opened.value
+        : await Promise.reject(new Error(opened.error));
+    const requiredAsset = (): never => {
+      throw new Error("Missing fixture");
+    };
+    const asset = original.assets[0] ?? requiredAsset();
+    const audioName = await h.digest(
+      new Blob([
+        JSON.stringify([
+          asset.assetId,
+          asset.byteLength,
+          asset.checksum.algorithm,
+          asset.checksum.value,
+        ]),
+      ]),
+    );
+    /* eslint-disable-next-line @typescript-eslint/unbound-method -- Called with the original Blob receiver and restored below. */
+    const slice = Blob.prototype.slice;
+    const audioReads: string[] = [];
+    const unexpectedRead = (name: string): never => {
+      audioReads.push(name);
+      throw new Error("Image preparation must not read audio bytes");
+    };
+    Blob.prototype.slice = function (start, end, type) {
+      return this instanceof File && this.name === audioName
+        ? unexpectedRead(this.name)
+        : slice.call(this, start, end, type);
+    };
+    const signal = new AbortController().signal;
+    try {
+      const before = await store.assess([1, 0, 0], signal);
+      const saved = await store.save(imageAsset.assetId, image, signal);
+      const after = await store.assess([1, 0, 0], signal);
+      return { before, saved, after, audioReads };
+    } finally {
+      Blob.prototype.slice = slice;
+    }
+  });
+  expect(result).toMatchObject({
+    before: {
+      kind: "ok",
+      value: { missingAssetIds: ["cover.png"], corruptAssetIds: [] },
+    },
+    saved: { kind: "ok" },
+    after: {
+      kind: "ok",
+      value: { packageComplete: true, requiredDownloadBytes: 0 },
+    },
+    audioReads: [],
+  });
+});
+
+test("same-size corruption is rejected on read and repairable without scanning inventory", async ({
   page,
 }) => {
   const result = await page.evaluate(async () => {
@@ -192,23 +278,31 @@ test("stored corruption is observed from disk, rejected on read, and repairable"
     const read = await store.read("../音源/one", signal);
     const observed = await store.inspect(signal);
     const readiness = await store.assess([1, 0, 0], signal);
+    const shorter = await file.createWritable();
+    await shorter.write(new Uint8Array(h.first.size - 1));
+    await shorter.close();
+    const truncated = await store.assess([1, 0, 0], signal);
     const repair = await store.save("../音源/one", h.first, signal);
     return {
       read,
-      actualHash:
+      contentIdentity:
         observed.kind === "ok"
           ? observed.value.inventory[0]?.checksum.value
           : "",
-      zeroHash: await h.digest(new Blob([new Uint8Array(h.first.size)])),
+      expectedIdentity: await h.digest(h.first),
       readiness,
+      truncated,
       repair,
       after: await store.assess([1, 0, 0], signal),
     };
   });
-  expect(result.actualHash).toBe(result.zeroHash);
+  expect(result.contentIdentity).toBe(result.expectedIdentity);
   expect(result).toMatchObject({
     read: { error: "corrupt" },
     readiness: {
+      value: { packageComplete: true, corruptAssetIds: [] },
+    },
+    truncated: {
       value: { packageComplete: false, corruptAssetIds: ["../音源/one"] },
     },
     repair: { kind: "ok" },

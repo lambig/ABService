@@ -69,7 +69,7 @@ const expectNoSecrets = async (
 };
 const damage = async (
   page: Page,
-  fault: "missing" | "corrupt",
+  fault: "missing" | "truncated",
 ): Promise<void> => {
   const asset = manifest.assets[1];
   expect(asset).toBeDefined();
@@ -94,7 +94,7 @@ const damage = async (
       const corrupt = async (): Promise<void> => {
         const file = await directory.getFileHandle(name);
         const stream = await file.createWritable();
-        await stream.write(new Uint8Array(value.byteLength));
+        await stream.write(new Uint8Array(value.byteLength - 1));
         await stream.close();
       };
       await (
@@ -293,7 +293,7 @@ test("未完了の新版へは切り替えず、共有する実体を残した�
   await play(upgraded, "Air study");
 });
 
-(["missing", "corrupt"] as const).forEach((fault) => {
+(["missing", "truncated"] as const).forEach((fault) => {
   test(`${fault}: 起動時に検出して準備完了とせず、オンライン再保存で欠けた実体だけを取り直す`, async ({
     page,
     context,
