@@ -59,7 +59,7 @@ test("画像選択から展示開始し、終端で同じ作品を繰り返し�
   await cover.click();
   await expect(page.locator("#play-status")).toHaveText("再生できます");
   await expect(page.locator("#waveform-status")).toHaveText(
-    "再生位置はこのまま選べます。",
+    "再生位置をタップで選べます",
   );
   await expect(page.locator(".waveform-path").first()).toHaveAttribute("d", "");
   await page.locator("#play").click();
@@ -90,7 +90,7 @@ test("展示終了後は同じ作品を開始だけで再生し、波形なし�
     .getByRole("button", { name: "Album crossfade", exact: true })
     .click();
   await expect(page.locator("#waveform-status")).toHaveText(
-    "再生位置はこのまま選べます。",
+    "再生位置をタップで選べます",
   );
   await page.locator("#play").click();
   await expect(page.locator("#play-status")).toHaveText("再生中");
@@ -116,7 +116,7 @@ test("展示終了後は同じ作品を開始だけで再生し、波形なし�
     .getByRole("button", { name: "Album crossfade", exact: true })
     .click();
   await expect(page.locator("#waveform-status")).toHaveText(
-    "再生位置はこのまま選べます。",
+    "再生位置をタップで選べます",
   );
   expect(
     await page.evaluate(() => (globalThis as Scope).exhibitionProbe.decode),
@@ -188,7 +188,7 @@ test("縦画面で画像の横送りが見え、波形をキーボード操作�
     .getByRole("button", { name: "Album crossfade", exact: true })
     .click();
   await expect(page.locator("#waveform-status")).toHaveText(
-    "再生位置はこのまま選べます。",
+    "再生位置をタップで選べます",
   );
   await expect(page.locator("#seek")).toBeEnabled();
   await page.locator("#seek").focus();
