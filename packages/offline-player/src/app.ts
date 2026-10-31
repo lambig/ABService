@@ -206,7 +206,6 @@ const showAlbum = (
   const album = data.albums.find((entry) => entry.albumId === albumId);
   const artwork = element("#artwork", HTMLImageElement);
   const artist = element("#artist", HTMLElement);
-  const description = element("#description", HTMLElement);
   const replace = (): void => {
     element(".scene-content", HTMLElement).scrollTop = 0;
     (shown.url === undefined
@@ -225,9 +224,6 @@ const showAlbum = (
     artist.textContent = album?.artistDisplayName ?? "";
     artist.title = artist.textContent;
     reveal(artist, album?.artistDisplayName !== undefined);
-    /* Sanitised by the shared markup renderer, with images and links already removed. */
-    description.innerHTML = album?.descriptionHtml ?? "";
-    reveal(description, album?.descriptionHtml !== undefined);
   };
   (albumId === shown.albumId ? () => undefined : replace)();
 };
