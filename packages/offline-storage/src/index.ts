@@ -28,7 +28,7 @@ export type StorageResult<T> =
   | Readonly<{ kind: "ok"; value: T }>
   | Readonly<{ kind: "error"; error: StorageError }>;
 
-/** 存在とサイズはOPFSから取得し、checksumは保存先の内容識別を返す。実体の再ハッシュやshellの可用性は含まない。 */
+/** 存在とサイズはOPFSから取得し、contentIdentityで保存先を識別する。実体checksumの再計算やshellの可用性は含まない。 */
 export type StoredInventory = Readonly<{
   inventory: LocalEnvironment["inventory"];
   availableBytes: number;

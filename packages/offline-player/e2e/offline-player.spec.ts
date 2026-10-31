@@ -69,7 +69,7 @@ const expectNoSecrets = async (
 };
 const damage = async (
   page: Page,
-  fault: "missing" | "truncated",
+  fault: "missing" | "truncated" | "corrupt",
 ): Promise<void> => {
   const asset = manifest.assets[1];
   expect(asset).toBeDefined();
@@ -94,7 +94,7 @@ const damage = async (
       const corrupt = async (): Promise<void> => {
         const file = await directory.getFileHandle(name);
         const stream = await file.createWritable();
-        await stream.write(new Uint8Array(value.byteLength - 1));
+        await stream.write(new Uint8Array(value.byteLength - (fault === "truncated" ? 1 : 0)));
         await stream.close();
       };
       await (
@@ -293,8 +293,8 @@ test("未完了の新版へは切り替えず、共有する実体を残した�
   await play(upgraded, "Air study");
 });
 
-(["missing", "truncated"] as const).forEach((fault) => {
-  test(`${fault}: 起動時に検出して準備完了とせず、オンライン再保存で欠けた実体だけを取り直す`, async ({
+(["missing", "truncated", "corrupt"] as const).forEach((fault) => {
+  test(`${fault}: 起動または利用時の検出から通常の再保存で当該音源だけを回復する`, async ({
     page,
     context,
   }) => {
@@ -304,10 +304,8 @@ test("未完了の新版へは切り替えず、共有する実体を残した�
     await expect(current.locator("#readiness")).toHaveText(saved);
     await damage(current, fault);
     const next = await restart(current, context);
-    await expect(next.locator("#readiness")).toHaveText(unready);
-    await expect(next.locator("#preparation-detail")).toContainText(
-      "音源の検証が完了しませんでした",
-    );
+    /* Same-size corruption is discovered on use; preparation does not scan audio. */
+    await expect(next.locator("#readiness")).toHaveText(fault === "corrupt" ? saved : unready);
     await next.getByRole("button", { name: "Air study", exact: true }).click();
     await expect(next.locator("#play-status")).toHaveText(
       "読み込みに失敗しました",
@@ -316,6 +314,7 @@ test("未完了の新版へは切り替えず、共有する実体を残した�
       fault === "missing" ? "未保存" : "破損",
     );
     await expect(next.locator("#play")).toBeDisabled();
+    await expect(next.locator("#readiness")).toHaveText(unready);
     await context.setOffline(false);
     const fetched = downloads(context);
     /* active と同じ版なので切り替えず、その場で修復する */

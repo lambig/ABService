@@ -131,7 +131,7 @@ test("real OPFS survives reload; verified audio can be read without network", as
       value: {
         kind: "assessed",
         packageComplete: true,
-        checksumsValid: true,
+        checksumsValid: null,
         requiredAssetsPresent: true,
         appShellAvailable: false,
         offlineReady: false,
@@ -275,32 +275,39 @@ test("same-size corruption is rejected on read and repairable without scanning i
     const writer = await file.createWritable();
     await writer.write(new Uint8Array(h.first.size));
     await writer.close();
+    const unverified = await store.assess([1, 0, 0], signal);
+    const other = await h.open(h.second);
+    await other.save("../音源/one", h.second, signal);
     const read = await store.read("../音源/one", signal);
     const observed = await store.inspect(signal);
     const readiness = await store.assess([1, 0, 0], signal);
-    const shorter = await file.createWritable();
+    const otherRead = await other.read("../音源/one", signal);
+    const repair = await store.save("../音源/one", h.first, signal);
+    const shorter = await (
+      await root.getFileHandle(file.name)
+    ).createWritable();
     await shorter.write(new Uint8Array(h.first.size - 1));
     await shorter.close();
     const truncated = await store.assess([1, 0, 0], signal);
-    const repair = await store.save("../音源/one", h.first, signal);
+    await store.save("../音源/one", h.first, signal);
     return {
+      unverified,
       read,
-      contentIdentity:
-        observed.kind === "ok"
-          ? observed.value.inventory[0]?.checksum.value
-          : "",
-      expectedIdentity: await h.digest(h.first),
+      observed,
+      otherRead: otherRead.kind,
       readiness,
       truncated,
       repair,
       after: await store.assess([1, 0, 0], signal),
     };
   });
-  expect(result.contentIdentity).toBe(result.expectedIdentity);
   expect(result).toMatchObject({
+    unverified: { value: { packageComplete: true, checksumsValid: null } },
     read: { error: "corrupt" },
+    observed: { value: { inventory: [] } },
+    otherRead: "ok",
     readiness: {
-      value: { packageComplete: true, corruptAssetIds: [] },
+      value: { packageComplete: false, missingAssetIds: ["../音源/one"] },
     },
     truncated: {
       value: { packageComplete: false, corruptAssetIds: ["../音源/one"] },

@@ -100,8 +100,9 @@ assetsにはその実体を1件だけ載せるため、readinessの必要容量�
 
 `unsupported-schema` / `invalid-manifest` / `invalid-environment` は未評価として別の枝にする。
 `assessed` は互換性・app shell・容量・required実体の有無・チェックサム一致を別項目で返す。
-`checksumsValid` は存在するrequired実体のサイズ・checksum一致であり、欠落は `requiredAssetsPresent` が表す。
-`packageComplete` は両方が真の場合のみ。optionalの欠落・破損はreadyを妨げない。
+inventoryの `checksum` は実体の実測値、`contentIdentity` は保存先の内容識別を表す。どちらもサイズは実測する。
+`checksumsValid` は不一致があればfalse、実測checksumが一致すればtrue、内容識別だけで再利用するrequired実体があればnull（未検証）。欠落は `requiredAssetsPresent` が表す。
+`packageComplete` はrequired実体が存在し、サイズと実測checksumまたは内容識別に不一致がないこと。内容識別による再利用は実体の再検証を意味しない。optionalの欠落・破損はreadyを妨げない。
 
 容量は不足・破損required assetを**追加でダウンロードする容量**。全requiredが検証済みなら空き0でもよい。
 破損ファイルは削除済みと仮定せず、その置換分の追加容量を要求する。
