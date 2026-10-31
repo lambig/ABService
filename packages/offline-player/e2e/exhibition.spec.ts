@@ -190,6 +190,7 @@ test("縦画面で画像の横送りが見え、波形をキーボード操作�
   await expect(page.locator("#waveform-status")).toHaveText(
     "再生位置はこのまま選べます。",
   );
+  await expect(page.locator("#seek")).toBeEnabled();
   await page.locator("#seek").focus();
   await page.keyboard.press("ArrowRight");
   await expect
