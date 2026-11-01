@@ -7,7 +7,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import com.abservice.domain.model.vo.common.Credit;
+import com.abservice.domain.model.vo.credit.Credit;
 import com.abservice.domain.model.vo.tune.TuneKind;
 import com.abservice.domain.model.vo.tune.TuneTitle;
 import com.abservice.lib.Result;

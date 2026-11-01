@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.domain.model.vo.album.TrackTuneTitle;
-import com.abservice.domain.model.vo.common.Credit;
+import com.abservice.domain.model.vo.credit.Credit;
 import com.abservice.domain.model.vo.common.Url;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;

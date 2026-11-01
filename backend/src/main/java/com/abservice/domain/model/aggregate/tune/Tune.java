@@ -8,7 +8,7 @@ import com.abservice.domain.model.DomainFactory;
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.aggregate.Aggregate;
 import com.abservice.domain.model.policy.Policy;
-import com.abservice.domain.model.vo.common.Credit;
+import com.abservice.domain.model.vo.credit.Credit;
 import com.abservice.domain.model.vo.tune.TuneKind;
 import com.abservice.domain.model.vo.tune.TuneTitle;
 import com.abservice.lib.ErrorResult;
