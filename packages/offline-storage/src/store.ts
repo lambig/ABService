@@ -5,6 +5,7 @@ import type {
 } from "abservice-installation";
 import {
   checkAbort,
+  Failure,
   commit,
   hash,
   locked,
@@ -14,9 +15,17 @@ import {
   requireValue,
 } from "./common";
 import type { AssetStore, StorageResult, StoredInventory } from "./index";
+import {
+  recordVerification,
+  verificationDirectory,
+  verificationState,
+} from "./verification";
 
 type Asset = InstallationManifest["assets"][number];
-type Observation = LocalEnvironment["inventory"][number];
+type Observation = Extract<
+  LocalEnvironment["inventory"][number],
+  { checksum: unknown }
+>;
 const namespace = "abservice-assets-v1";
 const supported = (asset: Asset): Asset => {
   requireValue(asset.checksum.algorithm === "sha256", "unsupported-checksum");
@@ -80,21 +89,44 @@ const storedFile = async (
   const name = await filename(supported(asset), signal);
   return optional(root.getFileHandle(name).then((handle) => handle.getFile()));
 };
+/** Observe one content-addressed asset without reading its body or estimating quota. */
+export const inspectAsset = (
+  asset: Asset,
+  signal: AbortSignal,
+): Promise<StorageResult<StoredInventory["inventory"][number]>> =>
+  locked(namespace, signal, async () => {
+    const file =
+      (await storedFile(await directory(), asset, signal)) ?? reject("missing");
+    checkAbort(signal);
+    return {
+      assetId: asset.assetId,
+      byteLength: file.size,
+      contentIdentity: asset.checksum,
+    };
+  });
 const inventory = async (
   manifest: InstallationManifest,
   signal: AbortSignal,
 ): Promise<StoredInventory> => {
   const root = await directory();
-  /* Hash one asset at a time using bounded chunks and cancellation checkpoints. */
+  /* The content-addressed file was verified on save. Preparing another package
+   * only checks presence and length; it must not read unchanged asset bodies. */
   const observations = await manifest.assets.reduce<
-    Promise<readonly Observation[]>
+    Promise<StoredInventory["inventory"]>
   >(async (previous, asset) => {
     const entries = await previous;
     checkAbort(signal);
     const file = await storedFile(root, asset, signal);
     return file === undefined
       ? entries
-      : [...entries, await observe(asset, file, signal)];
+      : [
+          ...entries,
+          {
+            assetId: asset.assetId,
+            byteLength: file.size,
+            contentIdentity: asset.checksum,
+          },
+        ];
   }, Promise.resolve([]));
   const free = await availableBytes();
   checkAbort(signal);
@@ -109,10 +141,31 @@ const write = async (
   requireValue((await availableBytes()) >= blob.size, "quota-exceeded");
   const root = await directory();
   const name = await filename(asset, signal);
+  /* A pending receipt distinguishes an interrupted new write from a legacy asset. */
+  await recordVerification(name, undefined, signal);
   const file = await root.getFileHandle(name, { create: true });
   await commit(file, blob, signal);
   /* Once committed, verify the stored bytes even when the caller subsequently cancels. */
-  await verify(asset, await file.getFile(), new AbortController().signal);
+  const committed = await file.getFile();
+  const completion = new AbortController().signal;
+  await verify(asset, committed, completion);
+  await recordVerification(name, committed, completion);
+};
+const verifyRead = async (
+  asset: Asset,
+  name: string,
+  file: File,
+  signal: AbortSignal,
+): Promise<void> => {
+  requireValue(file.size === asset.byteLength, "corrupt");
+  const state = await verificationState(name, file);
+  checkAbort(signal);
+  /* Older content-addressed files were verified on save. Adopt their metadata
+   * without downloading, reanalysing or rescanning the audio during upgrade. */
+  await (state === "changed" ? verify(asset, file, signal) : Promise.resolve());
+  await (state === "unchanged"
+    ? Promise.resolve()
+    : recordVerification(name, file, signal));
 };
 const store = (manifest: InstallationManifest): AssetStore => {
   const assetFor = (assetId: string): Asset =>
@@ -126,10 +179,22 @@ const store = (manifest: InstallationManifest): AssetStore => {
     read: (assetId, signal) =>
       locked(namespace, signal, async () => {
         const asset = assetFor(assetId);
+        const root = await directory();
+        const name = await filename(asset, signal);
         const file =
-          (await storedFile(await directory(), asset, signal)) ??
-          reject("missing");
-        await verify(asset, file, signal);
+          (await storedFile(root, asset, signal)) ?? reject("missing");
+        await verifyRead(asset, name, file, signal).catch(
+          async (error: unknown) => {
+            /* Only positively detected corruption is evicted, under the same asset lock.
+             * The next normal preparation then fetches this content again. Cancellation
+             * and unavailable storage must not evict valid bytes. */
+            await (error instanceof Failure && error.code === "corrupt"
+              ? root.removeEntry(name)
+              : Promise.resolve());
+            throw error;
+          },
+        );
+        checkAbort(signal);
         return file.slice(0, file.size, asset.mediaType);
       }),
     inspect: (signal) =>
@@ -165,7 +230,9 @@ export const collectUnreferenced = (
       },
       Promise.resolve(new Set<string>()),
     );
-    return removeExcept(await directory(), kept, signal);
+    const removed = await removeExcept(await directory(), kept, signal);
+    await removeExcept(await verificationDirectory(), kept, signal);
+    return removed;
   });
 export const buildStore = (
   input: InstallationManifest,
