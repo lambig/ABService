@@ -2,6 +2,8 @@ package com.abservice.domain.service;
 
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
+import com.abservice.domain.model.CrossAggregateOperation;
+import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.repository.article.ArticleRepository;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -24,8 +26,7 @@ import lombok.AllArgsConstructor;
  * </p>
  *
  * <p>
- * 遷移そのもの（{@code Article#unpublish}）は操作オブジェクトへ移していない。判定を1箇所にすることが目的で、遷移を
- * 構造で閉じるかは別の関心として扱う（#276）。
+ * 操作オブジェクトが対象の判定と遷移を所有し、変更した記事を影響一覧として返す。 呼出側は下書きを再判定せず、返された記事だけを保存する。
  * </p>
  */
 @ApplicationScoped
@@ -42,7 +43,26 @@ public class AlbumUnpublicationService implements DomainService {
      * @param referencingArticles
      *            当該アルバムを参照している記事（該当なしの場合は空）
      */
+    @CrossAggregateOperation
     public record AlbumUnpublication(Album.Id albumId, List<Article> referencingArticles) {
+
+        /** 取得時点の参照元を固定する。 */
+        public AlbumUnpublication {
+            referencingArticles = List.copyOf(referencingArticles);
+        }
+
+        /**
+         * 影響を受ける公開記事だけを非公開にします。保存は行いません。
+         *
+         * @param now
+         *            遷移の時刻
+         * @return 変更後の記事。保存対象と応答の影響一覧に同じ結果を使う
+         */
+        public List<Article> apply(BusinessDateTime now) {
+            return articlesBecomingUnpublished().stream()
+                    .map(article -> article.unpublish(now))
+                    .toList();
+        }
 
         /**
          * 連動して非公開へ戻る記事を返します。
