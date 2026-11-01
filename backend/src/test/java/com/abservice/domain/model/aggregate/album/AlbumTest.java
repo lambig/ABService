@@ -17,7 +17,7 @@ import com.abservice.domain.model.vo.album.OriginalWorkNote;
 import com.abservice.domain.model.vo.album.Price;
 import com.abservice.domain.model.vo.album.Publication;
 import com.abservice.domain.model.vo.album.TrackTitle;
-import com.abservice.domain.model.vo.common.ArtistCredit;
+import com.abservice.domain.model.vo.credit.ArtistCredit;
 import com.abservice.domain.model.vo.common.AssetKey;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;

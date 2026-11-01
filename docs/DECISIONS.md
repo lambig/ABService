@@ -61,7 +61,9 @@
 - 同一アーティスト名が複数アルバムに重複保存される（この規模では許容する）
 - 名義やイベントに独自ロジックが必要になれば集約ルートへ分離しうる
 
-**実体**: `domain/model/vo/common/ArtistCredit` / `EventReleasedAt`、`V15`/`V16`/`V17`（テーブルから埋め込みへの移行）。
+音楽の名義・役割表記は、作品と楽曲が同じ契約を使うため `vo.credit` に所有させる。複数集約からの参照を汎用性の根拠にせず、集約の状態や別責務の値へ依存させない（[#200](https://github.com/lambig/ABService/issues/200)、W02-credit/1）。
+
+**実体**: `domain/model/vo/credit/ArtistCredit`、`domain/model/vo/common/EventReleasedAt`、`V15`/`V16`/`V17`（テーブルから埋め込みへの移行）。
 
 ---
 
