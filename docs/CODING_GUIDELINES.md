@@ -41,6 +41,7 @@ detekt（Kotlin）カスタムルール26件相当は、Java に構文的対応�
 Java 25 の型システムを最大限活用し、不正状態をコンパイル時に排除する。
 
 - **値オブジェクト**: `record`（不変）。ビジネス概念を表す値はプリミティブを直接使わず VO 化する。
+- **値の所有先**: 参照集約の数ではなく、守る業務上の契約で決める。音楽の名義・役割表記は作品と楽曲が共有するコアの値であり、汎用値にはしない。依存の境界は `CreditValueArchitectureTest`、許容例・違反例は `CreditDependencyRuleTest` を正とする。構造検査は業務上の意味や文字列経由の参照までは判断しない。
 - **状態表現**: sealed interface + `record` で状態を型として表し、`switch` 式の網羅性検査を javac に担保させる。boolean フラグ + 実行時チェックで状態を管理しない。
 - **不正状態の検証**: 実行時例外に依存せず、まず型で防ぐ。型で防げない検証は `Policy`（`domain.model.policy`）で表現する。**命令的な `if`+`throw` は禁止**（PMD `ForbiddenIfStatement`）。`if` は副作用・例外分岐に限り、値の生成は式（三項 / `switch` 式）で行う。
 

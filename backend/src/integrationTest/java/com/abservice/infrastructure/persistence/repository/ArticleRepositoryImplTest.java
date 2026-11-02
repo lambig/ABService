@@ -7,7 +7,7 @@ import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.ArticleType;
 import com.abservice.domain.model.vo.article.IntroShort;
-import com.abservice.domain.model.vo.common.ArtistCredit;
+import com.abservice.domain.model.vo.credit.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.MarkupContent;
