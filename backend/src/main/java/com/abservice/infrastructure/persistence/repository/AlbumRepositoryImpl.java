@@ -10,7 +10,7 @@ import com.abservice.domain.model.aggregate.album.TrackTune;
 import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.album.TrackTuneTitle;
-import com.abservice.domain.model.vo.common.Credit;
+import com.abservice.domain.model.vo.credit.Credit;
 import com.abservice.domain.model.vo.common.Url;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;

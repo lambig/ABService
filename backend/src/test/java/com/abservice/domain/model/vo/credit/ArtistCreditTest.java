@@ -1,4 +1,4 @@
-package com.abservice.domain.model.vo.common;
+package com.abservice.domain.model.vo.credit;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

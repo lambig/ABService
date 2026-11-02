@@ -5,7 +5,7 @@ import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.domain.model.entity.DomainEntity;
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.album.TrackTuneTitle;
-import com.abservice.domain.model.vo.common.Credit;
+import com.abservice.domain.model.vo.credit.Credit;
 import com.abservice.domain.model.vo.common.Url;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;

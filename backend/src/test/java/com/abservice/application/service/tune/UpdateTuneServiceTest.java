@@ -3,7 +3,7 @@ package com.abservice.application.service.tune;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.abservice.domain.model.aggregate.tune.Tune;
-import com.abservice.domain.model.vo.common.Credit;
+import com.abservice.domain.model.vo.credit.Credit;
 import com.abservice.domain.model.vo.tune.TuneKind;
 import com.abservice.domain.model.vo.tune.TuneTitle;
 import com.abservice.lib.ErrorResult;

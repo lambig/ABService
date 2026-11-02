@@ -3,10 +3,14 @@ package com.abservice.domain.service;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.AlbumArticle;
 import com.abservice.domain.model.aggregate.article.Article;
+import com.abservice.domain.model.CrossAggregateOperation;
+import com.abservice.domain.model.vo.article.AlbumReferenceLostReason;
+import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.repository.article.ArticleRepository;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
+import java.util.Optional;
 import lombok.AllArgsConstructor;
 
 /**
@@ -25,9 +29,7 @@ import lombok.AllArgsConstructor;
  * </p>
  *
  * <p>
- * 遷移そのもの（{@code Article#unpublish} /
- * {@code AlbumArticle#loseAlbumReference}）は操作オブジェクトへ
- * 移していない。判定を1箇所にすることが目的で、遷移を構造で閉じるかは別の関心として扱う（#276）。
+ * 公開記事を非公開にしてから参照を失効させる順序は操作オブジェクトが所有する。 呼出側は変更後の記事を保存し、同じ判定から応答を組み立てる。
  * </p>
  */
 @ApplicationScoped
@@ -50,6 +52,17 @@ public class AlbumDeletionService implements DomainService {
     }
 
     /**
+     * 削除に伴う記事の変更と、その変更前の影響判定。
+     *
+     * @param article
+     *            保存する変更後の記事
+     * @param effect
+     *            変更前の記事に対する影響
+     */
+    public record ArticleChange(Article article, ArticleEffect effect) {
+    }
+
+    /**
      * アルバムを削除する試み
      *
      * @param albumId
@@ -57,7 +70,36 @@ public class AlbumDeletionService implements DomainService {
      * @param referencingArticles
      *            当該アルバムを参照している記事（該当なしの場合は空）
      */
+    @CrossAggregateOperation
     public record AlbumDeletion(Album.Id albumId, List<Article> referencingArticles) {
+
+        /** 取得時点の参照元を固定し、後から対象が変わらないようにする。 */
+        public AlbumDeletion {
+            referencingArticles = List.copyOf(referencingArticles);
+        }
+
+        /**
+         * 非公開化を先に行い、同じ時刻で参照を失効させます。保存は行いません。
+         *
+         * @param now
+         *            遷移の時刻
+         * @return 変更後の記事と、応答にも使う変更前の影響
+         */
+        public List<ArticleChange> apply(BusinessDateTime now) {
+            return effects().stream()
+                    .map(effect -> new ArticleChange(withoutAlbum(effect, now), effect))
+                    .toList();
+        }
+
+        private static Article withoutAlbum(ArticleEffect effect, BusinessDateTime now) {
+            final var unpublished = Optional.of(effect)
+                    .filter(ArticleEffect::becomesUnpublished)
+                    .map(published -> published.article().unpublish(now))
+                    .orElseGet(effect::article);
+            return AlbumArticle.from(unpublished)
+                    .<Article>map(article -> article.loseAlbumReference(AlbumReferenceLostReason.ALBUM_DELETED, now))
+                    .orElse(unpublished);
+        }
 
         /**
          * 参照元の記事それぞれに何が起きるかを返します。

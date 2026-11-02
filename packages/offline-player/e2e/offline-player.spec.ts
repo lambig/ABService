@@ -144,16 +144,13 @@ test("配布元から準備し、全タブを閉じた後の通信なしの新�
   await expect(next.locator("#preparation")).toBeHidden();
   await expect(next.locator("#management-unlock")).toBeVisible();
   await play(next, "Album crossfade");
-  /* 作品情報は保存済みの package から出す。artwork は検証済みの実体を描き、説明の画像とリンクは取りに行かない */
+  /* 保存済みの作品名・名義・artworkを表示し、作品ページの説明は試聴画面へ出さない。 */
   await expect(next.locator("#album-title")).toHaveText(
     "Northbound · Study 01",
   );
   await expect(next.locator("#artist")).toHaveText("AB Study");
-  await expect(next.locator("#description")).toContainText("検証用");
-  await expect(next.locator("#description")).toContainText(
-    "頒布ページ を参照。",
-  );
-  await expect(next.locator("#description a, #description img")).toHaveCount(0);
+  await expect(next.locator("body")).not.toContainText("検証用");
+  await expect(next.locator("body")).not.toContainText("頒布ページ");
   await expect
     .poll(() =>
       next
