@@ -5,7 +5,7 @@ import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.site.SiteContent;
-import com.abservice.domain.model.vo.common.MarkupContent;
+import com.abservice.domain.model.vo.markup.MarkupContent;
 import com.abservice.domain.model.vo.site.SiteContentKey;
 import com.abservice.domain.repository.site.SiteContentRepository;
 import com.abservice.lib.Result;

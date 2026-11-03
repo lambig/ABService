@@ -11,7 +11,7 @@ import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.IntroShort;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
-import com.abservice.domain.model.vo.common.MarkupContent;
+import com.abservice.domain.model.vo.markup.MarkupContent;
 import com.abservice.lib.ErrorResult;
 import java.util.Collections;
 import java.util.List;

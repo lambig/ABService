@@ -11,7 +11,7 @@ import com.abservice.domain.model.vo.credit.ArtistCredit;
 import com.abservice.domain.model.vo.common.AssetKey;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
-import com.abservice.domain.model.vo.common.MarkupContent;
+import com.abservice.domain.model.vo.markup.MarkupContent;
 import com.abservice.lib.Result;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Optional;
