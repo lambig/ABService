@@ -23,7 +23,7 @@ import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.model.vo.common.EventReleasedAt;
 import com.abservice.domain.model.vo.common.ExternalAudioUrl;
-import com.abservice.domain.model.vo.common.MarkupContent;
+import com.abservice.domain.model.vo.markup.MarkupContent;
 import com.abservice.lib.Result;
 
 import java.time.Instant;

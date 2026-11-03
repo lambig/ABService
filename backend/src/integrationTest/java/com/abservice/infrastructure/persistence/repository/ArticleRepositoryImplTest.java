@@ -10,7 +10,7 @@ import com.abservice.domain.model.vo.article.IntroShort;
 import com.abservice.domain.model.vo.credit.ArtistCredit;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
-import com.abservice.domain.model.vo.common.MarkupContent;
+import com.abservice.domain.model.vo.markup.MarkupContent;
 import com.abservice.test.CleanDatabase;
 import io.quarkus.test.TestReactiveTransaction;
 import io.quarkus.test.junit.QuarkusTest;

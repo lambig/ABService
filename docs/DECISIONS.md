@@ -311,7 +311,9 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **トレードオフ**: 説明が2種類存在するため、管理画面は「作品の説明」と「記事の本文」を書き分ける必要がある。書き分けの指針は画面側の文言で示す。
 
-**実体**: `domain/model/aggregate/album/Album` の `description`、`domain/model/vo/common/MarkupContent`、`V34`。記事側の文章は `Article` の `body`。
+本文と書式は作品概要・記事本文・固定ページが同じ検証契約を使うため、技術的支援の `vo.markup` が所有する。本文の省略・保存変換と描画は呼出側へ残す。許可書式やエラー契約はサービス内の判断であり、共有だけを理由に汎用ライブラリへ移さない（[#200](https://github.com/lambig/ABService/issues/200)、W02-markup/1）。
+
+**実体**: `domain/model/aggregate/album/Album` の `description`、`domain/model/vo/markup/MarkupContent`、`V34`。記事側の文章は `Article` の `body`。
 
 ---
 
@@ -402,7 +404,7 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **トレードオフ**: ディレクティブ記法は非標準で、GitHub など他所ではただのテキストとして見える（入力者は単一の管理者で、プレビューは管理画面で見るため実運用の影響は小さい）。共有パッケージが1つ増え、管理画面には本文用の画像アップロード導線が要る。
 
-**実体**: `domain/model/vo/common/MarkupFormat` / `MarkupContent`、`V40`（マークアップ形式の CHECK 制約）、描画は `packages/markup`（`renderMarkup` とディレクティブ・画像のプラグイン）。利用側は #122 / #123、CSP の `img-src` は #118。
+**実体**: `domain/model/vo/markup/MarkupFormat` / `MarkupContent`、`V40`（マークアップ形式の CHECK 制約）、描画は `packages/markup`（`renderMarkup` とディレクティブ・画像のプラグイン）。利用側は #122 / #123、CSP の `img-src` は #118。
 
 ---
 
