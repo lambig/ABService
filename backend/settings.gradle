@@ -9,3 +9,5 @@ pluginManagement {
 }
 
 rootProject.name = "abservice-backend"
+
+includeBuild('toolbox-harness')
