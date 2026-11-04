@@ -14,27 +14,27 @@ import java.lang.annotation.Annotation;
 import java.util.Objects;
 
 /**
- * Rules for direct calls and method references to selected methods.
+ * 指定したメソッドへの直接呼出しとメソッド参照を検査する規則。
  *
- * <p>The caller supplies the domain policy and imports both target and caller classes.
- * This bytecode check does not establish business ordering or observe reflective access.
+ * <p>利用側が業務上の制約を指定し、対象メソッドと呼出元の両方のクラスをimportする。
+ * このbytecode検査は、業務上の実行順序を保証せず、reflectionによるアクセスも検出しない。
  */
 public final class MethodAccessRules {
     private MethodAccessRules() {
     }
 
     /**
-     * Restricts access to selected methods to matching caller classes.
+     * 指定したメソッドへのアクセスを、許可条件に一致する呼出元クラスに限定する。
      *
-     * <p>Both calls and method references are checked. A class is the owner of the
-     * originating code unit; enclosing classes are not automatically authorized.
-     * No selected method is an error, even if ArchUnit's global empty-rule default
-     * has been disabled. An imported method without any incoming access is allowed.
+     * <p>直接呼出しとメソッド参照の両方を検査する。呼出元クラスはアクセス元のコードを
+     * 所有するクラスであり、外側のクラスが許可されていても内側のクラスは自動的には許可されない。
+     * ArchUnit全体の空選択に対する失敗設定を無効にしていても、対象メソッドが一件もなければ失敗する。
+     * importした対象メソッドにアクセスが一件もない場合は許可する。
      *
-     * @param targets methods whose incoming accesses must be checked
-     * @param allowedCallers permitted owners of originating code units
-     * @return an ArchUnit rule to evaluate against the consumer's imported classes
-     * @throws NullPointerException if either predicate is null
+     * @param targets アクセスを検査する対象メソッドの選択条件
+     * @param allowedCallers アクセス元のコードを所有するクラスの許可条件
+     * @return 利用側がimportしたクラスに適用するArchUnit規則
+     * @throws NullPointerException いずれかの条件がnullの場合
      */
     public static ArchRule onlyAccessedBy(
             DescribedPredicate<? super JavaMethod> targets,
@@ -45,7 +45,7 @@ public final class MethodAccessRules {
                 .should(new ArchCondition<JavaMethod>("only be accessed by classes " + allowedCallers.getDescription()) {
                     @Override
                     public void check(JavaMethod method, ConditionEvents events) {
-                        // Unlike onlyBeCalled(), this includes Foo::method accesses.
+                        // onlyBeCalled()では対象外となるFoo::methodの参照も含める。
                         method.getAccessesToSelf().forEach(access -> {
                             if (!allowedCallers.test(access.getOriginOwner())) {
                                 events.add(SimpleConditionEvent.violated(access,
@@ -59,17 +59,17 @@ public final class MethodAccessRules {
     }
 
     /**
-     * Selects methods and caller classes using annotations owned by the consumer.
+     * 利用側が定義した注釈で、対象メソッドと許可する呼出元クラスを選択する。
      *
-     * <p>Annotations must be retained in class files. Matching uses ArchUnit's
-     * direct {@code annotatedWith} predicate; meta-annotations and annotations on
-     * enclosing classes do not grant permission. See {@link #onlyAccessedBy} for
-     * import requirements and the empty-selection contract.
+     * <p>注釈はclassファイルに保持される必要がある。ArchUnitの
+     * {@code annotatedWith}条件で直接付与された注釈を照合するため、meta-annotationや
+     * 外側のクラスの注釈によって許可されることはない。import範囲の要件と
+     * 対象メソッドが一件もない場合の扱いは、{@link #onlyAccessedBy}を参照。
      *
-     * @param targetAnnotation annotation marking restricted methods
-     * @param callerAnnotation annotation marking permitted caller classes
-     * @return the configured access rule
-     * @throws NullPointerException if either annotation type is null
+     * @param targetAnnotation アクセスを制限するメソッドに付与する注釈型
+     * @param callerAnnotation 許可する呼出元クラスに付与する注釈型
+     * @return 指定した注釈で構成したアクセス規則
+     * @throws NullPointerException いずれかの注釈型がnullの場合
      */
     public static ArchRule annotatedMethodsOnlyAccessedByAnnotatedClasses(
             Class<? extends Annotation> targetAnnotation,
