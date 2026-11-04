@@ -85,7 +85,7 @@ dependencies {
 
     // ArchUnit（アーキテクチャ制約の強制。レイヤー/依存/命名ルールをテストで検証）
     testImplementation 'com.tngtech.archunit:archunit-junit5:1.5.0'
-    testImplementation 'io.github.lambig:toolbox-harness:0.1.0-SNAPSHOT'
+    testImplementation 'io.github.lambig:ab-architecture-rules:0.1.0'
 
     // NullAway（コンパイル時 null 安全チェッカ。ErrorProne プラグインとして動作）。
     // バージョン固定の理由: NullAway は ErrorProne 内部 API に密結合するため両者を揃える。

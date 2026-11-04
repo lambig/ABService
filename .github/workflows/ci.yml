@@ -94,15 +94,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 8 for harness consumers
-        uses: actions/setup-java@v4
-        with:
-          distribution: corretto
-          java-version: '8'
-
-      - name: Remember consumer JVM
-        run: echo "H1_JAVA_8_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
-
       - name: Set up JDK 25 (Corretto)
         uses: actions/setup-java@v4
         with:
@@ -118,11 +109,6 @@ jobs:
 
       - name: Ensure gradlew is executable
         run: chmod +x backend/gradlew
-
-      - name: Verify standalone harness consumer on Java 8
-        env:
-          BOUNDARY_JAVA_HOME: ${{ env.H1_JAVA_8_HOME }}
-        run: sh backend/toolbox-harness/verify-example.sh
 
       - name: Install FLAC for real audio validation tests
         timeout-minutes: 5
@@ -161,8 +147,6 @@ jobs:
           path: |
             backend/build/reports/tests/
             backend/build/reports/checkstyle/
-            backend/toolbox-harness/build/reports/tests/
-            backend/toolbox-harness/build/consumer-results/
           if-no-files-found: ignore
           retention-days: 7
 

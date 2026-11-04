@@ -17,7 +17,7 @@ import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ConditionEvent;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
-import io.github.lambig.toolbox.harness.MethodAccessRules;
+import io.github.lambig.ab.architecture.MethodAccessRules;
 import java.util.Optional;
 
 /**
