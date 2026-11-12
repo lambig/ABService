@@ -1,5 +1,8 @@
 // Associated only with the two static origins at origin-response. Missing S3
 // objects must be 404 (scoped OAC ListBucket), never infer absence from a 403.
+// Shared by both entry points: one record per environment, with no request data.
+console.info('NODE_RUNTIME_VERSION', process.version);
+
 const MAX_PAGE_BYTES = 512 * 1024;
 const isPage = (uri) => uri.endsWith('.html')
   && !/^\/(?:api|assets|_astro)(?:\/|$)/u.test(uri)
