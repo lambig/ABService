@@ -1,9 +1,6 @@
 import { buildSecurityHeaders } from '../headers/build-security-headers.mjs';
 import { renderStaticNotFound, loadS3Page } from './static-page-404.mjs';
 
-// One record per execution environment; no request or configuration data.
-console.info('NODE_RUNTIME_VERSION', process.version);
-
 // Identify the behavior by its configured origin, never by a viewer Host or an
 // unnormalized URI. Viewer-response functions don't run on origin 4xx/5xx.
 export async function secureOriginResponse(event, loadPage, config) {

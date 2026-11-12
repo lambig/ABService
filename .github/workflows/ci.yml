@@ -408,6 +408,15 @@ jobs:
           python3 -m zipfile -e infra/.terraform/static-page-404.zip "$RUNNER_TEMP/free-edge-package"
           node infra/functions/check-edge-package.mjs "$RUNNER_TEMP/free-edge-package"
 
+      - name: Verify runtime observation in both Lambda package entry points
+        run: |
+          for compatible in false true; do
+            terraform -chdir=infra test -test-directory=runtime-package-tests -var="cloudfront_free_compatible=$compatible"
+            directory="$RUNNER_TEMP/runtime-package-$compatible"
+            python3 -m zipfile -e infra/.terraform/static-page-404.zip "$directory"
+            node infra/functions/check-node-runtime-package.mjs "$directory"
+          done
+
   e2e:
     needs: changes
     if: ${{ needs.changes.outputs.application == 'true' }}
