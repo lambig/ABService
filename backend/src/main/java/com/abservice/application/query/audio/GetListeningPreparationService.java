@@ -1,6 +1,7 @@
 package com.abservice.application.query.audio;
 
 import static io.github.lambig.funcifextension.predicate.Predicates.and;
+import static java.util.function.Function.identity;
 
 import com.abservice.application.audio.ListeningDeviceView;
 import com.abservice.application.audio.PrivateAudioAccess;
@@ -71,33 +72,32 @@ public class GetListeningPreparationService
     }
 
     public record Query(int page, @Nullable String albumId) implements QueryService.Query {
-        private static final Policy<Integer> PAGE = Policy.of(
-                and(
-                        value -> value >= 0,
-                        value -> value <= Integer.MAX_VALUE / ListeningPreparationDataSource.PAGE_SIZE),
-                new ErrorResult(
-                        "page",
-                        "有効なページを指定してください",
-                        "INVALID_PAGE"));
-        private static final Policy<Optional<String>> ALBUM_ID = Policy.of(
-                value -> value.map(EntityId::isValidUuid)
-                        .orElse(true),
-                new ErrorResult(
-                        "albumId",
-                        "有効な値を指定してください",
-                        "INVALID_AUDIO_ARGUMENT"));
-
         /** 入力だけを検証する。既存契約に合わせ、ページの失敗をIDより先に返す。 */
         ValidatedQuery asValidated() {
             final var optionalId = Optional.ofNullable(albumId);
-            return PAGE.verify(page, validPage -> validPage)
+            return Policy.<Integer>of(
+                    and(
+                            value -> value >= 0,
+                            value -> value <= Integer.MAX_VALUE / ListeningPreparationDataSource.PAGE_SIZE),
+                    new ErrorResult(
+                            "page",
+                            "有効なページを指定してください",
+                            "INVALID_PAGE"))
+                    .verify(page, identity())
                     .flatMap(
-                            validPage -> ALBUM_ID.verify(
-                                    optionalId,
-                                    id -> new ValidatedQuery(
-                                            validPage,
-                                            id.map(UUID::fromString)
-                                                    .map(UUID::toString))))
+                            validPage -> Policy.<Optional<String>>of(
+                                    value -> value.map(EntityId::isValidUuid)
+                                            .orElse(true),
+                                    new ErrorResult(
+                                            "albumId",
+                                            "有効な値を指定してください",
+                                            "INVALID_AUDIO_ARGUMENT"))
+                                    .verify(
+                                            optionalId,
+                                            id -> new ValidatedQuery(
+                                                    validPage,
+                                                    id.map(UUID::fromString)
+                                                            .map(UUID::toString))))
                     .resolve(ValidationException::new);
         }
     }
