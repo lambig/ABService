@@ -44,6 +44,7 @@ Java 25 の型システムを最大限活用し、不正状態をコンパイル
 - **値の所有先**: 参照集約の数ではなく、守る業務上の契約で決める。音楽の名義・役割表記は作品と楽曲が共有するコアの値であり、汎用値にはしない。依存の境界は `CreditValueArchitectureTest`、許容例・違反例は `CreditDependencyRuleTest` を正とする。本文と書式の支援値も同様に責務を分け、`MarkupValueArchitectureTest` と `MarkupDependencyRuleTest` で依存の境界を検査する。構造検査は業務上の意味や文字列経由の参照までは判断しない。
 - **状態表現**: sealed interface + `record` で状態を型として表し、`switch` 式の網羅性検査を javac に担保させる。boolean フラグ + 実行時チェックで状態を管理しない。
 - **不正状態の検証**: 実行時例外に依存せず、まず型で防ぐ。型で防げない検証は `Policy`（`domain.model.policy`）で表現する。**命令的な `if`+`throw` は禁止**（PMD `ForbiddenIfStatement`）。`if` は副作用・例外分岐に限り、値の生成は式（三項 / `switch` 式）で行う。
+- **Policyの俯瞰性**: 同じ入力の条件・エラー・適用順を一か所で読めるように定義し、再利用や独立した検証段階という理由のない分割はしない。全エラー集約と先頭エラーでの終了は契約に従い選び、定義をまとめるために既存のエラー優先順位を変えない。PMD `ScatteredPolicy` は同じ宣言から使う複数の単一使用 private Policy メンバーを検出する。共有の意味的な妥当性、述語や別型への間接的な分散はレビュー対象として残る。
 
 参照実装: 状態の型表現は `domain.model.vo.event`（`EventToParticipate` とその permits）、検証の Policy 化は各集約・VO（`Album` / `AlbumTitle` 等）。
 
@@ -70,6 +71,7 @@ VO の外部入力用の生成は、例外 throw の `of()`（内部生成）と
 
 - **更新系は `CommandService`**: `Repository`（Write Model）経由でドメインモデルを操作。`execute()` は `@WithTransaction` で `Uni<Output>` を返す。
 - **照会系は `QueryService`**: `DataSource` から Read Model DTO を取得。`query()` は `Uni<Result>` を返す。
+- **Queryの入力検証と照会可否を分ける**: ページ範囲やID形式は入力側の `Policy` で検証し、成功時に正規化済みの照会条件を生成する。`Result` から `ValidationException` への変換はapplication側で行い、機能有効化はサービス、対象の存在判定は照会後に扱う。検証順序はAPIの既存契約に合わせる。`GetListeningPreparationService.Query.asValidated()` がこの境界の参照例で、共通PolicyへHTTP・DB・Mutinyを持ち込まない。
 - ドメインオブジェクトを外部へ直接公開せず、Input/Output・Request/Response DTO を介す。
 - 同期→非同期は `Uni.createFrom().item(() -> ...)`、連鎖は `flatMap`、同期変換は `onItem().transform`、未存在の例外化は `onItem().ifNull().failWith(...)`。
 - ブロッキングの `@Transactional` は使わない（Mutiny 非互換）。`@WithTransaction` を使う。

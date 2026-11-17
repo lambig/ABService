@@ -14,6 +14,7 @@ import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
 import java.sql.DriverManager;
 import java.util.Comparator;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.IntStream;
@@ -63,6 +64,8 @@ class ListeningPreparationRestIntegrationTest {
         authorized().queryParam("page", 1).get(PATH).then().statusCode(200)
                 .body("items.size()", equalTo(1)).body("items[0].albumId", equalTo(ids.getLast()));
         authorized().queryParam("page", 2).get(PATH).then().statusCode(200).body("items.size()", equalTo(0));
+        authorized().queryParam("albumId", ids.getLast().toUpperCase(Locale.ROOT)).get(PATH).then().statusCode(200)
+                .body("focused.albumId", equalTo(ids.getLast()));
     }
 
     @Test
@@ -71,9 +74,13 @@ class ListeningPreparationRestIntegrationTest {
         given().get(PATH).then().statusCode(401);
         given().header("Authorization", "Bearer deliberately-invalid-test-credential").get(PATH).then().statusCode(401);
         authorized().get(PATH).then().statusCode(200).body("items.size()", equalTo(0)).body("totalPages", equalTo(1));
-        authorized().queryParam("page", -1).get(PATH).then().statusCode(400);
+        authorized().queryParam("page", -1).queryParam("albumId", "invalid").get(PATH).then().statusCode(400)
+                .body("errors.size()", equalTo(1)).body("errors[0].field", equalTo("page"))
+                .body("errors[0].code", equalTo("INVALID_PAGE"));
         authorized().queryParam("page", Integer.MAX_VALUE).get(PATH).then().statusCode(400);
-        authorized().queryParam("albumId", "invalid").get(PATH).then().statusCode(400);
+        authorized().queryParam("albumId", "invalid").get(PATH).then().statusCode(400)
+                .body("errors[0].field", equalTo("albumId"))
+                .body("errors[0].code", equalTo("INVALID_AUDIO_ARGUMENT"));
         authorized().queryParam("albumId", UUID.randomUUID()).get(PATH).then().statusCode(404);
     }
 

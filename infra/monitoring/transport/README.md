@@ -71,12 +71,13 @@ CIではPublic ECRの転送量制限が再試行後も続くため、公開image
 ローカルでもLinux/amd64では `--image-cache <directory>` で同じ経路を検証できる。
 rootで書き込むため、指定先と親ディレクトリには他の利用者が内容やパスを差し替えられない専用の場所を使う。
 既存ディレクトリの権限は維持する。CIからの読み取りに必要な0755は新規作成時だけ設定し、パス内のシンボリックリンクは拒否する。
-復元後は `image-cache-lock.json` のconfig digest（Docker image ID）とOS/architectureを照合する。
-Docker archiveでは元のRepoDigestsが保持されない場合があるため、試験用Compose overrideは検証したcontent IDを使う。
+取得・復元後はDockerが書き出したarchiveのconfig本体をSHA-256で照合し、`image-cache-lock.json` のconfig digestとOS/architectureを検証する。
+Dockerの不変IDは従来方式ではconfig、containerd方式ではmanifest/indexを指すため、config digestを検索用IDとして固定しない。
+復元対象は `docker load` の結果から特定し、検証と試験用Compose overrideにはDockerが返した不変IDを使う。元のRepoDigestsや可変タグの保持には依存しない。
 キャッシュがない初回・失効後は通常のpullが必要で、Public ECRのthrottlingを再試行しても解消できない場合だけ、
 [AWS公式Docker Hub image](https://hub.docker.com/r/amazon/cloudwatch-agent) の同一linux/amd64 manifestへ切り替える。
-補助取得にも既存の再試行上限を適用し、取得後は同じconfig IDを照合する。認証拒否・image不在・timeoutでは切り替えない。
-両方の取得先が利用できない場合、復元失敗、ID不一致は成功扱いにしない。
+補助取得にも既存の再試行上限を適用し、取得後は同じconfig digestを照合する。認証拒否・image不在・timeoutでは切り替えない。
+両方の取得先が利用できない場合、復元失敗、内容・OS・architectureの不一致、復元対象が不明・複数の場合は成功扱いにしない。
 キャッシュにはコンテナ・ログ・資格情報・設定ディレクトリを含めず、試験の成功結果も再利用しない。
 
 imageを更新するときは、固定したindexを `docker buildx imagetools inspect --raw <image@digest>` で確認し、

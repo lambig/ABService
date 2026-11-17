@@ -133,7 +133,7 @@ jobs:
       - name: Create asset bucket
         run: docker compose run --rm minio-init
 
-      # check = spotlessCheck / checkstyleMain / checkstyleTest / test（ArchUnit含む） / integrationTest
+      # check = Spotless / Checkstyle / PMD・検査器回帰 / test（ArchUnit含む） / integrationTest
       # 外部のDB/MinIOはGradleのキャッシュキーに含まれない。統合テストは今回起動した実体へ必ず実行する。
       # --rerun は integrationTest だけに適用し、コンパイルや単体テストのキャッシュは維持する。
       - name: Run full check
@@ -147,6 +147,7 @@ jobs:
           path: |
             backend/build/reports/tests/
             backend/build/reports/checkstyle/
+            backend/build/reports/pmd/
           if-no-files-found: ignore
           retention-days: 7
 
