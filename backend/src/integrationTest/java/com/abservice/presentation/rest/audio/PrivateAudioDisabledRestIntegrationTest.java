@@ -37,6 +37,9 @@ class PrivateAudioDisabledRestIntegrationTest {
                 .then().statusCode(404);
         authorized().get("/api/v1/admin/listening-devices").then().statusCode(404);
         authorized().get("/api/v1/admin/listening-preparation").then().statusCode(404);
+        authorized().queryParam("page", -1).queryParam("albumId", "invalid")
+                .get("/api/v1/admin/listening-preparation").then().statusCode(404)
+                .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
         authorized().delete("/api/v1/admin/listening-devices/" + id).then().statusCode(404);
     }
 }
