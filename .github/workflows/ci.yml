@@ -89,6 +89,7 @@ jobs:
       DB_NAME: abservice_test
       DB_USERNAME: abservice
       DB_PASSWORD: abservice
+      COMPOSE_FILE: docker-compose.yml
 
     steps:
       - name: Checkout
@@ -114,6 +115,9 @@ jobs:
         timeout-minutes: 5
         run: |
           apt_options=(-o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o DPkg::Lock::Timeout=60)
+          # FLAC comes from Ubuntu; unrelated vendor mirrors must not gate its installation.
+          test -s /etc/apt/sources.list.d/ubuntu.sources
+          apt_options+=(-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/ubuntu.sources -o Dir::Etc::sourceparts=-)
           sudo apt-get "${apt_options[@]}" -o APT::Update::Error-Mode=any update
           sudo env DEBIAN_FRONTEND=noninteractive apt-get "${apt_options[@]}" install -y flac
 
@@ -455,6 +459,7 @@ jobs:
       DB_PASSWORD: abservice
       # E2E のシードは管理APIを通す。開発既定と同じ鍵を使う
       ADMIN_API_KEY: dev-admin-api-key
+      COMPOSE_FILE: docker-compose.yml
 
     steps:
       - name: Checkout
