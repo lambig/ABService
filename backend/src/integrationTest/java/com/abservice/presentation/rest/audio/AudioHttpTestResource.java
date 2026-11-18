@@ -9,6 +9,7 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
 
 /**
  * 実作品・実資格情報を使わず、専用MinIOバケットとAWS標準chainのテスト値を所有する。 一時領域はJVMの一時ディレクトリ配下に取る（固定の
@@ -25,6 +26,7 @@ public class AudioHttpTestResource implements QuarkusTestResourceLifecycleManage
         System.setProperty("aws.accessKeyId", "minioadmin");
         System.setProperty("aws.secretAccessKey", "minioadmin123");
         client = S3Client.builder().endpointOverride(URI.create("http://localhost:9000"))
+                .serviceConfiguration(S3Configuration.builder().chunkedEncodingEnabled(false).build())
                 .forcePathStyle(true).region(Region.US_EAST_1)
                 .credentialsProvider(
                         StaticCredentialsProvider.create(AwsBasicCredentials.create("minioadmin", "minioadmin123")))

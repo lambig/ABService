@@ -1,6 +1,6 @@
 plugins {
     id 'java'
-    id 'io.quarkus' version '3.38.3'
+    id 'io.quarkus' version '3.40.1.2'
     id 'checkstyle'
     id 'pmd'
     id 'com.diffplug.spotless' version '8.10.0'
@@ -43,12 +43,11 @@ dependencies {
 
     // Amazon S3（アセット保存。開発は MinIO、本番は S3 を endpoint-override で切り替える）。
     // バージョン固定の理由: quarkiverse 拡張は Quarkus 本体と別のリリース列で、各リリースが特定の
-    // Quarkus バージョンを前提にビルドされる。3.21.2 は Quarkus 3.37.3 ターゲットで、本体の
-    // 3.38.3 に最も近い安定版。
+    // Quarkus バージョンを前提にビルドされる。3.23.0 は Quarkus 3.40 LTS 向けで、本体と同じ系列に揃える。
     // 昇格トリガ: Quarkus 本体を上げるとき、同じ Quarkus 版をターゲットにする拡張版へ揃えて bump する。
-    implementation 'io.quarkiverse.amazonservices:quarkus-amazon-s3:3.21.2'
-    // 非同期 S3 クライアントの HTTP 実装（拡張が要求）。拡張の awssdk 2.49.1 に合わせる。
-    implementation 'software.amazon.awssdk:netty-nio-client:2.49.1'
+    implementation 'io.quarkiverse.amazonservices:quarkus-amazon-s3:3.23.0'
+    // 非同期 S3 クライアントの HTTP 実装（拡張が要求）。拡張の awssdk 2.55.6 に合わせる。
+    implementation 'software.amazon.awssdk:netty-nio-client:2.55.6'
 
     // Flyway（データベースマイグレーション）
     implementation 'io.quarkus:quarkus-flyway'
@@ -81,7 +80,7 @@ dependencies {
     testImplementation 'io.rest-assured:rest-assured'
     testImplementation 'org.assertj:assertj-core:3.27.7'
     // 非公開音源の同期I/Oを専用タイムアウトで構築する。SDK本体と同じ版に揃える。
-    implementation 'software.amazon.awssdk:url-connection-client:2.49.1'
+    implementation 'software.amazon.awssdk:url-connection-client:2.55.6'
 
     // ArchUnit（アーキテクチャ制約の強制。レイヤー/依存/命名ルールをテストで検証）
     testImplementation 'com.tngtech.archunit:archunit-junit5:1.5.0'
