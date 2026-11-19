@@ -12,6 +12,13 @@ repositories {
     mavenLocal()
 }
 
+// Quarkus 3.40.1.2 pins Reactive 3.4.2, whose shared delete coordinator can hang
+// independent transactions (hibernate/hibernate-reactive#4174). Use the first
+// fixed patch in the same series; remove this override when the BOM includes it.
+configurations.configureEach {
+    resolutionStrategy.force 'org.hibernate.reactive:hibernate-reactive-core:3.4.4.Final'
+}
+
 dependencies {
     implementation enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}")
     implementation 'io.quarkus:quarkus-rest'
