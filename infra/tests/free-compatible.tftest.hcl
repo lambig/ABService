@@ -65,7 +65,7 @@ run "prepare_free_dependencies" {
 run "free_compatible_preserves_security" {
   command = apply
   plan_options {
-    target = [aws_cloudfront_distribution.main]
+    target = [aws_cloudfront_distribution.main, aws_route53_record.root, aws_route53_record.www]
   }
   assert {
     condition = length(aws_cloudfront_response_headers_policy.security) == 0 && alltrue([

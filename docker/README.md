@@ -12,12 +12,6 @@ docker/
 │   ├── init/
 │   │   └── 01-init-databases.sql    # データベース初期化スクリプト
 │   └── data/                        # PostgreSQLデータディレクトリ
-├── keycloak/
-│   ├── realm/
-│   │   └── abservice-realm.json     # Keycloakレルム設定
-│   └── data/                        # Keycloakデータディレクトリ
-├── redis/
-│   └── data/                        # Redisデータディレクトリ
 ├── minio/
 │   └── data/                        # MinIOデータディレクトリ
 └── README.md                        # このファイル
@@ -26,11 +20,9 @@ docker/
 ## Docker Composeファイル
 
 ### docker-compose.yml
-本番環境用の基本設定。以下のサービスを含みます：
+ローカル開発・CI専用の基本設定。すべての公開ポートは127.0.0.1に限定する。以下のサービスを含みます：
 
 - **PostgreSQL**: メインデータベース
-- **Keycloak**: 認証・認可サーバー
-- **Redis**: キャッシュサーバー（将来の使用）
 - **Mailhog**: 開発用SMTPサーバー
 - **MinIO**: S3互換オブジェクトストレージ
 
@@ -38,7 +30,6 @@ docker/
 開発環境用の拡張設定。上記サービスに加えて：
 
 - **pgAdmin**: PostgreSQL管理ツール
-- **Redis Commander**: Redis管理ツール
 - デバッグ用の設定とログ出力
 
 ### docker-compose.override.yml
@@ -49,7 +40,7 @@ docker/
 ### 基本サービスの起動
 
 ```bash
-# 本番環境用サービスを起動
+# ローカル開発用サービスを起動
 docker-compose up -d
 
 # 開発環境用サービスを起動（管理ツール含む）
@@ -65,8 +56,8 @@ docker-compose logs -f
 # PostgreSQLのみ起動
 docker-compose up -d postgres
 
-# Keycloakのみ起動
-docker-compose up -d keycloak
+# MinIOとバケット初期化
+docker-compose up -d minio minio-init
 ```
 
 ### サービスの停止
@@ -83,9 +74,9 @@ docker-compose down -v
 
 ### PostgreSQL
 - **ポート**: 5432
-- **データベース**: abservice（開発）, abservice_test（統合テスト）, abservice_e2e（E2E）, keycloak
-- **ユーザー**: abservice / keycloak
-- **パスワード**: abservice / keycloak
+- **データベース**: abservice（開発）, abservice_test（統合テスト）, abservice_e2e（E2E）
+- **ユーザー**: abservice
+- **パスワード**: abservice
 
 テストは開発用と別のデータベースへ書く（#252）。統合テストは実行のたびに `abservice_test` を空にし、
 E2E 用の backend（`npm run dev:backend:e2e`）は起動のたびに `abservice_e2e` を空にする。開発中に
@@ -98,16 +89,6 @@ E2E 用の backend（`npm run dev:backend:e2e`）は起動のたびに `abservic
 docker-compose exec -T postgres psql -U abservice -d abservice -c "CREATE DATABASE abservice_test"
 docker-compose exec -T postgres psql -U abservice -d abservice -c "CREATE DATABASE abservice_e2e"
 ```
-
-### Keycloak
-- **ポート**: 8180
-- **管理コンソール**: http://localhost:8180
-- **管理者**: admin / admin123
-- **レルム**: abservice
-
-### Redis
-- **ポート**: 6379
-- **パスワード**: なし（開発環境）
 
 ### Mailhog
 - **SMTPポート**: 1025
@@ -135,10 +116,10 @@ docker compose up -d minio minio-init
 #### MinIO の取得と更新
 
 Docker Hub / Quay の既成イメージ取得障害（#351、#459）を避けるため、
-[公式のソース配布方針](https://github.com/minio/minio#source-only-distribution)に従い、
+[公式のソース公開方針](https://github.com/minio/minio#source-only-distribution)に従い、
 本体と `mc` を公式リポジトリからビルドする。固定コミット・Go・ベースイメージの正は
 [`minio/Dockerfile`](minio/Dockerfile)。ローカル開発と CI のみに使い、本番 S3 の構成は変更しない。
-初回は Go の依存取得とコンパイルが必要で、GitHub・Go module proxy・Docker Hub・Debian の配布元へ接続する。
+初回は Go の依存取得とコンパイルが必要で、GitHub・Go module proxy・Docker Hub・Debian の取得元へ接続する。
 通常の再実行には Docker のビルドキャッシュを利用できる。
 
 更新時は公式のリリースとセキュリティ修正を確認し、タグに対応する完全なコミット ID と
@@ -155,17 +136,11 @@ Docker Hub / Quay の既成イメージ取得障害（#351、#459）を避ける
 - **ポート**: 5050
 - **ユーザー**: admin@abservice.com / admin123
 
-### Redis Commander（開発環境のみ）
-- **ポート**: 8081
-- **ユーザー**: admin / admin123
-
 ## データの永続化
 
 各サービスのデータは以下の場所に永続化されます：
 
 - PostgreSQL: `docker/postgres/data/`
-- Keycloak: `docker/keycloak/data/`
-- Redis: `docker/redis/data/`
 - MinIO: `docker/minio/data/`
 
 ## トラブルシューティング
@@ -176,7 +151,7 @@ Docker Hub / Quay の既成イメージ取得障害（#351、#459）を避ける
 ```bash
 # 使用中のポートを確認
 lsof -i :5432
-lsof -i :8180
+lsof -i :9000
 
 # プロセスを終了
 kill -9 <PID>
@@ -205,7 +180,7 @@ docker-compose logs
 
 # 特定のサービスのログ
 docker-compose logs postgres
-docker-compose logs keycloak
+docker-compose logs minio
 
 # リアルタイムログ
 docker-compose logs -f postgres
@@ -235,5 +210,17 @@ docker-compose logs -f postgres
 ```bash
 # .env
 POSTGRES_PASSWORD=your-secure-password
-KEYCLOAK_ADMIN_PASSWORD=your-secure-password
 ```
+
+## ローカル・CI用ストレージの制限
+
+MinIOはCVE-2026-40344/41145への対策としてunsigned-trailer要求を認証ミドルウェアの入口で拒否する。
+通常のSigV4要求を使う。これは上流OSS全体の修正完了を意味しない。
+S3 Selectとレプリケーションヘッダーも拒否し、CVE-2026-39414/34204の経路を無効にする。
+この構成ではOIDC・LDAPを設定しない。これらの機能を追加する場合は、未修正のCVE-2026-33322/33419を再評価する。
+根拠は[認証回避](https://github.com/minio/minio/security/advisories/GHSA-hv4r-mvr4-25vw)、
+[S3 Select](https://github.com/minio/minio/security/advisories/GHSA-h749-fxx7-pwpg)、
+[レプリケーションヘッダー](https://github.com/minio/minio/security/advisories/GHSA-3rh2-v3gr-35p9)の上流勧告を参照する。
+
+`python3 scripts/check-minio-auth.py`はlocalhostの検証用MinIOに対し、ヘッダー・クエリ認証の6経路、レプリケーションヘッダー、S3 Selectの拒否と正常なSigV4 CRUDを確認する。
+ローカル・試験用SDKはチェックサムをヘッダーへ載せ、unsigned-trailerを使用しない。チェックサム検証は有効のまま維持する。

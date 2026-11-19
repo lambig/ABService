@@ -17,12 +17,12 @@
     "generate:api-types": "openapi-typescript ../backend/build/openapi/openapi.yaml -o src/lib/api/schema.d.ts"
   },
   "dependencies": {
-    "@astrojs/svelte": "^9.0.0",
+    "@astrojs/svelte": "^9.1.2",
     "@lucide/svelte": "^1.0.0",
     "@tailwindcss/vite": "^4.0.0",
     "abservice-external-audio": "*",
     "abservice-markup": "*",
-    "astro": "^7.2.8",
+    "astro": "^7.4.7",
     "bits-ui": "^2.0.0",
     "clsx": "^2.1.1",
     "svelte": "^5.0.0",

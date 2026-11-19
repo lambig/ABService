@@ -39,6 +39,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
 
 /**
  * 実SDKで署名した取得URLを、専用MinIOバケットへ実際に投げて音源の同一性まで見る。
@@ -73,6 +74,7 @@ class ListeningAssetUrlRestIntegrationTest {
     private static final String PROBLEM = "application/problem+json";
     /** 検査所有の実体を置くための MinIO クライアント。アプリの共有クライアントは無効な資格情報を持つため使わない。 */
     private final S3Client storage = S3Client.builder().endpointOverride(URI.create("http://localhost:9000"))
+            .serviceConfiguration(S3Configuration.builder().chunkedEncodingEnabled(false).build())
             .forcePathStyle(true).region(Region.US_EAST_1)
             .credentialsProvider(
                     StaticCredentialsProvider.create(AwsBasicCredentials.create("minioadmin", "minioadmin123")))

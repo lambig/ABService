@@ -63,7 +63,7 @@ jobs:
     # データベース名はテスト専用のもの（#252）。ローカルは compose の init スクリプトが同じ名前で作る。
     services:
       postgres:
-        image: postgres:15-alpine
+        image: postgres:15.20-alpine3.24@sha256:23799e521dee9265a8b388ecf3bc0f1eaa34b95be67f5a76af4f8f6adb44c720
         env:
           POSTGRES_DB: abservice_test
           POSTGRES_USER: abservice
@@ -89,6 +89,7 @@ jobs:
       DB_NAME: abservice_test
       DB_USERNAME: abservice
       DB_PASSWORD: abservice
+      COMPOSE_FILE: docker-compose.yml
 
     steps:
       - name: Checkout
@@ -114,6 +115,9 @@ jobs:
         timeout-minutes: 5
         run: |
           apt_options=(-o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o DPkg::Lock::Timeout=60)
+          # FLAC comes from Ubuntu; unrelated vendor mirrors must not gate its installation.
+          test -s /etc/apt/sources.list.d/ubuntu.sources
+          apt_options+=(-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/ubuntu.sources -o Dir::Etc::sourceparts=-)
           sudo apt-get "${apt_options[@]}" -o APT::Update::Error-Mode=any update
           sudo env DEBIAN_FRONTEND=noninteractive apt-get "${apt_options[@]}" install -y flac
 
@@ -132,6 +136,9 @@ jobs:
 
       - name: Create asset bucket
         run: docker compose run --rm minio-init
+
+      - name: Verify local MinIO authentication boundary
+        run: python3 scripts/check-minio-auth.py
 
       # check = Spotless / Checkstyle / PMD・検査器回帰 / test（ArchUnit含む） / integrationTest
       # 外部のDB/MinIOはGradleのキャッシュキーに含まれない。統合テストは今回起動した実体へ必ず実行する。
@@ -333,7 +340,7 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.9.8
+          terraform_version: 1.17.2
           terraform_wrapper: false
 
       # user_data はインスタンスの初回起動時にしか走らない。構文が壊れていればそのインスタンスは
@@ -375,6 +382,9 @@ jobs:
 
       - name: Check formatting
         run: terraform fmt -check -recursive infra
+
+      - name: Verify origin HTTP and TLS boundaries with the pinned NGINX image
+        run: python3 infra/host/cohost/check_origin.py
 
       - name: Initialize without the backend
         run: terraform -chdir=infra init -backend=false
@@ -428,7 +438,7 @@ jobs:
     # データベースは E2E 専用（#252）。母集団をシードしたものだけにするため、統合テストとも分ける。
     services:
       postgres:
-        image: postgres:15-alpine
+        image: postgres:15.20-alpine3.24@sha256:23799e521dee9265a8b388ecf3bc0f1eaa34b95be67f5a76af4f8f6adb44c720
         env:
           POSTGRES_DB: abservice_e2e
           POSTGRES_USER: abservice
@@ -452,6 +462,7 @@ jobs:
       DB_PASSWORD: abservice
       # E2E のシードは管理APIを通す。開発既定と同じ鍵を使う
       ADMIN_API_KEY: dev-admin-api-key
+      COMPOSE_FILE: docker-compose.yml
 
     steps:
       - name: Checkout

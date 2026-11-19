@@ -1,0 +1,31 @@
+diff --git a/cmd/auth-handler.go b/cmd/auth-handler.go
+--- a/cmd/auth-handler.go
++++ b/cmd/auth-handler.go
+@@ -620,6 +620,27 @@ func setAuthMiddleware(h http.Handler) http.Handler {
+ 		tc, ok := r.Context().Value(mcontext.ContextTraceKey).(*mcontext.TraceCtxt)
+ 
+ 		aType := getRequestAuthType(r)
++		// Reject the unsupported unsigned-trailer path before any S3 handler.
++		// Covers normal PUT, multipart PUT and Snowball extraction (CVE-2026-40344/41145).
++		// Signed streaming and ordinary SigV4 requests remain available.
++		if aType == authTypeStreamingUnsignedTrailer {
++			writeErrorResponse(r.Context(), w, errorCodes.ToAPIErr(ErrSignatureVersionNotSupported), r.URL)
++			return
++		}
++		// Local development and CI do not use S3 Select or replication.
++		// Reject these paths instead of exposing the unfixed OSS implementations
++		// (CVE-2026-39414 and CVE-2026-34204).
++		if _, selectRequested := r.URL.Query()["select"]; selectRequested {
++			writeErrorResponse(r.Context(), w, errorCodes.ToAPIErr(ErrNotImplemented), r.URL)
++			return
++		}
++		for header := range r.Header {
++			if strings.HasPrefix(strings.ToLower(header), "x-minio-replication-") {
++				writeErrorResponse(r.Context(), w, errorCodes.ToAPIErr(ErrNotImplemented), r.URL)
++				return
++			}
++		}
++
+ 		switch aType {
+ 		case authTypeSigned, authTypeSignedV2, authTypeStreamingSigned, authTypeStreamingSignedTrailer:
+ 			// Verify if date headers are set, if not reject the request
