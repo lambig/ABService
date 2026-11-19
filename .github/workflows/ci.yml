@@ -383,6 +383,9 @@ jobs:
       - name: Check formatting
         run: terraform fmt -check -recursive infra
 
+      - name: Verify origin HTTP and TLS boundaries with the pinned NGINX image
+        run: python3 infra/host/cohost/check_origin.py
+
       - name: Initialize without the backend
         run: terraform -chdir=infra init -backend=false
 
