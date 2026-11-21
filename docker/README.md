@@ -23,7 +23,7 @@ docker/
 ローカル開発・CI専用の基本設定。すべての公開ポートは127.0.0.1に限定する。以下のサービスを含みます：
 
 - **PostgreSQL**: メインデータベース
-- **Mailhog**: 開発用SMTPサーバー
+- **Mailpit**: 開発用SMTPサーバー（接続先のサービス名 `mailhog` は維持）
 - **MinIO**: S3互換オブジェクトストレージ
 
 ### docker-compose.dev.yml
@@ -37,14 +37,16 @@ docker/
 
 ## 使用方法
 
+固定した上流イメージにOS・補助ツールのセキュリティ修正を加えるため、PostgreSQL・メール・pgAdminもローカルでビルドする。Dockerfileの変更後は `--build` を付けて再起動する。既存DBのボリュームは保持する。
+
 ### 基本サービスの起動
 
 ```bash
 # ローカル開発用サービスを起動
-docker-compose up -d
+docker-compose up -d --build
 
 # 開発環境用サービスを起動（管理ツール含む）
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 
 # ログを確認
 docker-compose logs -f
@@ -168,7 +170,7 @@ docker-compose down -v
 rm -rf docker/*/data
 
 # 再起動
-docker-compose up -d
+docker-compose up -d --build
 ```
 
 ### ログの確認

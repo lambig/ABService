@@ -34,7 +34,8 @@ RUN go get github.com/klauspost/compress@v1.18.7 github.com/prometheus/prometheu
 
 FROM alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS runtime
 # curl serves the Compose health check; the shell runs bucket bootstrap.
-RUN apk upgrade --no-cache && apk add --no-cache ca-certificates curl
+RUN apk upgrade --no-cache \
+    && apk add --no-cache ca-certificates curl 'libssl3>=3.5.9-r1' 'libcrypto3>=3.5.9-r1'
 
 FROM runtime AS minio
 LABEL org.opencontainers.image.source="https://github.com/minio/minio" \

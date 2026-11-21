@@ -1,0 +1,12 @@
+--- a/metrics_receiver.go
++++ b/metrics_receiver.go
+@@ -261,8 +261,7 @@
+ 	r.scrapeManager = scrapeManager
+ 
+ 	r.unregisterMetrics = func() {
+-		sdMetrics.RefreshManager.Unregister()
+-		for _, sdMetric := range sdMetrics.MechanismMetrics {
++		for _, sdMetric := range sdMetrics {
+ 			sdMetric.Unregister()
+ 		}
+ 		r.discoveryManager.UnregisterMetrics()

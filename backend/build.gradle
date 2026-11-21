@@ -19,6 +19,11 @@ configurations.configureEach {
     resolutionStrategy.force 'org.hibernate.reactive:hibernate-reactive-core:3.4.4.Final'
 }
 
+// Keep the deserialization fix in the test-only Guava dependency.
+configurations.matching { it.name in ['testCompileClasspath', 'testRuntimeClasspath'] }.configureEach {
+    resolutionStrategy.force 'com.google.guava:guava:33.8.0-jre'
+}
+
 dependencies {
     implementation enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}")
     implementation 'io.quarkus:quarkus-rest'

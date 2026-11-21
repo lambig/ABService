@@ -59,31 +59,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-    # 統合テスト用 PostgreSQL（docker-compose と同じ postgres:15-alpine）。
+    # 統合テスト用 PostgreSQL はローカルと同じ修正済みイメージをビルドする。
     # データベース名はテスト専用のもの（#252）。ローカルは compose の init スクリプトが同じ名前で作る。
-    services:
-      postgres:
-        image: postgres:15.20-alpine3.24@sha256:23799e521dee9265a8b388ecf3bc0f1eaa34b95be67f5a76af4f8f6adb44c720
-        env:
-          POSTGRES_DB: abservice_test
-          POSTGRES_USER: abservice
-          POSTGRES_PASSWORD: abservice
-          POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
-        ports:
-          - 5432:5432
-        # 起動直後は start-interval で細かく見る。interval だけだと最初の判定まで interval ぶん待ち、
-        # それが Initialize containers の下限になる（#431）。docker-compose.yml の healthcheck と揃える。
-        options: >-
-          --health-cmd "pg_isready -U abservice -d abservice_test"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-          --health-start-period 30s
-          --health-start-interval 2s
-
     env:
       # テストの datasource。DB 名は %test プロファイルの指定と同じ値を置く
-      # （service container が作るデータベースと食い違わせない）
+      # （Compose の初期化スクリプトが作るデータベースと揃える）
       DB_HOST: localhost
       DB_PORT: "5432"
       DB_NAME: abservice_test
@@ -94,6 +74,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Build and start patched PostgreSQL
+        run: docker compose up -d --build --wait --wait-timeout 120 postgres
 
       - name: Set up JDK 25 (Corretto)
         uses: actions/setup-java@v4
@@ -126,8 +109,7 @@ jobs:
           docker build --target flac-runtime -f backend/src/main/docker/Dockerfile.jvm -t abservice-flac-check backend
           python3 scripts/check-flac-image.py abservice-flac-check
 
-      # アセットの統合テストは実ストレージを使う。PostgreSQL は service container で用意しているが、MinIO は
-      # 起動コマンド指定が必要なため service container にできず、ローカルと同じ docker compose で起動する。
+      # アセットの統合テストも、ローカルと同じ Docker Compose の実ストレージを使う。
       - name: Build MinIO server and client from pinned official sources
         run: docker compose build minio minio-init
 
@@ -369,16 +351,10 @@ jobs:
           PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s infra/monitoring/credentials -p 'test_*.py' -v
           sudo python3 infra/monitoring/credentials/test_systemd.py
 
-      - name: Cache the pinned monitoring test image
-        uses: actions/cache@v4
-        with:
-          path: ${{ runner.temp }}/monitoring-image-cache
-          key: monitoring-image-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('infra/monitoring/transport/image-cache-lock.json') }}
-
       - name: Verify monitoring log transport on an isolated Docker network
         run: |
           PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s infra/monitoring/transport -p 'test_*.py' -v
-          sudo python3 infra/monitoring/transport/test_transport.py --image-cache "$RUNNER_TEMP/monitoring-image-cache"
+          sudo python3 infra/monitoring/transport/test_transport.py
 
       - name: Check formatting
         run: terraform fmt -check -recursive infra
@@ -436,24 +412,6 @@ jobs:
 
     # backend-check と同じ構成の PostgreSQL。E2E も実DBに対して動かす（#164）。
     # データベースは E2E 専用（#252）。母集団をシードしたものだけにするため、統合テストとも分ける。
-    services:
-      postgres:
-        image: postgres:15.20-alpine3.24@sha256:23799e521dee9265a8b388ecf3bc0f1eaa34b95be67f5a76af4f8f6adb44c720
-        env:
-          POSTGRES_DB: abservice_e2e
-          POSTGRES_USER: abservice
-          POSTGRES_PASSWORD: abservice
-          POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U abservice -d abservice_e2e"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-          --health-start-period 30s
-          --health-start-interval 2s
-
     env:
       DB_HOST: localhost
       DB_PORT: "5432"
@@ -467,6 +425,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Build and start patched PostgreSQL
+        run: docker compose up -d --build --wait --wait-timeout 120 postgres
 
       - name: Set up JDK 25 (Corretto)
         uses: actions/setup-java@v4
