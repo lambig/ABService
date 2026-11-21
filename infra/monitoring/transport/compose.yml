@@ -1,5 +1,6 @@
 x-monitor-runtime: &monitor-runtime
-  image: public.ecr.aws/cloudwatch-agent/cloudwatch-agent@sha256:edb2af917acde41563313cb7cf66d963bb5e5ee1b16b31d40b832b653822d687
+  image: abservice-cloudwatch:security
+  build: .
   user: "${MONITOR_UID:?}:${MONITOR_GID:?}"
   read_only: true
   cap_drop: [ALL]

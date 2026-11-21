@@ -71,7 +71,7 @@ runs:
     # backend は起動時にマイグレーションを行うため、先に DB を用意しておく
     - name: Start PostgreSQL
       shell: bash
-      run: docker compose up -d --wait --wait-timeout 120 postgres
+      run: docker compose up -d --build --wait --wait-timeout 120 postgres
 
     # prod は設定が無いときに弱い既定値へ倒れず起動を失敗させる（DECISIONS 34）。倒れる側へ戻ると、
     # 本番が既定のバケットや開発用の API キーで動きうる。欠かす設定は1つずつで、

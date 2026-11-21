@@ -3,7 +3,8 @@ version: '3.8'
 services:
   # PostgreSQL Database
   postgres:
-    image: postgres:15.20-alpine3.24@sha256:23799e521dee9265a8b388ecf3bc0f1eaa34b95be67f5a76af4f8f6adb44c720
+    image: abservice-postgres:15.20-security
+    build: ./docker/postgres
     container_name: abservice-postgres
     restart: unless-stopped
     environment:
@@ -27,7 +28,8 @@ services:
       start_interval: 2s
 
   mailhog:
-    image: mailhog/mailhog:latest
+    image: abservice-mailpit:1.34.0-security
+    build: ./docker/mailpit
     container_name: abservice-mailhog
     restart: unless-stopped
     ports:
