@@ -4,12 +4,15 @@ import static com.abservice.presentation.rest.AdminAuth.authorized;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 
+import com.abservice.test.CleanDatabase;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 @QuarkusTest
+@ExtendWith(CleanDatabase.class)
 @DisplayName("一覧Queryの補正と入力エラーのHTTP契約")
 class ListQueryInputRestIntegrationTest {
 
