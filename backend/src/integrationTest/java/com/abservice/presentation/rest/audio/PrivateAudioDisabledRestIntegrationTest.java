@@ -4,7 +4,13 @@ import static com.abservice.presentation.rest.AdminAuth.authorized;
 import static org.hamcrest.Matchers.equalTo;
 
 import com.abservice.test.CleanDatabase;
+import com.abservice.application.query.audio.ResolveListeningAssetUrlService;
+import com.abservice.domain.exception.EntityNotFoundException;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.vertx.RunOnVertxContext;
+import io.quarkus.test.vertx.UniAsserter;
+import jakarta.inject.Inject;
+import java.time.Instant;
 import io.restassured.http.ContentType;
 import java.util.Map;
 import java.util.UUID;
@@ -15,6 +21,18 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @QuarkusTest
 @ExtendWith(CleanDatabase.class)
 class PrivateAudioDisabledRestIntegrationTest {
+    @Inject
+    private ResolveListeningAssetUrlService assetUrls;
+
+    @Test
+    @RunOnVertxContext
+    @DisplayName("取得URLの照会は機能無効をID不正より優先する")
+    void rejectsDisabledAssetBeforeInvalidId(UniAsserter asserter) {
+        asserter.assertFailedWith(
+                () -> assetUrls.query(new ResolveListeningAssetUrlService.Query("invalid", Instant.EPOCH)),
+                EntityNotFoundException.class);
+    }
+
     @Test
     @DisplayName("既定無効時は管理者でも全音源APIを利用できない")
     void hidesAllEndpointsEvenFromAdmin() {
@@ -22,10 +40,14 @@ class PrivateAudioDisabledRestIntegrationTest {
         authorized().post("/api/v1/admin/private-audio/registrations").then().statusCode(404)
                 .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
         authorized().get("/api/v1/admin/private-audio/registrations/" + id).then().statusCode(404);
+        authorized().get("/api/v1/admin/private-audio/registrations/invalid").then().statusCode(404)
+                .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
         authorized().contentType("audio/flac").body(new byte[]{102, 76, 97, 67})
                 .put("/api/v1/admin/private-audio/registrations/" + id + "/content").then().statusCode(404);
         authorized().post("/api/v1/admin/private-audio/registrations/" + id + "/confirm").then().statusCode(404);
         authorized().get("/api/v1/admin/albums/" + id + "/listening-audio/crossfade").then().statusCode(404);
+        authorized().get("/api/v1/admin/albums/invalid/listening-audio/crossfade").then().statusCode(404)
+                .body("type", equalTo("urn:abservice:error:ENTITY_NOT_FOUND"));
         authorized().contentType(ContentType.JSON).body(
                 Map.of(
                         "audioId",
