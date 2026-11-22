@@ -19,15 +19,15 @@ WebService/Site implementation for my own use
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - 構成・境界・経路（CloudFrontのパスベースルーティング、認証方式、アセットの経路）
 - [docs/DECISIONS.md](docs/DECISIONS.md) - 設計判断の記録（なぜその構造にしたか）
 - [docs/CODING_GUIDELINES.md](docs/CODING_GUIDELINES.md) - 設計上の意図と、静的解析で強制しているルールの索引
-- [docs/STATUS_AND_ROADMAP.md](docs/STATUS_AND_ROADMAP.md) - 開発状況（残タスクは GitHub issue が正）
+- [Issues](https://github.com/lambig/ABService/issues)・[milestone](https://github.com/lambig/ABService/milestones) - 進捗と受け入れ。順序と依存は[ロードマップ #224](https://github.com/lambig/ABService/issues/224)を参照
 - [backend/TEST_GUIDE.md](backend/TEST_GUIDE.md) - テスト分離規約
 - [docs/README.md](docs/README.md) - ドキュメント記述規約（何を文書に書き、何を書かないか）
 
-## 本番デプロイと復旧
+## 本番リリースと復旧
 
 管理画面からの試聴用FLAC登録は [登録・関連付け・復旧マニュアル](docs/ADMIN_AUDIO_REGISTRATION.md) を参照してください。
 
-ABService 側の構築・配布・ロールバック機構の技術的な操作と契約は [infra/README.md](infra/README.md) を正とします。設定項目と実行コマンドはそこを入口に参照してください。
+ABService 側の構築・本番リリース・ロールバック機構の技術的な操作と契約は [infra/README.md](infra/README.md) を正とします。設定項目と実行コマンドはそこを入口に参照してください。
 
 実環境での作業順序・停止条件・切替判断・証跡は、非公開の運用リポジトリ（ABAffairs）を正とします。実環境の設定値・投入する本文や画像もそこで管理します。公開リポジトリには実ドメインやアカウント固有値を置かず、秘密値は Git に保存しません。
 
@@ -55,14 +55,7 @@ PR の CI は変更箇所と workspace の依存関係から検査対象を選�
 
 main と手動実行は全件を検査する。本番デプロイは引き続き main の CI 成功を前提とする。
 
-ABServiceでは以下のLinting/フォーマットツールを使用しています：
-
-- **Checkstyle**: Google Java Style Guideに基づくコードスタイルチェック＋独自ルール
-- **Spotless**: 自動コードフォーマッタ（Eclipse JDT）
-- **PMD**: 独自XPathルール（機能的スタイル強制）＋組込の不要変数検出
-- **ArchUnit**: アーキテクチャ制約（レイヤー依存方向・配置・戻り値契約など）をテストで強制
-
-> **注意**: SpotBugs は現在未導入です。再導入の判断と受け入れ条件は issue #193 が正です。
+使用する検査と設定の入口は[コーディングガイドライン](docs/CODING_GUIDELINES.md#1-静的解析の参照先)、検査を選ぶ基準は[開発ルール](CONTRIBUTION.md#検証の目的層終了条件)を参照してください。
 
 #### コード品質チェック
 
@@ -88,7 +81,7 @@ ABServiceでは以下のLinting/フォーマットツールを使用していま
 
 #### Git Hooks
 
-コミット前に自動でコード品質チェックを実行できます（Java 25 が必要です）：
+コミット前に自動でコード品質チェックを実行できます。必要なJava版は[build定義](backend/build.gradle)を参照してください：
 
 ```bash
 # プロジェクトルートで実行（初回のみ）
@@ -115,7 +108,3 @@ git push --no-verify
 - Checkstyle: `backend/build/reports/checkstyle/`
 - PMD: `backend/build/reports/pmd/`
 - Spotless: コンソール出力
-
-#### SpotBugsについて
-
-SpotBugs は現在このプロジェクトでは未導入。再導入（PMD 組込ルールセットと併せたバグパターン検出）の検討は issue #193。
