@@ -26,6 +26,7 @@ import java.sql.DriverManager;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.HexFormat;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
@@ -102,7 +103,8 @@ class ListeningAssetUrlRestIntegrationTest {
                 .body("assets[0].assetId", equalTo(audio));
 
         final var before = Instant.now();
-        final var response = asDevice(token).get(url(audio)).then().statusCode(200).contentType(ContentType.JSON)
+        final var response = asDevice(token).get(url(audio.toUpperCase(Locale.ROOT))).then().statusCode(200)
+                .contentType(ContentType.JSON)
                 .header("Cache-Control", "no-store").body("assetId", equalTo(audio)).extract();
         final String url = response.path("url");
         final var expiresAt = Instant.parse(response.path("expiresAt"));
@@ -119,7 +121,9 @@ class ListeningAssetUrlRestIntegrationTest {
         asDevice(token).get(url(unassigned)).then().statusCode(404).contentType(PROBLEM);
         asDevice(token).get(url(draftAudio)).then().statusCode(404).contentType(PROBLEM);
         asDevice(token).get(url(UUID.randomUUID().toString())).then().statusCode(404).contentType(PROBLEM);
-        asDevice(token).get(url("not-a-uuid")).then().statusCode(400).contentType(PROBLEM);
+        asDevice(token).get(url("not-a-uuid")).then().statusCode(400).contentType(PROBLEM)
+                .body("errors[0].field", equalTo("assetId"))
+                .body("errors[0].code", equalTo("INVALID_AUDIO_ARGUMENT"));
         authorized().get(url(audio)).then().statusCode(403).contentType(PROBLEM);
         given().get(url(audio)).then().statusCode(401).contentType(PROBLEM);
     }

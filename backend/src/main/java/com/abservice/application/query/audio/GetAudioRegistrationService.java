@@ -1,6 +1,10 @@
 package com.abservice.application.query.audio;
 
-import com.abservice.application.audio.AudioApiValues;
+import com.abservice.domain.exception.ValidationException;
+import com.abservice.domain.model.EntityId;
+import com.abservice.domain.model.policy.Policy;
+import com.abservice.lib.ErrorResult;
+import java.util.UUID;
 import com.abservice.application.audio.AudioRegistrationView;
 import com.abservice.application.audio.PrivateAudioAccess;
 import com.abservice.application.exception.Failure;
@@ -24,16 +28,26 @@ public class GetAudioRegistrationService
 
     @Override
     public Uni<Result> query(Query query) {
-        return Uni.createFrom().item(() -> {
-            access.requireEnabled();
-            return AudioApiValues.uuid(query.audioId(), "audioId");
-        }).chain(registrations::find).map(
-                row -> row
-                        .<Result>map(value -> new Result.Found(AudioRegistrationView.of(value)))
-                        .orElseGet(Result.NotFound::new));
+        return Uni.createFrom().item(query)
+                .invoke(access::requireEnabled)
+                .map(Query::asValidated)
+                .chain(registrations::find).map(
+                        row -> row
+                                .<Result>map(value -> new Result.Found(AudioRegistrationView.of(value)))
+                                .orElseGet(Result.NotFound::new));
     }
 
     public record Query(@Nullable String audioId) implements QueryService.Query {
+        UUID asValidated() {
+            return Policy.<String>of(
+                    EntityId::isValidUuid,
+                    new ErrorResult(
+                            "audioId",
+                            "有効な値を指定してください",
+                            "INVALID_AUDIO_ARGUMENT"))
+                    .verify(audioId, UUID::fromString)
+                    .resolve(ValidationException::new);
+        }
     }
 
     public sealed interface Result extends QueryService.Result {

@@ -1,6 +1,9 @@
 package com.abservice.application.query.audio;
 
-import com.abservice.application.audio.AudioApiValues;
+import com.abservice.domain.exception.ValidationException;
+import com.abservice.domain.model.EntityId;
+import com.abservice.domain.model.policy.Policy;
+import com.abservice.lib.ErrorResult;
 import com.abservice.application.audio.PrivateAudioAccess;
 import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
@@ -31,10 +34,10 @@ public class GetAlbumCrossfadeService
     @WithSession
     @Override
     public Uni<Result> query(Query query) {
-        return Uni.createFrom().item(() -> {
-            access.requireEnabled();
-            return AudioApiValues.uuid(query.albumId(), "albumId").toString();
-        }).chain(id -> albums.findByDomainId(id, Visibility.ALL))
+        return Uni.createFrom().item(query)
+                .invoke(access::requireEnabled)
+                .map(Query::asValidated)
+                .chain(id -> albums.findByDomainId(id.toString(), Visibility.ALL))
                 .chain(this::result);
     }
 
@@ -61,6 +64,16 @@ public class GetAlbumCrossfadeService
     }
 
     public record Query(@Nullable String albumId) implements QueryService.Query {
+        UUID asValidated() {
+            return Policy.<String>of(
+                    EntityId::isValidUuid,
+                    new ErrorResult(
+                            "albumId",
+                            "有効な値を指定してください",
+                            "INVALID_AUDIO_ARGUMENT"))
+                    .verify(albumId, UUID::fromString)
+                    .resolve(ValidationException::new);
+        }
     }
 
     public sealed interface Result extends QueryService.Result {

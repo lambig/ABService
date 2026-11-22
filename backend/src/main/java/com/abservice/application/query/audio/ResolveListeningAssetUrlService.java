@@ -1,6 +1,9 @@
 package com.abservice.application.query.audio;
 
-import com.abservice.application.audio.AudioApiValues;
+import com.abservice.domain.exception.ValidationException;
+import com.abservice.domain.model.EntityId;
+import com.abservice.domain.model.policy.Policy;
+import com.abservice.lib.ErrorResult;
 import com.abservice.application.audio.PrivateAudioAccess;
 import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
@@ -38,10 +41,9 @@ public class ResolveListeningAssetUrlService
 
     @Override
     public Uni<Result> query(Query query) {
-        return Uni.createFrom().item(() -> {
-            access.requireEnabled();
-            return AudioApiValues.uuid(query.assetId(), "assetId");
-        })
+        return Uni.createFrom().item(query)
+                .invoke(access::requireEnabled)
+                .map(Query::asValidated)
                 .chain(this::requireDistributed)
                 .map(assetId -> new Result(assetId, downloads.presign(assetId, query.credentialExpiresAt())));
     }
@@ -62,6 +64,16 @@ public class ResolveListeningAssetUrlService
      *            要求した端末の資格情報の期限。URLはこれを超えない
      */
     public record Query(@Nullable String assetId, Instant credentialExpiresAt) implements QueryService.Query {
+        UUID asValidated() {
+            return Policy.<String>of(
+                    EntityId::isValidUuid,
+                    new ErrorResult(
+                            "assetId",
+                            "有効な値を指定してください",
+                            "INVALID_AUDIO_ARGUMENT"))
+                    .verify(assetId, UUID::fromString)
+                    .resolve(ValidationException::new);
+        }
     }
 
     public record Result(UUID assetId, PresignedDownload download) implements QueryService.Result {

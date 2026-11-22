@@ -2,6 +2,7 @@ package com.abservice.presentation.rest.audio;
 
 import io.restassured.response.Response;
 import java.util.List;
+import java.util.Locale;
 import static com.abservice.presentation.rest.AdminAuth.authorized;
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -57,7 +58,7 @@ class PrivateAudioAdminRestIntegrationTest {
         final String expires = created.path("expiresAt");
         final String createdAt = created.path("createdAt");
         assertThat(Instant.parse(expires)).isAfter(Instant.parse(createdAt)).isBefore(Instant.now().plusSeconds(901));
-        authorized().get(REGISTRATIONS + "/" + id).then().statusCode(200)
+        authorized().get(REGISTRATIONS + "/" + id.toUpperCase(Locale.ROOT)).then().statusCode(200)
                 .body("audioId", equalTo(id)).body("state", equalTo("PENDING")).body("metadata", nullValue())
                 .body("$", not(hasKey("url"))).body("$", not(hasKey("storageKey")));
     }
@@ -87,7 +88,12 @@ class PrivateAudioAdminRestIntegrationTest {
         final var audio = reserve();
         authorized().contentType(ContentType.JSON).body("{}").put(crossfade(album)).then().statusCode(400);
         authorized().contentType(ContentType.JSON).put(crossfade(album)).then().statusCode(400);
-        authorized().get(REGISTRATIONS + "/not-a-uuid").then().statusCode(400);
+        authorized().get(REGISTRATIONS + "/not-a-uuid").then().statusCode(400)
+                .body("errors[0].field", equalTo("audioId"))
+                .body("errors[0].code", equalTo("INVALID_AUDIO_ARGUMENT"));
+        authorized().get(crossfade("not-a-uuid")).then().statusCode(400)
+                .body("errors[0].field", equalTo("albumId"))
+                .body("errors[0].code", equalTo("INVALID_AUDIO_ARGUMENT"));
         authorized().get(REGISTRATIONS + "/" + UUID.randomUUID()).then().statusCode(404);
         authorized().get(crossfade(UUID.randomUUID().toString())).then().statusCode(404);
         authorized().contentType(ContentType.JSON).body(Map.of("audioId", audio))
@@ -111,7 +117,7 @@ class PrivateAudioAdminRestIntegrationTest {
                 UUID.randomUUID().toString(),
                 audio,
                 0).then().statusCode(404);
-        authorized().get(crossfade(album)).then().statusCode(200)
+        authorized().get(crossfade(album.toUpperCase(Locale.ROOT))).then().statusCode(200)
                 .body("audioId", nullValue()).body("revision", equalTo(0)).body("kind", equalTo("album-crossfade"));
     }
 
