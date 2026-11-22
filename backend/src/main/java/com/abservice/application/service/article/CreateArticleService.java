@@ -3,7 +3,6 @@ package com.abservice.application.service.article;
 import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
-import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.repository.article.ArticleRepository;
@@ -37,10 +36,7 @@ public class CreateArticleService implements CommandService<CreateArticleInput, 
     @Override
     public Uni<CreateArticleOutput> execute(CreateArticleInput input) {
         return businessDateTimeProvider.now()
-                .call(input::asValidated)
-                .map(
-                        now -> validate(input, now)
-                                .resolve(ValidationException::new))
+                .flatMap(now -> input.asValidated(valid -> validate(valid, now)))
                 .flatMap(articleRepository::save)
                 .map(CreateArticleService::toOutput);
     }

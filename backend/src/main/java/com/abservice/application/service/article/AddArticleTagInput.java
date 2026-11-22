@@ -1,11 +1,12 @@
 package com.abservice.application.service.article;
 
+import com.abservice.lib.Result;
+import java.util.function.Function;
 import com.abservice.application.service.CommandService;
 import com.abservice.application.service.InputPolicy;
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.entity.article.ArticleTag;
-import com.abservice.domain.model.policy.Policies;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -24,10 +25,17 @@ public record AddArticleTagInput(String articleId,
         @Nullable String name) implements CommandService.Input<AddArticleTagInput> {
     @Override
     public Policy<AddArticleTagInput> policy() {
-        return new InputPolicy<>(input -> Policies.multiple(
-                Article.Id.fromInput(input.articleId())
+        return new InputPolicy<>(AddArticleTagInput::parsed);
+    }
+
+    Result<Values> parsed() {
+        return Result.zip(
+                Article.Id.fromInput(articleId())
                         .withErrorField("articleId"),
-                ArticleTag.namePolicy()
-                        .check(input.name())));
+                ArticleTag.namePolicy().verify(name(), Function.identity()),
+                Values::new);
+    }
+
+    record Values(Article.Id articleId, String name) {
     }
 }

@@ -3,7 +3,6 @@ package com.abservice.application.service.album;
 import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
-import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.domain.service.AlbumCreationService;
@@ -39,15 +38,13 @@ public class RegisterAlbumWithTracksService
     @WithTransaction
     @Override
     public Uni<RegisterAlbumWithTracksOutput> execute(RegisterAlbumWithTracksInput input) {
-        return input.asValidated()
+        return input.asValidated(RegisterAlbumWithTracksInput::parsed)
                 .map(this::registered)
                 .flatMap(albumRepository::save)
                 .map(saved -> toOutput(saved, tuneTitleSeparator));
     }
 
-    private Album registered(RegisterAlbumWithTracksInput input) {
-        final var values = input.parsed()
-                .resolve(ValidationException::new);
+    private Album registered(RegisterAlbumWithTracksInput.Values values) {
         return albumCreationService.create(values.album())
                 .replaceTracks(values.tracks())
                 .replaceExternalAudios(values.externalAudios());

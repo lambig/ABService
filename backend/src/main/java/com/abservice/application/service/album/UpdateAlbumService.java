@@ -4,7 +4,6 @@ import com.abservice.application.exception.ConflictingEditException;
 import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
-import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.domain.service.AlbumAccessService;
@@ -43,10 +42,7 @@ public class UpdateAlbumService implements CommandService<UpdateAlbumInput, Upda
         return input.asRequested()
                 .flatMap(albumAccessService::findExistingAndClaimEditWithRevision)
                 .map(claimed -> claimedAsOf(claimed, input))
-                .call(input::asValidated)
-                .map(
-                        existing -> validateAndApply(existing, input)
-                                .resolve(ValidationException::new))
+                .flatMap(existing -> input.asValidated(valid -> validateAndApply(existing, valid)))
                 .flatMap(albumRepository::saveWithRevision)
                 .map(UpdateAlbumService::toOutput);
     }

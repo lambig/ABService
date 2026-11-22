@@ -1,5 +1,6 @@
 package com.abservice.application.service.audio;
 
+import com.abservice.lib.Result;
 import com.abservice.application.audio.AudioApiValues;
 import com.abservice.application.audio.PrivateAudioAccess;
 import com.abservice.application.exception.Failure;
@@ -13,7 +14,6 @@ import com.abservice.domain.exception.EntityNotFoundException;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.UUID;
-import java.util.Objects;
 import lombok.AllArgsConstructor;
 import org.jspecify.annotations.Nullable;
 
@@ -31,8 +31,7 @@ public class RevokeListeningDeviceService
     public Uni<Output> execute(Input input) {
         return Uni.createFrom().item(input)
                 .invoke(access::requireEnabled)
-                .chain(Input::asValidated)
-                .map(valid -> UUID.fromString(Objects.requireNonNull(valid.deviceId()))).call(devices::revoke)
+                .chain(valid -> valid.asValidated(Input::parse)).call(devices::revoke)
                 .chain(this::requireExisting)
                 .replaceWith(Output::new);
     }
@@ -47,8 +46,12 @@ public class RevokeListeningDeviceService
     public record Input(@Nullable String deviceId) implements CommandService.Input<Input> {
         @Override
         public Policy<Input> policy() {
-            return new InputPolicy<>(input -> AudioApiValues.uuidPolicy("deviceId")
-                    .check(input.deviceId()));
+            return new InputPolicy<>(Input::parse);
+        }
+
+        private static Result<UUID> parse(Input input) {
+            return AudioApiValues.uuidPolicy("deviceId")
+                    .verify(input.deviceId(), UUID::fromString);
         }
     }
 

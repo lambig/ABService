@@ -12,7 +12,6 @@ import com.abservice.application.service.CommandService;
 import com.abservice.application.service.InputPolicy;
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.lib.Result;
-import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.domain.model.aggregate.album.Album;
@@ -42,8 +41,7 @@ public class SetAlbumCrossfadeService
         return Uni.createFrom()
                 .item(input)
                 .invoke(access::requireEnabled)
-                .chain(Input::asValidated)
-                .map(Input::validated)
+                .chain(valid -> valid.asValidated(Input::parse))
                 .call(valid -> albums.findExistingAndClaimReference(Album.Id.of(valid.albumId())))
                 .chain(this::assign);
     }
@@ -98,10 +96,6 @@ public class SetAlbumCrossfadeService
                                                                     revision))));
         }
 
-        private Validated validated() {
-            return parse(this)
-                    .resolve(ValidationException::new);
-        }
     }
 
     private record Validated(String albumId, UUID audioId, int revision) {

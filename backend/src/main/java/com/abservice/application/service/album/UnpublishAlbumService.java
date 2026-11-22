@@ -15,7 +15,6 @@ import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
-import java.util.Objects;
 import lombok.AllArgsConstructor;
 
 /**
@@ -43,8 +42,7 @@ public class UnpublishAlbumService implements CommandService<UnpublishAlbumInput
     @WithTransaction
     @Override
     public Uni<UnpublishAlbumOutput> execute(UnpublishAlbumInput input) {
-        return input.asValidated()
-                .map(valid -> Album.Id.of(Objects.requireNonNull(valid.albumId())))
+        return input.asValidated(UnpublishAlbumInput::parsed)
                 .flatMap(albumAccessService::findExistingAndClaimEdit)
                 .map(Album::unpublish)
                 .flatMap(albumRepository::save)

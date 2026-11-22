@@ -1,9 +1,9 @@
 package com.abservice.application.service.article;
 
+import com.abservice.lib.Result;
 import com.abservice.application.service.CommandService;
 import com.abservice.application.service.InputPolicy;
 import com.abservice.domain.model.policy.Policy;
-import com.abservice.domain.model.policy.Policies;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.entity.article.ArticleTag;
 
@@ -19,10 +19,18 @@ public record RemoveArticleTagInput(String articleId,
         String tagId) implements CommandService.Input<RemoveArticleTagInput> {
     @Override
     public Policy<RemoveArticleTagInput> policy() {
-        return new InputPolicy<>(input -> Policies.multiple(
-                Article.Id.fromInput(input.articleId())
+        return new InputPolicy<>(RemoveArticleTagInput::parsed);
+    }
+
+    Result<Values> parsed() {
+        return Result.zip(
+                Article.Id.fromInput(articleId())
                         .withErrorField("articleId"),
-                ArticleTag.Id.fromInput(input.tagId())
-                        .withErrorField("tagId")));
+                ArticleTag.Id.fromInput(tagId())
+                        .withErrorField("tagId"),
+                Values::new);
+    }
+
+    record Values(Article.Id articleId, ArticleTag.Id tagId) {
     }
 }

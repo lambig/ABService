@@ -29,8 +29,7 @@ public class UpsertSiteContentService implements CommandService<UpsertSiteConten
     @WithTransaction
     @Override
     public Uni<UpsertSiteContentOutput> execute(UpsertSiteContentInput input) {
-        return input.asValidated()
-                .map(UpsertSiteContentInput::parsed)
+        return input.asValidated(UpsertSiteContentInput::parse)
                 .flatMap(this::upserted)
                 .map(UpsertSiteContentService::toOutput);
     }

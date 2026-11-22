@@ -35,20 +35,12 @@ public class RemoveArticleTagService implements CommandService<RemoveArticleTagI
     @WithTransaction
     @Override
     public Uni<RemoveArticleTagOutput> execute(RemoveArticleTagInput input) {
-        return input.asValidated()
-                .map(RemoveArticleTagService::toIds)
+        return input.asValidated(RemoveArticleTagInput::parsed)
                 .flatMap(
                         ids -> findExisting(ids.articleId())
                                 .map(article -> article.removeTag(ids.tagId()))
                                 .flatMap(articleRepository::save)
                                 .map(saved -> toOutput(saved, ids.tagId())));
-    }
-
-    private record Ids(Article.Id articleId, ArticleTag.Id tagId) {
-    }
-
-    private static Ids toIds(RemoveArticleTagInput input) {
-        return new Ids(Article.Id.of(input.articleId()), ArticleTag.Id.of(input.tagId()));
     }
 
     private Uni<Article> findExisting(Article.Id id) {

@@ -11,7 +11,6 @@ import com.abservice.application.service.InputPolicy;
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.lib.Result;
 import com.abservice.domain.exception.BusinessRuleViolationException;
-import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.EntityId;
 import com.abservice.lib.ErrorResult;
 import io.smallrye.mutiny.Uni;
@@ -45,8 +44,7 @@ public class IssueListeningDeviceService
         return Uni.createFrom()
                 .item(input)
                 .invoke(access::requireEnabled)
-                .chain(Input::asValidated)
-                .map(Input::validated)
+                .chain(valid -> valid.asValidated(Input::parse))
                 .chain(this::issue);
     }
 
@@ -104,10 +102,6 @@ public class IssueListeningDeviceService
                                             "INVALID_LISTENING_DEVICE")));
         }
 
-        private Validated validated() {
-            return parse(this)
-                    .resolve(ValidationException::new);
-        }
     }
 
     private record Validated(String label, Duration validity) {

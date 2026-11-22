@@ -12,7 +12,6 @@ import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Optional;
-import java.util.Objects;
 import lombok.AllArgsConstructor;
 
 /**
@@ -44,7 +43,7 @@ public class AddArticleTagService implements CommandService<AddArticleTagInput, 
     @WithTransaction
     @Override
     public Uni<AddArticleTagOutput> execute(AddArticleTagInput input) {
-        return input.asValidated()
+        return input.asValidated(AddArticleTagInput::parsed)
                 .map(AddArticleTagService::toValues)
                 .flatMap(
                         valid -> identified(valid.tag())
@@ -61,9 +60,8 @@ public class AddArticleTagService implements CommandService<AddArticleTagInput, 
     private record ValidInput(Article.Id articleId, ArticleTag tag) {
     }
 
-    private static ValidInput toValues(AddArticleTagInput input) {
-        return new ValidInput(Article.Id.of(input.articleId()),
-                ArticleTag.create(Objects.requireNonNull(input.name())));
+    private static ValidInput toValues(AddArticleTagInput.Values input) {
+        return new ValidInput(input.articleId(), ArticleTag.create(input.name()));
     }
 
     /*

@@ -1,5 +1,6 @@
 package com.abservice.application.service.article;
 
+import com.abservice.lib.Result;
 import com.abservice.application.service.CommandService;
 import com.abservice.application.service.InputPolicy;
 import com.abservice.domain.model.policy.Policy;
@@ -17,7 +18,11 @@ public record PublishArticleInput(
 
     @Override
     public Policy<PublishArticleInput> policy() {
-        return new InputPolicy<>(input -> Article.Id.fromInput(input.articleId())
-                .mapErrorFields(field -> "articleId"));
+        return new InputPolicy<>(PublishArticleInput::parsed);
+    }
+
+    Result<Article.Id> parsed() {
+        return Article.Id.fromInput(articleId())
+                .mapErrorFields(field -> "articleId");
     }
 }

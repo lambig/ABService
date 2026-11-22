@@ -4,12 +4,10 @@ import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.ValidationException;
-import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.repository.article.ArticleRepository;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import java.util.Objects;
 import lombok.AllArgsConstructor;
 
 /**
@@ -31,8 +29,7 @@ public class DeleteArticleService implements CommandService<DeleteArticleInput, 
     @WithTransaction
     @Override
     public Uni<DeleteArticleOutput> execute(DeleteArticleInput input) {
-        return input.asValidated()
-                .map(valid -> Article.Id.of(Objects.requireNonNull(valid.articleId())))
+        return input.asValidated(DeleteArticleInput::parsed)
                 .flatMap(articleRepository::deleteById)
                 .replaceWith(new DeleteArticleOutput());
     }

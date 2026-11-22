@@ -2,6 +2,7 @@ package com.abservice.application.service;
 
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.policy.Policy;
+import com.abservice.lib.Result;
 import io.smallrye.mutiny.Uni;
 import java.util.function.Function;
 
@@ -64,11 +65,24 @@ public interface CommandService<I extends CommandService.Input<I>, O extends Com
         Policy<Self> policy();
 
         /** @return 購読ごとに規則を評価した自身。入力エラーはValidationExceptionとして通知する */
-        @SuppressWarnings("unchecked") // CRTP: Selfには実装する入力自身の型を指定する
         default Uni<Self> asValidated() {
+            return asValidated(self -> policy().verify(self, Function.identity()));
+        }
+
+        /**
+         * 入力の解析・検証結果を捨てずに後続へ渡す。段階別の解析では、サービスが先行する状態確認を済ませる。
+         *
+         * @param <V>
+         *            検証済みの値の型
+         * @param validation
+         *            入力自身が持つ解析・検証。追加のPolicy評価は行わない
+         * @return 購読ごとに一度評価した値。入力エラーはValidationExceptionとして通知する
+         */
+        @SuppressWarnings("unchecked") // CRTP: Selfには実装する入力自身の型を指定する
+        default <V> Uni<V> asValidated(Function<? super Self, ? extends Result<V>> validation) {
             final Self self = (Self) this;
             return Uni.createFrom().item(
-                    () -> policy().verify(self, Function.identity())
+                    () -> validation.apply(self)
                             .resolve(ValidationException::new));
         }
     }

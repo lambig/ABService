@@ -4,7 +4,6 @@ import com.abservice.application.port.AssetStorage;
 import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
-import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.EntityId;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -47,10 +46,7 @@ public class IssueAssetUploadUrlService
 
     @Override
     public Uni<IssueAssetUploadUrlOutput> execute(IssueAssetUploadUrlInput input) {
-        return input.asValidated()
-                .map(
-                        valid -> valid.format()
-                                .resolve(ValidationException::new))
+        return input.asValidated(IssueAssetUploadUrlInput::format)
                 .flatMap(this::issueFor);
     }
 

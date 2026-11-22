@@ -49,18 +49,14 @@ public class RemoveArticleAlbumService implements CommandService<RemoveArticleAl
     @WithTransaction
     @Override
     public Uni<RemoveArticleAlbumOutput> execute(RemoveArticleAlbumInput input) {
-        return input.asValidated()
+        return input.asValidated(RemoveArticleAlbumInput::parsed)
                 .flatMap(
-                        valid -> findExisting(toArticleId(valid))
-                                .map(claimed -> claimedAsOf(claimed, valid))
+                        valid -> findExisting(valid.articleId())
+                                .map(claimed -> claimedAsOf(claimed, input))
                                 .flatMap(RemoveArticleAlbumService::requireAlbumType)
                                 .flatMap(this::detached)
                                 .flatMap(articleRepository::saveWithRevision)
                                 .map(RemoveArticleAlbumService::toOutput));
-    }
-
-    private static Article.Id toArticleId(RemoveArticleAlbumInput valid) {
-        return Article.Id.of(Objects.requireNonNull(valid.articleId()));
     }
 
     private Uni<ArticleRepository.Revisioned> findExisting(Article.Id id) {

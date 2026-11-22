@@ -3,7 +3,6 @@ package com.abservice.application.service.site;
 import com.abservice.application.service.CommandService;
 import com.abservice.application.service.InputPolicy;
 import com.abservice.domain.model.policy.Policy;
-import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.vo.markup.MarkupContent;
 import com.abservice.domain.model.vo.site.SiteContentKey;
 import com.abservice.lib.Result;
@@ -28,15 +27,10 @@ public record UpsertSiteContentInput(
         return new InputPolicy<>(UpsertSiteContentInput::parse);
     }
 
-    Parsed parsed() {
-        return parse(this)
-                .resolve(ValidationException::new);
-    }
-
     record Parsed(SiteContentKey key, MarkupContent content) {
     }
 
-    private static Result<Parsed> parse(UpsertSiteContentInput input) {
+    static Result<Parsed> parse(UpsertSiteContentInput input) {
         return Result.zip(
                 SiteContentKey.fromInput(input.key())
                         .mapErrorFields(field -> "key"),

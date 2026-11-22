@@ -18,7 +18,6 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Optional;
-import java.util.Objects;
 import lombok.AllArgsConstructor;
 
 /**
@@ -52,8 +51,7 @@ public class DeleteAlbumService implements CommandService<DeleteAlbumInput, Dele
     @WithTransaction
     @Override
     public Uni<DeleteAlbumOutput> execute(DeleteAlbumInput input) {
-        return input.asValidated()
-                .map(valid -> Album.Id.of(Objects.requireNonNull(valid.albumId())))
+        return input.asValidated(DeleteAlbumInput::parsed)
                 .flatMap(this::deleteWithReferencingArticles);
     }
 

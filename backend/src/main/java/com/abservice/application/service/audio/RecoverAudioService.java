@@ -1,5 +1,6 @@
 package com.abservice.application.service.audio;
 
+import com.abservice.lib.Result;
 import com.abservice.application.audio.AudioApiValues;
 import com.abservice.application.audio.AudioRegistrationView;
 import com.abservice.application.audio.PrivateAudioAccess;
@@ -32,8 +33,7 @@ public class RecoverAudioService implements CommandService<RecoverAudioService.I
     public Uni<Output> execute(Input input) {
         return Uni.createFrom().item(input)
                 .invoke(access::requireEnabled)
-                .chain(Input::asValidated)
-                .map(valid -> UUID.fromString(valid.audioId())).chain(registrations::find)
+                .chain(valid -> valid.asValidated(Input::parse)).chain(registrations::find)
                 .map(row -> row.orElseThrow(() -> new EntityNotFoundException("音源の登録予約がありません")))
                 .call(this::recover)
                 .chain(row -> registrations.find(row.id()))
@@ -54,8 +54,12 @@ public class RecoverAudioService implements CommandService<RecoverAudioService.I
     public record Input(String audioId) implements CommandService.Input<Input> {
         @Override
         public Policy<Input> policy() {
-            return new InputPolicy<>(input -> AudioApiValues.uuidPolicy("audioId")
-                    .check(input.audioId()));
+            return new InputPolicy<>(Input::parse);
+        }
+
+        private static Result<UUID> parse(Input input) {
+            return AudioApiValues.uuidPolicy("audioId")
+                    .verify(input.audioId(), UUID::fromString);
         }
     }
     public record Output(AudioRegistrationView registration) implements CommandService.Output {

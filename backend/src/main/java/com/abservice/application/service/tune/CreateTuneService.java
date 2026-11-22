@@ -3,7 +3,6 @@ package com.abservice.application.service.tune;
 import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
-import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.domain.repository.tune.TuneRepository;
 import com.abservice.lib.Result;
@@ -33,10 +32,7 @@ public class CreateTuneService implements CommandService<CreateTuneInput, Create
     @WithTransaction
     @Override
     public Uni<CreateTuneOutput> execute(CreateTuneInput input) {
-        return input.asValidated()
-                .map(
-                        valid -> validate(valid)
-                                .resolve(ValidationException::new))
+        return input.asValidated(CreateTuneService::validate)
                 .flatMap(tuneRepository::save)
                 .map(CreateTuneService::toOutput);
     }

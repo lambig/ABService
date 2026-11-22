@@ -1,5 +1,6 @@
 package com.abservice.application.service.album;
 
+import com.abservice.lib.Result;
 import com.abservice.application.service.CommandService;
 import com.abservice.application.service.InputPolicy;
 import com.abservice.domain.model.policy.Policy;
@@ -16,7 +17,11 @@ public record DeleteAlbumInput(@Nullable String albumId) implements CommandServi
 
     @Override
     public Policy<DeleteAlbumInput> policy() {
-        return new InputPolicy<>(input -> Album.Id.fromInput(input.albumId())
-                .mapErrorFields(field -> "albumId"));
+        return new InputPolicy<>(DeleteAlbumInput::parsed);
+    }
+
+    Result<Album.Id> parsed() {
+        return Album.Id.fromInput(albumId())
+                .mapErrorFields(field -> "albumId");
     }
 }

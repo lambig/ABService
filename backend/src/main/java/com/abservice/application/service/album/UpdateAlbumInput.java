@@ -3,13 +3,12 @@ package com.abservice.application.service.album;
 import com.abservice.application.service.CommandService;
 import com.abservice.application.service.InputPolicy;
 import com.abservice.domain.model.policy.Policy;
+import com.abservice.domain.model.policy.Policies;
 import com.abservice.lib.Result;
 import java.util.Optional;
 import com.abservice.domain.model.aggregate.album.Album;
-import com.abservice.domain.model.policy.Policies;
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.lib.ErrorResult;
-import java.util.Objects;
 import io.smallrye.mutiny.Uni;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
@@ -165,12 +164,9 @@ public record UpdateAlbumInput(
     }
 
     private Result<Album.Id> requested() {
-        return Policies.combine(
-                List.of(
-                        Album.Id.fromInput(albumId())
-                                .withErrorField("albumId"),
-                        expectedRevision(expectedRevision())),
-                () -> Album.Id.of(Objects.requireNonNull(albumId())));
+        final var id = Album.Id.fromInput(albumId())
+                .withErrorField("albumId");
+        return Policies.combine(List.of(id, expectedRevision(expectedRevision())), id::resolve);
     }
 
     private static Result<Integer> expectedRevision(@Nullable Integer value) {

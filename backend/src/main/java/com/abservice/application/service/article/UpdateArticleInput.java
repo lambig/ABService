@@ -3,14 +3,13 @@ package com.abservice.application.service.article;
 import com.abservice.application.service.CommandService;
 import com.abservice.application.service.InputPolicy;
 import com.abservice.domain.model.policy.Policy;
+import com.abservice.domain.model.policy.Policies;
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.lib.Result;
 import com.abservice.lib.ErrorResult;
 import java.util.Optional;
 import java.util.List;
-import com.abservice.domain.model.policy.Policies;
-import java.util.Objects;
 import io.smallrye.mutiny.Uni;
 import org.jspecify.annotations.Nullable;
 
@@ -77,12 +76,9 @@ public record UpdateArticleInput(
     }
 
     private Result<Article.Id> requested() {
-        return Policies.combine(
-                List.of(
-                        Article.Id.fromInput(articleId())
-                                .withErrorField("articleId"),
-                        expectedRevision(expectedRevision())),
-                () -> Article.Id.of(Objects.requireNonNull(articleId())));
+        final var id = Article.Id.fromInput(articleId())
+                .withErrorField("articleId");
+        return Policies.combine(List.of(id, expectedRevision(expectedRevision())), id::resolve);
     }
 
     private static Result<Integer> expectedRevision(@Nullable Integer value) {

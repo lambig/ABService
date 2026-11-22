@@ -12,7 +12,6 @@ import com.abservice.domain.service.BusinessDateTimeProvider;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import java.util.Objects;
 import lombok.AllArgsConstructor;
 
 /**
@@ -37,8 +36,7 @@ public class PublishArticleService implements CommandService<PublishArticleInput
     @WithTransaction
     @Override
     public Uni<PublishArticleOutput> execute(PublishArticleInput input) {
-        return input.asValidated()
-                .map(valid -> Article.Id.of(Objects.requireNonNull(valid.articleId())))
+        return input.asValidated(PublishArticleInput::parsed)
                 .flatMap(this::findExisting)
                 .flatMap(this::publish)
                 .flatMap(articleRepository::save)

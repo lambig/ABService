@@ -4,7 +4,6 @@ import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.EntityNotFoundException;
-import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.domain.repository.tune.TuneRepository;
 import com.abservice.lib.Result;
@@ -39,10 +38,7 @@ public class UpdateTuneService implements CommandService<UpdateTuneInput, Update
     public Uni<UpdateTuneOutput> execute(UpdateTuneInput input) {
         return input.asRequested()
                 .flatMap(this::findExisting)
-                .call(input::asValidated)
-                .map(
-                        existing -> validateAndApply(existing, input)
-                                .resolve(ValidationException::new))
+                .flatMap(existing -> input.asValidated(valid -> validateAndApply(existing, valid)))
                 .flatMap(tuneRepository::save)
                 .map(UpdateTuneService::toOutput);
     }

@@ -3,7 +3,6 @@ package com.abservice.application.service.article;
 import com.abservice.application.service.CommandService;
 import com.abservice.application.service.InputPolicy;
 import com.abservice.domain.model.policy.Policy;
-import com.abservice.domain.model.policy.Policies;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.lib.ErrorResult;
@@ -29,12 +28,20 @@ public record SetArticleAlbumInput(
 
     @Override
     public Policy<SetArticleAlbumInput> policy() {
-        return new InputPolicy<>(input -> Policies.multiple(
-                Article.Id.fromInput(input.articleId())
+        return new InputPolicy<>(SetArticleAlbumInput::parsed);
+    }
+
+    Result<Values> parsed() {
+        return Result.zip(
+                Article.Id.fromInput(articleId())
                         .mapErrorFields(field -> "articleId"),
-                Album.Id.fromInput(input.albumId())
+                Album.Id.fromInput(albumId())
                         .mapErrorFields(field -> "albumId"),
-                expectedRevision(input.expectedRevision())));
+                expectedRevision(expectedRevision()),
+                Values::new);
+    }
+
+    record Values(Article.Id articleId, Album.Id albumId, int revision) {
     }
 
     private static Result<Integer> expectedRevision(@Nullable Integer value) {

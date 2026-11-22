@@ -69,6 +69,26 @@ class CommandInputContractTest {
     }
 
     @Test
+    @DisplayName("解析済みの値を購読ごとに一度だけ生成し、そのまま渡す")
+    void passesParsedValueWithoutAnotherPolicyEvaluation() {
+        final var calls = new AtomicInteger();
+        final var input = new Probe(() -> {
+            throw new AssertionError("parsed values must not be validated again");
+        });
+        final var value = new Object();
+        final var pending = input.asValidated(self -> {
+            assertThat(self).isSameAs(input);
+            calls.incrementAndGet();
+            return Result.success(value);
+        });
+        assertThat(calls.get()).isZero();
+        assertThat(pending.await().indefinitely()).isSameAs(value);
+        assertThat(calls.get()).isEqualTo(1);
+        assertThat(pending.await().indefinitely()).isSameAs(value);
+        assertThat(calls.get()).isEqualTo(2);
+    }
+
+    @Test
     @DisplayName("位置・message・code・順序・重複を保ってValidationExceptionへ変換する")
     void retainsErrorsAndSkipsConstruction() {
         final var first = new ErrorResult(

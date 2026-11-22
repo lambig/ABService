@@ -1,5 +1,6 @@
 package com.abservice.application.service.tune;
 
+import com.abservice.lib.Result;
 import com.abservice.application.service.CommandService;
 import com.abservice.application.service.InputPolicy;
 import com.abservice.domain.model.policy.Policy;
@@ -16,7 +17,11 @@ public record DeleteTuneInput(@Nullable String tuneId) implements CommandService
 
     @Override
     public Policy<DeleteTuneInput> policy() {
-        return new InputPolicy<>(input -> Tune.Id.fromInput(input.tuneId())
-                .mapErrorFields(field -> "tuneId"));
+        return new InputPolicy<>(DeleteTuneInput::parsed);
+    }
+
+    Result<Tune.Id> parsed() {
+        return Tune.Id.fromInput(tuneId())
+                .mapErrorFields(field -> "tuneId");
     }
 }

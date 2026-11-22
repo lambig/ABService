@@ -5,7 +5,6 @@ import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.EntityNotFoundException;
-import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.repository.article.ArticleRepository;
@@ -82,13 +81,12 @@ public class UpdateArticleService implements CommandService<UpdateArticleInput, 
 
     private Uni<Article> applyValidatedUpdate(Article existing, UpdateArticleInput input) {
         return businessDateTimeProvider.now()
-                .call(input::asValidated)
-                .map(
-                        now -> validateAndApply(
-                                existing,
-                                input,
-                                now)
-                                .resolve(ValidationException::new));
+                .flatMap(
+                        now -> input.asValidated(
+                                valid -> validateAndApply(
+                                        existing,
+                                        valid,
+                                        now)));
     }
 
     static Result<Article> validateAndApply(
