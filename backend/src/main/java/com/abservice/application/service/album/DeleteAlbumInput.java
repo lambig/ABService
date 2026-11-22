@@ -1,6 +1,10 @@
 package com.abservice.application.service.album;
 
+import com.abservice.lib.Result;
 import com.abservice.application.service.CommandService;
+import com.abservice.application.service.InputPolicy;
+import com.abservice.domain.model.policy.Policy;
+import com.abservice.domain.model.aggregate.album.Album;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -9,5 +13,15 @@ import org.jspecify.annotations.Nullable;
  * @param albumId
  *            削除対象のアルバムID
  */
-public record DeleteAlbumInput(@Nullable String albumId) implements CommandService.Input {
+public record DeleteAlbumInput(@Nullable String albumId) implements CommandService.Input<DeleteAlbumInput> {
+
+    @Override
+    public Policy<DeleteAlbumInput> policy() {
+        return new InputPolicy<>(DeleteAlbumInput::parsed);
+    }
+
+    Result<Album.Id> parsed() {
+        return Album.Id.fromInput(albumId())
+                .mapErrorFields(field -> "albumId");
+    }
 }

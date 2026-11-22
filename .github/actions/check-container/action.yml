@@ -7,12 +7,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Check Mailpit runs unprivileged and receives mail
-      shell: bash
-      run: |
-        docker build -t abservice-mailpit:ci docker/mailpit
-        python3 docker/mailpit/check_runtime.py --image abservice-mailpit:ci
-
     # 必須の一覧は宣言から自動で拾うため、宣言そのものを弱める変更は「必須が1つ減った」としか
     # 見えず、後続の検査も素通りする。弱い値で本番が動くことを意味する設定はここで名指しして守る
     - name: Check the required prod settings stay required

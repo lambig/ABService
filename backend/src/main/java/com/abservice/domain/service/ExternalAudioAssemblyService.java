@@ -1,7 +1,7 @@
 package com.abservice.domain.service;
 
 import com.abservice.domain.model.aggregate.album.ExternalAudio;
-import com.abservice.domain.model.vo.common.ExternalAudioUrl;
+import com.abservice.domain.model.vo.audio.ExternalAudioUrl;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -44,6 +44,11 @@ public class ExternalAudioAssemblyService implements DomainService {
      * @return 成功時は外部音源の並び、失敗時はエラー
      */
     public Result<List<ExternalAudio.Row>> resolveExternalAudios(
+            @Nullable List<@Nullable ExternalAudioFields> audios) {
+        return parseExternalAudios(audios);
+    }
+
+    public static Result<List<ExternalAudio.Row>> parseExternalAudios(
             @Nullable List<@Nullable ExternalAudioFields> audios) {
         return Optional.ofNullable(audios)
                 .map(ExternalAudioAssemblyService::validateAudios)

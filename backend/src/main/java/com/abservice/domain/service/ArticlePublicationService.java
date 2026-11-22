@@ -7,7 +7,7 @@ import com.abservice.domain.model.aggregate.article.AlbumArticle;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.article.AlbumReference;
-import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.domain.model.vo.time.BusinessDateTime;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import io.smallrye.mutiny.Uni;

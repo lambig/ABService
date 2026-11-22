@@ -116,12 +116,18 @@ public sealed interface Result<T> {
     /**
      * 失敗（エラー）を表します
      *
+     * <p>
+     * 生成時の非空エラー列を変更不能なスナップショットとして保持します。入力リスト・配列や取得したリストの変更で
+     * 失敗の内容が変わらないようにし、エラーの順序と重複を保ちます。
+     * </p>
+     *
      * @param <T>
      *            成功時の値の型（この場合は使用されない）
      */
     record Failure<T>(@NonNull List<ErrorResult> errors) implements Result<T> {
         public Failure {
             Validate.notEmpty(errors, "errors must not be empty");
+            errors = List.copyOf(errors);
         }
 
         @Override

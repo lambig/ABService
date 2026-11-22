@@ -1,7 +1,7 @@
 package com.abservice.infrastructure.datetime;
 
-import com.abservice.domain.model.vo.common.BusinessDate;
-import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.domain.model.vo.time.BusinessDate;
+import com.abservice.domain.model.vo.time.BusinessDateTime;
 import com.abservice.test.CleanDatabase;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;

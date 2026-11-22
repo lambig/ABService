@@ -1,6 +1,5 @@
-package com.abservice.domain.model.vo;
+package com.abservice.domain.model.vo.time;
 
-import com.abservice.domain.model.vo.common.BusinessDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

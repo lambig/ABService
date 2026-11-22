@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.abservice.architecture.MarkupValueArchitectureTest;
 import com.abservice.domain.model.aggregate.album.Album;
-import com.abservice.domain.model.vo.common.Url;
+import com.abservice.domain.model.vo.link.Url;
 import com.abservice.infrastructure.persistence.mapper.AlbumMapper;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import org.junit.jupiter.api.DisplayName;

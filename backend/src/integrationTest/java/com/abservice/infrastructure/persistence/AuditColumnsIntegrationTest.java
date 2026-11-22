@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.credit.ArtistCredit;
-import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.domain.model.vo.time.BusinessDate;
 import com.abservice.domain.model.vo.markup.MarkupContent;
 import com.abservice.infrastructure.persistence.datasource.AlbumDataSource;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;

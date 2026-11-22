@@ -9,7 +9,7 @@ import com.abservice.domain.model.vo.article.AlbumReference;
 import com.abservice.domain.model.vo.article.AlbumReferenceLostReason;
 import com.abservice.domain.model.vo.article.ArticleTitle;
 import com.abservice.domain.model.vo.article.ArticleType;
-import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.domain.model.vo.time.BusinessDateTime;
 import com.abservice.domain.service.AlbumDeletionService.AlbumDeletion;
 import com.abservice.domain.service.AlbumDeletionService.ArticleEffect;
 import com.abservice.domain.service.AlbumUnpublicationService.AlbumUnpublication;

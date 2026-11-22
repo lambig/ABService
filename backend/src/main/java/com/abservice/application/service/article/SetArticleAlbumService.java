@@ -23,7 +23,7 @@ import lombok.AllArgsConstructor;
  * 記事へのAlbum参照設定（紐付け）コマンドサービス
  *
  * <p>
- * {@link Article#setAlbumId(Album.Id, com.abservice.domain.model.vo.common.BusinessDateTime)}
+ * {@link Article#setAlbumId(Album.Id, com.abservice.domain.model.vo.time.BusinessDateTime)}
  * を呼び出すユースケースです。紐付けという操作そのものは{@link ArticleAlbumAttachmentService}が担います（参照先アルバムの
  * 状態に依存するため記事単体では可否を判定できない）。対象記事の種別が{@link ArticleType#ALBUM}でない場合は記事単体で
  * 決まる制約のため本サービスで{@link BusinessRuleViolationException}（409）とします。
@@ -48,8 +48,7 @@ public class SetArticleAlbumService implements CommandService<SetArticleAlbumInp
     @WithTransaction
     @Override
     public Uni<SetArticleAlbumOutput> execute(SetArticleAlbumInput input) {
-        return input.asValidated()
-                .map(SetArticleAlbumService::toIds)
+        return input.asValidated(SetArticleAlbumInput::parsed)
                 .flatMap(
                         ids -> findExisting(ids.articleId())
                                 .map(claimed -> claimedAsOf(claimed, input))
@@ -66,15 +65,6 @@ public class SetArticleAlbumService implements CommandService<SetArticleAlbumInp
                                 article,
                                 albumId,
                                 now));
-    }
-
-    private record Ids(Article.Id articleId, Album.Id albumId) {
-    }
-
-    private static Ids toIds(SetArticleAlbumInput valid) {
-        return new Ids(
-                Article.Id.of(Objects.requireNonNull(valid.articleId())),
-                Album.Id.of(Objects.requireNonNull(valid.albumId())));
     }
 
     private Uni<ArticleRepository.Revisioned> findExisting(Article.Id id) {

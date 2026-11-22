@@ -10,14 +10,13 @@ import com.abservice.domain.service.BusinessDateTimeProvider;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import java.util.Objects;
 import lombok.AllArgsConstructor;
 
 /**
  * アルバム公開コマンドサービス
  *
  * <p>
- * {@link Album#publish(com.abservice.domain.model.vo.common.BusinessDateTime)}
+ * {@link Album#publish(com.abservice.domain.model.vo.time.BusinessDateTime)}
  * を呼び出すユースケースです。Albumの公開自体には他集約との整合性制約はありません
  * （非公開Albumを参照する記事を公開できない制約は{@code PublishArticleService}側で検証します）。
  * </p>
@@ -34,8 +33,7 @@ public class PublishAlbumService implements CommandService<PublishAlbumInput, Pu
     @WithTransaction
     @Override
     public Uni<PublishAlbumOutput> execute(PublishAlbumInput input) {
-        return input.asValidated()
-                .map(valid -> Album.Id.of(Objects.requireNonNull(valid.albumId())))
+        return input.asValidated(PublishAlbumInput::parsed)
                 .flatMap(albumAccessService::findExistingAndClaimEdit)
                 .flatMap(
                         existing -> businessDateTimeProvider.now()
