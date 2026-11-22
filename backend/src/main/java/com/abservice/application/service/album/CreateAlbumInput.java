@@ -6,7 +6,7 @@ import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.service.AlbumCreationService;
 import com.abservice.lib.Result;
 import java.util.Optional;
-import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.domain.model.vo.time.BusinessDate;
 import com.abservice.lib.ErrorResult;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;

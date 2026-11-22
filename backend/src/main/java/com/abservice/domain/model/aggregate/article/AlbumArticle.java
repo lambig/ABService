@@ -9,7 +9,7 @@ import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.article.AlbumReference;
 import com.abservice.domain.model.vo.article.AlbumReferenceLostReason;
 import com.abservice.domain.model.vo.article.ArticleType;
-import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.domain.model.vo.time.BusinessDateTime;
 import com.abservice.lib.ErrorResult;
 import java.util.Objects;
 import java.util.Optional;

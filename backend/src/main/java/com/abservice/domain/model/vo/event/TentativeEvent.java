@@ -2,7 +2,7 @@ package com.abservice.domain.model.vo.event;
 
 import java.util.List;
 
-import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.domain.model.vo.time.BusinessDate;
 
 /**
  * 未確定イベント Value Object（申込段階）

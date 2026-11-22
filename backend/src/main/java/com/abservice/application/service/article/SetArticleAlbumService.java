@@ -23,7 +23,7 @@ import lombok.AllArgsConstructor;
  * 記事へのAlbum参照設定（紐付け）コマンドサービス
  *
  * <p>
- * {@link Article#setAlbumId(Album.Id, com.abservice.domain.model.vo.common.BusinessDateTime)}
+ * {@link Article#setAlbumId(Album.Id, com.abservice.domain.model.vo.time.BusinessDateTime)}
  * を呼び出すユースケースです。紐付けという操作そのものは{@link ArticleAlbumAttachmentService}が担います（参照先アルバムの
  * 状態に依存するため記事単体では可否を判定できない）。対象記事の種別が{@link ArticleType#ALBUM}でない場合は記事単体で
  * 決まる制約のため本サービスで{@link BusinessRuleViolationException}（409）とします。

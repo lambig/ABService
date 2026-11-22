@@ -5,7 +5,7 @@ import com.abservice.domain.model.aggregate.article.AlbumArticle;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.CrossAggregateOperation;
 import com.abservice.domain.model.vo.article.AlbumReferenceLostReason;
-import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.domain.model.vo.time.BusinessDateTime;
 import com.abservice.domain.repository.article.ArticleRepository;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;

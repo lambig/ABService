@@ -1,4 +1,4 @@
-package com.abservice.domain.model.vo.common;
+package com.abservice.domain.model.vo.link;
 
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;

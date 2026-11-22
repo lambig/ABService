@@ -6,7 +6,7 @@ import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.domain.model.aggregate.article.Article;
-import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.domain.model.vo.time.BusinessDateTime;
 import com.abservice.domain.repository.article.ArticleRepository;
 import com.abservice.domain.service.BusinessDateTimeProvider;
 import com.abservice.lib.Result;
