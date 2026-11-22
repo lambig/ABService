@@ -15,14 +15,14 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@astrojs/svelte": "^9.0.0",
+    "@astrojs/svelte": "^9.1.2",
     "@lucide/svelte": "^1.35.0",
     "@noble/hashes": "2.0.1",
     "@tailwindcss/vite": "^4.0.0",
     "abservice-external-audio": "*",
     "abservice-markup": "*",
     "abservice-public-presentation": "*",
-    "astro": "^7.2.8",
+    "astro": "^7.4.7",
     "bits-ui": "^2.19.0",
     "clsx": "^2.1.1",
     "qrcode": "^1.5.4",

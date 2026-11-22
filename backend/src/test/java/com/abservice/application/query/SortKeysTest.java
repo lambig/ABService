@@ -8,6 +8,8 @@ import com.abservice.domain.exception.ValidationException;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @DisplayName("SortKeys（クエリパラメータ→並び順の解決）のテスト")
 class SortKeysTest {
@@ -118,6 +120,47 @@ class SortKeysTest {
                         thrown -> assertThat(((ValidationException) thrown).errors())
                                 .singleElement()
                                 .satisfies(error -> assertThat(error.code()).isEqualTo("SORT_DIRECTION_NOT_USABLE")));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", " ", " releaseDate ", "unknown"})
+    @DisplayName("空白や未知のキーを既定へ補正せず、向きより先に拒否する")
+    void invalidKeyKeepsExactError(String key) {
+        assertThatThrownBy(
+                () -> SortKeys.resolve(
+                        AlbumSortKey.values(),
+                        key,
+                        "sideways",
+                        Audience.PUBLIC))
+                .isInstanceOf(ValidationException.class)
+                .satisfies(
+                        thrown -> assertThat(((ValidationException) thrown).errors()).singleElement()
+                                .satisfies(error -> {
+                                    assertThat(error.field()).isEqualTo("sort");
+                                    assertThat(error.code()).isEqualTo("SORT_KEY_NOT_USABLE");
+                                    assertThat(error.message()).isEqualTo(
+                                            "指定された並び順は使用できません（使用できる値: releaseDate, publishedAt, catalogNumber）");
+                                }));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", " ", " asc ", "sideways"})
+    @DisplayName("キー未指定でも不正な向きは既存のエラーで拒否する")
+    void invalidDirectionKeepsExactError(String direction) {
+        assertThatThrownBy(
+                () -> SortKeys.resolve(
+                        AlbumSortKey.values(),
+                        null,
+                        direction,
+                        Audience.PUBLIC))
+                .isInstanceOf(ValidationException.class)
+                .satisfies(
+                        thrown -> assertThat(((ValidationException) thrown).errors()).singleElement()
+                                .satisfies(error -> {
+                                    assertThat(error.field()).isEqualTo("direction");
+                                    assertThat(error.code()).isEqualTo("SORT_DIRECTION_NOT_USABLE");
+                                    assertThat(error.message()).isEqualTo("指定された並び順の向きは使用できません（使用できる値: asc, desc）");
+                                }));
     }
 
     /*

@@ -51,7 +51,6 @@
     "docker:build": "docker-compose build",
     "docker:logs": "docker-compose logs -f",
     "docker:logs:postgres": "docker-compose logs -f postgres",
-    "docker:logs:keycloak": "docker-compose logs -f keycloak",
     "clean": "npm run clean:backend && npm run clean:public && npm run clean:admin",
     "clean:backend": "cd backend && ./gradlew clean",
     "clean:public": "rm -rf frontend-public/dist frontend-public/.astro",
@@ -108,7 +107,8 @@
   "overrides": {
     "eslint-plugin-functional": {
       "deepmerge-ts": "^8.0.0"
-    }
+    },
+    "minimatch@>=10 <11": "11.0.1"
   },
   "engines": {
     "node": "24.22.3",

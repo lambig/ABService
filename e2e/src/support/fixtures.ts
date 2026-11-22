@@ -1,5 +1,7 @@
 import { test as base } from '@playwright/test';
 
+import { installFonts } from './fonts.ts';
+
 /**
  * 全シナリオ共通の前提。
  *
@@ -9,6 +11,7 @@ import { test as base } from '@playwright/test';
 export const test = base.extend({
   page: async ({ page }, use) => {
     await page.route('**://*.soundcloud.com/**', (route) => route.abort());
+    await installFonts(page);
     await use(page);
   },
 });

@@ -2,6 +2,8 @@ package com.abservice.application.query.article;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.abservice.application.query.SortDirection;
+import com.abservice.application.query.Audience;
 import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
 import io.smallrye.mutiny.tuples.Tuple3;
 import java.util.List;
@@ -14,32 +16,86 @@ class ListArticlesServiceTest {
     @Test
     @DisplayName("pageは負値なら0にクランプされる")
     void clampPageNegativeBecomesZero() {
-        assertThat(ListArticlesService.clampPage(-1)).isZero();
+        assertThat(
+                new ListArticlesQuery(
+                        -1,
+                        20,
+                        Audience.ADMIN,
+                        null,
+                        null,
+                        null,
+                        null).asValidated().page())
+                .isZero();
     }
 
     @Test
     @DisplayName("pageは0以上ならそのまま")
     void clampPagePositiveStaysSame() {
-        assertThat(ListArticlesService.clampPage(3)).isEqualTo(3);
+        assertThat(
+                new ListArticlesQuery(
+                        3,
+                        20,
+                        Audience.ADMIN,
+                        null,
+                        null,
+                        null,
+                        null).asValidated().page())
+                .isEqualTo(3);
     }
 
     @Test
     @DisplayName("sizeは1未満ならデフォルト20にクランプされる")
     void clampSizeBelowMinimumBecomesDefault() {
-        assertThat(ListArticlesService.clampSize(0)).isEqualTo(20);
-        assertThat(ListArticlesService.clampSize(-5)).isEqualTo(20);
+        assertThat(
+                new ListArticlesQuery(
+                        0,
+                        0,
+                        Audience.ADMIN,
+                        null,
+                        null,
+                        null,
+                        null).asValidated().size())
+                .isEqualTo(20);
+        assertThat(
+                new ListArticlesQuery(
+                        0,
+                        -5,
+                        Audience.ADMIN,
+                        null,
+                        null,
+                        null,
+                        null).asValidated().size())
+                .isEqualTo(20);
     }
 
     @Test
     @DisplayName("sizeは100を超えると100にクランプされる")
     void clampSizeAboveMaximumBecomesMax() {
-        assertThat(ListArticlesService.clampSize(1000)).isEqualTo(100);
+        assertThat(
+                new ListArticlesQuery(
+                        0,
+                        1000,
+                        Audience.ADMIN,
+                        null,
+                        null,
+                        null,
+                        null).asValidated().size())
+                .isEqualTo(100);
     }
 
     @Test
     @DisplayName("sizeは範囲内ならそのまま")
     void clampSizeWithinRangeStaysSame() {
-        assertThat(ListArticlesService.clampSize(50)).isEqualTo(50);
+        assertThat(
+                new ListArticlesQuery(
+                        0,
+                        50,
+                        Audience.ADMIN,
+                        null,
+                        null,
+                        null,
+                        null).asValidated().size())
+                .isEqualTo(50);
     }
 
     @Test
@@ -67,4 +123,24 @@ class ListArticlesServiceTest {
         assertThat(result.totalElements()).isEqualTo(1L);
         assertThat(result.totalPages()).isEqualTo(1);
     }
+
+    @Test
+    @DisplayName("補正したページと解決済みの並び順を照会条件へ渡す")
+    void normalizedConditionsKeepFiltersAndSort() {
+        final var validated = new ListArticlesQuery(
+                Integer.MIN_VALUE,
+                Integer.MAX_VALUE,
+                Audience.ADMIN,
+                "UPDATEDATBUSINESS",
+                "ASC",
+                "not-a-uuid",
+                false).asValidated();
+        assertThat(validated.page()).isZero();
+        assertThat(validated.size()).isEqualTo(100);
+        assertThat(validated.sort().direction()).isEqualTo(SortDirection.ASC);
+        assertThat(validated.sort().property()).isEqualTo("updatedAtBusiness");
+        assertThat(validated.albumId()).isEqualTo("not-a-uuid");
+        assertThat(validated.publicFlag()).isFalse();
+    }
+
 }

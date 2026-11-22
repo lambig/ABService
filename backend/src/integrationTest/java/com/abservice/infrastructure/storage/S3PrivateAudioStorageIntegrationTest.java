@@ -30,6 +30,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
 
 /**
  * ローカル/CIのMinIOへ実SDKでPUTする。検査器の代役として合成バイト列を使い、保存側の整合を確認する。
@@ -46,6 +47,7 @@ class S3PrivateAudioStorageIntegrationTest {
     void setUp() {
         client = S3Client.builder()
                 .endpointOverride(endpoint).forcePathStyle(true).region(Region.US_EAST_1)
+                .serviceConfiguration(S3Configuration.builder().chunkedEncodingEnabled(false).build())
                 .credentialsProvider(
                         StaticCredentialsProvider.create(
                                 AwsBasicCredentials.create("minioadmin", "minioadmin123")))
