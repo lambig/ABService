@@ -1,12 +1,8 @@
 # Docker Compose Override for Development
 # This file contains development-specific overrides
 
-version: '3.8'
-
 services:
   postgres:
-    ports:
-      - "5432:5432"
     environment:
       # Enable debug logging for development
       POSTGRES_LOG_STATEMENT: "all"
@@ -17,15 +13,7 @@ services:
       # Mount development data directory for easy access
       - ./docker/postgres/data:/var/lib/postgresql/data
 
-  mailhog:
-    ports:
-      - "1025:1025"
-      - "8025:8025"
-
   minio:
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     environment:
       # Development-specific MinIO settings
       MINIO_BROWSER_REDIRECT_URL: "http://localhost:9001"

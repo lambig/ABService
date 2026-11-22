@@ -44,7 +44,7 @@ const waitForBackend = async (deadline) => {
           new Error(
             [
               `バックエンドが起動していません（${stack.backendBaseUrl}）。`,
-              'docker compose up -d postgres minio と npm run dev:backend:e2e で起動してから実行してください。',
+              'docker compose up -d postgres minio minio-init と npm run start:backend:e2e で起動してから実行してください。',
               'E2E は専用のデータベースを見ます（#252）。開発用の npm run dev:backend とはポートも接続先も別です。',
             ].join(''),
           ),
@@ -75,6 +75,7 @@ const build = (workspace, env) => {
   });
 };
 
+console.log('E2E preparation: waiting for backend readiness');
 await waitForBackend(Date.now() + WAIT_LIMIT_MS);
 clearEvidence();
 /*
@@ -82,11 +83,13 @@ clearEvidence();
  * 組むと母集団に混ざる（`scratch-albums.ts` の SHARED-POPULATION）。実行の前に、worker の印を問わず消す。
  * 記事が作品を参照しうるため、記事を先に消す。
  */
+console.log('E2E preparation: cleaning scratch data and seeding build fixtures');
 await deleteAllScratchArticles();
 await deleteAllScratchAlbums();
 await seedForBuild();
 await (process.env.E2E_VERIFY_SEED_REUSE === 'true'
   ? verifyBuildFixtureReuse()
   : Promise.resolve());
+console.log('E2E preparation: building frontend artifacts');
 build('abservice-frontend-public', { API_BASE_URL: stack.backendBaseUrl });
 build('abservice-frontend-admin', { PUBLIC_API_BASE_URL: stack.backendBaseUrl });
