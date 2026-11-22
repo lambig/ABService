@@ -9,15 +9,21 @@
         カスタムルールと必要な組み込みルールのみを個別に定義する。
     </description>
 
-    <!-- 本ファイルを変更した後の検証手順:
-         PMD 自身のインクリメンタル解析キャッシュ（build/tmp/pmdMain/incremental.cache ほか
-         pmdTest / pmdIntegrationTest）はソースファイルの内容ハッシュだけをキーにしており、
-         ルールセットの変更を検知しない。そのため編集直後の実行では、内容を触っていない
-         ファイルについて変更前の「違反なし」がそのまま再利用される（Gradle の rerun-tasks
-         オプションでも no-daemon でも同じ）。違反件数を実測するときは、対象キャッシュを
-         削除してから rerun-tasks で再実行する。
-         なお本ファイルの XML コメント内にハイフン2連を書くと ruleset のパースが失敗し、
-         PMD はルール0件のまま「成功」する（品質ゲートが無言で無効化される）。 -->
+    <!-- PMD 内部の増分キャッシュは build.gradle で無効化する。
+         ルール変更後に古い「違反なし」を再利用しない。Gradle の入力追跡は維持する。 -->
+
+    <rule name="ScatteredPolicy"
+          language="java"
+          message="単一使用の private Policy 定義が複数のメンバーへ分散しています。条件・エラー・適用順を一か所で俯瞰できる形にまとめてください。"
+          class="com.abservice.quality.ScatteredPolicyRule">
+        <description>
+            同じメソッド・コンストラクタ・フィールド初期化で使う、単一使用の private Policy
+            フィールド／戻り値メソッドが複数ある場合を検出する。参照は型とシンボルで解決し、
+            ラムダ内、修飾アクセス、メソッド参照も含む。共有される定義、異なる検証段階、
+            一つのまとまった Policy は許容する。意味的な再利用性や別型への分散はレビューで確認する。
+        </description>
+        <priority>3</priority>
+    </rule>
 
 
     <!-- 不要なローカル変数・代入を禁止する（#33）。値は直接 return / throw / 式で表現する。

@@ -104,7 +104,12 @@ def main():
         await_condition(lambda: status().get("result") == "failure", "timer did not retry with failed helper")
         assert (runtime / "credentials").read_bytes() == original
         assert status()["last_success_at"] == first_success
-        assert systemctl("show", service.name, "--property=Result", "--value").strip() == "exit-code"
+        # The helper writes failure status before it exits; the manager records
+        # Result only after observing that exit. Wait for both observations.
+        await_condition(
+            lambda: systemctl("show", service.name, "--property=Result", "--value").strip() == "exit-code",
+            "systemd did not record the failed helper exit",
+        )
         (directory / "fail").unlink()
         await_condition(lambda: status().get("result") == "success"
                         and status().get("last_success_at") != first_success, "timer did not recover after failure")

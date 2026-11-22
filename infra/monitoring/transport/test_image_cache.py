@@ -1,10 +1,13 @@
 """Image cache contract without a daemon, network or elevated privileges."""
 
+import hashlib
+import io
 import json
 import os
 from pathlib import Path
 import subprocess
 import tempfile
+import tarfile
 import unittest
 from unittest.mock import Mock, patch
 
@@ -17,20 +20,37 @@ class ImageCacheTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.lock = json.loads(image_cache.LOCK.read_text())
+        self.config = json.dumps({'os': 'linux', 'architecture': 'amd64',
+                                  'rootfs': {'type': 'layers', 'diff_ids': []}}).encode()
+        self.export_config = self.config
+        self.lock['config'] = 'sha256:' + hashlib.sha256(self.config).hexdigest()
+        lock_patch = patch.object(image_cache, 'LOCK')
+        self.lock_file = lock_patch.start()
+        self.addCleanup(lock_patch.stop)
+        self.lock_file.read_text.return_value = json.dumps(self.lock)
         self.image = self.lock['image']
         self.image_id = self.lock['config']
         self.archive = Path(self.directory.name) / (self.image_id.split(':')[1] + '.tar')
         self.inspected = {'Id': self.image_id, 'Os': 'linux', 'Architecture': 'amd64'}
         self.run = Mock(side_effect=self.command)
         self.pull = Mock()
+        self.load_output = 'Loaded image ID: ' + self.image_id
+        self.manifest = [{'Config': 'config.json', 'RepoTags': [], 'Layers': []}]
 
     def command(self, *args, **kwargs):
         if args[1] == 'info':
             return 'linux/x86_64'
         if args[1:3] == ('image', 'inspect'):
             return json.dumps([self.inspected])
+        if args[1:3] == ('image', 'load'):
+            return self.load_output
         if args[1:3] == ('image', 'save'):
-            Path(args[4]).write_bytes(b'fixture archive')
+            with tarfile.open(args[4], 'w') as saved:
+                for name, contents in (('manifest.json', json.dumps(self.manifest).encode()),
+                                       ('config.json', self.export_config)):
+                    member = tarfile.TarInfo(name)
+                    member.size = len(contents)
+                    saved.addfile(member, io.BytesIO(contents))
             Path(args[4]).chmod(0o600)  # Docker save creates a root-only archive.
         return ''
 
@@ -40,7 +60,8 @@ class ImageCacheTests(unittest.TestCase):
     def test_miss_pulls_verifies_and_atomically_saves_only_the_image(self):
         self.assertEqual(self.acquire(), self.image_id)
         self.pull.assert_called_once_with(self.image)
-        self.assertEqual(self.archive.read_bytes(), b'fixture archive')
+        with tarfile.open(self.archive) as saved:
+            self.assertEqual(saved.extractfile('config.json').read(), self.config)
         self.assertEqual(self.archive.stat().st_mode & 0o777, 0o644)
         self.assertEqual(self.archive.parent.stat().st_mode & 0o777, 0o700)
         self.run.assert_any_call('docker', 'image', 'inspect', self.image)
@@ -102,7 +123,8 @@ class ImageCacheTests(unittest.TestCase):
         self.pull.assert_not_called()
         self.run.assert_any_call('docker', 'image', 'load', '--input', str(self.archive), timeout=120)
         self.run.assert_any_call('docker', 'image', 'inspect', self.image_id)
-        self.assertFalse(any(call.args[1:3] == ('image', 'save') for call in self.run.call_args_list))
+        self.assertEqual(self.archive.read_bytes(), b'fixture archive')
+        self.assertEqual(list(self.archive.parent.glob('*.partial')), [])
 
     def test_missing_cached_id_and_corrupt_archive_fail_without_pull(self):
         self.archive.write_bytes(b'corrupt fixture')
@@ -120,7 +142,7 @@ class ImageCacheTests(unittest.TestCase):
         self.pull.assert_not_called()
 
     def test_wrong_id_or_platform_cannot_be_used_or_saved(self):
-        for field, value in (('Id', 'sha256:' + '0' * 64), ('Os', 'windows'), ('Architecture', 'arm64')):
+        for field, value in (('Id', 'mutable:tag'), ('Os', 'windows'), ('Architecture', 'arm64')):
             with self.subTest(field=field):
                 original = self.inspected[field]
                 self.inspected[field] = value
@@ -128,6 +150,86 @@ class ImageCacheTests(unittest.TestCase):
                     self.acquire()
                 self.assertFalse(self.archive.exists())
                 self.inspected[field] = original
+
+    def test_containerd_id_is_returned_only_after_verifying_config_content(self):
+        runtime_id = 'sha256:' + 'a' * 64
+        self.inspected['Id'] = runtime_id
+        self.load_output = 'Loaded image ID: ' + runtime_id
+        self.assertEqual(self.acquire(), runtime_id)
+        self.run.reset_mock()
+        self.pull.reset_mock()
+        self.assertEqual(self.acquire(), runtime_id)
+        self.pull.assert_not_called()
+        self.run.assert_any_call('docker', 'image', 'inspect', runtime_id)
+        saves = [call for call in self.run.call_args_list if call.args[1:3] == ('image', 'save')]
+        self.assertEqual(saves[0].args[-1], runtime_id)
+
+    def test_loaded_tag_is_resolved_to_immutable_id_before_export_and_startup(self):
+        self.archive.write_bytes(b'fixture archive')
+        self.load_output = 'Loaded image: fixture.example.test/monitor:cached'
+        self.assertEqual(self.acquire(), self.image_id)
+        self.run.assert_any_call('docker', 'image', 'inspect', 'fixture.example.test/monitor:cached')
+        saves = [call for call in self.run.call_args_list if call.args[1:3] == ('image', 'save')]
+        self.assertEqual(saves[0].args[-1], self.image_id)
+
+    def test_empty_or_multiple_load_results_fail_without_inspect_or_pull(self):
+        self.archive.write_bytes(b'fixture archive')
+        for output in ('', 'progress only', 'Loaded image ID: sha256:a\nLoaded image ID: sha256:b'):
+            with self.subTest(output=output):
+                self.load_output = output
+                self.run.reset_mock()
+                with self.assertRaises(ValueError):
+                    self.acquire()
+                self.assertFalse(any(call.args[1:3] == ('image', 'inspect') for call in self.run.call_args_list))
+        self.pull.assert_not_called()
+
+    def test_wrong_config_is_rejected_on_both_hit_and_miss_without_replacing_cache(self):
+        self.inspected['Id'] = 'sha256:' + 'a' * 64
+        self.export_config = self.config + b' '
+        for hit in (False, True):
+            with self.subTest(hit=hit):
+                if hit:
+                    self.archive.write_bytes(b'existing fixture')
+                with self.assertRaisesRegex(ValueError, 'pinned content'):
+                    self.acquire()
+                self.assertEqual(self.archive.read_bytes() if hit else self.archive.exists(),
+                                 b'existing fixture' if hit else False)
+                self.assertEqual(list(self.archive.parent.glob('*.partial')), [])
+
+    def test_archive_requires_one_image_and_bounded_regular_config(self):
+        for manifest in ([], self.manifest * 2, [{'Config': 'missing'}]):
+            with self.subTest(manifest=manifest):
+                self.manifest = manifest
+                with self.assertRaises((ValueError, KeyError)):
+                    self.acquire()
+                self.assertFalse(self.archive.exists())
+        self.manifest = [{'Config': 'config.json'}]
+        self.export_config = b'x' * (1024 * 1024 + 1)
+        with self.assertRaisesRegex(ValueError, 'metadata'):
+            self.acquire()
+
+    def test_matching_hash_with_wrong_config_platform_is_still_rejected(self):
+        self.export_config = json.dumps({'os': 'linux', 'architecture': 'arm64'}).encode()
+        self.lock['config'] = 'sha256:' + hashlib.sha256(self.export_config).hexdigest()
+        self.lock_file.read_text.return_value = json.dumps(self.lock)
+        with self.assertRaisesRegex(ValueError, 'pinned platform'):
+            self.acquire()
+
+    def test_nonregular_export_metadata_is_rejected_without_following_links(self):
+        def save_with_link(*args, **kwargs):
+            result = self.command(*args, **kwargs)
+            if args[1:3] == ('image', 'save'):
+                with tarfile.open(args[4], 'a') as saved:
+                    member = tarfile.TarInfo('config.json')
+                    member.type = tarfile.SYMTYPE
+                    member.linkname = '/private-fixture'
+                    saved.addfile(member)
+            return result
+
+        self.run.side_effect = save_with_link
+        with self.assertRaisesRegex(ValueError, 'metadata'):
+            self.acquire()
+        self.assertFalse(self.archive.exists())
 
     def test_changed_compose_image_requires_a_lock_update_before_any_docker_call(self):
         self.image = 'registry.example.test/other@sha256:' + 'b' * 64
@@ -184,7 +286,7 @@ class ImageCacheTests(unittest.TestCase):
         self.assertIs(raised.exception, final)
         self.assertFalse(self.archive.exists())
         self.pull.side_effect = [throttle, None]
-        self.inspected['Id'] = 'sha256:' + '0' * 64
+        self.export_config = b'wrong content'
         with self.assertRaises(ValueError):
             self.acquire()
         self.assertFalse(self.archive.exists())
@@ -202,6 +304,7 @@ class ImageCacheTests(unittest.TestCase):
         self.assertEqual(list(Path(self.directory.name).iterdir()), [])
 
     def test_compose_uses_verified_ids_and_keeps_startup_failure_fatal(self):
+        runtime_id = 'sha256:' + 'a' * 64
         config = {'services': {name: {'image': self.image} for name in ('translate', 'agent')}}
         error = subprocess.CalledProcessError(1, ['docker', 'compose', 'up'])
 
@@ -213,10 +316,10 @@ class ImageCacheTests(unittest.TestCase):
             self.assertEqual(args[-4:], ('up', '-d', '--pull', 'never'))
             override = json.loads(Path(args[-5]).read_text())
             self.assertEqual(override['services'], {
-                name: {'image': self.image_id} for name in ('translate', 'agent')})
+                name: {'image': runtime_id} for name in ('translate', 'agent')})
             raise error
 
-        with patch.object(transport, 'cached_image', return_value=self.image_id) as acquire, \
+        with patch.object(transport, 'cached_image', return_value=runtime_id) as acquire, \
                 patch.object(transport, 'run', side_effect=compose):
             with self.assertRaises(subprocess.CalledProcessError) as raised:
                 transport.start_transport(['docker', 'compose'], {}, self.directory.name)
