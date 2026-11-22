@@ -27,10 +27,7 @@ import lombok.AllArgsConstructor;
  * </p>
  *
  * <p>
- * 値検証はドメインの各値オブジェクトの {@code fromInput}（{@code Result} 返却）に委譲し、本サービスはそれらを
- * {@link Result#zip} で集約して既存 {@code Article} を更新後の状態へ組み替えるオーケストレーションに徹します。検証失敗は
- * {@link ValidationException} に、対象記事の不在は {@link EntityNotFoundException}
- * に集約し、HTTP への変換は presentation 層の ExceptionMapper が担います。
+ * 値の検証は入力自身が担い、本サービスは対象の取得・状態確認・集約への反映と保存を担います。
  * </p>
  */
 @ApplicationScoped

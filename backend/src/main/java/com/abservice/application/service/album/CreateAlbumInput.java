@@ -17,8 +17,8 @@ import org.jspecify.annotations.Nullable;
  * アルバム作成コマンドの入力DTO
  *
  * <p>
- * 外部（REST 等）からの未検証入力を表現します。すべての値は文字列として受け取り、 検証と型への解釈は
- * {@link CreateAlbumService} が {@code Result} 経由で行います。
+ * 外部（REST 等）からの未検証入力を表現します。すべての値は文字列として受け取り、 検証と型への解釈は 入力自身が {@code Result}
+ * 経由で行います。
  * </p>
  *
  * <p>
