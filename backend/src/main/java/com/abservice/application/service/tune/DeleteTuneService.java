@@ -10,6 +10,7 @@ import com.abservice.domain.service.TuneDeletionService;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.util.Objects;
 import lombok.AllArgsConstructor;
 
 /**
@@ -38,11 +39,8 @@ public class DeleteTuneService implements CommandService<DeleteTuneInput, Delete
     @WithTransaction
     @Override
     public Uni<DeleteTuneOutput> execute(DeleteTuneInput input) {
-        return Uni.createFrom()
-                .item(
-                        () -> Tune.Id.fromInput(input.tuneId())
-                                .mapErrorFields(field -> "tuneId")
-                                .resolve(ValidationException::new))
+        return input.asValidated()
+                .map(valid -> Tune.Id.of(Objects.requireNonNull(valid.tuneId())))
                 .flatMap(tuneDeletionService::deletable)
                 .flatMap(tuneRepository::deleteById)
                 .replaceWith(new DeleteTuneOutput());

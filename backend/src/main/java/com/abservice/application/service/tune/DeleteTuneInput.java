@@ -1,6 +1,9 @@
 package com.abservice.application.service.tune;
 
 import com.abservice.application.service.CommandService;
+import com.abservice.application.service.InputPolicy;
+import com.abservice.domain.model.policy.Policy;
+import com.abservice.domain.model.aggregate.tune.Tune;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -9,5 +12,11 @@ import org.jspecify.annotations.Nullable;
  * @param tuneId
  *            削除対象のチューンID
  */
-public record DeleteTuneInput(@Nullable String tuneId) implements CommandService.Input {
+public record DeleteTuneInput(@Nullable String tuneId) implements CommandService.ValidatedInput<DeleteTuneInput> {
+
+    @Override
+    public Policy<DeleteTuneInput> policy() {
+        return new InputPolicy<>(input -> Tune.Id.fromInput(input.tuneId())
+                .mapErrorFields(field -> "tuneId"));
+    }
 }

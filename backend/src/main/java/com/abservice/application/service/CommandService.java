@@ -1,6 +1,9 @@
 package com.abservice.application.service;
 
+import com.abservice.domain.exception.ValidationException;
+import com.abservice.domain.model.policy.Policy;
 import io.smallrye.mutiny.Uni;
+import java.util.function.Function;
 
 /**
  * コマンドサービスの基底インターフェース
@@ -54,6 +57,26 @@ public interface CommandService<I extends CommandService.Input, O extends Comman
      * 入力DTOのマーカーインターフェース
      */
     interface Input {
+    }
+
+    /**
+     * 値だけで検証できる入力。未移行のInputとは区別し、検証を省略する既定Policyを設けない。
+     *
+     * @param <Self>
+     *            実装する入力自身の型
+     */
+    interface ValidatedInput<Self extends ValidatedInput<Self>> extends Input {
+        /** @return 入力の値だけを検証する規則 */
+        Policy<Self> policy();
+
+        /** @return 購読ごとに規則を評価した自身。入力エラーはValidationExceptionとして通知する */
+        @SuppressWarnings("unchecked") // CRTP: Selfには実装する入力自身の型を指定する
+        default Uni<Self> asValidated() {
+            final Self self = (Self) this;
+            return Uni.createFrom().item(
+                    () -> policy().verify(self, Function.identity())
+                            .resolve(ValidationException::new));
+        }
     }
 
     /**

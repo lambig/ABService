@@ -1,12 +1,13 @@
 package com.abservice.application.service.article;
 
 import com.abservice.application.service.CommandService;
-import com.abservice.domain.exception.ValidationException;
+import com.abservice.application.service.InputPolicy;
+import com.abservice.domain.model.policy.Policy;
+import com.abservice.domain.model.policy.Policies;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
-import io.smallrye.mutiny.Uni;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -24,30 +25,16 @@ import org.jspecify.annotations.Nullable;
 public record SetArticleAlbumInput(
         @Nullable String articleId,
         @Nullable String albumId,
-        @Nullable Integer expectedRevision) implements CommandService.Input {
+        @Nullable Integer expectedRevision) implements CommandService.ValidatedInput<SetArticleAlbumInput> {
 
-    /**
-     * 自身が妥当（{@code articleId}・{@code albumId}が有効な形式で、{@code expectedRevision}が指定済み）
-     * であることを検証する
-     *
-     * <p>
-     * 検証責務をCommandService側に持たせず、Input自身が答えられるようにする（#148で
-     * {@link com.abservice.domain.model.policy.Policy}を用いた共通デフォルト実装へ移行予定）。
-     * </p>
-     *
-     * @return 検証済みの自身。無効な場合は各フィールドのエラーを集約した{@link ValidationException}で失敗する
-     */
-    Uni<SetArticleAlbumInput> asValidated() {
-        return Uni.createFrom()
-                .item(
-                        () -> Result.zip(
-                                Article.Id.fromInput(articleId)
-                                        .mapErrorFields(field -> "articleId"),
-                                Album.Id.fromInput(albumId)
-                                        .mapErrorFields(field -> "albumId"),
-                                expectedRevision(expectedRevision),
-                                (parsedArticleId, parsedAlbumId, parsedExpectedRevision) -> this)
-                                .resolve(ValidationException::new));
+    @Override
+    public Policy<SetArticleAlbumInput> policy() {
+        return new InputPolicy<>(input -> Policies.multiple(
+                Article.Id.fromInput(input.articleId())
+                        .mapErrorFields(field -> "articleId"),
+                Album.Id.fromInput(input.albumId())
+                        .mapErrorFields(field -> "albumId"),
+                expectedRevision(input.expectedRevision())));
     }
 
     private static Result<Integer> expectedRevision(@Nullable Integer value) {

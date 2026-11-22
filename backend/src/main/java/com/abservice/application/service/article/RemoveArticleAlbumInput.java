@@ -1,11 +1,12 @@
 package com.abservice.application.service.article;
 
 import com.abservice.application.service.CommandService;
-import com.abservice.domain.exception.ValidationException;
+import com.abservice.application.service.InputPolicy;
+import com.abservice.domain.model.policy.Policy;
+import com.abservice.domain.model.policy.Policies;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
-import io.smallrye.mutiny.Uni;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -20,27 +21,14 @@ import org.jspecify.annotations.Nullable;
  */
 public record RemoveArticleAlbumInput(@Nullable String articleId, @Nullable Integer expectedRevision)
         implements
-            CommandService.Input {
+            CommandService.ValidatedInput<RemoveArticleAlbumInput> {
 
-    /**
-     * 自身が妥当（{@code articleId}が有効な形式で、{@code expectedRevision}が指定済み）であることを検証する
-     *
-     * <p>
-     * 検証責務をCommandService側に持たせず、Input自身が答えられるようにする（#148で
-     * {@link com.abservice.domain.model.policy.Policy}を用いた共通デフォルト実装へ移行予定）。
-     * </p>
-     *
-     * @return 検証済みの自身。無効な場合は各フィールドのエラーを集約した{@link ValidationException}で失敗する
-     */
-    Uni<RemoveArticleAlbumInput> asValidated() {
-        return Uni.createFrom()
-                .item(
-                        () -> Result.zip(
-                                Article.Id.fromInput(articleId)
-                                        .mapErrorFields(field -> "articleId"),
-                                expectedRevision(expectedRevision),
-                                (parsedArticleId, parsedExpectedRevision) -> this)
-                                .resolve(ValidationException::new));
+    @Override
+    public Policy<RemoveArticleAlbumInput> policy() {
+        return new InputPolicy<>(input -> Policies.multiple(
+                Article.Id.fromInput(input.articleId())
+                        .mapErrorFields(field -> "articleId"),
+                expectedRevision(input.expectedRevision())));
     }
 
     private static Result<Integer> expectedRevision(@Nullable Integer value) {

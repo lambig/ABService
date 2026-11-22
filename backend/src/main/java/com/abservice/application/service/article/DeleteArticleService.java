@@ -9,6 +9,7 @@ import com.abservice.domain.repository.article.ArticleRepository;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.util.Objects;
 import lombok.AllArgsConstructor;
 
 /**
@@ -30,11 +31,8 @@ public class DeleteArticleService implements CommandService<DeleteArticleInput, 
     @WithTransaction
     @Override
     public Uni<DeleteArticleOutput> execute(DeleteArticleInput input) {
-        return Uni.createFrom()
-                .item(
-                        () -> Article.Id.fromInput(input.articleId())
-                                .mapErrorFields(field -> "articleId")
-                                .resolve(ValidationException::new))
+        return input.asValidated()
+                .map(valid -> Article.Id.of(Objects.requireNonNull(valid.articleId())))
                 .flatMap(articleRepository::deleteById)
                 .replaceWith(new DeleteArticleOutput());
     }
