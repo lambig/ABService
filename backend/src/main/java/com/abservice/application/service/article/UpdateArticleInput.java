@@ -1,6 +1,16 @@
 package com.abservice.application.service.article;
 
 import com.abservice.application.service.CommandService;
+import com.abservice.application.service.InputPolicy;
+import com.abservice.domain.model.policy.Policy;
+import com.abservice.domain.model.policy.Policies;
+import com.abservice.domain.exception.ValidationException;
+import com.abservice.domain.model.aggregate.article.Article;
+import com.abservice.lib.Result;
+import com.abservice.lib.ErrorResult;
+import java.util.Optional;
+import java.util.List;
+import io.smallrye.mutiny.Uni;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -37,5 +47,48 @@ public record UpdateArticleInput(
         @Nullable String title,
         @Nullable String body,
         @Nullable String bodyFormat,
-        @Nullable String introShort) implements CommandService.Input {
+        @Nullable String introShort) implements CommandService.Input<UpdateArticleInput> {
+    @Override
+    public Policy<UpdateArticleInput> policy() {
+        return new InputPolicy<>(UpdateArticleInput::validatedValues);
+    }
+
+    private Result<CreateArticleInput.Values> validatedValues() {
+        return requested()
+                .flatMap(_ -> bodyValues());
+    }
+
+    Result<CreateArticleInput.Values> bodyValues() {
+        return new CreateArticleInput(
+                articleType(),
+                title(),
+                body(),
+                bodyFormat(),
+                introShort())
+                .parsed();
+    }
+
+    Uni<Article.Id> asRequested() {
+        return Uni.createFrom()
+                .item(
+                        () -> requested()
+                                .resolve(ValidationException::new));
+    }
+
+    private Result<Article.Id> requested() {
+        final var id = Article.Id.fromInput(articleId())
+                .withErrorField("articleId");
+        return Policies.combine(List.of(id, expectedRevision(expectedRevision())), id::resolve);
+    }
+
+    private static Result<Integer> expectedRevision(@Nullable Integer value) {
+        return Optional.ofNullable(value)
+                .map(Result::success)
+                .orElseGet(
+                        () -> Result.failure(
+                                new ErrorResult(
+                                        "expectedRevision",
+                                        "編集を始めた時点の世代は必須です",
+                                        "ARTICLE_EXPECTED_REVISION_REQUIRED")));
+    }
 }

@@ -9,6 +9,9 @@ import com.abservice.application.port.AlbumAudioAssignments;
 import com.abservice.application.port.PrivateAudioRegistration;
 import com.abservice.application.port.PrivateAudioRegistrations;
 import com.abservice.application.service.CommandService;
+import com.abservice.application.service.InputPolicy;
+import com.abservice.domain.model.policy.Policy;
+import com.abservice.lib.Result;
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.domain.model.aggregate.album.Album;
@@ -35,10 +38,11 @@ public class SetAlbumCrossfadeService
     @WithTransaction
     @Override
     public Uni<Output> execute(Input input) {
-        return Uni.createFrom().item(() -> {
-            access.requireEnabled();
-            return input.validated();
-        }).call(valid -> albums.findExistingAndClaimReference(Album.Id.of(valid.albumId())))
+        return Uni.createFrom()
+                .item(input)
+                .invoke(access::requireEnabled)
+                .chain(valid -> valid.asValidated(Input::parse))
+                .call(valid -> albums.findExistingAndClaimReference(Album.Id.of(valid.albumId())))
                 .chain(this::assign);
     }
 
@@ -72,11 +76,26 @@ public class SetAlbumCrossfadeService
     }
 
     public record Input(@Nullable String albumId, @Nullable String audioId,
-            @Nullable Integer expectedRevision) implements CommandService.Input {
-        private Validated validated() {
-            return new Validated(AudioApiValues.uuid(albumId, "albumId").toString(),
-                    AudioApiValues.uuid(audioId, "audioId"), AudioApiValues.revision(expectedRevision));
+            @Nullable Integer expectedRevision) implements CommandService.Input<Input> {
+        @Override
+        public Policy<Input> policy() {
+            return new InputPolicy<>(Input::parse);
         }
+
+        private static Result<Validated> parse(Input input) {
+            return AudioApiValues.uuidPolicy("albumId")
+                    .verify(input.albumId(), UUID::fromString)
+                    .flatMap(
+                            album -> AudioApiValues.uuidPolicy("audioId")
+                                    .verify(input.audioId(), UUID::fromString)
+                                    .flatMap(
+                                            audio -> AudioApiValues.revisionPolicy()
+                                                    .verify(
+                                                            input.expectedRevision(),
+                                                            revision -> new Validated(album.toString(), audio,
+                                                                    revision))));
+        }
+
     }
 
     private record Validated(String albumId, UUID audioId, int revision) {

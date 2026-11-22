@@ -83,7 +83,8 @@ public class ConfirmAssetUploadService implements CommandService<ConfirmAssetUpl
 
     @Override
     public Uni<ConfirmAssetUploadOutput> execute(ConfirmAssetUploadInput input) {
-        return assetStorage.isPublished(input.assetKey())
+        return input.asValidated()
+                .flatMap(valid -> assetStorage.isPublished(valid.assetKey()))
                 .flatMap(published -> confirmUnlessPublished(input.assetKey(), published));
     }
 

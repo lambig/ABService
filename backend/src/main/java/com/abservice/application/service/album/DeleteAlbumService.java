@@ -51,11 +51,7 @@ public class DeleteAlbumService implements CommandService<DeleteAlbumInput, Dele
     @WithTransaction
     @Override
     public Uni<DeleteAlbumOutput> execute(DeleteAlbumInput input) {
-        return Uni.createFrom()
-                .item(
-                        () -> Album.Id.fromInput(input.albumId())
-                                .mapErrorFields(field -> "albumId")
-                                .resolve(ValidationException::new))
+        return input.asValidated(DeleteAlbumInput::parsed)
                 .flatMap(this::deleteWithReferencingArticles);
     }
 

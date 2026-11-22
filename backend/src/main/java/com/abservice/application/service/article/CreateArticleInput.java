@@ -1,14 +1,24 @@
 package com.abservice.application.service.article;
 
 import com.abservice.application.service.CommandService;
+import com.abservice.application.service.InputPolicy;
+import com.abservice.domain.model.policy.Policy;
+import com.abservice.domain.model.vo.article.ArticleTitle;
+import com.abservice.domain.model.vo.article.ArticleType;
+import com.abservice.domain.model.vo.article.IntroShort;
+import com.abservice.domain.model.vo.markup.MarkupContent;
+import com.abservice.lib.Result;
+import java.util.Optional;
+import org.apache.commons.lang3.StringUtils;
+
 import org.jspecify.annotations.Nullable;
 
 /**
  * 記事作成コマンドの入力DTO
  *
  * <p>
- * 外部（REST 等）からの未検証入力を表現します。すべての値は文字列として受け取り、 検証と型への解釈は
- * {@link CreateArticleService} が {@code Result} 経由で行います。
+ * 外部（REST 等）からの未検証入力を表現します。すべての値は文字列として受け取り、 検証と型への解釈は 入力自身が {@code Result}
+ * 経由で行います。
  * </p>
  *
  * <p>
@@ -34,5 +44,38 @@ public record CreateArticleInput(
         @Nullable String title,
         @Nullable String body,
         @Nullable String bodyFormat,
-        @Nullable String introShort) implements CommandService.Input {
+        @Nullable String introShort) implements CommandService.Input<CreateArticleInput> {
+    @Override
+    public Policy<CreateArticleInput> policy() {
+        return new InputPolicy<>(CreateArticleInput::parsed);
+    }
+
+    Result<Values> parsed() {
+        return Result.zip(
+                ArticleTitle.fromInput(title()),
+                ArticleType.fromInput(articleType()),
+                resolveBody(body(), bodyFormat()),
+                IntroShort.fromInput(introShort()),
+                Values::new);
+    }
+
+    record Values(
+            ArticleTitle title,
+            ArticleType type,
+            MarkupContent body,
+            IntroShort introShort) {
+    }
+
+    /** 本文なし（blank 入力）を表す検証結果。完全に使い回せる定数。 */
+    private static final Result<MarkupContent> EMPTY_BODY = Result.success(MarkupContent.EMPTY);
+
+    private static Result<MarkupContent> resolveBody(@Nullable String content, @Nullable String format) {
+        return Optional.ofNullable(content)
+                .filter(StringUtils::isNotBlank)
+                .map(
+                        c -> MarkupContent.fromInput(c, format)
+                                .mapErrorFields(ArticleInputPaths::body))
+                .orElse(EMPTY_BODY);
+    }
+
 }

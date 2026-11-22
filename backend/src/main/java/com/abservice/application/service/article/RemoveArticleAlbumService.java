@@ -21,7 +21,7 @@ import lombok.AllArgsConstructor;
  * 記事のAlbum参照解除コマンドサービス
  *
  * <p>
- * {@link AlbumArticle#detachAlbum(com.abservice.domain.model.vo.common.BusinessDateTime)}
+ * {@link AlbumArticle#detachAlbum(com.abservice.domain.model.vo.time.BusinessDateTime)}
  * を呼び出すユースケースです。紐付け（{@link SetArticleAlbumService}）と違い、解除の可否は参照先アルバムの状態に
  * 依存しないため、ドメインサービスを経由せず記事だけで完結します（公開中の記事に非公開のアルバムを紐付けられないという
  * 規則は、参照を外す側には働きません）。
@@ -49,18 +49,14 @@ public class RemoveArticleAlbumService implements CommandService<RemoveArticleAl
     @WithTransaction
     @Override
     public Uni<RemoveArticleAlbumOutput> execute(RemoveArticleAlbumInput input) {
-        return input.asValidated()
+        return input.asValidated(RemoveArticleAlbumInput::parsed)
                 .flatMap(
-                        valid -> findExisting(toArticleId(valid))
-                                .map(claimed -> claimedAsOf(claimed, valid))
+                        valid -> findExisting(valid.articleId())
+                                .map(claimed -> claimedAsOf(claimed, input))
                                 .flatMap(RemoveArticleAlbumService::requireAlbumType)
                                 .flatMap(this::detached)
                                 .flatMap(articleRepository::saveWithRevision)
                                 .map(RemoveArticleAlbumService::toOutput));
-    }
-
-    private static Article.Id toArticleId(RemoveArticleAlbumInput valid) {
-        return Article.Id.of(Objects.requireNonNull(valid.articleId()));
     }
 
     private Uni<ArticleRepository.Revisioned> findExisting(Article.Id id) {

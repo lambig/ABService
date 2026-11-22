@@ -1,7 +1,7 @@
 package com.abservice.domain.service;
 
-import com.abservice.domain.model.vo.common.BusinessDate;
-import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.domain.model.vo.time.BusinessDate;
+import com.abservice.domain.model.vo.time.BusinessDateTime;
 import io.smallrye.mutiny.Uni;
 
 /**

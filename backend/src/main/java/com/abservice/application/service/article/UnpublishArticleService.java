@@ -10,14 +10,13 @@ import com.abservice.domain.service.BusinessDateTimeProvider;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import java.util.Objects;
 import lombok.AllArgsConstructor;
 
 /**
  * 記事非公開化コマンドサービス
  *
  * <p>
- * {@link Article#unpublish(com.abservice.domain.model.vo.common.BusinessDateTime)}
+ * {@link Article#unpublish(com.abservice.domain.model.vo.time.BusinessDateTime)}
  * を呼び出すユースケースです。参照先Albumの公開状態に関わらず常に許可されます
  * （非公開Albumを参照する記事は公開できませんが、記事の非公開化自体はいつでも可能）。
  * </p>
@@ -33,8 +32,7 @@ public class UnpublishArticleService implements CommandService<UnpublishArticleI
     @WithTransaction
     @Override
     public Uni<UnpublishArticleOutput> execute(UnpublishArticleInput input) {
-        return input.asValidated()
-                .map(valid -> Article.Id.of(Objects.requireNonNull(valid.articleId())))
+        return input.asValidated(UnpublishArticleInput::parsed)
                 .flatMap(this::findExisting)
                 .flatMap(
                         existing -> businessDateTimeProvider.now()

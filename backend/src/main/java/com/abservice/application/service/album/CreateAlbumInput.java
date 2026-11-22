@@ -1,14 +1,24 @@
 package com.abservice.application.service.album;
 
 import com.abservice.application.service.CommandService;
+import com.abservice.application.service.InputPolicy;
+import com.abservice.domain.model.policy.Policy;
+import com.abservice.domain.service.AlbumCreationService;
+import com.abservice.lib.Result;
+import java.util.Optional;
+import com.abservice.domain.model.vo.time.BusinessDate;
+import com.abservice.lib.ErrorResult;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
 
 /**
  * アルバム作成コマンドの入力DTO
  *
  * <p>
- * 外部（REST 等）からの未検証入力を表現します。すべての値は文字列として受け取り、 検証と型への解釈は
- * {@link CreateAlbumService} が {@code Result} 経由で行います。
+ * 外部（REST 等）からの未検証入力を表現します。すべての値は文字列として受け取り、 検証と型への解釈は 入力自身が {@code Result}
+ * 経由で行います。
  * </p>
  *
  * <p>
@@ -53,7 +63,7 @@ public record CreateAlbumInput(
         @Nullable String descriptionFormat,
         @Nullable EventInput event,
         @Nullable BasePriceInput basePrice,
-        @Nullable String originalWorkNote) implements CommandService.Input {
+        @Nullable String originalWorkNote) implements CommandService.Input<CreateAlbumInput> {
 
     /**
      * 頒布の基準額の入力DTO
@@ -92,4 +102,93 @@ public record CreateAlbumInput(
             @Nullable String circleName,
             @Nullable String note) {
     }
+    @Override
+    public Policy<CreateAlbumInput> policy() {
+        return new InputPolicy<>(CreateAlbumInput::parsed);
+    }
+
+    Result<AlbumCreationService.Values> parsed() {
+        return AlbumCreationService.parse(
+                new AlbumCreationService.Fields(
+                        title(),
+                        resolveReleaseDate(releaseDate()),
+                        artistDisplayName(),
+                        artistSortKey(),
+                        catalogNumber(),
+                        isdn(),
+                        coverImageKey(),
+                        description(),
+                        descriptionFormat(),
+                        toEventFields(event()),
+                        toBasePriceFields(basePrice()),
+                        originalWorkNote()));
+    }
+
+    private static AlbumCreationService.@Nullable EventFields toEventFields(
+            CreateAlbumInput.@Nullable EventInput event) {
+        return Optional.ofNullable(event)
+                .map(
+                        e -> new AlbumCreationService.EventFields(
+                                e.name(),
+                                resolveEventDate(e.date()),
+                                e.place(),
+                                e.spaceNumber(),
+                                e.circleName(),
+                                e.note()))
+                .orElse(null);
+    }
+
+    private static AlbumCreationService.@Nullable BasePriceFields toBasePriceFields(
+            CreateAlbumInput.@Nullable BasePriceInput basePrice) {
+        return Optional.ofNullable(basePrice)
+                .map(
+                        p -> new AlbumCreationService.BasePriceFields(
+                                p.amount(),
+                                p.currency()))
+                .orElse(null);
+    }
+
+    private static Result<BusinessDate> resolveReleaseDate(@Nullable String value) {
+        return Optional.ofNullable(value)
+                .filter(StringUtils::isNotBlank)
+                .map(
+                        v -> parseDate(
+                                v,
+                                "releaseDate",
+                                "ALBUM_RELEASE_DATE_INVALID"))
+                .orElseGet(
+                        () -> Result.failure(
+                                new ErrorResult(
+                                        "releaseDate",
+                                        "リリース日は必須です",
+                                        "ALBUM_RELEASE_DATE_REQUIRED")));
+    }
+
+    private static Result<Optional<BusinessDate>> resolveEventDate(@Nullable String value) {
+        return Optional.ofNullable(value)
+                .filter(StringUtils::isNotBlank)
+                .map(
+                        v -> parseDate(
+                                v,
+                                "event.date",
+                                "ALBUM_EVENT_DATE_INVALID")
+                                .map(Optional::of))
+                .orElseGet(() -> Result.<Optional<BusinessDate>>success(Optional.empty()));
+    }
+
+    private static Result<BusinessDate> parseDate(
+            String value,
+            String field,
+            String invalidErrorCode) {
+        try {
+            return Result.success(BusinessDate.of(LocalDate.parse(value)));
+        } catch (DateTimeParseException e) {
+            return Result.failure(
+                    new ErrorResult(
+                            field,
+                            "日付の形式が不正です: " + value,
+                            invalidErrorCode));
+        }
+    }
+
 }

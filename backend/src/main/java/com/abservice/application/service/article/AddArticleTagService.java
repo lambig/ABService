@@ -4,12 +4,10 @@ import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.EntityNotFoundException;
-import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.entity.article.ArticleTag;
 import com.abservice.domain.repository.article.ArticleRepository;
 import com.abservice.domain.repository.article.ArticleTagRepository;
-import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -45,8 +43,8 @@ public class AddArticleTagService implements CommandService<AddArticleTagInput, 
     @WithTransaction
     @Override
     public Uni<AddArticleTagOutput> execute(AddArticleTagInput input) {
-        return Uni.createFrom()
-                .item(() -> validate(input))
+        return input.asValidated(AddArticleTagInput::parsed)
+                .map(AddArticleTagService::toValues)
                 .flatMap(
                         valid -> identified(valid.tag())
                                 .flatMap(tag -> addTagTo(valid.articleId(), tag)));
@@ -62,13 +60,8 @@ public class AddArticleTagService implements CommandService<AddArticleTagInput, 
     private record ValidInput(Article.Id articleId, ArticleTag tag) {
     }
 
-    private static ValidInput validate(AddArticleTagInput input) {
-        return Result.zip(
-                Article.Id.fromInput(input.articleId())
-                        .mapErrorFields(field -> "articleId"),
-                ArticleTag.fromInput(input.name()),
-                ValidInput::new)
-                .resolve(ValidationException::new);
+    private static ValidInput toValues(AddArticleTagInput.Values input) {
+        return new ValidInput(input.articleId(), ArticleTag.create(input.name()));
     }
 
     /*

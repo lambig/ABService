@@ -6,7 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.abservice.domain.model.CrossAggregateOperation;
 import com.abservice.domain.model.aggregate.article.AlbumArticle;
 import com.abservice.domain.model.vo.article.AlbumReferenceLostReason;
-import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.domain.model.vo.time.BusinessDateTime;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import java.util.function.BiFunction;
 import org.junit.jupiter.api.DisplayName;
