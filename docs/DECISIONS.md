@@ -92,7 +92,7 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 ## 6. トラック・チューンのモデリング
 
 **判断**:
-- Track は**アルバムを構成するトラック**とし、同じチューン構成でも revise（改訂）したものは別 Track として扱う
+- Track は**アルバムを構成するトラック**とし、作品として別個のトラックを制作する revise（改訂）は別 Track として扱う。同じトラックの登録情報の訂正は区別し、IDを保持する。訂正後の構成を一度に検証する契約は [Track.replaceTunes](../backend/src/main/java/com/abservice/domain/model/aggregate/album/Track.java) と [Album.replaceTracks](../backend/src/main/java/com/abservice/domain/model/aggregate/album/Album.java) を参照する（#89・#611）。
 - 1 Track に 0..n 個のチューン（曲）が順序付きで紐づく（1トラックに複数曲のセットを収録できる）
 - Tune はトラッド／オリジナル／アレンジを区別し、アレンジの原曲は**テキスト情報として持つ**（原曲そのものをレコードにしない）
 - トラック上のチューン名は TrackTune が**テキストとして持ち**、`Tune` マスタとの同定は行わない。同定の要否は、チューンを横断して引く機能を作る時点で判断する
