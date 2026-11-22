@@ -43,7 +43,7 @@ jobs:
         with:
           node-version-file: .nvmrc
       - name: Verify CI selection and aggregation
-        run: node --test scripts/ci-policy.test.mjs scripts/browser-*.test.mjs scripts/admin-audio-bridge.test.mjs
+        run: node --test scripts/ci-policy.test.mjs scripts/browser-*.test.mjs scripts/admin-audio-bridge.test.mjs e2e/scripts/start-backend.test.mjs
       - name: Verify Java denylist preservation
         run: sh backend/security/update-java-blocklist.test.sh
       - name: Verify local commit identity boundary
