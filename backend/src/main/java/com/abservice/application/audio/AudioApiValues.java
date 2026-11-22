@@ -2,10 +2,11 @@ package com.abservice.application.audio;
 
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.EntityId;
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.lib.ErrorResult;
-import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /** 管理APIから受け取る技術IDと編集世代の検証。 */
@@ -14,24 +15,40 @@ public final class AudioApiValues {
     }
 
     public static UUID uuid(@Nullable String value, String field) {
-        return Optional.ofNullable(value)
-                .filter(EntityId::isValidUuid)
-                .map(UUID::fromString)
-                .orElseThrow(() -> invalid(field));
+        return uuidPolicy(field)
+                .verify(value, UUID::fromString)
+                .resolve(ValidationException::new);
     }
 
-    public static int revision(@Nullable Integer value) {
-        return Optional.ofNullable(value)
-                .filter(revision -> revision >= 0)
-                .filter(revision -> revision < Integer.MAX_VALUE)
-                .orElseThrow(() -> invalid("expectedRevision"));
-    }
-
-    private static ValidationException invalid(String field) {
-        return new ValidationException(List.of(
+    /**
+     * @param field
+     *            入力の位置
+     * @return UUIDの形式だけを検証する規則
+     */
+    public static Policy<String> uuidPolicy(String field) {
+        return Policy.of(
+                EntityId::isValidUuid,
                 new ErrorResult(
                         field,
                         "有効な値を指定してください",
-                        "INVALID_AUDIO_ARGUMENT")));
+                        "INVALID_AUDIO_ARGUMENT"));
+    }
+
+    public static int revision(@Nullable Integer value) {
+        return revisionPolicy()
+                .verify(value, Function.identity())
+                .resolve(ValidationException::new);
+    }
+
+    public static Policy<Integer> revisionPolicy() {
+        return Policy.of(
+                value -> Optional.ofNullable(value)
+                        .filter(revision -> revision >= 0)
+                        .filter(revision -> revision < Integer.MAX_VALUE)
+                        .isPresent(),
+                new ErrorResult(
+                        "expectedRevision",
+                        "有効な値を指定してください",
+                        "INVALID_AUDIO_ARGUMENT"));
     }
 }

@@ -23,21 +23,20 @@ docker/
 ローカル開発・CI専用の基本設定。すべての公開ポートは127.0.0.1に限定する。以下のサービスを含みます：
 
 - **PostgreSQL**: メインデータベース
-- **Mailpit**: 開発用SMTPサーバー（接続先のサービス名 `mailhog` は維持）
 - **MinIO**: S3互換オブジェクトストレージ
 
 ### docker-compose.dev.yml
-開発環境用の拡張設定。上記サービスに加えて：
-
-- **pgAdmin**: PostgreSQL管理ツール
-- デバッグ用の設定とログ出力
+名前付きボリュームとPostgreSQLの明示的なログ設定を使う構成です。
+基本設定と組み合わせて指定し、既定のoverrideとは併用しません。
 
 ### docker-compose.override.yml
-開発環境用のオーバーライド設定。ローカル開発時の設定を上書きします。
+既定で基本設定へ重なる開発用設定です。PostgreSQL・MinIOのデータをホストのディレクトリへ保存します。
+公開ポートは基本設定の127.0.0.1限定を引き継ぎます。
+dev構成は名前付きボリュームを使うため別に保持し、既存データを暗黙に移し替えません。
 
 ## 使用方法
 
-固定した上流イメージにOS・補助ツールのセキュリティ修正を加えるため、PostgreSQL・メール・pgAdminもローカルでビルドする。Dockerfileの変更後は `--build` を付けて再起動する。既存DBのボリュームは保持する。
+PostgreSQLとMinIOは固定したソース・上流イメージと必要な修正からローカルでビルドします。Dockerfileの変更後は `--build` を付けて再起動します。既存DBのボリュームは保持します。
 
 ### 基本サービスの起動
 
@@ -45,7 +44,7 @@ docker/
 # ローカル開発用サービスを起動
 docker-compose up -d --build
 
-# 開発環境用サービスを起動（管理ツール含む）
+# 名前付きボリュームとPostgreSQLのログ設定を使って起動
 docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 
 # ログを確認
@@ -80,9 +79,8 @@ docker-compose down -v
 - **ユーザー**: abservice
 - **パスワード**: abservice
 
-テストは開発用と別のデータベースへ書く（#252）。統合テストは実行のたびに `abservice_test` を空にし、
-E2E 用の backend（`npm run dev:backend:e2e`）は起動のたびに `abservice_e2e` を空にする。開発中に
-作ったデータがテストで消えることも、テストの残骸が E2E の母集団へ混ざることもない。
+テストは開発用と別のデータベースへ書く（#252）。統合テストは実行のたびに `abservice_test` を空にする。
+E2E用のbackendの起動・初期化・停止は[E2Eガイド](../e2e/README.md)を参照する。
 
 テスト用のデータベースは初期化スクリプト（`docker/postgres/init/01-init-databases.sql`）が作る。
 このスクリプトはデータ領域が空のときだけ走るため、**既にボリュームがある環境では手で作る**。
@@ -91,10 +89,6 @@ E2E 用の backend（`npm run dev:backend:e2e`）は起動のたびに `abservic
 docker-compose exec -T postgres psql -U abservice -d abservice -c "CREATE DATABASE abservice_test"
 docker-compose exec -T postgres psql -U abservice -d abservice -c "CREATE DATABASE abservice_e2e"
 ```
-
-### Mailhog
-- **SMTPポート**: 1025
-- **Web UI**: http://localhost:8025
 
 ### MinIO
 - **APIポート**: 9000
@@ -133,10 +127,6 @@ Docker Hub / Quay の既成イメージ取得障害（#351、#459）を避ける
 起動・バケット初期化に続いて Backend full check と実スタック E2E を最後まで通す。
 署名付き PUT、アセットの読み取り・削除、`assets/` の匿名読み取りと `pending/` の非公開性を確認する。
 ビルドしたバイナリの `--version` には上流コミットと Go の版が出る。ライセンスはイメージ内に保持する。
-
-### pgAdmin（開発環境のみ）
-- **ポート**: 5050
-- **ユーザー**: admin@abservice.com / admin123
 
 ## データの永続化
 
@@ -190,13 +180,8 @@ docker-compose logs -f postgres
 
 ## セキュリティ注意事項
 
-この設定は開発環境用です。本番環境では以下を必ず変更してください：
-
-1. **パスワード**: すべてのデフォルトパスワードを変更
-2. **ネットワーク**: 適切なネットワーク設定を適用
-3. **SSL/TLS**: HTTPS接続を有効化
-4. **ファイアウォール**: 不要なポートを閉じる
-5. **アクセス制限**: 管理者アクセスを制限
+この構成と例示の資格情報はローカル開発・CI専用です。本番リリースに流用しません。
+本番構成とリリース手順は[infra/README.md](../infra/README.md)を参照してください。
 
 ## カスタマイズ
 

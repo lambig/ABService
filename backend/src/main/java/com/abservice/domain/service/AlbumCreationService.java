@@ -8,9 +8,9 @@ import com.abservice.domain.model.vo.album.Isdn;
 import com.abservice.domain.model.vo.album.OriginalWorkNote;
 import com.abservice.domain.model.vo.album.Price;
 import com.abservice.domain.model.vo.credit.ArtistCredit;
-import com.abservice.domain.model.vo.common.AssetKey;
-import com.abservice.domain.model.vo.common.BusinessDate;
-import com.abservice.domain.model.vo.common.EventReleasedAt;
+import com.abservice.domain.model.vo.asset.AssetKey;
+import com.abservice.domain.model.vo.time.BusinessDate;
+import com.abservice.domain.model.vo.album.EventReleasedAt;
 import com.abservice.domain.model.vo.markup.MarkupContent;
 import com.abservice.lib.Result;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -121,40 +121,113 @@ public class AlbumCreationService implements DomainService {
             @Nullable EventFields event,
             @Nullable BasePriceFields basePrice,
             @Nullable String originalWorkNote) {
+        return parse(
+                new Fields(
+                        title,
+                        releaseDate,
+                        artistDisplayName,
+                        artistSortKey,
+                        catalogNumber,
+                        isdn,
+                        coverImageKey,
+                        description,
+                        descriptionFormat,
+                        event,
+                        basePrice,
+                        originalWorkNote))
+                .map(AlbumCreationService::fromValues);
+    }
+
+    @DomainFactory
+    public Album create(Values values) {
+        return fromValues(values);
+    }
+
+    @DomainFactory
+    private static Album fromValues(Values values) {
+        return Album.create(
+                values.title(),
+                values.releaseDate(),
+                values.artistCredit(),
+                values.description(),
+                values.event(),
+                values.catalogNumber(),
+                values.isdn(),
+                values.coverImageKey(),
+                values.basePrice(),
+                values.originalWorkNote());
+    }
+
+    /** 検証済みの値。IDの生成と集約の作成は含まない。 */
+    public record Values(
+            AlbumTitle title,
+            BusinessDate releaseDate,
+            ArtistCredit artistCredit,
+            MarkupContent description,
+            @Nullable EventReleasedAt event,
+            @Nullable CatalogNumber catalogNumber,
+            @Nullable Isdn isdn,
+            @Nullable AssetKey coverImageKey,
+            @Nullable Price basePrice,
+            @Nullable OriginalWorkNote originalWorkNote) {
+    }
+
+    public record Fields(
+            @Nullable String title,
+            Result<BusinessDate> releaseDate,
+            @Nullable String artistDisplayName,
+            @Nullable String artistSortKey,
+            @Nullable String catalogNumber,
+            @Nullable String isdn,
+            @Nullable String coverImageKey,
+            @Nullable String description,
+            @Nullable String descriptionFormat,
+            @Nullable EventFields event,
+            @Nullable BasePriceFields basePrice,
+            @Nullable String originalWorkNote) {
+    }
+
+    public static Result<Values> parse(Fields input) {
         return Result.zip(
                 Result.zip(
-                        AlbumTitle.fromInput(title)
+                        AlbumTitle.fromInput(input.title())
                                 .withErrorField("title"),
-                        releaseDate,
-                        ArtistCredit.fromInput(artistDisplayName, artistSortKey)
+                        input.releaseDate(),
+                        ArtistCredit.fromInput(input.artistDisplayName(), input.artistSortKey())
                                 .withErrorField("artistDisplayName"),
                         TitleDateArtist::new),
                 Result.zip(
-                        resolveOptional(CatalogNumber::fromInput, catalogNumber)
+                        resolveOptional(CatalogNumber::fromInput, input.catalogNumber())
                                 .withErrorField("catalogNumber"),
-                        resolveOptional(Isdn::fromInput, isdn)
+                        resolveOptional(Isdn::fromInput, input.isdn())
                                 .withErrorField("isdn"),
-                        resolveEvent(event),
+                        resolveEvent(input.event()),
                         OptionalFields::new),
                 Result.zip(
-                        resolveOptional(AssetKey::fromInput, coverImageKey)
+                        resolveOptional(AssetKey::fromInput, input.coverImageKey())
                                 .withErrorField("coverImageKey"),
-                        resolveDescription(description, descriptionFormat),
-                        resolveBasePrice(basePrice),
-                        resolveOptional(OriginalWorkNote::fromInput, originalWorkNote)
+                        resolveDescription(input.description(), input.descriptionFormat()),
+                        resolveBasePrice(input.basePrice()),
+                        resolveOptional(OriginalWorkNote::fromInput, input.originalWorkNote())
                                 .withErrorField("originalWorkNote"),
                         Extras::new),
-                (base, optional, extra) -> Album.create(
+                (base, optional, extra) -> new Values(
                         base.title(),
                         base.releaseDate(),
                         base.artistCredit(),
                         extra.description(),
-                        optional.event().orElse(null),
-                        optional.catalogNumber().orElse(null),
-                        optional.isdn().orElse(null),
-                        extra.coverImageKey().orElse(null),
-                        extra.basePrice().orElse(null),
-                        extra.originalWorkNote().orElse(null)));
+                        optional.event()
+                                .orElse(null),
+                        optional.catalogNumber()
+                                .orElse(null),
+                        optional.isdn()
+                                .orElse(null),
+                        extra.coverImageKey()
+                                .orElse(null),
+                        extra.basePrice()
+                                .orElse(null),
+                        extra.originalWorkNote()
+                                .orElse(null)));
     }
 
     /** 説明なし（blank 入力）を表す検証結果。完全に使い回せる定数。 */

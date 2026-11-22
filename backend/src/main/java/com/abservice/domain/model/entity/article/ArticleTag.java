@@ -47,7 +47,8 @@ public final class ArticleTag implements DomainEntity<ArticleTag, ArticleTag.@No
                 .resolve(Policy::illegalArgument);
     }
 
-    private static Policy<String> namePolicy() {
+    /** @return タグを生成せずに名前を検証する規則 */
+    public static Policy<String> namePolicy() {
         return Policy.all(
                 Policy.of(
                         StringUtils::isNotBlank,
