@@ -57,6 +57,8 @@ export function backendLaunch(env, directory = root) {
     'quarkus.datasource.jdbc.url': jdbc,
     'quarkus.datasource.reactive.url': reactive,
     'quarkus.flyway.jdbc-url': jdbc,
+    'quarkus.flyway.username': '${quarkus.datasource.username}',
+    'quarkus.flyway.password': '${quarkus.datasource.password}',
     'quarkus.flyway.clean-at-start': 'true',
     'abservice.db.host': host,
     'abservice.db.port': port,

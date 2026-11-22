@@ -118,6 +118,16 @@ test('preserves explicit test credentials and S3 configuration', (t) => {
   };
   const launch = backendLaunch(env, fixture(t));
   for (const [key, value] of Object.entries(env)) assert.equal(launch.options.env[key], value);
+  for (const profile of ['', '%dev.']) {
+    for (const name of ['username', 'password']) {
+      assert.ok(
+        launch.args.includes(
+          `-D${profile}quarkus.flyway.${name}=` + '${quarkus.datasource.' + name + '}',
+        ),
+      );
+    }
+  }
+  assert.ok(!launch.args.some((arg) => arg.includes(env.DB_PASSWORD)));
 });
 
 test('requires exactly one runner JAR', (t) => {
