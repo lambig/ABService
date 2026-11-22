@@ -109,16 +109,14 @@ ABService/
 
 ### 必要な環境
 
-- Java 25 (Amazon Corretto 25 - 固定)
+- Java（Amazon Corretto。必要な版は[build定義](backend/build.gradle)を参照）
 - Node.js（版は `.nvmrc` が正。Active LTS の最新メジャーに固定する。`nvm use` で従う）
 - Docker & Docker Compose
 - Git
 
 ### セットアップ手順
 
-1. リポジトリのクローン
-2. 開発環境の起動: `docker-compose up -d`
-3. 各サービスの個別起動（必要に応じて）
+リポジトリを取得し、[ローカルサービスの起動手順](docker/README.md)と[ビルド・起動・検査](README.md#開発)に従います。
 
 ### 公開用 Git identity
 

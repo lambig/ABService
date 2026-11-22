@@ -5,12 +5,14 @@
 `docs/` 配下の全ドキュメント（および設計・仕様を記述する Markdown 全般）に適用する共通ルール:
 
 - **実装が正になった事実を文書に再記述しない**。テーブル定義・カラム一覧・型階層・クラス構成・APIの形・コード例は、マイグレーション（`backend/src/main/resources/db/migration/`）・実クラス・静的解析の強制ルールが正。文書に置くと二重管理になり、必ず乖離する。
-- **文書に残すのは実装から導けないものだけ**: なぜその構造にしたかという判断（[DECISIONS.md](DECISIONS.md)）、どう書くかの意図（[CODING_GUIDELINES.md](CODING_GUIDELINES.md)）、実装がどこまで通っているかの現状（[STATUS_AND_ROADMAP.md](STATUS_AND_ROADMAP.md)）。まだ実装がない計画は GitHub issue。
+- **文書に残すのは実装から導けないものだけ**: なぜその構造にしたかという判断（[DECISIONS.md](DECISIONS.md)）、どう書くかの意図（[CODING_GUIDELINES.md](CODING_GUIDELINES.md)）。まだ実装がない計画は GitHub issue。
 - **実装が入った時点で、その事実を記述していた文書・節は削除する**。「設計→実装」の途中で書いた文書は、実装が入れば役目を終える。判断の記録だけを [DECISIONS.md](DECISIONS.md) へ移して本体は消す。
 - **状態を現在形で記述する**。「いま何がどうなっているか」を書く。
 - **作業ログ（実施イベント）を残さない**。`✅完了` / `〜を追加した` / `〜を実装した` / 「（フェーズX完了を反映）」といったイベント記録は書かない。**何をいつ実施したかの正は git コミット履歴**とする。
 - **同じ事実を複数箇所に重複記載しない**。状態が変わったら1箇所だけ更新し、残タスク一覧の完了項目は「完了」マークではなく**削除**する。
 - **フロー情報は GitHub issue、ストック文書は md**。残タスク・技術的負債・段階移行・進行状況・作業の経緯は issue に置き、md へ転記しない。[DECISIONS.md](DECISIONS.md)（設計判断の現在の正）・[ARCHITECTURE.md](ARCHITECTURE.md)・[CODING_GUIDELINES.md](CODING_GUIDELINES.md)・[../backend/TEST_GUIDE.md](../backend/TEST_GUIDE.md) はストック文書であり、issue へ寄せる対象ではない。
+
+進捗・残作業・受け入れは[担当Issue](https://github.com/lambig/ABService/issues)と[milestone](https://github.com/lambig/ABService/milestones)、順序と依存は[ロードマップ #224](https://github.com/lambig/ABService/issues/224)を参照する。実装状況の一覧を別文書で維持しない。
 
 ## ドキュメント一覧
 
@@ -18,7 +20,6 @@
 |---|---|
 | [ab-architecture-rules](https://github.com/lambig/ab-architecture-rules) | ABの設計方針を選択し、メソッドアクセス規則の許容・違反・修正を再現する利用ガイド |
 | [LISTENING_PREPARATION.md](LISTENING_PREPARATION.md) | 管理画面から別の試聴機を接続し、保存・切替・解析・再生へ進む一般操作 |
-| [STATUS_AND_ROADMAP.md](STATUS_AND_ROADMAP.md) | 実装がどこまで通っているかの現状。残タスクは持たない。残作業と進捗は各 issue とリリース別 milestone、順序と依存は [ロードマップ #224](https://github.com/lambig/ABService/issues/224) が正。バージョン未定の横断バックログは「v1.0以降」 |
 | [DECISIONS.md](DECISIONS.md) | 設計判断の記録。なぜその構造にしたか（実装から導けない部分だけ） |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | システム構成・認証方式・アセット経路など、コード単体からは見えない全体像 |
 | [CODING_GUIDELINES.md](CODING_GUIDELINES.md) | 設計上の意図と、静的解析で強制しているルールの索引 |
