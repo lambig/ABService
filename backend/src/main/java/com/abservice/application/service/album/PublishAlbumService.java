@@ -17,7 +17,7 @@ import lombok.AllArgsConstructor;
  * アルバム公開コマンドサービス
  *
  * <p>
- * {@link Album#publish(com.abservice.domain.model.vo.common.BusinessDateTime)}
+ * {@link Album#publish(com.abservice.domain.model.vo.time.BusinessDateTime)}
  * を呼び出すユースケースです。Albumの公開自体には他集約との整合性制約はありません
  * （非公開Albumを参照する記事を公開できない制約は{@code PublishArticleService}側で検証します）。
  * </p>
