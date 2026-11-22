@@ -21,7 +21,7 @@ import lombok.AllArgsConstructor;
  * 記事のAlbum参照解除コマンドサービス
  *
  * <p>
- * {@link AlbumArticle#detachAlbum(com.abservice.domain.model.vo.common.BusinessDateTime)}
+ * {@link AlbumArticle#detachAlbum(com.abservice.domain.model.vo.time.BusinessDateTime)}
  * を呼び出すユースケースです。紐付け（{@link SetArticleAlbumService}）と違い、解除の可否は参照先アルバムの状態に
  * 依存しないため、ドメインサービスを経由せず記事だけで完結します（公開中の記事に非公開のアルバムを紐付けられないという
  * 規則は、参照を外す側には働きません）。

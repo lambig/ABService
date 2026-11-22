@@ -7,7 +7,7 @@ import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.entity.article.ArticleTag;
 import com.abservice.domain.model.vo.article.ArticleType;
-import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.domain.model.vo.time.BusinessDateTime;
 import com.abservice.domain.repository.article.ArticleRepository;
 import com.abservice.infrastructure.persistence.datasource.ArticleDataSource;
 import com.abservice.infrastructure.persistence.datasource.ArticleTagDataSource;

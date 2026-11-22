@@ -1,4 +1,6 @@
-package com.abservice.domain.model.vo.common;
+package com.abservice.domain.model.vo.audio;
+
+import com.abservice.domain.model.vo.link.Url;
 
 import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.ValueObject;

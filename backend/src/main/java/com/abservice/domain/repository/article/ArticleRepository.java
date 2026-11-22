@@ -3,7 +3,7 @@ package com.abservice.domain.repository.article;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.vo.article.ArticleType;
-import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.domain.model.vo.time.BusinessDateTime;
 import com.abservice.domain.repository.Repository;
 import io.smallrye.mutiny.Uni;
 

@@ -2,7 +2,7 @@ package com.abservice.domain.model.vo.article;
 
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.vo.ValueObject;
-import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.domain.model.vo.time.BusinessDateTime;
 import java.util.Optional;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;

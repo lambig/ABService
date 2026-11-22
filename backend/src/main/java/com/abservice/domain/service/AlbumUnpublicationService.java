@@ -3,7 +3,7 @@ package com.abservice.domain.service;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.CrossAggregateOperation;
-import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.domain.model.vo.time.BusinessDateTime;
 import com.abservice.domain.repository.article.ArticleRepository;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
