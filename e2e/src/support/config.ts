@@ -1,7 +1,7 @@
 /**
  * スタックの所在と資格情報。
  *
- * 既定はローカル開発の構成（docker compose の DB + `quarkusDev` の backend + 静的配信）。
+ * 起動手順と専用DBの扱いは e2e/README.md を参照する。
  * CI では環境変数で上書きする。
  */
 export const stack = {
