@@ -1,9 +1,11 @@
 """Optional Linux/amd64 test-image cache; never cache runtime data or credentials."""
 
+import hashlib
 import json
 from pathlib import Path
 import re
 import subprocess
+import tarfile
 import tempfile
 
 
@@ -14,6 +16,35 @@ def registry_throttled(stderr):
     if isinstance(stderr, bytes):
         stderr = stderr.decode('utf-8', errors='replace')
     return 'toomanyrequests:' in (stderr or '').lower()
+
+
+def loaded_reference(output):
+    references = {line.split(': ', 1)[1] for line in output.splitlines()
+                  if line.startswith(('Loaded image ID: ', 'Loaded image: '))}
+    if len(references) != 1:
+        raise ValueError('Image load must identify exactly one restored image')
+    return references.pop()
+
+
+def verify_archive(archive, config_digest):
+    # Read the daemon's export without extracting paths into the filesystem.
+    # Image IDs name configs in the classic store, but manifests/indexes in containerd.
+    with tarfile.open(archive, 'r:') as saved:
+        def read(name):
+            member = saved.getmember(name)
+            if not member.isfile() or member.size > 1024 * 1024:
+                raise ValueError('Invalid image metadata in Docker archive')
+            return saved.extractfile(member).read()
+
+        manifest = json.loads(read('manifest.json'))
+        if not isinstance(manifest, list) or len(manifest) != 1:
+            raise ValueError('Image archive must contain exactly one platform image')
+        config = read(manifest[0]['Config'])
+        if 'sha256:' + hashlib.sha256(config).hexdigest() != config_digest:
+            raise ValueError('Image config does not match the pinned content')
+        metadata = json.loads(config)
+        if (metadata.get('os'), metadata.get('architecture')) != ('linux', 'amd64'):
+            raise ValueError('Image config does not match the pinned platform')
 
 
 def cached_image(image, directory, run, pull):
@@ -44,8 +75,7 @@ def cached_image(image, directory, run, pull):
         raise ValueError('Image cache archive must not be a symlink')
     hit = archive.is_file()
     if hit:
-        run('docker', 'image', 'load', '--input', str(archive), timeout=120)
-        reference = image_id
+        reference = loaded_reference(run('docker', 'image', 'load', '--input', str(archive), timeout=120))
     else:
         reference = image
         try:
@@ -59,20 +89,24 @@ def cached_image(image, directory, run, pull):
             print('Public ECR throttled; trying the identical pinned AWS Docker Hub image', flush=True)
             pull(reference)
     actual = json.loads(run('docker', 'image', 'inspect', reference))[0]
-    if (actual['Id'], actual['Os'], actual['Architecture']) != (image_id, 'linux', 'amd64'):
-        raise ValueError('Cached/pulled image does not match the pinned config and platform')
-    if not hit:
-        # Save only the image, before any test containers or credentials are used.
-        # Reserve a fresh file instead of following a pre-existing .partial link.
-        with tempfile.NamedTemporaryFile(dir=directory, suffix='.partial', delete=False) as output:
-            temporary = Path(output.name)
-        try:
-            run('docker', 'image', 'save', '--output', str(temporary), image_id, timeout=120)
+    runtime_id = actual['Id']
+    if not re.fullmatch(r'sha256:[0-9a-f]{64}', runtime_id):
+        raise ValueError('Docker did not return an immutable image ID')
+    if (actual['Os'], actual['Architecture']) != ('linux', 'amd64'):
+        raise ValueError('Cached/pulled image does not match the pinned platform')
+    # Verify the exported config bytes (including layer diff IDs), not the store's ID convention.
+    # Docker validates layer content on load/pull. Always export by immutable ID, never by a tag.
+    with tempfile.NamedTemporaryFile(dir=directory, suffix='.partial', delete=False) as output:
+        temporary = Path(output.name)
+    try:
+        run('docker', 'image', 'save', '--output', str(temporary), runtime_id, timeout=120)
+        verify_archive(temporary, image_id)
+        if not hit:
             temporary.chmod(0o644)
             temporary.replace(archive)
-        finally:
-            temporary.unlink(missing_ok=True)
-    print(f'Transport image cache {"hit" if hit else "miss"}: verified {image_id}', flush=True)
-    # Docker archives need not retain RepoDigests. Use the verified content ID,
-    # not a restored mutable tag, and keep Compose startup at --pull never.
-    return image_id
+    finally:
+        temporary.unlink(missing_ok=True)
+    print(f'Transport image cache {"hit" if hit else "miss"}: verified config {image_id}, image {runtime_id}',
+          flush=True)
+    # Use the verified daemon ID, not a config digest or a restored mutable tag.
+    return runtime_id

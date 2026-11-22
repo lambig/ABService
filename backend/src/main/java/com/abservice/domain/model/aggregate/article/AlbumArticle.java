@@ -147,6 +147,7 @@ public final class AlbumArticle implements Article {
      *            現在日時
      * @return 更新されたアルバム紹介記事
      */
+    @CrossAggregateTransition
     public @NonNull AlbumArticle loseAlbumReference(@NonNull AlbumReferenceLostReason reason,
             @NonNull BusinessDateTime currentDateTime) {
         return albumReference.activeAlbumId()

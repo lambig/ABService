@@ -1,132 +1,134 @@
-/* eslint-disable functional/immutable-data -- Synthetic FLAC headers and browser fault injection exercise allocation boundaries. */
+/* eslint-disable functional/immutable-data -- Browser probes count asset body reads and overview decoding. */
 import { expect, test } from "@playwright/test";
-import { waveformInputAllowed } from "../src/waveform";
 import { distribute, prepareAndReload, openManagement } from "./support";
 
-const header = (seconds: number, channels = 2, rate = 48000) => {
-  const bytes = new Uint8Array(42);
-  const view = new DataView(bytes.buffer);
-  view.setUint32(0, 0x664c6143);
-  view.setUint32(4, 34);
-  view.setBigUint64(
-    18,
-    (BigInt(rate) << 44n) |
-      (BigInt(channels - 1) << 41n) |
-      (15n << 36n) |
-      BigInt(seconds * rate),
-  );
-  return bytes;
-};
+type SelectionProbe = { reads: number; decodes: number };
+type Scope = typeof globalThis & { selectionProbe: SelectionProbe };
 
-test("波形予算: 容量・長さ・PCM・不明ヘッダーを全読込の前に判定", async () => {
-  const small = new Blob([header(600)]);
-  expect(await waveformInputAllowed(small)).toBe(true);
-  expect(await waveformInputAllowed(new Blob([header(601)]))).toBe(false);
-  expect(await waveformInputAllowed(new Blob([header(7200)]))).toBe(false);
-  expect(await waveformInputAllowed(new Blob([header(0)]))).toBe(false);
-  expect(await waveformInputAllowed(new Blob([header(1, 2, 0)]))).toBe(false);
-  expect(await waveformInputAllowed(new Blob([header(10, 8)]))).toBe(false);
-  expect(await waveformInputAllowed(new Blob([header(600, 2, 192000)]))).toBe(
-    false,
-  );
-  expect(await waveformInputAllowed(new Blob([new Uint8Array(42)]))).toBe(
-    false,
-  );
-  expect(await waveformInputAllowed(new Blob([header(1).slice(0, 41)]))).toBe(
-    false,
-  );
-  const unknownBlock = header(1);
-  unknownBlock[4] = 1;
-  expect(await waveformInputAllowed(new Blob([unknownBlock]))).toBe(false);
-  const wrongLength = header(1);
-  wrongLength[7] = 33;
-  expect(await waveformInputAllowed(new Blob([wrongLength]))).toBe(false);
-  const last = header(1);
-  last[4] = 128;
-  expect(await waveformInputAllowed(new Blob([last]))).toBe(true);
-  const reads: number[] = [];
-  class Sized extends Blob {
-    constructor(private readonly reportedSize: number) {
-      super([header(600)]);
-    }
-    override get size() {
-      return this.reportedSize;
-    }
-    override slice(start?: number, end?: number) {
-      reads.push((end ?? 0) - (start ?? 0));
-      return super.slice(start, end);
-    }
-    override arrayBuffer(): Promise<ArrayBuffer> {
-      throw new Error("Full read forbidden");
-    }
-  }
-  expect(await waveformInputAllowed(new Sized(64 * 1024 * 1024))).toBe(true);
-  expect(reads).toEqual([42]);
-  reads.length = 0;
-  for (const size of [64 * 1024 * 1024 + 1, 256 * 1024 * 1024]) {
-    expect(await waveformInputAllowed(new Sized(size))).toBe(false);
-  }
-  expect(reads).toEqual([]);
-});
-
-test("長尺波形をdecodeせず、オフラインの再生中切替とシークを維持", async ({
-  page,
-  request,
-  context,
-}) => {
-  await distribute(request, "v1");
-  await prepareAndReload(page);
-  await context.setOffline(true);
-  await page.evaluate(
-    (longHeader) => {
-      /* eslint-disable-next-line @typescript-eslint/unbound-method -- Called with the native blob receiver. */
+for (const cache of ["missing", "saved", "invalid", "oversized"] as const) {
+  test(`selection with ${cache} waveform does not scan audio, including reselection and reload`, async ({
+    page,
+    request,
+    context,
+  }) => {
+    await distribute(request, "v1");
+    await prepareAndReload(page);
+    await (cache === "missing"
+      ? Promise.resolve()
+      : page.evaluate(async (mode) => {
+          const root = await navigator.storage.getDirectory();
+          const assets = await root.getDirectoryHandle("abservice-assets-v1");
+          const overviews = await root.getDirectoryHandle(
+            "waveform-overviews-v1",
+            {
+              create: true,
+            },
+          );
+          const iterator = (
+            assets as FileSystemDirectoryHandle & {
+              values: () => AsyncIterableIterator<FileSystemFileHandle>;
+            }
+          ).values();
+          for await (const handle of iterator) {
+            const file = await handle.getFile();
+            const checksum = Array.from(
+              new Uint8Array(
+                await crypto.subtle.digest("SHA-256", await file.arrayBuffer()),
+              ),
+              (n) => n.toString(16).padStart(2, "0"),
+            ).join("");
+            const writer = await (
+              await overviews.getFileHandle(`${checksum}.json`, {
+                create: true,
+              })
+            ).createWritable();
+            await writer.write(
+              mode === "saved"
+                ? JSON.stringify({
+                    duration: 8,
+                    peaks: Array.from({ length: 256 }, () => 0.5),
+                  })
+                : mode === "invalid"
+                  ? "invalid json"
+                  : " ".repeat(16385),
+            );
+            await writer.close();
+          }
+        }, cache));
+    await page.addInitScript(() => {
+      const probe: SelectionProbe = { reads: 0, decodes: 0 };
+      (globalThis as Scope).selectionProbe = probe;
+      const bodies = new WeakSet<Blob>();
+      /* eslint-disable-next-line @typescript-eslint/unbound-method -- Native receivers are preserved. */
       const slice = Blob.prototype.slice;
-      Blob.prototype.slice = function (start, end, type) {
-        return start === 0 && end === 42
-          ? new Blob([new Uint8Array(longHeader)])
-          : slice.call(this, start, end, type);
+      /* eslint-disable-next-line @typescript-eslint/unbound-method -- Native receivers are preserved. */
+      const arrayBuffer = Blob.prototype.arrayBuffer;
+      Blob.prototype.slice = function (...args) {
+        const part = slice.apply(this, args);
+        ([
+          bodies.has(this),
+          this instanceof File && /^[a-f0-9]{64}$/.test(this.name),
+        ].some(Boolean)
+          ? () => {
+              bodies.add(part);
+            }
+          : () => undefined)();
+        return part;
       };
-      const scope = globalThis as typeof globalThis & {
-        overviewDecodeCalls: number;
+      Blob.prototype.arrayBuffer = function () {
+        probe.reads += Number(
+          [
+            bodies.has(this),
+            this instanceof File && /^[a-f0-9]{64}$/.test(this.name),
+          ].some(Boolean),
+        );
+        return arrayBuffer.call(this);
       };
-      scope.overviewDecodeCalls = 0;
       const Native = OfflineAudioContext;
       globalThis.OfflineAudioContext = new Proxy(Native, {
         construct(target, args: ConstructorParameters<typeof Native>) {
-          scope.overviewDecodeCalls += 1;
+          probe.decodes += 1;
           return Reflect.construct(target, args);
         },
       });
-    },
-    Array.from(header(7200)),
-  );
-  await page
-    .getByRole("button", { name: "Album crossfade", exact: true })
-    .click();
-  await expect(page.locator("#waveform-status")).toContainText(
-    "再生位置はこのまま選べます",
-  );
-  await expect(page.locator(".waveform-path").first()).toHaveAttribute("d", "");
-  await page.locator("#play").click();
-  await expect(page.locator("#play-status")).toHaveText("再生中");
-  await page.getByRole("button", { name: "Air study", exact: true }).click();
-  await expect(page.locator("#waveform-status")).toContainText(
-    "再生位置はこのまま選べます",
-  );
-  await expect(page.locator("#play-status")).toHaveText("再生中");
-  await page.locator("#seek").fill("3");
-  await expect
-    .poll(() => page.locator("#seek").inputValue().then(Number))
-    .toBeGreaterThanOrEqual(3);
-  expect(
-    await page.evaluate(
-      () =>
-        (globalThis as typeof globalThis & { overviewDecodeCalls: number })
-          .overviewDecodeCalls,
-    ),
-  ).toBe(0);
-  await expect(page.locator("#error")).toBeEmpty();
-});
+    });
+    await context.setOffline(true);
+    for (const restart of [false, true]) {
+      await page.reload();
+      for (const title of ["Album crossfade", "Air study", "Album crossfade"]) {
+        await page.getByRole("button", { name: title, exact: true }).click();
+        await expect(page.locator("#play-status")).toHaveText(
+          /再生できます|再生中/u,
+        );
+        await expect(page.locator("#waveform-status")).toHaveText(
+          cache === "saved" ? "" : "再生位置をタップで選べます",
+        );
+        await (cache === "saved"
+          ? expect(page.locator(".waveform-path").first()).not.toHaveAttribute(
+              "d",
+              "",
+            )
+          : expect(page.locator(".waveform-path").first()).toHaveAttribute(
+              "d",
+              "",
+            ));
+        await ((await page.locator("#play").isVisible())
+          ? page.locator("#play").click()
+          : Promise.resolve());
+        await expect(page.locator("#play-status")).toHaveText("再生中");
+        await page.locator("#seek").fill("3");
+        await expect
+          .poll(() => page.locator("#seek").inputValue().then(Number))
+          .toBeGreaterThanOrEqual(3);
+        await expect(page.locator("#error")).toBeEmpty();
+      }
+      expect(
+        await page.evaluate(() => (globalThis as Scope).selectionProbe),
+        `restart=${String(restart)}`,
+      ).toEqual({ reads: 0, decodes: 0 });
+    }
+  });
+}
 
 for (const viewport of [
   { width: 1100, height: 850 },

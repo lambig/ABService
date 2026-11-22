@@ -185,14 +185,21 @@ test.describe('書体が届くまでの覆い', () => {
   test('届けば外し、内容を見せる', async ({ page }) => {
     await page.route(FONT_FILE, async (route) => {
       await delay(SLOW_FONT_MS);
-      await route.continue();
+      await route.fallback();
     });
 
     await page.goto('/', { waitUntil: 'domcontentloaded' });
 
     /* 覆われた状態から外れるまでを続けて見る。最初から外れていたのでは、覆いが出たことにならない */
     await expect(page.locator(COVER)).toBeVisible();
-    await expect(page.locator(COVER)).toBeHidden();
+    await expect(page.locator(COVER)).toBeHidden({ timeout: BEFORE_CAP_MS });
+    /* 上限や取得失敗で外れただけでは成功にしない。実ファイルをブラウザが読み込んだことも確認する。 */
+    expect(
+      await page.evaluate(async () => {
+        const faces = await document.fonts.load('1em "Klee One"', 'ABあいう');
+        return faces.length > 0 && faces.every((face) => face.status === 'loaded');
+      }),
+    ).toBe(true);
     await expect(page.getByRole('heading', { level: 1, name: siteContent.name })).toBeVisible();
     await capture(page, '01b-font-loading-uncovered');
 

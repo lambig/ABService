@@ -131,7 +131,7 @@ test("real OPFS survives reload; verified audio can be read without network", as
       value: {
         kind: "assessed",
         packageComplete: true,
-        checksumsValid: true,
+        checksumsValid: null,
         requiredAssetsPresent: true,
         appShellAvailable: false,
         offlineReady: false,
@@ -169,7 +169,93 @@ test("missing, wrong size and wrong checksum never become complete", async ({
   });
 });
 
-test("stored corruption is observed from disk, rejected on read, and repairable", async ({
+test("adding an image after reload does not read stored audio bodies", async ({
+  page,
+}) => {
+  await page.evaluate(async () => {
+    const h = window.storageHarness;
+    return (await h.open()).save(
+      "../音源/one",
+      h.first,
+      new AbortController().signal,
+    );
+  });
+  await page.reload();
+  await page.waitForFunction(
+    () => typeof window.storageHarness !== "undefined",
+  );
+  const result = await page.evaluate(async () => {
+    const h = window.storageHarness;
+    const original = await h.manifest();
+    const image = new Blob(["synthetic artwork"], { type: "image/png" });
+    const imageAsset = {
+      assetId: "cover.png",
+      mediaType: "image/png",
+      byteLength: image.size,
+      checksum: { algorithm: "sha256", value: await h.digest(image) },
+      required: true,
+    };
+    const opened = h.createAssetStore({
+      ...original,
+      packageVersion: "with-artwork",
+      presentationAssetIds: [imageAsset.assetId],
+      assets: [...original.assets, imageAsset],
+    });
+    const store =
+      opened.kind === "ok"
+        ? opened.value
+        : await Promise.reject(new Error(opened.error));
+    const requiredAsset = (): never => {
+      throw new Error("Missing fixture");
+    };
+    const asset = original.assets[0] ?? requiredAsset();
+    const audioName = await h.digest(
+      new Blob([
+        JSON.stringify([
+          asset.assetId,
+          asset.byteLength,
+          asset.checksum.algorithm,
+          asset.checksum.value,
+        ]),
+      ]),
+    );
+    /* eslint-disable-next-line @typescript-eslint/unbound-method -- Called with the original Blob receiver and restored below. */
+    const slice = Blob.prototype.slice;
+    const audioReads: string[] = [];
+    const unexpectedRead = (name: string): never => {
+      audioReads.push(name);
+      throw new Error("Image preparation must not read audio bytes");
+    };
+    Blob.prototype.slice = function (start, end, type) {
+      return this instanceof File && this.name === audioName
+        ? unexpectedRead(this.name)
+        : slice.call(this, start, end, type);
+    };
+    const signal = new AbortController().signal;
+    try {
+      const before = await store.assess([1, 0, 0], signal);
+      const saved = await store.save(imageAsset.assetId, image, signal);
+      const after = await store.assess([1, 0, 0], signal);
+      return { before, saved, after, audioReads };
+    } finally {
+      Blob.prototype.slice = slice;
+    }
+  });
+  expect(result).toMatchObject({
+    before: {
+      kind: "ok",
+      value: { missingAssetIds: ["cover.png"], corruptAssetIds: [] },
+    },
+    saved: { kind: "ok" },
+    after: {
+      kind: "ok",
+      value: { packageComplete: true, requiredDownloadBytes: 0 },
+    },
+    audioReads: [],
+  });
+});
+
+test("same-size corruption is rejected on read and repairable without scanning inventory", async ({
   page,
 }) => {
   const result = await page.evaluate(async () => {
@@ -189,26 +275,41 @@ test("stored corruption is observed from disk, rejected on read, and repairable"
     const writer = await file.createWritable();
     await writer.write(new Uint8Array(h.first.size));
     await writer.close();
+    const unverified = await store.assess([1, 0, 0], signal);
+    const other = await h.open(h.second);
+    await other.save("../音源/one", h.second, signal);
     const read = await store.read("../音源/one", signal);
     const observed = await store.inspect(signal);
     const readiness = await store.assess([1, 0, 0], signal);
+    const otherRead = await other.read("../音源/one", signal);
     const repair = await store.save("../音源/one", h.first, signal);
+    const shorter = await (
+      await root.getFileHandle(file.name)
+    ).createWritable();
+    await shorter.write(new Uint8Array(h.first.size - 1));
+    await shorter.close();
+    const truncated = await store.assess([1, 0, 0], signal);
+    await store.save("../音源/one", h.first, signal);
     return {
+      unverified,
       read,
-      actualHash:
-        observed.kind === "ok"
-          ? observed.value.inventory[0]?.checksum.value
-          : "",
-      zeroHash: await h.digest(new Blob([new Uint8Array(h.first.size)])),
+      observed,
+      otherRead: otherRead.kind,
       readiness,
+      truncated,
       repair,
       after: await store.assess([1, 0, 0], signal),
     };
   });
-  expect(result.actualHash).toBe(result.zeroHash);
   expect(result).toMatchObject({
+    unverified: { value: { packageComplete: true, checksumsValid: null } },
     read: { error: "corrupt" },
+    observed: { value: { inventory: [] } },
+    otherRead: "ok",
     readiness: {
+      value: { packageComplete: false, missingAssetIds: ["../音源/one"] },
+    },
+    truncated: {
       value: { packageComplete: false, corruptAssetIds: ["../音源/one"] },
     },
     repair: { kind: "ok" },
@@ -502,9 +603,16 @@ test("cancellation after close begins does not report rollback of a committed as
       const controller = new AbortController();
       /* eslint-disable-next-line @typescript-eslint/unbound-method -- The native close is called with its stream receiver and restored afterward. */
       const nativeClose = FileSystemWritableFileStream.prototype.close;
+      const state = { closes: 0 };
       FileSystemWritableFileStream.prototype.close = async function () {
         await nativeClose.call(this);
-        controller.abort();
+        state.closes += 1;
+        /* The first close records pending verification; the second commits the asset. */
+        (state.closes === 2
+          ? () => {
+              controller.abort();
+            }
+          : () => undefined)();
       };
       const saved = await store
         .save("../音源/one", h.first, controller.signal)
@@ -519,5 +627,115 @@ test("cancellation after close begins does not report rollback of a committed as
   ).toMatchObject({
     saved: { kind: "ok" },
     readiness: { value: { packageComplete: true } },
+  });
+});
+
+for (const legacy of [false, true]) {
+  test(`unchanged ${legacy ? "legacy" : "recorded"} assets never scan on read or after reload`, async ({
+    page,
+  }) => {
+    await page.evaluate(async (old) => {
+      const h = window.storageHarness;
+      await (
+        await h.open()
+      ).save("../音源/one", h.first, new AbortController().signal);
+      await (old
+        ? (await navigator.storage.getDirectory()).removeEntry(
+            "abservice-asset-verifications-v1",
+            { recursive: true },
+          )
+        : Promise.resolve());
+    }, legacy);
+    for (const restart of [false, true]) {
+      await (restart ? page.reload() : Promise.resolve());
+      await page.waitForFunction(
+        () => typeof window.storageHarness !== "undefined",
+      );
+      const observed = await page.evaluate(async () => {
+        const h = window.storageHarness;
+        const store = await h.open();
+        const parts = new WeakSet<Blob>();
+        const counter = { reads: 0 };
+        /* eslint-disable-next-line @typescript-eslint/unbound-method -- Native receiver preserved and restored below. */
+        const slice = Blob.prototype.slice;
+        /* eslint-disable-next-line @typescript-eslint/unbound-method -- Native receiver preserved and restored below. */
+        const arrayBuffer = Blob.prototype.arrayBuffer;
+        Blob.prototype.slice = function (...args) {
+          const part = slice.apply(this, args);
+          ([this instanceof File, parts.has(this)].some(Boolean)
+            ? () => {
+                parts.add(part);
+              }
+            : () => undefined)();
+          return part;
+        };
+        Blob.prototype.arrayBuffer = function () {
+          counter.reads += Number(
+            [this instanceof File, parts.has(this)].some(Boolean),
+          );
+          return arrayBuffer.call(this);
+        };
+        try {
+          const signal = new AbortController().signal;
+          const first = await store.read("../音源/one", signal);
+          const second = await (await h.open()).read("../音源/one", signal);
+          return {
+            first: first.kind,
+            second: second.kind,
+            reads: counter.reads,
+          };
+        } finally {
+          Blob.prototype.slice = slice;
+          Blob.prototype.arrayBuffer = arrayBuffer;
+        }
+      });
+      expect(observed).toEqual({ first: "ok", second: "ok", reads: 0 });
+    }
+  });
+}
+
+test("pending or malformed verification cannot bypass checksum validation", async ({
+  page,
+}) => {
+  const result = await page.evaluate(async () => {
+    const h = window.storageHarness;
+    const signal = new AbortController().signal;
+    const store = await h.open();
+    await store.save("../音源/one", h.first, signal);
+    const root = await navigator.storage.getDirectory();
+    const folder = await root.getDirectoryHandle(
+      "abservice-asset-verifications-v1",
+    );
+    const iterator = (
+      folder as FileSystemDirectoryHandle & {
+        values: () => AsyncIterableIterator<FileSystemFileHandle>;
+      }
+    ).values();
+    const receipt = (await iterator.next()).value as FileSystemFileHandle;
+    const invalidate = async (text: string) => {
+      const writer = await receipt.createWritable();
+      await writer.write(text);
+      await writer.close();
+    };
+    await invalidate("null");
+    const recover = await store.read("../音源/one", signal);
+    const repaired = await (await receipt.getFile()).text();
+    await invalidate("invalid");
+    const asset = await (
+      await root.getDirectoryHandle("abservice-assets-v1")
+    ).getFileHandle(receipt.name);
+    const writer = await asset.createWritable();
+    await writer.write(new Uint8Array(h.first.size));
+    await writer.close();
+    return {
+      recover: recover.kind,
+      repaired: JSON.parse(repaired) as unknown,
+      rejected: await store.read("../音源/one", signal),
+    };
+  });
+  expect(result).toMatchObject({
+    recover: "ok",
+    repaired: { version: 1 },
+    rejected: { kind: "error", error: "corrupt" },
   });
 });

@@ -2,14 +2,16 @@ package com.abservice.application.query.article;
 
 import com.abservice.application.query.Audience;
 import com.abservice.application.query.QueryService;
+import com.abservice.application.query.SortKeys;
+import com.abservice.application.query.SortSpec;
 import org.jspecify.annotations.Nullable;
 
 /**
  * 記事一覧照会のクエリ（ページネーション付き）
  *
  * <p>
- * {@code sort} / {@code direction} は未検証の外部入力をそのまま運ぶ。解決と検証は
- * {@link ListArticlesService} が {@link ArticleSortKey} に照らして行う。
+ * {@code sort} / {@code direction} は未検証の外部入力をそのまま運ぶ。解決と検証は自身が
+ * {@link ArticleSortKey} に照らして行う。
  * </p>
  *
  * @param page
@@ -38,4 +40,40 @@ public record ListArticlesQuery(
         @Nullable String direction,
         @Nullable String albumId,
         @Nullable Boolean publicFlag) implements QueryService.Query {
+    private static final int DEFAULT_SIZE = 20;
+    private static final int MAX_SIZE = 100;
+
+    /** 既存の補正契約を保ち、照会前に並び順を検証する。 */
+    ValidatedQuery asValidated() {
+        return new ValidatedQuery(
+                clampPage(page),
+                clampSize(size),
+                audience,
+                SortKeys.resolve(
+                        ArticleSortKey.values(),
+                        sort,
+                        direction,
+                        audience),
+                albumId,
+                publicFlag);
+    }
+
+    record ValidatedQuery(
+            int page,
+            int size,
+            Audience audience,
+            SortSpec sort,
+            @Nullable String albumId,
+            @Nullable Boolean publicFlag) {
+    }
+
+    private static int clampPage(int page) {
+        return Math.max(page, 0);
+    }
+
+    private static int clampSize(int size) {
+        return size < 1
+                ? DEFAULT_SIZE
+                : Math.min(size, MAX_SIZE);
+    }
 }

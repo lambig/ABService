@@ -1,6 +1,8 @@
 package com.abservice.application.query.audio;
 
-import com.abservice.application.audio.AudioApiValues;
+import static io.github.lambig.funcifextension.predicate.Predicates.and;
+import static java.util.function.Function.identity;
+
 import com.abservice.application.audio.ListeningDeviceView;
 import com.abservice.application.audio.PrivateAudioAccess;
 import com.abservice.application.exception.Failure;
@@ -8,6 +10,8 @@ import com.abservice.application.exception.FailureContract;
 import com.abservice.application.query.QueryService;
 import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.domain.exception.ValidationException;
+import com.abservice.domain.model.EntityId;
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.infrastructure.persistence.datasource.ListeningPreparationDataSource;
 import com.abservice.infrastructure.persistence.datasource.ListeningPreparationRow;
 import com.abservice.lib.ErrorResult;
@@ -16,10 +20,11 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import org.jspecify.annotations.Nullable;
 
-/** 一覧・配布可否・端末を一要求で照会する。準備状態は端末への保存完了を表さない。 */
+/** 一覧・音源の準備状態・端末を一要求で照会する。準備状態は端末への保存完了を表さない。 */
 @ApplicationScoped
 @AllArgsConstructor
 @FailureContract({Failure.VALIDATION, Failure.NOT_FOUND})
@@ -32,8 +37,10 @@ public class GetListeningPreparationService
 
     @Override
     public Uni<Result> query(Query query) {
-        return Uni.createFrom().item(() -> validate(query))
-                .chain(id -> preparations.page(query.page(), id))
+        return Uni.createFrom().item(query)
+                .invoke(access::requireEnabled)
+                .map(Query::asValidated)
+                .chain(validated -> preparations.page(validated.page(), validated.albumId().orElse(null)))
                 .invoke(page -> requireFocus(query, page))
                 .chain(this::withDevices);
     }
@@ -58,23 +65,6 @@ public class GetListeningPreparationService
         return rows.stream().map(Album::of).toList();
     }
 
-    private @Nullable String validate(Query query) {
-        access.requireEnabled();
-        Optional.of(query.page())
-                .filter(page -> page >= 0)
-                .filter(page -> page <= Integer.MAX_VALUE / ListeningPreparationDataSource.PAGE_SIZE)
-                .orElseThrow(
-                        () -> new ValidationException(
-                                List.of(
-                                        new ErrorResult(
-                                                "page",
-                                                "有効なページを指定してください",
-                                                "INVALID_PAGE"))));
-        return Optional.ofNullable(query.albumId())
-                .map(id -> AudioApiValues.uuid(id, "albumId").toString())
-                .orElse(null);
-    }
-
     private static void requireFocus(Query query, ListeningPreparationDataSource.Page page) {
         Optional.ofNullable(query.albumId()).ifPresent(
                 id -> Optional.ofNullable(page.focused())
@@ -82,6 +72,37 @@ public class GetListeningPreparationService
     }
 
     public record Query(int page, @Nullable String albumId) implements QueryService.Query {
+        /** 入力だけを検証する。既存契約に合わせ、ページの失敗をIDより先に返す。 */
+        ValidatedQuery asValidated() {
+            final var optionalId = Optional.ofNullable(albumId);
+            return Policy.<Integer>of(
+                    and(
+                            value -> value >= 0,
+                            value -> value <= Integer.MAX_VALUE / ListeningPreparationDataSource.PAGE_SIZE),
+                    new ErrorResult(
+                            "page",
+                            "有効なページを指定してください",
+                            "INVALID_PAGE"))
+                    .verify(page, identity())
+                    .flatMap(
+                            validPage -> Policy.<Optional<String>>of(
+                                    value -> value.map(EntityId::isValidUuid)
+                                            .orElse(true),
+                                    new ErrorResult(
+                                            "albumId",
+                                            "有効な値を指定してください",
+                                            "INVALID_AUDIO_ARGUMENT"))
+                                    .verify(
+                                            optionalId,
+                                            id -> new ValidatedQuery(
+                                                    validPage,
+                                                    id.map(UUID::fromString)
+                                                            .map(UUID::toString))))
+                    .resolve(ValidationException::new);
+        }
+    }
+
+    record ValidatedQuery(int page, Optional<String> albumId) {
     }
 
     public record Album(String albumId, String title, @Nullable Instant publishedAt, boolean audioConfirmed) {

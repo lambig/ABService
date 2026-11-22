@@ -1,11 +1,9 @@
 package com.abservice.application.query.tune;
 
-import com.abservice.application.query.Audience;
 import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
 import com.abservice.application.query.QueryService;
 import com.abservice.application.query.PageCounts;
-import com.abservice.application.query.SortKeys;
 import com.abservice.infrastructure.persistence.datasource.TuneDataSource;
 import com.abservice.infrastructure.persistence.entity.TuneTableRecord;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
@@ -29,24 +27,18 @@ import lombok.AllArgsConstructor;
 @FailureContract(Failure.VALIDATION)
 public class ListTunesService implements QueryService<ListTunesQuery, ListTunesResult> {
 
-    private static final int DEFAULT_SIZE = 20;
-    private static final int MAX_SIZE = 100;
-
     private final TuneDataSource dataSource;
 
     @WithSession
     @Override
     public Uni<ListTunesResult> query(ListTunesQuery query) {
-        final var page = clampPage(query.page());
-        final var size = clampSize(query.size());
+        final var validated = query.asValidated();
+        final var page = validated.page();
+        final var size = validated.size();
         final var panacheQuery = dataSource.pagedQuery(
                 page,
                 size,
-                SortKeys.resolve(
-                        TuneSortKey.values(),
-                        query.sort(),
-                        query.direction(),
-                        Audience.ADMIN));
+                validated.sort());
         return panacheQuery.list()
                 .flatMap(
                         items -> panacheQuery.count()
@@ -74,13 +66,4 @@ public class ListTunesService implements QueryService<ListTunesQuery, ListTunesR
                 tuple.getItem3());
     }
 
-    static int clampPage(int page) {
-        return Math.max(page, 0);
-    }
-
-    static int clampSize(int size) {
-        return size < 1
-                ? DEFAULT_SIZE
-                : Math.min(size, MAX_SIZE);
-    }
 }

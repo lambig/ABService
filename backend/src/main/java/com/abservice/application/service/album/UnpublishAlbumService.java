@@ -5,7 +5,6 @@ import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
-import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.domain.repository.article.ArticleRepository;
 import com.abservice.domain.service.AlbumAccessService;
@@ -54,21 +53,14 @@ public class UnpublishAlbumService implements CommandService<UnpublishAlbumInput
 
     private Uni<UnpublishAlbumOutput> cascadeUnpublishReferencingArticles(Album album) {
         return albumUnpublicationService.attempt(album.id())
-                .map(AlbumUnpublication::articlesBecomingUnpublished)
                 .flatMap(this::unpublishAll)
                 .map(cascadeUnpublished -> toOutput(album, cascadeUnpublished));
     }
 
-    private Uni<List<Article>> unpublishAll(List<Article> becomingUnpublished) {
+    private Uni<List<Article>> unpublishAll(AlbumUnpublication operation) {
         return businessDateTimeProvider.now()
-                .map(now -> unpublished(becomingUnpublished, now))
+                .map(operation::apply)
                 .flatMap(articleRepository::saveAll);
-    }
-
-    private static List<Article> unpublished(List<Article> becomingUnpublished, BusinessDateTime now) {
-        return becomingUnpublished.stream()
-                .map(article -> article.unpublish(now))
-                .toList();
     }
 
     private static UnpublishAlbumOutput toOutput(Album album, List<Article> cascadeUnpublished) {

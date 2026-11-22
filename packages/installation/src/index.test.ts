@@ -31,6 +31,45 @@ const local = {
 };
 
 describe('installation readiness', () => {
+  it('保存先の内容識別による再利用をchecksum実測済みと扱わない', () => {
+    expect(
+      assessReadiness(manifest, {
+        ...local,
+        inventory: [
+          {
+            assetId: audio.assetId,
+            byteLength: 100,
+            contentIdentity: checksum,
+          },
+        ],
+      }),
+    ).toMatchObject({
+      packageComplete: true,
+      offlineReady: true,
+      checksumsValid: null,
+    });
+    expect(assessReadiness(manifest, local)).toMatchObject({
+      checksumsValid: true,
+    });
+  });
+  it.each([
+    { byteLength: 99, contentIdentity: checksum },
+    { byteLength: 100, contentIdentity: { ...checksum, value: 'other' } },
+  ])(
+    '内容識別または実測サイズが異なる保存物は再利用しない: %j',
+    (observation) => {
+      expect(
+        assessReadiness(manifest, {
+          ...local,
+          inventory: [{ assetId: audio.assetId, ...observation }],
+        }),
+      ).toMatchObject({
+        packageComplete: false,
+        checksumsValid: false,
+        corruptAssetIds: [audio.assetId],
+      });
+    },
+  );
   it('全required検証済みなら追加容量0でもready', () => {
     expect(assessReadiness(manifest, local)).toMatchObject({
       kind: 'assessed',

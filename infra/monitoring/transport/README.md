@@ -12,7 +12,7 @@ systemd、logrotate、Docker Compose v2を備えたLinuxホストと、既存の
 4. `credentials.logrotate` を `/etc/abservice/monitor-logrotate.conf` へroot所有で設置する。同梱logrotate service/timerを `/etc/systemd/system/` へ置く。二重実行を避けるため `/etc/logrotate.d/` には同じ設定を追加しない。
 5. `systemctl daemon-reload` 後、publisherを一度正常終了させ、ログと共有資格情報を確認してから両timerを有効化する。
 6. 下表のホストディレクトリを用意する。`agent.example.json` を設定ディレクトリの `agent.json` とし、region・log group・streamの3箇所の `REPLACE_*` を実値へ置換する。`common-config.toml` も同じ場所へ設置する。log groupは事前作成し、保持期間とIAMの対象を別途制限する。この設定から保持期間は変更しない。
-7. 環境変数を用意し、`docker compose -f infra/monitoring/transport/compose.yml up -d` を実行する。translateの正常終了後にagentが起動する。agentとpublisher両方のログ、CloudWatchへの到着を確認する。
+7. 環境変数を用意し、`docker compose -f infra/monitoring/transport/compose.yml up -d --build` を実行する。translateの正常終了後にagentが起動する。agentとpublisher両方のログ、CloudWatchへの到着を確認する。
 
 | 環境変数 | 内容・権限 |
 | --- | --- |
@@ -61,29 +61,11 @@ archiveの再送は次のように分離する。
 sudo python3 infra/monitoring/transport/test_transport.py
 ```
 
-テストはCompose設定からdigest固定imageを列挙し、同じimageを一度だけ取得してから`up --pull never`で起動する。
-取得時にregistryのthrottling（エラーコード`toomanyrequests:`。Public ECRでは`Rate exceeded`・`Data limit exceeded`）が返った場合だけ、5秒・15秒・30秒待って最大4回まで試行する。
-1回のpullは90秒を上限とし、回数超過・timeout・認証拒否・存在しないimage・Compose起動失敗はそのまま失敗する。
-起動やtransportの検査自体は再試行・skipせず、失敗時の診断と後片付けを維持する。
-この取得制御はローカル/CIのテスト用で、運用Composeの起動方針は変えない。
+テストは固定した公式ソースとベースイメージからセキュリティ修正を含むagentをビルドし、取得した不変image IDでtranslateとagentを起動する。起動時の再取得・再ビルドは行わない。既に同じ候補をビルド済みの場合は `--built-image sha256:...` でそのIDを指定できる。
 
-CIではPublic ECRの転送量制限が再試行後も続くため、公開imageだけをGitHub Actionsのキャッシュへ保存する。
-ローカルでもLinux/amd64では `--image-cache <directory>` で同じ経路を検証できる。
-rootで書き込むため、指定先と親ディレクトリには他の利用者が内容やパスを差し替えられない専用の場所を使う。
-既存ディレクトリの権限は維持する。CIからの読み取りに必要な0755は新規作成時だけ設定し、パス内のシンボリックリンクは拒否する。
-復元後は `image-cache-lock.json` のconfig digest（Docker image ID）とOS/architectureを照合する。
-Docker archiveでは元のRepoDigestsが保持されない場合があるため、試験用Compose overrideは検証したcontent IDを使う。
-キャッシュがない初回・失効後は通常のpullが必要で、Public ECRのthrottlingを再試行しても解消できない場合だけ、
-[AWS公式Docker Hub image](https://hub.docker.com/r/amazon/cloudwatch-agent) の同一linux/amd64 manifestへ切り替える。
-補助取得にも既存の再試行上限を適用し、取得後は同じconfig IDを照合する。認証拒否・image不在・timeoutでは切り替えない。
-両方の取得先が利用できない場合、復元失敗、ID不一致は成功扱いにしない。
-キャッシュにはコンテナ・ログ・資格情報・設定ディレクトリを含めず、試験の成功結果も再利用しない。
+上流のログAPIを維持するため、OpenTelemetryの文字列長制限・TLS設定・診断ログの修正は上流コミットから取り込む。参照コミットと対象モジュールはDockerfile・パッチを正とする。版番号だけのスキャンでは修正を識別できない場合があるため、パッチ内容・回帰試験と対応付ける。Prometheusは修正版へ更新し、receiverのメトリクス解放処理をそのAPIへ合わせる。
 
-imageを更新するときは、固定したindexを `docker buildx imagetools inspect --raw <image@digest>` で確認し、
-linux/amd64のmanifestとそのconfig digestをlockへ同時に反映する。各manifestのSHA-256が参照digestと一致し、
-公式Docker Hubでも同じmanifest digestを取得できることを確認する。
-lock変更でキャッシュkeyが変わる。キャッシュを修復する場合は該当keyを削除して再実行する。
-通常のローカル実行は元のdigestを使うため、他architectureの試験にこのamd64用キャッシュを指定しない。
+ビルド・起動・送信の失敗を成功扱いにしない。依存取得にはDockerのビルドキャッシュを使い、資格情報や運用ログをイメージへ入れない。旧 `--image-cache` 引数は既存呼出しとの互換性のため受け付けるが、ソースビルド経路では使用しない。
 
 実行コンテナは外部へ接続できないinternal networkに限定し、ホスト上の模擬Logs APIへ送る。資格情報・証明書・ARNは明示的に無効なfixtureで、AWSリソースを作らない。確認対象は次の通り。
 

@@ -3,7 +3,7 @@ package com.abservice.domain.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.abservice.domain.model.vo.common.BusinessDate;
-import com.abservice.domain.model.vo.common.MarkupFormat;
+import com.abservice.domain.model.vo.markup.MarkupFormat;
 import com.abservice.domain.service.AlbumCreationService.EventFields;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;

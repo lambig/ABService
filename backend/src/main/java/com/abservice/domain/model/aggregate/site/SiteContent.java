@@ -6,7 +6,7 @@ import com.abservice.domain.model.DomainFactory;
 import com.abservice.domain.model.EntityId;
 import com.abservice.domain.model.aggregate.Aggregate;
 import com.abservice.domain.model.policy.Policy;
-import com.abservice.domain.model.vo.common.MarkupContent;
+import com.abservice.domain.model.vo.markup.MarkupContent;
 import com.abservice.domain.model.vo.site.SiteContentKey;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;

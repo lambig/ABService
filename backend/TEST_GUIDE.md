@@ -4,6 +4,8 @@
 
 ユニットテストは `backend/src/test/java/`、統合テストは `backend/src/integrationTest/java/` に置き、本番コードと同じパッケージ構成をたどる。Gradle のソースセットが分かれているため、実行対象も分かれる。
 
+PMD拡張は `src/pmd/java/`、その検査器自身の回帰試験は `src/pmdTest/java/` に置く。アプリケーションの成果物や依存には含めない。`./gradlew pmdRuleTest` は本番のrulesetから対象規則を読み、許容例・違反例の検出位置と解析エラーがないことを確認する。通常の `check` でも実行され、規則の登録欠落や検出の無効化は試験失敗になる。
+
 ## テスト分類ルール
 
 ### ユニットテスト (`src/test/java/`)

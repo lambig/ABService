@@ -2,6 +2,8 @@ package com.abservice.application.query.album;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.abservice.application.query.SortDirection;
+import com.abservice.application.query.Audience;
 import com.abservice.infrastructure.persistence.datasource.AlbumExternalAudioRow;
 import com.abservice.infrastructure.persistence.entity.AlbumTableRecord;
 import io.smallrye.mutiny.tuples.Tuple3;
@@ -16,47 +18,146 @@ class ListAlbumsServiceTest {
     @Test
     @DisplayName("pageは負値なら0にクランプされる")
     void clampPageNegativeBecomesZero() {
-        assertThat(ListAlbumsService.clampPage(-1)).isZero();
+        assertThat(
+                new ListAlbumsQuery(
+                        -1,
+                        20,
+                        Audience.ADMIN,
+                        null,
+                        null,
+                        null,
+                        null).asValidated().page())
+                .isZero();
     }
 
     @Test
     @DisplayName("pageは0以上ならそのまま")
     void clampPagePositiveStaysSame() {
-        assertThat(ListAlbumsService.clampPage(3)).isEqualTo(3);
+        assertThat(
+                new ListAlbumsQuery(
+                        3,
+                        20,
+                        Audience.ADMIN,
+                        null,
+                        null,
+                        null,
+                        null).asValidated().page())
+                .isEqualTo(3);
     }
 
     @Test
     @DisplayName("sizeは1未満ならデフォルト20にクランプされる")
     void clampSizeBelowMinimumBecomesDefault() {
-        assertThat(ListAlbumsService.clampSize(0)).isEqualTo(20);
-        assertThat(ListAlbumsService.clampSize(-5)).isEqualTo(20);
+        assertThat(
+                new ListAlbumsQuery(
+                        0,
+                        0,
+                        Audience.ADMIN,
+                        null,
+                        null,
+                        null,
+                        null).asValidated().size())
+                .isEqualTo(20);
+        assertThat(
+                new ListAlbumsQuery(
+                        0,
+                        -5,
+                        Audience.ADMIN,
+                        null,
+                        null,
+                        null,
+                        null).asValidated().size())
+                .isEqualTo(20);
     }
 
     @Test
     @DisplayName("sizeは100を超えると100にクランプされる")
     void clampSizeAboveMaximumBecomesMax() {
-        assertThat(ListAlbumsService.clampSize(1000)).isEqualTo(100);
+        assertThat(
+                new ListAlbumsQuery(
+                        0,
+                        1000,
+                        Audience.ADMIN,
+                        null,
+                        null,
+                        null,
+                        null).asValidated().size())
+                .isEqualTo(100);
     }
 
     @Test
     @DisplayName("sizeは範囲内ならそのまま")
     void clampSizeWithinRangeStaysSame() {
-        assertThat(ListAlbumsService.clampSize(50)).isEqualTo(50);
+        assertThat(
+                new ListAlbumsQuery(
+                        0,
+                        50,
+                        Audience.ADMIN,
+                        null,
+                        null,
+                        null,
+                        null).asValidated().size())
+                .isEqualTo(50);
     }
 
     @Test
     @DisplayName("検索語は未指定・空文字・空白のみをいずれも未指定として扱う")
     void keywordOrNullTreatsBlankAsUnspecified() {
-        assertThat(ListAlbumsService.keywordOrNull(null)).isNull();
-        assertThat(ListAlbumsService.keywordOrNull("")).isNull();
-        assertThat(ListAlbumsService.keywordOrNull("   ")).isNull();
+        assertThat(
+                new ListAlbumsQuery(
+                        0,
+                        20,
+                        Audience.ADMIN,
+                        null,
+                        null,
+                        null,
+                        null).asValidated().title())
+                .isNull();
+        assertThat(
+                new ListAlbumsQuery(
+                        0,
+                        20,
+                        Audience.ADMIN,
+                        null,
+                        null,
+                        "",
+                        null).asValidated().title())
+                .isNull();
+        assertThat(
+                new ListAlbumsQuery(
+                        0,
+                        20,
+                        Audience.ADMIN,
+                        null,
+                        null,
+                        "   ",
+                        null).asValidated().title())
+                .isNull();
     }
 
     @Test
     @DisplayName("検索語は語として意味を持つならそのまま（前後の空白も落とさない）")
     void keywordOrNullKeepsMeaningfulValue() {
-        assertThat(ListAlbumsService.keywordOrNull("Session")).isEqualTo("Session");
-        assertThat(ListAlbumsService.keywordOrNull(" Session ")).isEqualTo(" Session ");
+        assertThat(
+                new ListAlbumsQuery(
+                        0,
+                        20,
+                        Audience.ADMIN,
+                        null,
+                        null,
+                        "Session",
+                        null).asValidated().title())
+                .isEqualTo("Session");
+        assertThat(
+                new ListAlbumsQuery(
+                        0,
+                        20,
+                        Audience.ADMIN,
+                        null,
+                        null,
+                        " Session ",
+                        null).asValidated().title())
+                .isEqualTo(" Session ");
     }
 
     @Test
@@ -98,4 +199,24 @@ class ListAlbumsServiceTest {
         assertThat(result.totalElements()).isEqualTo(1L);
         assertThat(result.totalPages()).isEqualTo(1);
     }
+
+    @Test
+    @DisplayName("補正したページと解決済みの並び順を照会条件へ渡す")
+    void normalizedConditionsKeepFiltersAndSort() {
+        final var validated = new ListAlbumsQuery(
+                Integer.MIN_VALUE,
+                Integer.MAX_VALUE,
+                Audience.ADMIN,
+                "RELEASEDATE",
+                "ASC",
+                " title ",
+                "   ").asValidated();
+        assertThat(validated.page()).isZero();
+        assertThat(validated.size()).isEqualTo(100);
+        assertThat(validated.sort().direction()).isEqualTo(SortDirection.ASC);
+        assertThat(validated.sort().property()).isEqualTo("releaseDate");
+        assertThat(validated.title()).isEqualTo(" title ");
+        assertThat(validated.catalogNumber()).isNull();
+    }
+
 }

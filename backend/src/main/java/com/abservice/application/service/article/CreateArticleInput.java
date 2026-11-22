@@ -24,7 +24,7 @@ import org.jspecify.annotations.Nullable;
  * @param body
  *            記事本文（nullable。指定する場合は {@code bodyFormat} も必須）
  * @param bodyFormat
- *            本文のマークアップ形式（{@code com.abservice.domain.model.vo.common.MarkupFormat}
+ *            本文のマークアップ形式（{@code com.abservice.domain.model.vo.markup.MarkupFormat}
  *            の列挙子名。 {@code body} を指定する場合のみ必須）
  * @param introShort
  *            一覧表示用のショート紹介文（nullable）

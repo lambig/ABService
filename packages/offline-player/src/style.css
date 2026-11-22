@@ -433,12 +433,12 @@ html[data-composition="true"] .scene-content {
   flex: 1;
   min-height: 0;
   min-width: 0;
-  /* Long metadata stays inside the fixed presentation region. */
+  /* Keep artwork inside the available space above playback controls. */
   overflow-x: hidden;
   overflow-y: auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(120px, 1fr) auto;
+  grid-template-rows: auto minmax(120px, 1fr);
   gap: 6px;
   text-align: center;
   padding: 8px 0;
@@ -498,24 +498,9 @@ html[data-composition="true"] #artwork {
   object-fit: contain;
   transform: none;
 }
-html[data-composition="true"] #description {
-  margin: 0;
-  overflow-wrap: anywhere;
-  line-height: 1.5;
-}
-html[data-composition="true"] #description {
-  grid-row: 3;
-  font-size: 12px;
-  color: #61574c;
-}
 html[data-composition="true"] .scene-content:has(#artwork[hidden]) {
-  grid-template-rows: auto auto;
+  grid-template-rows: auto;
   align-content: center;
-}
-html[data-composition="true"]
-  .scene-content:has(#artwork[hidden])
-  #description {
-  grid-row: 2;
 }
 html[data-composition="true"] .transport {
   flex: none;
@@ -556,14 +541,9 @@ html[data-composition="true"] #probe {
 html[data-composition="true"] :is(button, input, a):focus-visible {
   outline-color: #713d29;
 }
-/* Long metadata scrolls as one region; playback controls keep their own space. */
 html[data-composition="true"] #open-preparation {
   flex: none;
   align-self: start;
-}
-html[data-composition="true"] #description {
-  max-height: none;
-  overflow: visible;
 }
 html[data-composition="true"] #visualizer-status {
   flex: none;

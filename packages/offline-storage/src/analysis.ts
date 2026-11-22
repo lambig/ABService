@@ -17,7 +17,7 @@ import {
   reject,
   requireValue,
 } from "./common";
-import { buildStore } from "./store";
+import { inspectAsset } from "./store";
 import type { StorageResult } from "./index";
 
 const namespace = "abservice-musical-analysis-v1";
@@ -36,28 +36,35 @@ const parse = async (blob: Blob): Promise<MusicalAnalysis> => {
   }
 };
 
-/** Supplementary interpretation is stored by package and encoded audio identity; a failed replacement keeps the old result. */
+/** Interpretation follows encoded audio identity across artwork updates; a failed replacement keeps the old result. */
 export const buildAnalysisStore = (input: InstallationManifest) => {
   const parsed = parseManifest(input);
   const manifest = parsed.kind === "manifest" ? parsed.manifest : undefined;
-  const key = async (
-    audioSha256: string,
-    signal: AbortSignal,
-  ): Promise<string> => {
+  const key = (audioSha256: string, signal: AbortSignal): string => {
     requireValue(manifest !== undefined, "invalid-manifest");
     requireValue(/^[a-f0-9]{64}$/.test(audioSha256), "corrupt");
-    return hash(
-      new Blob([JSON.stringify([manifest?.packageVersion, audioSha256])]),
-      signal,
-    );
+    checkAbort(signal);
+    return `audio-${audioSha256}`;
   };
   const read = (
     audioSha256: string,
     signal: AbortSignal,
   ): Promise<StorageResult<MusicalAnalysis | undefined>> =>
     locked(namespace, signal, async () => {
-      const name = await key(audioSha256, signal);
-      const file = await optional((await folder()).getFileHandle(name));
+      const name = key(audioSha256, signal);
+      const root = await folder();
+      const file =
+        (await optional(root.getFileHandle(name))) ??
+        (await optional(
+          root.getFileHandle(
+            await hash(
+              new Blob([
+                JSON.stringify([manifest?.packageVersion, audioSha256]),
+              ]),
+              signal,
+            ),
+          ),
+        ));
       const load = async (
         stored: FileSystemFileHandle,
       ): Promise<MusicalAnalysis> => {
@@ -73,6 +80,22 @@ export const buildAnalysisStore = (input: InstallationManifest) => {
         );
         const analysis = await parse(new Blob([body]));
         requireValue(analysis.audioSha256 === audioSha256, "corrupt");
+        const item = getPlaybackItems(manifest as InstallationManifest).find(
+          (item) =>
+            manifest?.assets.some(
+              (asset) =>
+                asset.assetId === item.audioAssetId &&
+                asset.checksum.algorithm === "sha256" &&
+                asset.checksum.value === audioSha256,
+            ),
+        );
+        requireValue(item !== undefined, "unknown-asset");
+        requireValue(
+          item?.durationSeconds === undefined
+            ? true
+            : Math.abs(item.durationSeconds - analysis.durationSeconds) <= 0.05,
+          "corrupt",
+        );
         checkAbort(signal);
         return analysis;
       };
@@ -102,21 +125,25 @@ export const buildAnalysisStore = (input: InstallationManifest) => {
           : Math.abs(duration - analysis.durationSeconds) <= 0.05,
         "corrupt",
       );
-      /* Installation requires the source bytes to be present and verified. */
-      const assets = buildStore(contract);
-      const source =
-        assets.kind === "ok"
-          ? await assets.value.read(item?.audioAssetId ?? "", signal)
-          : assets;
+      /* Saved content was checked on import. Attaching its analysis needs
+       * presence and length, not another full read of the unchanged audio. */
+      const asset =
+        contract.assets.find((asset) => asset.assetId === item?.audioAssetId) ??
+        reject("unknown-asset");
+      const source = await inspectAsset(asset, signal);
       requireValue(
         source.kind === "ok",
         source.kind === "error" ? source.error : "missing",
+      );
+      requireValue(
+        source.kind === "ok" && source.value.byteLength === asset.byteLength,
+        "corrupt",
       );
       const body = JSON.stringify(analysis);
       const digest = await hash(new Blob([body]), signal);
       const file = await (
         await folder()
-      ).getFileHandle(await key(analysis.audioSha256, signal), {
+      ).getFileHandle(key(analysis.audioSha256, signal), {
         create: true,
       });
       await commit(file, `${digest}\n${body}`, signal);

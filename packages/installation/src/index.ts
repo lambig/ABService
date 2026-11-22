@@ -326,7 +326,18 @@ const environmentSchema = z
     appShellAvailable: z.boolean(),
     availableBytes: bytes,
     inventory: z
-      .array(z.object({ assetId: id, byteLength: bytes, checksum }).readonly())
+      .array(
+        z.union([
+          z.object({ assetId: id, byteLength: bytes, checksum }).readonly(),
+          z
+            .object({
+              assetId: id,
+              byteLength: bytes,
+              contentIdentity: checksum,
+            })
+            .readonly(),
+        ]),
+      )
       .readonly(),
   })
   .refine(
@@ -335,7 +346,7 @@ const environmentSchema = z
   )
   .readonly();
 
-/** checksumは期待値のコピーではなく、ローカル実体からadapterが算出した観測値を渡す。 */
+/** checksumは実体の実測値。contentIdentityは保存先の識別情報で、今回の実体検証を意味しない。サイズはどちらも実測値。 */
 export type LocalEnvironment = z.infer<typeof environmentSchema>;
 
 /** 判定可能な準備状態。容量は不足・破損required assetを再取得するための追加容量。 */
@@ -345,7 +356,8 @@ export type Readiness = Readonly<{
   appShellAvailable: boolean;
   storageCapacitySufficient: boolean;
   requiredAssetsPresent: boolean;
-  checksumsValid: boolean;
+  /** true/falseは実測checksumまたはサイズ等の不一致の判定。内容識別だけで再利用する実体があればnull（未検証）。 */
+  checksumsValid: boolean | null;
   packageComplete: boolean;
   offlineReady: boolean;
   requiredDownloadBytes: number;
@@ -367,14 +379,16 @@ const assess = (
   const missing = required.filter((item) =>
     environment.inventory.every((local) => local.assetId !== item.assetId),
   );
+  const identity = (local: LocalEnvironment['inventory'][number]) =>
+    'checksum' in local ? local.checksum : local.contentIdentity;
   const corrupt = required.filter((item) =>
     environment.inventory.some(
       (local) =>
         local.assetId === item.assetId &&
         [
           local.byteLength !== item.byteLength,
-          local.checksum.algorithm !== item.checksum.algorithm,
-          local.checksum.value !== item.checksum.value,
+          identity(local).algorithm !== item.checksum.algorithm,
+          identity(local).value !== item.checksum.value,
         ].some(Boolean),
     ),
   );
@@ -400,7 +414,17 @@ const assess = (
     appShellAvailable: environment.appShellAvailable,
     storageCapacitySufficient,
     requiredAssetsPresent: missing.length === 0,
-    checksumsValid: corrupt.length === 0,
+    checksumsValid:
+      corrupt.length > 0
+        ? false
+        : required.some((item) =>
+              environment.inventory.some(
+                (local) =>
+                  local.assetId === item.assetId && 'contentIdentity' in local,
+              ),
+            )
+          ? null
+          : true,
     packageComplete,
     offlineReady:
       packageComplete &&
