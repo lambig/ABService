@@ -4,7 +4,6 @@ import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.ValidationException;
-import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.domain.repository.tune.TuneRepository;
 import com.abservice.domain.service.TuneDeletionService;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
@@ -38,11 +37,7 @@ public class DeleteTuneService implements CommandService<DeleteTuneInput, Delete
     @WithTransaction
     @Override
     public Uni<DeleteTuneOutput> execute(DeleteTuneInput input) {
-        return Uni.createFrom()
-                .item(
-                        () -> Tune.Id.fromInput(input.tuneId())
-                                .mapErrorFields(field -> "tuneId")
-                                .resolve(ValidationException::new))
+        return input.asValidated(DeleteTuneInput::parsed)
                 .flatMap(tuneDeletionService::deletable)
                 .flatMap(tuneRepository::deleteById)
                 .replaceWith(new DeleteTuneOutput());

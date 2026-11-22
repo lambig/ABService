@@ -1,5 +1,6 @@
 package com.abservice.application.service.audio;
 
+import com.abservice.lib.Result;
 import com.abservice.application.audio.AudioApiValues;
 import com.abservice.application.audio.AudioRegistrationView;
 import com.abservice.application.audio.PrivateAudioAccess;
@@ -12,6 +13,8 @@ import com.abservice.application.port.PrivateAudioOperations;
 import com.abservice.application.port.PrivateAudioRegistration;
 import com.abservice.application.port.PrivateAudioRegistrations;
 import com.abservice.application.service.CommandService;
+import com.abservice.application.service.InputPolicy;
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.exception.EntityNotFoundException;
 import com.abservice.domain.exception.ValidationException;
@@ -23,6 +26,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 
 /** 入力を開く前に受付状態を検査する。検査結果のcommitと保存はportが所有する。 */
@@ -36,10 +40,9 @@ public class ReceiveAudioService implements CommandService<ReceiveAudioService.I
 
     @Override
     public Uni<Output> execute(Input input) {
-        return Uni.createFrom().item(() -> {
-            access.requireEnabled();
-            return AudioApiValues.uuid(input.audioId(), "audioId");
-        }).chain(registrations::find)
+        return Uni.createFrom().item(input)
+                .invoke(access::requireEnabled)
+                .chain(valid -> valid.asValidated(Input::parse)).chain(registrations::find)
                 .map(row -> row.orElseThrow(() -> new EntityNotFoundException("音源の登録予約がありません")))
                 .invoke(ReceiveAudioService::requirePending)
                 .call(row -> operations.ingest(row.id(), input.source()))
@@ -66,7 +69,16 @@ public class ReceiveAudioService implements CommandService<ReceiveAudioService.I
                 .orElseThrow(() -> new BusinessRuleViolationException("音源の受付状態または期限が変更されています"));
     }
 
-    public record Input(String audioId, Callable<InputStream> source) implements CommandService.Input {
+    public record Input(String audioId, Callable<InputStream> source) implements CommandService.Input<Input> {
+        @Override
+        public Policy<Input> policy() {
+            return new InputPolicy<>(Input::parse);
+        }
+
+        private static Result<UUID> parse(Input input) {
+            return AudioApiValues.uuidPolicy("audioId")
+                    .verify(input.audioId(), UUID::fromString);
+        }
     }
     public record Output(AudioRegistrationView registration) implements CommandService.Output {
     }

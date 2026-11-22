@@ -68,6 +68,10 @@ class AlbumEditRevisionRestIntegrationTest {
                 .contentType("application/problem+json")
                 .body("type", equalTo("urn:abservice:error:CONFLICTING_UPDATE"));
 
+        authorized().contentType(ContentType.JSON).body(updateBody(revisionInTabB, ""))
+                .when().put("/api/v1/albums/" + albumId).then().statusCode(409)
+                .body("type", equalTo("urn:abservice:error:CONFLICTING_UPDATE"));
+
         authorized().when().get("/api/v1/admin/albums/" + albumId).then().statusCode(200)
                 .body("title", equalTo("タブAの保存"));
     }

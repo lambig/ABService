@@ -48,8 +48,7 @@ public class SetArticleAlbumService implements CommandService<SetArticleAlbumInp
     @WithTransaction
     @Override
     public Uni<SetArticleAlbumOutput> execute(SetArticleAlbumInput input) {
-        return input.asValidated()
-                .map(SetArticleAlbumService::toIds)
+        return input.asValidated(SetArticleAlbumInput::parsed)
                 .flatMap(
                         ids -> findExisting(ids.articleId())
                                 .map(claimed -> claimedAsOf(claimed, input))
@@ -66,15 +65,6 @@ public class SetArticleAlbumService implements CommandService<SetArticleAlbumInp
                                 article,
                                 albumId,
                                 now));
-    }
-
-    private record Ids(Article.Id articleId, Album.Id albumId) {
-    }
-
-    private static Ids toIds(SetArticleAlbumInput valid) {
-        return new Ids(
-                Article.Id.of(Objects.requireNonNull(valid.articleId())),
-                Album.Id.of(Objects.requireNonNull(valid.albumId())));
     }
 
     private Uni<ArticleRepository.Revisioned> findExisting(Article.Id id) {
