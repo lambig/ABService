@@ -1,11 +1,10 @@
 package com.abservice.application.query.article;
 
-import com.abservice.application.query.AudienceVisibility;
 import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
 import com.abservice.application.query.QueryService;
+import com.abservice.application.query.AudienceVisibility;
 import com.abservice.application.query.PageCounts;
-import com.abservice.application.query.SortKeys;
 import com.abservice.infrastructure.persistence.datasource.ArticleDataSource;
 import com.abservice.infrastructure.persistence.entity.ArticleTableRecord;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
@@ -36,27 +35,21 @@ import lombok.AllArgsConstructor;
 @FailureContract(Failure.VALIDATION)
 public class ListArticlesService implements QueryService<ListArticlesQuery, ListArticlesResult> {
 
-    private static final int DEFAULT_SIZE = 20;
-    private static final int MAX_SIZE = 100;
-
     private final ArticleDataSource dataSource;
 
     @WithSession
     @Override
     public Uni<ListArticlesResult> query(ListArticlesQuery query) {
-        final var page = clampPage(query.page());
-        final var size = clampSize(query.size());
+        final var validated = query.asValidated();
+        final var page = validated.page();
+        final var size = validated.size();
         final var panacheQuery = dataSource.pagedQuery(
                 page,
                 size,
-                AudienceVisibility.of(query.audience()),
-                SortKeys.resolve(
-                        ArticleSortKey.values(),
-                        query.sort(),
-                        query.direction(),
-                        query.audience()),
-                query.albumId(),
-                query.publicFlag());
+                AudienceVisibility.of(validated.audience()),
+                validated.sort(),
+                validated.albumId(),
+                validated.publicFlag());
         return panacheQuery.list()
                 .flatMap(
                         items -> panacheQuery.count()
@@ -84,13 +77,4 @@ public class ListArticlesService implements QueryService<ListArticlesQuery, List
                 tuple.getItem3());
     }
 
-    static int clampPage(int page) {
-        return Math.max(page, 0);
-    }
-
-    static int clampSize(int size) {
-        return size < 1
-                ? DEFAULT_SIZE
-                : Math.min(size, MAX_SIZE);
-    }
 }

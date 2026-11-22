@@ -1,4 +1,4 @@
-package com.abservice.domain.model.vo.common;
+package com.abservice.domain.model.vo.markup;
 
 import static io.github.lambig.funcifextension.predicate.Predicates.and;
 

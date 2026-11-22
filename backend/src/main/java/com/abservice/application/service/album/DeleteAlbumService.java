@@ -5,16 +5,13 @@ import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.album.Album;
-import com.abservice.domain.model.aggregate.article.AlbumArticle;
 import com.abservice.domain.model.aggregate.article.Article;
-import com.abservice.domain.model.vo.article.AlbumReferenceLostReason;
-import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.domain.repository.article.ArticleRepository;
 import com.abservice.domain.service.AlbumAccessService;
 import com.abservice.domain.service.AlbumDeletionService;
 import com.abservice.domain.service.AlbumDeletionService.AlbumDeletion;
-import com.abservice.domain.service.AlbumDeletionService.ArticleEffect;
+import com.abservice.domain.service.AlbumDeletionService.ArticleChange;
 import com.abservice.domain.service.BusinessDateTimeProvider;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
@@ -86,58 +83,19 @@ public class DeleteAlbumService implements CommandService<DeleteAlbumInput, Dele
 
     private Uni<List<DeleteAlbumOutput.AffectedArticle>> loseAlbumReferences(AlbumDeletion deletion) {
         return businessDateTimeProvider.now()
-                .map(now -> detachedAll(deletion, now))
-                .flatMap(articleRepository::saveAll)
-                .replaceWith(() -> toAffectedArticles(deletion));
+                .map(deletion::apply)
+                .flatMap(this::saveChanges);
     }
 
-    private static List<Article> detachedAll(AlbumDeletion deletion, BusinessDateTime now) {
-        return deletion.effects().stream()
-                .map(effect -> withoutAlbum(effect, now))
-                .toList();
+    private Uni<List<DeleteAlbumOutput.AffectedArticle>> saveChanges(List<ArticleChange> changes) {
+        return articleRepository.saveAll(changes.stream().map(ArticleChange::article).toList())
+                .replaceWith(() -> changes.stream().map(DeleteAlbumService::toAffectedArticle).toList());
     }
 
-    /**
-     * 判定に従って遷移を当てる。何が起きるかは {@link AlbumDeletion} が決め、ここは適用に徹する。
-     */
-    private static Article withoutAlbum(ArticleEffect effect, BusinessDateTime now) {
-        return Optional.of(effect)
-                .filter(ArticleEffect::losesAlbumReference)
-                .map(losing -> withoutAlbumReference(unpublishedIfNeeded(losing, now), now))
-                .orElseGet(() -> unpublishedIfNeeded(effect, now));
-    }
-
-    private static Article unpublishedIfNeeded(ArticleEffect effect, BusinessDateTime now) {
-        return Optional.of(effect)
-                .filter(ArticleEffect::becomesUnpublished)
-                .map(ArticleEffect::article)
-                .map(published -> published.unpublish(now))
-                .orElseGet(effect::article);
-    }
-
-    /*
-     * NARROWING: 参照を失効させられるのは AlbumArticle だけで、他の種別は参照という概念を持たない。判定は
-     * losesAlbumReference が持つが、型で絞れなかった場合は非公開化までを反映して返す。
-     */
-    private static Article withoutAlbumReference(Article article, BusinessDateTime now) {
-        return AlbumArticle.from(article)
-                .<Article>map(
-                        albumArticle -> albumArticle.loseAlbumReference(
-                                AlbumReferenceLostReason.ALBUM_DELETED,
-                                now))
-                .orElse(article);
-    }
-
-    private static List<DeleteAlbumOutput.AffectedArticle> toAffectedArticles(AlbumDeletion deletion) {
-        return deletion.referencingArticles().stream()
-                .map(DeleteAlbumService::toAffectedArticle)
-                .toList();
-    }
-
-    private static DeleteAlbumOutput.AffectedArticle toAffectedArticle(Article article) {
+    private static DeleteAlbumOutput.AffectedArticle toAffectedArticle(ArticleChange change) {
         return new DeleteAlbumOutput.AffectedArticle(
-                article.id().value(),
-                article.title().value(),
-                article.isPublic());
+                change.effect().article().id().value(),
+                change.effect().article().title().value(),
+                change.effect().becomesUnpublished());
     }
 }

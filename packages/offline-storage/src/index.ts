@@ -34,7 +34,7 @@ export type StoredInventory = Readonly<{
   availableBytes: number;
 }>;
 
-/** Manifestで選んだ世代だけを扱う。readも毎回実体検証し、不正な音源を返さない。 */
+/** Manifestで選んだ世代だけを扱う。readは保存時の検証を再利用し、サイズ・更新時刻の変化時に再照合する。 */
 export type AssetStore = Readonly<{
   save: (
     assetId: string,

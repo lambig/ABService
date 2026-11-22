@@ -9,7 +9,7 @@
 # 手元で組むには: backend/gradlew -p backend quarkusBuild
 #                docker build -f backend/src/main/docker/Dockerfile.jvm -t abservice-backend:local backend
 
-FROM amazoncorretto:25-al2023-headless@sha256:29f70764d3ffc8c8afb1b721891a9041df8117ce3f570a26e67a077d2e13612c AS trusted-java
+FROM amazoncorretto:25-al2023-headless@sha256:d43cc2b87faf3e80d04659d315dd9f1dba2c1176cc9b48d9daed285856ac056c AS trusted-java
 COPY security/ /opt/abservice-security/
 RUN cp /opt/abservice-security/*-root.pem /etc/pki/ca-trust/source/blocklist/ \
     && update-ca-trust extract \

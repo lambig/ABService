@@ -3,7 +3,7 @@ package com.abservice.domain.model.aggregate.site;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.abservice.domain.model.vo.common.MarkupContent;
+import com.abservice.domain.model.vo.markup.MarkupContent;
 import com.abservice.domain.model.vo.site.SiteContentKey;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

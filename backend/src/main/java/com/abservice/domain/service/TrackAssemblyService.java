@@ -2,7 +2,7 @@ package com.abservice.domain.service;
 
 import com.abservice.domain.model.aggregate.album.Track;
 import com.abservice.domain.model.aggregate.album.TrackTune;
-import com.abservice.domain.model.vo.common.ArtistCredit;
+import com.abservice.domain.model.vo.credit.ArtistCredit;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import jakarta.enterprise.context.ApplicationScoped;
