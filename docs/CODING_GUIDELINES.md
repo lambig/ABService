@@ -71,7 +71,7 @@ VO の外部入力用の生成は、例外 throw の `of()`（内部生成）と
 
 - **更新系は `CommandService`**: `Repository`（Write Model）経由でドメインモデルを操作。`execute()` は `@WithTransaction` で `Uni<Output>` を返す。
 - **照会系は `QueryService`**: `DataSource` から Read Model DTO を取得。`query()` は `Uni<Result>` を返す。
-- **Queryの入力検証と照会可否を分ける**: ページ範囲やID形式は入力側の `Policy` で検証し、成功時に正規化済みの照会条件を生成する。`Result` から `ValidationException` への変換はapplication側で行い、機能有効化はサービス、対象の存在判定は照会後に扱う。検証順序はAPIの既存契約に合わせる。`GetListeningPreparationService.Query.asValidated()` がこの境界の参照例で、共通PolicyへHTTP・DB・Mutinyを持ち込まない。
+- **Queryの入力検証と照会可否を分ける**: ページ範囲やID形式は入力側の `Policy` で検証し、成功時に正規化済みの照会条件を生成する。`Result` から `ValidationException` への変換はapplication側で行い、機能有効化はサービス、対象の存在判定は照会後に扱う。検証順序はAPIの既存契約に合わせる。範囲外を補正する一覧Queryでは、補正を拒否へ変更せず、ページ・並び順・絞り込みを正規化済み条件にまとめて照会へ渡す。`GetListeningPreparationService.Query.asValidated()` がこの境界の参照例で、共通PolicyへHTTP・DB・Mutinyを持ち込まない。
 - ドメインオブジェクトを外部へ直接公開せず、Input/Output・Request/Response DTO を介す。
 - 同期→非同期は `Uni.createFrom().item(() -> ...)`、連鎖は `flatMap`、同期変換は `onItem().transform`、未存在の例外化は `onItem().ifNull().failWith(...)`。
 - ブロッキングの `@Transactional` は使わない（Mutiny 非互換）。`@WithTransaction` を使う。
