@@ -1,6 +1,15 @@
 package com.abservice.application.service.album;
 
 import com.abservice.application.service.CommandService;
+import com.abservice.application.service.InputPolicy;
+import com.abservice.domain.model.policy.Policy;
+import com.abservice.domain.service.AlbumCreationService;
+import com.abservice.lib.Result;
+import java.util.Optional;
+import com.abservice.domain.service.TrackAssemblyService;
+import com.abservice.domain.service.ExternalAudioAssemblyService;
+import com.abservice.domain.model.aggregate.album.Track;
+import com.abservice.domain.model.aggregate.album.ExternalAudio;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
@@ -56,7 +65,9 @@ public record RegisterAlbumWithTracksInput(
         @Nullable BasePriceInput basePrice,
         @Nullable String originalWorkNote,
         @Nullable List<@Nullable TrackInput> tracks,
-        @Nullable List<@Nullable ExternalAudioInput> externalAudios) implements CommandService.Input {
+        @Nullable List<@Nullable ExternalAudioInput> externalAudios)
+        implements
+            CommandService.Input<RegisterAlbumWithTracksInput> {
 
     /**
      * 頒布の基準額の入力DTO
@@ -96,4 +107,50 @@ public record RegisterAlbumWithTracksInput(
             @Nullable String note) {
     }
 
+    @Override
+    public Policy<RegisterAlbumWithTracksInput> policy() {
+        return new InputPolicy<>(RegisterAlbumWithTracksInput::parsed);
+    }
+
+    Result<Values> parsed() {
+        return Result.zip(
+                body()
+                        .parsed(),
+                TrackAssemblyService.parseTracks(TrackInput.toFields(tracks())),
+                ExternalAudioAssemblyService.parseExternalAudios(ExternalAudioInput.toFields(externalAudios())),
+                Values::new);
+    }
+
+    private CreateAlbumInput body() {
+        return new CreateAlbumInput(
+                title(),
+                releaseDate(),
+                artistDisplayName(),
+                artistSortKey(),
+                catalogNumber(),
+                isdn(),
+                coverImageKey(),
+                description(),
+                descriptionFormat(),
+                Optional.ofNullable(event())
+                        .map(
+                                e -> new CreateAlbumInput.EventInput(
+                                        e.name(),
+                                        e.date(),
+                                        e.place(),
+                                        e.spaceNumber(),
+                                        e.circleName(),
+                                        e.note()))
+                        .orElse(null),
+                Optional.ofNullable(basePrice())
+                        .map(p -> new CreateAlbumInput.BasePriceInput(p.amount(), p.currency()))
+                        .orElse(null),
+                originalWorkNote());
+    }
+
+    record Values(
+            AlbumCreationService.Values album,
+            List<Track.Row> tracks,
+            List<ExternalAudio.Row> externalAudios) {
+    }
 }

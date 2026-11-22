@@ -1,6 +1,12 @@
 package com.abservice.application.service.site;
 
 import com.abservice.application.service.CommandService;
+import com.abservice.application.service.InputPolicy;
+import com.abservice.domain.model.policy.Policy;
+import com.abservice.domain.exception.ValidationException;
+import com.abservice.domain.model.vo.markup.MarkupContent;
+import com.abservice.domain.model.vo.site.SiteContentKey;
+import com.abservice.lib.Result;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -16,5 +22,30 @@ import org.jspecify.annotations.Nullable;
 public record UpsertSiteContentInput(
         @Nullable String key,
         @Nullable String content,
-        @Nullable String contentFormat) implements CommandService.Input {
+        @Nullable String contentFormat) implements CommandService.Input<UpsertSiteContentInput> {
+    @Override
+    public Policy<UpsertSiteContentInput> policy() {
+        return new InputPolicy<>(UpsertSiteContentInput::parse);
+    }
+
+    Parsed parsed() {
+        return parse(this)
+                .resolve(ValidationException::new);
+    }
+
+    record Parsed(SiteContentKey key, MarkupContent content) {
+    }
+
+    private static Result<Parsed> parse(UpsertSiteContentInput input) {
+        return Result.zip(
+                SiteContentKey.fromInput(input.key())
+                        .mapErrorFields(field -> "key"),
+                MarkupContent.fromInput(input.content(), input.contentFormat())
+                        .mapErrorFields(
+                                field -> "format".equals(field)
+                                        ? "contentFormat"
+                                        : "content"),
+                Parsed::new);
+    }
+
 }

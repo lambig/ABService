@@ -12,7 +12,7 @@ import org.jspecify.annotations.Nullable;
  * @param albumId
  *            削除対象のアルバムID
  */
-public record DeleteAlbumInput(@Nullable String albumId) implements CommandService.ValidatedInput<DeleteAlbumInput> {
+public record DeleteAlbumInput(@Nullable String albumId) implements CommandService.Input<DeleteAlbumInput> {
 
     @Override
     public Policy<DeleteAlbumInput> policy() {

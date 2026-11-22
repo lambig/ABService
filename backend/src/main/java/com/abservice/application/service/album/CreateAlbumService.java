@@ -5,20 +5,12 @@ import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.album.Album;
-import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.domain.service.AlbumCreationService;
-import com.abservice.lib.ErrorResult;
-import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
-import java.util.Optional;
 import lombok.AllArgsConstructor;
-import org.apache.commons.lang3.StringUtils;
-import org.jspecify.annotations.Nullable;
 
 /**
  * アルバム作成コマンドサービス
@@ -29,10 +21,6 @@ import org.jspecify.annotations.Nullable;
  * {@code RegisterAlbumWithTracksService}とも共有するドメインサービス）に委譲します。
  * </p>
  *
- * <p>
- * {@link BusinessDate} は文字列からの直接生成を提供しないため（パース方式の解釈は境界層の責務）、リリース日・ 初出イベント開催日の
- * ISO-8601文字列の解釈は本サービスが担います。
- * </p>
  */
 @ApplicationScoped
 @AllArgsConstructor
@@ -45,98 +33,26 @@ public class CreateAlbumService implements CommandService<CreateAlbumInput, Crea
     @WithTransaction
     @Override
     public Uni<CreateAlbumOutput> execute(CreateAlbumInput input) {
-        return Uni.createFrom()
-                .item(
-                        () -> albumCreationService.create(
-                                input.title(),
-                                resolveReleaseDate(input.releaseDate()),
-                                input.artistDisplayName(),
-                                input.artistSortKey(),
-                                input.catalogNumber(),
-                                input.isdn(),
-                                input.coverImageKey(),
-                                input.description(),
-                                input.descriptionFormat(),
-                                toEventFields(input.event()),
-                                toBasePriceFields(input.basePrice()),
-                                input.originalWorkNote())
+        return input.asValidated()
+                .map(
+                        valid -> valid.parsed()
                                 .resolve(ValidationException::new))
+                .map(albumCreationService::create)
                 .flatMap(albumRepository::save)
                 .map(CreateAlbumService::toOutput);
     }
 
-    private static AlbumCreationService.@Nullable EventFields toEventFields(
-            CreateAlbumInput.@Nullable EventInput event) {
-        return Optional.ofNullable(event)
-                .map(
-                        e -> new AlbumCreationService.EventFields(
-                                e.name(),
-                                resolveEventDate(e.date()),
-                                e.place(),
-                                e.spaceNumber(),
-                                e.circleName(),
-                                e.note()))
-                .orElse(null);
-    }
-
-    private static AlbumCreationService.@Nullable BasePriceFields toBasePriceFields(
-            CreateAlbumInput.@Nullable BasePriceInput basePrice) {
-        return Optional.ofNullable(basePrice)
-                .map(
-                        p -> new AlbumCreationService.BasePriceFields(
-                                p.amount(),
-                                p.currency()))
-                .orElse(null);
-    }
-
-    private static Result<BusinessDate> resolveReleaseDate(@Nullable String value) {
-        return Optional.ofNullable(value)
-                .filter(StringUtils::isNotBlank)
-                .map(
-                        v -> parseDate(
-                                v,
-                                "releaseDate",
-                                "ALBUM_RELEASE_DATE_INVALID"))
-                .orElseGet(
-                        () -> Result.failure(
-                                new ErrorResult(
-                                        "releaseDate",
-                                        "リリース日は必須です",
-                                        "ALBUM_RELEASE_DATE_REQUIRED")));
-    }
-
-    private static Result<Optional<BusinessDate>> resolveEventDate(@Nullable String value) {
-        return Optional.ofNullable(value)
-                .filter(StringUtils::isNotBlank)
-                .map(
-                        v -> parseDate(
-                                v,
-                                "event.date",
-                                "ALBUM_EVENT_DATE_INVALID")
-                                .map(Optional::of))
-                .orElseGet(() -> Result.<Optional<BusinessDate>>success(Optional.empty()));
-    }
-
-    private static Result<BusinessDate> parseDate(
-            String value,
-            String field,
-            String invalidErrorCode) {
-        try {
-            return Result.success(BusinessDate.of(LocalDate.parse(value)));
-        } catch (DateTimeParseException e) {
-            return Result.failure(
-                    new ErrorResult(
-                            field,
-                            "日付の形式が不正です: " + value,
-                            invalidErrorCode));
-        }
-    }
-
     private static CreateAlbumOutput toOutput(Album album) {
         return new CreateAlbumOutput(
-                album.id().value(),
-                album.title().value(),
-                album.releaseDate().asLocalDate().toString(),
-                album.artistCredit().displayName().value());
+                album.id()
+                        .value(),
+                album.title()
+                        .value(),
+                album.releaseDate()
+                        .asLocalDate()
+                        .toString(),
+                album.artistCredit()
+                        .displayName()
+                        .value());
     }
 }

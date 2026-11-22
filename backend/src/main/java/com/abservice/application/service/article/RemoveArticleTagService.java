@@ -4,11 +4,9 @@ import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.EntityNotFoundException;
-import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.article.Article;
 import com.abservice.domain.model.entity.article.ArticleTag;
 import com.abservice.domain.repository.article.ArticleRepository;
-import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -37,8 +35,8 @@ public class RemoveArticleTagService implements CommandService<RemoveArticleTagI
     @WithTransaction
     @Override
     public Uni<RemoveArticleTagOutput> execute(RemoveArticleTagInput input) {
-        return Uni.createFrom()
-                .item(() -> validate(input))
+        return input.asValidated()
+                .map(RemoveArticleTagService::toIds)
                 .flatMap(
                         ids -> findExisting(ids.articleId())
                                 .map(article -> article.removeTag(ids.tagId()))
@@ -49,14 +47,8 @@ public class RemoveArticleTagService implements CommandService<RemoveArticleTagI
     private record Ids(Article.Id articleId, ArticleTag.Id tagId) {
     }
 
-    private static Ids validate(RemoveArticleTagInput input) {
-        return Result.zip(
-                Article.Id.fromInput(input.articleId())
-                        .mapErrorFields(field -> "articleId"),
-                ArticleTag.Id.fromInput(input.tagId())
-                        .mapErrorFields(field -> "tagId"),
-                Ids::new)
-                .resolve(ValidationException::new);
+    private static Ids toIds(RemoveArticleTagInput input) {
+        return new Ids(Article.Id.of(input.articleId()), ArticleTag.Id.of(input.tagId()));
     }
 
     private Uni<Article> findExisting(Article.Id id) {

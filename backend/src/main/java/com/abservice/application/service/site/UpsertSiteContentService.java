@@ -3,12 +3,9 @@ package com.abservice.application.service.site;
 import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
-import com.abservice.domain.exception.ValidationException;
+import com.abservice.application.service.site.UpsertSiteContentInput.Parsed;
 import com.abservice.domain.model.aggregate.site.SiteContent;
-import com.abservice.domain.model.vo.markup.MarkupContent;
-import com.abservice.domain.model.vo.site.SiteContentKey;
 import com.abservice.domain.repository.site.SiteContentRepository;
-import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -32,26 +29,10 @@ public class UpsertSiteContentService implements CommandService<UpsertSiteConten
     @WithTransaction
     @Override
     public Uni<UpsertSiteContentOutput> execute(UpsertSiteContentInput input) {
-        return Uni.createFrom()
-                .item(() -> validate(input))
+        return input.asValidated()
+                .map(UpsertSiteContentInput::parsed)
                 .flatMap(this::upserted)
                 .map(UpsertSiteContentService::toOutput);
-    }
-
-    private record Parsed(SiteContentKey key, MarkupContent content) {
-    }
-
-    private static Parsed validate(UpsertSiteContentInput input) {
-        return Result.zip(
-                SiteContentKey.fromInput(input.key())
-                        .mapErrorFields(field -> "key"),
-                MarkupContent.fromInput(input.content(), input.contentFormat())
-                        .mapErrorFields(
-                                field -> "format".equals(field)
-                                        ? "contentFormat"
-                                        : "content"),
-                Parsed::new)
-                .resolve(ValidationException::new);
     }
 
     /**

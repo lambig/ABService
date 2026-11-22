@@ -5,21 +5,14 @@ import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.article.Article;
-import com.abservice.domain.model.vo.article.ArticleTitle;
-import com.abservice.domain.model.vo.article.ArticleType;
-import com.abservice.domain.model.vo.article.IntroShort;
 import com.abservice.domain.model.vo.common.BusinessDateTime;
-import com.abservice.domain.model.vo.markup.MarkupContent;
 import com.abservice.domain.repository.article.ArticleRepository;
 import com.abservice.domain.service.BusinessDateTimeProvider;
 import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import java.util.Optional;
 import lombok.AllArgsConstructor;
-import org.apache.commons.lang3.StringUtils;
-import org.jspecify.annotations.Nullable;
 
 /**
  * 記事作成コマンドサービス
@@ -29,10 +22,7 @@ import org.jspecify.annotations.Nullable;
  * </p>
  *
  * <p>
- * 値検証はドメインの各値オブジェクトの {@code fromInput}（{@code Result} 返却）に委譲し、本サービスはそれらを
- * {@link Result#zip} で集約して {@code Article} を組み立てるオーケストレーションに徹します。検証失敗は
- * {@link ValidationException} に集約し、HTTP への変換は presentation 層の ExceptionMapper
- * が担います。
+ * 値の検証は入力自身が担い、本サービスは検証後の値から集約を作成して保存します。
  * </p>
  */
 @ApplicationScoped
@@ -47,6 +37,7 @@ public class CreateArticleService implements CommandService<CreateArticleInput, 
     @Override
     public Uni<CreateArticleOutput> execute(CreateArticleInput input) {
         return businessDateTimeProvider.now()
+                .call(input::asValidated)
                 .map(
                         now -> validate(input, now)
                                 .resolve(ValidationException::new))
@@ -55,37 +46,25 @@ public class CreateArticleService implements CommandService<CreateArticleInput, 
     }
 
     static Result<Article> validate(CreateArticleInput input, BusinessDateTime now) {
-        return Result.zip(
-                ArticleTitle.fromInput(input.title()),
-                ArticleType.fromInput(input.articleType()),
-                resolveBody(input.body(), input.bodyFormat()),
-                IntroShort.fromInput(input.introShort()),
-                (title, type, body, introShort) -> Article.create(
-                        type,
-                        null,
-                        title,
-                        body,
-                        introShort,
-                        now));
-    }
-
-    /** 本文なし（blank 入力）を表す検証結果。完全に使い回せる定数。 */
-    private static final Result<MarkupContent> EMPTY_BODY = Result.success(MarkupContent.EMPTY);
-
-    private static Result<MarkupContent> resolveBody(@Nullable String content, @Nullable String format) {
-        return Optional.ofNullable(content)
-                .filter(StringUtils::isNotBlank)
+        return input.parsed()
                 .map(
-                        c -> MarkupContent.fromInput(c, format)
-                                .mapErrorFields(ArticleInputPaths::body))
-                .orElse(EMPTY_BODY);
+                        values -> Article.create(
+                                values.type(),
+                                null,
+                                values.title(),
+                                values.body(),
+                                values.introShort(),
+                                now));
     }
 
     private static CreateArticleOutput toOutput(Article article) {
         return new CreateArticleOutput(
-                article.id().value(),
-                article.articleType().name(),
-                article.title().value(),
+                article.id()
+                        .value(),
+                article.articleType()
+                        .name(),
+                article.title()
+                        .value(),
                 article.isPublic());
     }
 }

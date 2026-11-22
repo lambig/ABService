@@ -21,7 +21,7 @@ import org.jspecify.annotations.Nullable;
  */
 public record RemoveArticleAlbumInput(@Nullable String articleId, @Nullable Integer expectedRevision)
         implements
-            CommandService.ValidatedInput<RemoveArticleAlbumInput> {
+            CommandService.Input<RemoveArticleAlbumInput> {
 
     @Override
     public Policy<RemoveArticleAlbumInput> policy() {

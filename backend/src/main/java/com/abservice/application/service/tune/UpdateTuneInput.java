@@ -1,6 +1,12 @@
 package com.abservice.application.service.tune;
 
 import com.abservice.application.service.CommandService;
+import com.abservice.application.service.InputPolicy;
+import com.abservice.domain.model.policy.Policy;
+import com.abservice.domain.exception.ValidationException;
+import com.abservice.domain.model.aggregate.tune.Tune;
+import com.abservice.lib.Result;
+import io.smallrye.mutiny.Uni;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -43,5 +49,40 @@ public record UpdateTuneInput(
         @Nullable String originalWorkCredit,
         @Nullable String tuneType,
         @Nullable String defaultKey,
-        @Nullable Integer defaultTempo) implements CommandService.Input {
+        @Nullable Integer defaultTempo) implements CommandService.Input<UpdateTuneInput> {
+    @Override
+    public Policy<UpdateTuneInput> policy() {
+        return new InputPolicy<>(UpdateTuneInput::validatedValues);
+    }
+
+    private Result<CreateTuneInput.Values> validatedValues() {
+        return requested()
+                .flatMap(_ -> bodyValues());
+    }
+
+    Result<CreateTuneInput.Values> bodyValues() {
+        return new CreateTuneInput(
+                title(),
+                tuneKind(),
+                defaultComposerCredit(),
+                defaultArrangerCredit(),
+                originalWorkTitle(),
+                originalWorkCredit(),
+                tuneType(),
+                defaultKey(),
+                defaultTempo())
+                .parsed();
+    }
+
+    Uni<Tune.Id> asRequested() {
+        return Uni.createFrom()
+                .item(
+                        () -> requested()
+                                .resolve(ValidationException::new));
+    }
+
+    private Result<Tune.Id> requested() {
+        return Tune.Id.fromInput(tuneId())
+                .withErrorField("tuneId");
+    }
 }

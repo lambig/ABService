@@ -30,21 +30,21 @@ import org.junit.jupiter.params.provider.MethodSource;
 class CommandInputContractTest {
     private static final String ID = "01900000-0000-7000-8000-000000000001";
 
-    private record Probe(Supplier<Policy<Probe>> rules) implements CommandService.ValidatedInput<Probe> {
+    private record Probe(Supplier<Policy<Probe>> rules) implements CommandService.Input<Probe> {
         @Override
         public Policy<Probe> policy() {
             return rules.get();
         }
     }
 
-    private record RejectedInput(List<ErrorResult> errors) implements CommandService.ValidatedInput<RejectedInput> {
+    private record RejectedInput(List<ErrorResult> errors) implements CommandService.Input<RejectedInput> {
         @Override
         public Policy<RejectedInput> policy() {
             return new InputPolicy<>(input -> Result.failure(input.errors()));
         }
     }
 
-    private record UnexpectedInput(RuntimeException cause) implements CommandService.ValidatedInput<UnexpectedInput> {
+    private record UnexpectedInput(RuntimeException cause) implements CommandService.Input<UnexpectedInput> {
         @Override
         public Policy<UnexpectedInput> policy() {
             return new InputPolicy<>(input -> {
@@ -108,11 +108,11 @@ class CommandInputContractTest {
     @ParameterizedTest
     @MethodSource("validInputs")
     @DisplayName("IDを持つ入力は正常値で自身を返す")
-    void returnsValidatedInput(CommandService.ValidatedInput<?> input) {
+    void returnsValidatedInput(CommandService.Input<?> input) {
         assertThat(input.asValidated().await().indefinitely()).isSameAs(input);
     }
 
-    static Stream<CommandService.ValidatedInput<?>> validInputs() {
+    static Stream<CommandService.Input<?>> validInputs() {
         return Stream.of(
                 new PublishArticleInput(ID),
                 new UnpublishArticleInput(ID),
@@ -131,7 +131,7 @@ class CommandInputContractTest {
     @ParameterizedTest
     @MethodSource("invalidInputs")
     @DisplayName("null・空白・不正IDのエラー位置と複数エラーの順序を保つ")
-    void rejectsInvalidInput(CommandService.ValidatedInput<?> input, List<String> fields) {
+    void rejectsInvalidInput(CommandService.Input<?> input, List<String> fields) {
         final var pending = input.asValidated();
         assertThatThrownBy(() -> pending.await().indefinitely())
                 .isInstanceOfSatisfying(

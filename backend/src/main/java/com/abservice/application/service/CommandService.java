@@ -43,7 +43,7 @@ import java.util.function.Function;
  * @see <a href=
  *      "https://github.com/lambig/ABService/blob/main/docs/CODING_GUIDELINES.md#commandservice">実装詳細</a>
  */
-public interface CommandService<I extends CommandService.Input, O extends CommandService.Output> {
+public interface CommandService<I extends CommandService.Input<I>, O extends CommandService.Output> {
     /**
      * ユースケースを実行
      *
@@ -54,18 +54,12 @@ public interface CommandService<I extends CommandService.Input, O extends Comman
     Uni<O> execute(I input);
 
     /**
-     * 入力DTOのマーカーインターフェース
-     */
-    interface Input {
-    }
-
-    /**
-     * 値だけで検証できる入力。未移行のInputとは区別し、検証を省略する既定Policyを設けない。
+     * 入力自身の値を検証する。状態依存の確認はサービスが先に行う。
      *
      * @param <Self>
      *            実装する入力自身の型
      */
-    interface ValidatedInput<Self extends ValidatedInput<Self>> extends Input {
+    interface Input<Self extends Input<Self>> {
         /** @return 入力の値だけを検証する規則 */
         Policy<Self> policy();
 

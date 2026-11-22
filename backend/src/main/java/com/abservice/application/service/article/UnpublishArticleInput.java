@@ -13,7 +13,7 @@ import org.jspecify.annotations.Nullable;
  *            非公開化対象の記事ID
  */
 public record UnpublishArticleInput(
-        @Nullable String articleId) implements CommandService.ValidatedInput<UnpublishArticleInput> {
+        @Nullable String articleId) implements CommandService.Input<UnpublishArticleInput> {
 
     @Override
     public Policy<UnpublishArticleInput> policy() {

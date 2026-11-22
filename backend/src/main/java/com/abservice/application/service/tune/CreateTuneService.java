@@ -5,18 +5,12 @@ import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.tune.Tune;
-import com.abservice.domain.model.vo.credit.Credit;
-import com.abservice.domain.model.vo.tune.TuneKind;
-import com.abservice.domain.model.vo.tune.TuneTitle;
 import com.abservice.domain.repository.tune.TuneRepository;
 import com.abservice.lib.Result;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import java.util.Optional;
 import lombok.AllArgsConstructor;
-import org.apache.commons.lang3.StringUtils;
-import org.jspecify.annotations.Nullable;
 
 /**
  * チューン作成コマンドサービス
@@ -26,10 +20,7 @@ import org.jspecify.annotations.Nullable;
  * </p>
  *
  * <p>
- * 値検証はドメインの各値オブジェクトの {@code fromInput}（{@code Result} 返却）に委譲し、本サービスはそれらを
- * {@link Result#zip} で集約して {@code Tune} を組み立てるオーケストレーションに徹します。検証失敗は
- * {@link ValidationException} に集約し、HTTP への変換は presentation 層の ExceptionMapper
- * が担います。
+ * 値の検証は入力自身が担い、本サービスは検証後の値から集約を作成して保存します。
  * </p>
  */
 @ApplicationScoped
@@ -42,54 +33,38 @@ public class CreateTuneService implements CommandService<CreateTuneInput, Create
     @WithTransaction
     @Override
     public Uni<CreateTuneOutput> execute(CreateTuneInput input) {
-        return Uni.createFrom()
-                .item(
-                        () -> validate(input)
+        return input.asValidated()
+                .map(
+                        valid -> validate(valid)
                                 .resolve(ValidationException::new))
                 .flatMap(tuneRepository::save)
                 .map(CreateTuneService::toOutput);
     }
 
     static Result<Tune> validate(CreateTuneInput input) {
-        return Result.zip(
-                TuneTitle.fromInput(input.title())
-                        .mapErrorFields(field -> "title"),
-                TuneKind.fromInput(input.tuneKind()),
-                resolveCredit(input.defaultComposerCredit())
-                        .mapErrorFields(field -> "defaultComposerCredit"),
-                TitleKindComposer::new)
-                .flatMap(
-                        composer -> resolveCredit(input.defaultArrangerCredit())
-                                .mapErrorFields(field -> "defaultArrangerCredit")
-                                .map(
-                                        arrangerCredit -> Tune.create(
-                                                composer.title(),
-                                                composer.tuneKind(),
-                                                composer.defaultComposerCredit().orElse(null),
-                                                arrangerCredit.orElse(null),
-                                                input.originalWorkTitle(),
-                                                input.originalWorkCredit(),
-                                                input.tuneType(),
-                                                input.defaultKey(),
-                                                input.defaultTempo())));
-    }
-
-    private record TitleKindComposer(TuneTitle title, TuneKind tuneKind, Optional<Credit> defaultComposerCredit) {
-    }
-
-    private static Result<Optional<Credit>> resolveCredit(@Nullable String value) {
-        return Optional.ofNullable(value)
-                .filter(StringUtils::isNotBlank)
+        return input.parsed()
                 .map(
-                        v -> Credit.fromInput(v)
-                                .map(Optional::of))
-                .orElseGet(() -> Result.<Optional<Credit>>success(Optional.empty()));
+                        values -> Tune.create(
+                                values.title(),
+                                values.tuneKind(),
+                                values.composer()
+                                        .orElse(null),
+                                values.arranger()
+                                        .orElse(null),
+                                input.originalWorkTitle(),
+                                input.originalWorkCredit(),
+                                input.tuneType(),
+                                input.defaultKey(),
+                                input.defaultTempo()));
     }
 
     private static CreateTuneOutput toOutput(Tune tune) {
         return new CreateTuneOutput(
-                tune.id().value(),
-                tune.title().value(),
-                tune.tuneKind().name());
+                tune.id()
+                        .value(),
+                tune.title()
+                        .value(),
+                tune.tuneKind()
+                        .name());
     }
 }

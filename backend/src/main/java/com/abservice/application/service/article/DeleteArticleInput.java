@@ -13,7 +13,7 @@ import org.jspecify.annotations.Nullable;
  *            削除対象の記事ID
  */
 public record DeleteArticleInput(
-        @Nullable String articleId) implements CommandService.ValidatedInput<DeleteArticleInput> {
+        @Nullable String articleId) implements CommandService.Input<DeleteArticleInput> {
 
     @Override
     public Policy<DeleteArticleInput> policy() {

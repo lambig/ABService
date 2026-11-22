@@ -45,6 +45,11 @@ public class ExternalAudioAssemblyService implements DomainService {
      */
     public Result<List<ExternalAudio.Row>> resolveExternalAudios(
             @Nullable List<@Nullable ExternalAudioFields> audios) {
+        return parseExternalAudios(audios);
+    }
+
+    public static Result<List<ExternalAudio.Row>> parseExternalAudios(
+            @Nullable List<@Nullable ExternalAudioFields> audios) {
         return Optional.ofNullable(audios)
                 .map(ExternalAudioAssemblyService::validateAudios)
                 .orElseGet(() -> Result.success(List.of()));

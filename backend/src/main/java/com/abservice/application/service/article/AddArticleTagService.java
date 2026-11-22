@@ -45,8 +45,8 @@ public class AddArticleTagService implements CommandService<AddArticleTagInput, 
     @WithTransaction
     @Override
     public Uni<AddArticleTagOutput> execute(AddArticleTagInput input) {
-        return Uni.createFrom()
-                .item(() -> validate(input))
+        return input.asValidated()
+                .map(AddArticleTagService::validate)
                 .flatMap(
                         valid -> identified(valid.tag())
                                 .flatMap(tag -> addTagTo(valid.articleId(), tag)));

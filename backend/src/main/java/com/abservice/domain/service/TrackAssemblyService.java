@@ -50,6 +50,10 @@ public class TrackAssemblyService implements DomainService {
      * @return 成功時はトラックの並び、失敗時はエラー
      */
     public Result<List<Track.Row>> resolveTracks(@Nullable List<@Nullable TrackFields> tracks) {
+        return parseTracks(tracks);
+    }
+
+    public static Result<List<Track.Row>> parseTracks(@Nullable List<@Nullable TrackFields> tracks) {
         return Optional.ofNullable(tracks)
                 .map(TrackAssemblyService::validateTracks)
                 .orElseGet(() -> Result.success(List.of()));
@@ -128,9 +132,11 @@ public class TrackAssemblyService implements DomainService {
                 ResolvedFields::new)
                 .flatMap(
                         resolved -> Track.rowFromInput(
-                                resolved.trackId().orElse(null),
+                                resolved.trackId()
+                                        .orElse(null),
                                 fields.title(),
-                                resolved.artistCredit().orElse(null),
+                                resolved.artistCredit()
+                                        .orElse(null),
                                 resolved.tunes()));
     }
 

@@ -6,10 +6,8 @@ import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.EntityId;
-import com.abservice.lib.ErrorResult;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import java.util.List;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
@@ -49,9 +47,11 @@ public class IssueAssetUploadUrlService
 
     @Override
     public Uni<IssueAssetUploadUrlOutput> execute(IssueAssetUploadUrlInput input) {
-        return AssetImageFormat.ofContentType(input.contentType())
-                .map(this::issueFor)
-                .orElseGet(() -> Uni.createFrom().failure(unsupportedContentType(input.contentType())));
+        return input.asValidated()
+                .map(
+                        valid -> valid.format()
+                                .resolve(ValidationException::new))
+                .flatMap(this::issueFor);
     }
 
     private Uni<IssueAssetUploadUrlOutput> issueFor(AssetImageFormat format) {
@@ -65,13 +65,4 @@ public class IssueAssetUploadUrlService
                                 maxBytes));
     }
 
-    private static ValidationException unsupportedContentType(String contentType) {
-        return new ValidationException(
-                List.of(
-                        new ErrorResult(
-                                "contentType",
-                                "対応していない形式です: " + contentType + "（対応: "
-                                        + AssetImageFormat.acceptedContentTypes() + "）",
-                                "UNSUPPORTED_CONTENT_TYPE")));
-    }
 }

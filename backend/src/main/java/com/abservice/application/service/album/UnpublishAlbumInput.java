@@ -13,7 +13,7 @@ import org.jspecify.annotations.Nullable;
  *            非公開化対象のアルバムID
  */
 public record UnpublishAlbumInput(
-        @Nullable String albumId) implements CommandService.ValidatedInput<UnpublishAlbumInput> {
+        @Nullable String albumId) implements CommandService.Input<UnpublishAlbumInput> {
 
     @Override
     public Policy<UnpublishAlbumInput> policy() {

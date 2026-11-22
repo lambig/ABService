@@ -12,7 +12,7 @@ import org.jspecify.annotations.Nullable;
  * @param tuneId
  *            削除対象のチューンID
  */
-public record DeleteTuneInput(@Nullable String tuneId) implements CommandService.ValidatedInput<DeleteTuneInput> {
+public record DeleteTuneInput(@Nullable String tuneId) implements CommandService.Input<DeleteTuneInput> {
 
     @Override
     public Policy<DeleteTuneInput> policy() {

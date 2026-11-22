@@ -12,7 +12,7 @@ import org.jspecify.annotations.Nullable;
  * @param albumId
  *            公開対象のアルバムID
  */
-public record PublishAlbumInput(@Nullable String albumId) implements CommandService.ValidatedInput<PublishAlbumInput> {
+public record PublishAlbumInput(@Nullable String albumId) implements CommandService.Input<PublishAlbumInput> {
 
     @Override
     public Policy<PublishAlbumInput> policy() {

@@ -13,8 +13,6 @@ import com.abservice.domain.model.vo.common.AssetKey;
 import com.abservice.domain.model.vo.common.BusinessDate;
 import com.abservice.domain.model.vo.markup.MarkupContent;
 import com.abservice.domain.model.vo.markup.MarkupFormat;
-import com.abservice.domain.service.ExternalAudioAssemblyService;
-import com.abservice.domain.service.TrackAssemblyService;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import java.util.List;
@@ -44,9 +42,7 @@ class UpdateAlbumServiceTest {
      */
     private static final UpdateAlbumService SERVICE = new UpdateAlbumService(
             null,
-            null,
-            new TrackAssemblyService(),
-            new ExternalAudioAssemblyService());
+            null);
 
     private static Album existingAlbum() {
         return Album.create(
