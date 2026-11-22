@@ -25,7 +25,8 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>
  * 1トラック内に含まれる個々のチューンと、その順番・名前・クレジット上書き・リンクを表します。 トラック内では {@code seq}
- * で識別され（永続化上は trackId との複合キー）、{@code tuneId} はトラックが表す構成の事実の一部として生成後は不変です。
+ * で識別され（永続化上は trackId との複合キー）、記述の変更操作では {@code tuneId} を保ちます。
+ * 同定の訂正は別の構成要素を生成し、{@link Track#replaceTunes(java.util.List)} で構成を置き換えて表します。
  * </p>
  *
  * <p>
