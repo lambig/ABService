@@ -63,7 +63,7 @@
 
 音楽の名義・役割表記は、作品と楽曲が同じ契約を使うため `vo.credit` に所有させる。複数集約からの参照を汎用性の根拠にせず、集約の状態や別責務の値へ依存させない（[#200](https://github.com/lambig/ABService/issues/200)、W02-credit/1）。
 
-**実体**: `domain/model/vo/credit/ArtistCredit`、`domain/model/vo/common/EventReleasedAt`、`V15`/`V16`/`V17`（テーブルから埋め込みへの移行）。
+**実体**: `domain/model/vo/credit/ArtistCredit`、`domain/model/vo/album/EventReleasedAt`、`V15`/`V16`/`V17`（テーブルから埋め込みへの移行）。
 
 ---
 
@@ -120,7 +120,7 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **トレードオフ**: 外部サービスの可用性・UI・埋め込み仕様に依存する。CSPの `frame-src` 許可が必要になる。自前配信へ戻す場合はアップロード基盤の上限と許可形式を足すだけで済むよう、アップロード経路は署名付きURL方式で統一している。
 
-**実体**: `application/service/asset/`（画像専用の受け入れ形式）、`domain/model/vo/common/AssetKey` と対になる `ExternalAudioUrl`（埋め込み可能なホストの許可リスト）、`V32`（Albumの外部音源）。公開サイト側の埋め込み表示とCSPは #155。
+**実体**: `application/service/asset/`（画像専用の受け入れ形式）、`domain/model/vo/asset/AssetKey` と対になる `ExternalAudioUrl`（埋め込み可能なホストの許可リスト）、`V32`（Albumの外部音源）。公開サイト側の埋め込み表示とCSPは #155。
 
 ---
 
@@ -150,7 +150,7 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 **なぜ**: 配信URLを保存すると、CDNのパス構成変更やドメインの差異（ローカル/本番）で保存データが無効になる。また実際のドメイン名をDBに持ち込まない方針とも整合する。OG画像など絶対URLが必要な用途は、公開サイトが自身のサイトURL設定から組み立てられる。
 
-**実体**: `domain/model/vo/common/AssetKey`、`application/query/album/AlbumViewMapper`、`abservice.assets.public-base-path`。
+**実体**: `domain/model/vo/asset/AssetKey`、`application/query/album/AlbumViewMapper`、`abservice.assets.public-base-path`。
 
 ---
 

@@ -1,4 +1,4 @@
-package com.abservice.domain.model.vo.common;
+package com.abservice.domain.model.vo.time;
 
 import com.abservice.domain.model.vo.ValueObject;
 

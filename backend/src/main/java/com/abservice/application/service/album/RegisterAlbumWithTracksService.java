@@ -5,7 +5,7 @@ import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.aggregate.album.Album;
-import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.domain.model.vo.time.BusinessDate;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.domain.service.AlbumCreationService;
 import com.abservice.domain.service.ExternalAudioAssemblyService;
