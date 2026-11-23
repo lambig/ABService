@@ -107,7 +107,7 @@ why not コメントは大文字+ハイフンの語＋コロンのプレフィ�
 
 ## 9. 述語合成と文字列整形
 
-汎用の関数・述語・文字列整形にはtoolboxの公開APIを使用し、同等物をABService内へ複製しない。採用する版は[build定義](../backend/build.gradle)、APIの意味・利用例・最低Java・互換性は[toolboxの対象版ガイド](https://github.com/lambig/toolbox-java/blob/458c3713c5b2a95d1643e7647a52ea6dac9fe82f/README.md)から各ライブラリの正本を参照する。
+汎用の関数・述語・文字列整形にはtoolboxの公開APIを使用し、同等物をABService内へ複製しない。採用する版は[build定義](../backend/build.gradle)、各ライブラリの利用案内は[toolboxの利用ガイド](https://github.com/lambig/toolbox-java#readme)を参照する。採用版のAPI・ソース・互換性は、その版のsources/Javadoc・リリース記録で確認する。
 
 ABServiceでの選択基準は次のとおり。
 
