@@ -32,6 +32,8 @@
     <rule ref="category/java/codestyle.xml/VariableCanBeInlined"/>
     <rule ref="category/java/bestpractices.xml/UnusedLocalVariable"/>
     <rule ref="category/java/bestpractices.xml/UnusedAssignment"/>
+    <!-- 識別子の大文字化が実行環境の言語で変わる不具合を防ぐ（#193）。 -->
+    <rule ref="category/java/errorprone.xml/UseLocaleWithCaseConversions"/>
 
     <rule name="ForbiddenFullyQualifiedTypeReference"
           language="java"

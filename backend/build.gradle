@@ -188,7 +188,7 @@ tasks.withType(Checkstyle).configureEach {
     }
 }
 
-// PMD: Static analysis with custom rules only
+// PMD: Project rules and individually selected built-in rules.
 pmd {
     toolVersion = '7.26.0'
     ruleSetFiles = files("${projectDir}/config/pmd/ruleset.xml")
