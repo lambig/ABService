@@ -5,7 +5,7 @@ import type { ViteUserConfig } from 'vitest/config';
  * テストの設定。
  *
  * <p>
- * 環境はテストの置き場で分ける。`src/lib` は値と関数だけの層で DOM を要さず、`Response` や `fetch` を
+ * 環境はテストの置き場で分ける。`src/lib` の試験は DOM を要さず、API 境界では `Response` や `fetch` を
  * そのまま使う（`http.test.ts`）。jsdom はこれらを持たないため、lib まで jsdom へ寄せると通信の検査が
  * 環境の差で落ちる。
  * </p>

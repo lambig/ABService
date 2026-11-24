@@ -49,16 +49,23 @@ import {
  * </ul>
  *
  * <p>
- * shadcn-svelte が置くコンポーネントは `src/components/ui/**` にあり、この層の規則の対象になる（規約自体は
- * 各アプリの eslint 設定が除外する。上流の生成物のため）。
+ * shadcn-svelte の生成物は各アプリで除外する。`lib/utils` はその既存の参照先として維持する。
+ * `lib` は表示変換・経路と、API・セッション・編集復元・サイト照会の責務を区別する。
+ * 表示変換と経路は I/O の実行元に依存せず、API の型だけを参照できる。
  * </p>
  */
 const layerBoundaries = [
   {
     files: ['src/lib/**'],
-    outer: ['$components/*', '$layouts/*', '../components/*', '../layouts/*', '../pages/*'],
+    outer: [
+      '$components/*',
+      '$layouts/*',
+      '../components/*',
+      '../layouts/*',
+      '../pages/*',
+    ],
     message:
-      'lib は最も内側の層です。components / layouts / pages を輸入せず、値と関数だけを公開してください。',
+      'lib は画面の組み立てに依存しません。components / layouts / pages を輸入しないでください。',
   },
   {
     files: ['src/components/**'],
@@ -69,7 +76,8 @@ const layerBoundaries = [
   {
     files: ['src/layouts/**'],
     outer: ['../pages/*'],
-    message: 'layouts は pages を輸入しません。画面の組み立ては pages 側が行ってください。',
+    message:
+      'layouts は pages を輸入しません。画面の組み立ては pages 側が行ってください。',
   },
 ];
 
@@ -84,12 +92,14 @@ const svelte4Apis = [
   {
     name: 'svelte',
     importNames: ['beforeUpdate'],
-    message: 'Svelte 4 までの API です。更新前の処理は $effect.pre で表してください。',
+    message:
+      'Svelte 4 までの API です。更新前の処理は $effect.pre で表してください。',
   },
   {
     name: 'svelte',
     importNames: ['afterUpdate'],
-    message: 'Svelte 4 までの API です。更新後の処理は $effect で表してください。',
+    message:
+      'Svelte 4 までの API です。更新後の処理は $effect で表してください。',
   },
 ];
 
@@ -109,6 +119,11 @@ const restrictedImports = (extra) => [
     patterns: [
       { group: [DEEP_RELATIVE_IMPORT], message: DEEP_RELATIVE_IMPORT_MESSAGE },
       { group: [SRC_ABSOLUTE_IMPORT], message: SRC_ABSOLUTE_IMPORT_MESSAGE },
+      {
+        regex: '(?:^/src/|/\\.\\.?/|\\\\)',
+        message:
+          '経路を正規化して境界を迂回せず、エイリアスか直接の相対パスを使ってください。',
+      },
       ...extra,
     ],
     paths: [...forbiddenAssertionPaths, ...svelte4Apis],
@@ -181,7 +196,15 @@ export const astroSvelteWorkspace = ({ tsconfigRootDir }) =>
     ...svelte.configs.recommended,
 
     {
-      files: ['**/*.ts', '**/*.astro', '**/*.svelte'],
+      files: [
+        '**/*.ts',
+        '**/*.astro',
+        '**/*.svelte',
+        '**/*.js',
+        '**/*.mjs',
+        '**/*.cjs',
+      ],
+      languageOptions: { parserOptions: { tsconfigRootDir } },
       plugins: {
         '@typescript-eslint': tseslint.plugin,
         functional,
@@ -193,6 +216,11 @@ export const astroSvelteWorkspace = ({ tsconfigRootDir }) =>
         /* 深い相対パス・非相対パスに加えて Svelte 4 の API も塞ぐ（エイリアスを使う） */
         'no-restricted-imports': restrictedImports([]),
       },
+    },
+
+    {
+      files: ['scripts/**/*.{js,mjs,cjs}'],
+      languageOptions: { globals: globals.node },
     },
 
     {
@@ -215,4 +243,55 @@ export const astroSvelteWorkspace = ({ tsconfigRootDir }) =>
         'no-restricted-imports': restrictedImports([{ group: outer, message }]),
       },
     })),
+
+    {
+      files: ['src/lib/{presentation,navigation}/**', 'src/lib/utils.ts'],
+      rules: {
+        'no-restricted-imports': restrictedImports([
+          {
+            group: layerBoundaries[0].outer,
+            message: layerBoundaries[0].message,
+          },
+          {
+            group: ['$lib/api', '$lib/api/**', '../api', '../api/**'],
+            allowTypeImports: true,
+            message:
+              '表示変換と経路は API の型だけを参照し、通信を呼び出しません。',
+          },
+          {
+            group: [
+              '$lib/session',
+              '$lib/session/**',
+              '$lib/editor',
+              '$lib/editor/**',
+              '$lib/site',
+              '$lib/site/**',
+              '../session',
+              '../session/**',
+              '../editor',
+              '../editor/**',
+              '../site',
+              '../site/**',
+            ],
+            message:
+              '表示変換と経路へ値を渡し、セッション・編集復元・サイト照会を呼び出さないでください。',
+          },
+        ]),
+      },
+    },
+    {
+      files: ['src/lib/**'],
+      rules: {
+        'no-restricted-syntax': [
+          'error',
+          ...restrictedSyntax,
+          {
+            selector:
+              'ImportExpression, CallExpression[callee.name="require"], TSImportType',
+            message:
+              'lib の依存は静的な import / import type で宣言し、同じ境界検査を通してください。',
+          },
+        ],
+      },
+    },
   );

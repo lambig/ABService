@@ -2,7 +2,7 @@ import { act, cleanup, render, screen, waitFor, within } from '@testing-library/
 import { userEvent } from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { authenticate, logout } from '$lib/credentials';
+import { authenticate, logout } from '$lib/session/credentials';
 import { requestEmpty, requestJson, type ApiResult } from '$lib/api/http';
 import type { AdminAlbum, AdminAlbumPage } from '$lib/api/client';
 import AlbumAdminList from './AlbumAdminList.svelte';

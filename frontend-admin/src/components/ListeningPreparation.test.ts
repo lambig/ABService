@@ -13,7 +13,7 @@ const api = vi.hoisted(() => ({
   decideAuthorization: vi.fn(),
   revokeDevice: vi.fn(),
 }));
-vi.mock('$lib/listening-entry', () => ({ listeningEntry: api.listeningEntry }));
+vi.mock('$lib/api/listening-entry', () => ({ listeningEntry: api.listeningEntry }));
 vi.mock('$lib/api/client', () => ({ listAlbums: api.listAlbums, getAlbum: api.getAlbum }));
 vi.mock('$lib/api/private-audio', () => ({
   crossfade: api.crossfade,

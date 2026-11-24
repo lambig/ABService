@@ -1,7 +1,7 @@
-import { ALBUM_FIELD_PATHS, type AlbumDraft, type ExternalAudioDraft } from './api/album-form';
-import { ARTICLE_FIELD_PATHS } from './api/article-form';
-import type { TrackDraft, TuneDraft } from './api/track-form';
-import { objectOf, stringsOf } from './editor-recovery';
+import { ALBUM_FIELD_PATHS, type AlbumDraft, type ExternalAudioDraft } from '$lib/api/album-form';
+import { ARTICLE_FIELD_PATHS } from '$lib/api/article-form';
+import type { TrackDraft, TuneDraft } from '$lib/api/track-form';
+import { objectOf, stringsOf } from '$lib/editor/editor-recovery';
 
 /** 作品のフォーム入力。アップロード中のFile・署名付きURL・セッションは保存しない。 */
 export type AlbumRecoveryValues = Readonly<{

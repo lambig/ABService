@@ -9,7 +9,7 @@
     isCurrentSession,
     storedSession,
     type AdminSession,
-  } from '$lib/credentials';
+  } from '$lib/session/credentials';
   import type { ApiResult, AdminAlbum } from '$lib/api/client';
   import {
     resolveAuthorization,
@@ -20,8 +20,8 @@
     type Device,
     type PreparationAlbum,
   } from '$lib/api/listening-devices';
-  import { listeningEntry, type ListeningEntry } from '$lib/listening-entry';
-  import { albumIdIn, editAlbumPath, albumAudioPath } from '$lib/paths';
+  import { listeningEntry, type ListeningEntry } from '$lib/api/listening-entry';
+  import { albumIdIn, editAlbumPath, albumAudioPath } from '$lib/navigation/paths';
 
   type AvailableAlbum = Readonly<{
     album: Pick<AdminAlbum, 'albumId' | 'title' | 'publishedAt'>;

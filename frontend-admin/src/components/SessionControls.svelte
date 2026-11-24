@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Button } from '$components/ui/button/index.js';
-  import { logout, sessionState } from '$lib/credentials';
+  import { logout, sessionState } from '$lib/session/credentials';
   const { onLogout }: { readonly onLogout: () => void } = $props();
   let notice = $state<{ readonly generation: symbol; readonly message: string | null } | null>(
     null,

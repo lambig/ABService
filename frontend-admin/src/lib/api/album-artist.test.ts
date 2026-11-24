@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { AdminSession } from '$lib/credentials';
+import type { AdminSession } from '$lib/session/credentials';
 import { createAlbum, updateAlbum } from './client';
 
-vi.mock('$lib/credentials', () => ({ isCurrentSession: () => true }));
+vi.mock('$lib/session/credentials', () => ({ isCurrentSession: () => true }));
 const session: AdminSession = {
   token: 'abs_session_fixture',
   expiresAt: '2099-01-01T00:00:00Z',

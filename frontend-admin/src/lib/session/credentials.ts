@@ -1,8 +1,8 @@
-import { clearEditorRecoveries } from './editor-recovery';
+import { clearEditorRecoveries } from '$lib/editor/editor-recovery';
 import { get, readonly, writable } from 'svelte/store';
 
-import { exchangeSession, revokeSession, sessionValueOf } from './api/sessions';
-import type { ApiResult } from './api/http';
+import { exchangeSession, revokeSession, sessionValueOf } from '$lib/api/sessions';
+import type { ApiResult } from '$lib/api/http';
 
 /** 世代は要求を区別するページ内の印で、保存・共有しない。 */
 export type AdminSession = {

@@ -1,6 +1,6 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { PUBLIC_API_BASE_URL } from 'astro:env/client';
-import { isCurrentSession, type AdminSession } from '$lib/credentials';
+import { isCurrentSession, type AdminSession } from '$lib/session/credentials';
 import { requestJson, type ApiResult } from './http';
 import type { components } from './schema';
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bridgeEntry } from './listening-entry';
+import { bridgeEntry } from '$lib/api/listening-entry';
 
 const valid = {
   kind: 'ssm-audio',
