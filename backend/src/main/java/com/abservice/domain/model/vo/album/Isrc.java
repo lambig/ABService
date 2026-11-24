@@ -5,6 +5,7 @@ import com.abservice.domain.model.vo.ValueObject;
 import com.abservice.lib.ErrorResult;
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -49,7 +50,7 @@ public record Isrc(String value) implements ValueObject<Isrc> {
                         "ISRC_REQUIRED"))
                 .verify(value, Function.identity())
                 .resolve(errors -> new IllegalArgumentException(errors.getFirst().message()));
-        final var normalized = value.toUpperCase().trim();
+        final var normalized = value.toUpperCase(Locale.ROOT).trim();
         Policy.of(
                 (String v) -> ISRC_PATTERN.matcher(v).matches(),
                 () -> new ErrorResult("value", "ISRC must match the format: CC-XXX-YY-NNNNN (hyphens optional)",

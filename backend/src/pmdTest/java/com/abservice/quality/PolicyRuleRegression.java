@@ -150,33 +150,57 @@ public final class PolicyRuleRegression {
                 """);
         StringBuilder results = new StringBuilder();
         for (var entry : cases.entrySet()) {
-            String source = PRELUDE + entry.getValue();
-            var expected = source.lines().toList();
-            var expectedLines = java.util.stream.IntStream.range(0, expected.size())
-                    .filter(i -> expected.get(i).contains("// violation")).map(i -> i + 1).boxed().toList();
-            PMDConfiguration config = new PMDConfiguration();
-            config.setIgnoreIncrementalAnalysis(true);
-            config.setThreads(1);
-            try (PmdAnalysis analysis = PmdAnalysis.create(config)) {
-                var rule = analysis.newRuleSetLoader().loadFromResource(args[0]).getRuleByName("ScatteredPolicy");
-                if (rule == null) {
-                    throw new AssertionError("Production ruleset must enable ScatteredPolicy");
-                }
-                analysis.addRuleSet(RuleSet.forSingleRule(rule));
-                analysis.files().addSourceFile(FileId.fromPathLikeString(entry.getKey() + ".java"), source);
-                var report = analysis.performAnalysisAndCollectReport();
-                if (!report.getProcessingErrors().isEmpty() || !report.getConfigurationErrors().isEmpty()) {
-                    throw new AssertionError(report.getProcessingErrors() + " " + report.getConfigurationErrors());
-                }
-                var actual = report.getViolations().stream().map(v -> v.getBeginLine()).sorted().toList();
-                if (!actual.equals(expectedLines)) {
-                    throw new AssertionError(entry.getKey() + ": expected " + expectedLines + ", actual " + actual);
-                }
-                results.append(entry.getKey()).append(": PASS ").append(actual).append('\n');
-            }
+            verifyCase(args[0], "ScatteredPolicy", entry.getKey(), PRELUDE + entry.getValue(), results);
         }
+        verifyCase(args[0], "UseLocaleWithCaseConversions", "DefaultUpper", """
+                class Sample {
+                    String convert(String value) { return value.toUpperCase(); } // violation
+                }
+                """, results);
+        verifyCase(args[0], "UseLocaleWithCaseConversions", "DefaultLower", """
+                class Sample {
+                    String convert(String value) { return value.toLowerCase(); } // violation
+                }
+                """, results);
+        verifyCase(args[0], "UseLocaleWithCaseConversions", "ExplicitRoot", """
+                class Sample {
+                    String convert(String value) { return value.toUpperCase(java.util.Locale.ROOT); }
+                }
+                """, results);
+        verifyCase(args[0], "UseLocaleWithCaseConversions", "UserLocale", """
+                class Sample {
+                    String convert(String value, java.util.Locale locale) { return value.toLowerCase(locale); }
+                }
+                """, results);
         Files.createDirectories(reportPath.getParent());
         Files.writeString(reportPath, results);
         System.out.print(results);
+    }
+
+    private static void verifyCase(String ruleset, String ruleName, String caseName,
+            String source, StringBuilder results) {
+        var expected = source.lines().toList();
+        var expectedLines = java.util.stream.IntStream.range(0, expected.size())
+                .filter(i -> expected.get(i).contains("// violation")).map(i -> i + 1).boxed().toList();
+        PMDConfiguration config = new PMDConfiguration();
+        config.setIgnoreIncrementalAnalysis(true);
+        config.setThreads(1);
+        try (PmdAnalysis analysis = PmdAnalysis.create(config)) {
+            var rule = analysis.newRuleSetLoader().loadFromResource(ruleset).getRuleByName(ruleName);
+            if (rule == null) {
+                throw new AssertionError("Production ruleset must enable " + ruleName);
+            }
+            analysis.addRuleSet(RuleSet.forSingleRule(rule));
+            analysis.files().addSourceFile(FileId.fromPathLikeString(caseName + ".java"), source);
+            var report = analysis.performAnalysisAndCollectReport();
+            if (!report.getProcessingErrors().isEmpty() || !report.getConfigurationErrors().isEmpty()) {
+                throw new AssertionError(report.getProcessingErrors() + " " + report.getConfigurationErrors());
+            }
+            var actual = report.getViolations().stream().map(v -> v.getBeginLine()).sorted().toList();
+            if (!actual.equals(expectedLines)) {
+                throw new AssertionError(caseName + ": expected " + expectedLines + ", actual " + actual);
+            }
+            results.append(caseName).append(": PASS ").append(actual).append('\n');
+        }
     }
 }
