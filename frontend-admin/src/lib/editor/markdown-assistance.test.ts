@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MARKDOWN_ASSISTANCE } from './markdown-assistance';
+import { MARKDOWN_ASSISTANCE } from '$lib/editor/markdown-assistance';
 
 describe('Markdown入力支援', () => {
   it.each([

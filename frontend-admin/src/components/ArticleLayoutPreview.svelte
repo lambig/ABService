@@ -18,8 +18,8 @@
     type ApiResult,
   } from '$lib/api/client';
   import type { ArticleDraft } from '$lib/api/article-form';
-  import { applySessionResult, type AdminSession } from '$lib/credentials';
-  import { ARTICLE_PREVIEW_PATH } from '$lib/paths';
+  import { applySessionResult, type AdminSession } from '$lib/session/credentials';
+  import { ARTICLE_PREVIEW_PATH } from '$lib/navigation/paths';
 
   /** 入力欄の隣で公開時の体裁を確認する。入力の描画と関連情報の取得を分ける。 */
   type Props = Readonly<{

@@ -1,4 +1,4 @@
-import { isCurrentSession, type AdminSession } from '$lib/credentials';
+import { isCurrentSession, type AdminSession } from '$lib/session/credentials';
 import { PUBLIC_API_BASE_URL } from 'astro:env/client';
 
 import type { components } from './schema';

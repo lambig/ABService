@@ -9,8 +9,8 @@
     isCurrentSession,
     storedSession,
     type AdminSession,
-  } from '$lib/credentials';
-  import { ALBUM_LIST_PATH, albumIdIn, listeningPreparationPath } from '$lib/paths';
+  } from '$lib/session/credentials';
+  import { ALBUM_LIST_PATH, albumIdIn, listeningPreparationPath } from '$lib/navigation/paths';
   import {
     connectionReady,
     confirmAudio,

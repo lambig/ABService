@@ -29,9 +29,14 @@
     type AdminAlbumPage,
     type ApiResult,
   } from '$lib/api/client';
-  import { applySessionResult, storedSession, type AdminSession } from '$lib/credentials';
-  import { formatCalendarDate } from '$lib/format';
-  import { NEW_ALBUM_PATH, editAlbumPath, editArticlePath, albumAudioPath } from '$lib/paths';
+  import { applySessionResult, storedSession, type AdminSession } from '$lib/session/credentials';
+  import { formatCalendarDate } from '$lib/presentation/format';
+  import {
+    NEW_ALBUM_PATH,
+    editAlbumPath,
+    editArticlePath,
+    albumAudioPath,
+  } from '$lib/navigation/paths';
 
   /**
    * 事前確認を要する操作。

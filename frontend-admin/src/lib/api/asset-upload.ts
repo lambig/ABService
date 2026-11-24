@@ -1,4 +1,4 @@
-import { isCurrentSession, type AdminSession } from '$lib/credentials';
+import { isCurrentSession, type AdminSession } from '$lib/session/credentials';
 import {
   confirmAsset,
   issueAssetUploadUrl,

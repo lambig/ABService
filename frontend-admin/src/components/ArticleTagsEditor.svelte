@@ -8,7 +8,7 @@
     type AdminArticleTag,
     type ApiResult,
   } from '$lib/api/client';
-  import { applySessionResult, type AdminSession } from '$lib/credentials';
+  import { applySessionResult, type AdminSession } from '$lib/session/credentials';
 
   /**
    * 記事のタグ。

@@ -1,4 +1,4 @@
-import { requestJson } from './api/http';
+import { requestJson } from '$lib/api/http';
 
 export type ListeningEntry = Readonly<{
   kind: 'direct' | 'bridge';

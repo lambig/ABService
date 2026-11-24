@@ -879,3 +879,7 @@ CPU と GPU のどちらに寄せるかは、#479 を仕上げる前の一次性
 ## ABの検査規則を明示的なテスト依存にする
 
 [#248](https://github.com/lambig/ABService/issues/248) のアクセス境界検査は、ABの設計方針を採用する利用側が選択する規則として `ab-architecture-rules` が所有する。汎用ライブラリをまとめるtoolboxの標準依存には含めず、ABServiceから直接テスト依存として参照する。規則の実装・導入例・API文書はライブラリ側、業務注釈・対象package・適用と業務上の順序の検証は利用側に置く。
+
+## フロントの共用処理を責務で区別する
+
+[#394](https://github.com/lambig/ABService/issues/394) の `lib` は画面の組み立てに依存しない処理の入口とし、純粋な値処理だけを意味する名前として扱わない。表示変換・経路が通信や保存へ依存すると、同じ値の表示が呼び出す場所で変わるため、I/O境界とは置き場とimport制約を分ける。APIの型参照は許可し、表示のために同じ型を複製しない。生成UIが参照する `lib/utils` は既存の入口を維持する。具体的な境界の正本は [ESLint設定](../packages/eslint-config/astro-svelte.js)、検査範囲と採否は [#465](https://github.com/lambig/ABService/issues/465) とする。サービスの画面契約を担うコードはアプリに残し、配置整理だけを理由に新しい公開ライブラリを増やさない。

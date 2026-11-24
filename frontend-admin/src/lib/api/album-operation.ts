@@ -1,4 +1,4 @@
-import type { AdminSession } from '$lib/credentials';
+import type { AdminSession } from '$lib/session/credentials';
 import { deleteAlbum, unpublishAlbum, type ApiResult } from './client';
 
 export type AlbumOperation = 'delete' | 'unpublish';

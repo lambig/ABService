@@ -2,8 +2,8 @@
 import ArticleList from '$components/ArticleList.astro';
 import SiteNav from '$components/SiteNav.astro';
 import { listArticles } from '$lib/api/client';
-import { renderBody } from '$lib/markup';
-import { homeIntroduction } from '$lib/site';
+import { renderBody } from '$lib/presentation/markup';
+import { homeIntroduction } from '$lib/site/site';
 import BaseLayout from '$layouts/BaseLayout.astro';
 
 /** トップに並べる記事の件数（#197。全体を辿るのは記事一覧の役割） */
