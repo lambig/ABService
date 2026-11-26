@@ -9,6 +9,16 @@ const select = (files, extra = {}) => browserSelection({ event: 'pull_request', 
 const only = (plan, ids) => assert.deepEqual(Object.entries(browserOutputs(plan)).filter(([, v]) => v).map(([k]) => k).sort(),
   ids.map((id) => `browser_${id.replaceAll('-', '_')}`).sort());
 
+test('listening delivery changes select the staged-shell browser acceptance on PR and main', () => {
+  for (const file of ['infra/release/listening-artifacts.mjs', 'infra/release/frontend.mjs',
+    'infra/release/check-listening-browser.mjs', 'infra/functions/listening-request.js.tftpl',
+    'infra/headers/listening-csp.txt', 'infra/cohost-edge/main.tf']) {
+    for (const extra of [{}, { event: 'push', ref: 'refs/heads/main' }]) {
+      assert.deepEqual(select([file], extra)['offline-player'], ['packages/offline-player/e2e/delivery.spec.ts']);
+    }
+  }
+});
+
 test('scenario-only PRs select exact files; scenario changes on main remain an exception', () => {
   for (const [id, suite] of Object.entries(browserSuites)) {
     const file = `${suite.location}/${suite.specs}/changed.spec.ts`;
@@ -36,6 +46,35 @@ test('deleted/renamed scenarios run the remaining suite and cannot silently matc
   const plan = select(['packages/player/e2e/old.spec.ts', 'packages/player/e2e/new.spec.ts'],
     { exists: (file) => !file.endsWith('old.spec.ts') });
   only(plan, ['player']); assert.equal(plan.player, 'all');
+});
+
+test('admin UI changes also run the cross-device preparation browser check', () => {
+  const plan = select(['frontend-admin/src/components/ListeningPreparation.svelte'], {
+    workspaces: [...workspaces, { name: 'admin', location: 'frontend-admin' }],
+  });
+  only(plan, ['e2e', 'offline-player']);
+  assert.equal(plan['offline-player'], 'all');
+});
+
+test('admin Vitest-only changes omit browsers while mixed production changes retain them', () => {
+  const adminWorkspaces = [...workspaces, { name: 'admin', location: 'frontend-admin' }];
+  const tests = ['frontend-admin/src/components/AlbumForm.test.ts',
+    'frontend-admin/src/lib/api/http.test.ts', 'frontend-admin/vitest.config.ts',
+    'frontend-admin/vitest.setup.ts'];
+  for (const extra of [{}, { event: 'push', ref: 'refs/heads/main' }, { exists: () => false }]) {
+    only(select(tests, { workspaces: adminWorkspaces, ...extra }), []);
+  }
+  for (const file of ['frontend-admin/src/components/AlbumForm.svelte',
+    'frontend-admin/src/lib/api/client.ts', 'frontend-admin/src/styles/global.css',
+    'frontend-admin/astro.config.mjs', 'frontend-admin/src/pages/unknown.test.ts']) {
+    only(select([...tests, file], { workspaces: adminWorkspaces }), ['e2e', 'offline-player']);
+  }
+  const combined = select([...tests, 'e2e/src/specs/admin-album-form.spec.ts'], { workspaces: adminWorkspaces });
+  only(combined, ['e2e']);
+  assert.deepEqual(combined.e2e, ['e2e/src/specs/admin-album-form.spec.ts']);
+  for (const context of [{ event: 'push', ref: 'refs/heads/release/1.101.2' }, { event: 'workflow_dispatch' }]) {
+    assert.ok(Object.values(select(tests, { workspaces: adminWorkspaces, ...context })).every((v) => v === 'all'));
+  }
 });
 test('release and manual runs are always full; unknown scope and toolchain changes fail closed', () => {
   for (const context of [{ event: 'push', ref: 'refs/heads/release/1.10' }, { event: 'workflow_dispatch' }, { event: 'unknown' }]) {

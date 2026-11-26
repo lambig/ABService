@@ -2,6 +2,8 @@
 import { audioFeatures } from "abservice-audio-dsp";
 import type { AudioFeatures } from "abservice-audio-dsp";
 import { meanLoad } from "./accumulator";
+import { loadAudioKernel } from "./kernel-module";
+import { createOutputClock } from "./output-clock";
 import processorUrl from "./features-processor.ts?worker&url";
 
 /** 解析を失っても音声の直接出力は維持し、障害を表示側へ通知する。 */
@@ -11,6 +13,8 @@ export type MediaAnalysisOptions = Readonly<{
   onError: (error: Error) => void;
   /** 通知の区間の Worklet の平均負荷率（`meanLoad`）。性能の計測でだけ使う。 */
   onLoad?: (load: number) => void;
+  /** Additional visual delay in seconds; positive values make the scene later. */
+  presentationDelay?: () => number;
 }>;
 
 /**
@@ -34,8 +38,7 @@ const playbackStats = (
     context === null
       ? undefined
       : (Reflect.get(context, "playbackStats") as
-          | AudioPlaybackStats
-          | undefined);
+          AudioPlaybackStats | undefined);
   return stats === undefined
     ? null
     : Object.freeze({
@@ -54,19 +57,33 @@ export const connectMediaAnalysis = (
   signal: AbortSignal,
   options: MediaAnalysisOptions,
 ): Readonly<{
+  /** Settles when analysis is prepared, or direct-playback fallback is ready. */
+  ready: Promise<void>;
   play: () => void;
   pause: () => void;
   seek: () => void;
   stats: () => AudioPlaybackStats | null;
-  /** 解析している AudioContext の sampleRate。再生を始める前は undefined。 */
+  /** Media position estimated to be audible at the current output device. */
+  presentationTime: () => number;
+  /** 解析している AudioContext の sampleRate。接続を作れない場合は undefined。 */
   sampleRate: () => number | undefined;
 }> => {
+  const preparation = { finish: (): void => {}, timer: 0 };
+  const kernelLoad = new AbortController();
+  const ready = new Promise<void>((resolve) => {
+    preparation.finish = resolve;
+  });
+  const prepared = (): void => {
+    clearTimeout(preparation.timer);
+    preparation.finish();
+  };
   const state: {
     context: AudioContext | null;
     source: MediaElementAudioSourceNode | null;
     node: AudioWorkletNode | null;
     active: boolean;
     failed: boolean;
+    connected: boolean;
     epoch: number;
   } = {
     context: null,
@@ -74,9 +91,20 @@ export const connectMediaAnalysis = (
     node: null,
     active: false,
     failed: false,
+    connected: false,
     epoch: 0,
   };
+  const outputClock = createOutputClock(
+    media,
+    () => state.context,
+    options.presentationDelay,
+  );
   const clearNode = (): void => {
+    state.node?.port.postMessage({ kind: "dispose" });
+    (state.connected && state.node !== null
+      ? () => state.source?.disconnect(state.node as AudioWorkletNode)
+      : () => undefined)();
+    state.connected = false;
     state.node?.port.close();
     state.node?.disconnect();
     state.node = null;
@@ -84,15 +112,18 @@ export const connectMediaAnalysis = (
   const fail = (error: unknown): void => {
     const report = (): void => {
       state.failed = true;
+      kernelLoad.abort();
       clearNode();
+      prepared();
       options.onReset();
       options.onError(
         error instanceof Error ? error : new Error(String(error)),
       );
     };
-    (signal.aborted ? () => undefined : report)();
+    ([signal.aborted, state.failed].some(Boolean) ? () => undefined : report)();
   };
   const reset = (): void => {
+    outputClock.reset();
     state.epoch += 1;
     state.node?.port.postMessage({ epoch: state.epoch });
     options.onReset();
@@ -131,15 +162,29 @@ export const connectMediaAnalysis = (
       ? accept
       : () => undefined)();
   };
-  const initialize = (): AudioContext => {
-    const context = new AudioContext();
+  const initialize = (): void => {
+    /* Media playback allows buffering headroom for the Worklet output path.
+     * The browser chooses the actual latency; observe it through playbackStats. */
+    const context = new AudioContext({ latencyHint: "balanced" });
     state.context = context;
     const source = context.createMediaElementSource(media);
     state.source = source;
     source.connect(context.destination);
-    void context.audioWorklet
-      .addModule(processorUrl)
-      .then(() => {
+    preparation.timer = window.setTimeout(() => {
+      fail(new Error("Audio analysis preparation timed out"));
+    }, 10000);
+    /* Load and exercise DSP while suspended, before media.play can advance the source. */
+    void context
+      .suspend()
+      .then(() =>
+        [signal.aborted, state.failed].some(Boolean)
+          ? undefined
+          : Promise.all([
+              context.audioWorklet.addModule(processorUrl),
+              loadAudioKernel(kernelLoad.signal),
+            ]),
+      )
+      .then((modules) => {
         const attach = (): void => {
           const node = new AudioWorkletNode(context, "abservice-features", {
             numberOfInputs: 1,
@@ -147,29 +192,44 @@ export const connectMediaAnalysis = (
             outputChannelCount: [1],
             channelCountMode: "max",
             channelInterpretation: "discrete",
-            processorOptions: { notificationHz: 30 },
+            processorOptions: { notificationHz: 30, kernel: modules?.[1] },
           });
           state.node = node;
-          node.port.onmessage = receive;
+          node.port.onmessage = (event: MessageEvent<unknown>): void => {
+            const data = event.data as { kind?: unknown } | null;
+            ((
+              [signal.aborted, state.failed].some(Boolean)
+                ? false
+                : data?.kind === "ready"
+            )
+              ? () => {
+                  node.port.onmessage = receive;
+                  /* The analysis output is silence; only the direct branch is audible. */
+                  source.connect(node).connect(context.destination);
+                  state.connected = true;
+                  prepared();
+                }
+              : () => {
+                  receive(event);
+                })();
+          };
           node.onprocessorerror = () => {
             fail(new Error("Audio analysis processor failed"));
           };
           node.port.postMessage({ epoch: state.epoch });
-          /* The analysis output is silence; the media source is audible through the direct branch only. */
-          source.connect(node).connect(context.destination);
         };
-        (signal.aborted ? () => undefined : attach)();
+        ([signal.aborted, state.failed].some(Boolean)
+          ? () => undefined
+          : attach)();
       })
       .catch(fail);
-    return context;
   };
   const play = (): void => {
     const start = (): void => {
       state.active = true;
       reset();
       try {
-        const context = state.context ?? initialize();
-        void context.resume().catch(fail);
+        void state.context?.resume().catch(fail);
       } catch (error) {
         fail(error);
       }
@@ -188,7 +248,9 @@ export const connectMediaAnalysis = (
   };
   const dispose = (): void => {
     state.active = false;
+    kernelLoad.abort();
     clearNode();
+    prepared();
     state.source?.disconnect();
     const context = state.context;
     state.context = null;
@@ -201,11 +263,18 @@ export const connectMediaAnalysis = (
   signal.addEventListener("abort", dispose, { once: true });
   media.addEventListener("seeking", reset, { signal });
   media.addEventListener("seeked", reset, { signal });
+  try {
+    (signal.aborted ? prepared : initialize)();
+  } catch (error) {
+    fail(error);
+  }
   return Object.freeze({
+    ready,
     play,
     pause,
     seek: reset,
     stats: () => playbackStats(state.context),
+    presentationTime: outputClock.time,
     sampleRate: () => state.context?.sampleRate,
   });
 };

@@ -48,6 +48,14 @@ class DeployTests(unittest.TestCase):
         backend = enabled["services"]["backend"]
         self.assertEqual(backend["environment"]["ABSERVICE_PRIVATE_AUDIO_ENABLED"], "true")
         self.assertEqual(backend["environment"]["ABSERVICE_PRIVATE_AUDIO_BUCKET"], values["private-audio/bucket"])
+        self.assertNotIn("ABSERVICE_PRIVATE_AUDIO_INPUT_TIMEOUT", backend["environment"])
+        extended = deploy.compose_config(self.config, IMAGE, values, input_timeout_seconds=600)
+        self.assertEqual(extended["services"]["backend"]["environment"]["ABSERVICE_PRIVATE_AUDIO_INPUT_TIMEOUT"], "PT600S")
+        self.assertEqual(extended["services"]["postgres"], disabled["services"]["postgres"])
+        self.config["private_audio"]["enabled"] = False
+        stopped = deploy.compose_config(self.config, IMAGE, VALUES, input_timeout_seconds=600)
+        self.assertNotIn("ABSERVICE_PRIVATE_AUDIO_INPUT_TIMEOUT", stopped["services"]["backend"]["environment"])
+        self.config["private_audio"]["enabled"] = True
         self.assertEqual(backend["volumes"][-1], {
             "type": "bind", "source": "/audio-fixture", "target": "/var/lib/abservice/private-audio",
             "read_only": False, "bind": {"create_host_path": False}})
@@ -84,6 +92,10 @@ class DeployTests(unittest.TestCase):
             return original_stat(path, *args, **kwargs)
         with patch.object(Path, "stat", fake_stat):
             deploy.validate(self.config, IMAGE, SOURCE)
+            self.config["private_audio"]["input_timeout_seconds"] = 120
+            with self.assertRaises(deploy.DeployError):
+                deploy.validate(self.config, IMAGE, SOURCE)
+            del self.config["private_audio"]["input_timeout_seconds"]
             for bad in ("true", 1, None):
                 self.config["private_audio"]["enabled"] = bad
                 with self.assertRaises(deploy.DeployError):
@@ -101,6 +113,34 @@ class DeployTests(unittest.TestCase):
                 return SimpleNamespace(st_mode=mode, st_uid=uid, st_gid=gid) if path == audio else original_stat(path, *args, **kwargs)
             with patch.object(Path, "stat", invalid_stat), self.assertRaises(deploy.DeployError):
                 deploy.validate(self.config, IMAGE, SOURCE)
+
+    def test_runtime_file_is_optional_and_invalid_values_fail_before_deploy(self):
+        import sys
+        config_path = self.root / "cohost.json"
+        config_path.write_text(json.dumps(self.config))
+        runtime = self.root / "private-audio-runtime.json"
+        argv = ["deploy.py", "--config", str(config_path), "--image", IMAGE,
+                "--source", SOURCE, "--state-dir", str(self.root / "state")]
+        with patch.object(sys, "argv", argv), patch.object(deploy, "deploy") as apply:
+            self.assertEqual(deploy.main(), 0)
+            self.assertIsNone(apply.call_args.args[-1])
+            for seconds in (1, 120, 600):
+                runtime.write_text(json.dumps({"input_timeout_seconds": seconds}))
+                self.assertEqual(deploy.main(), 0)
+                self.assertEqual(apply.call_args.args[-1], seconds)
+            invalid = [{"input_timeout_seconds": s} for s in (0, -1, 601, True, False, 120.5, "120", None)]
+            invalid += [{}, [], None, {"input_timeout_seconds": 120, "unknown": 1}]
+            for value in invalid:
+                runtime.write_text(json.dumps(value))
+                apply.reset_mock()
+                with contextlib.redirect_stderr(io.StringIO()):
+                    self.assertEqual(deploy.main(), 1)
+                apply.assert_not_called()
+            runtime.write_text("{invalid-secret")
+            with contextlib.redirect_stderr(io.StringIO()) as error:
+                self.assertEqual(deploy.main(), 1)
+            self.assertNotIn("invalid-secret", error.getvalue())
+            apply.assert_not_called()
 
     def test_unpinned_images_and_missing_auth_fail_before_deploy(self):
         for image in ("backend:latest", "sha256:" + "a" * 64, IMAGE + "\n"):

@@ -1,4 +1,5 @@
 import type { StorageError, StorageResult } from "./index";
+import { sha256 } from "@noble/hashes/sha2.js";
 
 export class Failure extends Error {
   constructor(readonly code: StorageError) {
@@ -33,11 +34,18 @@ export const hash = async (
   signal: AbortSignal,
 ): Promise<string> => {
   checkAbort(signal);
-  const buffer = await blob.arrayBuffer();
+  const digest = sha256.create();
+  const blocks = Math.ceil(blob.size / 65536);
+  for (const block of Array.from({ length: blocks }, (_, index) => index)) {
+    checkAbort(signal);
+    digest.update(
+      new Uint8Array(
+        await blob.slice(block * 65536, (block + 1) * 65536).arrayBuffer(),
+      ),
+    );
+  }
   checkAbort(signal);
-  const digest = await crypto.subtle.digest("SHA-256", buffer);
-  checkAbort(signal);
-  return Array.from(new Uint8Array(digest), (byte) =>
+  return Array.from(digest.digest(), (byte) =>
     byte.toString(16).padStart(2, "0"),
   ).join("");
 };

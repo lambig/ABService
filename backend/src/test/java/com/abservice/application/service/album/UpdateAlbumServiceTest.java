@@ -8,13 +8,11 @@ import com.abservice.domain.model.aggregate.album.ExternalAudio;
 import com.abservice.domain.model.aggregate.album.Track;
 import com.abservice.domain.model.vo.album.AlbumTitle;
 import com.abservice.domain.model.vo.album.TrackTitle;
-import com.abservice.domain.model.vo.common.ArtistCredit;
-import com.abservice.domain.model.vo.common.AssetKey;
-import com.abservice.domain.model.vo.common.BusinessDate;
-import com.abservice.domain.model.vo.common.MarkupContent;
-import com.abservice.domain.model.vo.common.MarkupFormat;
-import com.abservice.domain.service.ExternalAudioAssemblyService;
-import com.abservice.domain.service.TrackAssemblyService;
+import com.abservice.domain.model.vo.credit.ArtistCredit;
+import com.abservice.domain.model.vo.asset.AssetKey;
+import com.abservice.domain.model.vo.time.BusinessDate;
+import com.abservice.domain.model.vo.markup.MarkupContent;
+import com.abservice.domain.model.vo.markup.MarkupFormat;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import java.util.List;
@@ -44,9 +42,7 @@ class UpdateAlbumServiceTest {
      */
     private static final UpdateAlbumService SERVICE = new UpdateAlbumService(
             null,
-            null,
-            new TrackAssemblyService(),
-            new ExternalAudioAssemblyService());
+            null);
 
     private static Album existingAlbum() {
         return Album.create(
@@ -430,6 +426,40 @@ class UpdateAlbumServiceTest {
         assertThat(result).isInstanceOf(Result.Failure.class);
         assertThat(((Result.Failure<?>) result).errors().stream().map(ErrorResult::code).toList())
                 .contains("ALBUM_TITLE_REQUIRED", "ISDN_INVALID_FORMAT");
+    }
+
+    @Test
+    @DisplayName("会場がありイベント名が未入力ならevent.nameの位置に必須エラーを返す")
+    void missingEventNameWithPlaceCarriesNestedField() {
+        final var result = SERVICE.validateAndApply(
+                existingAlbum(),
+                new UpdateAlbumInput(
+                        null,
+                        REVISION_UNUSED,
+                        "新タイトル",
+                        "2026-01-01",
+                        "新アーティスト",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        new EventInput(
+                                "",
+                                null,
+                                "試験会場",
+                                null,
+                                null,
+                                null),
+                        null,
+                        null, null, null));
+
+        assertThat(result).isInstanceOf(Result.Failure.class);
+        assertThat(result.errors()).singleElement().satisfies(error -> {
+            assertThat(error.field()).isEqualTo("event.name");
+            assertThat(error.code()).isEqualTo("EVENT_NAME_REQUIRED");
+        });
     }
 
     @Test

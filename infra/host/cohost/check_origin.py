@@ -1,4 +1,5 @@
 """Exercise rendered HTTP/TLS boundaries with real Nginx and disposable fixtures."""
+import argparse
 import http.client
 import json
 from pathlib import Path
@@ -16,7 +17,7 @@ def run(*args):
     return subprocess.run(args, check=True, capture_output=True, text=True, timeout=180).stdout.strip()
 
 
-def check():
+def check(image="nginx@sha256:bef154735288bc38d99fac41ae63730684bcc661503673a04a0f9bc526ba8598"):
     domain = "origin.example.invalid"
     try:
         render(domain, private_audio=True)
@@ -32,7 +33,6 @@ def check():
         else:
             raise AssertionError("Accepted unsafe domain")
     container = "origin-check-" + uuid.uuid4().hex[:10]
-    image = "nginx@sha256:30f1c0d78e0ad60901648be663a710bdadf19e4c10ac6782c235200619158284"
     with tempfile.TemporaryDirectory(prefix="origin-check-") as temp:
         root = Path(temp)
         root.chmod(0o755)
@@ -143,4 +143,7 @@ def check():
 
 
 if __name__ == "__main__":
-    check()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--image", help="Validate an alternate NGINX package image with the same boundary tests")
+    args = parser.parse_args()
+    check(args.image) if args.image else check()

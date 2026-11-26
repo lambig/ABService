@@ -27,8 +27,10 @@ import {
 
 const play = async (page: Page, title = "Reel study"): Promise<void> => {
   await page.getByRole("button", { name: title, exact: true }).click();
-  await expect(page.locator("#play-status")).toHaveText("再生できます");
-  await page.locator("#play").click();
+  await expect(page.locator("#play-status")).toHaveText(/再生できます|再生中/);
+  await ((await page.locator("#play").isVisible())
+    ? page.locator("#play").click()
+    : Promise.resolve());
   await expect(page.locator("#play-status")).toHaveText("再生中");
   await expect
     .poll(() => page.locator("#seek").inputValue().then(Number))
@@ -67,7 +69,7 @@ const expectNoSecrets = async (
 };
 const damage = async (
   page: Page,
-  fault: "missing" | "corrupt",
+  fault: "missing" | "truncated" | "corrupt",
 ): Promise<void> => {
   const asset = manifest.assets[1];
   expect(asset).toBeDefined();
@@ -92,7 +94,7 @@ const damage = async (
       const corrupt = async (): Promise<void> => {
         const file = await directory.getFileHandle(name);
         const stream = await file.createWritable();
-        await stream.write(new Uint8Array(value.byteLength));
+        await stream.write(new Uint8Array(value.byteLength - (fault === "truncated" ? 1 : 0)));
         await stream.close();
       };
       await (
@@ -140,14 +142,15 @@ test("配布元から準備し、全タブを閉じた後の通信なしの新�
   ).toHaveCount(0);
   /* 準備済みの端末では、通常の試聴に token の入力を出さない */
   await expect(next.locator("#preparation")).toBeHidden();
-  await expect(next.locator("#open-preparation")).toBeVisible();
+  await expect(next.locator("#management-unlock")).toBeVisible();
   await play(next, "Album crossfade");
-  /* 作品情報は保存済みの package から出す。artwork は検証済みの実体を描き、説明の画像とリンクは取りに行かない */
-  await expect(next.locator("#album-title")).toHaveText("Northbound · Study 01");
+  /* 保存済みの作品名・名義・artworkを表示し、作品ページの説明は試聴画面へ出さない。 */
+  await expect(next.locator("#album-title")).toHaveText(
+    "Northbound · Study 01",
+  );
   await expect(next.locator("#artist")).toHaveText("AB Study");
-  await expect(next.locator("#description")).toContainText("検証用");
-  await expect(next.locator("#description")).toContainText("頒布ページ を参照。");
-  await expect(next.locator("#description a, #description img")).toHaveCount(0);
+  await expect(next.locator("body")).not.toContainText("検証用");
+  await expect(next.locator("body")).not.toContainText("頒布ページ");
   await expect
     .poll(() =>
       next
@@ -166,11 +169,29 @@ test("配布元から準備し、全タブを閉じた後の通信なしの新�
     path: "test-results/offline-player-playing.png",
     fullPage: true,
   });
+  await next.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
+  });
   await next.locator("#pause").click();
   await expect(next.locator("#play-status")).toHaveText("一時停止");
+  await next.locator("#exhibition-menu").evaluate((node) => {
+    node.setAttribute("open", "");
+    const panel = document.querySelector<HTMLElement>("#management-panel");
+    (panel === null
+      ? () => undefined
+      : () => {
+          panel.removeAttribute("hidden");
+        })();
+  });
   await next.locator("#stop").click();
-  await next.locator("#retry").click();
-  await expect(next.locator("#play-status")).toHaveText("再生できます");
+  await next.locator("#play").click();
+  await expect(next.locator("#play-status")).toHaveText("再生中");
   await next.setViewportSize({ width: 420, height: 860 });
   await play(next, "Air study");
   await next.screenshot({
@@ -248,6 +269,7 @@ test("未完了の新版へは切り替えず、共有する実体を残した�
     route.fulfill({ status: 503, body: "unavailable" }),
   );
   await openPreparation(current);
+  await current.locator("details").filter({ has: current.locator("#token") }).evaluate((node) => { node.setAttribute("open", ""); });
   await current.locator("#token").fill(fixtureToken);
   await current.locator("#prepare").click();
   await expect(current.locator("#preparation-detail")).toContainText(
@@ -268,8 +290,8 @@ test("未完了の新版へは切り替えず、共有する実体を残した�
   await play(upgraded, "Air study");
 });
 
-(["missing", "corrupt"] as const).forEach((fault) => {
-  test(`${fault}: 起動時に検出して準備完了とせず、オンライン再保存で欠けた実体だけを取り直す`, async ({
+(["missing", "truncated", "corrupt"] as const).forEach((fault) => {
+  test(`${fault}: 起動または利用時の検出から通常の再保存で当該音源だけを回復する`, async ({
     page,
     context,
   }) => {
@@ -279,10 +301,8 @@ test("未完了の新版へは切り替えず、共有する実体を残した�
     await expect(current.locator("#readiness")).toHaveText(saved);
     await damage(current, fault);
     const next = await restart(current, context);
-    await expect(next.locator("#readiness")).toHaveText(unready);
-    await expect(next.locator("#preparation-detail")).toContainText(
-      "音源の検証が完了しませんでした",
-    );
+    /* Same-size corruption is discovered on use; preparation does not scan audio. */
+    await expect(next.locator("#readiness")).toHaveText(fault === "corrupt" ? saved : unready);
     await next.getByRole("button", { name: "Air study", exact: true }).click();
     await expect(next.locator("#play-status")).toHaveText(
       "読み込みに失敗しました",
@@ -291,6 +311,7 @@ test("未完了の新版へは切り替えず、共有する実体を残した�
       fault === "missing" ? "未保存" : "破損",
     );
     await expect(next.locator("#play")).toBeDisabled();
+    await expect(next.locator("#readiness")).toHaveText("保存状態を確認してください");
     await context.setOffline(false);
     const fetched = downloads(context);
     /* active と同じ版なので切り替えず、その場で修復する */
@@ -316,6 +337,7 @@ test("取得中の token 期限切れで止め、再入力後は検証済みの�
     }),
   );
   await page.goto(entry);
+  await page.locator("details").filter({ has: page.locator("#token") }).evaluate((node) => { node.setAttribute("open", ""); });
   await page.locator("#token").fill(fixtureToken);
   await page.locator("#prepare").click();
   await expect(page.locator("#preparation-detail")).toContainText(
@@ -340,10 +362,12 @@ test("token を保存せず、読み込み直すと入力し直しになる", as
   await prepareOnline(page);
   const kept = await page.evaluate(() => ({
     local: Object.keys(localStorage),
+    localValues: Object.values(localStorage),
     session: Object.keys(sessionStorage),
     url: location.href,
   }));
-  expect(kept.local).toEqual([]);
+  expect(kept.local).toEqual(["exhibition-management-v1"]);
+  expect(kept.localValues.join("")).not.toContain(fixtureToken);
   expect(kept.session).toEqual([]);
   expect(kept.url).not.toContain(fixtureToken);
   await page.reload();
@@ -368,6 +392,7 @@ test("準備済みの端末で再認証を求められたら、準備の画面�
     }),
   );
   await openPreparation(current);
+  await current.locator("details").filter({ has: current.locator("#token") }).evaluate((node) => { node.setAttribute("open", ""); });
   await current.locator("#token").fill(fixtureToken);
   await current.locator("#prepare").click();
   await expect(current.locator("#preparation-detail")).toContainText(
@@ -387,6 +412,7 @@ test("署名URLの期限切れはその音源の失敗として示し、再試�
     route.fulfill({ status: 403, body: "expired" }),
   );
   await page.goto(entry);
+  await page.locator("details").filter({ has: page.locator("#token") }).evaluate((node) => { node.setAttribute("open", ""); });
   await page.locator("#token").fill(fixtureToken);
   await page.locator("#prepare").click();
   await expect(page.locator("#preparation-detail")).toContainText(
@@ -406,6 +432,7 @@ test("取得途中でページを閉じても、次の準備は保存済みの�
     await hold;
   });
   await page.goto(entry);
+  await page.locator("details").filter({ has: page.locator("#token") }).evaluate((node) => { node.setAttribute("open", ""); });
   await page.locator("#token").fill(fixtureToken);
   await page.locator("#prepare").click();
   await expect.poll(() => storedAssets(page)).toBe(1);
@@ -429,6 +456,7 @@ test("容量が足りなければ取得を始めず、必要量と空きを示�
   });
   const fetched = downloads(context);
   await page.goto(entry);
+  await page.locator("details").filter({ has: page.locator("#token") }).evaluate((node) => { node.setAttribute("open", ""); });
   await page.locator("#token").fill(fixtureToken);
   await page.locator("#prepare").click();
   await expect(page.locator("#preparation-detail")).toContainText(
@@ -457,6 +485,7 @@ test("このアプリの版で動かない配布物は保存せず、アプリ�
   );
   const fetched = downloads(context);
   await page.goto(entry);
+  await page.locator("details").filter({ has: page.locator("#token") }).evaluate((node) => { node.setAttribute("open", ""); });
   await page.locator("#token").fill(fixtureToken);
   await page.locator("#prepare").click();
   await expect(page.locator("#preparation-detail")).toContainText(
@@ -475,6 +504,7 @@ test("形の正しくない token では配布元へ問い合わせない", asyn
       });
   });
   await page.goto(entry);
+  await page.locator("details").filter({ has: page.locator("#token") }).evaluate((node) => { node.setAttribute("open", ""); });
   await page.locator("#token").fill("not-a-token");
   await page.locator("#prepare").click();
   await expect(page.locator("#preparation-detail")).toHaveText(

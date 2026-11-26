@@ -1,8 +1,8 @@
 <script lang="ts">
   import ArticleLayoutPreview from '$components/ArticleLayoutPreview.svelte';
   import EditorRecovery from '$components/EditorRecovery.svelte';
-  import { articleRecoveryValues } from '$lib/recovery-values';
-  import type { RecoveryHandle, RecoverySnapshot } from '$lib/editor-recovery';
+  import { articleRecoveryValues } from '$lib/editor/recovery-values';
+  import type { RecoveryHandle, RecoverySnapshot } from '$lib/editor/editor-recovery';
   import SessionControls from '$components/SessionControls.svelte';
   import MarkupInput from '$components/MarkupInput.svelte';
   import ApiKeyForm from '$components/ApiKeyForm.svelte';
@@ -34,14 +34,14 @@
     hasAssignedErrors,
     type FormErrors,
   } from '$lib/api/form-errors';
-  import { ARTICLE_TYPE_LABELS } from '$lib/article-labels';
+  import { ARTICLE_TYPE_LABELS } from '$lib/presentation/article-labels';
   import {
     applySessionResult,
     isCurrentSession,
     storedSession,
     type AdminSession,
-  } from '$lib/credentials';
-  import { ARTICLE_LIST_PATH, articleIdIn, editArticlePath } from '$lib/paths';
+  } from '$lib/session/credentials';
+  import { ARTICLE_LIST_PATH, articleIdIn, editArticlePath } from '$lib/navigation/paths';
 
   /**
    * 記事の新規作成・編集。

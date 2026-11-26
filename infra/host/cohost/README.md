@@ -1,9 +1,10 @@
 # 単一ホストのアプリ＋PostgreSQL（opt-in）
 
 `deploy.py` は Linux 上で digest 固定の backend と PostgreSQL 15 を起動する。
-既存の EC2/RDS Terraform、`deploy.yml`、`docker-compose.prod.yml` は変更しない。
-この経路はまだ既存 Actions/SSM 配布へ接続していない。検証済みソースをホストへ配置し、
-管理者または SSM の明示コマンドとして実行する。コードとイメージは同じ検査済み SHA を使う。
+既存の EC2/RDS Terraform、`docker-compose.prod.yml`とは独立した経路。
+`deploy.yml`は`BACKEND_DEPLOY_TARGET=cohost-amd64`の明示指定で、検証済み候補の
+イメージとスクリプトを固定SSM入口へ渡す（[配布設定](../../release/README.md#cohostのbackend配布)）。
+未設定は従来のEC2/arm64経路を維持する。コードとイメージは同じ検査済み SHA を使う。
 本番配備、Free 配信、バックアップ完了を意味しない。
 
 ## ホストの準備
@@ -108,6 +109,27 @@ Parameter Storeの既存prefix配下に `private-audio/bucket` を用意する�
 `ABSERVICE_PRIVATE_AUDIO_TEMPORARY_DIRECTORY`を渡し、入力期限・保持期限・総予算は
 [アプリの既定値](../../../docs/PRIVATE_AUDIO_INGESTION.md)を使う。
 
+低速の管理経路では、`--config` の設定ファイルと同じディレクトリに任意の
+`private-audio-runtime.json` を置き、入力全体の期限を明示できる。内容は
+`{"input_timeout_seconds": 120}` の形式で、値は整数1〜600のみ。
+このファイルはoperatorが管理し、所有者・権限は `cohost.json` と同じにする。
+更新時は同じディレクトリで作った一時ファイルをrenameし、読み取り途中の内容を公開しない。
+ファイルが無ければ従来どおり2分で、機能無効時は環境変数へ渡さない。
+存在するファイルの不正なJSON・未知キー・範囲外の値は、機能無効時も配布開始前に拒否する。
+有効時は `ABSERVICE_PRIVATE_AUDIO_INPUT_TIMEOUT=PT<秒>S` として配線する。
+
+`cohost.json` の `private_audio` には `enabled` と `temporary_dir` だけを置く。
+旧deploy scriptは未知キーを拒否するため、そこへ期限を追加してはならない。
+標準の `action=rollback` と旧targetのfull SHAで戻す場合、runtimeファイルを残してよい。
+配布scriptもtarget版へ戻り、#538より前のscriptはruntimeファイルを読まず、期限overrideを
+含まないComposeを再生成するため、旧backendの既定2分へ戻る。設定の削除・値変更は不要。
+再び対応版を配布すると保存した値が適用される。scriptとimageは同じtargetの組で使い、
+新scriptから旧imageへ延長値を渡す手動配布は行わない。
+期限は無通信timeoutではなく、入力開始からの経過時間で打ち切る。上限容量を低速経路で
+扱う場合は、採用値での全量入力・期限超過時の回収・次入力の受付を別途受け入れる。
+管理クライアントの全体期限もサーバー期限と応答回収を覆う値にし、予約の15分の受付期限内で
+検査・確定まで終わる余裕を確保する。容量・同時受付数・一時領域予算は変えない。
+
 [originの音源用経路](ORIGIN.md)とCDNを別途準備し、有効化は実環境受け入れ後に行う。
 `enabled: false`への変更または項目の削除でAPIを404へ戻す。falseでも項目を残す場合は専用領域の
 パス・所有者・権限を検査する。停止でS3の音源・DBの登録・ホスト一時領域を削除しない。
@@ -120,6 +142,12 @@ Parameter Storeの既存prefix配下に `private-audio/bucket` を用意する�
 `previous.json` は異なるimageへ成功したときの直前版を保持する。imageのpruneは行わない。
 復帰時は保存したsource/imageとDBスキーマの互換性を確認して、対応する検査済みスクリプトで再配布する。
 自動rollbackやDBの巻き戻し・削除は行わない。
+
+[SSM配布controller](../../release/README.md#cohostのbackend配布)経由では、候補imageのSQLと
+稼働DBのFlyway適用履歴を、ファイル置換・backend停止の前に照合する。古い候補の`deploy.py`にも
+controller側の検査を適用するため、DB移行後に適用済みSQLを含まないimageへ戻す操作は拒否する。
+この追加検査は直接`deploy.py`を呼ぶ手動操作には適用されない。手動復帰でも事前に互換性を検証する。
+履歴が一致しても新規DDLやデータ/API互換性までは保証しない。controller更新は運用側のpin更新後に有効となる。
 
 初回が途中で失敗した場合、volumeは残す。statusとDB初期化状態を確認し、`--initialize`なしで再試行する。
 初回にまだhealthyになっていなくても、同じstate・固有ID・DB設定でのみ再試行できる。
@@ -144,3 +172,7 @@ AWSは呼ばず、明示した無効なfixture値を使用する。初回起動�
 URLへのアクセスや出力は行わない。実AWSや実機性能の保証ではない。
 音源の既定無効・有効化と実予約・一時領域の書込み/専有・再起動後の照会・無効化も検査する。
 この配布試験はS3への実送信を行わず、実FLACの保存はアプリ結合試験、実IAM/CDNは運用受け入れで確認する。
+production jar内のFlyway/JDBCへ合成SQLを1本渡して実際に移行を行い、移行前のimageが
+Quarkus起動時に未来のmigrationを拒否することも検証する。停止前検査が旧版を拒否し、
+稼働container・保存データ・適用履歴を維持すること、実Flywayのchecksum照合成功も確認する。
+試験helperのcompileにはアプリと同じJDK 25を使う（CIの既存JDK setupを利用）。

@@ -10,7 +10,7 @@
     type ApiResult,
   } from '$lib/api/client';
   import { isStaleRevisionConflict } from '$lib/api/http';
-  import { applySessionResult, type AdminSession } from '$lib/credentials';
+  import { applySessionResult, type AdminSession } from '$lib/session/credentials';
 
   /**
    * 記事が参照する作品。

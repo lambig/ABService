@@ -1,8 +1,121 @@
 # フロントエンドの配布と復旧
 
+## 公開コードと運用の境界
+
+このrepositoryはフォークして使える共通機構を保持する。特定サービスのAWS account/role、
+host/node、bucket/distribution、domain、音源・運用データはコード・例・issue・公開Actions設定へ置かない。
+実設定、配布の起動、Actionsログ・summary・artifact、受け入れ記録は非公開の運用repositoryで管理する。
+VariablesをSecretsへ移すだけでは、AWS/Dockerやbuildの出力から実設定が出る可能性はなくならない。
+
+非公開callerのmain上の`workflow_dispatch`から、このrepositoryの`deploy.yml`または
+`deploy-frontend.yml`を**レビュー済みfull SHA**で`uses`する。
+`source_repository`に公開ソースrepository、`controller_sha`に同じfull SHAを渡す。
+設定を変更できる自由入力として公開せず、callerのコードレビューで両方のpinを更新する。
+フォーク先では自分の公開ソースと非公開運用repositoryを指定し、元サービスへの接続を引き継がない。
+共通workflowの直接dispatchも残るが、その場合の実行記録はそのrepositoryの公開範囲に従う。
+
+- 通常配布は`action`、`commit_sha`、`release_branch`、`release_tag`、`ci_run_id`を渡す。
+  候補/タグ/CI/ancestorの照合はsource側。callerのcommitを配布候補と混同しない。
+- frontend単独操作は`normal_release: false`、`action`と必要な`release_id`を渡す。
+  通常配布のfrontend呼出しは共通workflow内で行う。全操作を同じ運用repositoryから起動し、
+  `deploy-production`の排他を共有する。caller側で同じロックを重ねて取得しない。
+- callerには`contents: read`、`actions: read`、`id-token: write`を許可する。
+  `vars`はcallerのrepository設定を参照する。長期AWSキーや追加PATは渡さない。
+- 別repositoryからの候補CI照会は公開APIを認証なしで読む。非公開ソースには対応しない。
+  rate limit・API失敗・不完全な証拠はAWS認証前に停止し、検査を省略して続けない。
+- AWS信頼は**運用caller**の実際のexact OIDC subject/audienceへ限定し、公開ソース側の
+  mainやforkを信頼しない。subjectは設定をreadbackして確定し、名前から推測しない。
+  切替には旧信頼の削除、実値照合、正規配布での実認証と非公開ログの確認が必要。
+
+GitHubの[caller contextと権限](https://docs.github.com/en/actions/reference/workflows-and-actions/reusing-workflow-configurations)、
+[caller側Variables](https://docs.github.com/en/actions/reference/workflows-and-actions/variables#configuration-variable-precedence)、
+[SHA固定の再利用](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows#calling-a-reusable-workflow)に従う。
+以下の「main起動時SHA」は、別repositoryから呼ぶ場合は明示した`controller_sha`を指す。
+
+## 通常配布と内容更新
+
 通常のコード配布はmain上の **Deploy** を `action=release` で起動し、候補検証 → frontend配布記録のpreflight → backend Deploy成功 → Deploy frontendの順に進む。入力・候補の更新・緊急修正は [リリース手順](../../docs/RELEASE_WORKFLOW.md) を参照。mainへの統合では自動配布しない。候補検証とpreflightのhelperは起動時のmain SHA、通常のfrontend配布helperとビルド対象はbackendが実際に配った候補full SHAに固定する。preflightはfrontendロールでpending不在とcurrentの読取り・形式を検査し、失敗するとbackendへ進まない。初回のcurrent不在は許すが、権限・通信・JSONエラーは初回扱いしない。
 
-内容の変更だけを配る場合は GitHub Actions の **Deploy frontend** を main から実行し、`action=rebuild-public` を選ぶ。公開中の public の SHA を記録から取得し、管理画面はビルド・配布しない。手動操作のhelperは起動時のmain SHAを使う。初回の配布記録が無い間は再ビルドできない。
+内容の変更だけを配る場合は GitHub Actions の **Deploy frontend** を main から実行し、`action=rebuild-public` を選ぶ。公開中の public の SHA を記録から取得し、管理画面・試聴アプリはビルド・配布しない。手動操作のhelperは起動時のmain SHAを使う。初回の配布記録が無い間は再ビルドできない。
+
+## 試聴アプリの配布
+
+通常配布とrecoverはpublic/adminに加え、候補SHAの `build:offline-player` を実行する。
+`listening-artifacts.mjs` はshell宣言と全ファイルのSHA-256、rootと世代付きindexの一致を照合し、
+`index.html`・`sw.js`・宣言された `releases/<revision>/` だけを専用stagingへコピーする。
+dist全体を配らない。`audio/` のpreview音源・未version化のassets・検証APIは対象外。
+
+新しいrelease manifest v3は `listening` にコードSHA・archive ID・ファイルのhashを持つ。
+private admin bucketの `/offline-player/` に、immutable shell → index → workerの順に配置する。
+公開中の旧ページを壊さないため旧shellは保持し、currentはinvalidationと公開データ世代照合後だけ進める。
+途中失敗は従来どおりpendingを残す。rebuild-publicはlisteningの記録と実体を保持する。
+
+rollbackはpublic/admin/listeningを同じ記録へ戻し、listeningのarchiveも集合・hash・shell宣言を照合する。
+v2の既存記録には試聴アプリが無いため、その記録へ戻すとliveの `/offline-player/` prefixを削除し、
+`/offline-player` と `/offline-player/*` を失効する。archiveは保持する。v1は公開データ世代が無いため引き続き復元不可。
+この移行後のv3を旧helperで扱わない。手動復旧はv3対応のmainから起動する。
+
+HTTPS経路と公開制御は [cohost-edge](../cohost-edge/README.md#offline-listening-route) を先に準備する。
+このルート追加はcohost-edge用で、legacy rootのCloudFrontへは自動導入しない。
+配布ロールにはadmin bucketの `/offline-player/*` にGet/Put/DeleteとbucketのList、従来のrelease archive・invalidation権限が必要。
+実環境でロールを別管理している場合も専用prefixに限定して更新する。
+実音源は端末認証したAPIから署名URLで取得し、このstatic originへ格納しない。
+
+## cohostのbackend配布
+
+Deployの`BACKEND_DEPLOY_TARGET`は未設定または`ec2-arm64`で従来経路、
+`cohost-amd64`で単一hostの明示的な更新経路を選ぶ。未知の値は拒否する。
+未設定の互換動作は直接dispatchだけ。`source_repository`/`controller_sha`を渡す再利用呼出しでは
+`ec2-arm64`または`cohost-amd64`を明示必須とし、空値・未知値はpreflight/backend双方のAWS認証前に拒否する。
+設定欠落で別architectureのimageをimmutable tagへpushすることを防ぐ。
+後者には`COHOST_MANAGED_NODE_ID`（登録済みSSM managed node）、`ECR_REPOSITORY`、
+`AWS_DEPLOY_ROLE_ARN`と既存のfrontend配布変数が必要。実値は非公開運用側で管理する。
+CIはarm64/amd64の両方で同じproduction image build・起動・cohost runtime検査を実行し、
+候補の全件検査とCI gateは両ジョブを要求する。古いCI結果では新候補を配れない。
+
+cohostのAWSロールはmainのOIDCだけを信頼し、対象ECRへのbuild/push・digest照会・pullによるplatform検査、
+指定managed nodeとAWS-RunShellScriptへの`ssm:SendCommand`、
+`ssm:GetCommandInvocation`を許可する。legacy rootの権限チェックはcohostの実IAMを保証しない。
+音源bucket・DB・SSM秘密値の読取り権限をActionsへ追加しない。
+pullには対象ECR repositoryに限定した`ecr:GetDownloadUrlForLayer`も必要。
+legacy rootの配布ロールも同じ検査のためこの権限を持ち、別管理のロールは運用側で反映する。
+
+ホストはLinux/Python/Dockerに加えGNU `timeout`を用意し、固定入口
+`/opt/abservice/host_deploy.py update`を運用側で配置しておく。この入口は
+`/etc/abservice/cohost.json`と`release.json`を読み、専用の短期deploy資格情報でECRへloginし、
+`/opt/abservice/infra/host/cohost/deploy.py`を同じ`/var/lib/abservice/cohost`で実行する契約。
+SSM Agentの資格情報を使わず、秘密を含む子プロセス出力を抑止すること。
+bootstrap・DB初期化・資格情報・origin proxy設定はこのworkflowの対象外。
+
+controllerは起動時main SHAの`cohost.py`/`install_release.py`を使う。
+ホストへ渡す`deploy.py`と`init-db.sh`は候補SHAのGit objectから取得し、checksumを添付する。
+認証済みrunnerが取得した配布digestの`/deployments/app.jar`からSQL migrationの一覧・checksumを抽出し、
+同じSSM payloadに含める。image内の別manifestやcheckout上のSQLで代用せず、抽出用containerは起動しない。
+ホストでは`cohost-delivery.lock`を取得して検証・原子的なファイル置換・固定入口の実行まで排他にする。
+ファイル置換と固定入口の呼出しより前に、既存ComposeのPostgreSQLからread-only transactionで
+`public.flyway_schema_history`を読み、適用済みversion・script・description・checksumの一致を要求する。
+候補にない未来のmigration、改変、失敗履歴、未適用の古いmigrationは、稼働backendを停止せず拒否する。
+一覧欠落・履歴取得失敗も拒否し、DB履歴のrepair/clean、ignore-future設定への変更は行わない。
+現在の整数version付きSQL migrationを対象とし、repeatable/baseline/独自配置など未対応の形式は拒否する。
+新しいmigrationのDDLやデータ、APIの互換性まで保証する検査ではないため、隔離DBでの移行検証も必要。
+既存の設定・入口・DB初期化記録が欠ける場合は更新を拒否する。
+Actions外の手動配布も同じ外側ロックを取得するか、実行中の配布がないことを確認してから行う。
+内部の`deploy.lock`は既存どおりDB/アプリ更新を保護する。
+
+SSM転送60秒・実行660秒・poll780秒を上限とし、remote process groupは630秒＋強制終了猶予10秒で止める。
+Success/ResponseCode=0に加え、固定入口の結果としてcurrentとhealthy attemptのsource/image一致を要求する。
+失敗・判定不能ならfrontendへ進まない。判定不能時はSSM commandと保護されたhost状態を確認してから再試行する。
+SSM stdout/stderrやhost stateの生値をActionsへ出さない。
+
+rollbackは既存tagのimageを再buildせず、指定SHAのhost scriptsで同じ更新入口を使う。
+新規build・既存tagの再利用とも、SSM送信前に配布digestをECRからrunnerへpullし、
+Linuxと選択targetのarchitectureの一致を検査する。imageを実行する検査ではない。
+取得・inspect失敗やplatform不一致ならrelease/rollbackを停止し、別architectureへの自動再buildはしない。
+`sha-<commit>`はarchitecture非依存なので、targetだけを切り替えて既存tagを流用する運用は不可。
+architectureを移行する場合は別ECR repositoryを用意し、そこで新しい配布候補を検証する。
+rollbackも選択target用の保存済みimageが必要で、異なるarchitectureのimageへは戻せない。
+候補にcohost scriptsがない場合は拒否する。DB互換性の確認は引き続き運用者が行い、DB自動巻戻しは行わない。
+通常候補の検証・排他・前進履歴、backend成功後だけのfrontend配布は従来と共通。
 
 ## 操作の排他と再実行
 
@@ -60,10 +173,10 @@ Actions Summaryの `savedGeneration` は照会時のDB保存済み世代、`deli
 
 切り戻しは同じworkflowで `action=rollback` と `release_id=<戻すrun番号>-<attempt>` を指定する。**現在の保存済み世代と一致する記録だけ**、コードを再ビルドせず保存済み成果物へ戻せる。旧形式・異なる世代・世代APIの失敗ではliveへ書き始めない。アーカイブのファイル集合とハッシュも検査する。失敗した配布で新たに生まれたURLも失効対象にする。
 
-- frontendの切り戻しは **public/admin両方**を指定記録へ戻す。内容だけを更新した記録でも、対応するadminの世代を保持している。
+- frontendの切り戻しは **public/admin/listening**を指定記録へ戻す。内容だけを更新した記録でも、対応するadmin/listeningの世代を保持している。
 - backend・DB・画像の復元は別操作。DB自体の過去への復元は撤回前の世代も戻すため、この照合だけでは防げない。[../README.md](../README.md#バックアップと復旧130) の順序（再ビルドの前に管理画面で確かめる）で扱う。
 - 初回配布が途中失敗した場合は、作成済みmanifestの成果物が正しければ、そのIDへのrollbackで配布を完了できる。初回配布には「前の正常配布」が無い。
-- pendingを手で消して次へ進まない。同世代の正常な成果物が無い場合（途中更新・撤回を含む）は `action=recover` でpendingの対象コードSHAと最新データからpublic/adminを再ビルドする。初回配布失敗でcurrentが無い場合も使える。世代照合・両画面の配布・invalidationが完了してからcurrentを更新してpendingを消す。再度失敗しても、以前の途中配布が作ったURLを失効対象から落とさない。pendingが無いとrecoverは拒否する。通常配布受理のコードSHAは変更しない。
+- pendingを手で消して次へ進まない。同世代の正常な成果物が無い場合（途中更新・撤回を含む）は `action=recover` でpendingの対象コードSHAと最新データからpublic/admin/listeningを再ビルドする。初回配布失敗でcurrentが無い場合も使える。世代照合・全成果物の配布・invalidationが完了してからcurrentを更新してpendingを消す。再度失敗しても、以前の途中配布が作ったURLを失効対象から落とさない。pendingが無いとrecoverは拒否する。通常配布受理のコードSHAは変更しない。
 - 保存期間によるアーカイブの自動削除は設定しない。実際に戻せる記録を決めてから運用側で整理する。
 
 ## 受け入れ確認

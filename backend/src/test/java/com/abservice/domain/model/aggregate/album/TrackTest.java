@@ -11,9 +11,9 @@ import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.model.aggregate.tune.Tune;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.album.TrackTuneTitle;
-import com.abservice.domain.model.vo.common.ArtistCredit;
-import com.abservice.domain.model.vo.common.Credit;
-import com.abservice.domain.model.vo.common.Url;
+import com.abservice.domain.model.vo.credit.ArtistCredit;
+import com.abservice.domain.model.vo.credit.Credit;
+import com.abservice.domain.model.vo.link.Url;
 
 import java.util.List;
 
@@ -569,6 +569,41 @@ class TrackTest {
                         null);
             }).isInstanceOf(BusinessRuleViolationException.class).hasMessage("Tune with seq 999 not found");
         }
+    }
+
+    @Test
+    @DisplayName("唯一のチューンを訂正するときは名称を失う中間状態を作らず置換できること")
+    void replaceSoleTuneShouldCorrectIdentityWithoutAnUnnamedIntermediateState() {
+        final var originalTune = TrackTune.create(
+                1,
+                Tune.Id.generate(),
+                TrackTuneTitle.of("Original"),
+                Credit.of("Composer"),
+                null,
+                null);
+        final var original = Track.create(
+                1,
+                null,
+                null,
+                List.of(originalTune));
+        final var correctedTune = TrackTune.create(
+                1,
+                Tune.Id.generate(),
+                TrackTuneTitle.of("Corrected"),
+                null,
+                null,
+                null);
+
+        assertThatThrownBy(() -> original.removeTune(1)).isInstanceOf(IllegalArgumentException.class);
+        final var corrected = original.replaceTunes(List.of(correctedTune));
+
+        assertThat(corrected.id()).isEqualTo(original.id());
+        assertThat(corrected.title()).isNull();
+        assertThat(corrected.name(TUNE_TITLE_SEPARATOR).value()).isEqualTo("Corrected");
+        assertThat(corrected.getTunes().getFirst().tuneId()).isEqualTo(correctedTune.tuneId());
+        assertThat(corrected.getTunes().getFirst().composerCreditOverride()).isNull();
+        assertThat(original.getTunes().getFirst()).isSameAs(originalTune);
+        assertThat(original.name(TUNE_TITLE_SEPARATOR).value()).isEqualTo("Original");
     }
 
     @Nested

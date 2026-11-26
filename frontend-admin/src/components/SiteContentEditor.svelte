@@ -16,9 +16,9 @@
     hasAssignedErrors,
     type FormErrors,
   } from '$lib/api/form-errors';
-  import { applySessionResult, storedSession, type AdminSession } from '$lib/credentials';
-  import { renderBody } from '$lib/markup';
-  import { unregisteredKeys } from '$lib/site-content-keys';
+  import { applySessionResult, storedSession, type AdminSession } from '$lib/session/credentials';
+  import { renderBody } from '$lib/presentation/markup';
+  import { unregisteredKeys } from '$lib/site/site-content-keys';
 
   /**
    * サイトの文言の一覧と編集（#383）。

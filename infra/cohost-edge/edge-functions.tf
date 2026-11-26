@@ -1,3 +1,7 @@
+locals {
+  private_audio_upload_path = "^/api/v1/admin/private-audio/registrations/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/content$"
+}
+
 resource "aws_wafv2_web_acl" "cloudfront" {
   provider    = aws.us_east_1
   name        = "${var.name}-cloudfront-waf"
@@ -20,6 +24,15 @@ resource "aws_wafv2_web_acl" "cloudfront" {
       managed_rule_group_statement {
         name        = "AWSManagedRulesCommonRuleSet"
         vendor_name = "AWS"
+        dynamic "rule_action_override" {
+          for_each = var.private_audio_upload_enabled ? [1] : []
+          content {
+            name = "SizeRestrictions_BODY"
+            action_to_use {
+              count {}
+            }
+          }
+        }
       }
     }
 
@@ -49,6 +62,80 @@ resource "aws_wafv2_web_acl" "cloudfront" {
       cloudwatch_metrics_enabled = true
       metric_name                = "${var.name}-known-bad-inputs"
       sampled_requests_enabled   = true
+    }
+  }
+
+  # Count only the managed body-size rule, then restore its block everywhere
+  # except the exact FLAC upload. Do not Allow early or skip either managed group.
+  dynamic "rule" {
+    for_each = var.private_audio_upload_enabled ? [1] : []
+    content {
+      name     = "BodySizeExceptPrivateAudioUpload"
+      priority = 2
+      action {
+        block {}
+      }
+      statement {
+        and_statement {
+          statement {
+            label_match_statement {
+              scope = "LABEL"
+              key   = "awswaf:managed:aws:core-rule-set:SizeRestrictions_Body"
+            }
+          }
+          statement {
+            not_statement {
+              statement {
+                and_statement {
+                  statement {
+                    byte_match_statement {
+                      positional_constraint = "EXACTLY"
+                      search_string         = "PUT"
+                      field_to_match {
+                        method {}
+                      }
+                      text_transformation {
+                        priority = 0
+                        type     = "NONE"
+                      }
+                    }
+                  }
+                  statement {
+                    regex_match_statement {
+                      regex_string = local.private_audio_upload_path
+                      field_to_match {
+                        uri_path {}
+                      }
+                      text_transformation {
+                        priority = 0
+                        type     = "NONE"
+                      }
+                    }
+                  }
+                  statement {
+                    byte_match_statement {
+                      positional_constraint = "EXACTLY"
+                      search_string         = "audio/flac"
+                      field_to_match {
+                        single_header { name = "content-type" }
+                      }
+                      text_transformation {
+                        priority = 0
+                        type     = "NONE"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      visibility_config {
+        cloudwatch_metrics_enabled = true
+        metric_name                = "${var.name}-body-size-except-private-audio"
+        sampled_requests_enabled   = true
+      }
     }
   }
 

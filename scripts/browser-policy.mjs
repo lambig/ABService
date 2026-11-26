@@ -37,6 +37,12 @@ export const browserSelection = ({ event, ref, files, workspaces, exists = () =>
   }).map(([id]) => id);
   for (const file of files) {
     if (/^docs\/.*\.md$|^[^/]+\.md$/.test(file)) continue;
+    // These are Vitest-only entry points (frontend-admin/vitest.config.ts).
+    // Keep the application's unit/component checks, without starting browser suites.
+    if (/^frontend-admin\/(?:src\/(?:lib|components)\/.*\.test\.ts|vitest\.(?:config|setup)\.ts)$/.test(file)) continue;
+    if (/^infra\/(?:release\/(?:frontend|listening-artifacts|check-listening-browser)\.mjs|functions\/listening-request\.js\.tftpl|headers\/listening-csp\.txt|cohost-edge\/main\.tf)$/.test(file)) {
+      if (plan['offline-player'] !== 'all') plan['offline-player'].push('packages/offline-player/e2e/delivery.spec.ts');
+    }
     const suite = Object.entries(browserSuites).find(([, s]) => file.startsWith(`${s.location}/`));
     if (suite && file.startsWith(`${suite[1].location}/${suite[1].specs}/`) && /\.spec\.ts$/.test(file)) {
       if (!exists(file)) all([suite[0]]); // Deleted/renamed source: validate the remaining suite.
@@ -57,6 +63,8 @@ export const browserSelection = ({ event, ref, files, workspaces, exists = () =>
       if (!main) {
         all(affected);
         if (application) all(['e2e']);
+        // The preparation scenario builds the admin UI and opens its URL in a separate player context.
+        if (owner.location === 'frontend-admin') all(['offline-player']);
       }
       continue;
     }

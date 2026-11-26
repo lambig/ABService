@@ -1,6 +1,15 @@
 package com.abservice.application.service.album;
 
 import com.abservice.application.service.CommandService;
+import com.abservice.application.service.InputPolicy;
+import com.abservice.domain.model.policy.Policy;
+import com.abservice.domain.model.policy.Policies;
+import com.abservice.lib.Result;
+import java.util.Optional;
+import com.abservice.domain.model.aggregate.album.Album;
+import com.abservice.domain.exception.ValidationException;
+import com.abservice.lib.ErrorResult;
+import io.smallrye.mutiny.Uni;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
@@ -8,8 +17,8 @@ import org.jspecify.annotations.Nullable;
  * アルバム更新コマンドの入力DTO
  *
  * <p>
- * 外部（REST 等）からの未検証入力を表現します。すべての値は文字列として受け取り、 検証と型への解釈は
- * {@link UpdateAlbumService} が {@code Result} 経由で行います。
+ * 外部（REST 等）からの未検証入力を表現します。すべての値は文字列として受け取り、 検証と型への解釈は 入力自身が {@code Result}
+ * 経由で行います。
  * </p>
  *
  * <p>
@@ -39,7 +48,7 @@ import org.jspecify.annotations.Nullable;
  * @param description
  *            作品の概要説明（nullable。未指定は説明なしへの置換）
  * @param descriptionFormat
- *            概要説明のマークアップ形式（{@code com.abservice.domain.model.vo.common.MarkupFormat}
+ *            概要説明のマークアップ形式（{@code com.abservice.domain.model.vo.markup.MarkupFormat}
  *            の列挙子名。 {@code description} を指定する場合のみ必須）
  * @param event
  *            初出イベント情報（nullable）
@@ -68,7 +77,7 @@ public record UpdateAlbumInput(
         @Nullable BasePriceInput basePrice,
         @Nullable String originalWorkNote,
         @Nullable List<@Nullable TrackInput> tracks,
-        @Nullable List<@Nullable ExternalAudioInput> externalAudios) implements CommandService.Input {
+        @Nullable List<@Nullable ExternalAudioInput> externalAudios) implements CommandService.Input<UpdateAlbumInput> {
 
     /**
      * 頒布の基準額の入力DTO
@@ -106,5 +115,68 @@ public record UpdateAlbumInput(
             @Nullable String spaceNumber,
             @Nullable String circleName,
             @Nullable String note) {
+    }
+    @Override
+    public Policy<UpdateAlbumInput> policy() {
+        return new InputPolicy<>(UpdateAlbumInput::validatedValues);
+    }
+
+    private Result<RegisterAlbumWithTracksInput.Values> validatedValues() {
+        return requested()
+                .flatMap(_ -> bodyValues());
+    }
+
+    Result<RegisterAlbumWithTracksInput.Values> bodyValues() {
+        return new RegisterAlbumWithTracksInput(
+                title(),
+                releaseDate(),
+                artistDisplayName(),
+                artistSortKey(),
+                catalogNumber(),
+                isdn(),
+                coverImageKey(),
+                description(),
+                descriptionFormat(),
+                Optional.ofNullable(event())
+                        .map(
+                                e -> new RegisterAlbumWithTracksInput.EventInput(
+                                        e.name(),
+                                        e.date(),
+                                        e.place(),
+                                        e.spaceNumber(),
+                                        e.circleName(),
+                                        e.note()))
+                        .orElse(null),
+                Optional.ofNullable(basePrice())
+                        .map(p -> new RegisterAlbumWithTracksInput.BasePriceInput(p.amount(), p.currency()))
+                        .orElse(null),
+                originalWorkNote(),
+                tracks(),
+                externalAudios())
+                .parsed();
+    }
+
+    Uni<Album.Id> asRequested() {
+        return Uni.createFrom()
+                .item(
+                        () -> requested()
+                                .resolve(ValidationException::new));
+    }
+
+    private Result<Album.Id> requested() {
+        final var id = Album.Id.fromInput(albumId())
+                .withErrorField("albumId");
+        return Policies.combine(List.of(id, expectedRevision(expectedRevision())), id::resolve);
+    }
+
+    private static Result<Integer> expectedRevision(@Nullable Integer value) {
+        return Optional.ofNullable(value)
+                .map(Result::success)
+                .orElseGet(
+                        () -> Result.failure(
+                                new ErrorResult(
+                                        "expectedRevision",
+                                        "編集を始めた時点の世代は必須です",
+                                        "ALBUM_EXPECTED_REVISION_REQUIRED")));
     }
 }

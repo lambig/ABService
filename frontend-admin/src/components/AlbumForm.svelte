@@ -1,7 +1,7 @@
 <script lang="ts">
   import EditorRecovery from '$components/EditorRecovery.svelte';
-  import { albumRecoveryValues, type AlbumRecoveryValues } from '$lib/recovery-values';
-  import type { RecoveryHandle, RecoverySnapshot } from '$lib/editor-recovery';
+  import { albumRecoveryValues, type AlbumRecoveryValues } from '$lib/editor/recovery-values';
+  import type { RecoveryHandle, RecoverySnapshot } from '$lib/editor/editor-recovery';
   import AlbumExternalAudios from '$components/AlbumExternalAudios.svelte';
   import AlbumFormField from '$components/AlbumFormField.svelte';
   import AlbumSection from '$components/AlbumSection.svelte';
@@ -47,8 +47,8 @@
     withoutPathsUnder,
     type FormErrors,
   } from '$lib/api/form-errors';
-  import { applySessionResult, storedSession, type AdminSession } from '$lib/credentials';
-  import { ALBUM_LIST_PATH, albumIdIn } from '$lib/paths';
+  import { applySessionResult, storedSession, type AdminSession } from '$lib/session/credentials';
+  import { ALBUM_LIST_PATH, albumIdIn } from '$lib/navigation/paths';
 
   /**
    * 作品の新規作成・編集。

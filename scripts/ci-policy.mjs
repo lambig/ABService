@@ -24,6 +24,7 @@ export const jobs = {
   'frontend-check': 'application',
   'api-types-check': 'application',
   'container-check': 'application',
+  'container-check-amd64': 'application',
   'iac-check': 'infrastructure',
   e2e: 'application',
   'listening-check': 'listening',

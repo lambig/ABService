@@ -1,8 +1,8 @@
 package com.abservice.infrastructure.persistence.mapper;
 
 import com.abservice.domain.model.aggregate.site.SiteContent;
-import com.abservice.domain.model.vo.common.MarkupContent;
-import com.abservice.domain.model.vo.common.MarkupFormat;
+import com.abservice.domain.model.vo.markup.MarkupContent;
+import com.abservice.domain.model.vo.markup.MarkupFormat;
 import com.abservice.domain.model.vo.site.SiteContentKey;
 import com.abservice.infrastructure.persistence.entity.SiteContentTableRecord;
 

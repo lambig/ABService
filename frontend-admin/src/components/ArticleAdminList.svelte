@@ -21,10 +21,10 @@
     type AdminArticlePage,
     type ApiResult,
   } from '$lib/api/client';
-  import { ARTICLE_TYPE_LABELS } from '$lib/article-labels';
-  import { applySessionResult, storedSession, type AdminSession } from '$lib/credentials';
-  import { formatPublishedDate } from '$lib/format';
-  import { NEW_ARTICLE_PATH, editArticlePath } from '$lib/paths';
+  import { ARTICLE_TYPE_LABELS } from '$lib/presentation/article-labels';
+  import { applySessionResult, storedSession, type AdminSession } from '$lib/session/credentials';
+  import { formatPublishedDate } from '$lib/presentation/format';
+  import { NEW_ARTICLE_PATH, editArticlePath } from '$lib/navigation/paths';
 
   /**
    * 記事の一覧と、公開・非公開・削除。

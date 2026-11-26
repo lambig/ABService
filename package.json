@@ -12,7 +12,7 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:public\"",
     "dev:backend": "cd backend && ./gradlew quarkusDev",
-    "dev:backend:e2e": "cd backend && DB_NAME=abservice_e2e QUARKUS_HTTP_PORT=8090 QUARKUS_FLYWAY_CLEAN_AT_START=true ./gradlew quarkusDev",
+    "start:backend:e2e": "backend/gradlew -p backend quarkusBuild && node e2e/scripts/start-backend.mjs",
     "dev:public": "npm run dev -w abservice-frontend-public",
     "dev:admin": "npm run dev -w abservice-frontend-admin",
     "build": "npm run build:backend && npm run build:public && npm run build:admin",
@@ -51,7 +51,6 @@
     "docker:build": "docker-compose build",
     "docker:logs": "docker-compose logs -f",
     "docker:logs:postgres": "docker-compose logs -f postgres",
-    "docker:logs:keycloak": "docker-compose logs -f keycloak",
     "clean": "npm run clean:backend && npm run clean:public && npm run clean:admin",
     "clean:backend": "cd backend && ./gradlew clean",
     "clean:public": "rm -rf frontend-public/dist frontend-public/.astro",
@@ -105,9 +104,15 @@
   "devDependencies": {
     "concurrently": "^8.2.2"
   },
+  "overrides": {
+    "eslint-plugin-functional": {
+      "deepmerge-ts": "^8.0.0"
+    },
+    "minimatch@>=10 <11": "11.0.1"
+  },
   "engines": {
-    "node": "24.20.0",
-    "npm": "11.19.0"
+    "node": "24.22.3",
+    "npm": "11.19.1"
   },
   "repository": {
     "type": "git",

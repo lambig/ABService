@@ -125,6 +125,39 @@ class AlbumRestIntegrationTest {
     }
 
     @Test
+    @DisplayName("タイトルのないトラックの唯一のチューンを訂正し、クレジットを消去して再読込できる")
+    void updateSoleTunePreservesTrackIdentityAndClearsOptionalDescription() {
+        final String albumId = authorized().contentType(ContentType.JSON)
+                .body("""
+                        {"title":"Correction fixture","releaseDate":"2026-01-01",
+                         "artistDisplayName":"Test Artist","tracks":[{"tunes":[
+                         {"tuneTitle":"Original","composerCreditOverride":"Composer"}]}]}
+                        """)
+                .when().post("/api/v1/albums/with-tracks").then().statusCode(201).extract().path("albumId");
+        final var before = authorized().when().get("/api/v1/admin/albums/" + albumId)
+                .then().statusCode(200).extract();
+        final String trackId = before.path("tracks[0].trackId");
+        final int revision = before.path("revision");
+
+        authorized().contentType(ContentType.JSON)
+                .body("""
+                        {"expectedRevision":%d,"title":"Correction fixture","releaseDate":"2026-01-01",
+                         "artistDisplayName":"Test Artist","tracks":[{"trackId":"%s","tunes":[
+                         {"tuneTitle":"Corrected","composerCreditOverride":null}]}]}
+                        """.formatted(revision, trackId))
+                .when().put("/api/v1/albums/" + albumId).then().statusCode(200);
+
+        authorized().when().get("/api/v1/admin/albums/" + albumId).then().statusCode(200)
+                .body("tracks.size()", equalTo(1))
+                .body("tracks[0].trackId", equalTo(trackId))
+                .body("tracks[0].title", nullValue())
+                .body("tracks[0].tunes.size()", equalTo(1))
+                .body("tracks[0].tunes[0].seq", equalTo(1))
+                .body("tracks[0].tunes[0].tuneTitle", equalTo("Corrected"))
+                .body("tracks[0].tunes[0].composerCreditOverride", nullValue());
+    }
+
+    @Test
     @DisplayName("カバー画像なしのアルバムは配信URLがnullで返る")
     void albumWithoutCoverImageHasNullUrl() {
         final String albumId = authorized().contentType(ContentType.JSON)

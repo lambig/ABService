@@ -1,0 +1,17 @@
+import fs from 'node:fs';
+const root=new URL('.',import.meta.url);
+const src=fs.readFileSync(new URL('upstream/chordino/chromamethods.cpp',root),'utf8');
+const dict=fs.readFileSync(new URL('chord.dict',root),'utf8');
+fs.writeFileSync(new URL('chord.dict',root),dict);
+const rows=dict.trim().split(/\r?\n/).map(s=>{const [label,values]=s.split('=');return {label,values:values.split(',').map(Number)}});
+if(rows.length!==22||rows.some(r=>r.values.length!==24))throw Error('dictionary shape');
+let s=src.replace(/^#include <boost[^\n]*\n/gm,'').replace('using namespace boost;','');
+s=s.replace(/static\s+std::vector<std::string>\s+getPluginPath\(\)[\s\S]*?static vector<string> staticChordnames\(\)/,'static vector<string> staticChordnames()');
+s=s.replace(/    typedef tokenizer[\s\S]*?\tconst char\* notenames/, '    const char* notenames');
+const begin=s.indexOf('    bool hasExternalDictinoary');
+const end=s.indexOf('    for (int iType',begin);
+s=s.slice(0,begin)+`    int nChord = 0;\n    vector<string> tempChordNames = {${rows.map(r=>JSON.stringify(r.label)).join(',')}};\n    vector<float> tempChordDict = {${rows.flatMap(r=>r.values).join(',')}};\n    vector<string> loadedChordNames;\n    vector<float> loadedChordDict;\n`+s.slice(end);
+s=s.replace('    chordDictFile.close();','');
+fs.mkdirSync(new URL('generated/',root),{recursive:true});
+fs.writeFileSync(new URL('generated/chromamethods.cpp',root),'// Modified 2026-10-13: embed fixed accepted dictionary; remove filesystem and Boost parser. GPL-2.0-or-later.\n'+s);
+console.log('Embedded 22 profiles; numerical dictionary expansion unchanged');

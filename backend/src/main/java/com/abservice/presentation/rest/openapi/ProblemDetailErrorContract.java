@@ -8,6 +8,7 @@ import com.abservice.presentation.rest.exception.ForbiddenExceptionMapper;
 import com.abservice.presentation.rest.exception.StaleStateExceptionMapper;
 import com.abservice.presentation.rest.exception.UnauthorizedExceptionMapper;
 import com.abservice.presentation.rest.exception.UncaughtExceptionMapper;
+import com.abservice.presentation.rest.exception.FaultToleranceExceptionMapper;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -48,7 +49,8 @@ public final class ProblemDetailErrorContract {
             ForbiddenExceptionMapper.class,
             StaleStateExceptionMapper.class,
             UnauthorizedExceptionMapper.class,
-            UncaughtExceptionMapper.class);
+            UncaughtExceptionMapper.class,
+            FaultToleranceExceptionMapper.class);
 
     private ProblemDetailErrorContract() {
     }

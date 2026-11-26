@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Button } from '$components/ui/button/index.js';
-  import { MARKDOWN_ASSISTANCE, type MarkdownAssistance } from '$lib/markdown-assistance';
+  import { MARKDOWN_ASSISTANCE, type MarkdownAssistance } from '$lib/editor/markdown-assistance';
   import { tick } from 'svelte';
 
   type Props = {

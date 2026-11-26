@@ -5,7 +5,7 @@
     createEditorRecovery,
     type RecoveryIdentity,
     type RecoverySnapshot,
-  } from '$lib/editor-recovery';
+  } from '$lib/editor/editor-recovery';
   const {
     identity,
     values,

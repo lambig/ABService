@@ -1,7 +1,7 @@
 ---
 import { renderArticle } from 'abservice-public-presentation';
 import { PUBLIC_ASSET_BASE_PATH } from 'astro:env/client';
-import { defaultArtistName } from '$lib/site';
+import { defaultArtistName } from '$lib/site/site';
 import SiteNav from '$components/SiteNav.astro';
 import {
   getAlbum,
@@ -10,7 +10,7 @@ import {
   type PublicAlbumDetail,
   type PublicArticleDetail,
 } from '$lib/api/client';
-import { referencedAlbumId } from '$lib/article';
+import { referencedAlbumId } from '$lib/presentation/article';
 import BaseLayout from '$layouts/BaseLayout.astro';
 
 /*

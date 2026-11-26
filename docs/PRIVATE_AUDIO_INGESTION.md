@@ -1,5 +1,21 @@
 # 非公開FLACの受入検査（#474）
 
+## 配布イメージのFLAC互換性
+
+検査器は`flac --analyze`のframe位置と、実ファイルのheader・末尾位置を照合する。
+FLAC 1.3系には先頭frameのoffset/sizeを誤る既知問題があるため、CLIでのdecode成功だけでは
+この検査との互換性を保証できない。上流では[1.4.0で修正](https://github.com/xiph/flac/blob/1.5.0/CHANGELOG.md#flac-140-09-sep-2022)されている。
+
+JVM配布イメージはFLAC 1.5.0の公式sourceとSHA-256を固定し、同じOS/ABIのbuilderで組み立てる。
+実行イメージへはCLIとライセンスだけをコピーし、コンパイラ・ヘッダー・sourceを含めない。
+ハッシュの出典は[公式配布一覧](https://downloads.xiph.org/releases/flac/SHA256SUMS.txt)。
+非root実行、256MiB上限、入力/検査期限、CRC/MD5とframe境界の検査は維持する。
+
+CIではホストに入れたFLACでのJava統合試験に加え、`Dockerfile.jvm`の`flac-runtime` targetを組み、
+`python3 scripts/check-flac-image.py <image>`でmetadata paddingを持つ合成FLACを検査する。
+この試験はAWSや実作品を使わず、配布対象CLIの全frame位置・サンプル数・末尾位置を確認する。
+配布イメージの検査を、実原本の登録・実環境受け入れの完了とは扱わない。
+
 ## 現在の実装境界
 
 実装済みの境界は、非公開音源の検査器、専用の保存アダプタ、DBの登録状態と、それらを結ぶ確定・復旧処理。
@@ -40,7 +56,7 @@ CDIの実行入口は明示的に有効化したときだけ専用資源を生�
 
 対象は公開済みの作品のうち、CONFIRMED のクロスフェードが関連付いているもの。下書きは含めず、関連付けの無い作品も含めない。
 作品・確定音源・収録曲・チューン構成を1つの問い合わせで読み、1つの版の中で実体とメタデータが食い違わないようにする。
-作品の並びは公開サイトの作品一覧と同じ（カタログナンバーの降順、未付与は末尾、同値はドメインIDの降順）、収録曲は曲順。
+試聴端末の作品はカタログナンバーの降順（未付与は末尾、同値はドメインIDの降順）、収録曲は曲順。公開サイトの発表日順とは独立した表示規則とする（#532）。
 
 | 項目 | 由来 |
 | --- | --- |
@@ -169,7 +185,7 @@ PENDING/EXPIRED/CONFIRMEDの復旧、再PUT、ID再利用は許さない。
 | `bucket` | 有効時必須。公開画像バケットとは異なる専用バケット |
 | `temporary-directory` | 有効時必須。POSIXの専有ローカル領域 |
 | `temporary-bytes` | 512MiB。256MiB〜8GiB |
-| `input-timeout` | `PT2M`。1ms〜5分 |
+| `input-timeout` | `PT2M`。1ms〜10分。入力開始からの全体期限で、通信のたびには延長しない |
 | `retention` | `PT24H`。1時間〜7日 |
 | `maintenance-interval` | `PT15M`。1分〜24時間 |
 
@@ -392,6 +408,10 @@ Reactiveセッション状態を引き継がない。単独実行だけでは起
    `--tls --private-audio`で管理音源contentのPUTだけに256MiB・入力buffering無効・応答待ち300秒を設定する。
    他のAPIは1MiB/60秒を維持する。CDN側は`backend_response_timeout`（既定30秒、明示で最大60秒）を別途検査し、
    最も短い待ち時間が経路の上限となる。実サイズで測定し、504/応答喪失後は状態照会・確定復旧を行う。
+   cohost-edgeのWAFは別に`private_audio_upload_enabled=true`の明示設定が必要。既定の
+   `SizeRestrictions_BODY`は大容量FLACをorigin到達前に拒否する。設定後も例外は正確な音源content PUTと
+   `audio/flac`だけで、他のmanaged rule・認可・本体上限は維持する。通常APIの容量拒否も再検査し、
+   一時受け入れ終了時にはこの設定をfalseへ戻す。詳細は`infra/cohost-edge/README.md`を参照。
 4. 予約→送信→状態照会→Album関連付けを実行し、送信前のファイルと登録応答の容量・SHA-256を照合する。
    関連付けの世代はGETで取得し、409では最新状態を読んでから判断する。元の作品情報・公開画像も確認する。
 5. 送信中断・保存応答喪失・停止/再開を検証する。PENDINGは期限内のみ再送、INSPECTED/ABANDONEDは

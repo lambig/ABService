@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { runInNewContext } from 'node:vm';
 import test from 'node:test';
 import { deploymentDecision } from './frontend.mjs';
@@ -33,7 +34,7 @@ test('backend requires successful preflight in this attempt; pending/error/skip 
   const preflight = job(deploy, 'preflight');
   assert.match(preflight, /role-to-assume: \$\{\{ vars.AWS_FRONTEND_DEPLOY_ROLE_ARN \}\}/);
   assert.match(preflight, /node infra\/release\/frontend.mjs preflight/);
-  assert.match(preflight, /ref: \$\{\{ github.sha \}\}/);
+  assert.match(preflight, /ref: \$\{\{ inputs.controller_sha \|\| github.sha \}\}/);
   assert.match(preflight, /fetch-depth: 0/);
   assert.match(preflight, /RELEASE_SHA: \$\{\{ inputs.commit_sha \}\}/);
 });
@@ -94,13 +95,93 @@ test('helper uses deployed SHA for normal calls and dispatch SHA for manual oper
   assert.equal(evaluate(expression, manual), 'c'.repeat(40));
 });
 
+test('private caller checks out source code, not its own operations commit', () => {
+  const c = normal();
+  c.github.repository = 'owner/operations';
+  c.inputs.source_repository = 'owner/source';
+  c.inputs.controller_sha = 'd'.repeat(40);
+  const checkouts = (yaml) => [...yaml.matchAll(/uses: actions\/checkout@v4\n([\s\S]*?)(?=\n      - |$)/g)].map(m => m[1]);
+  for (const block of [...checkouts(deploy), ...checkouts(frontend)]) {
+    assert.equal(evaluate(block.match(/repository: (.+)/)[1], c), 'owner/source');
+    const direct = normal();
+    assert.equal(evaluate(block.match(/repository: (.+)/)[1], direct), 'owner/repo');
+  }
+  const controller = job(deploy, 'preflight').match(/ref: (.+)/)[1];
+  assert.equal(evaluate(controller, c), 'd'.repeat(40));
+  const helper = frontend.split('path: delivery\n')[1].match(/ref: (.+)/)[1];
+  assert.equal(evaluate(helper, c), 'b'.repeat(40), 'normal helper remains pinned to deployed candidate');
+  c.inputs.normal_release = false;
+  assert.equal(evaluate(helper, c), 'd'.repeat(40), 'manual recovery uses reviewed source controller');
+  for (const name of ['source_repository', 'controller_sha']) {
+    assert.match(job(deploy, 'frontend'), new RegExp(`${name}: \\$\\{\\{ inputs\\.${name} \\|\\| github\\.`));
+  }
+  assert.match(job(deploy, 'preflight'), /SOURCE_REPOSITORY: \$\{\{ inputs.source_repository \|\| github.repository \}\}/);
+  // The private caller must still dispatch from main and satisfy all existing release guards.
+  assert.equal(evaluate(guard(job(deploy, 'preflight')), c), true);
+  c.github.ref = 'refs/heads/feature';
+  assert.equal(evaluate(guard(job(deploy, 'preflight')), c), false);
+});
+
+test('older selected source cannot downgrade recovery Node or backend Java denylist', () => {
+  const nodeFiles = [...frontend.matchAll(/node-version-file: (.+)/g)].map(match => match[1]);
+  assert.deepEqual(nodeFiles, ['delivery/.nvmrc', 'delivery/.nvmrc']);
+  const backend = job(deploy, 'deploy');
+  const controller = backend.split('- name: Checkout deployment controller\n')[1].split('\n      - ')[0];
+  assert.doesNotMatch(controller, /\n        if:/);
+  assert.match(controller, /ref: \$\{\{ inputs.controller_sha \|\| github.sha \}\}/);
+  const block = backend.split('- name: Block compromised intermediate certificates\n')[1].split('\n      - ')[0];
+  assert.match(block, /if: steps.existing.outputs.exists == 'false'/);
+  assert.match(block, /run: sh \.release-controller\/backend\/security\/update-java-blocklist.sh "\$JAVA_HOME"/);
+  assert.ok(backend.indexOf(block) < backend.indexOf('- name: Set up Gradle'));
+  assert.match(backend, /ref: \$\{\{ inputs.commit_sha \}\}/);
+});
+
+test('controller refs and source names fail closed before checkout and AWS access', () => {
+  const blocks = [...(deploy + frontend).matchAll(/- name: Validate source and controller inputs before checkout\n[\s\S]*?run: \|\n((?:          .*\n)+)/g)];
+  assert.equal(blocks.length, 3);
+  for (const match of blocks) {
+    const script = match[1].replace(/^          /gm, '');
+    for (const [repository, sha, pass] of [
+      ['', '', true], ['owner/source', 'a'.repeat(40), true],
+      ['owner/source', 'main', false], ['owner/source', '', false],
+      ['', 'a'.repeat(40), false], ['https://example.test/source', 'a'.repeat(40), false],
+    ]) {
+      const result = spawnSync(process.env.TEST_BASH || 'bash', ['--noprofile', '--norc', '-e', '-c', script], {
+        env: { ...process.env, SOURCE_REPOSITORY: repository, CONTROLLER_SHA: sha, TARGET: 'ec2-arm64' }, encoding: 'utf8',
+      });
+      assert.equal(result.status === 0, pass, result.error?.message || `${repository} / ${sha}`);
+    }
+  }
+});
+
+test('reusable release and rollback reject missing target before AWS or ECR; direct legacy dispatch remains compatible', () => {
+  for (const name of ['preflight', 'deploy']) {
+    const block = job(deploy, name);
+    const validation = block.split('- name: Validate source and controller inputs before checkout')[1].split('\n      - ')[0];
+    assert.match(validation, /TARGET: \$\{\{ vars.BACKEND_DEPLOY_TARGET \}\}/);
+    assert.ok(block.indexOf(validation) < block.indexOf('aws-actions/configure-aws-credentials'));
+    if (name === 'deploy') assert.ok(block.indexOf(validation) < block.indexOf('aws-actions/amazon-ecr-login'));
+    const script = `${validation}\n`.match(/run: \|\n((?:          .*\n)+)/)[1].replace(/^          /gm, '');
+    for (const [reusable, target, pass] of [
+      [true, '', false], [true, 'unknown', false], [true, 'ec2-arm64', true],
+      [true, 'cohost-amd64', true], [false, '', true],
+    ]) {
+      const result = spawnSync(process.env.TEST_BASH || 'bash', ['--noprofile', '--norc', '-e', '-c', script], {
+        env: { ...process.env, SOURCE_REPOSITORY: reusable ? 'owner/source' : '',
+          CONTROLLER_SHA: reusable ? 'a'.repeat(40) : '', TARGET: target }, encoding: 'utf8',
+      });
+      assert.equal(result.status === 0, pass, result.error?.message || `${name}: reusable=${reusable}, target=${target}: ${result.stderr}`);
+    }
+  }
+});
+
 test('every public build uses checked generation metadata; recovery builds both sites at pending target SHA', () => {
   assert.match(frontend, /options: \[rebuild-public, rollback, recover\]/);
   const build = frontend.split('- name: Build the selected code with current public data')[1].split('- name: Publish')[0];
   assert.match(build, /RELEASE_SHA: \$\{\{ steps.source.outputs.code_sha \}\}/);
   assert.match(build, /node ..\/delivery\/infra\/release\/build-public.mjs/);
   assert.doesNotMatch(build, /npm run build:public/);
-  assert.match(build, /if \[ "\$ACTION" != rebuild-public \]; then npm run build:admin; fi/);
+  assert.match(build, /if \[ "\$ACTION" != rebuild-public \]; then\s+npm run build:admin\s+npm run build:offline-player\s+node ..\/delivery\/infra\/release\/listening-artifacts.mjs packages\/offline-player\/dist listening-release\s+fi/);
   assert.match(frontend, /node delivery\/infra\/release\/frontend.mjs status/);
 });
 

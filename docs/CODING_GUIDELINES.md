@@ -8,21 +8,18 @@
 
 ---
 
-## 1. 静的解析ガバナンス（強制済み）
+## 1. 静的解析の参照先
 
-ABService のアーキテクチャ制約・コーディング規約は多層の静的解析で **CI 強制済み**。**正は設定・テストの実体**（本節は概要のみ）:
+検査内容と例外は設定・テストを正とし、規則一覧を本書へ転記しない。
 
-| 手段 | 実体 | 主な強制内容 |
-|---|---|---|
-| ArchUnit | `backend/src/test/java/com/abservice/architecture/`（`LayeredArchitectureTest` / `TestConventionsArchTest` / `AggregateConstructionArchTest`） | レイヤ依存方向、`@Entity` 配置/命名、`@Transactional` 禁止、Repository/ApplicationService の `Uni` 返却契約、domain の `java.time`/`Uni`/Provider 禁止、コンストラクタ可視性、フィールド final、`@DisplayName` 必須、Aggregate/Entity の private 全項目コンストラクタは `@AggregateFactory` 付きメソッド以外から呼べない（Always Valid、#101）、Command REST リソース（`*CommandResource`）と管理向け Query REST リソース（`*AdminQueryResource`）、端末向け Query REST リソース（`*ListenerQueryResource`）は `@RolesAllowed` 必須（#116・#475）、参照先集約の状態に依存する遷移（`@CrossAggregateTransition`）は参照先を伴って構築される操作オブジェクト（`@CrossAggregateOperation`）以外から呼べない（呼び出し・メソッド参照の双方を検査、#176）、アルバムの取得は主張（編集権・参照）を伴う唯一の入口 `AlbumAccessService` を通す（#178）、応答 record の単純名は入れ子を含めて一意（OpenAPI のスキーマ名が単純名のため。`ResponseNullabilityFilter` がスキーマ名で型を引く） |
-| Checkstyle | `backend/config/checkstyle/`（+ `suppressions.xml`・`checkstyle-xpath-suppressions.xml`） | domain の try-catch禁止、production全域の可変コレクション直接生成禁止（`infrastructure.persistence` 境界のみ例外）、中置論理演算子禁止、全ローカル final（try-with-resources のリソースは暗黙に final のため付けない。`RedundantModifier` が拾う）、JUnit assertion 禁止（AssertJ 統一）、`@SuppressWarnings` 理由必須、`domain.model` 配下はクラス・フィールド・publicメソッドへのJavadoc必須（`JavadocVariable`/`JavadocType`/`JavadocMethod`。privateメソッドは対象外）、production全域でインラインコメント（`//`）は大文字+ハイフン＋コロンのprefixを伴う"why not"のみ許可（`InlineCommentRequiresWhyNotPrefix`。一般的な理由=whyはPMD/ArchUnit側のJavadocへ、#99。詳細は§8）、Always Validパターンの全項目構築経路（`@DomainConstructor`/`@DomainFactory`）は`SuppressionXpathFilter`で`ParameterNumber`を抑止し個別の理由コメントを不要化（#103） |
-| PMD | `backend/config/pmd/ruleset.xml` | `if` 文全廃、VO/record の検証必須、FQN 禁止、`if` 値 return / `switch` 文禁止、可変コレクタ（`Collectors.toList/toSet/toMap`）・Collection/Map変異呼び出し禁止（型解決で判定、`infrastructure.persistence` 境界のみ例外） |
-| NullAway / ErrorProne | `backend/build.gradle` | `@NullMarked`（package-info）＋ `@Nullable` によるコンパイル時 null 安全。`main` 全体（`..persistence.entity..` は Hibernate populate 体のため対象外）を ERROR で強制。設計・除外方針は #44 |
-| Spotless | `backend/config/spotless/eclipse-formatter.xml` | フォーマット |
-| eslint | `packages/eslint-config`（`index.js` / `astro-svelte.js` / `rules/`。参照は markup / patterns / public / admin / e2e） | 全ローカル const、`any` / non-null assertion 禁止、可変更新の禁止、`if` / 中置論理和 / 否定 / `switch` 文の禁止、深い相対パスと自身の `src` への非相対パスの禁止、フロントエンドの層の依存方向（`pages` → `layouts` → `components` → `lib`）、Svelte の runes 強制、`eslint-disable` の理由必須、行コメントは "why not" のみ（独自ルール `inline-comment-requires-why-not-prefix`）、アサーションの輸入元の限定、共有パッケージの公開APIへのJSDoc必須 |
-| prettier | 各ワークスペースの `.prettierrc` | フォーマット（`packages/markup` / `packages/patterns` / `packages/eslint-config` は対象外） |
-
-detekt（Kotlin）カスタムルール26件相当は、Java に構文的対応物のある21件を全件強制・5件は対象外（`!!`・バッククォート名など Java に存在しない構文）。
+| 対象 | 設定・検査の正本 |
+| --- | --- |
+| Javaの依存・構造 | [ArchUnit試験](../backend/src/test/java/com/abservice/architecture/) |
+| Javaの記法 | [Checkstyle](../backend/config/checkstyle/)・[PMD](../backend/config/pmd/ruleset.xml) |
+| null安全・検査器の版と組合せ | [build定義](../backend/build.gradle) |
+| Javaの整形 | [Spotless設定](../backend/config/spotless/eclipse-formatter.xml) |
+| TypeScriptの規約 | [共通ESLint設定・独自規則](../packages/eslint-config/) |
+| 検査の実行対象と集約判定 | [CI](../.github/workflows/ci.yml)・[選択規則](../scripts/ci-policy.mjs) |
 
 **Java と TypeScript は同じ規約を別々の機構で表す。** 片方のルールを変えたらもう片方も見る（対応関係は `packages/eslint-config/index.js` の各ルールのコメントが持つ）。言語差でそのまま写せなかったものは #232 が記録している。`switch` は禁じたうえで網羅性を `abservice-patterns` の照合で保つ形にしており（[DECISIONS.md](DECISIONS.md) 28）、中置論理積（`&&`）は nullish 合成や条件付きレンダリングで実質必須のため対象外にしている。
 
@@ -31,18 +28,20 @@ detekt（Kotlin）カスタムルール26件相当は、Java に構文的対応�
 **維持すべき設計方針**（今後の拡張で保つ）:
 - **規約ベースのルールは実装を待たず先行導入する**。対象0件の間は `allowEmptyShould(true)` で不活性、最初の実装が入った瞬間から強制。「機能実装を待ってからルール化」はしない。
 - **値の生成は式のみ**（ternary / switch 式）。`if` は副作用・例外（`throw`）分岐に限る。sealed 型 + switch 式で網羅性を javac が担保。§6 のエラー表現と整合。
-- **NullAway / ErrorProne のバージョン固定（管理下の一時的負債・要追随）**: `error_prone_core 2.39.0` + `nullaway 0.12.7`（`net.ltgt.errorprone 5.1.0`）。ErrorProne 内部 API 密結合のため両者を揃える（最新 `error_prone_core 2.50.0` は非互換）。**昇格トリガ**: NullAway が 2.50 系対応版を出したら両者 bump。**退避路**: JSpecify アノテーションはツール非依存のため Checker Framework へ差し替え可能。
+- **NullAway / ErrorProne**: 内部APIへの依存があるため組合せを揃えて更新する。採用版と互換性の理由は[build定義](../backend/build.gradle)、昇格方針は[CONTRIBUTION.md](../CONTRIBUTION.md#技術スタックの固定と昇格)を参照する。
 - 追加ルールの検討状況は GitHub issue（`roadmap-backlog` ラベル）が正。SpotBugs / PMD 組込ルールセットの再導入は #193、カバレッジ計測は #192。
 
 ---
 
 ## 2. 型安全性を最優先する
 
-Java 25 の型システムを最大限活用し、不正状態をコンパイル時に排除する。
+採用するJavaの型システムを活用し、不正状態をコンパイル時に排除する。
 
 - **値オブジェクト**: `record`（不変）。ビジネス概念を表す値はプリミティブを直接使わず VO 化する。
+- **値の所有先**: 参照集約の数ではなく、守る業務上の契約で決める。音楽の名義・役割表記は作品と楽曲が共有するコアの値であり、汎用値にはしない。依存の境界は `CreditValueArchitectureTest`、許容例・違反例は `CreditDependencyRuleTest` を正とする。本文と書式の支援値も同様に責務を分け、`MarkupValueArchitectureTest` と `MarkupDependencyRuleTest` で依存の境界を検査する。構造検査は業務上の意味や文字列経由の参照までは判断しない。
 - **状態表現**: sealed interface + `record` で状態を型として表し、`switch` 式の網羅性検査を javac に担保させる。boolean フラグ + 実行時チェックで状態を管理しない。
 - **不正状態の検証**: 実行時例外に依存せず、まず型で防ぐ。型で防げない検証は `Policy`（`domain.model.policy`）で表現する。**命令的な `if`+`throw` は禁止**（PMD `ForbiddenIfStatement`）。`if` は副作用・例外分岐に限り、値の生成は式（三項 / `switch` 式）で行う。
+- **Policyの俯瞰性**: 同じ入力の条件・エラー・適用順を一か所で読めるように定義し、再利用や独立した検証段階という理由のない分割はしない。全エラー集約と先頭エラーでの終了は契約に従い選び、定義をまとめるために既存のエラー優先順位を変えない。PMD `ScatteredPolicy` は同じ宣言から使う複数の単一使用 private Policy メンバーを検出する。共有の意味的な妥当性、述語や別型への間接的な分散はレビュー対象として残る。
 
 参照実装: 状態の型表現は `domain.model.vo.event`（`EventToParticipate` とその permits）、検証の Policy 化は各集約・VO（`Album` / `AlbumTitle` 等）。
 
@@ -69,6 +68,7 @@ VO の外部入力用の生成は、例外 throw の `of()`（内部生成）と
 
 - **更新系は `CommandService`**: `Repository`（Write Model）経由でドメインモデルを操作。`execute()` は `@WithTransaction` で `Uni<Output>` を返す。
 - **照会系は `QueryService`**: `DataSource` から Read Model DTO を取得。`query()` は `Uni<Result>` を返す。
+- **Queryの入力検証と照会可否を分ける**: ページ範囲やID形式は入力側の `Policy` で検証し、成功時に正規化済みの照会条件を生成する。`Result` から `ValidationException` への変換はapplication側で行い、機能有効化はサービス、対象の存在判定は照会後に扱う。検証順序はAPIの既存契約に合わせる。範囲外を補正する一覧Queryでは、補正を拒否へ変更せず、ページ・並び順・絞り込みを正規化済み条件にまとめて照会へ渡す。`GetListeningPreparationService.Query.asValidated()` がこの境界の参照例で、共通PolicyへHTTP・DB・Mutinyを持ち込まない。
 - ドメインオブジェクトを外部へ直接公開せず、Input/Output・Request/Response DTO を介す。
 - 同期→非同期は `Uni.createFrom().item(() -> ...)`、連鎖は `flatMap`、同期変換は `onItem().transform`、未存在の例外化は `onItem().ifNull().failWith(...)`。
 - ブロッキングの `@Transactional` は使わない（Mutiny 非互換）。`@WithTransaction` を使う。
@@ -107,15 +107,17 @@ why not コメントは大文字+ハイフンの語＋コロンのプレフィ�
 
 ## 9. 述語合成と文字列整形
 
-静的解析が強制するのは「禁止」までで、「何で置き換えるか」は本書が持つ。置き換え先は `io.github.lambig:toolbox-java`（述語合成 DSL と `TextEscape` を同梱）に揃え、同等物を自作しない。
+汎用の関数・述語・文字列整形にはtoolboxの公開APIを使用し、同等物をABService内へ複製しない。採用する版は[build定義](../backend/build.gradle)、各ライブラリの利用案内は[toolboxの利用ガイド](https://github.com/lambig/toolbox-java#readme)を参照する。採用版のAPI・ソース・互換性は、その版のsources/Javadoc・リリース記録で確認する。
 
-- **述語・条件**: 中置論理演算子（`&&` / `||` / `!`）は Checkstyle が禁止する（§1）。置き換えは `Predicates.and` / `Predicates.or` を static import して `and(...)` / `or(...)`、否定は JDK の `Predicate.not`。射影フィールドの比較は `By.having(getter).thatEqualsTo(value)`（内部が `Objects.deepEquals` のため null 安全）。`Objects.equals` の直書きは避ける（static import しようとしても、継承した `Object.equals(Object)` が非修飾呼び出しをシャドウしてコンパイルできない）
-- **型判別**: `instanceof` / キャスト / `switch(this)` は smell。sealed 兄弟型の narrowing は `DomainObject.asType(Class<R>)` に集約し、`Optional.map(asType(X.class))` の形で使う（instanceof の唯一の集約点）
-- **取り出し**: 「検査してから `get` / `resolve` で取り出す」は `Optional.get` と同じ smell。applicative（`Result.ap` / `Result.zip`）で `map` を通す。合成の primitive が足りなければライブラリ側へ追加する
-- **文字列整形**: `substring` と `+` の連結で組まない。`TextEscape.escape("${a}-${b}")` でテンプレートは1本・ビルダは1回、`.where(key, value)` で束縛し `.compile()` は最後に1回だけ呼ぶ。**条件分岐は `where` へ渡す値の中で吸収する**（条件ごとに escape / compile を作らない）
-- point-free・カリー化を優先する（型を先に固定する `asType(型)`、`having(g).that(p)`）
+ABServiceでの選択基準は次のとおり。
 
-参照実装: 述語合成は各 `Policy` と VO の `equivalentTo`、文字列整形は `domain.model.vo.album.Isdn`。
+- 述語と射影の合成を使い、Policyの条件を一か所で読めるようにする。
+- point-free・カリー化を優先する。`Objects.equals` のstatic importは継承した `Object.equals` と衝突するため、射影と比較を合成する。
+- 型の絞り込みは[DomainObject](../backend/src/main/java/com/abservice/domain/model/DomainObject.java)へ集約し、各所で判別・キャストを繰り返さない。
+- 成否を検査して値を取り出す処理は、[Result](../backend/src/main/java/com/abservice/lib/Result.java)の合成へまとめる。足りない操作は所有するライブラリで扱う。
+- 文字列整形はテンプレートを一つに保ち、条件分岐は束縛する値の側で扱う。HTML・SQL等の安全性を文字列置換へ委ねない。
+
+参照実装: [Policy](../backend/src/main/java/com/abservice/domain/model/policy/)と[Isdn](../backend/src/main/java/com/abservice/domain/model/vo/album/Isdn.java)。
 
 ---
 

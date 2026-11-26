@@ -3,12 +3,19 @@ import { defaultBudget, drawSize } from "./budget";
 import type { RendererBudget } from "./budget";
 import type { PresentationFrame } from "./index";
 import type { FrameSample } from "./probe";
+import type { ListeningAlbum } from "abservice-listening-presentation";
 import shader from "./scene.wgsl?raw";
+import flowShader from "./flow.wgsl?raw";
+import { flowVertices } from "./flow-geometry";
 
 /** 描画の予算と、フレームごとの観測の受け取り先。観測は指定したときだけ取る。 */
 export type RendererOptions = Readonly<{
   budget?: RendererBudget;
   onSample?: (sample: FrameSample) => void;
+  representative?: boolean;
+  /** Full viewport background; artwork and typography remain in the accessible DOM. */
+  composition?: boolean;
+  content?: ListeningAlbum;
 }>;
 
 /** Rendererの音響に依存しない描画・破棄境界。 */
@@ -57,6 +64,51 @@ const atlas = (): HTMLCanvasElement => {
   return image;
 };
 
+/* The same texture path carries verified presentation bytes; no network or album lookup in the renderer. */
+const contentAtlas = async (
+  content: ListeningAlbum | undefined,
+  signal: AbortSignal,
+): Promise<HTMLCanvasElement> => {
+  const image = atlas();
+  const context =
+    image.getContext("2d") ?? unavailable("Artwork canvas unavailable");
+  const bitmap =
+    content?.artwork === undefined
+      ? undefined
+      : await createImageBitmap(content.artwork, {
+          resizeWidth: 512,
+          resizeHeight: 512,
+          resizeQuality: "high",
+        });
+  try {
+    signal.throwIfAborted();
+    /* Missing artwork retains the neutral generated surface, never the previous album. */
+    (bitmap === undefined
+      ? () => undefined
+      : () => {
+          context.fillStyle = "#07111b";
+          context.fillRect(0, 0, 512, 512);
+          context.drawImage(bitmap, 0, 0, 512, 512);
+        })();
+  } finally {
+    bitmap?.close();
+  }
+  const title = content?.title ?? "";
+  const artist = content?.artistDisplayName ?? "";
+  await Promise.all([
+    document.fonts.load('600 48px "Klee One"', title),
+    document.fonts.load('400 28px "Klee One"', artist),
+  ]);
+  signal.throwIfAborted();
+  context.clearRect(0, 512, 512, 512);
+  context.fillStyle = "#eef3f5";
+  context.font = '600 48px "Klee One", sans-serif';
+  context.fillText(title, 256, 760, 490);
+  context.font = '400 28px "Klee One", sans-serif';
+  context.fillText(artist, 256, 812, 490);
+  return image;
+};
+
 /** 一枚のatlasとuniform bufferを使うWebGPU候補。初期化失敗は呼び出し元へ返す。 */
 export const createRenderer = async (
   canvas: HTMLCanvasElement,
@@ -74,16 +126,77 @@ export const createRenderer = async (
     const context =
       canvas.getContext("webgpu") ?? unavailable("WebGPU canvas unavailable");
     const format = gpu.getPreferredCanvasFormat();
+    const sampleCount = options.composition === true ? 4 : 1;
+    const multisample: { texture: GPUTexture | null } = { texture: null };
     const module = device.createShaderModule({ code: shader });
     const pipeline = await device.createRenderPipelineAsync({
       layout: "auto",
       vertex: { module, entryPoint: "vertex" },
-      fragment: { module, entryPoint: "fragment", targets: [{ format }] },
+      fragment: {
+        module,
+        entryPoint: "fragment",
+        targets: [{ format }],
+        constants: {
+          representative: options.representative === true ? 1 : 0,
+          composition: options.composition === true ? 1 : 0,
+        },
+      },
       primitive: { topology: "triangle-list" },
+      multisample: { count: sampleCount },
     });
     signal.throwIfAborted();
+    const flowModule = device.createShaderModule({ code: flowShader });
+    const flowPipeline =
+      options.composition === true
+        ? await device.createRenderPipelineAsync({
+            layout: "auto",
+            vertex: {
+              module: flowModule,
+              entryPoint: "vertex",
+              buffers: [
+                {
+                  arrayStride: 24,
+                  attributes: [
+                    { shaderLocation: 0, offset: 0, format: "float32x2" },
+                    { shaderLocation: 1, offset: 8, format: "float32x4" },
+                  ],
+                },
+              ],
+            },
+            fragment: {
+              module: flowModule,
+              entryPoint: "fragment",
+              targets: [
+                {
+                  format,
+                  blend: {
+                    color: {
+                      srcFactor: "src-alpha",
+                      dstFactor: "one-minus-src-alpha",
+                    },
+                    alpha: {
+                      srcFactor: "one",
+                      dstFactor: "one-minus-src-alpha",
+                    },
+                  },
+                },
+              ],
+            },
+            primitive: { topology: "triangle-list" },
+            multisample: { count: sampleCount },
+          })
+        : null;
+    /* 400 history segments + five 168-segment ornaments + a small line-drawn quill. */
+    const flowBuffer =
+      flowPipeline === null
+        ? null
+        : device.createBuffer({
+            size: 200000,
+            usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+          });
+    signal.throwIfAborted();
     const buffer = device.createBuffer({
-      size: 48,
+      size: 80,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     const texture = device.createTexture({
@@ -94,8 +207,15 @@ export const createRenderer = async (
         GPUTextureUsage.COPY_DST |
         GPUTextureUsage.RENDER_ATTACHMENT,
     });
+    const pixels = [
+      options.representative === true,
+      options.composition === true,
+    ].some(Boolean)
+      ? await contentAtlas(options.content, signal)
+      : atlas();
+    signal.throwIfAborted();
     device.queue.copyExternalImageToTexture(
-      { source: atlas() },
+      { source: pixels },
       { texture },
       [512, 1024],
     );
@@ -140,6 +260,23 @@ export const createRenderer = async (
                 canvas.height = height;
               };
         resizeHeight();
+        /* Coverage sampling softens pixel stair steps, without filtering melody positions.
+         * Reuse the attachment until the budgeted drawing size changes. */
+        (sampleCount > 1 &&
+          [
+            multisample.texture?.width !== width,
+            multisample.texture?.height !== height,
+          ].some(Boolean)
+          ? () => {
+              multisample.texture?.destroy();
+              multisample.texture = device.createTexture({
+                size: [width, height],
+                format,
+                sampleCount,
+                usage: GPUTextureUsage.RENDER_ATTACHMENT,
+              });
+            }
+          : () => undefined)();
         device.queue.writeBuffer(
           buffer,
           0,
@@ -156,15 +293,27 @@ export const createRenderer = async (
             frame.textOpacity,
             frame.effectIntensity * budget.effectDensity,
             frame.textureScale,
+            frame.music?.pitch ?? 0,
+            frame.music?.voiced ?? 0,
+            frame.music?.harmonyPhase ?? 0,
+            frame.music?.harmonyActive ?? 0,
+            frame.music?.third ?? 0,
+            frame.music?.fifth ?? 0,
+            frame.music?.extension ?? 0,
+            frame.music?.position ?? 0,
           ]),
         );
         const encoder = device.createCommandEncoder();
+        const output = context.getCurrentTexture().createView();
         const pass = encoder.beginRenderPass({
           colorAttachments: [
             {
-              view: context.getCurrentTexture().createView(),
+              view: multisample.texture?.createView() ?? output,
+              ...(multisample.texture === null
+                ? {}
+                : { resolveTarget: output }),
               loadOp: "clear",
-              storeOp: "store",
+              storeOp: multisample.texture === null ? "store" : "discard",
               clearValue: [0, 0, 0, 1],
             },
           ],
@@ -172,6 +321,19 @@ export const createRenderer = async (
         pass.setPipeline(pipeline);
         pass.setBindGroup(0, group);
         pass.draw(3);
+        (flowPipeline !== null && flowBuffer !== null
+          ? () => {
+              const vertices = flowVertices(
+                frame,
+                Math.max(1, canvas.clientWidth),
+                Math.max(1, canvas.clientHeight),
+              );
+              device.queue.writeBuffer(flowBuffer, 0, vertices);
+              pass.setPipeline(flowPipeline);
+              pass.setVertexBuffer(0, flowBuffer);
+              pass.draw(vertices.length / 6);
+            }
+          : () => undefined)();
         pass.end();
         device.queue.submit([encoder.finish()]);
         const submitted = performance.now();
@@ -195,7 +357,9 @@ export const createRenderer = async (
       },
       dispose: (): void => {
         buffer.destroy();
+        flowBuffer?.destroy();
         texture.destroy();
+        multisample.texture?.destroy();
         context.unconfigure();
         device.destroy();
       },
@@ -205,4 +369,3 @@ export const createRenderer = async (
     throw error;
   }
 };
-

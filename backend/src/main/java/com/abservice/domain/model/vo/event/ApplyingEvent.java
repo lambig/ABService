@@ -11,7 +11,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import com.abservice.domain.model.policy.Policy;
-import com.abservice.domain.model.vo.common.BusinessDate;
+import com.abservice.domain.model.vo.time.BusinessDate;
 import com.abservice.lib.ErrorResult;
 import org.apache.commons.collections4.ListUtils;
 

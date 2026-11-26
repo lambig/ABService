@@ -3,8 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EMPTY_DRAFT as ARTICLE } from '$lib/api/article-form';
 import { EMPTY_DRAFT as ALBUM } from '$lib/api/album-form';
 import { EMPTY_TRACK, EMPTY_TUNE } from '$lib/api/track-form';
-import { clearEditorRecoveries, createEditorRecovery, recoveryKey } from '$lib/editor-recovery';
-import { albumRecoveryValues, articleRecoveryValues } from '$lib/recovery-values';
+import {
+  clearEditorRecoveries,
+  createEditorRecovery,
+  recoveryKey,
+} from '$lib/editor/editor-recovery';
+import { albumRecoveryValues, articleRecoveryValues } from '$lib/editor/recovery-values';
 
 const identity = { editor: 'article', target: 'article-a' } as const;
 const initial = { values: ARTICLE, revision: 3 };

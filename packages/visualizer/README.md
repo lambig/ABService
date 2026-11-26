@@ -50,6 +50,8 @@ AudioFeaturesの帯域・onset意味論は `packages/audio-dsp` の実装のJSDo
 - visualizer は player に依存しない。`PlaybackObservation` は `abservice-player` の `PlayerSnapshot` が構造的に満たす形だけを受け取る（`listening-presentation` に置くと、その型に依存する visualizer との間で依存が循環するため）。
 - rendererが表示内容を描くことは #479 B が受け持つ。
 
+現行の描画APIは `render(PresentationFrame)`。代表負荷モードでは初期化時の `RendererOptions.content` に検証済み `ListeningAlbum` を渡し、artwork・作品名・名義のatlasを生成する。`PresentationInput` は完成形の状態契約であり、この測定用接続で全描画APIの移行や #479 B の完成を扱わない。素材のdecode・書体待ちの間に破棄された場合はGPUへの転送を中止し、画像とdeviceを解放する。
+
 ## 描画セッションの監督と縮退（#291 A）
 
 `src/session.ts` の `superviseRenderer` は、1つの描画セッションのrendererの寿命を監督する。rendererを作る関数は呼び出し側が渡す（GPUなしで単体試験できる）。

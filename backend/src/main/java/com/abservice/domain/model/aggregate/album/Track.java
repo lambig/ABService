@@ -26,9 +26,9 @@ import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.album.TrackName;
 import com.abservice.domain.model.vo.album.TrackTitle;
 import com.abservice.domain.model.vo.album.TrackTuneTitle;
-import com.abservice.domain.model.vo.common.ArtistCredit;
-import com.abservice.domain.model.vo.common.Credit;
-import com.abservice.domain.model.vo.common.Url;
+import com.abservice.domain.model.vo.credit.ArtistCredit;
+import com.abservice.domain.model.vo.credit.Credit;
+import com.abservice.domain.model.vo.link.Url;
 import com.abservice.lib.ErrorResult;
 import com.abservice.lib.Result;
 import lombok.EqualsAndHashCode;
@@ -40,7 +40,8 @@ import org.jspecify.annotations.NullUnmarked;
  * トラック（集約内エンティティ）
  *
  * <p>
- * アルバムを構成する1トラックを表します。同じチューン構成であっても、改訂（revise）したものは別Trackとして扱います。
+ * アルバムを構成する1トラックを表します。記述や構成の訂正は同じIDを持つ新しい状態を返します。 別のトラックを追加する場合は
+ * {@link #create} で新しいIDを生成します。
  * </p>
  */
 @Getter
@@ -480,8 +481,8 @@ public final class Track implements DomainEntity<Track, Track.Id> {
      * チューンの上書き情報（クレジット上書き・リンクURL）を更新
      *
      * <p>
-     * {@code tuneId}はトラックが表す構成の事実の一部として生成後は不変のため対象外とする。誤認識していたチューンの 再識別・訂正は
-     * {@link #removeTune(Integer)} と {@link #addTune(TrackTune)} の組み合わせで表現する。
+     * {@code tuneId} はこの操作では変更しません。構成の訂正やチューン名の編集には、訂正後の構成を渡す
+     * {@link #replaceTunes(List)} を使います。
      * </p>
      *
      * @param seq
@@ -532,6 +533,13 @@ public final class Track implements DomainEntity<Track, Track.Id> {
      * トラックの更新（PUT風の全項目置換）が、入力の持つチューン構成をそのまま反映するための操作です。 {@code seq}
      * はトラック内で一意である必要があります。個別の追加・削除・更新は {@link #addTune(TrackTune)} /
      * {@link #removeTune(Integer)} / {@link #updateTune} で表現します。
+     * </p>
+     *
+     * <p>
+     * 訂正後の構成を一度に検証するため、タイトルを持たず唯一のチューン名を表示するトラックも訂正できます。
+     * この場合に削除・追加を順に呼ぶと、削除時に名を答えられなくなるため拒否されます。元のトラックとチューンは変更せず、
+     * トラックIDを保った新しい状態を返します。通常のアルバム更新では {@link Album#replaceTracks(List)} が
+     * 行ごとの構成を同様に置き換えます。
      * </p>
      *
      * @param newTunes

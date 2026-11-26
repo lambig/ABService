@@ -14,6 +14,7 @@ import type {
 } from "abservice-listening-preparation";
 import { createAssetStore } from "abservice-offline-storage";
 import type { StorageError } from "abservice-offline-storage";
+import { mountPairing } from "./pairing";
 
 const appVersion: AppVersion = [1, 10, 0];
 const storageMessages: Record<StorageError, string> = {
@@ -205,7 +206,7 @@ const describeActive = (
       ? () => {
           show(
             unready,
-            "端末のトークンを入力し、オンラインで保存してください。",
+            "管理画面と接続し、この試聴機にアプリと音源を保存してください。",
           );
         }
       : active.kind === "unreadable"
@@ -377,6 +378,10 @@ export const preparation = {
     });
     document.querySelector("#inspect")?.addEventListener("click", () => {
       void guarded(inspect);
+    });
+    mountPairing(lifetime.signal, (token) => {
+      const input = tokenInput();
+      (input === null ? () => undefined : () => { input.value = token; })();
     });
     return active;
   },

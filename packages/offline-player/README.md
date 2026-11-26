@@ -15,7 +15,21 @@
 - readinessは実OPFS inventoryと、同じshell世代の全ファイル検証結果から判定する。判定はその時点の観測であり、以後の消去や破損を保証しない。選曲時にも音源を再検証し、失敗時は準備完了表示を取り下げる。
 - 失敗の表示と `console.warn` の診断には、段階・assetId・mediaType・分類だけを出し、tokenと署名URLは出さない。
 
-`/offline-player/` 専用scopeで先行shellのworkerを再利用する。音源はshellのallowlistに含めない。公開・管理画面から独立した試聴アプリとして準備・作品情報・再生を接続し、合成音fixture・基本スタイルは先行playerを参照する。画面全体の表現と体験の到達基準は [#479](https://github.com/lambig/ABService/issues/479)、統合の受け入れは [#476](https://github.com/lambig/ABService/issues/476) が正。
+`/offline-player/` 専用scopeで先行shellのworkerを再利用する。音源はshellのallowlistに含めない。既存公開・管理画面とは独立した展示用の試聴UIで、合成音fixture・基本スタイルは先行playerを参照する。操作UIと背景演出の完成度は分けて扱う。画面全体の表現と体験の到達基準は [#479](https://github.com/lambig/ABService/issues/479)、統合の受け入れは [#476](https://github.com/lambig/ABService/issues/476) が正。
+
+## 展示操作と管理ロック
+
+ジャケットから作品を選び、「展示を開始」で選択中のアルバムを繰り返す。再生中の作品選択はその作品の先頭から再生を続け、波形は進捗表示と再生位置の選択を兼ねる。試聴者が停止する操作は不要。音量は端末側のメディア音量で調整する。ヘッダーの作品名は曲名より大きく一行で表示し、長い名前は省略表示する。選択欄では、収まらない作品名を左右へゆっくりスクロールする（動きを抑える設定では省略表示）。背景演出は候補段階。
+
+縦画面の作品選択はシークバー下の横一列、横画面では左側の2列（幅1000px以上では3列）で、右側に大きなジャケットを表示する。送り矢印はスクロール方向に合わせる。管理メニューの「スペース表示」は端末内へ保存し、ヘッダーに表示する。
+
+波形概要の新規生成は64MiB以下・10分以下・2ch以下、元レートのfloat32 PCM換算256MiB以下の検証済みFLACに限定する。容量を先に判定し、先頭42バイトのSTREAMINFOから長さとPCM量を確認してから全読込/decodeを行う。長さ不明・未対応形式・上限超過は波形を省き、進捗表示・通常シーク・再生を維持する。再利用できる256点の概要キャッシュは全デコードを必要としない。上限は概要生成の作業量を制限するもので、ブラウザー内部の一時メモリ総量の保証値ではない。配布と再生の入力上限は変更しない。
+
+初回の展示開始時に、管理者が端末上で6桁以上の管理PINを設定する。「管理」を2秒長押しし、PINを照合すると全画面・展示設定を操作できる。操作後または20秒後に管理欄を閉じる。通常の作品選択とシークには認証を求めない。PINの平文は保存せず、端末内にランダムsalt付きPBKDF2検証値と試行制限を保存する。5回の照合失敗後は30秒間受け付けない。保存失敗・破損時は管理操作を解錠しない。
+
+これは試聴画面の操作保護であり、配布認証やOSのキオスク制御とは別。ブラウザーのデータ消去・開発者ツール等を操作できる端末管理者に対する保護境界ではない。管理PINはブラウザーのプロファイルとオリジンに属する。忘れた場合の画面内リセットは用意しておらず、端末管理者によるアプリデータの初期化・音源の再準備が必要になる。
+
+全画面APIだけではOSのホーム・アプリ一覧やブラウザー自身の戻る操作を封鎖できない。[Androidの画面固定](https://support.google.com/android/answer/9455138?hl=ja)と解除時の端末認証は端末側で設定・確認する。Chromeを固定する場合はChrome全体が対象となるため、ブラウザー内の移動制限まで成立したとは扱わない。専用端末での強い制限には、別途[管理端末のlock task mode](https://developer.android.com/work/dpc/dedicated-devices/lock-task-mode)等の設計が必要。
 
 ## 検証用の配布元
 
@@ -33,6 +47,12 @@ http://127.0.0.1:4179/offline-player/ を開き、`fixtureToken` を入力して
 実機での調整と観測は、URL の hash で行う（例: `/offline-player/#probe&scale=0.5&fps=30`）。`probe` で CPU（1 回の描画までの main thread 全体と、そのうちの renderer）と GPU を分けた観測、起動時の計測点を画面に重ね、`dpr`・`scale`・`effects`・`fps` で描画の予算を変える（範囲は `packages/visualizer` の README）。hash だけを変えたときは読み込み直す。
 
 `probe` では音声側も重ねる（#290 の計測契約）。
+
+代表描画負荷は `/offline-player/#probe&load=scene` で有効にして読み込み直す。同じPWAとrendererでcanvasを画面全体へ広げ、検証済み表示データのartwork・作品名・名義をatlasへ渡す。背景にはartworkをもう一度sampleする面を足し、縦画面では上下、横画面では左右にartworkと文字を配置する。通常のstudy表示とはprobe内の `scene` 行で区別できる。作品切替ではatlasを作り直し、artwork欠落時は中立の生成面、文字欠落時は空表示に戻す。
+
+比較では同じ音源・再生位置・向き・viewportを固定し、`scale` と `fps` を一つずつ変える。`effects` は明るさの倍率で、演算量を減らすノブではない。cycle CPU、renderer CPU、GPU submitから完了通知まで、音声側の観測を別々に記録する。DOMの操作・作品情報は描画解像度を下げてもCSSの解像度を保つが、atlas内の文字とartworkは同じ低解像度になる。層別解像度、最終的な表現、実機での可読性・性能合格はこのモードの導入だけでは確定しない。
+
+`scene-load.spec.ts` はこのモードの素材接続、縦横の実canvas寸法、pause時の静止画、artworkのない別作品への切替を検査する。管理欄は通常画面と同じ長押し・PIN経路で操作できる。headlessの機能検査であり、実機性能の証跡には使わない。
 
 - sampleRate と render quantum の長さ、特徴量の通知の件数と間隔（AudioContext の時刻）
 - Worklet の平均負荷率（通知の区間ごとの値の分布）
@@ -56,7 +76,7 @@ http://127.0.0.1:4179/offline-player/ を開き、`fixtureToken` を入力して
 
 ブラウザプロセス/OS再起動、Android実機の可聴出力・音切れ・長時間メモリ・消去耐性、実backendと実S3からの取得（本番CORSを含む）の評価とは区別する。
 
-Vite previewと同梱合成音は検証専用。ブラウザ試験は永続化許可や失われたshellの修復、完成した表現・体験の受け入れを保証しない。実Androidの受け入れは [#478](https://github.com/lambig/ABService/issues/478)、本番配布の受け入れは [#480](https://github.com/lambig/ABService/issues/480) で管理する。
+Vite previewと同梱合成音は検証専用。ブラウザ試験は永続化許可や失われたshellの修復、完成した表現・体験の受け入れを保証しない。実Androidの受け入れは [#478](https://github.com/lambig/ABService/issues/478)、本番からの取得・端末準備の受け入れは [#480](https://github.com/lambig/ABService/issues/480) で管理する。
 
 ## shellのビルド
 

@@ -1,0 +1,14 @@
+[
+  {
+    "name": "chordino",
+    "url": "https://codeload.github.com/c4dm/nnls-chroma/zip/4c5f214a75cb354f8d8c933e161377c5b4d83713",
+    "ref": "4c5f214a75cb354f8d8c933e161377c5b4d83713",
+    "sha256": "e6da6ed5bc9b89efebb5cb5b21e724e306e7a39be954c732d40fd4e37765da63"
+  },
+  {
+    "name": "vamp",
+    "url": "https://codeload.github.com/vamp-plugins/vamp-plugin-sdk/zip/vamp-plugin-sdk-v2.10",
+    "ref": "vamp-plugin-sdk-v2.10",
+    "sha256": "f2d36fc8dc99ec611cd3164f7c5f3d82fd456589b4ef587d1e3e5727c5c26a18"
+  }
+]

@@ -43,7 +43,9 @@ jobs:
         with:
           node-version-file: .nvmrc
       - name: Verify CI selection and aggregation
-        run: node --test scripts/ci-policy.test.mjs scripts/browser-*.test.mjs
+        run: node --test scripts/ci-policy.test.mjs scripts/browser-*.test.mjs scripts/admin-audio-bridge.test.mjs e2e/scripts/start-backend.test.mjs
+      - name: Verify Java denylist preservation
+        run: sh backend/security/update-java-blocklist.test.sh
       - name: Verify local commit identity boundary
         run: bash scripts/git-identity.test.sh
       - name: Select affected tracks
@@ -55,47 +57,36 @@ jobs:
     if: ${{ needs.changes.outputs.application == 'true' }}
     name: Backend full check (spotless / checkstyle / unit+ArchUnit / integration)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
-    # 統合テスト用 PostgreSQL（docker-compose と同じ postgres:15-alpine）。
+    # 統合テスト用 PostgreSQL はローカルと同じ修正済みイメージをビルドする。
     # データベース名はテスト専用のもの（#252）。ローカルは compose の init スクリプトが同じ名前で作る。
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_DB: abservice_test
-          POSTGRES_USER: abservice
-          POSTGRES_PASSWORD: abservice
-          POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
-        ports:
-          - 5432:5432
-        # 起動直後は start-interval で細かく見る。interval だけだと最初の判定まで interval ぶん待ち、
-        # それが Initialize containers の下限になる（#431）。docker-compose.yml の healthcheck と揃える。
-        options: >-
-          --health-cmd "pg_isready -U abservice -d abservice_test"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-          --health-start-period 30s
-          --health-start-interval 2s
-
     env:
       # テストの datasource。DB 名は %test プロファイルの指定と同じ値を置く
-      # （service container が作るデータベースと食い違わせない）
+      # （Compose の初期化スクリプトが作るデータベースと揃える）
       DB_HOST: localhost
       DB_PORT: "5432"
       DB_NAME: abservice_test
       DB_USERNAME: abservice
       DB_PASSWORD: abservice
+      COMPOSE_FILE: docker-compose.yml
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Build and start patched PostgreSQL
+        run: docker compose up -d --build --wait --wait-timeout 120 postgres
 
       - name: Set up JDK 25 (Corretto)
         uses: actions/setup-java@v4
         with:
           distribution: corretto
           java-version: '25'
+
+      - name: Block compromised intermediate certificates
+        shell: bash
+        run: sh backend/security/update-java-blocklist.sh "$JAVA_HOME"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -104,10 +95,21 @@ jobs:
         run: chmod +x backend/gradlew
 
       - name: Install FLAC for real audio validation tests
-        run: sudo apt-get update && sudo apt-get install -y flac
+        timeout-minutes: 5
+        run: |
+          apt_options=(-o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o DPkg::Lock::Timeout=60)
+          # FLAC comes from Ubuntu; unrelated vendor mirrors must not gate its installation.
+          test -s /etc/apt/sources.list.d/ubuntu.sources
+          apt_options+=(-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/ubuntu.sources -o Dir::Etc::sourceparts=-)
+          sudo apt-get "${apt_options[@]}" -o APT::Update::Error-Mode=any update
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get "${apt_options[@]}" install -y flac
 
-      # アセットの統合テストは実ストレージを使う。PostgreSQL は service container で用意しているが、MinIO は
-      # 起動コマンド指定が必要なため service container にできず、ローカルと同じ docker compose で起動する。
+      - name: 配布用FLAC実行環境の解析互換性を検査
+        run: |
+          docker build --target flac-runtime -f backend/src/main/docker/Dockerfile.jvm -t abservice-flac-check backend
+          python3 scripts/check-flac-image.py abservice-flac-check
+
+      # アセットの統合テストも、ローカルと同じ Docker Compose の実ストレージを使う。
       - name: Build MinIO server and client from pinned official sources
         run: docker compose build minio minio-init
 
@@ -117,7 +119,10 @@ jobs:
       - name: Create asset bucket
         run: docker compose run --rm minio-init
 
-      # check = spotlessCheck / checkstyleMain / checkstyleTest / test（ArchUnit含む） / integrationTest
+      - name: Verify local MinIO authentication boundary
+        run: python3 scripts/check-minio-auth.py
+
+      # check = Spotless / Checkstyle / PMD・検査器回帰 / test（ArchUnit含む） / integrationTest
       # 外部のDB/MinIOはGradleのキャッシュキーに含まれない。統合テストは今回起動した実体へ必ず実行する。
       # --rerun は integrationTest だけに適用し、コンパイルや単体テストのキャッシュは維持する。
       - name: Run full check
@@ -131,6 +136,7 @@ jobs:
           path: |
             backend/build/reports/tests/
             backend/build/reports/checkstyle/
+            backend/build/reports/pmd/
           if-no-files-found: ignore
           retention-days: 7
 
@@ -153,8 +159,12 @@ jobs:
   listening-check:
     needs: changes
     if: ${{ needs.changes.outputs.listening == 'true' }}
-    name: Listening frontend (lint / typecheck / unit / build)
-    runs-on: ubuntu-latest
+    name: Listening frontend (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -162,7 +172,20 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+        if: ${{ runner.os == 'Linux' }}
+      - name: Install pinned audio Rust toolchain
+        if: ${{ runner.os == 'Windows' }}
+        run: rustup toolchain install 1.99.0-x86_64-pc-windows-gnu --profile minimal --target wasm32-unknown-unknown --component rustfmt
+      - name: Verify reproducible RustFFT SIMD asset
+        if: ${{ runner.os == 'Windows' }}
+        env:
+          CARGO_HOME: ${{ runner.temp }}/audio-cargo
+          RUSTUP_TOOLCHAIN: 1.99.0-x86_64-pc-windows-gnu
+        run: |
+          cargo fmt --manifest-path packages/audio-worklet/rust/Cargo.toml --check
+          node packages/audio-worklet/rust/build.mjs --check
       - name: Check listening workspaces and their dependencies
+        if: ${{ runner.os == 'Linux' }}
         run: node scripts/ci.mjs frontend listening
 
   api-types-check:
@@ -183,6 +206,10 @@ jobs:
         with:
           distribution: corretto
           java-version: '25'
+
+      - name: Block compromised intermediate certificates
+        shell: bash
+        run: sh backend/security/update-java-blocklist.sh "$JAVA_HOME"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -237,14 +264,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.application == 'true' }}
     name: Container and prod configuration (image build / boot)
-    # 本番の EC2 は arm64（infra/compute.tf が arm64 の AMI を選ぶ）。deploy.yml が arm の
-    # ランナーで作る経路は CI では走らないため、本番の形の検査を同じ架構で行い、イメージが
-    # その架構で組み上がるところまでここで見る
     runs-on: ubuntu-24.04-arm
-
-    # E2E が起動するのは dev プロファイルの JAR であり、本番が動かす形とは別物。ここで見るのは
-    # 本番と同じ経路（Dockerfile.jvm のイメージを docker-compose.prod.yml で起動する）。
-    # 起動に必要な値は compose のファイルが渡すものだけなので、受け渡しの漏れは起動の失敗として出る。
     env:
       COMPOSE_FILE: docker-compose.yml:docker-compose.prod.yml:docker-compose.ci.yml
       BACKEND_IMAGE: abservice-backend:ci
@@ -258,135 +278,33 @@ jobs:
       ORIGIN_VERIFY_TOKEN: ci-origin-verify-token
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # 必須の一覧は宣言から自動で拾うため、宣言そのものを弱める変更は「必須が1つ減った」としか
-      # 見えず、後続の検査も素通りする。弱い値で本番が動くことを意味する設定はここで名指しして守る
-      - name: Check the required prod settings stay required
-        run: scripts/check-prod-settings-stay-required.sh
-
-      # 宣言があるだけでは値は本番へ届かない。Parameter Store から取って compose へ渡すまでの経路が
-      # 繋がっていることを、イメージを作る前に見る。運ぶ経路が無い形は、起動してみるまで表に出ない
-      - name: Check the prod configuration reaches the container
-        run: scripts/check-prod-config-wiring.sh
-
-      # デプロイのたびに SSM が実機へ配るファイル。リポジトリでもコンテナでも動かないため、
-      # 壊れていても他の検査には現れず、差し替えの最中の実機で初めて分かる
-      - name: Check the files the deploy sends to the host
-        run: scripts/check-deploy-payload.sh
-
-      # jar はランナー上の Gradle で組む（deploy.yml と同じ手順）。Dockerfile はそれを包むだけで、
-      # コンテナの中で Gradle を回さない（#431。コンテナ内では build cache が効かず、毎回冷えた状態になる）
-      - name: Set up JDK 25 (Corretto)
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/check-container
         with:
-          distribution: corretto
-          java-version: '25'
+          architecture: arm64
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+  container-check-amd64:
+    needs: changes
+    if: ${{ needs.changes.outputs.application == 'true' }}
+    name: Container and prod configuration (amd64 image build / boot)
+    runs-on: ubuntu-24.04
+    env:
+      COMPOSE_FILE: docker-compose.yml:docker-compose.prod.yml:docker-compose.ci.yml
+      BACKEND_IMAGE: abservice-backend:ci
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: abservice
+      DB_USERNAME: abservice
+      DB_PASSWORD: abservice
+      ADMIN_API_KEY: ci-admin-api-key
+      ASSETS_BUCKET: abservice-assets
+      ORIGIN_VERIFY_TOKEN: ci-origin-verify-token
 
-      - name: Ensure gradlew is executable
-        run: chmod +x backend/gradlew
-
-      - name: Build backend
-        run: backend/gradlew -p backend --no-daemon --console=plain quarkusBuild
-
-      # デプロイと同じ Dockerfile。壊れていることに気付けるのが deploy.yml の実行時では遅い
-      - name: Build the production image
-        run: docker build -f backend/src/main/docker/Dockerfile.jvm -t abservice-backend:ci backend
-
-      # 実機が動かせる架構であること。ランナーの種類が変わると、ECR へ入るのは実機で動かない
-      # イメージになるが、それが分かるのはデプロイの最中になる
-      - name: Verify the image architecture matches the host
-        run: |
-          ARCH="$(docker image inspect "$BACKEND_IMAGE" --format '{{.Architecture}}')"
-          if [ "$ARCH" != "arm64" ]; then
-            echo "The image is $ARCH, but the instance runs arm64 (infra/compute.tf uses the arm64 AMI)." >&2
-            exit 1
-          fi
-          echo "image architecture: $ARCH"
-
-      # prod の compose は DB の起動を待たない（本番の接続先は RDS で、同じ compose には居ない）。
-      # backend は起動時にマイグレーションを行うため、先に DB を用意しておく
-      - name: Start PostgreSQL
-        run: docker compose up -d --wait --wait-timeout 120 postgres
-
-      # prod は設定が無いときに弱い既定値へ倒れず起動を失敗させる（DECISIONS 34）。倒れる側へ戻ると、
-      # 本番が既定のバケットや開発用の API キーで動きうる。欠かす設定は1つずつで、
-      # まとめて欠かすと1つが既定値を持つ側へ戻っても残りの欠落で失敗し続け、戻ったことに気付けない
-      - name: Fail to start when any single required setting is missing
-        run: scripts/check-prod-required-settings.sh
-
-      - name: Start the production stack
-        run: docker compose up -d --wait --wait-timeout 240 backend
-
-      # readiness は DB 接続確認を含む。マイグレーションまで通っていることがここで分かる。
-      # 公開ポート経由はコンテナの外から来るため、配信が付ける値を添える（コンテナ自身の
-      # healthcheck は loopback から引くので添えない）
-      - name: Check readiness through the published port
-        run: |
-          curl -fsS -H "X-Origin-Verify: $ORIGIN_VERIFY_TOKEN" http://localhost:8080/q/health/ready
-
-      # deploy.sh が healthy の後に出す「稼働 image」の行を、配るファイルからそのまま取り出して
-      # 実コンテナに対して走らせる。構文と配線の検査では拾えない（inspect の項目の有無は動かして
-      # 初めて分かる）。手元でビルドしたイメージは RepoDigests を持たないため、image ID が出ることまでを見る
-      - name: Run the running-image line of deploy.sh against the real container
-        run: |
-          line="$(grep -E '^echo "running image: ' infra/host/deploy.sh)"
-          if [ "$(wc -l <<<"$line")" -ne 1 ]; then
-            echo "infra/host/deploy.sh must contain exactly one 'echo \"running image: ...\"' line." >&2
-            exit 1
-          fi
-          output="$(bash -euo pipefail -c "$line")"
-          echo "$output"
-          case "$output" in
-          "running image: sha256:"*) ;;
-          *)
-            echo "The running-image line did not report the image ID." >&2
-            exit 1
-            ;;
-          esac
-
-      # 自分の配信を経由しない要求は届かない。ここが素通りするなら、別の配信から WAF と
-      # 経路の振り分けを迂回してオリジンへ届く（#286）
-      - name: Reject requests that did not come through the distribution
-        run: |
-          if curl -fsS http://localhost:8080/q/health/ready; then
-            echo "The origin answered a request that carried no verification header." >&2
-            exit 1
-          fi
-          if curl -fsS -H "X-Origin-Verify: wrong-token" http://localhost:8080/q/health/ready; then
-            echo "The origin answered a request that carried a wrong verification header." >&2
-            exit 1
-          fi
-
-      # 起動を始めたことを成功にしていないこと。データベースを止めれば backend は起動に失敗し、
-      # --wait はそれを unhealthy として返す。ここが素通りするなら、本番でも壊れたデプロイが緑で
-      # 終わる（deploy.sh も同じ待ち方をする）。期限は、起動し続けるが healthy にならない場合の保険
-      - name: Fail when the stack does not become healthy
-        run: |
-          docker compose rm -sf backend
-          docker compose stop postgres
-          if docker compose up -d --wait --wait-timeout 120 backend; then
-            echo "The stack reported success while the database was down." >&2
-            exit 1
-          fi
-
-      - name: Show backend log
-        if: ${{ failure() }}
-        run: docker compose logs backend
-
-      - name: Stop the stack
-        if: ${{ always() }}
-        run: docker compose down -v
-
-      - name: Check opt-in colocated database deployment
-        run: |
-          python3 -m unittest discover -s infra/host/cohost -p 'test_*.py'
-          python3 infra/host/cohost/check_runtime.py --image abservice-backend:ci
-          python3 infra/host/cohost/check_origin.py
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/check-container
+        with:
+          architecture: amd64
 
   iac-check:
     needs: changes
@@ -404,7 +322,7 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.9.8
+          terraform_version: 1.17.2
           terraform_wrapper: false
 
       # user_data はインスタンスの初回起動時にしか走らない。構文が壊れていればそのインスタンスは
@@ -435,11 +353,14 @@ jobs:
 
       - name: Verify monitoring log transport on an isolated Docker network
         run: |
-          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s infra/monitoring/transport -p 'test_diagnostics.py' -v
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s infra/monitoring/transport -p 'test_*.py' -v
           sudo python3 infra/monitoring/transport/test_transport.py
 
       - name: Check formatting
         run: terraform fmt -check -recursive infra
+
+      - name: Verify origin HTTP and TLS boundaries with the pinned NGINX image
+        run: python3 infra/host/cohost/check_origin.py
 
       - name: Initialize without the backend
         run: terraform -chdir=infra init -backend=false
@@ -474,6 +395,15 @@ jobs:
           python3 -m zipfile -e infra/.terraform/static-page-404.zip "$RUNNER_TEMP/free-edge-package"
           node infra/functions/check-edge-package.mjs "$RUNNER_TEMP/free-edge-package"
 
+      - name: Verify runtime observation in both Lambda package entry points
+        run: |
+          for compatible in false true; do
+            terraform -chdir=infra test -test-directory=runtime-package-tests -var="cloudfront_free_compatible=$compatible"
+            directory="$RUNNER_TEMP/runtime-package-$compatible"
+            python3 -m zipfile -e infra/.terraform/static-page-404.zip "$directory"
+            node infra/functions/check-node-runtime-package.mjs "$directory"
+          done
+
   e2e:
     needs: changes
     if: ${{ needs.changes.outputs.application == 'true' }}
@@ -482,24 +412,6 @@ jobs:
 
     # backend-check と同じ構成の PostgreSQL。E2E も実DBに対して動かす（#164）。
     # データベースは E2E 専用（#252）。母集団をシードしたものだけにするため、統合テストとも分ける。
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_DB: abservice_e2e
-          POSTGRES_USER: abservice
-          POSTGRES_PASSWORD: abservice
-          POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U abservice -d abservice_e2e"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-          --health-start-period 30s
-          --health-start-interval 2s
-
     env:
       DB_HOST: localhost
       DB_PORT: "5432"
@@ -508,16 +420,24 @@ jobs:
       DB_PASSWORD: abservice
       # E2E のシードは管理APIを通す。開発既定と同じ鍵を使う
       ADMIN_API_KEY: dev-admin-api-key
+      COMPOSE_FILE: docker-compose.yml
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Build and start patched PostgreSQL
+        run: docker compose up -d --build --wait --wait-timeout 120 postgres
 
       - name: Set up JDK 25 (Corretto)
         uses: actions/setup-java@v4
         with:
           distribution: corretto
           java-version: '25'
+
+      - name: Block compromised intermediate certificates
+        shell: bash
+        run: sh backend/security/update-java-blocklist.sh "$JAVA_HOME"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -560,22 +480,11 @@ jobs:
         run: backend/gradlew -p backend --no-daemon --console=plain quarkusBuild
 
       # 公開サイトの組み立てが backend を叩くため、テストの前に起動しておく（起動待ちは E2E 側が行う）。
-      # 成果物は uber-jar（backend/gradle.properties）で、名前に版が入るため glob で拾う。
-      #
-      # プロファイルは dev を指定する。素で起動すると prod になり、本番向けに必須化した値
-      # （アセットのバケット・S3 の資格情報など）を要求する。E2E で見たいのは画面であって本番構成では
-      # ないため、ローカルと同じ既定値（docker compose の PostgreSQL と MinIO）で動かす。
-      #
-      # ポートと初期化はローカルの npm run dev:backend:e2e と揃える（#252）。E2E 用のデータベースを
-      # 起動時に clean することで、母集団がシードしたものだけになる。
+      # ローカルと同じ起動処理・専用DBを使う。条件と停止担当は e2e/README.md を参照。
       - name: Start backend
         run: |
-          jar="$(ls backend/build/*-runner.jar)"
-          nohup java -Dquarkus.profile=dev \
-            -Dquarkus.http.port=8090 \
-            -Dquarkus.flyway.clean-at-start=true \
-            -jar "$jar" > backend.log 2>&1 &
-          echo "started: $jar"
+          nohup node e2e/scripts/start-backend.mjs > backend.log 2>&1 &
+          echo "$!" > backend.pid
 
       - name: Prepare application acceptance stack
         env:
@@ -598,6 +507,11 @@ jobs:
       - name: Show backend log
         if: ${{ failure() }}
         run: cat backend.log
+
+      - name: Stop backend
+        if: ${{ always() }}
+        run: |
+          if test -f backend.pid; then kill "$(cat backend.pid)" || true; fi
 
       # trace と動画はレビューの証跡でもある（#164）。画像は evidence ブランチへ別途公開する
       - name: Upload Playwright artifacts
@@ -713,7 +627,7 @@ jobs:
     if: ${{ needs.changes.outputs.browser_offline_player == 'true' }}
     name: Offline player integration (Chromium / SW / OPFS / FLAC)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -731,6 +645,10 @@ jobs:
         env:
           BROWSER_PLAN: ${{ needs.changes.outputs.browser_plan }}
         run: node scripts/browser-ci.mjs offline-player
+      - name: Check PC to listening-device preparation flow
+        env:
+          ASTRO_TELEMETRY_DISABLED: '1'
+        run: npm run test:pairing:browser -w abservice-offline-player
       - name: Upload browser evidence
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
@@ -806,7 +724,7 @@ jobs:
 
   ci-gate:
     name: CI gate
-    needs: [changes, backend-check, frontend-check, api-types-check, container-check, iac-check, e2e, listening-check, player-browser, storage-browser, shell-browser, offline-player-browser, audio-worklet-browser, visualizer-browser]
+    needs: [changes, backend-check, frontend-check, api-types-check, container-check, container-check-amd64, iac-check, e2e, listening-check, player-browser, storage-browser, shell-browser, offline-player-browser, audio-worklet-browser, visualizer-browser]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5

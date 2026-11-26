@@ -1,4 +1,5 @@
 /* eslint-disable functional/immutable-data -- DOM描画とイベント登録をデモ境界に閉じ、プレイヤーのsnapshotを表示する。 */
+import "./runtime-policy";
 import type { InstallationManifest } from "abservice-installation";
 import {
   artworkAssetIds,
@@ -14,11 +15,19 @@ import type {
 } from "abservice-player";
 import "player-study/style.css";
 import "./style.css";
+import { gallery } from "./gallery";
+import { waveform } from "./waveform";
+import { fullscreen } from "./fullscreen";
+import { management } from "./management";
+import { when } from "./dom";
 import { preparation, storageMessage } from "./preparation";
 import { connectMediaAnalysis } from "abservice-audio-worklet/media";
 import { probeRequested } from "abservice-visualizer";
 import { benchmarkAudio, createAudioProbe } from "./audio-probe";
 import { measured, presentation, probeReport } from "./presentation";
+import { musicalPlayback } from "./musical-playback";
+import { analysisImport } from "./analysis-import";
+import { deviceAnalysis } from "./device-analysis";
 
 /* Startup cost is measured from navigation start: script evaluated, library ready, first frame drawn. */
 performance.mark("listening:script");
@@ -34,6 +43,7 @@ const element = <T extends HTMLElement>(
         throw new Error(`Missing ${selector}`);
       })();
 };
+const admin = management();
 const play = element("#play", HTMLButtonElement);
 const pause = element("#pause", HTMLButtonElement);
 const stop = element("#stop", HTMLButtonElement);
@@ -49,17 +59,14 @@ const analysisStatus = element("#analysis-status", HTMLElement);
 const audioProbe = probeRequested(location.hash)
   ? createAudioProbe()
   : undefined;
-/* The device rate is known only once playback has created the AudioContext; before that the common rate is assumed. */
+/* The device rate is known once selection creates the AudioContext; before that the common rate is assumed. */
 const fallbackSampleRate = 48000;
 /*
  * The benchmark and real playback are separate pieces of evidence: running both at once would let the worker and the
  * decode load the Worklet and inflate its load and underruns. The benchmark waits for playback to stop, and playback
  * waits for the benchmark.
  */
-const benchmarkBlocked: readonly SettledPhase[] = [
-  "loading",
-  "playing",
-];
+const benchmarkBlocked: readonly SettledPhase[] = ["loading", "playing"];
 const benchmarkAllowed = (phase: SettledPhase): boolean =>
   benchmarkBlocked.every((blocked) => blocked !== phase);
 const phases: Record<SettledPhase, string> = {
@@ -77,6 +84,7 @@ const time = (seconds: number): string =>
 const render = (
   data: PresentationData | undefined,
   state: PlayerSnapshot,
+  analyzing = false,
 ): void => {
   const selection = data?.playbackItems.find(
     (entry) => entry.playbackItemId === state.playbackItemId,
@@ -84,37 +92,63 @@ const render = (
   element("#track-title", HTMLElement).textContent =
     selection?.title ?? "音源を選んでください";
   element("#album-title", HTMLElement).textContent =
-    data?.albums.find((album) => album.albumId === selection?.albumId)
-      ?.title ?? "YOUR SELECTION";
+    data?.albums.find((album) => album.albumId === selection?.albumId)?.title ??
+    "アルバムを選んでください";
+  element("#album-title", HTMLElement).title = element(
+    "#album-title",
+    HTMLElement,
+  ).textContent;
   /* A seek is shown as where it returns to; the presentation state follows the seek itself. */
   const phase = settledPhase(state);
-  status.textContent = phases[phase];
+  status.hidden = phase === "playing";
+  status.textContent =
+    phase === "idle" && state.playbackItemId !== null
+      ? "停止中"
+      : phases[phase];
   const benchmarking = audioProbe?.benchmarking() === true;
   play.disabled = [
+    analyzing,
     benchmarking,
-    ["idle", "loading", "error", "playing"].includes(phase),
+    ["loading", "error", "playing"].includes(phase),
+    state.playbackItemId === null,
   ].some(Boolean);
   element("#probe-benchmark", HTMLButtonElement).disabled = [
+    analyzing,
     benchmarking,
     benchmarkBlocked.includes(phase),
   ].some(Boolean);
+  element("#device-analysis-start", HTMLButtonElement).disabled = [
+    analyzing,
+    benchmarking,
+    benchmarkBlocked.includes(phase),
+    (data?.playbackItems.length ?? 0) === 0,
+  ].some(Boolean);
+  play.hidden = ["playing", "loading"].includes(phase);
+  play.textContent = state.error === null ? "展示を開始" : "再生を再開";
   pause.disabled = phase !== "playing";
   stop.disabled = phase === "idle";
-  retry.hidden =
-    state.playbackItemId === null
-      ? true
-      : ["idle", "error"].includes(phase)
-        ? false
-        : true;
-  seek.disabled = state.duration === 0;
+  retry.hidden = [state.playbackItemId === null, phase !== "error"].some(
+    Boolean,
+  );
+  retry.disabled = [analyzing, benchmarking].some(Boolean);
+  seek.disabled = [analyzing, state.duration === 0].some(Boolean);
   seek.max = String(state.duration);
   seek.value = String(state.position);
+  element("#waveform", HTMLElement).style.setProperty(
+    "--progress",
+    `${String(state.duration > 0 ? (state.position / state.duration) * 100 : 0)}%`,
+  );
+  seek.setAttribute(
+    "aria-valuetext",
+    `${time(state.position)} / ${time(state.duration)}`,
+  );
   element("#position", HTMLElement).textContent = time(state.position);
   element("#duration", HTMLElement).textContent = time(state.duration);
   element("#error", HTMLElement).textContent = state.error ?? "";
   document
     .querySelectorAll<HTMLButtonElement>("[data-playback-item-id]")
     .forEach((button) => {
+      button.disabled = [analyzing, benchmarking].some(Boolean);
       button.setAttribute(
         "aria-pressed",
         String(button.dataset["playbackItemId"] === state.playbackItemId),
@@ -149,7 +183,9 @@ const presentationOf = async (
   const read = await Promise.all(
     artworkAssetIds(contract).map(async (assetId) => {
       const result =
-        opened.kind === "ok" ? await opened.value.read(assetId, signal) : opened;
+        opened.kind === "ok"
+          ? await opened.value.read(assetId, signal)
+          : opened;
       return result.kind === "ok" ? [[assetId, result.value] as const] : [];
     }),
   );
@@ -170,8 +206,8 @@ const showAlbum = (
   const album = data.albums.find((entry) => entry.albumId === albumId);
   const artwork = element("#artwork", HTMLImageElement);
   const artist = element("#artist", HTMLElement);
-  const description = element("#description", HTMLElement);
   const replace = (): void => {
+    element(".scene-content", HTMLElement).scrollTop = 0;
     (shown.url === undefined
       ? () => undefined
       : () => {
@@ -186,27 +222,53 @@ const showAlbum = (
     artwork.src = shown.url ?? "";
     reveal(artwork, shown.url !== undefined);
     artist.textContent = album?.artistDisplayName ?? "";
+    artist.title = artist.textContent;
     reveal(artist, album?.artistDisplayName !== undefined);
-    /* Sanitised by the shared markup renderer, with images and links already removed. */
-    description.innerHTML = album?.descriptionHtml ?? "";
-    reveal(description, album?.descriptionHtml !== undefined);
   };
   (albumId === shown.albumId ? () => undefined : replace)();
 };
 const open = (contract: InstallationManifest, data: PresentationData): void => {
+  const music = musicalPlayback(contract, visual.music);
+  analysisImport(contract, music.refresh);
+  window.addEventListener("pagehide", music.dispose, { once: true });
   const items = data.playbackItems;
+  const exhibition = { active: false };
+  const activity = { analyzing: false };
+  const playbackAllowed = (): boolean =>
+    (activity.analyzing ? false : true) && audioProbe?.benchmarking() !== true;
+  const waves = waveform();
+  const showWaveform = (id: string) => {
+    const item = items.find((item) => item.playbackItemId === id);
+    const asset = contract.assets.find(
+      (asset) => asset.assetId === item?.audioAssetId,
+    );
+    (item !== undefined && asset !== undefined
+      ? () => {
+          waves.select(asset.checksum.value);
+        }
+      : () => undefined)();
+  };
   const controller = createPlayer(
     contract,
     resolverFor(contract),
     /* The DOM updates for a player change count towards the next frame's cycle when probing. */
     measured((state: PlayerSnapshot) => {
-      render(data, state);
+      music.sync(state);
+      render(data, state, activity.analyzing);
       showAlbum(
         data,
         items.find((item) => item.playbackItemId === state.playbackItemId)
           ?.albumId,
       );
-      visual.sync(state);
+      visual.sync(
+        state,
+        data.albums.find(
+          (album) =>
+            album.albumId ===
+            items.find((item) => item.playbackItemId === state.playbackItemId)
+              ?.albumId,
+        ),
+      );
       (state.phase === "error" ? preparation.invalidate : () => undefined)();
     }),
     (media, signal) => {
@@ -214,6 +276,7 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
       /* Watching starts before connecting so that the last playback stats are copied before the connection is dropped. */
       const attach = audioProbe?.watch(signal);
       const connection = connectMediaAnalysis(media, signal, {
+        presentationDelay: admin.presentationDelay,
         onFeatures:
           audioProbe === undefined
             ? visual.update
@@ -234,10 +297,20 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
         },
         ...(audioProbe === undefined ? {} : { onLoad: audioProbe.load }),
       });
+      music.attach(media, signal, connection.presentationTime);
       attach?.(connection);
       return connection;
     },
   );
+  deviceAnalysis(contract, music.refresh, {
+    canStart: () =>
+      playbackAllowed() &&
+      benchmarkAllowed(settledPhase(controller.snapshot())),
+    busy: (value) => {
+      activity.analyzing = value;
+      render(data, controller.snapshot(), activity.analyzing);
+    },
+  });
   /* The benchmark decodes on the main thread, so it runs only when asked and never by itself. */
   const runBenchmark = async (): Promise<void> => {
     const probe = audioProbe;
@@ -265,6 +338,7 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
       report();
     };
     const ready = [
+      activity.analyzing ? false : true,
       probe !== undefined,
       probe?.benchmarking() === false,
       item !== undefined,
@@ -278,56 +352,57 @@ const open = (contract: InstallationManifest, data: PresentationData): void => {
       void runBenchmark();
     },
   );
-  data.albums.forEach((album, index) => {
-    const section = document.createElement("section");
-    const heading = document.createElement("h2");
-    heading.textContent = album.title;
-    const subtitle = document.createElement("p");
-    subtitle.className = "album-meta";
-    subtitle.textContent = `ALBUM ${String(index + 1).padStart(2, "0")} · ${String(album.tracks.length)} TRACKS`;
-    const list = document.createElement("ol");
-    items
-      .filter((item) => item.albumId === album.albumId)
-      .forEach((item) => {
-        const row = document.createElement("li");
-        const button = document.createElement("button");
-        button.textContent = item.title;
-        button.dataset["playbackItemId"] = item.playbackItemId;
-        button.setAttribute("aria-pressed", "false");
-        button.addEventListener("click", () => {
-          void controller.select(item.playbackItemId);
-        });
-        row.append(button);
-        list.append(row);
-      });
-    section.append(subtitle, heading, list);
-    element("#library", HTMLElement).append(section);
+  controller.repeat(true);
+  gallery(data, (id) => {
+    when(playbackAllowed(), () => {
+      showWaveform(id);
+      void controller.select(id, exhibition.active);
+    });
   });
   play.addEventListener("click", () => {
-    void (audioProbe?.benchmarking() === true
-      ? undefined
-      : controller.play());
+    when(playbackAllowed(), () => {
+      admin.start(() => {
+        when(playbackAllowed(), () => {
+          exhibition.active = true;
+          void controller.play();
+        });
+      });
+    });
   });
   pause.addEventListener("click", controller.pause);
-  stop.addEventListener("click", controller.stop);
+  stop.addEventListener("click", () => {
+    exhibition.active = false;
+    controller.stop();
+    element("#exhibition-menu", HTMLDetailsElement).open = false;
+  });
   retry.addEventListener("click", () => {
-    const playbackItemId = controller.snapshot().playbackItemId;
-    void (playbackItemId === null
-      ? undefined
-      : controller.select(playbackItemId));
+    when(playbackAllowed(), () => {
+      const playbackItemId = controller.snapshot().playbackItemId;
+      void (playbackItemId === null
+        ? undefined
+        : controller.select(playbackItemId, exhibition.active));
+    });
   });
   seek.addEventListener("input", () => {
-    controller.seek(Number(seek.value));
+    when(activity.analyzing ? false : true, () => {
+      controller.seek(Number(seek.value));
+    });
   });
   window.addEventListener("pagehide", controller.dispose, { once: true });
   render(data, controller.snapshot());
 };
 const start = async (): Promise<void> => {
+  fullscreen();
+  element("#open-preparation", HTMLButtonElement).addEventListener(
+    "click",
+    () => {
+      element("#exhibition-menu", HTMLDetailsElement).open = false;
+    },
+  );
   window.addEventListener("pagehide", visual.dispose, { once: true });
   render(undefined, idle);
   const active = await preparation.mount();
-  const data =
-    active === undefined ? undefined : await presentationOf(active);
+  const data = active === undefined ? undefined : await presentationOf(active);
   (active !== undefined && data !== undefined
     ? () => {
         open(active, data);

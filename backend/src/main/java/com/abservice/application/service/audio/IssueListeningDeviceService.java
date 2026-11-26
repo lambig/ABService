@@ -7,15 +7,16 @@ import com.abservice.application.exception.Failure;
 import com.abservice.application.exception.FailureContract;
 import com.abservice.application.port.ListeningDevices;
 import com.abservice.application.service.CommandService;
+import com.abservice.application.service.InputPolicy;
+import com.abservice.domain.model.policy.Policy;
+import com.abservice.lib.Result;
 import com.abservice.domain.exception.BusinessRuleViolationException;
-import com.abservice.domain.exception.ValidationException;
 import com.abservice.domain.model.EntityId;
 import com.abservice.lib.ErrorResult;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
@@ -40,10 +41,11 @@ public class IssueListeningDeviceService
 
     @Override
     public Uni<Output> execute(Input input) {
-        return Uni.createFrom().item(() -> {
-            access.requireEnabled();
-            return input.validated();
-        }).chain(this::issue);
+        return Uni.createFrom()
+                .item(input)
+                .invoke(access::requireEnabled)
+                .chain(valid -> valid.asValidated(Input::parse))
+                .chain(this::issue);
     }
 
     private Uni<Output> issue(Validated valid) {
@@ -53,7 +55,8 @@ public class IssueListeningDeviceService
                 id,
                 valid.label(),
                 token.digest(),
-                Instant.now().plus(valid.validity()))
+                Instant.now()
+                        .plus(valid.validity()))
                 .invoke(
                         created -> Optional.of(created)
                                 .filter(Boolean::booleanValue)
@@ -62,36 +65,46 @@ public class IssueListeningDeviceService
                 .map(row -> new Output(ListeningDeviceView.of(row.orElseThrow(), Instant.now()), token));
     }
 
-    public record Input(@Nullable String label, @Nullable Integer validDays) implements CommandService.Input {
-        private Validated validated() {
-            return new Validated(
-                    Optional.ofNullable(label)
-                            .map(String::strip)
-                            .filter(value -> value.length() >= 1)
-                            .filter(value -> value.length() <= MAX_LABEL_LENGTH)
-                            .orElseThrow(() -> invalid("label", "1〜100文字の表示名を指定してください")),
-                    Duration.ofDays(
-                            Optional.ofNullable(validDays)
-                                    .orElse(DEFAULT_VALID_DAYS)));
+    public record Input(@Nullable String label,
+            @Nullable Integer validDays) implements CommandService.Input<Input> {
+        @Override
+        public Policy<Input> policy() {
+            return new InputPolicy<>(Input::parse);
         }
+
+        private static Result<Validated> parse(Input input) {
+            return Optional.ofNullable(input.label())
+                    .map(String::strip)
+                    .filter(value -> value.length() >= 1)
+                    .filter(value -> value.length() <= MAX_LABEL_LENGTH)
+                    .<Result<String>>map(Result::success)
+                    .orElseGet(
+                            () -> Result.failure(
+                                    new ErrorResult(
+                                            "label",
+                                            "1〜100文字の表示名を指定してください",
+                                            "INVALID_LISTENING_DEVICE")))
+                    .flatMap(label -> validity(label, input.validDays()));
+        }
+
+        private static Result<Validated> validity(String label, @Nullable Integer validDays) {
+            return Optional.of(
+                    Optional.ofNullable(validDays)
+                            .orElse(DEFAULT_VALID_DAYS))
+                    .filter(days -> days >= 1)
+                    .filter(days -> days <= MAX_VALID_DAYS)
+                    .<Result<Validated>>map(days -> Result.success(new Validated(label, Duration.ofDays(days))))
+                    .orElseGet(
+                            () -> Result.failure(
+                                    new ErrorResult(
+                                            "validDays",
+                                            "有効期間は1〜90日で指定してください",
+                                            "INVALID_LISTENING_DEVICE")));
+        }
+
     }
 
     private record Validated(String label, Duration validity) {
-        private Validated {
-            Optional.of(validity.toDays())
-                    .filter(days -> days >= 1)
-                    .filter(days -> days <= MAX_VALID_DAYS)
-                    .orElseThrow(() -> invalid("validDays", "有効期間は1〜90日で指定してください"));
-        }
-    }
-
-    private static ValidationException invalid(String field, String message) {
-        return new ValidationException(
-                List.of(
-                        new ErrorResult(
-                                field,
-                                message,
-                                "INVALID_LISTENING_DEVICE")));
     }
 
     /** トークンはこの出力でだけ渡す。ログ・一覧・照会には出さない。 */

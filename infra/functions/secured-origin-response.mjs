@@ -6,8 +6,11 @@ import { renderStaticNotFound, loadS3Page } from './static-page-404.mjs';
 export async function secureOriginResponse(event, loadPage, config) {
   const request = event.Records[0].cf.request;
   const domain = request.origin?.s3?.domainName ?? request.origin?.custom?.domainName;
-  const kind = Object.hasOwn(config.origins, domain) ? config.origins[domain] : undefined;
+  let kind = Object.hasOwn(config.origins, domain) ? config.origins[domain] : undefined;
   if (!kind) throw new Error('Unexpected response origin');
+  // The listening origin shares the admin bucket but has a trusted origin path.
+  // Neither viewer URI nor Host can select its policy.
+  if (kind === 'admin' && config.listeningOriginPath && request.origin?.s3?.path === config.listeningOriginPath) kind = 'listening';
   const response = ['public', 'admin'].includes(kind)
     ? await renderStaticNotFound(event, loadPage)
     : event.Records[0].cf.response;

@@ -9,7 +9,7 @@ import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.model.vo.article.AlbumReference;
 import com.abservice.domain.model.vo.article.AlbumReferenceLostReason;
 import com.abservice.domain.model.vo.article.ArticleType;
-import com.abservice.domain.model.vo.common.BusinessDateTime;
+import com.abservice.domain.model.vo.time.BusinessDateTime;
 import com.abservice.lib.ErrorResult;
 import java.util.Objects;
 import java.util.Optional;
@@ -147,6 +147,7 @@ public final class AlbumArticle implements Article {
      *            現在日時
      * @return 更新されたアルバム紹介記事
      */
+    @CrossAggregateTransition
     public @NonNull AlbumArticle loseAlbumReference(@NonNull AlbumReferenceLostReason reason,
             @NonNull BusinessDateTime currentDateTime) {
         return albumReference.activeAlbumId()

@@ -1,0 +1,8 @@
+---
+import AlbumPrivateAudio from '$components/AlbumPrivateAudio.svelte';
+import AdminLayout from '$layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="試聴用FLACの登録">
+  <AlbumPrivateAudio client:only="svelte" />
+</AdminLayout>

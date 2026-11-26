@@ -105,6 +105,7 @@ const send = async <T>(
   init: RequestInit,
   decode: (response: Response) => Promise<ApiResult<T>>,
   fetcher: typeof fetch,
+  timeoutMs = REQUEST_TIMEOUT_MS,
 ): Promise<ApiResult<T>> => {
   const controller = new AbortController();
   const interrupted = Promise.withResolvers<ApiResult<T>>();
@@ -114,7 +115,7 @@ const send = async <T>(
       reason,
       message:
         reason === 'timeout'
-          ? '通信が30秒以内に完了しませんでした。'
+          ? `通信が${String(timeoutMs / 1000)}秒以内に完了しませんでした。`
           : '通信の待機を中断しました。',
     });
     controller.abort();
@@ -124,7 +125,7 @@ const send = async <T>(
   };
   const timer = setTimeout(() => {
     interrupt('timeout');
-  }, REQUEST_TIMEOUT_MS);
+  }, timeoutMs);
   init.signal?.addEventListener('abort', abort, { once: true });
   /* ABORT-RACE: 中断を無視する通信や本文でも待機を終えるため、abortだけに頼らず結果を競合させる。 */
   const response =
@@ -142,6 +143,7 @@ export const requestJson = <T>(
   url: string,
   init: RequestInit,
   fetcher: typeof fetch = fetch,
+  timeoutMs = REQUEST_TIMEOUT_MS,
 ): Promise<ApiResult<T>> =>
   send(
     url,
@@ -158,6 +160,7 @@ export const requestJson = <T>(
         : { kind: 'ok', value: body as T };
     },
     fetcher,
+    timeoutMs,
   );
 
 /** 本体を返さない操作の専用経路。204成功時はJSON読み取りを行わない。 */

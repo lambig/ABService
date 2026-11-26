@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Button } from '$components/ui/button/index.js';
-  import { authenticate, sessionState, type AdminSession } from '$lib/credentials';
+  import { authenticate, sessionState, type AdminSession } from '$lib/session/credentials';
 
   /**
    * 管理APIの鍵を受け取る入り口。

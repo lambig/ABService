@@ -3,7 +3,7 @@ package com.abservice.infrastructure.persistence.mapper;
 import java.util.Optional;
 
 import com.abservice.domain.model.aggregate.tune.Tune;
-import com.abservice.domain.model.vo.common.Credit;
+import com.abservice.domain.model.vo.credit.Credit;
 import com.abservice.domain.model.vo.tune.TuneKind;
 import com.abservice.domain.model.vo.tune.TuneTitle;
 import com.abservice.infrastructure.persistence.entity.TuneTableRecord;

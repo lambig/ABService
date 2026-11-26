@@ -6,11 +6,37 @@ import { fileURLToPath } from 'node:url';
 
 // The controller's CI contract is authoritative. A partial rerun must not omit a required job.
 const workflowSource = readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8').replaceAll('\r\n', '\n');
-export const requiredJobs = [...workflowSource.matchAll(/^    name: (.+)\r?$/gm)].map((match) => match[1].trim());
+// Only the workflow's current static jobs and single, literal OS matrix are supported.
+// Reject new matrix shapes until their expansion is explicitly covered here.
+export const requiredJobNames = (source) => {
+  const jobs = source.replaceAll('\r\n', '\n').split('\njobs:\n');
+  assert.equal(jobs.length, 2, 'Expected one CI jobs mapping');
+  const blocks = [...jobs[1].matchAll(/^  [\w-]+:\n([\s\S]*?)(?=^  [\w-]+:|$(?![\s\S]))/gm)];
+  assert.ok(blocks.length > 0, 'Missing CI jobs');
+  return blocks.flatMap(([, block]) => {
+    const names = [...block.matchAll(/^    name: (.+)$/gm)];
+    assert.equal(names.length, 1, 'Every CI job needs one explicit name');
+    const name = names[0][1].trim();
+    const strategies = [...block.matchAll(/^    strategy:\n((?:^ {6,}[^\n]*\n|^\n)*)/gm)];
+    if (strategies.length === 0) {
+      assert.ok(!name.includes('${{'), 'Dynamic CI job names require a supported matrix');
+      return [name];
+    }
+    assert.equal(strategies.length, 1, 'Expected one CI strategy');
+    const strategy = strategies[0][1];
+    const matrix = strategy.match(/^(?:      fail-fast: (?:true|false)\n)?      matrix:\n        os: \[([a-z0-9-]+(?:, [a-z0-9-]+)*)\]\n$/);
+    assert.ok(matrix, 'Unsupported CI matrix; update the candidate contract');
+    const platforms = matrix[1].split(', ');
+    assert.equal(new Set(platforms).size, platforms.length, 'Duplicate CI matrix OS');
+    assert.equal(name.split('${{ matrix.os }}').length, 2, 'Matrix name must identify its OS');
+    const expanded = platforms.map((os) => name.replace('${{ matrix.os }}', os));
+    assert.ok(expanded.every((value) => !value.includes('${{')), 'Unsupported dynamic CI name');
+    return expanded;
+  });
+};
+export const requiredJobs = requiredJobNames(workflowSource);
 assert.ok(requiredJobs.includes('CI gate'));
 assert.equal(new Set(requiredJobs).size, requiredJobs.length);
-assert.equal(requiredJobs.length, [...workflowSource.slice(workflowSource.indexOf('\njobs:\n') + 7).matchAll(/^  [\w-]+:\r?$/gm)].length,
-  'Every CI job needs a unique static name; update the candidate contract when changing workflow structure');
 
 /** Validate a pinned release, using read-only repository APIs before obtaining AWS credentials. */
 export const verifyCandidate = async (input, read, isOnMain) => {
@@ -68,17 +94,29 @@ export const verifyCandidate = async (input, read, isOnMain) => {
   return { version: 1, repository, codeSha: commit, branch, tag, ciRunId: runId, ciAttempt: run.run_attempt };
 };
 
+// A separate operations repository has no token scoped to the public source.
+// Read public evidence anonymously in that case; never fall back after an API error.
+export const candidateApi = (env) => {
+  const repository = env.SOURCE_REPOSITORY || env.GITHUB_REPOSITORY;
+  assert.match(repository ?? '', /^[\w.-]+\/[\w.-]+$/);
+  const headers = { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
+  if (repository === env.GITHUB_REPOSITORY) {
+    assert.ok(env.GITHUB_TOKEN, 'Missing GitHub token');
+    headers.Authorization = `Bearer ${env.GITHUB_TOKEN}`;
+  }
+  return { repository, headers };
+};
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   assert.equal(process.env.GITHUB_REF, 'refs/heads/main', 'Run Deploy from main');
   assert.equal(process.env.GITHUB_EVENT_NAME, 'workflow_dispatch');
-  const input = { repository: process.env.GITHUB_REPOSITORY, commit: process.env.COMMIT_SHA,
+  const api = candidateApi(process.env);
+  const input = { repository: api.repository, commit: process.env.COMMIT_SHA,
     branch: process.env.RELEASE_BRANCH, tag: process.env.RELEASE_TAG, runId: process.env.CI_RUN_ID };
   assert.match(input.repository ?? '', /^[\w.-]+\/[\w.-]+$/);
-  assert.ok(process.env.GITHUB_TOKEN, 'Missing GitHub token');
   const read = async (path) => {
     const response = await fetch(`https://api.github.com/repos/${input.repository}/${path}`, {
-      headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}`, Accept: 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28' }, redirect: 'error', signal: AbortSignal.timeout(15000),
+      headers: api.headers, redirect: 'error', signal: AbortSignal.timeout(15000),
     });
     assert.ok(response.ok, `GitHub validation failed (${response.status})`);
     return response.json();

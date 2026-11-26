@@ -1,5 +1,6 @@
 package com.abservice.application.service.audio;
 
+import com.abservice.lib.Result;
 import com.abservice.application.audio.AudioApiValues;
 import com.abservice.application.audio.AudioRegistrationView;
 import com.abservice.application.audio.PrivateAudioAccess;
@@ -10,10 +11,13 @@ import com.abservice.application.port.AudioOperationConflictException;
 import com.abservice.application.port.PrivateAudioRegistration;
 import com.abservice.application.port.PrivateAudioRegistrations;
 import com.abservice.application.service.CommandService;
+import com.abservice.application.service.InputPolicy;
+import com.abservice.domain.model.policy.Policy;
 import com.abservice.domain.exception.BusinessRuleViolationException;
 import com.abservice.domain.exception.EntityNotFoundException;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 
 /** 確定済みは冪等応答し、検査済み・放棄済みは非公開実体を照合して復旧する。 */
@@ -27,10 +31,9 @@ public class RecoverAudioService implements CommandService<RecoverAudioService.I
 
     @Override
     public Uni<Output> execute(Input input) {
-        return Uni.createFrom().item(() -> {
-            access.requireEnabled();
-            return AudioApiValues.uuid(input.audioId(), "audioId");
-        }).chain(registrations::find)
+        return Uni.createFrom().item(input)
+                .invoke(access::requireEnabled)
+                .chain(valid -> valid.asValidated(Input::parse)).chain(registrations::find)
                 .map(row -> row.orElseThrow(() -> new EntityNotFoundException("音源の登録予約がありません")))
                 .call(this::recover)
                 .chain(row -> registrations.find(row.id()))
@@ -48,7 +51,16 @@ public class RecoverAudioService implements CommandService<RecoverAudioService.I
         };
     }
 
-    public record Input(String audioId) implements CommandService.Input {
+    public record Input(String audioId) implements CommandService.Input<Input> {
+        @Override
+        public Policy<Input> policy() {
+            return new InputPolicy<>(Input::parse);
+        }
+
+        private static Result<UUID> parse(Input input) {
+            return AudioApiValues.uuidPolicy("audioId")
+                    .verify(input.audioId(), UUID::fromString);
+        }
     }
     public record Output(AudioRegistrationView registration) implements CommandService.Output {
     }

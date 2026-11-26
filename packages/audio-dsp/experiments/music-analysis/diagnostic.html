@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>和音・旋律の同期診断</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101722;color:#eef2fa;font:16px system-ui,sans-serif}main{max-width:1040px;margin:auto;padding:24px}h1{font-size:24px}p{line-height:1.6;color:#bdcadc}label{display:inline-flex;flex-direction:column;gap:8px;margin:0 16px 16px 0}select{font:inherit;max-width:100%;background:#243249;color:white;padding:8px;border:1px solid #60748f;border-radius:6px}audio{width:100%;margin:12px 0}.values{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.card{background:#1c283a;padding:16px;border-radius:8px}.card strong{display:block;font-size:25px;margin-top:8px}.card small{display:block;min-height:2em;color:#bdcadc}canvas{width:100%;height:240px;display:block;background:#172233;margin:16px 0}#status{min-height:2em}#error{color:#ffb4aa}output{font-variant-numeric:tabular-nums}@media(max-width:600px){main{padding:12px}.values{grid-template-columns:1fr}.card strong{font-size:21px}}
+</style>
+<main><h1>和音・旋律の同期診断</h1>
+<p>音を聴きながら、推定結果と正解の違いを確認します。混合音の解析方式は比較中です。</p>
+<label>音源<select id="case" disabled></select></label>
+<label>解析方式<select id="mode"><option value="baseline">瞬時推定</option><option value="causal">過去の持続成分との差分</option><option value="lookahead">先読み付き持続成分との差分</option></select></label>
+<label>表示時点<select id="clock"><option value="time">事前解析：対象時刻に合わせる</option><option value="availableAt">逐次解析：結果を得られる時刻</option></select></label>
+<audio id="audio" controls preload="metadata"></audio>
+<p id="status" aria-live="polite">読み込み中</p><p id="error" role="alert"></p>
+<div class="values"><div class="card">再生位置<strong><output id="time">0.00</output> s</strong><small id="frame"></small></div>
+<div class="card">推定した和音<strong id="chord">—</strong><small id="truth-chord"></small></div>
+<div class="card">推定した旋律音<strong id="note">—</strong><small id="truth-note"></small></div></div>
+<canvas id="plot" width="1000" height="240" aria-label="旋律音の時間推移。横軸は秒、縦軸はMIDI音高。緑が正解、橙が推定。"></canvas>
+<p>緑：正解の旋律音　橙：推定した旋律音　白：再生位置。空白は音の未検出・分析対象外です。実音源の正解は別途照合します。</p>
+<p id="latency"></p>
+<p>解析値はRust/WASMで事前生成しています。「逐次解析」は必要な入力が揃う時刻の再現で、端末での処理・出力遅延は含みません。再生音量は固定で下げています。これは解析用の画面です。</p>
+</main><script type="module" src="diagnostic.mjs"></script></html>

@@ -1,16 +1,28 @@
 /* eslint-disable functional/immutable-data -- This adapter owns the current GPU session, animation callback and DOM status. */
 import type { AudioFeatures } from "abservice-audio-dsp";
+import type { MusicalPlayback } from "./musical-playback";
 import type { PlayerSnapshot } from "abservice-player";
+import type { ListeningAlbum } from "abservice-listening-presentation";
 import {
   createProbe,
+  advanceTrail,
+  emptyTrail,
   due,
   followPlayback,
   mapFeatures,
+  mapMusicalExpression,
   parseBudget,
   probeRequested,
   restingFrame,
+  restingMusic,
+  sceneLoadRequested,
+  sceneInk,
 } from "abservice-visualizer";
-import type { FrameProbe, PresentationState } from "abservice-visualizer";
+import type {
+  FrameProbe,
+  PresentationState,
+  FlowMoment,
+} from "abservice-visualizer";
 import { createRenderer } from "abservice-visualizer/renderer";
 import { planSession, superviseRenderer } from "abservice-visualizer/session";
 import type {
@@ -20,10 +32,10 @@ import type {
 
 const messages = {
   starting: "描画を準備しています",
-  running: "音に合わせて描画します",
+  running: "",
   recovering: "描画を準備し直しています",
   degraded: "描画を利用できません。再生と操作は続けられます。",
-  resting: "再生すると音に合わせて描画します",
+  resting: "",
 } as const;
 
 /* Drawing continues through a seek that began while playing; the frame is back at rest by then. */
@@ -39,7 +51,16 @@ const settled: ReadonlySet<RendererStatus> = new Set<RendererStatus>([
 ]);
 
 /* Budget and probe are read once from the hash: a query would keep the Service Worker from serving the page offline. */
-const budget = parseBudget(location.hash);
+const representative = sceneLoadRequested(location.hash);
+const composition = representative ? false : true;
+/* Hairline geometry needs native pixels (bounded at DPR 2); DOM content stays at native resolution. */
+const budget = parseBudget(
+  representative
+    ? location.hash
+    : `#dpr=2&scale=1&fps=30&${location.hash.replace(/^#/, "")}`,
+);
+document.documentElement.dataset["sceneLoad"] = String(representative);
+document.documentElement.dataset["composition"] = String(composition);
 const probe: FrameProbe | undefined = probeRequested(location.hash)
   ? createProbe()
   : undefined;
@@ -65,7 +86,10 @@ export const probeReport = (): string | undefined => {
     .getEntriesByType("mark")
     .filter((entry) => entry.name.startsWith("listening:"))
     .map((entry) => `${entry.name} ${entry.startTime.toFixed(0)} ms`);
-  const format = (name: string, value?: { p50: number; p95: number; max: number }) =>
+  const format = (
+    name: string,
+    value?: { p50: number; p95: number; max: number },
+  ) =>
     value === undefined
       ? `${name} -`
       : `${name} p50 ${value.p50.toFixed(2)} / p95 ${value.p95.toFixed(2)} / max ${value.max.toFixed(2)} ms`;
@@ -73,6 +97,7 @@ export const probeReport = (): string | undefined => {
     ? undefined
     : [
         ...marks,
+        `scene ${representative ? "representative-v1" : "melody-trail-v1"}`,
         `budget dpr ${String(budget.maxDevicePixelRatio)} scale ${String(budget.renderScale)} effects ${String(budget.effectDensity)} fps ${String(budget.targetFps)}`,
         `frames ${String(summary.frames)} skipped ${String(summary.skipped)} pixels ${String(summary.pixels ?? 0)}`,
         format("cycle cpu", summary.cycleCpu),
@@ -91,21 +116,46 @@ export const presentation = (
     presentation: PresentationState;
     observed: PlayerSnapshot | undefined;
     frame: typeof restingFrame;
+    music: typeof restingMusic;
+    trail: typeof emptyTrail;
+    flow: FlowMoment;
     animation: number | null;
     degraded: boolean;
     drawnAt: number | undefined;
     interval: number | undefined;
+    content: ListeningAlbum | undefined;
   } = {
     supervisor: null,
     presentation: "idle",
     observed: undefined,
     frame: restingFrame,
+    music: restingMusic,
+    trail: emptyTrail,
+    flow: { low: 60, offsets: [] },
     animation: null,
     degraded: false,
     drawnAt: undefined,
     interval: undefined,
+    content: undefined,
   };
   canvas.dataset["presentationState"] = state.presentation;
+  const displayFrame = (): typeof restingFrame => ({
+    ...state.frame,
+    music: state.music,
+    trail: state.trail,
+    flow: state.flow,
+  });
+  const reflectFrame = (): void => {
+    const style = document.documentElement.style;
+    style.setProperty("--scene-ink", sceneInk(displayFrame()));
+    style.setProperty("--melody-pitch", String(state.music.pitch));
+    style.setProperty("--melody-presence", String(state.music.voiced));
+    style.setProperty(
+      "--harmony-hue",
+      `${String(state.music.harmonyPhase * 360)}deg`,
+    );
+    style.setProperty("--harmony-presence", String(state.music.harmonyActive));
+  };
   const cancelFrame = (): void => {
     (state.animation === null
       ? () => undefined
@@ -115,7 +165,11 @@ export const presentation = (
     state.animation = null;
   };
   /* A paused scene stays visible as a still behind the released canvas; the token drops a still that arrives after resuming. */
-  const still: { token: number; url: string | null } = { token: 0, url: null };
+  const still: { token: number; url: string | null; music: string } = {
+    token: 0,
+    url: null,
+    music: "",
+  };
   const thaw = (): void => {
     still.token += 1;
     (still.url === null
@@ -130,7 +184,8 @@ export const presentation = (
     thaw();
     const token = still.token;
     /* The canvas can be copied only within the task that rendered it, so the current frame is drawn once more here. */
-    supervisor.render(state.frame);
+    supervisor.render(displayFrame());
+    still.music = JSON.stringify(state.music);
     const copy = document.createElement("canvas");
     copy.width = canvas.width;
     copy.height = canvas.height;
@@ -164,9 +219,12 @@ export const presentation = (
   };
   const reset = (): void => {
     state.frame = restingFrame;
+    reflectFrame();
   };
   const dispose = (): void => {
     release(false);
+    state.music = restingMusic;
+    state.trail = emptyTrail;
     reset();
   };
   /* A frame that comes sooner than the target fps is skipped, not drawn; the loop keeps running. */
@@ -178,7 +236,7 @@ export const presentation = (
       state.interval =
         state.drawnAt === undefined ? undefined : now - state.drawnAt;
       state.drawnAt = now;
-      running.render(state.frame);
+      running.render(displayFrame());
       (performance.getEntriesByName("listening:first-frame").length === 0
         ? () => {
             performance.mark("listening:first-frame");
@@ -215,6 +273,9 @@ export const presentation = (
       create: (signal) =>
         createRenderer(canvas, signal, {
           budget,
+          representative,
+          composition,
+          ...(state.content === undefined ? {} : { content: state.content }),
           ...(probe === undefined
             ? {}
             : {
@@ -233,14 +294,17 @@ export const presentation = (
           own.supervisor !== undefined && state.supervisor === own.supervisor;
         (current && next !== "disposed"
           ? () => {
+              status.dataset["rendererState"] = next;
               status.textContent = messages[next];
               state.degraded = next === "degraded";
               /* The still is kept until the new session can draw over it or has given up. */
-              (settled.has(next)
-                ? thaw
-                : () => undefined)();
+              (settled.has(next) ? thaw : () => undefined)();
               (next === "running" && state.animation === null
-                ? draw
+                ? state.presentation === "paused"
+                  ? () => {
+                      release(true);
+                    }
+                  : draw
                 : () => undefined)();
             }
           : () => undefined)();
@@ -251,13 +315,17 @@ export const presentation = (
     status.textContent = messages.starting;
   };
   /* The presentation state, through planSession, decides the GPU lifetime and whether the frame goes back to rest. */
-  const sync = (snapshot: PlayerSnapshot): void => {
+  const sync = (snapshot: PlayerSnapshot, content?: ListeningAlbum): void => {
+    state.content = content;
     const step = followPlayback(state.presentation, state.observed, snapshot);
     const plan = planSession(step, state.frame);
     state.observed = snapshot;
     state.presentation = step.state;
     state.frame = plan.frame;
+    state.trail = step.resetFrame ? emptyTrail : state.trail;
     canvas.dataset["presentationState"] = step.state;
+    document.documentElement.dataset["presentationState"] = step.state;
+    reflectFrame();
     const drawn = (): void => {
       (state.supervisor === null
         ? state.degraded
@@ -274,7 +342,10 @@ export const presentation = (
     };
     const still = (): void => {
       release(true);
-      status.textContent = state.degraded ? messages.degraded : messages.resting;
+      status.textContent = state.degraded
+        ? messages.degraded
+        : messages.resting;
+      refreshStill();
     };
     /* Releasing leaves the frame to the plan; only resetFrame puts it back at rest. */
     const released = (): void => {
@@ -286,6 +357,50 @@ export const presentation = (
   };
   const update = (features: AudioFeatures): void => {
     state.frame = mapFeatures(features, state.frame);
+    reflectFrame();
   };
-  return Object.freeze({ sync, update: measured(update), reset, dispose });
+  /* The interpretation port is separate from spectral features. Effects consume these media-time values. */
+  const refreshStill = (): void => {
+    /* A paused seek gets one new still, then releases its GPU session again. */
+    (state.presentation === "paused" &&
+      state.supervisor === null &&
+      (state.degraded ? false : true) &&
+      still.music !== JSON.stringify(state.music)
+      ? start
+      : () => undefined)();
+  };
+  const music = (value: MusicalPlayback): void => {
+    state.flow = value.flow ?? { low: 60, offsets: [] };
+    state.music = mapMusicalExpression(
+      value.status === "ready" ? value.moment : null,
+    );
+    state.trail =
+      value.status === "ready" && value.moment !== null
+        ? advanceTrail(
+            state.trail,
+            JSON.stringify([value.playbackItemId, value.analysisVersion]),
+            value.moment.position,
+            value.moment.melody?.midi ?? null,
+            state.flow.low,
+          )
+        : emptyTrail;
+    reflectFrame();
+    canvas.dataset["musicStatus"] = value.status;
+    canvas.dataset["musicItem"] = value.playbackItemId ?? "";
+    canvas.dataset["musicVersion"] = value.analysisVersion ?? "";
+    canvas.dataset["musicPosition"] = String(value.moment?.position ?? 0);
+    canvas.dataset["melodyMidi"] = String(value.moment?.melody?.midi ?? "");
+    canvas.dataset["melodyRangeLow"] = String(state.flow.low);
+    canvas.dataset["harmonyRoot"] = String(value.moment?.harmony?.root ?? "");
+    canvas.dataset["harmonyQuality"] = value.moment?.harmony?.quality ?? "";
+    canvas.dispatchEvent(new CustomEvent("musical-moment", { detail: value }));
+    refreshStill();
+  };
+  return Object.freeze({
+    sync,
+    update: measured(update),
+    music,
+    reset,
+    dispose,
+  });
 };

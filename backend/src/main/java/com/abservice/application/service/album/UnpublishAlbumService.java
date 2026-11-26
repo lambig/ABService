@@ -5,7 +5,6 @@ import com.abservice.application.exception.FailureContract;
 import com.abservice.application.service.CommandService;
 import com.abservice.domain.model.aggregate.album.Album;
 import com.abservice.domain.model.aggregate.article.Article;
-import com.abservice.domain.model.vo.common.BusinessDateTime;
 import com.abservice.domain.repository.album.AlbumRepository;
 import com.abservice.domain.repository.article.ArticleRepository;
 import com.abservice.domain.service.AlbumAccessService;
@@ -16,7 +15,6 @@ import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
-import java.util.Objects;
 import lombok.AllArgsConstructor;
 
 /**
@@ -44,8 +42,7 @@ public class UnpublishAlbumService implements CommandService<UnpublishAlbumInput
     @WithTransaction
     @Override
     public Uni<UnpublishAlbumOutput> execute(UnpublishAlbumInput input) {
-        return input.asValidated()
-                .map(valid -> Album.Id.of(Objects.requireNonNull(valid.albumId())))
+        return input.asValidated(UnpublishAlbumInput::parsed)
                 .flatMap(albumAccessService::findExistingAndClaimEdit)
                 .map(Album::unpublish)
                 .flatMap(albumRepository::save)
@@ -54,21 +51,14 @@ public class UnpublishAlbumService implements CommandService<UnpublishAlbumInput
 
     private Uni<UnpublishAlbumOutput> cascadeUnpublishReferencingArticles(Album album) {
         return albumUnpublicationService.attempt(album.id())
-                .map(AlbumUnpublication::articlesBecomingUnpublished)
                 .flatMap(this::unpublishAll)
                 .map(cascadeUnpublished -> toOutput(album, cascadeUnpublished));
     }
 
-    private Uni<List<Article>> unpublishAll(List<Article> becomingUnpublished) {
+    private Uni<List<Article>> unpublishAll(AlbumUnpublication operation) {
         return businessDateTimeProvider.now()
-                .map(now -> unpublished(becomingUnpublished, now))
+                .map(operation::apply)
                 .flatMap(articleRepository::saveAll);
-    }
-
-    private static List<Article> unpublished(List<Article> becomingUnpublished, BusinessDateTime now) {
-        return becomingUnpublished.stream()
-                .map(article -> article.unpublish(now))
-                .toList();
     }
 
     private static UnpublishAlbumOutput toOutput(Album album, List<Article> cascadeUnpublished) {

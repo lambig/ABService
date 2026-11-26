@@ -41,6 +41,9 @@ ecr:UploadLayerPart docker push
 ecr:CompleteLayerUpload docker push
 ecr:PutImage docker push
 ecr:BatchGetImage docker push
+ecr:BatchGetImage docker pull (retained image platform check)
+ecr:GetDownloadUrlForLayer docker pull (retained image platform check)
+ecr:BatchCheckLayerAvailability docker pull (retained image platform check)
 ACTIONS
     ;;
   "infra/host/deploy.sh")

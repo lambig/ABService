@@ -111,7 +111,7 @@ test.describe('作品の一覧', () => {
     await capture(page, '05-album-detail');
   });
 
-  test('カタログナンバーの降順に、公開中の作品だけが並ぶ', async ({ page }) => {
+  test('発表日の降順に、公開中の作品だけが並ぶ', async ({ page }) => {
     await page.goto('/albums');
 
     const titles = await page.getByRole('heading', { level: 2 }).allInnerTexts();
@@ -119,8 +119,9 @@ test.describe('作品の一覧', () => {
     /*
      * E2E は専用のデータベースを見る（#252）。母集団はシードしたものだけのため、並びを全体で確かめる。
      * 下書き（E2E-0003）はここに現れない。
+     * showcase は quiet より番号が小さく発表日が新しいため、番号の降順への回帰も検出する（#532）。
      */
-    expect(titles).toEqual([quiet.title, showcase.title, coverless.title]);
+    expect(titles).toEqual([showcase.title, quiet.title, coverless.title]);
   });
 
   test('下書きは一覧に出ない', async ({ page }) => {

@@ -50,6 +50,7 @@ const READ_ONLY_SPECS = [
 
 /** 自分の worker の scratch だけを書き換える組。ファイル単位で並列に走らせる */
 const WORKER_OWNED_SPECS = [
+  'admin-audio-entry',
   'admin-album-external-audios',
   'admin-album-form',
   'admin-album-recovery',

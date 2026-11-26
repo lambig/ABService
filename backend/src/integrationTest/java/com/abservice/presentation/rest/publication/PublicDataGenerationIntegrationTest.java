@@ -84,10 +84,11 @@ class PublicDataGenerationIntegrationTest {
                         SELECT count(*) FROM pg_tables t
                         WHERE schemaname = 'public'
                           AND tablename NOT IN ('flyway_schema_history', 'public_data_generation',
-                                                -- 非公開の登録状態・試聴選択・端末資格情報・確定画像の実測値は
+                                                -- 非公開の登録状態・試聴選択・端末資格情報・接続認可/試行予算・確定画像の実測値は
                                                 -- 公開Queryの依存対象外。
                                                 'private_audio_registration', 'album_crossfade',
-                                                'listening_device', 'published_asset')
+                                                'listening_device', 'listening_authorization',
+                                                'listening_authorization_budget', 'published_asset')
                           AND NOT EXISTS (
                             SELECT 1 FROM pg_trigger g
                             WHERE g.tgrelid = ('public.' || t.tablename)::regclass
@@ -140,6 +141,30 @@ class PublicDataGenerationIntegrationTest {
                     """);
             assertThat(statement.executeUpdate("UPDATE published_asset SET byte_length = 2")).isEqualTo(1);
             statement.execute("DELETE FROM published_asset");
+            assertThat(generation()).isEqualTo(initial);
+        }
+    }
+
+    @Test
+    @DisplayName("接続認可と試行予算の作成・更新・削除・TRUNCATEは公開Queryの世代を変更しない")
+    void listeningAuthorizationDoesNotAdvancePublicGeneration() throws SQLException {
+        final String initial = generation();
+        try (var connection = connection(); var statement = connection.createStatement()) {
+            statement.execute("""
+                    INSERT INTO listening_authorization(request_id, label, code_digest, proof_digest)
+                    VALUES (gen_random_uuid(), 'fixture', repeat('a', 64), repeat('b', 64))
+                    """);
+            statement.execute("INSERT INTO listening_authorization_budget(singleton) VALUES (1), (2)");
+            assertThat(generation()).isEqualTo(initial);
+            assertThat(statement.executeUpdate("UPDATE listening_authorization SET state = 'APPROVED'"))
+                    .isEqualTo(1);
+            assertThat(statement.executeUpdate("UPDATE listening_authorization_budget SET attempts = attempts + 1"))
+                    .isEqualTo(2);
+            assertThat(generation()).isEqualTo(initial);
+            statement.execute("DELETE FROM listening_authorization");
+            statement.execute("DELETE FROM listening_authorization_budget");
+            assertThat(generation()).isEqualTo(initial);
+            statement.execute("TRUNCATE listening_authorization, listening_authorization_budget");
             assertThat(generation()).isEqualTo(initial);
         }
     }

@@ -11,7 +11,7 @@ import {
   sessionState,
   storedSession,
   SESSION_STORAGE_KEY,
-} from '$lib/credentials';
+} from '$lib/session/credentials';
 import { requestEmpty, requestJson, type ApiResult } from '$lib/api/http';
 import { listAlbums } from '$lib/api/client';
 import ApiKeyForm from './ApiKeyForm.svelte';

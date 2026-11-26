@@ -61,6 +61,28 @@ variable "public_indexing_enabled" {
   type    = bool
   default = false
 }
+variable "listening_enabled" {
+  description = "Explicitly allow the offline listening shell. API/token authorization remains independent."
+  type        = bool
+  default     = false
+  nullable    = false
+}
+variable "private_audio_upload_enabled" {
+  description = "Opt in to the WAF body-size exception for the exact private FLAC PUT endpoint. Origin authorization, feature flag and 256MiB limit remain required."
+  type        = bool
+  default     = false
+  nullable    = false
+}
+variable "listening_audio_origins" {
+  description = "Exact private audio HTTPS origins for browser downloads; no signed URLs or credentials."
+  type        = set(string)
+  default     = []
+  nullable    = false
+  validation {
+    condition     = length(var.listening_audio_origins) <= 4 && alltrue([for origin in var.listening_audio_origins : can(regex("^https://[a-z0-9][a-z0-9.-]*[a-z0-9](:[0-9]{1,5})?$", origin))])
+    error_message = "Use at most four exact HTTPS origins, without wildcard, path, query or credentials."
+  }
+}
 variable "aliases" {
   type    = list(string)
   default = []

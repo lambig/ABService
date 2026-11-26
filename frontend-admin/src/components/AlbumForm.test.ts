@@ -1,4 +1,4 @@
-import type { AdminAlbumDetail } from '$lib/api/client';
+import type { AdminAlbumDetail, ApiResult } from '$lib/api/client';
 import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -7,15 +7,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  * MOCK-THE-SEAM: 管理APIとの継ぎ目だけを差し替える。この画面が持つのは入力と保存の状態遷移で、
  * 通信そのものは `http.ts` 側の検査が見ている。
  */
-const { getAlbum, updateAlbum } = vi.hoisted(() => ({
+const { getAlbum, updateAlbum, createAlbum } = vi.hoisted(() => ({
   getAlbum: vi.fn(),
   updateAlbum: vi.fn(),
+  createAlbum: vi.fn(),
 }));
 
 vi.mock('$lib/api/client', () => ({
   getAlbum,
   updateAlbum,
-  createAlbum: vi.fn(),
+  createAlbum,
   issueAssetUploadUrl: vi.fn(),
   confirmAsset: vi.fn(),
 }));
@@ -113,8 +114,8 @@ const audioRows = (): readonly HTMLElement[] =>
  * SECTIONS-START-COLLAPSED: 区画は既定で畳まれている。読み込めたことは、区画の見出しが出たところで
  * 見る（欄はまだ描かれていない）。
  */
-const openEditor = async (): Promise<void> => {
-  window.history.replaceState({}, '', `?albumId=${ALBUM_ID}`);
+const renderForm = (mode: 'new' | 'edit' = 'edit', search = `?albumId=${ALBUM_ID}`): void => {
+  window.history.replaceState({}, '', `/${search}`);
   sessionStorage.setItem(
     'abservice.admin.session',
     JSON.stringify({
@@ -122,7 +123,11 @@ const openEditor = async (): Promise<void> => {
       expiresAt: new Date(Date.now() + 1_800_000).toISOString(),
     }),
   );
-  render(AlbumForm, { mode: 'edit' });
+  render(AlbumForm, { mode });
+};
+
+const openEditor = async (): Promise<void> => {
+  renderForm();
   await screen.findByRole('button', { name: '作品を開く' });
 };
 
@@ -131,9 +136,144 @@ const openSection = async (heading: string): Promise<void> => {
 };
 
 beforeEach(() => {
+  vi.clearAllMocks();
   sessionStorage.clear();
   getAlbum.mockResolvedValue({ kind: 'ok', value: detail });
   updateAlbum.mockResolvedValue(rejectedSecondRow);
+  createAlbum.mockResolvedValue(rejectedSecondRow);
+});
+
+describe('保存と入力エラーの表示', () => {
+  it('保存中は変更と二重送信を防ぎ、通信失敗後は入力を保って編集へ戻る', async () => {
+    const pending = Promise.withResolvers<ApiResult<unknown>>();
+    updateAlbum.mockReturnValueOnce(pending.promise);
+    await openEditor();
+    await openSection('作品');
+    await openSection('初出イベント');
+    const title = screen.getByLabelText('タイトル');
+    const place = screen.getByLabelText('会場');
+    await userEvent.type(title, '改');
+    await userEvent.type(place, '入力した会場');
+    await userEvent.click(screen.getByRole('button', { name: '保存する' }));
+
+    expect(title.matches(':disabled')).toBe(true);
+    expect(place.matches(':disabled')).toBe(true);
+    const saving = screen.getByRole('button', { name: '保存しています…' });
+    expect(saving).toHaveProperty('disabled', true);
+    await userEvent.click(saving);
+    expect(updateAlbum).toHaveBeenCalledTimes(1);
+
+    pending.resolve({ kind: 'failed', reason: 'network', message: '通信できませんでした。' });
+    expect(await screen.findByRole('alert')).toHaveProperty(
+      'textContent',
+      '通信できませんでした。',
+    );
+    expect(title).toHaveProperty('value', 'アルバム改');
+    expect(place).toHaveProperty('value', '入力した会場');
+    expect(title.matches(':disabled')).toBe(false);
+    expect(place.matches(':disabled')).toBe(false);
+    expect(screen.getByRole('button', { name: '保存する' })).toHaveProperty('disabled', false);
+    expect(title.getAttribute('aria-invalid')).toBe('false');
+    expect(updateAlbum).toHaveBeenCalledTimes(1);
+  });
+
+  it('複数の入力エラーを応答の位置へ表示し、関係のない欄へ付けない', async () => {
+    const errors = [
+      { field: 'title', label: 'タイトル', message: 'タイトルは必須です' },
+      { field: 'releaseDate', label: 'リリース日', message: '日付は必須です' },
+      { field: 'isdn', label: 'ISDN', message: 'ISDNの形式が違います' },
+      { field: 'event.name', label: 'イベント名', message: 'イベント名は必須です' },
+    ];
+    updateAlbum.mockResolvedValue({
+      ...rejectedSecondRow,
+      problem: { ...rejectedSecondRow.problem, errors },
+    });
+    await openEditor();
+    await userEvent.click(screen.getByRole('button', { name: '保存する' }));
+    await screen.findByText('タイトルは必須です');
+
+    errors.forEach(({ field, label, message }) => {
+      const container = document.querySelector(`[data-field="${field}"]`) as HTMLElement;
+      expect(within(container).getByRole('alert').textContent).toBe(message);
+      expect(screen.getByLabelText(label).getAttribute('aria-invalid')).toBe('true');
+    });
+    expect(screen.getAllByRole('alert')).toHaveLength(errors.length);
+    expect(screen.getByLabelText('アーティスト表示名').getAttribute('aria-invalid')).toBe('false');
+    expect(screen.getByLabelText('カタログナンバー').getAttribute('aria-invalid')).toBe('false');
+  });
+
+  it.each(['', '-1'])(
+    '基準額「%s」のエラーを額だけへ表示し、通貨と入力を保持する',
+    async (amount) => {
+      getAlbum.mockResolvedValue({
+        kind: 'ok',
+        value: { ...detail, basePrice: { amount: 1500, currency: 'JPY' } },
+      });
+      updateAlbum.mockResolvedValue({
+        ...rejectedSecondRow,
+        problem: {
+          ...rejectedSecondRow.problem,
+          errors: [{ field: 'basePrice.amount', message: '額を確認してください' }],
+        },
+      });
+      await openEditor();
+      await openSection('頒布額');
+      const input = screen.getByLabelText('基準額');
+      await userEvent.clear(input);
+      await userEvent.type(input, amount === '' ? '{Backspace}' : amount);
+      await userEvent.click(screen.getByRole('button', { name: '保存する' }));
+
+      const field = document.querySelector('[data-field="basePrice.amount"]') as HTMLElement;
+      expect(await within(field).findByRole('alert')).toHaveProperty(
+        'textContent',
+        '額を確認してください',
+      );
+      expect(screen.getAllByRole('alert')).toHaveLength(1);
+      expect(input).toHaveProperty('value', amount);
+      expect(screen.getByLabelText('通貨コード（未指定は円）')).toHaveProperty('value', 'JPY');
+      expect(updateAlbum).toHaveBeenCalledWith(
+        expect.anything(),
+        ALBUM_ID,
+        expect.objectContaining({
+          basePrice: { amount: amount === '' ? undefined : -1, currency: 'JPY' },
+        }),
+        detail.revision,
+      );
+    },
+  );
+
+  it('新規作成の必須エラーは該当欄だけに出す', async () => {
+    createAlbum.mockResolvedValue({
+      ...rejectedSecondRow,
+      problem: {
+        ...rejectedSecondRow.problem,
+        errors: [
+          { field: 'title', message: 'タイトルは必須です' },
+          { field: 'releaseDate', message: '日付は必須です' },
+        ],
+      },
+    });
+    renderForm('new', '');
+    await userEvent.click(await screen.findByRole('button', { name: '作成する' }));
+
+    expect(await screen.findByText('タイトルは必須です')).toBeTruthy();
+    expect(screen.getByText('日付は必須です')).toBeTruthy();
+    expect(screen.getAllByRole('alert')).toHaveLength(2);
+    expect(screen.getByLabelText('アーティスト表示名').getAttribute('aria-invalid')).toBe('false');
+    expect(createAlbum).toHaveBeenCalledTimes(1);
+    expect(updateAlbum).not.toHaveBeenCalled();
+  });
+
+  it('編集対象が指定されていなければ入力を出さず、APIも呼ばない', async () => {
+    renderForm('edit', '');
+
+    expect(await screen.findByRole('alert')).toHaveProperty(
+      'textContent',
+      '編集する作品が指定されていません。',
+    );
+    expect(screen.queryByLabelText('タイトル')).toBeNull();
+    expect(getAlbum).not.toHaveBeenCalled();
+  });
 });
 
 describe('区画の畳み', () => {

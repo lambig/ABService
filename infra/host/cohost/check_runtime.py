@@ -16,6 +16,7 @@ import uuid
 from unittest.mock import patch
 
 import deploy
+import install_release
 from test_deploy import VALUES, config
 
 
@@ -133,6 +134,8 @@ def main():
             # Also proves $/quotes/newline DB passwords reach both PostgreSQL and app unchanged.
             assert sql("select count(*) from flyway_schema_history where success") != "0"
             print("initial boot, migration, restricted role, authentication and write passed", flush=True)
+            first_migrations = install_release.image_migrations(first)
+            install_release.preflight(first_migrations, state)
 
             for other_state in (root / "mistyped-state", root / "copied-state"):
                 if other_state.name == "copied-state":
@@ -213,6 +216,74 @@ def main():
             for service in ("backend", "postgres"):
                 assert not json.loads(docker("inspect", service_id(service)))[0]["State"]["OOMKilled"]
             print("external volume survived stack removal; recreated containers read saved data", flush=True)
+
+            # Real future migration, applied using the production jar's Flyway.
+            # No hand-written/edited schema-history rows and no ignore-future override.
+            # Quarkus indexes classpath resources at build time, so merely adding
+            # SQL to the built jar would not make its application discover it.
+            extraction = name + "-extract"
+            try:
+                docker("create", "--name", extraction, "--network", "none", args.image)
+                docker("cp", extraction + ":/deployments/app.jar", str(root / "app.jar"))
+            finally:
+                docker("rm", "-fv", extraction)
+            future_version = max(map(int, first_migrations)) + 1
+            fixture = root / "migration-fixture"
+            (fixture / "sql").mkdir(parents=True)
+            (fixture / "sql" / f"V{future_version}__Cohost_future_fixture.sql").write_text(
+                "CREATE TABLE cohost_future_fixture (id integer PRIMARY KEY);\n")
+            deploy.run("javac", "-cp", str(root / "app.jar"), "-d", str(fixture),
+                       str(Path(__file__).with_name("CohostFutureMigration.java")))
+            (root / "Dockerfile").write_text(
+                f"FROM {args.image}\nCOPY --chown=1000:1000 migration-fixture /migration-fixture\n")
+            future_tag = name + ":future"
+            docker("build", "-t", future_tag, str(root))
+            tags.append(future_tag)
+            migration_model = deploy.read_json(state / "current.json")["compose"]
+            migration_model["services"]["backend"]["image"] = future_tag
+            migration_file = root / "migration.compose.json"
+            deploy.write_json(migration_file, migration_model)
+            deploy.compose(c, migration_file, "run", "--rm", "--no-deps", "--entrypoint", "java", "backend",
+                           "-cp", "/deployments/app.jar:/migration-fixture", "CohostFutureMigration")
+            assert sql("select max(version::int) from flyway_schema_history where success") == str(future_version)
+            healthy_backend = service_id("backend")
+            healthy_db = service_id("postgres")
+            saved_state = {p: p.read_bytes() for p in state.iterdir() if p.is_file()}
+            history = sql("select json_agg(h order by installed_rank) from flyway_schema_history h")
+            try:
+                install_release.preflight(first_migrations, state)
+            except ValueError as error:
+                assert "do not match" in str(error)
+            else:
+                raise AssertionError("Future database was accepted by the older image")
+            for path, content in saved_state.items():
+                assert path.read_bytes() == content
+            assert service_id("backend") == healthy_backend
+            assert service_id("postgres") == healthy_db
+            assert json.loads(http("/api/v1/site-contents")[1]) == before
+            assert sql("select json_agg(h order by installed_rank) from flyway_schema_history h") == history
+
+            # Independently show the older real app fails startup on that schema.
+            # One-off container shares only this disposable DB, with no published port.
+            probe_model = deploy.read_json(state / "current.json")["compose"]
+            probe_model["services"]["backend"]["image"] = first
+            probe_file = root / "old-app.compose.json"
+            deploy.write_json(probe_file, probe_model)
+            probe = name + "-old-app"
+            try:
+                result = subprocess.run(["docker", "compose", "--env-file", "/dev/null", "-p", name,
+                                         "-f", str(probe_file), "run", "--no-deps", "--name", probe, "backend"],
+                                        capture_output=True, timeout=90)
+                logs = result.stdout + result.stderr
+                assert result.returncode != 0
+                assert b"Detected applied migration not resolved locally" in logs
+            finally:
+                docker("rm", "-fv", probe)
+            assert service_id("backend") == healthy_backend
+            assert service_id("postgres") == healthy_db
+            assert json.loads(http("/api/v1/site-contents")[1]) == before
+            assert sql("select json_agg(h order by installed_rank) from flyway_schema_history h") == history
+            print("future migration: old real app failed validation; preflight rejected it without changing service/data/history", flush=True)
     finally:
         try:
             if (state / "candidate.compose.json").exists():

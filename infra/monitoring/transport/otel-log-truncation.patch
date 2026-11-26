@@ -1,0 +1,42 @@
+--- a/sdk/trace/span.go
++++ b/sdk/trace/span.go
+@@ -500,6 +500,11 @@
+ 			s = s[i:]
+ 			break
+ 		}
++		// A valid U+FFFD consumes one character of the limit.
++		count++
++		if count > limit {
++			return s[:i]
++		}
+ 	}
+ 
+ 	// Fast-path, no invalid input.
+--- a/trace/auto.go
++++ b/trace/auto.go
+@@ -404,6 +404,11 @@
+ 			_, _ = b.WriteString(s[:i])
+ 			s = s[i:]
+ 			break
++		}
++		// A valid U+FFFD consumes one character of the limit.
++		count++
++		if count > limit {
++			return s[:i]
+ 		}
+ 	}
+ 
+--- a/sdk/log/record.go
++++ b/sdk/log/record.go
+@@ -710,6 +710,11 @@
+ 			s = s[i:]
+ 			break
+ 		}
++		// A valid U+FFFD consumes one character of the limit.
++		count++
++		if count > limit {
++			return s[:i]
++		}
+ 	}
+ 
+ 	// Fast-path, no invalid input.

@@ -1,0 +1,6 @@
+{
+  "image": "public.ecr.aws/cloudwatch-agent/cloudwatch-agent@sha256:edb2af917acde41563313cb7cf66d963bb5e5ee1b16b31d40b832b653822d687",
+  "platform": "linux/amd64",
+  "manifest": "sha256:9e374fcbf66fcabb10fe441d6b45c55b2afe18e90a34911f8e2c1347aeb2c0f9",
+  "config": "sha256:6201b95d63b54245e3ee7ce6f82dc665e1a2c87be4d7ca2d50ce64cf937fb9d0"
+}

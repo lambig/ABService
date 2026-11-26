@@ -73,7 +73,9 @@ public class ProblemDetailResponseFilter implements OASFilter {
             CONFLICT,
             "業務ルールに反する、または他の操作と競合した",
             INTERNAL_ERROR,
-            "想定外の失敗");
+            "想定外の失敗",
+            "503",
+            "受付超過または期限切れ。Retry-Afterの秒数後に再試行できる");
 
     @Override
     public void filterOpenAPI(OpenAPI openAPI) {
