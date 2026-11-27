@@ -1,6 +1,10 @@
 {
   "name": "abservice-player",
-  "abservice": { "ciTracks": ["listening"] },
+  "abservice": {
+    "ciTracks": [
+      "listening"
+    ]
+  },
   "version": "1.0.0",
   "description": "Manifest-driven local audio player PoC",
   "type": "module",

@@ -1,6 +1,10 @@
 {
   "name": "abservice-patterns",
-  "abservice": { "ciTracks": ["application"] },
+  "abservice": {
+    "ciTracks": [
+      "application"
+    ]
+  },
   "version": "1.0.0",
   "description": "ABService pattern matching - exhaustive, expression-based branching for TypeScript",
   "type": "module",
@@ -34,7 +38,11 @@
     "url": "git+https://github.com/lambig/ABService.git",
     "directory": "packages/patterns"
   },
-  "keywords": ["pattern-matching", "exhaustive", "typescript"],
+  "keywords": [
+    "pattern-matching",
+    "exhaustive",
+    "typescript"
+  ],
   "author": "Lambig",
   "license": "MIT"
 }

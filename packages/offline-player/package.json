@@ -1,6 +1,10 @@
 {
   "name": "abservice-offline-player",
-  "abservice": { "ciTracks": ["listening"] },
+  "abservice": {
+    "ciTracks": [
+      "listening"
+    ]
+  },
   "version": "1.0.0",
   "description": "Offline listening integration PoC",
   "type": "module",

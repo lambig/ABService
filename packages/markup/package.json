@@ -1,6 +1,10 @@
 {
   "name": "abservice-markup",
-  "abservice": { "ciTracks": ["application"] },
+  "abservice": {
+    "ciTracks": [
+      "application"
+    ]
+  },
   "version": "1.0.0",
   "description": "ABService Markup Rendering - Markdown to sanitized HTML, shared by admin preview and public site",
   "type": "module",

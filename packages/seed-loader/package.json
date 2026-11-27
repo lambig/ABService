@@ -1,6 +1,10 @@
 {
   "name": "abservice-seed-loader",
-  "abservice": { "ciTracks": ["application"] },
+  "abservice": {
+    "ciTracks": [
+      "application"
+    ]
+  },
   "version": "1.0.0",
   "description": "Loads the initial site content, albums and articles through the admin API (#373)",
   "type": "module",

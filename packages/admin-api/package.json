@@ -1,6 +1,10 @@
 {
   "name": "abservice-admin-api",
-  "abservice": { "ciTracks": ["application"] },
+  "abservice": {
+    "ciTracks": [
+      "application"
+    ]
+  },
   "version": "1.0.0",
   "description": "Admin API client shared by the E2E seed and the initial data loader",
   "type": "module",

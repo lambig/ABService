@@ -1,6 +1,10 @@
 {
   "name": "abservice-public-presentation",
-  "abservice": { "ciTracks": ["application"] },
+  "abservice": {
+    "ciTracks": [
+      "application"
+    ]
+  },
   "version": "1.0.0",
   "description": "Shared public page layout and draft article presentation",
   "type": "module",

@@ -72,17 +72,17 @@ jobs:
             [[ "$SOURCE_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]
             [[ "$CONTROLLER_SHA" =~ ^[a-f0-9]{40}$ ]]
           fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: ${{ inputs.source_repository || github.repository }}
           path: delivery
           ref: ${{ inputs.normal_release == true && inputs.commit_sha || inputs.controller_sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: delivery/.nvmrc
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
           role-to-assume: ${{ vars.AWS_FRONTEND_DEPLOY_ROLE_ARN }}
           aws-region: ap-northeast-1
@@ -98,14 +98,14 @@ jobs:
         env:
           SELECTED_SHA: ${{ steps.source.outputs.code_sha }}
         run: git merge-base --is-ancestor "$SELECTED_SHA" origin/main
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         if: env.ACTION != 'rollback'
         with:
           repository: ${{ inputs.source_repository || github.repository }}
           ref: ${{ steps.source.outputs.code_sha }}
           path: source
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         if: env.ACTION != 'rollback'
         with:
           node-version-file: delivery/.nvmrc

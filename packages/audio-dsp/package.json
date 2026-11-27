@@ -1,6 +1,10 @@
 {
   "name": "abservice-audio-dsp",
-  "abservice": { "ciTracks": ["listening"] },
+  "abservice": {
+    "ciTracks": [
+      "listening"
+    ]
+  },
   "version": "1.0.0",
   "description": "Browser-independent audio feature contracts and reference DSP",
   "type": "module",

@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "ABService - Web Service implementation",
   "private": true,
+  "allowScripts": {
+    "fsevents@2.3.2 || 2.3.3": false
+  },
   "workspaces": [
     "packages/*",
     "frontend-public",

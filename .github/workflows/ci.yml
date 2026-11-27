@@ -35,11 +35,11 @@ jobs:
       browser_audio_worklet: ${{ steps.scope.outputs.browser_audio_worklet }}
       browser_visualizer: ${{ steps.scope.outputs.browser_visualizer }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # Include the PR merge base and both sides of renames/deletions.
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
       - name: Verify CI selection and aggregation
@@ -73,13 +73,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Build and start patched PostgreSQL
         run: docker compose up -d --build --wait --wait-timeout 120 postgres
 
       - name: Set up JDK 25 (Corretto)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: corretto
           java-version: '25'
@@ -89,7 +89,7 @@ jobs:
         run: sh backend/security/update-java-blocklist.sh "$JAVA_HOME"
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
 
       - name: Ensure gradlew is executable
         run: chmod +x backend/gradlew
@@ -130,7 +130,7 @@ jobs:
 
       - name: Upload reports
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: backend-reports
           path: |
@@ -147,8 +147,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -166,8 +166,8 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -199,10 +199,10 @@ jobs:
     # DB も MinIO も要らない（定義の生成は型情報だけで完結し、実行時の依存を持たない）。
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up JDK 25 (Corretto)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: corretto
           java-version: '25'
@@ -212,10 +212,10 @@ jobs:
         run: sh backend/security/update-java-blocklist.sh "$JAVA_HOME"
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -278,7 +278,7 @@ jobs:
       ORIGIN_VERIFY_TOKEN: ci-origin-verify-token
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ./.github/actions/check-container
         with:
           architecture: arm64
@@ -301,7 +301,7 @@ jobs:
       ORIGIN_VERIFY_TOKEN: ci-origin-verify-token
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: ./.github/actions/check-container
         with:
           architecture: amd64
@@ -315,12 +315,12 @@ jobs:
     # 資格情報を要さない静的な検査だけを行う。state を触らないよう backend は初期化しない。
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       # versions.tf の required_version の下限で検査する。手元が新しくても、宣言した下限で
       # 通らない書き方が入ったらここで落ちる
       - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
         with:
           terraform_version: 1.17.2
           terraform_wrapper: false
@@ -339,7 +339,7 @@ jobs:
       - name: Check the deploy issues the tags the ECR retention rule selects
         run: scripts/check-deploy-image-tag.sh
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
 
@@ -363,7 +363,7 @@ jobs:
         run: python3 infra/host/cohost/check_origin.py
 
       - name: Initialize without the backend
-        run: terraform -chdir=infra init -backend=false
+        run: terraform -chdir=infra init -backend=false -lockfile=readonly
 
       - name: Validate
         run: terraform -chdir=infra validate
@@ -374,19 +374,19 @@ jobs:
       - name: Verify independent backup storage and freshness monitoring
         run: |
           PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s infra/cohost-backup -v
-          terraform -chdir=infra/cohost-backup init -backend=false
+          terraform -chdir=infra/cohost-backup init -backend=false -lockfile=readonly
           terraform -chdir=infra/cohost-backup validate
           terraform -chdir=infra/cohost-backup test
 
       - name: Verify independent cohost provisioning boundaries
         run: |
-          terraform -chdir=infra/cohost-host init -backend=false
+          terraform -chdir=infra/cohost-host init -backend=false -lockfile=readonly
           terraform -chdir=infra/cohost-host validate
           terraform -chdir=infra/cohost-host test
 
       - name: Verify independent edge provisioning boundaries
         run: |
-          terraform -chdir=infra/cohost-edge init -backend=false
+          terraform -chdir=infra/cohost-edge init -backend=false -lockfile=readonly
           terraform -chdir=infra/cohost-edge validate
           terraform -chdir=infra/cohost-edge test
 
@@ -424,13 +424,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Build and start patched PostgreSQL
         run: docker compose up -d --build --wait --wait-timeout 120 postgres
 
       - name: Set up JDK 25 (Corretto)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: corretto
           java-version: '25'
@@ -440,10 +440,10 @@ jobs:
         run: sh backend/security/update-java-blocklist.sh "$JAVA_HOME"
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -467,7 +467,7 @@ jobs:
       - name: Cache Playwright browsers
         if: needs.changes.outputs.browser_e2e == 'true'
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -516,7 +516,7 @@ jobs:
       # trace と動画はレビューの証跡でもある（#164）。画像は evidence ブランチへ別途公開する
       - name: Upload Playwright artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: e2e-artifacts
           path: |
@@ -533,8 +533,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -551,7 +551,7 @@ jobs:
         run: node scripts/browser-ci.mjs player
       - name: Upload browser evidence
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: player-browser
           path: packages/player/test-results/
@@ -565,8 +565,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -583,7 +583,7 @@ jobs:
         run: node scripts/browser-ci.mjs storage
       - name: Upload browser results
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: storage-browser
           path: packages/offline-storage/test-results/
@@ -597,8 +597,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -615,7 +615,7 @@ jobs:
         run: node scripts/browser-ci.mjs shell
       - name: Upload browser evidence
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: shell-browser
           path: packages/offline-shell/test-results/
@@ -629,8 +629,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -651,7 +651,7 @@ jobs:
         run: npm run test:pairing:browser -w abservice-offline-player
       - name: Upload browser evidence
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: offline-player-browser
           path: packages/offline-player/test-results/
@@ -665,8 +665,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -683,7 +683,7 @@ jobs:
         run: node scripts/browser-ci.mjs audio-worklet
       - name: Upload browser evidence
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: audio-worklet-browser
           path: packages/audio-worklet/test-results/
@@ -697,8 +697,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -715,7 +715,7 @@ jobs:
         run: node scripts/browser-ci.mjs visualizer
       - name: Upload browser evidence
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: visualizer-browser
           path: packages/visualizer/test-results/
@@ -729,8 +729,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
       - name: Require success from every selected job

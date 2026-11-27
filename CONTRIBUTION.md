@@ -88,6 +88,26 @@ Java（Amazon Corretto）・Quarkus・Gradle は固定バージョンで運用�
 
 昇格時は「Quarkus 本体・quarkiverse 拡張・AWS SDK・ErrorProne+NullAway」を揃えて上げ、`check`（静的解析・単体・実DB統合テスト）→ `quarkusBuild` → コンテナイメージビルドまで通すこと。
 
+### 依存の更新・復帰
+
+更新は互換性を保つ組ごとにPRへまとめ、元の版・更新理由・採用版・影響する利用経路の検証を示す。定期的な確認は月次とし、上流の保守終了、対応範囲の変更、セキュリティ通知は随時確認する。担当者が既存Issueと公式のリリース情報を照合する手動運用を採用し、Dependabot/Renovateによる一括PR作成・自動マージは導入しない（#158）。
+
+| 対象 | 固定・更新の単位と検証 |
+| --- | --- |
+| Java・Quarkus・Gradle | 上の互換性を保つ組とWrapperのchecksumを更新する。公開Library/Harnessの互換性・復帰は所有元の更新ガイドを参照する |
+| Node・npm・frontend | Nodeと同梱npm、Astroとintegration/Svelte、lintのpeer依存を揃える。manifestとlockを同時に更新し、空キャッシュの `npm ci`、影響するlint・型・単体試験・buildを使う。ブラウザ検査は既存の選択規則に従う |
+| Terraform | `versions.tf` の制約とlockを組にする。`terraform -chdir=infra init -backend=false -upgrade` と必要platformの `providers lock` で候補を生成し、CIはreadonly lockでfmt・validate・既存試験を確認する。実環境plan・本番リリースの判断は別工程 |
+| コンテナ | 外部base imageはdigestで固定し、同じ名前のローカルbuildと区別する。base・OSパッケージ・同梱ツールを揃えて再buildし、対象architectureの起動・既存契約・脆弱性を確認する |
+| GitHub Actions | 所有元のtag/releaseを完全commit SHAへ解決し、annotated tagはcommitまで辿る。SHAと版コメントを同時に更新し、変更したworkflowを検証する。GitHub管理のrunner imageは可変なので、実行ログのimage版を証拠に残す |
+
+npmの取得はプロジェクトのregistry設定とlockのintegrityを使う。git依存、外部tarball、install scriptからのネットワーク取得はregistryの保護範囲に含めず、取得元・固定版・必要性を採用前に確認する。install-time scriptは内容と実行環境を確認して `allowScripts` に許可または拒否を記録する。未審査のscriptはinstallを失敗させる。ブラウザ等の明示取得コマンドも取得元と対象版を確認し、認証情報を取得処理へ不要に渡さない。
+
+セキュリティ通知では、対象版・推移依存・到達経路・修正版を確認して優先順位を決める。上の通常待機条件では間に合わない場合は、例外の対象版と根拠をIssue/PRに記録し、必要な検証を実施する。検出なしだけを安全性の根拠にしない。health・metrics・ログを扱う#118は更新方針の担当先ではなく、更新後の起動確認で既存の観測経路を使う。
+
+不具合時は、最後に検証したmanifest・lock・Wrapper・Action SHA・image digestの組へ戻して影響経路を再検証する。公開済みartifactは上書きせず、ソース修正のrevertと本番リリースのロールバックを区別する。DB・OS変更の復帰可否とサービス停止は対象のリリース手順で判断する。
+
+artifactを公開する更新では、候補の検証と公開先から取得した版の検証を区別する。公開後に候補とのハッシュ一致または変換の対応を照合し、依存解決を伴うものは空キャッシュのconsumerを対象環境で実行する。ソースSHA・版タグ・固定ソースリンク・取得検証のログを公開記録から辿れるようにする。公開後の版表記・リンクの同期は公開手順に含め、表記だけの同期PRを独立したリリース判定や後続作業の前提にしない。
+
 詳細なアーキテクチャ設計については、[ARCHITECTURE.md](docs/ARCHITECTURE.md)を参照してください。
 
 ### ディレクトリ構造
