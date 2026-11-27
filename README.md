@@ -102,7 +102,13 @@ jj git push --bookmark feat/example
 
 コンテナへDockerソケット、ホストのホーム全体、本番資格情報を渡しません。Dockerによる作成・起動・停止はホスト側の入口が行います。Dockerを操作するホスト側の権限はこのコンテナ境界より広いため、エージェントの通常作業は対象環境へ限定します。PRマージ・mainへの直接統合と本番リリースは通常開発の許可に含めません。
 
-Codexをコンテナ内部で実行する場合は、コンテナを隔離境界にする設定を利用者が管理します。[公式の実行権限ガイド](https://learn.chatgpt.com/docs/agent-approvals-security)に従い、コンテナ内で `--sandbox danger-full-access --ask-for-approval never` を使う構成と、ホストの権限を区別してください。この設定で管理者・実行基盤の強制規則を上書きすることはできません。認証は利用者の明示確認後に開始し、GitHubの読取りは接続済みコネクタを優先します。実行環境が操作ごとの追加承認を強制する場合、その制約の管理主体と未確認の経路を残件として扱います。
+初回起動前に、ホストで[公開用 Git identity](CONTRIBUTION.md#公開用-git-identity)を設定し、上記の `scripts/setup-workspace-hooks.sh` を実行します。対象workspaceで `npm run workspace -- up <id>` を実行すると、Codexを含むイメージをビルドし、`tools` は承認済みのGitローカルidentityと導入済みの公開前検査をコンテナ側のリポジトリ単位のJJ設定に反映します。ホストのJJ設定はコピーしません。identityが不足・不一致の場合や検査が未導入の場合は、ホスト側の設定を直してから起動し直します。上記のDevContainerで `tools` に接続し、対象workspaceのターミナルで `codex --version` と `codex login status` を確認します。
+
+未認証の場合は、**ログインを開始するたびに利用者の明示同意を得てから**、コンテナ内で `codex login --device-auth` を実行できます。アカウント設定でデバイスコード認証が許可されていれば、表示される案内に従いスマートフォンで認証できます。認証状態はコンテナ側で管理し、ホストの `auth.json` やSSH鍵をコピーしません。
+
+認証済みのコンテナ内で `codex --sandbox danger-full-access --ask-for-approval never` を実行します。Dockerが隔離境界なので、この指定はコンテナ内だけで使います。管理者や実行基盤が強制する規則は上書きできません。[公式の実行権限ガイド](https://learn.chatgpt.com/docs/agent-approvals-security)を参照してください。
+
+GitHubの読取りは接続済みコネクタを優先し、公開は上記の別途確認するホストGit／コネクタ経路で行います。コンテナ内で開発操作が通っても、[#619](https://github.com/lambig/ABService/issues/619) 全体で操作ごとの追加承認が不要であることの確認にはなりません。追加承認が必要な経路は、その制約の管理主体と未確認の操作を残件として扱います。
 
 ### ビルドとテスト
 

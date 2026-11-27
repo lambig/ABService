@@ -13,7 +13,8 @@ RUN sh /tmp/java-security/update-java-blocklist.sh /opt/java
 COPY --from=node /usr/local /usr/local
 ENV JAVA_HOME=/opt/java PATH=/opt/java/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
 COPY scripts/install-jj.sh /usr/local/lib/abservice/install-jj.sh
-RUN npm install --global npm@11.19.1 --registry=https://npm.flatt.tech/ \
+RUN npm install --global npm@11.19.1 @openai/codex@0.172.0 --registry=https://npm.flatt.tech/ \
+    && test "$(codex --version)" = "codex-cli 0.172.0" \
     && bash /usr/local/lib/abservice/install-jj.sh /usr/local/bin \
     && java -version && node --version && npm --version
 # Ubuntu's default uid 1000 is used; no sudo, Docker socket or host credentials.
