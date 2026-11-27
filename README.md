@@ -85,16 +85,16 @@ jj workspace update-stale
 
 `setup-workspace-hooks.sh` は公開用のローカルidentityをJJへ引き継ぎ、共有Git管理領域へ検査を設置します。JJ 0.47.1は内部のGit pushへ `--no-verify` を渡すため、専用のGit実行入口でこれを取り除き、GitとJJの送信前に同じ検査を実行します。スクリプト更新時はセットアップを再実行します。Javaの変更では、JJのsnapshotがGitのpre-commitを実行しないため、必要な品質検査を `exec` から実行して結果を公開前の記録へ対応付けます。
 
-公開前には、完全なbase/head SHAを固定して次の入口から差分・途中コミット・レビュー雛形を生成します。`base` は現在のremote main、`head` は対象bookmarkのcommit IDです。
+公開前には、完全なbase/head SHAを固定して次の入口から差分・途中コミット・レビュー雛形を生成します。`base` には公開済みmain上のcommit ID、`head` には対象bookmarkのcommit IDを指定します。`prepare` は両者の共通祖先を確認範囲のbaseとして記録します。mainが別作業で進んでも、記録したbaseが公開履歴に含まれ、対象headと送信先ブランチが変わらなければ確認記録を再利用できます。
 
 ```bash
 node scripts/publication-check.mjs prepare <base> <head> origin refs/heads/feat/example
 jj git push --bookmark feat/example
 ```
 
-生成先は共有Git管理領域の `abservice-publication/<head>/` です。送信前に `diff.patch` と `history.patch` の全内容・追加ファイル・コミットのメタデータを確認し、`review.template.json` を元に `review.json` を保存します。ファイル別所見、機密確認、実行済みの検証を記録し、正確な送信先と証拠をレビュー担当が読める場所で提示します。公開する本文・画像等は別途確認して `materials` にそのファイル・SHA-256・所見を対応付けます。確認前の雛形を機械的に合格へ書き換えません。GitHubへのpushは既存の開発用Git接続を持つWSLホストから行い、コンテナへホストの資格情報を持ち込みません。PRはそのbookmarkのブランチから作成・更新し、保存された本文を読み戻します。
+生成先は共有Git管理領域の `abservice-publication/<head>/` です。履歴とファイル一覧は各マージの全親との差分も含み、途中のマージで追加して後で削除した内容も確認対象に残します。送信前に `diff.patch` と `history.patch` の全内容・追加ファイル・コミットのメタデータを確認し、`review.template.json` を元に `review.json` を保存します。ファイル別所見、機密確認、実行済みの検証を記録し、正確な送信先と証拠をレビュー担当が読める場所で提示します。公開する本文・画像等は別途確認して `materials` にそのファイル・SHA-256・所見を対応付けます。確認前の雛形を機械的に合格へ書き換えません。GitHubへのpushは既存の開発用Git接続を持つWSLホストから行い、コンテナへホストの資格情報を持ち込みません。PRはそのbookmarkのブランチから作成・更新し、保存された本文を読み戻します。
 
-検査は証拠の欠落・変更、remoteの変化、既知のトークン形式や模擬機微情報を拒否します。内容の意味や全種類の秘密を自動判定するものではなく、公開前の内容確認は必要です。main・releaseブランチ・タグ・削除はこの入口で扱いません。GitHubコネクタ等のGitフックを通らない公開にも同じ内容確認を行います。フックを無効化した操作や別のGit実行入口に対するセキュリティ隔離ではありません。
+検査は証拠の欠落・変更、送信先ブランチの競合や公開済みbaseの失効、既知のトークン形式や模擬機微情報を拒否します。内容の意味や全種類の秘密を自動判定するものではなく、公開前の内容確認は必要です。main・releaseブランチ・タグ・削除はこの入口で扱いません。GitHubコネクタ等のGitフックを通らない公開にも同じ内容確認を行います。フックを無効化した操作や別のGit実行入口に対するセキュリティ隔離ではありません。
 
 #### エージェントの実行場所と権限
 
