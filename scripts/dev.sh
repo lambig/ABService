@@ -5,6 +5,13 @@
 
 set -e
 
+# A configured JJ workspace owns its complete Compose environment.
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ -f "$ROOT/.dev-env/state.json" ]]; then
+    ENVIRONMENT_ID="$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).id' "$ROOT/.dev-env/state.json")"
+    exec node "$ROOT/scripts/workspace.mjs" up "$ENVIRONMENT_ID"
+fi
+
 echo "🚀 Starting ABService development environment..."
 
 # Function to cleanup on exit
@@ -65,7 +72,7 @@ main() {
     echo ""
     echo "📚 Service URLs:"
     echo "  Backend API: http://localhost:8080"
-    echo "  Frontend Admin: http://localhost:5173"
+    echo "  Frontend Admin: http://localhost:4322/admin"
     echo "  Frontend Public: http://localhost:4321"
     echo ""
     echo "Press Ctrl+C to stop all services"

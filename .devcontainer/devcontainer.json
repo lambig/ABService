@@ -1,0 +1,9 @@
+{
+  "name": "ABService workspace",
+  "dockerComposeFile": "../.dev-env/compose.json",
+  "service": "tools",
+  "workspaceFolder": "${localWorkspaceFolder}",
+  "remoteUser": "developer",
+  "overrideCommand": false,
+  "shutdownAction": "none"
+}

@@ -17,6 +17,8 @@ docker/
 └── README.md                        # このファイル
 ```
 
+複数作業の同時起動は [JJ workspaceの開発ガイド](../README.md#jj-workspaceで並行開発する) を使います。以下は従来の単一環境・CI向けの入口です。
+
 ## Docker Composeファイル
 
 ### docker-compose.yml

@@ -10,6 +10,8 @@
     "e2e"
   ],
   "scripts": {
+    "workspace": "node scripts/workspace.mjs",
+    "test:workspace": "node --test scripts/workspace.test.mjs scripts/workspace-lifecycle.test.mjs scripts/publication-check.test.mjs",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:public\"",
     "dev:backend": "cd backend && ./gradlew quarkusDev",
     "start:backend:e2e": "backend/gradlew -p backend quarkusBuild && node e2e/scripts/start-backend.mjs",
