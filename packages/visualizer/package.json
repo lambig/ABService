@@ -1,5 +1,10 @@
 {
   "name": "abservice-visualizer",
+  "abservice": {
+    "ciTracks": [
+      "listening"
+    ]
+  },
   "version": "1.0.0",
   "description": "Independent fake AudioFeatures WebGPU visualizer PoC",
   "type": "module",

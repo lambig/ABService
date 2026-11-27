@@ -1,5 +1,10 @@
 {
   "name": "abservice-audio-worklet",
+  "abservice": {
+    "ciTracks": [
+      "listening"
+    ]
+  },
   "version": "1.0.0",
   "description": "AudioWorklet RMS transport and synthetic playback PoC",
   "type": "module",

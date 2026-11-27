@@ -1,10 +1,17 @@
 {
   "name": "abservice-listening-presentation",
+  "abservice": {
+    "ciTracks": [
+      "listening"
+    ]
+  },
   "version": "1.0.0",
   "description": "Listening package presentation data",
   "type": "module",
   "private": true,
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
@@ -24,6 +31,9 @@
     "typescript-eslint": "^8.0.0",
     "vitest": "4.1.12"
   },
-  "engines": { "node": "24.22.3", "npm": "11.19.1" },
+  "engines": {
+    "node": "24.22.3",
+    "npm": "11.19.1"
+  },
   "license": "MIT"
 }

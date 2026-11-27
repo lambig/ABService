@@ -6,17 +6,14 @@ import { browserJobs, browserKeys, browserSuites, browserOutputs, browserSelecti
 const workspaceTracks = ['application', 'listening'];
 export const tracks = [...workspaceTracks, 'infrastructure'];
 
-// Ownership is deliberately coarse. Unknown workspaces belong to both tracks
-// until their boundary is decided; checks must not disappear when packages grow.
-const ownership = {
-  application: ['frontend-public', 'frontend-admin', 'e2e', 'packages/markup', 'packages/patterns',
-    'packages/public-presentation', 'packages/admin-api', 'packages/seed-loader'],
-  listening: [
-    'packages/audio-dsp', 'packages/audio-worklet', 'packages/installation', 'packages/distribution-client',
-    'packages/listening-preparation', 'packages/listening-presentation',
-    'packages/player', 'packages/offline-storage', 'packages/offline-shell',
-    'packages/offline-player', 'packages/visualizer',
-  ],
+// Missing ownership keeps both tracks. An invalid declaration must never hide checks.
+const owners = (workspace) => {
+  const declared = workspace.abservice?.ciTracks;
+  if (declared === undefined) return workspaceTracks;
+  assert.ok(Array.isArray(declared) && declared.length > 0
+    && declared.every((track) => workspaceTracks.includes(track)),
+  `Invalid abservice.ciTracks for ${workspace.name}`);
+  return declared;
 };
 
 export const jobs = {
@@ -38,9 +35,7 @@ const dependencies = (workspace) => Object.keys({
 
 export const trackWorkspaces = (workspaces, track) => {
   assert.ok(workspaceTracks.includes(track), `Unknown CI track: ${track}`);
-  const known = Object.values(ownership).flat();
-  const roots = workspaces.filter((workspace) =>
-    ownership[track].includes(workspace.location) || !known.includes(workspace.location));
+  const roots = workspaces.filter((workspace) => owners(workspace).includes(track));
   const expand = (selected) => {
     const names = new Set(selected.flatMap(dependencies));
     const next = workspaces.filter((workspace) => selected.includes(workspace) || names.has(workspace.name));
@@ -76,6 +71,7 @@ export const selectTracks = (files, workspaces) => {
 };
 
 export const selectCI = ({ event, ref, files, workspaces, exists }) => {
+  workspaces.forEach(owners);
   const plan = browserSelection({ event, ref, files, workspaces, exists });
   const selected = event === 'pull_request' || (event === 'push' && ref === 'refs/heads/main')
     ? selectTracks(files, workspaces) : Object.fromEntries(tracks.map((track) => [track, true]));

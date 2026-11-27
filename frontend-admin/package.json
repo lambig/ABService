@@ -1,5 +1,10 @@
 {
   "name": "abservice-frontend-admin",
+  "abservice": {
+    "ciTracks": [
+      "application"
+    ]
+  },
   "version": "1.0.0",
   "description": "ABService admin console",
   "type": "module",

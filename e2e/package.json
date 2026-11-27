@@ -1,5 +1,10 @@
 {
   "name": "abservice-e2e",
+  "abservice": {
+    "ciTracks": [
+      "application"
+    ]
+  },
   "version": "1.0.0",
   "description": "ABService end-to-end tests and review evidence",
   "type": "module",

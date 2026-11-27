@@ -444,9 +444,11 @@ actor 列を埋めないのは、現行の認証が単一の管理者を表す�
 
 グローバルではなくプロジェクト単位に置くのは、`~/.npmrc` を変えると同じ開発機の**他プロジェクトの取得経路まで変わる**ため。影響をこのリポジトリに閉じる。
 
-**トレードオフ**: 依存の取得がプロキシの可用性に依存する。`npm publish` / `npm login` は読み取り専用プロキシのため通らない（必要なら `--registry` で直接指定する）。プライベートレジストリ経由で取得するパッケージはスキャンを受けない。ロックファイルの `resolved` にプロキシの URL が記録されるため、Guard をやめる場合はロックファイルの再生成が必要になる（この記録には npm 11.15.0 以降が要る。8 で npm を 11.19.0 に固定しているのはこの条件も満たすため）。
+**トレードオフ**: 依存の取得がプロキシの可用性に依存する。`npm publish` / `npm login` は読み取り専用プロキシのため通らない（必要なら `--registry` で直接指定する）。プライベートレジストリやinstall scriptが別途取得する資産は保護範囲外。lockの `registry.npmjs.org` はnpmの `replace-registry-host=npmjs` によって設定先へ置き換わるため、その表記だけで直接取得と判断しない。別hostの固定URLは個別に確認する。
 
 **実体**: `.npmrc`（`registry`）。CI への組み込み（`flatt-security/setup-takumi-guard-npm`）は #124 で扱う。
+
+**更新判断（#158）**: install scriptの審査を明示し、未審査ならinstallを止める。更新の単位・手順と復帰は [CONTRIBUTION](../CONTRIBUTION.md#依存の更新復帰) を正とする。Actionsは完全commit SHA、外部containerはdigest、Terraform/npmはlockで固定し、更新bot・自動マージは採用せず手動で追従する。
 
 ---
 

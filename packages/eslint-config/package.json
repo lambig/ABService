@@ -1,5 +1,11 @@
 {
   "name": "abservice-eslint-config",
+  "abservice": {
+    "ciTracks": [
+      "application",
+      "listening"
+    ]
+  },
   "version": "1.0.0",
   "description": "ABService TypeScript coding convention as eslint rules, shared by every TypeScript workspace",
   "type": "module",

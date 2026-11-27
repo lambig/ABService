@@ -6,16 +6,17 @@ import { fileURLToPath } from 'node:url';
 import { frontendTasks, gateFailures, jobs, selectCI, selectTracks, trackWorkspaces } from './ci-policy.mjs';
 import { browserKeys, browserSuites } from './browser-policy.mjs';
 
-const workspace = (name, location, dependencies = {}) => ({
-  name, location, dependencies, scripts: { lint: 'lint', typecheck: 'types', test: 'test', build: 'build' },
+const workspace = (name, location, dependencies = {}, ciTracks = ['application']) => ({
+  name, location, dependencies, abservice: { ciTracks },
+  scripts: { lint: 'lint', typecheck: 'types', test: 'test', build: 'build' },
 });
 const fixtures = [
   workspace('site', 'frontend-public', { markup: '*', presentation: '*' }),
   workspace('presentation', 'packages/public-presentation', { markup: '*' }),
   workspace('markup', 'packages/markup', { rules: '*' }),
-  workspace('player', 'packages/player', { rules: '*' }),
-  workspace('offline', 'packages/offline-player', { player: '*' }),
-  workspace('rules', 'packages/eslint-config'),
+  workspace('player', 'packages/player', { rules: '*' }, ['listening']),
+  workspace('offline', 'packages/offline-player', { player: '*' }, ['listening']),
+  workspace('rules', 'packages/eslint-config', {}, ['application', 'listening']),
   workspace('e2e', 'e2e'),
 ];
 
@@ -77,7 +78,7 @@ test('main scenario changes still execute their browser suites and containing jo
 });
 
 test('browser fallback cannot select application E2E inside a skipped application job', () => {
-  const orphan = [...fixtures, workspace('dsp', 'packages/audio-dsp')];
+  const orphan = [...fixtures, workspace('dsp', 'packages/audio-dsp', {}, ['listening'])];
   const selected = mainSelection(['packages/audio-dsp/src/index.ts'], orphan);
   assert.equal(selected.browser_e2e, true);
   assert.equal(selected.application, true);
@@ -150,10 +151,34 @@ test('metadata selects the workspace tracks; unknown files, empty diffs and unkn
   ['.github/workflows/ci.yml', '.nvmrc', 'scripts/new.mjs', 'packages/deleted/src/file.ts'].forEach((file) =>
     assert.deepEqual(selectTracks([file], fixtures), every, file));
   assert.deepEqual(selectTracks([], fixtures), every);
-  const added = [...fixtures, workspace('new', 'packages/new')];
+  const added = [...fixtures, { ...workspace('new', 'packages/new'), abservice: undefined }];
   assert.deepEqual(selectTracks(['packages/new/index.ts'], added), workspacesOnly);
   assert.ok(frontendTasks(added, 'application').some((task) => task.workspace === 'new'));
   assert.ok(frontendTasks(added, 'listening').some((task) => task.workspace === 'new'));
+});
+
+test('new workspace ownership and ownership-only changes never select infrastructure', () => {
+  const added = [...fixtures, workspace('new', 'packages/new', {}, ['listening'])];
+  assert.deepEqual(selectTracks(['packages/new/package.json', 'packages/new/index.ts'], added), workspacesOnly);
+  assert.deepEqual(selectTracks(['packages/new/index.ts'], added), only('listening'));
+  assert.ok(!frontendTasks(added, 'application').some((task) => task.workspace === 'new'));
+  assert.ok(frontendTasks(added, 'listening').some((task) => task.workspace === 'new'));
+  const moved = added.map((item) => item.name === 'new'
+    ? { ...item, abservice: { ciTracks: ['application'] } } : item);
+  assert.deepEqual(selectTracks(['packages/new/package.json'], moved), workspacesOnly);
+  assert.deepEqual(selectTracks(['packages/new/index.ts'], moved), only('application'));
+});
+
+test('invalid ownership fails selection even for documentation, release and manual runs', () => {
+  for (const ciTracks of [[], ['unknown'], ['infrastructure'], ['application', 'typo'], 'listening', null]) {
+    const invalid = [...fixtures, workspace('new', 'packages/new', {}, ciTracks)];
+    assert.throws(() => selectTracks(['README.md'], invalid), /Invalid abservice.ciTracks/);
+    assert.throws(() => frontendTasks(invalid, 'application'), /Invalid abservice.ciTracks/);
+    for (const context of [{ event: 'workflow_dispatch', ref: 'refs/heads/main' },
+      { event: 'push', ref: 'refs/heads/release/1.12' }]) {
+      assert.throws(() => selectCI({ ...context, files: [], workspaces: invalid }), /Invalid abservice.ciTracks/);
+    }
+  }
 });
 
 test('both paths of a rename select both owners; documentation exclusion does not hide executable docs', () => {
