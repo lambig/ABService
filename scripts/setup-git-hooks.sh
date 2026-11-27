@@ -4,6 +4,9 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
+if [[ -d "$PROJECT_ROOT/.jj" ]]; then
+    exec bash "$PROJECT_ROOT/scripts/setup-workspace-hooks.sh"
+fi
 test -x "$PROJECT_ROOT/.githooks/pre-commit"
 git -C "$PROJECT_ROOT" config --local core.hooksPath .githooks
 

@@ -1,3 +1,4 @@
+import { Agent } from 'node:http';
 import svelte from '@astrojs/svelte';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, envField } from 'astro/config';
@@ -60,8 +61,9 @@ export default defineConfig({
     server: {
       proxy: {
         '/assets': {
-          target: 'http://127.0.0.1:9000/abservice-assets',
+          target: process.env.DEV_ASSET_ORIGIN ?? 'http://127.0.0.1:9000/abservice-assets',
           changeOrigin: true,
+          agent: new Agent({ keepAlive: true }),
         },
       },
     },
