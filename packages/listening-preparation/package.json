@@ -1,5 +1,6 @@
 {
   "name": "abservice-listening-preparation",
+  "abservice": { "ciTracks": ["listening"] },
   "version": "1.0.0",
   "description": "Listening package preparation transaction",
   "type": "module",

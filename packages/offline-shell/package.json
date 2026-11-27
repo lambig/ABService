@@ -1,5 +1,6 @@
 {
   "name": "abservice-offline-shell",
+  "abservice": { "ciTracks": ["listening"] },
   "version": "1.0.0",
   "description": "Service Worker shell lifecycle PoC",
   "type": "module",

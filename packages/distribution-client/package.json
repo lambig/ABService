@@ -1,5 +1,6 @@
 {
   "name": "abservice-distribution-client",
+  "abservice": { "ciTracks": ["listening"] },
   "version": "1.0.0",
   "description": "Listening package distribution client",
   "type": "module",

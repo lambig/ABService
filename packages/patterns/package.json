@@ -1,5 +1,6 @@
 {
   "name": "abservice-patterns",
+  "abservice": { "ciTracks": ["application"] },
   "version": "1.0.0",
   "description": "ABService pattern matching - exhaustive, expression-based branching for TypeScript",
   "type": "module",

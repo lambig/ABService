@@ -1,5 +1,6 @@
 {
   "name": "abservice-external-audio",
+  "abservice": { "ciTracks": ["application", "listening"] },
   "version": "1.0.0",
   "description": "Shared external audio embed URL presentation",
   "type": "module",

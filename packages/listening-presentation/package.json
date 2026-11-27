@@ -1,5 +1,6 @@
 {
   "name": "abservice-listening-presentation",
+  "abservice": { "ciTracks": ["listening"] },
   "version": "1.0.0",
   "description": "Listening package presentation data",
   "type": "module",

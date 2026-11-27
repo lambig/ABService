@@ -22,6 +22,8 @@ applicationジョブはブラウザ省略時もスタック準備、公開デー
 
 ## 実行と追加時の契約
 
+workspaceの基本検査の所有は各 `package.json` の `abservice.ciTracks` に `application`・`listening` の配列で宣言する。共有workspaceは両方を指定する。未宣言は両方、空の配列・未知の名前は検査失敗とする。workspaceの追加・所有変更だけでCI選択ツールを変更する必要はない。
+
 `scripts/browser-ci.mjs` はspec名を正規表現としてエスケープし、シェル展開せずPlaywrightへ渡す。限定実行では `--list` で全指定ファイルにシナリオがあることを確認し、ゼロ件を成功にしない。対象コードはCIのcheckoutを使い、applicationのproject順序・worker数を維持する。
 
 シナリオは `e2e/src/specs/` またはブラウザworkspaceの `e2e/` に置く。共通処理は同じテストディレクトリかapplicationの `e2e/src/support/`・`e2e/scripts/` に置き、別workspaceの利用はpackage依存へ宣言する。新しい `test:browser` workspaceはsuite/jobへ、applicationシナリオはPlaywrightのproject分類へ登録する。
