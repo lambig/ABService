@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { allowedTarget, findings } from './publication-check.mjs';
+import { composeDefinition } from './workspace.mjs';
 
 const source = dirname(dirname(fileURLToPath(import.meta.url)));
 const exec = (cwd, command, args, ok = true) => {
@@ -90,7 +91,7 @@ function fixture() {
   git(['config', '--local', 'abservice.publicEmail', 'fixture@example.test']);
   mkdirSync(join(repo, 'scripts'));
   mkdirSync(join(repo, '.githooks'));
-  for (const file of ['publication-check.mjs', 'jj-git.mjs', 'setup-workspace-hooks.sh', 'setup-git-hooks.sh']) cpSync(join(source, 'scripts', file), join(repo, 'scripts', file));
+  for (const file of ['publication-check.mjs', 'jj-git.mjs', 'setup-workspace-hooks.sh', 'setup-workspace-jj.sh', 'setup-git-hooks.sh']) cpSync(join(source, 'scripts', file), join(repo, 'scripts', file));
   writeFileSync(join(repo, '.githooks/pre-commit'), '#!/bin/sh\nexit 0\n');
   writeFileSync(join(repo, 'example.txt'), 'base\n');
   git(['add', '.']);
@@ -103,6 +104,62 @@ function fixture() {
   exec(repo, 'bash', ['scripts/setup-git-hooks.sh']);
   return { repo, remote, git, jj, base };
 }
+
+test('tools startup configures a fresh JJ home from approved Git-local identity and shared checks', { skip: process.platform !== 'linux' }, () => {
+  const { repo, git, jj } = fixture();
+  const folder = dirname(repo);
+  const tools = join(folder, 'tools-workspace');
+  jj(['workspace', 'add', '--colocate', '--revision', 'main', tools]);
+  const bin = join(folder, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'sleep'), '#!/bin/sh\ntest "$1" = infinity\n', { mode: 0o755 });
+  const env = { ...process.env, HOME: join(folder, 'tools-home'), XDG_CONFIG_HOME: join(folder, 'tools-config'), PATH: `${bin}:${process.env.PATH}` };
+  delete env.JJ_CONFIG;
+  const common = git(['rev-parse', '--path-format=absolute', '--git-common-dir']).stdout.trim();
+  const hooks = join(common, 'abservice-hooks');
+  const wrapper = join(hooks, 'jj-git.mjs');
+  const state = { root: tools, git: common, shared: join(repo, '.jj/repo'), ports: {} };
+  const [command, ...args] = composeDefinition(state).services.tools.command;
+  const startup = () => spawnSync(command, args, { cwd: tools, env, encoding: 'utf8' });
+  const get = (key) => spawnSync('jj', ['config', 'list', '--repo', '-T', 'value', key], { cwd: tools, env, encoding: 'utf8' });
+  const settings = [
+    ['user.name', 'Publication Fixture'],
+    ['user.email', 'fixture@example.test'],
+    ['git.executable-path', wrapper],
+  ];
+  const assertUnconfigured = () => {
+    for (const [key] of settings) {
+      const config = get(key);
+      assert.equal(config.status, 0, config.stderr);
+      assert.equal(config.stdout, '', key);
+    }
+  };
+  const reject = (message) => {
+    const result = startup();
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, message);
+    assertUnconfigured();
+  };
+  assertUnconfigured();
+  git(['config', '--local', '--unset', 'abservice.publicEmail']);
+  reject(/approved Git-local/);
+  git(['config', '--local', 'abservice.publicEmail', 'wrong@example.test']);
+  reject(/approved Git-local/);
+  git(['config', '--local', 'abservice.publicEmail', 'fixture@example.test']);
+  git(['config', '--local', 'core.hooksPath', join(folder, 'not-the-shared-hooks')]);
+  reject(/hook or JJ wrapper/);
+  git(['config', '--local', 'core.hooksPath', hooks]);
+  renameSync(wrapper, wrapper + '.saved');
+  reject(/hook or JJ wrapper/);
+  renameSync(wrapper + '.saved', wrapper);
+  const result = startup();
+  assert.equal(result.status, 0, result.stderr);
+  for (const [key, value] of settings) {
+    const config = get(key);
+    assert.equal(config.status, 0, config.stderr);
+    assert.equal(config.stdout.trim(), JSON.stringify(value));
+  }
+});
 
 function reviewedFixture(repo, base, head, target) {
   exec(repo, 'node', ['scripts/publication-check.mjs', 'prepare', base, head, 'origin', target]);

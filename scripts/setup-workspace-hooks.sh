@@ -1,12 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 root="$(git -C "$(dirname "${BASH_SOURCE[0]}")/.." rev-parse --show-toplevel)"
+cd "$root"
 common="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir)"
-expected="$(git -C "$root" config --local --get abservice.publicEmail)"
-email="$(git -C "$root" config --local --get user.email)"
-name="$(git -C "$root" config --local --get user.name)"
-test -n "$expected" && test "$email" = "$expected" && test -n "$name"
-test "$(jj --version | cut -d' ' -f2 | cut -d- -f1)" = 0.47.1
+bash scripts/setup-workspace-jj.sh --check-identity
 hooks="$common/abservice-hooks"
 mkdir -p "$hooks"
 cp "$root/scripts/publication-check.mjs" "$root/scripts/jj-git.mjs" "$hooks/"
@@ -14,7 +11,5 @@ printf '%s\n' '#!/usr/bin/env bash' 'set -euo pipefail' 'exec node "$(dirname "$
 cp "$root/.githooks/pre-commit" "$hooks/pre-commit"
 chmod +x "$hooks/pre-push" "$hooks/pre-commit" "$hooks/jj-git.mjs"
 git -C "$root" config --local core.hooksPath "$hooks"
-jj --repository "$root" config set --repo user.email "$email"
-jj --repository "$root" config set --repo user.name "$name"
-jj --repository "$root" config set --repo git.executable-path "$hooks/jj-git.mjs"
+bash scripts/setup-workspace-jj.sh
 printf 'Installed Git/JJ publication checks in %s\n' "$hooks"

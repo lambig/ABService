@@ -51,7 +51,7 @@ export function composeDefinition(state) {
     name: project,
     services: {
       tools: {
-        ...tools, command: ['sleep', 'infinity'],
+        ...tools, command: ['bash', '-ec', 'bash scripts/setup-workspace-jj.sh && exec sleep infinity'],
         ports: [
           [p.backend, 8080], [p.public, 4321], [p.admin, 4322],
           [p.db, 5432], [p.minio, p.minio], [p.console, p.console], [p.e2e, 8090],
